@@ -34,7 +34,7 @@ def parse_sql_with_datahub(
     When False, uses create_lineage_sql_parsed_result() on only the first statement.
     """
     if enable_multi_statement:
-        return create_lineage_from_sql_statements(
+        result = create_lineage_from_sql_statements(
             queries=sql,
             default_db=default_database,
             platform=platform,
@@ -48,7 +48,7 @@ def parse_sql_with_datahub(
             logger.debug("Got list of SQL statements. Using first one for parsing.")
             sql = sql[0] if sql else ""
 
-        return create_lineage_sql_parsed_result(
+        result = create_lineage_sql_parsed_result(
             query=sql,
             default_db=default_database,
             platform=platform,
@@ -57,6 +57,15 @@ def parse_sql_with_datahub(
             default_schema=default_schema,
             graph=graph,
         )
+
+    if result.debug_info.error:
+        logger.warning(
+            "Failed to extract lineage from SQL (platform=%s): %s\nSQL: %s",
+            platform,
+            result.debug_info.error,
+            sql,
+        )
+    return result
 
 
 def format_sql_for_job_facet(
@@ -68,7 +77,7 @@ def format_sql_for_job_facet(
     Otherwise, use only the first statement (for backward compatibility).
     """
     if isinstance(sql, list) and enable_multi_statement:
-        return ";\n".join(str(s) for s in sql if s)
+        return ";\n".join(str(s) for s in sql if str(s).strip())
     elif isinstance(sql, list):
         return str(sql[0]) if sql else ""
     else:

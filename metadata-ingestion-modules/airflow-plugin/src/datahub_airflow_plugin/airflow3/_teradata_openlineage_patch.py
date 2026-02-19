@@ -7,7 +7,7 @@ DataHub's SQL parser, enabling lineage extraction.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 from datahub_airflow_plugin._config import (
     get_configured_env,
@@ -85,7 +85,7 @@ def _render_teradata_sql_templates(
 
 def _enhance_teradata_lineage_with_sql_parsing(
     operator_lineage: "OperatorLineage",
-    rendered_sql: Union[str, list],
+    rendered_sql: Union[str, List[str]],
     operator: Any,
 ) -> "OperatorLineage":
     """

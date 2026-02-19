@@ -155,12 +155,13 @@ def _datahub_generate_openlineage_metadata_from_sql(
         env = get_configured_env()
 
         logger.debug(
-            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s, multi_statement=%s)",
+            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s, multi_statement=%s): %s",
             "with graph client" if graph else "in offline mode",
             platform,
             default_database,
             default_schema,
             enable_multi_statement,
+            sql,
         )
 
         sql_parsing_result = parse_sql_with_datahub(
