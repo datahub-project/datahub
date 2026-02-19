@@ -1,9 +1,8 @@
-import { DatabaseOutlined, FileDoneOutlined } from '@ant-design/icons';
+import { Database, Globe, Package } from '@phosphor-icons/react';
 import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import styled from 'styled-components';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
 import { pluralize } from '@app/shared/textUtil';
 
@@ -37,11 +36,11 @@ export default function DomainEntitiesSnippet({ domain }: Props) {
 
     return (
         <Wrapper>
-            <DatabaseOutlined /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
+            <Database size={12} color="currentColor" /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
             <StyledDivider />
-            <DomainIcon /> {subDomainCount} {pluralize(subDomainCount, 'sub-domain')}
+            <Globe size={12} color="currentColor" /> {subDomainCount} {pluralize(subDomainCount, 'sub-domain')}
             <StyledDivider />
-            <FileDoneOutlined /> {dataProductCount} {pluralize(dataProductCount, 'data product')}
+            <Package size={12} color="currentColor" /> {dataProductCount} {pluralize(dataProductCount, 'data product')}
         </Wrapper>
     );
 }

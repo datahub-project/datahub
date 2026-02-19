@@ -1,4 +1,5 @@
-import { TagFilled, TagOutlined } from '@ant-design/icons';
+import { TagOutlined } from '@ant-design/icons';
+import { Tag } from '@phosphor-icons/react';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -21,18 +22,12 @@ export class RoleEntity implements Entity<Role> {
     type: EntityType = EntityType.Role;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
-            <TagOutlined
+            <Tag
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 20}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

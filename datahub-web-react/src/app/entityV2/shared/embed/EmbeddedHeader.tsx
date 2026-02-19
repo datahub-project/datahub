@@ -72,7 +72,7 @@ export default function EmbeddedHeader() {
         });
     }
 
-    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
+    const typeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
     const entityTypePathName = entityRegistry.getPathName(entityType);
