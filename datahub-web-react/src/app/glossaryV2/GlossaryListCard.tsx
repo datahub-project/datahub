@@ -72,7 +72,7 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
 
     &:hover {
         transition: 0.15s;
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -124,7 +124,7 @@ const GlossaryItemCount = styled.span<{ count: number }>`
     }
     border: 1px solid transparent;
     :hover {
-        border: 1px solid ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : 'transparent')};
+        border: 1px solid ${(props) => (props.count > 0 ? props.theme.colors.border : 'transparent')};
     }
 `;
 

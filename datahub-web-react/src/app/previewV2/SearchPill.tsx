@@ -31,7 +31,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};
-    background-color: ${({ active, theme }) => (active ? `${theme.styles['primary-color']}` : theme.colors.bgSurface)};
+    background-color: ${({ active, theme }) => (active ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface)};
     cursor: pointer;
     border-radius: 20px;
     text-align: center;
@@ -53,7 +53,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     :hover {
         color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
         background-color: ${({ enabled, theme }) =>
-            enabled ? `${theme.styles['primary-color']}` : theme.colors.bgSurface};
+            enabled ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface};
 
         svg {
             color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
@@ -74,7 +74,7 @@ const Container = styled.div`
 `;
 
 const CountContainer = styled.div<{ active?: boolean }>`
-    background-color: ${({ active, theme }) => (active ? theme.colors.overlayOnBrand : theme.colors.border)};
+    background-color: ${({ active, theme }) => (active ? theme.colors.overlayOnBrand : theme.colors.bgSurface)};
     border-radius: 20px;
     height: 24px;
     min-width: 35px;

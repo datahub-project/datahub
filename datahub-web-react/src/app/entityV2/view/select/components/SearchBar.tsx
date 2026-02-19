@@ -25,15 +25,15 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
         box-shadow: ${props.theme.colors.shadowXs};
 
         &&:hover {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }
 
         &.ant-input-affix-wrapper-focused {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }
         
         & .ant-input::placeholder {
-            color: ${props.theme.colors.textTertiary};
+            color: ${props.theme.colors.textPlaceholder};
         }
 
         & .ant-input-prefix {

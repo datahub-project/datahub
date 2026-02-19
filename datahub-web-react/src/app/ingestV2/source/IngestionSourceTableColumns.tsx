@@ -133,7 +133,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
             ) : (
-                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
+                <Icon icon="Plugs" source="phosphor" size="2xl" />
             )}
             <DisplayNameContainer>
                 {showTooltip ? (
@@ -371,7 +371,7 @@ export function ActionsColumn({
                     icon="Stop"
                     source="phosphor"
                     weight="fill"
-                    color="primary"
+                    color="iconBrand"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCancel(record.lastExecUrn, record.urn);
@@ -385,7 +385,7 @@ export function ActionsColumn({
                 icon="Play"
                 source="phosphor"
                 weight="fill"
-                color="violet"
+                color="iconBrand"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);

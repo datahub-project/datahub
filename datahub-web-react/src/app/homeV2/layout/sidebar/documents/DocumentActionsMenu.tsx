@@ -16,7 +16,7 @@ import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 const MenuButton = styled(Button)`
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

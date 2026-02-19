@@ -11,10 +11,10 @@ import CompactContext from '@src/app/shared/CompactContext';
 const ActionButton = styled(Link)`
     height: 22px;
     width: 22px;
-    border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
     border-radius: 50%;
     text-align: center;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 
     svg {
         height: 20px;
@@ -25,7 +25,7 @@ const ActionButton = styled(Link)`
     :hover {
         cursor: pointer;
         color: ${(props) => props.theme.colors.bg};
-        background: ${(props) => props.theme.styles['primary-color']};
+        background: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 

@@ -27,7 +27,7 @@ const CreateViewButton = styled(NoMarginButton)<{ bordered: boolean }>`
 
 const ManageViewsButton = styled(Button)`
     &&& {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         border-top: 1px solid ${(props) => props.theme.colors.border};
         background-color: ${(props) => props.theme.colors.bgSurface};
         border-top-left-radius: 0;

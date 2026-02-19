@@ -25,7 +25,7 @@ const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
                 color: ${props.theme.colors.text};
                 cursor: pointer;
                 &:hover {
-                    background: ${props.theme.colors.border};
+                    background: ${props.theme.colors.bgHover};
                 }
     `}
 `;

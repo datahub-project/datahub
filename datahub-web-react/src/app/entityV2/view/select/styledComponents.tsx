@@ -52,10 +52,10 @@ export const ViewContainer = styled.div<{
         }
 
         height: 72px;
-        border: 1px solid ${props.$selected ? props.theme.styles['primary-color'] : props.theme.colors.border};
+        border: 1px solid ${props.$selected ? props.theme.colors.borderBrand : props.theme.colors.border};
 
         :hover {
-            border: 1px solid ${props.theme.styles['primary-color']};
+            border: 1px solid ${props.theme.colors.borderBrand};
             box-shadow: ${props.theme.colors.shadowXs};
         }
     `}
@@ -69,7 +69,7 @@ export const ViewIcon = styled.div<{ $selected?: boolean }>`
     padding: 20px;
     position: relative;
     border: ${(props) => (props.$selected ? `1px solid ${props.theme.colors.bg} !important` : '')};
-    background: ${(props) => (props.$selected ? props.theme.styles['primary-color'] : props.theme.colors.border)};
+    background: ${(props) => (props.$selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgHover)};
     &.static {
         border: 1px solid ${(props) => props.theme.colors.bg};
     }

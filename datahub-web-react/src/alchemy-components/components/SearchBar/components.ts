@@ -26,7 +26,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
 
         &:focus,
         &-focused {
-            border-color: ${(props) => props.theme.styles['primary-color']};
+            border-color: ${(props) => props.theme.colors.borderBrand};
             box-shadow: 0px 0px 0px 2px ${(props) => props.theme.colors.borderBrandFocused};
         }
     }
@@ -37,7 +37,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
         background-color: transparent;
 
         &::placeholder {
-            color: ${(props) => props.theme.colors.textTertiary};
+            color: ${(props) => props.theme.colors.textPlaceholder};
         }
     }
 
@@ -60,7 +60,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
     }
 
     &.ant-input-affix-wrapper-focused {
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.colors.borderBrand};
         box-shadow: 0px 0px 0px 2px ${(props) => props.theme.colors.borderBrandFocused};
     }
 `;

@@ -71,7 +71,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             flex: 1,
                             minWidth: 0 /* Critical for truncation in flex containers */,
                         }}
-                        color="primary"
+                        color="textBrand"
                         lineHeight="normal"
                         data-testid="link-label"
                     >
@@ -92,8 +92,6 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             <StyledIcon
                                 icon="PencilSimpleLine"
                                 source="phosphor"
-                                color="gray"
-                                colorLevel={600}
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -105,8 +103,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             <StyledIcon
                                 icon="Trash"
                                 source="phosphor"
-                                color="red"
-                                colorLevel={500}
+                                color="iconError"
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();

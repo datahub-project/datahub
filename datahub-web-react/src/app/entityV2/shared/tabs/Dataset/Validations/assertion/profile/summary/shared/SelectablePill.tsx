@@ -9,7 +9,7 @@ const Pill = styled.div<{ selected: boolean }>`
     border-radius: 20px;
     padding: 4px 12px;
     background-color: ${(props) =>
-        props.selected ? props.theme.styles['primary-color'] : props.theme.colors.bgSurface};
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgSurface};
     color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text)};
     :hover {
         opacity: 0.6;

@@ -75,7 +75,7 @@ const UserPill = ({ actor }: { actor: Actor }) => (
     <Link to={actor?.displayUrl}>
         <CreatedByContainer>
             <CustomAvatar size={16} name={actor?.displayName} hideTooltip />
-            <Text type="div" color="gray" size="sm" weight="semiBold">
+            <Text type="div" size="sm" weight="semiBold">
                 {actor?.displayName}
             </Text>
         </CreatedByContainer>

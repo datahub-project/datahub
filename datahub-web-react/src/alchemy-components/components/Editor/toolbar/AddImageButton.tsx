@@ -7,14 +7,12 @@ import { useTheme } from 'styled-components';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { Modal } from '@components/components/Modal';
 
-import { colors } from '@src/alchemy-components/theme';
-
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
-    const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const handleButtonClick = () => {
         setModalVisible(true);

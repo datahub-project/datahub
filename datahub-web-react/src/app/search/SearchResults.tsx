@@ -77,7 +77,7 @@ const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
     padding-right: 32px;
     height: 47px;
     border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;

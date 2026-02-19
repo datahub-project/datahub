@@ -35,7 +35,7 @@ const FileContainer = styled.div<{ $isInline?: boolean }>`
     `}
 
     cursor: pointer;
-    color: ${({ theme }) => theme.styles['primary-color']};
+    color: ${({ theme }) => theme.colors.textBrand};
 `;
 
 const StyledFileNode = styled(FileNode)`
@@ -72,7 +72,7 @@ const VideoContainer = styled.div`
     min-width: 150px;
     max-width: 100%;
     width: 50%;
-    background-color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.overlayHeavy};
     margin-top: 8px;
 `;
 

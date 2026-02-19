@@ -133,7 +133,7 @@ function getDataPlatformInstanceIconAndLabel(
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
-        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, iconColor ?? '#434343')
+        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, iconColor ?? 'currentColor')
     );
     label = (filterEntity as DataPlatformInstance).instanceId
         ? (filterEntity as DataPlatformInstance).instanceId
@@ -171,7 +171,7 @@ function getEntitySubtypeFilterIconAndLabel(
             filterValue as EntityType,
             size || 12,
             IconStyleType.ACCENT,
-            iconColor ?? '#434343',
+            iconColor ?? 'currentColor',
         );
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     }
@@ -199,7 +199,7 @@ function getFilterWithEntityIconAndLabel(
         icon = newIcon;
         label = newLabel;
     } else if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, iconColor ?? '#434343');
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, iconColor ?? 'currentColor');
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
@@ -219,7 +219,7 @@ export function getFilterIconAndLabel(
 ) {
     let icon: React.ReactNode = null;
     let label: string | undefined;
-    const color = iconColor ?? '#434343';
+    const color = iconColor ?? 'currentColor';
 
     if (filterField === ENTITY_FILTER_NAME || filterField === LEGACY_ENTITY_FILTER_NAME) {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, color);

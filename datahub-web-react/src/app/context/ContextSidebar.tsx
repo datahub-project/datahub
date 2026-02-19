@@ -145,12 +145,12 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textDisabled};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     scrollbar-width: thin;

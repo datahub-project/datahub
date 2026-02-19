@@ -33,7 +33,7 @@ const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
         `
         :hover {
             .ant-tag.ant-tag {
-                border: 1px solid ${props.theme.styles['primary-color']};
+                border: 1px solid ${props.theme.colors.borderBrand};
             }
         }
     `}
@@ -44,8 +44,8 @@ const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; sho
         ${(props) =>
             props.highlightTerm &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
@@ -80,7 +80,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -10px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     align-items: center;
     border-radius: 100%;
     padding: 5px;

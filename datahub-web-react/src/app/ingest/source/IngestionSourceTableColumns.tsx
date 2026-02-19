@@ -51,7 +51,7 @@ const TypeWrapper = styled.div`
 const CliBadge = styled.span`
     margin-left: 20px;
     border-radius: 15px;
-    border: 1px solid ${(props) => props.theme.colors.textSecondary};
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 1px 4px;
     font-size: 10px;
 

@@ -20,7 +20,7 @@ const ChildOptions = styled.div`
 
 const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
     .ant-checkbox-inner {
-        border: 1px solid ${({ theme }) => theme.colors.textDisabled} !important;
+        border: 1px solid ${({ theme }) => theme.colors.border} !important;
         border-radius: 3px;
     }
     margin-left: auto;
@@ -172,7 +172,6 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             icon="ChevronLeft"
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
-                            color="gray"
                             style={{ cursor: 'pointer', marginLeft: '4px' }}
                         />
                     )}

@@ -6,9 +6,5 @@ import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDesc
 export default function EmptyDescription() {
     const { emptyDescriptionText } = useDescriptionUtils();
 
-    return (
-        <Text color="gray" colorLevel={1800}>
-            {emptyDescriptionText}
-        </Text>
-    );
+    return <Text color="textTertiary">{emptyDescriptionText}</Text>;
 }

@@ -56,7 +56,7 @@ export const ErrorContainer = styled.div`
     width: 400px;
     height: 225px;
     background-color: ${(props) => props.theme.colors.bgSurfaceError};
-    border: 2px dashed ${({ theme }) => theme.colors.textError};
+    border: 2px dashed ${({ theme }) => theme.colors.borderError};
     border-radius: 8px;
     margin: 0 auto;
     font-size: 16px;
@@ -117,7 +117,7 @@ export const IndicatorDot = styled.div<{ $isActive: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: ${({ $isActive, theme }) => ($isActive ? theme.colors.textBrand : theme.colors.border)};
+    background-color: ${({ $isActive, theme }) => ($isActive ? theme.colors.textBrand : theme.colors.bgSurface)};
 `;
 
 export const IndicatorText = styled.p`

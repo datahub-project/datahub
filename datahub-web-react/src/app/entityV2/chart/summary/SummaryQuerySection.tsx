@@ -29,7 +29,7 @@ const Container = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     width: fit-content;
 

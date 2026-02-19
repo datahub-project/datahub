@@ -1,8 +1,8 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Text } from '@src/alchemy-components';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@src/alchemy-components/components/BarChart/constants';
+import { DEFAULT_COLOR_SCHEME, getColorSchemeParams } from '@src/alchemy-components/components/BarChart/constants';
 import { Datum } from '@src/alchemy-components/components/BarChart/types';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { pluralize } from '@src/app/shared/textUtil';
@@ -40,18 +40,19 @@ const LabelContainer = styled.div`
 `;
 
 export default function RowCountByValuePopover({ datum, labelFormatter }: RowCountByValuePopoverProps) {
+    const theme = useTheme();
     const colorScheme = datum.colorScheme ?? DEFAULT_COLOR_SCHEME;
-    const colorSchemeParams = COLOR_SCHEME_TO_PARAMS[colorScheme];
+    const colorSchemeParams = getColorSchemeParams(theme.colors)[colorScheme];
 
     return (
         <Container>
             <Square $startColor={colorSchemeParams.mainColor} $endColor={colorSchemeParams.alternativeColor} />
-            <Text color="gray" size="sm">
+            <Text size="sm">
                 <LabelContainer>
                     <TruncatedText>{labelFormatter(datum)}</TruncatedText>:
                 </LabelContainer>
             </Text>
-            <Text color="gray" size="sm" weight="semiBold">
+            <Text size="sm" weight="semiBold">
                 {formatNumberWithoutAbbreviation(datum.x)} {pluralize(datum.x, 'Row')}
             </Text>
         </Container>

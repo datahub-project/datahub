@@ -49,7 +49,7 @@ export default function EmptyContent({ icon, title, description, linkText, linkI
             <Text>{description}</Text>
             {linkText && onLinkClick && (
                 <Button variant="text" onClick={onLinkClick}>
-                    {linkText} <Icon icon={linkIcon ?? 'ArrowRight'} color="primary" source="phosphor" size="md" />
+                    {linkText} <Icon icon={linkIcon ?? 'ArrowRight'} color="iconBrand" source="phosphor" size="md" />
                 </Button>
             )}
         </Container>

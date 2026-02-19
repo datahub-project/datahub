@@ -21,7 +21,7 @@ import { EntityType, Incident, IncidentState } from '@types';
 
 const Header = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const Summary = styled.div`
@@ -39,7 +39,7 @@ const IncidentList = styled.div`
 const IncidentStyledList = styled(List)`
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
         flex: 1;
     }
 `;

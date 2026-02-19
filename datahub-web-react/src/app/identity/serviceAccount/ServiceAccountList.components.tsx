@@ -402,7 +402,7 @@ export const ServiceAccountTable = ({
                             </Text>
                         ) : (
                             <>
-                                <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
+                                <Icon icon="Robot" source="phosphor" size="4xl" />
                                 <Text size="md" style={{ color: theme.colors.textSecondary }}>
                                     No service accounts found
                                 </Text>

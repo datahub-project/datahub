@@ -174,7 +174,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
 
     return (
         <>
-            <Row style={{ backGround: 'transparent', boxShadow: theme.colors.shadowSm }}>
+            <Row style={{ background: 'transparent', boxShadow: theme.colors.shadowSm }}>
                 <AddMember
                     type="text"
                     disabled={isExternalGroup}

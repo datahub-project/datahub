@@ -22,7 +22,7 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
         &:hover,
         &:focus,
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']} !important;
+            border-color: ${props.theme.colors.borderBrand} !important;
         }
 
         .ant-input, .ant-input-clear-icon {

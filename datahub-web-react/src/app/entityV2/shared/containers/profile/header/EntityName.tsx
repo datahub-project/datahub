@@ -14,7 +14,6 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -22,14 +21,14 @@ import { DataHubPageModuleType, EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     line-height: normal;
 
     ${(props) =>
         props.$showEntityLink &&
         `
     :hover {
-        color: ${(p) => getColor('primary', 600, p.theme)};
+        color: ${(p) => p.theme.colors.textHover};
     }
     `}
     &&& {
@@ -44,7 +43,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
         margin-left: 2px;
 
         & svg {
-            fill: ${(p) => p.theme.styles['primary-color']};
+            fill: ${(p) => p.theme.colors.iconBrand};
         }
     }
 `;

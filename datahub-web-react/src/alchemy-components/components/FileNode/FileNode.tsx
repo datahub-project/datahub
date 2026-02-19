@@ -1,4 +1,4 @@
-import { Button, colors } from '@components';
+import { Button } from '@components';
 import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
@@ -42,7 +42,7 @@ const CloseButton = styled(Button)`
 `;
 
 const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme?.styles?.['primary-color'] ?? colors.violet[500]};
+    color: ${({ theme }) => theme.colors.textBrand};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

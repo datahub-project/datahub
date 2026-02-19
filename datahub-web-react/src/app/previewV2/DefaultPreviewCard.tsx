@@ -55,7 +55,7 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -70,7 +70,7 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 

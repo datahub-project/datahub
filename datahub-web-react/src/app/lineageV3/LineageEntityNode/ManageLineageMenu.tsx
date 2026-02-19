@@ -25,7 +25,7 @@ const Wrapper = styled.div`
     margin: 0 -4px;
 
     :hover {
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 
@@ -202,7 +202,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     placement="topRight"
                     menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${theme.colors.border}` } }}
                 >
-                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" />
+                    <Icon icon="DotsThreeVertical" source="phosphor" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (

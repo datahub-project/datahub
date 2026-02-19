@@ -111,7 +111,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                         setShowConfirmRemove(true);
                     }}
                 >
-                    <Text color="red"> Remove </Text>
+                    <Text color="textError"> Remove </Text>
                 </MenuItem>
             ),
         });

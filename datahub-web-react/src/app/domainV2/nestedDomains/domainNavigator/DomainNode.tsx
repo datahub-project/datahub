@@ -19,7 +19,7 @@ import { Domain } from '@types';
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
-    ${(props) => props.$isSelected && `color: ${props.theme.styles['primary-color']};`}
+    ${(props) => props.$isSelected && `color: ${props.theme.colors.textSelected};`}
     ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
@@ -36,7 +36,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textSecondary)};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.textSecondary)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -46,7 +46,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textSecondary} !important;
+            props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.textSecondary} !important;
     }
 
     .ant-btn {
@@ -64,14 +64,14 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
     ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
     ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgHover};
         ${ButtonWrapper} {
             svg {
-                color: ${(props) => props.theme.styles['primary-color']} !important;
+                color: ${(props) => props.theme.colors.iconBrand} !important;
             }
         }
         ${DisplayName} {
-            color: ${(props) => props.theme.styles['primary-color']};
+            color: ${(props) => props.theme.colors.textHover};
         }
     }
 `;

@@ -3,13 +3,13 @@ import ColorTheme from '@conf/theme/colorThemes/types';
 
 const lightTheme: ColorTheme = {
     bg: colors.gray0,
-    bgSurface: colors.gray400,
+    bgSurface: colors.gray100,
     bgSurfaceNewNav: colors.gray200,
-    bgSurfaceDarker: colors.gray100,
+    bgSurfaceDarker: colors.gray300,
     bgSurfaceBrand: colors.violet0,
     bgSurfaceBrandHover: colors.violet200,
     buttonSurfaceBrandHover: colors.violet800,
-    bgDisabled: colors.gray400,
+    bgDisabled: colors.gray300,
     bgSurfaceError: colors.red0,
     bgSurfaceErrorHover: colors.wine100,
     bgSurfaceInfo: colors.blue0,
@@ -18,8 +18,8 @@ const lightTheme: ColorTheme = {
     bgSurfaceSuccessHover: colors.green100,
     bgSurfaceWarning: colors.yellow0,
     bgSurfaceWarningHover: colors.yellow200,
-    bgHover: colors.gray400,
-    text: colors.gray800,
+    bgHover: colors.gray100,
+    text: colors.gray900,
     textSecondary: colors.gray700,
     textTertiary: colors.gray600,
     textBrand: colors.violet600,
@@ -111,7 +111,7 @@ const lightTheme: ColorTheme = {
     // Highlight
     bgHighlight: '#ffe58f',
     // Tooltip
-    bgTooltip: colors.gray800,
+    bgTooltip: colors.gray1000,
     // Brand gradients
     brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #705EE4 38.97%, #533FD1 100%)',
     brandGradientSelected: 'linear-gradient(180deg, #7565d6 20%, #5340cc 80%)',

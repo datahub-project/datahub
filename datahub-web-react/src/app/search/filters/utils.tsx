@@ -110,7 +110,7 @@ function getDataPlatformInstanceIconAndLabel(
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
-        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, '#434343')
+        entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, 'currentColor')
     );
     label = (filterEntity as DataPlatformInstance).instanceId
         ? (filterEntity as DataPlatformInstance).instanceId
@@ -133,7 +133,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
         const subType = filterValue.split(FILTER_DELIMITER)[1];
         label = capitalizeFirstLetterOnly(subType);
     } else {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, 'currentColor');
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     }
 
@@ -158,7 +158,7 @@ function getFilterWithEntityIconAndLabel(
         icon = newIcon;
         label = newLabel;
     } else if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, 'currentColor');
         label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
@@ -180,7 +180,7 @@ export function getFilterIconAndLabel(
     let label: React.ReactNode = null;
 
     if (filterField === ENTITY_FILTER_NAME || filterField === LEGACY_ENTITY_FILTER_NAME) {
-        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, '#434343');
+        icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, 'currentColor');
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
     } else if (filterField === ENTITY_SUB_TYPE_FILTER_NAME) {
         const { icon: newIcon, label: newLabel } = getEntitySubtypeFilterIconAndLabel(
@@ -195,7 +195,7 @@ export function getFilterIconAndLabel(
         icon = logoUrl ? (
             <PlatformIcon src={logoUrl} size={size} />
         ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, '#434343')
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, 'currentColor')
         );
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === CONTAINER_FILTER_NAME) {
@@ -204,7 +204,7 @@ export function getFilterIconAndLabel(
         icon = logoUrl ? (
             <PlatformIcon src={logoUrl} size={size} />
         ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, '#434343')
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, 'currentColor')
         );
         label = entityRegistry.getDisplayName(EntityType.Container, filterEntity);
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {

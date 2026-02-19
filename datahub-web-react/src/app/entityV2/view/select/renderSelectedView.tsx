@@ -12,15 +12,15 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
         if (props.$isShowNavBarRedesign) {
             return props.$selectedViewName ? props.theme.colors.bgSurfaceBrand : 'transparent';
         }
-        return props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent';
+        return props.$selectedViewName ? props.theme.colors.buttonFillBrand : 'transparent';
     }};
     border-color: ${(props) => {
         if (props.$isShowNavBarRedesign) {
             return props.$selectedViewName ? 'transparent' : props.theme.colors.border;
         }
-        return props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent';
+        return props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent';
     }};
-    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg)};
+    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textBrand : props.theme.colors.bg)};
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '120px' : '150px')};
 
     ${(props) =>
@@ -43,22 +43,20 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
             if (props.$isShowNavBarRedesign) {
                 return props.$selectedViewName ? props.theme.colors.bgSurfaceBrand : 'transparent';
             }
-            return props.theme.styles['primary-color'];
+            return props.theme.colors.buttonFillBrand;
         }};
-        color: ${(props) =>
-            props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg};
+        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textHover : props.theme.colors.bg)};
 
         border-color: ${(props) => {
-            if (props.$isShowNavBarRedesign) return props.theme.styles['primary-color'];
-            return props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent';
+            if (props.$isShowNavBarRedesign) return props.theme.colors.borderBrand;
+            return props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent';
         }};
     }
 
     &: focus {
-        background-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
-        color: ${(props) =>
-            props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.colors.bg};
-        border-color: ${(props) => (props.$selectedViewName ? props.theme.styles['primary-color'] : 'transparent')};
+        background-color: ${(props) => (props.$selectedViewName ? props.theme.colors.buttonFillBrand : 'transparent')};
+        color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.textBrand : props.theme.colors.bg)};
+        border-color: ${(props) => (props.$selectedViewName ? props.theme.colors.borderBrand : 'transparent')};
 
         ${(props) =>
             props.$isShowNavBarRedesign &&
@@ -100,7 +98,7 @@ const CloseButtonContainer = styled.div`
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 10px !important;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`

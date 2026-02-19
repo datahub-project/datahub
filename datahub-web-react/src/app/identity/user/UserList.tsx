@@ -39,7 +39,7 @@ const UserStyledList = styled(List)`
     overflow: auto;
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 

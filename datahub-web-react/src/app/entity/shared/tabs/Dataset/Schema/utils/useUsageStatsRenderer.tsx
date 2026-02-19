@@ -11,7 +11,7 @@ const USAGE_BAR_MAX_WIDTH = 50;
 export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
-    background-color: ${(props) => props.theme.colors.textBrand};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 2px;
 `;
 

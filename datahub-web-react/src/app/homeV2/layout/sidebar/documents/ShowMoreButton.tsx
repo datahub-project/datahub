@@ -18,7 +18,7 @@ const ShowMoreContainer = styled.div`
     color: ${(props) => props.theme.colors.text};
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgHover};
         color: ${(props) => props.theme.colors.iconBrand};
     }
 `;

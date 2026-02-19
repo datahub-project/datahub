@@ -127,7 +127,9 @@ describe('filter utils - getFilterIconAndLabel', () => {
     it('should get the correct icon and label for entity filters', () => {
         const { icon, label } = getFilterIconAndLabel('entity', EntityType.Dataset, mockEntityRegistry, dataset1);
 
-        expect(icon).toMatchObject(mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, '#434343'));
+        expect(icon).toMatchObject(
+            mockEntityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT, 'currentColor'),
+        );
         expect(label).toBe(mockEntityRegistry.getCollectionName(EntityType.Dataset));
     });
 
@@ -142,7 +144,7 @@ describe('filter utils - getFilterIconAndLabel', () => {
         const { icon, label } = getFilterIconAndLabel('domains', glossaryTerm1.urn, mockEntityRegistry, glossaryTerm1);
 
         expect(icon).toMatchObject(
-            mockEntityRegistry.getIcon(EntityType.GlossaryTerm, 12, IconStyleType.ACCENT, '#434343'),
+            mockEntityRegistry.getIcon(EntityType.GlossaryTerm, 12, IconStyleType.ACCENT, 'currentColor'),
         );
         expect(label).toBe(mockEntityRegistry.getDisplayName(EntityType.GlossaryTerm, glossaryTerm1));
     });

@@ -49,7 +49,7 @@ const FiltersContainer = styled.div`
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultContainer = styled.div`
@@ -67,7 +67,7 @@ const PaginationInfoContainer = styled.div`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
@@ -107,7 +107,7 @@ const StyledLoading = styled(LoadingOutlined)`
 `;
 
 const ViewsContainer = styled.div`
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
     width: 100%;
     display: flex;
@@ -116,12 +116,11 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid
-        ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
@@ -131,7 +130,7 @@ const Pill = styled.div<{ selected?: boolean }>`
 
 const Count = styled.div<{ selected: boolean }>`
     background-color: ${(props) =>
-        props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary};
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.textTertiary};
     color: ${(props) => props.theme.colors.bg};
     border-radius: 20px;
     min-width: 25px;
@@ -146,7 +145,7 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.textTertiary)};
 `;
 
 const ViewLabel = styled.span`

@@ -14,7 +14,7 @@ const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     padding: ${(props) => (props.$isEntityPageHeader ? '6px' : '4px 6px')};
 
     background: ${(props) => props.theme.colors.bgSurfaceBrand};
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 
     max-width: 215px;
     width: fit-content;

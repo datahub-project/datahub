@@ -34,7 +34,7 @@ const StyledDivider = styled(Divider)`
     margin: 5px;
     margin-left: 0px;
     height: 1px;
-    background: ${(props) => props.theme.colors.text};
+    background: ${(props) => props.theme.colors.bgSurfaceDarker};
     opacity: 0.1;
 `;
 const RowIconContainer = styled.div`

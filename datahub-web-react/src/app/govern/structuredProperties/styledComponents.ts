@@ -152,8 +152,8 @@ export const CheckboxWrapper = styled.div`
 
 export const StyledCheckbox = styled(Checkbox)`
     .ant-checkbox-checked .ant-checkbox-inner {
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']} !important;
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand} !important;
     }
 `;
 
@@ -263,7 +263,7 @@ export const TogglesContainer = styled.div`
 
 export const StyledSpin = styled(Spin)`
     max-height: 100% !important;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export const CreatedByContainer = styled.div`
@@ -305,7 +305,7 @@ export const ValueListContainer = styled.div`
 `;
 
 export const ValueType = styled.div`
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     padding: 2px 4px;
 `;

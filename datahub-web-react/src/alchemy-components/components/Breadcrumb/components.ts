@@ -28,7 +28,7 @@ export const BreadcrumbButton = styled(Text)<{ $isCurrent?: boolean }>`
     color: ${(props) => (props.$isCurrent ? props.theme.colors.text : props.theme.colors.textTertiary)};
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

@@ -3,11 +3,10 @@ import React from 'react';
 import styled from 'styled-components';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
-    color: ${(props) =>
-        props.privilege ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.textTertiary}`};
+    color: ${(props) => (props.privilege ? `${props.theme.colors.textBrand}` : `${props.theme.colors.textTertiary}`)};
     border: ${(props) =>
         props.privilege
-            ? `1px solid ${props.theme.styles['primary-color']}`
+            ? `1px solid ${props.theme.colors.borderBrand}`
             : `1px solid ${props.theme.colors.textTertiary}`};
     ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
@@ -24,7 +23,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
             props.privilege &&
             `
         color: ${props.theme.colors.bg};
-        background: ${props.theme.styles['primary-color']};
+        background: ${props.theme.colors.buttonFillBrand};
         `}
     
 `;

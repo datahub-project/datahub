@@ -7,7 +7,7 @@ import styled, { useTheme } from 'styled-components';
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export const DataContractBadge = ({ link }: { link: string }) => {

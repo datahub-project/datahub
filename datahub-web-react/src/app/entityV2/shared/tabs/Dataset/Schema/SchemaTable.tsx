@@ -69,7 +69,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .selected-row * {
         .ant-typography mark {
-            background-color: ${(props) => props.theme.colors.text} !important;
+            background-color: ${(props) => props.theme.colors.bgHighlight} !important;
         }
 
         .row-icon-tooltip .ant-tooltip-inner {
@@ -101,7 +101,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${(props) => props.theme.colors.textBrand};
+            background: ${(props) => props.theme.colors.bgSurfaceBrand};
         }
 
         .depth-text {

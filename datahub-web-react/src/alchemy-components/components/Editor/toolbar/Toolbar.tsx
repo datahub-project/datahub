@@ -71,8 +71,8 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
-    const themeConfig = useTheme() as any;
-    const iconColor = themeConfig?.colors?.icon ?? '#8088A3';
+    const themeConfig = useTheme();
+    const iconColor = themeConfig.colors.icon;
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 

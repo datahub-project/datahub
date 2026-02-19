@@ -208,10 +208,17 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.textSecondary};
     }
     .ant-tabs-tab:hover {
-        color: ${(props) => props.theme.colors.text};
+        color: ${(props) => props.theme.colors.textHover};
     }
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
+    }
+    .ant-tabs-tab.ant-tabs-tab-disabled,
+    .ant-tabs-tab.ant-tabs-tab-disabled .ant-tabs-tab-btn {
+        color: ${(props) => props.theme.colors.textDisabled};
+    }
+    .ant-tabs-nav::before {
+        border-bottom-color: ${(props) => props.theme.colors.border} !important;
     }
 
     /* ── List ─────────────────────────────────────────────── */
@@ -323,14 +330,14 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.border};
     }
     .ant-btn-default:hover {
-        border-color: ${(props) => props.theme.styles['primary-color']};
-        color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.colors.borderBrand};
+        color: ${(props) => props.theme.colors.textBrand};
     }
     .ant-btn-text {
         color: ${(props) => props.theme.colors.text};
     }
     .ant-btn-link {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 
     /* ── Pagination ───────────────────────────────────────── */
@@ -342,7 +349,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         color: ${(props) => props.theme.colors.text};
     }
     .ant-pagination-item-active {
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
     .ant-pagination-prev .ant-pagination-item-link,
     .ant-pagination-next .ant-pagination-item-link {
@@ -441,7 +448,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Switch ───────────────────────────────────────────── */
     .ant-switch {
-        background-color: ${(props) => props.theme.colors.textDisabled};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* ── Tooltip ──────────────────────────────────────────── */

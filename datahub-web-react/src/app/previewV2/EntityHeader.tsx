@@ -12,7 +12,6 @@ import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Deprecation, Health, Maybe } from '@types';
 
@@ -35,7 +34,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
         vertical-align: middle;
 
         :hover {
-            color: ${(p) => getColor('primary', 700, p.theme)};
+            color: ${(p) => p.theme.colors.textHover};
         }
     }
 
@@ -43,7 +42,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 13px;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     height: 100%;
 `;
 
@@ -56,7 +55,7 @@ const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> 
 
 const DegreeText = styled.div`
     border-radius: 18px;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: 3px 5px;
     font-size: 12px;
     font-weight: 700;

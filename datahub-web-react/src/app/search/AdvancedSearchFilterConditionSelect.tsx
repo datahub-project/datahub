@@ -60,7 +60,7 @@ const StyledSelect = styled(Select)`
     color: ${(props) => props.theme.colors.text};
     background: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
     width: auto;
 `;

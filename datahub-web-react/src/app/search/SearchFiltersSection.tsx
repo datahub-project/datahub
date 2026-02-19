@@ -31,7 +31,7 @@ const FiltersContainer = styled.div`
     min-width: 260px;
     overflow-wrap: break-word;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -47,7 +47,7 @@ const FiltersHeader = styled.div`
     height: 47px;
     line-height: 47px;
     border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 
     justify-content: space-between;
     display: flex;

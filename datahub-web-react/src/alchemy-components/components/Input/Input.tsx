@@ -109,9 +109,9 @@ export const Input = ({
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>
-                        {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
-                        {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
-                        {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
+                        {invalid && <Icon icon="WarningAmber" color="iconError" size="lg" />}
+                        {isSuccess && <Icon icon="CheckCircle" color="iconSuccess" size="lg" />}
+                        {warning && <Icon icon="ErrorOutline" color="iconWarning" size="lg" />}
                     </Tooltip>
                 )}
                 {!!onClear && value && (

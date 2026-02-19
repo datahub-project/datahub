@@ -36,7 +36,7 @@ export default function CreatedProperty(props: PropertyComponentProps) {
         return (
             <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
                 <DateWithTooltip>
-                    <Text color="gray">{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
                 </DateWithTooltip>
             </Popover>
         );

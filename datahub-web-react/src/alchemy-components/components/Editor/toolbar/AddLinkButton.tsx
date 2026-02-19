@@ -6,12 +6,10 @@ import { useTheme } from 'styled-components';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { LinkModal } from '@components/components/Editor/toolbar/LinkModal';
 
-import { colors } from '@src/alchemy-components/theme';
-
 export const AddLinkButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);
-    const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const active = useActive(true).link();
 

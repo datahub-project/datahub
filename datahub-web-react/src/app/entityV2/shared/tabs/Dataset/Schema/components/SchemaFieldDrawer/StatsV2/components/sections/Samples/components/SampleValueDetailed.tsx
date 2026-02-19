@@ -31,9 +31,7 @@ export default function SampleValueDetailed({ sample }: SampleValueDetailedProps
 
     return (
         <Container>
-            <Sample type="pre" color="gray">
-                {sample}
-            </Sample>
+            <Sample type="pre">{sample}</Sample>
 
             <Button
                 icon={{ icon: 'ContentCopy' }}

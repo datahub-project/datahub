@@ -26,7 +26,7 @@ const StyledDescrptionContainer = styled.div`
 `;
 const StyledColumnTag = styled.div`
     align-items: center;
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     width: fit-content;
     border-radius: 12px;
     height: 24px;

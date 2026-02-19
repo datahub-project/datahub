@@ -40,10 +40,10 @@ export const SideBarSubSection = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
         -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
@@ -90,7 +90,7 @@ export const RoleName = styled.div`
     text-align: center;
     color: ${(props) => props.theme.colors.bg};
     border-radius: 30px;
-    background-color: ${(props) => props.theme.colors.textSecondary};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 3px 5px;
     text-transform: uppercase;
     font-size: 7px;
@@ -396,7 +396,7 @@ export const ShowMoreText = styled.div`
 `;
 
 export const CountStyle = styled.div`
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 100px;
     color: ${(props) => props.theme.colors.textSecondary};
     padding: 0px 10px;

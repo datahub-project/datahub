@@ -24,8 +24,8 @@ const SelectedOperatorText = styled.div`
     border: 1.5px solid transparent;
     padding: 2px;
     :hover {
-        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
-        background-color: ${(p) => p.theme.styles['primary-color']};
+        border: 1.5px solid ${(p) => p.theme.colors.borderBrand};
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
         color: ${(p) => p.theme.colors.textOnFillBrand};
     }
 `;

@@ -10,7 +10,7 @@ import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@ty
 
 export const ResultText = styled.span`
     &:hover {
-        border-bottom: 1px solid ${(props) => props.theme.colors.text};
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
         cursor: pointer;
     }
 `;

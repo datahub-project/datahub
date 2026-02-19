@@ -75,7 +75,7 @@ ExpandableNode.HeaderLeft = styled.div`
 
 const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
     &&& {
-        color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.icon};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
         font-size: 18px;
     }

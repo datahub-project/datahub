@@ -34,7 +34,7 @@ export default function EditDefaultTemplateBar() {
     return (
         <ActionsBar dataTestId="editing-default-template-bar">
             <Warning>
-                <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
+                <Icon icon="ExclamationMark" color="iconError" weight="fill" source="phosphor" />
                 <span>Editing Organization Default Home</span>
             </Warning>
             <Button onClick={onClick} data-testid="finish-editing-default-template">

@@ -24,7 +24,7 @@ export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: s
 
     '&:hover': hasButton
         ? {
-              border: `1px solid ${theme.styles['primary-color']}`,
+              border: `1px solid ${theme.colors.borderBrand}`,
               cursor: 'pointer',
           }
         : {},

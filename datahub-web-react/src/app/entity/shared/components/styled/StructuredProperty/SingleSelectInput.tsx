@@ -11,7 +11,7 @@ import { AllowedValue } from '@types';
 const StyledRadio = styled(Radio)`
     display: block;
     .ant-radio-inner {
-        border-color: ${(props) => props.theme.colors.textSecondary};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 

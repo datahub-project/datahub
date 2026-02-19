@@ -199,7 +199,7 @@ export const AnalyticsPage = () => {
                     {!metadataAnalyticsLoading &&
                         (!metadataAnalyticsData?.getMetadataAnalyticsCharts?.length ||
                             !metadataAnalyticsData?.getMetadataAnalyticsCharts[0]?.charts?.length) && (
-                            <EmptyDomainText size="md" weight="bold" color="gray" colorLevel={600}>
+                            <EmptyDomainText size="md" weight="bold">
                                 No analytics data for this domain
                             </EmptyDomainText>
                         )}

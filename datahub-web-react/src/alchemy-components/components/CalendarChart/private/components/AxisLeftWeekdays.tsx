@@ -9,7 +9,7 @@ import { AxisLeftWeekdaysProps } from '@components/components/CalendarChart/type
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
 
 export function AxisLeftWeekdays<ValueType>({ labelProps, showLeftAxisLine }: AxisLeftWeekdaysProps) {
-    const themeConfig = useTheme() as any;
+    const themeConfig = useTheme();
     const { margin, squareSize, squareGap } = useCalendarState<ValueType>();
 
     const yLineOffset = 5;
@@ -32,9 +32,7 @@ export function AxisLeftWeekdays<ValueType>({ labelProps, showLeftAxisLine }: Ax
     return (
         <>
             {WEEKDAYS.map((weekday, index) => renderTickLabel(index, weekday))}
-            {showLeftAxisLine && (
-                <line x1={x} x2={x} y1={0} y2={y} stroke={themeConfig?.colors?.border ?? '#EBECF0'} width={1} />
-            )}
+            {showLeftAxisLine && <line x1={x} x2={x} y1={0} y2={y} stroke={themeConfig.colors.border} width={1} />}
         </>
     );
 }

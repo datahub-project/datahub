@@ -8,7 +8,7 @@ import QueryCardQuery from '@app/entity/shared/tabs/Dataset/Queries/QueryCardQue
 const Card = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 380px;
     width: 32%;
     margin-right: 6px;

@@ -38,9 +38,9 @@ export function ConnectionCapabilityView({ success, capability, displayMessage, 
         <Container>
             <IconWrapper>
                 {success ? (
-                    <Icon source="phosphor" icon="Check" size="2xl" color="green" colorLevel={1000} />
+                    <Icon source="phosphor" icon="Check" size="2xl" color="iconSuccess" />
                 ) : (
-                    <Icon source="phosphor" icon="X" size="2xl" color="red" colorLevel={1000} />
+                    <Icon source="phosphor" icon="X" size="2xl" color="iconError" />
                 )}
             </IconWrapper>
 

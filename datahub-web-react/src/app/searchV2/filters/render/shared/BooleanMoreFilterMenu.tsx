@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
 `;

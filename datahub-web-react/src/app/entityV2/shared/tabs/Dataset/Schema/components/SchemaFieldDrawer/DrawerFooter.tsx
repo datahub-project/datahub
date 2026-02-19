@@ -14,7 +14,7 @@ const HeaderWrapper = styled.div`
     align-self: center;
     margin-bottom: 16px;
     padding: 2px 4px;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     opacity: 0.8;
     border-radius: 15.5px;
     width: max-content;

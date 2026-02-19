@@ -28,7 +28,7 @@ export default function DeprecationBanner() {
     return (
         <PageBanner
             localStorageKey="v1UIDeprecationAnnouncement"
-            icon={<Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />}
+            icon={<Icon icon="ExclamationMark" color="iconError" weight="fill" source="phosphor" />}
             content={content}
         />
     );

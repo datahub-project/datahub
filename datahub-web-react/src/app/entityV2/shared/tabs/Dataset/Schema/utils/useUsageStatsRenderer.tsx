@@ -12,7 +12,7 @@ import { UsageQueryResult } from '@types';
 export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
-    background-color: ${(props) => props.theme.colors.textBrand};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 2px;
 `;
 
@@ -28,7 +28,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? props.theme.styles['primary-color'] : props.theme.colors.border;
+            return props.hasStats ? props.theme.colors.iconBrand : props.theme.colors.border;
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }

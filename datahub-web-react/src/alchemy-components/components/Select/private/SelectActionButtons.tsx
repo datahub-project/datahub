@@ -5,25 +5,25 @@ import { Button } from '@components/components/Button';
 import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
 
-import { colors, shadows } from '@src/alchemy-components/theme';
+import { shadows } from '@src/alchemy-components/theme';
 
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
 })(({ theme }) => ({
-    color: theme.colors.textTertiary,
+    color: theme.colors.icon,
     padding: '0px',
 
     '&:hover': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
         boxShadow: shadows.none,
     },
 
     '&:focus': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${colors.violet[50]}`,
+        backgroundColor: 'transparent',
+        boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${theme.colors.borderBrandFocused}`,
     },
 }));
 
@@ -55,7 +55,7 @@ export default function SelectActionButtons({
                     data-testid="button-clear"
                 />
             )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
+            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" />
         </ActionButtonsContainer>
     );
 }

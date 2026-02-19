@@ -53,11 +53,11 @@ const FilterOptionWrapper = styled.div<{ centerAlign?: boolean; addPadding?: boo
 const StyledCheckbox = styled(Checkbox)`
     font-size: 14px;
     .ant-checkbox-inner {
-        border-color: ${(props) => props.theme.colors.textTertiary};
+        border-color: ${(props) => props.theme.colors.border};
     }
     .ant-checkbox-checked {
         .ant-checkbox-inner {
-            border-color: ${(props) => props.theme.styles['primary-color']};
+            border-color: ${(props) => props.theme.colors.borderBrand};
         }
     }
 `;

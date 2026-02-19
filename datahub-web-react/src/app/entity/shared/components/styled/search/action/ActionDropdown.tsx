@@ -23,7 +23,7 @@ const DropdownWrapper = styled.div<{
     disabled: boolean;
 }>`
     cursor: ${(props) => (props.disabled ? 'normal' : 'pointer')};
-    color: ${(props) => (props.disabled ? props.theme.colors.textTertiary : 'none')};
+    color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : 'none')};
     display: flex;
     margin-left: 12px;
     margin-right: 12px;

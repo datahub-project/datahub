@@ -107,7 +107,10 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     return status;
 };
 
-export function getRelativeTimeColor(time: number, theme: { colors: Record<string, string> }) {
+export function getRelativeTimeColor(
+    time: number,
+    theme: { colors: { textSuccess: string; textWarning: string; textError: string } },
+) {
     const relativeTime = moment(time);
     if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
         return theme.colors.textSuccess;

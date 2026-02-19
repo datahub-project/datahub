@@ -20,7 +20,7 @@ const ChartTitle = styled(Typography.Text)`
  * This approach allows style updates without the need for unnecessary props.
  */
 export const ChartCard = styled(Card)<{ visible: boolean }>`
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 

@@ -57,7 +57,7 @@ export default function DocumentItem({ document, onClick }: Props) {
     return (
         <DocumentContainer onClick={handleClick} data-testid={`${document.urn}-${title}`}>
             <LeftSection>
-                <Icon icon="FileText" source="phosphor" color="primary" size="lg" />
+                <Icon icon="FileText" source="phosphor" color="iconBrand" size="lg" />
                 <Text
                     style={{
                         overflow: 'hidden',
@@ -66,7 +66,7 @@ export default function DocumentItem({ document, onClick }: Props) {
                         flex: 1,
                         minWidth: 0 /* Critical for truncation in flex containers */,
                     }}
-                    color="primary"
+                    color="textBrand"
                     lineHeight="normal"
                     data-testid="document-label"
                 >

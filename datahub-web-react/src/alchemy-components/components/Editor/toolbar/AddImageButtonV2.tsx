@@ -12,7 +12,6 @@ import { FileUploadContent } from '@components/components/Editor/toolbar/FileUpl
 import { Input } from '@components/components/Input';
 
 import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
-import { colors } from '@src/alchemy-components/theme';
 
 const UPLOAD_FILE_KEY = 'uploadFile';
 const URL_KEY = 'url';
@@ -69,8 +68,8 @@ function ImageUrlInput({ form, hideDropdown }: { form: FormInstance<any>; hideDr
 export const AddImageButtonV2 = () => {
     const [showDropdown, setShowDropdown] = useState(false);
     const [form] = Form.useForm();
-    const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const tabs = [
         {

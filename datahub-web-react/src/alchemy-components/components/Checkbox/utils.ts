@@ -1,55 +1,35 @@
-import { colors } from '@components/theme';
-
 import { SizeOptions } from '@src/alchemy-components/theme/config';
-
-const checkboxBackgroundDefault = {
-    default: colors.white,
-    checked: colors.violet[500],
-    error: colors.red[500],
-    disabled: colors.gray[1500],
-};
-
-const checkboxHoverColors = {
-    default: colors.gray[100],
-    error: colors.red[100],
-    checked: colors.violet[100],
-};
 
 export function getCheckboxColor(
     checked: boolean,
     error: string,
     disabled: boolean,
     mode: 'background' | undefined,
-    themeColors?: {
+    themeColors: {
         bg: string;
         bgSurface: string;
         bgDisabled: string;
         border: string;
-        textTertiary: string;
         textError: string;
         iconBrand: string;
     },
 ) {
     if (disabled) {
-        return mode === 'background'
-            ? (themeColors?.bgDisabled ?? checkboxBackgroundDefault.disabled)
-            : (themeColors?.border ?? colors.gray[100]);
+        return mode === 'background' ? themeColors.bgDisabled : themeColors.border;
     }
-    if (error) return themeColors?.textError ?? checkboxBackgroundDefault.error;
-    if (checked) return themeColors?.iconBrand ?? checkboxBackgroundDefault.checked;
-    return mode === 'background'
-        ? (themeColors?.bg ?? checkboxBackgroundDefault.default)
-        : (themeColors?.textTertiary ?? colors.gray[1800]);
+    if (error) return themeColors.textError;
+    if (checked) return themeColors.iconBrand;
+    return mode === 'background' ? themeColors.bg : themeColors.border;
 }
 
 export function getCheckboxHoverBackgroundColor(
     checked: boolean,
     error: string,
-    themeColors?: { bgHover: string; bgSurfaceErrorHover: string; bgSurfaceBrandHover: string },
+    themeColors: { bgHover: string; bgSurfaceErrorHover: string; bgSurfaceBrandHover: string },
 ) {
-    if (error) return themeColors?.bgSurfaceErrorHover ?? checkboxHoverColors.error;
-    if (checked) return themeColors?.bgSurfaceBrandHover ?? checkboxHoverColors.checked;
-    return themeColors?.bgHover ?? checkboxHoverColors.default;
+    if (error) return themeColors.bgSurfaceErrorHover;
+    if (checked) return themeColors.bgSurfaceBrandHover;
+    return themeColors.bgHover;
 }
 
 const sizeMap: Record<SizeOptions, string> = {

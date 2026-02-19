@@ -33,7 +33,7 @@ const StyledInput = styled(Input)`
 const ThinDivider = styled(Divider)`
     height: 1px;
     width: 520px !important;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     margin-left: -70px;
     margin-bottom: 0px;
 `;

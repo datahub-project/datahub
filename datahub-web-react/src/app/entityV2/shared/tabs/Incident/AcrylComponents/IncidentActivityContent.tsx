@@ -34,7 +34,7 @@ export default function IncidentActivityContent({ incidentActivities }: Timeline
                     }}
                 >
                     <ActivityStatusText>{action}</ActivityStatusText>
-                    <Text color="gray" type="span" style={{ color: theme.colors.textSecondary }}>
+                    <Text type="span" style={{ color: theme.colors.textSecondary }}>
                         by
                     </Text>
                     <ActivityStatusText>

@@ -18,7 +18,7 @@ const StyledProgressContainer = styled.div`
     width: 100%;
     border-radius: 20px,
     overflow: hidden;
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledSegment = styled.div<{ width: number; color: string }>`

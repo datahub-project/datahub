@@ -5,39 +5,38 @@ import { useTheme } from 'styled-components';
 import { IncidentStageLabel } from '@components/components/IncidentStagePill/constant';
 import { Pill } from '@components/components/Pills';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { IncidentStage } from '@src/types.generated';
 
 export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
-    const themeInstance = useTheme() as any;
-    const tc = themeInstance?.colors;
+    const theme = useTheme();
+    const tc = theme?.colors;
 
     const INCIDENT_STAGE = useMemo(
         () => ({
             [IncidentStage.Triage]: {
-                bgColor: tc?.bgSurfaceBrand ?? colors.gray[1000],
-                color: tc?.iconBrand ?? colors.violet[500],
-                icon: <Hexagon size={16} fill={tc?.iconBrand ?? colors.violet[500]} />,
+                bgColor: tc?.bgSurfaceBrand,
+                color: tc?.iconBrand,
+                icon: <Hexagon size={16} fill={tc?.iconBrand} />,
             },
             [IncidentStage.Investigation]: {
-                bgColor: tc?.bgSurfaceWarning ?? colors.yellow[1200],
-                color: tc?.iconWarning ?? colors.yellow[1000],
-                icon: <Circle size={16} fill={tc?.iconWarning ?? colors.yellow[1000]} />,
+                bgColor: tc?.bgSurfaceWarning,
+                color: tc?.iconWarning,
+                icon: <Circle size={16} fill={tc?.iconWarning} />,
             },
             [IncidentStage.WorkInProgress]: {
-                bgColor: tc?.bgSurfaceInfo ?? colors.gray[1100],
-                color: tc?.iconInformation ?? colors.blue[1000],
-                icon: <CircleHalf size={16} fill={tc?.iconInformation ?? colors.blue[1000]} />,
+                bgColor: tc?.bgSurfaceInfo,
+                color: tc?.iconInformation,
+                icon: <CircleHalf size={16} fill={tc?.iconInformation} />,
             },
             [IncidentStage.Fixed]: {
-                bgColor: tc?.bgSurfaceSuccess ?? colors.gray[1300],
-                color: tc?.iconSuccess ?? colors.green[1000],
-                icon: <CheckCircle size={16} fill={tc?.iconSuccess ?? colors.green[1000]} />,
+                bgColor: tc?.bgSurfaceSuccess,
+                color: tc?.iconSuccess,
+                icon: <CheckCircle size={16} fill={tc?.iconSuccess} />,
             },
             [IncidentStage.NoActionRequired]: {
-                bgColor: tc?.border ?? colors.gray[100],
-                color: tc?.textSecondary ?? colors.gray[1700],
-                icon: <CircleDashed size={16} fill={tc?.textSecondary ?? colors.gray[1700]} />,
+                bgColor: tc?.border,
+                color: tc?.textSecondary,
+                icon: <CircleDashed size={16} fill={tc?.textSecondary} />,
             },
         }),
         [tc],

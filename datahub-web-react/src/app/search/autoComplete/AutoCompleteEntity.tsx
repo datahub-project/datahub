@@ -34,7 +34,7 @@ const ContentWrapper = styled.div`
 
 const Subtype = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
-    border: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border: 1px solid ${(props) => props.theme.colors.borderDisabled};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -50,7 +50,7 @@ const ItemHeader = styled.div`
 `;
 
 const Divider = styled.div`
-    border-right: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border-right: 1px solid ${(props) => props.theme.colors.borderDisabled};
     height: 12px;
 `;
 

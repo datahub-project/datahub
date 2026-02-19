@@ -9,7 +9,7 @@ export const Card = styled.div`
     align-items: center;
 
     :hover {
-        border: 2px solid ${(props) => props.theme.colors.textInformation};
+        border: 2px solid ${(props) => props.theme.colors.borderInformation};
         cursor: pointer;
     }
 `;

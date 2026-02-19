@@ -13,7 +13,7 @@ import { Entity } from '@types';
 export const StyledList = styled(List)`
     overflow-y: auto;
     height: 100%;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     flex: 1;
     .ant-list-items > .ant-list-item {
         padding-right: 0px;

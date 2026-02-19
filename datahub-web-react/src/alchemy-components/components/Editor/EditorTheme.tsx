@@ -39,7 +39,7 @@ export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
             },
             preselect: {
                 controller: theme.colors.borderDisabled,
-                border: theme.colors.textDisabled,
+                border: theme.colors.border,
             },
         },
     },

@@ -40,7 +40,7 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             overlayStyle={{ zIndex: 1200 }}
         >
             <DropdownBase data-testid="view-more-dropdown">
-                <Text size="sm" color="gray" colorLevel={1700}>
+                <Text size="sm" color="textSecondary">
                     View more
                 </Text>
                 <CaretDown size={12} color={theme.colors.textSecondary} />

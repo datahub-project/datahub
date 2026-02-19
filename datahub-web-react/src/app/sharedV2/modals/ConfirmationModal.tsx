@@ -71,9 +71,7 @@ export const ConfirmationModal = ({
             ]}
             title={modalTitle || 'Confirm'}
         >
-            <Text color="gray" size="lg">
-                {modalText || 'Are you sure?'}
-            </Text>
+            <Text size="lg">{modalText || 'Are you sure?'}</Text>
         </StyledModal>
     );
 };

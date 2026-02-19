@@ -53,7 +53,7 @@ const ColumnName = styled.span`
 `;
 
 export const StyledDivider = styled(Divider)`
-    background-color: ${(props) => props.theme.colors.textDisabled};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     margin: 0 7px;
 `;
 

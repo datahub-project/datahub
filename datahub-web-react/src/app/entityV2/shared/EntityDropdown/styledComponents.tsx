@@ -24,14 +24,14 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     box-shadow: none;
     &&:hover {
         background-color: ${(props) => props.theme.colors.bgSurface};
-        color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
     ${(props) =>
         props.disabled
             ? `
             ${MenuItem} {
-                color: ${props.theme.colors.textTertiary};
+                color: ${props.theme.colors.textDisabled};
             }
     `
             : ''};

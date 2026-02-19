@@ -113,7 +113,7 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
             >
                 <InnerContainer>
                     <IconContainer onDragLeave={(e) => e.stopPropagation()}>
-                        <Icon icon="UploadSimple" source="phosphor" color="primary" size="2xl" />
+                        <Icon icon="UploadSimple" source="phosphor" color="iconBrand" size="2xl" />
                     </IconContainer>
                     <ActionTextContainer>
                         <Text size="sm" weight="semiBold">
@@ -124,9 +124,7 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
                         </InlineButton>
                     </ActionTextContainer>
                     <Description>
-                        <Text size="sm" color="gray">
-                            Max Size: 2GB
-                        </Text>
+                        <Text size="sm">Max Size: 2GB</Text>
                     </Description>
                 </InnerContainer>
             </Container>

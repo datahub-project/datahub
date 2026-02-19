@@ -11,7 +11,7 @@ const ChangeEventCircle = styled.div`
     min-width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1px solid ${(props) => props.theme.colors.textSecondary};
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin-top: 8px;
 `;
 

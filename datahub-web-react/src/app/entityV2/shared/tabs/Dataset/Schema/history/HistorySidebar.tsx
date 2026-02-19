@@ -35,7 +35,7 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${(p) => p.theme.styles['primary-color']};
+    background: ${(p) => p.theme.colors.buttonFillBrand};
     color: ${(p) => p.theme.colors.bg};
     font-size: 14px;
     font-weight: 700;

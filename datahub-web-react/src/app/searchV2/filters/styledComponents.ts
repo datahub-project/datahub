@@ -1,8 +1,6 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
@@ -15,8 +13,8 @@ export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     ${(props) =>
         props.$isActive &&
         `
-        background-color: ${props.theme.styles['primary-color']};
-        border: 1px solid ${getColor('primary', 0, props.theme)};
+        background-color: ${props.theme.colors.buttonFillBrand};
+        border: 1px solid ${props.theme.colors.borderBrand};
         color: ${props.theme.colors.textOnFillBrand};
     `}
 `;
@@ -31,15 +29,15 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
 
     max-width: 100%;
     &:hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 
-    ${(props) => props.$isActive && `color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
+    ${(props) => props.$isActive && `color: ${props.theme.colors.textSelected};`}
+    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgHover};`}
 `;
 
 export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     padding: 0px 6px;
     margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
     ${(props) => props.height !== undefined && `height: ${props.height}px;`}

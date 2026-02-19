@@ -19,7 +19,7 @@ const StyledEmpty = styled(Empty)`
         max-height: 75vh;
         &::-webkit-scrollbar {
             width: 5px;
-            background: ${(props) => props.theme.colors.border};
+            background: ${(props) => props.theme.colors.bgSurface};
         }
     }
     padding: 60px 40px;

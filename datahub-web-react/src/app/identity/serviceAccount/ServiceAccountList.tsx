@@ -95,7 +95,7 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon="ShieldWarning" source="phosphor" size="4xl" />
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>

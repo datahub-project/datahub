@@ -109,7 +109,7 @@ export default function AddModuleButton({ orientation, className, rowIndex, rowS
                     onClick={onClick}
                     data-testid="add-module-button"
                 >
-                    <Icon icon="Plus" source="phosphor" color="primary" />
+                    <Icon icon="Plus" source="phosphor" color="iconBrand" />
                 </ButtonComponent>
             </Dropdown>
         </Wrapper>

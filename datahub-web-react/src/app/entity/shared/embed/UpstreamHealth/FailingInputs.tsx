@@ -22,7 +22,7 @@ const FailingDetailsWrapper = styled.span`
     margin-left: 8px;
     &:hover {
         cursor: pointer;
-        color: $ ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

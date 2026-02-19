@@ -27,7 +27,7 @@ const LinkListItem = styled(List.Item)`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${LinkButtonsContainer} {
             ${StyledButton} {
                 opacity: 1;

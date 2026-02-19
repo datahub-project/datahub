@@ -25,8 +25,8 @@ const Padding = styled.span<{ padding: number }>`
 
 const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
-        stroke: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
+        stroke: ${(props) => props.theme.colors.textHover};
         stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
@@ -43,8 +43,8 @@ const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
 
 const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${(props) => props.theme.styles['primary-color']};
-        color: ${(props) => props.theme.styles['primary-color']};
+        stroke: ${(props) => props.theme.colors.textHover};
+        color: ${(props) => props.theme.colors.textHover};
         stroke-width: 140px;
     }
     color: ${(props) => props.theme.colors.textSecondary};
@@ -68,7 +68,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
     height: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     width: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     border-radius: 50%;
-    background: ${(props) => props.theme.colors.textBrand};
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
     margin-left: -7px;
     margin-top: -12px;
     display: flex;

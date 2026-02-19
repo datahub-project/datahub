@@ -19,7 +19,7 @@ import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/type
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
     background-color: ${(props) =>
-        props.isThemeV2 ? props.theme.styles['primary-color'] : props.theme.colors.hyperlinks};
+        props.isThemeV2 ? props.theme.colors.buttonFillBrand : props.theme.colors.hyperlinks};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
@@ -124,9 +124,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                     return {
                         label: (
                             <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
-                                <Text weight="semiBold" color="gray">
-                                    {name}
-                                </Text>
+                                <Text weight="semiBold">{name}</Text>
                             </Option>
                         ),
                         key: entity.urn,
@@ -179,12 +177,8 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                             <>
                                 {properties?.length === 0 && (
                                     <EmptyContainer>
-                                        <Text color="gray" weight="medium">
-                                            No results found
-                                        </Text>
-                                        <Text size="sm" color="gray">
-                                            {noDataText}
-                                        </Text>
+                                        <Text weight="medium">No results found</Text>
+                                        <Text size="sm">{noDataText}</Text>
                                     </EmptyContainer>
                                 )}
                                 <OptionsContainer data-testid="options-container">{menuNode}</OptionsContainer>

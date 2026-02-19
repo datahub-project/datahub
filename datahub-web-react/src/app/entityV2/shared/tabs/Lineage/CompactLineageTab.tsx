@@ -22,12 +22,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.buttonFillBrand : 'none')};
         color: ${(props) => (props.$isSelected ? props.theme.colors.textOnFillBrand : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.colors.borderBrand}`};
     }
 `;
 
@@ -62,9 +62,8 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
-    border: 1px solid
-        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.textTertiary)};
+    border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;

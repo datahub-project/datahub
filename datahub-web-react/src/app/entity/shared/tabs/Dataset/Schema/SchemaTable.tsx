@@ -54,14 +54,14 @@ const TableContainer = styled.div`
     }
 
     &&& tbody > tr:hover > td {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 
     &&& .expanded-row {
-        background-color: ${(props) => props.theme.styles['highlight-color']} !important;
+        background-color: ${(props) => props.theme.colors.bgHighlight} !important;
 
         td {
-            background-color: ${(props) => props.theme.styles['highlight-color']} !important;
+            background-color: ${(props) => props.theme.colors.bgHighlight} !important;
         }
     }
 `;

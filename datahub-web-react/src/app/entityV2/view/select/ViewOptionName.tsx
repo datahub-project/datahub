@@ -50,9 +50,9 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
     border: 1px solid
         ${(props) => {
             if (props.$isShowNavBarRedesign) {
-                return props.selected ? props.theme.styles['primary-color'] : 'transparent';
+                return props.selected ? props.theme.colors.borderBrand : 'transparent';
             }
-            return props.selected ? props.theme.styles['primary-color'] : props.theme.colors.text;
+            return props.selected ? props.theme.colors.borderBrand : props.theme.colors.border;
         }};
     border-radius: 100%;
 `;
@@ -120,7 +120,7 @@ export const ViewOptionName = ({
                                 >
                                     <GlobalDefaultViewIcon
                                         title="Your organization's default View."
-                                        color={theme.colors.border}
+                                        color={theme?.colors?.icon}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>
@@ -132,7 +132,7 @@ export const ViewOptionName = ({
                                 >
                                     <UserDefaultViewIcon
                                         title="Your default View."
-                                        color={theme?.styles['primary-color']}
+                                        color={theme?.colors?.iconBrand}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>
@@ -163,7 +163,7 @@ export const ViewOptionName = ({
                             <DefaultViewIconContainer selected={selected}>
                                 <UserDefaultViewIcon
                                     title="Your default View."
-                                    color={theme.colors.textSuccess}
+                                    color={theme?.colors?.textSuccess}
                                     size={10}
                                 />
                             </DefaultViewIconContainer>

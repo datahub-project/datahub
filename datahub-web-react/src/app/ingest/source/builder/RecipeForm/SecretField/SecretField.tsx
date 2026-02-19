@@ -40,7 +40,7 @@ export const StyledFormItem = styled(Form.Item)<{
         .ant-form-item-label {
             &:after {
                 content: 'Secret Field';
-                color: ${(props) => props.theme.colors.textTertiary};
+                color: ${props.theme.colors.textTertiary};
                 font-style: italic;
                 font-weight: 100;
                 margin-left: 5px;

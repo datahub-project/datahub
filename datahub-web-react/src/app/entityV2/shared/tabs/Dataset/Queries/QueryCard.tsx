@@ -8,7 +8,7 @@ import QueryCardQuery from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardQ
 const Card = styled.div<{ isCompact?: boolean }>`
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     max-width: 450px;
 
     ${(props) => !props.isCompact && `height: 380px;`}

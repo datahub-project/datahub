@@ -19,7 +19,7 @@ const Card = styled.div<{
     max-width: ${(props) => props.maxWidth}px;
     min-width: ${(props) => props.minWidth}px;
     :hover {
-        ${(props) => props.clickable && `border: 2px solid ${props.theme.colors.textInformation};`}
+        ${(props) => props.clickable && `border: 2px solid ${props.theme.colors.borderInformation};`}
         ${(props) => props.clickable && 'cursor: pointer;'}
     }
     overflow: hidden;

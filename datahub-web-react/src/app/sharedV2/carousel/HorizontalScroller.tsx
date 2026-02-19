@@ -35,7 +35,7 @@ const ScrollButton = styled.button<{
 
     &:hover {
         color: ${(props) => props.theme.colors.bg};
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 

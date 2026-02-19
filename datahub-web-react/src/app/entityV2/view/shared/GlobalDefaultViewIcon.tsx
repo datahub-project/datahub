@@ -11,5 +11,5 @@ type Props = {
 
 export const GlobalDefaultViewIcon = ({ title, color, size }: Props) => {
     const theme = useTheme();
-    return <DefaultViewIcon title={title} color={color || theme.colors.border} size={size} />;
+    return <DefaultViewIcon title={title} color={color || theme.colors.icon} size={size} />;
 };

@@ -61,7 +61,7 @@ const HeaderAndTabs = ({ children }: Props) => {
             {/* eslint-disable jsx-a11y/no-static-element-interactions */}
             <div
                 onMouseDown={handleMousedown}
-                style={{ backgroundColor: theme.colors.text, width: '5px', height: '100px' }}
+                style={{ backgroundColor: theme.colors.overlayHeavy, width: '5px', height: '100px' }}
             >
                 header
             </div>

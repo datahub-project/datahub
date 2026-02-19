@@ -31,19 +31,17 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
 
     return (
         <DetailsWrapper $addMargin={addMargin}>
-            <Text color="gray" weight="bold" colorLevel={600} size="sm">
+            <Text weight="bold" size="sm">
                 Propagated
             </Text>
             {time && (
                 <>
-                    <Text color="gray" colorLevel={600}>
-                        {capitalizeFirstLetterOnly(toRelativeTimeString(time))}
-                    </Text>
+                    <Text>{capitalizeFirstLetterOnly(toRelativeTimeString(time))}</Text>
                 </>
             )}
             {originEntity && (
                 <div>
-                    <Text color="gray" weight="bold" colorLevel={1700} size="sm">
+                    <Text color="textSecondary" weight="bold" size="sm">
                         origin
                     </Text>
                     <AutoCompleteEntityItem entity={originEntity} hideType padding="4px 4px 4px 0" />
@@ -51,7 +49,7 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
             )}
             {viaEntity && (
                 <div>
-                    <Text color="gray" weight="bold" colorLevel={1700} size="sm">
+                    <Text color="textSecondary" weight="bold" size="sm">
                         via
                     </Text>
                     <AutoCompleteEntityItem entity={viaEntity} hideType padding="4px 4px 4px 0" />

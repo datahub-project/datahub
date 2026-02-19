@@ -41,7 +41,7 @@ export const TextAreaContainer = styled.div<{
     isInvalid?: boolean;
 }>(({ isSuccess, warning, isDisabled, isInvalid, theme }) => ({
     border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`,
-    backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
+    backgroundColor: isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg,
     ...defaultFlexStyles,
     position: 'relative' as const,
     minWidth: '160px',
@@ -79,11 +79,11 @@ export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon, them
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
-        color: theme.colors.textTertiary,
+        color: theme.colors.textPlaceholder,
     },
 
     '&:disabled': {
-        backgroundColor: theme.colors.bgSurface,
+        backgroundColor: theme.colors.bgInputDisabled,
     },
 }));
 

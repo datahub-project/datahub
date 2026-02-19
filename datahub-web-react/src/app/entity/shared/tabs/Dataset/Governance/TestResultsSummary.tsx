@@ -37,7 +37,10 @@ type Props = {
     summary: TestsSummary;
 };
 
-const getSummaryIcon = (summary: TestsSummary, theme: { colors: Record<string, string> }) => {
+const getSummaryIcon = (
+    summary: TestsSummary,
+    theme: { colors: { text: string; textSuccess: string; textError: string } },
+) => {
     if (summary.total === 0) {
         return <Stop size={28} color={theme.colors.text} />;
     }

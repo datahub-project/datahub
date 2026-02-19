@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
 import { AvatarProps } from '@components/components/Avatar/types';
-import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
+import { getAvatarVariant, getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
 
@@ -30,7 +30,7 @@ export const Avatar = ({
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
             {(type === AvatarType.user || imageUrl) && (
-                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                <AvatarImageWrapper $variant={getAvatarVariant(name)} $size={size} $isOutlined={isOutlined}>
                     {!hasError && imageUrl ? (
                         <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
                     ) : (
@@ -39,12 +39,12 @@ export const Avatar = ({
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.group && !imageUrl && (
-                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                <AvatarImageWrapper $variant={getAvatarVariant(name)} $size={size} $isOutlined={isOutlined}>
                     <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.role && !imageUrl && (
-                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                <AvatarImageWrapper $variant={getAvatarVariant(name)} $size={size} $isOutlined={isOutlined}>
                     {mapRoleIcon(name)}
                 </AvatarImageWrapper>
             )}

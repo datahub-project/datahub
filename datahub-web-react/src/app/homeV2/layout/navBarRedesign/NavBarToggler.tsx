@@ -17,7 +17,7 @@ const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     background: ${(props) => props.theme.colors.bgSurfaceNewNav};
 
     &: hover {
-        background: ${(props) => props.theme.colors.border}80;
+        background: ${(props) => props.theme.colors.bgHover}80;
     }
 
     & svg {

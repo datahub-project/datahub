@@ -14,13 +14,13 @@ const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     justify-content: space-between;
     ${(props) => !props.selected && `color: ${props.theme.colors.text};`}
     ${(props) => props.disabled && `color: ${props.theme.colors.textDisabled};`}
-    ${(props) => props.selected && `background-color: ${props.theme.styles['primary-color']};`}
+    ${(props) => props.selected && `background-color: ${props.theme.colors.buttonFillBrand};`}
     ${(props) => props.selected && `color: ${props.theme.colors.textOnFillBrand};`}
     ${(props) =>
         !props.disabled &&
         `:hover {
             cursor: pointer;
-            ${!props.selected && `color: ${props.theme.styles['primary-color']};`}
+            ${!props.selected && `color: ${props.theme.colors.textHover};`}
         }`}
 `;
 

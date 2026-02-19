@@ -9,9 +9,9 @@ const CardContainer = styled.div`
     flex-direction: row;
     border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
     white-space: unset;
     padding-bottom: 4px;

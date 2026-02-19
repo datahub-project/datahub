@@ -22,7 +22,7 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${(p) => p.theme.styles['primary-color']};
+    background-color: ${(p) => p.theme.colors.buttonFillBrand};
     border-radius: 10px;
     color: ${(p) => p.theme.colors.textOnFillBrand};
     display: flex;

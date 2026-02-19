@@ -48,26 +48,25 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
 `;
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.textTertiary}`};
+    color: ${(props) => (props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.textTertiary}`)};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.textTertiary}`};
+            props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.textTertiary}`};
     }
 `;
 
 const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
     color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.borderBrandFocused}`};
+        props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.borderBrandFocused}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${props.theme.colors.borderBrandFocused}`};
+            props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.borderBrandFocused}`};
     }
 `;
 
@@ -90,7 +89,7 @@ const ChildrenCount = styled.div`
     align-items: center;
     justify-content: center;
     border-radius: 20px;
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgHover};
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     height: 22px;

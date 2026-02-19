@@ -8,7 +8,11 @@ import { Text } from '@components/components/Text/Text';
 
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     border: 1px solid
-        ${(props) => (props.$opened || props.$disabled ? props.theme.colors.textTertiary : props.theme.colors.border)};
+        ${(props) => {
+            if (props.$disabled) return props.theme.colors.borderDisabled;
+            if (props.$opened) return props.theme.colors.borderBrandFocused;
+            return props.theme.colors.border;
+        }};
     ${(props) => props.$opened && !props.$disabled && `outline: 1px solid ${props.theme.colors.borderBrandFocused};`}
     border-radius: 8px;
     padding: 8px;
@@ -25,7 +29,7 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     ${(props) =>
         props.$disabled &&
         `
-        background: ${props.theme.colors.bgSurface};
+        background: ${props.theme.colors.bgInputDisabled};
         cursor: not-allowed;
     `}
 
@@ -42,7 +46,7 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
     :hover {
-        ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
+        ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
     }
 `;
 
@@ -54,7 +58,7 @@ const CaretWrapper = styled.div<{ $disabled?: boolean }>`
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
         :hover {
-            ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
+            ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
         }
     }
 `;

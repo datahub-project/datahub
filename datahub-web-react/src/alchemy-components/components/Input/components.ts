@@ -34,7 +34,7 @@ export const InputContainer = styled.div<{
     isInvalid?: boolean;
 }>(({ isSuccess, warning, isDisabled, isInvalid, theme }) => ({
     border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`,
-    backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
+    backgroundColor: isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg,
     paddingRight: spacing.md,
     ...defaultFlexStyles,
     width: '100%',
@@ -64,7 +64,7 @@ export const InputField = styled.input(({ theme }) => ({
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
-        color: theme.colors.textTertiary,
+        color: theme.colors.textPlaceholder,
     },
 
     '&:focus': {
@@ -72,7 +72,7 @@ export const InputField = styled.input(({ theme }) => ({
     },
 
     '&:disabled': {
-        backgroundColor: theme.colors.bgSurface,
+        backgroundColor: theme.colors.bgInputDisabled,
         cursor: 'not-allowed',
     },
 }));

@@ -23,9 +23,7 @@ export default function NoStats() {
     return (
         <NoDataContainer>
             <StyledIcon component={NoStatsAvailble} />
-            <Text color="gray" size="sm">
-                No column statistics found
-            </Text>
+            <Text size="sm">No column statistics found</Text>
         </NoDataContainer>
     );
 }

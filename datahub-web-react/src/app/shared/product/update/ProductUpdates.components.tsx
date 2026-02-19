@@ -98,7 +98,7 @@ export const SectionHeaderContainer = styled.div`
 export const SectionHeaderLine = styled.div`
     flex: 1;
     height: 1px;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export const FeaturesSection = styled.div`

@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Document } from '@types';
 
@@ -63,7 +62,7 @@ const Actions = styled.div`
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -85,7 +84,7 @@ const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
+        background: ${props.theme.colors.brandGradientSelected};
         background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 600;

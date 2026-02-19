@@ -17,32 +17,31 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     display: flex;
     align-items: center;
     position: relative;
-    background: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '')};
+    background: ${(props) => (props.selected ? props.theme.colors.buttonFillBrand : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
     width: 100%;
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : props.theme.colors.border};
+        border: 1px solid ${props.selected ? props.theme.colors.borderBrand : props.theme.colors.border};
     `}
 
     &:hover {
         ${(props) =>
             !props.$isShowNavBarRedesign &&
             `
-            border: ${`1px solid ${props.theme.styles['primary-color']}`};
+            border: ${`1px solid ${props.theme.colors.borderBrand}`};
             padding: 10px;
         `}
         border-radius: 16px;
         & .create-view-icon {
-            background: ${(props) => props.theme.styles['primary-color']} !important;
-            border: ${(props) =>
-                !props.selected ? `1px solid ${props.theme.styles['primary-color']} !important` : ''};
+            background: ${(props) => props.theme.colors.buttonFillBrand} !important;
+            border: ${(props) => (!props.selected ? `1px solid ${props.theme.colors.borderBrand} !important` : '')};
         }
     }
     & .default-view-icon-container {
-        border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : props.theme.colors.text)};
+        border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
         border-radius: 100%;
     }
     & .close-container {
@@ -60,7 +59,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 14px !important;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 type Props = {

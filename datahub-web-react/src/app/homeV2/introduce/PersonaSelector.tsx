@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import {
     PERSONA_TYPES_TO_DISPLAY,
     PERSONA_TYPE_TO_DESCRIPTION,
@@ -22,10 +20,10 @@ const PersonaCard = styled.div<{ selected: boolean }>`
 
     &:hover {
         cursor: pointer;
-        ${(props) => !props.selected && `border: 1.5px ${getColor('primary', 200, props.theme)} solid;`}
+        ${(props) => !props.selected && `border: 1.5px ${props.theme.colors.borderBrand} solid;`}
     }
 
-    ${(props) => props.selected && `border: 1.5px ${props.theme.styles['primary-color']} solid;`}
+    ${(props) => props.selected && `border: 1.5px ${props.theme.colors.borderBrand} solid;`}
 `;
 const StyledIcon = styled.div`
     display: flex;
@@ -62,7 +60,7 @@ type Props = {
 export const PersonaSelector = ({ onSelect, selectedPersona }: Props) => {
     return (
         <PersonaSelectorContainer>
-            <Heading size="md" type="h4" color="gray">
+            <Heading size="md" type="h4">
                 Select a Persona
             </Heading>
             {PERSONA_TYPES_TO_DISPLAY.map((urn) => (

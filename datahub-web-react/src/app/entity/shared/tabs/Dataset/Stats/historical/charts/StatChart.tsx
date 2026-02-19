@@ -16,7 +16,7 @@ const ChartTitle = styled(Typography.Text)`
 `;
 
 const ChartCard = styled(Card)<{ visible: boolean }>`
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 

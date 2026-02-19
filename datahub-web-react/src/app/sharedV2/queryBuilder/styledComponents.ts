@@ -32,7 +32,7 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : props.theme.colors.text)};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textSelected : props.theme.colors.text)};
     background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurfaceBrand : 'transparent')};
     padding: 10px 12px;
 
@@ -67,7 +67,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: 52px;
         width: 2px;
         height: calc(100% - 78px);
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 
@@ -78,7 +78,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: calc(100% - 28px);
         width: 5px;
         height: 2px;
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 

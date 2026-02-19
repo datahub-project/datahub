@@ -12,7 +12,7 @@ const StyledCheckbox = styled(Checkbox)`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
-        border-color: ${(props) => props.theme.colors.textSecondary};
+        border-color: ${(props) => props.theme.colors.border};
     }
     &&& {
         margin-left: 0;

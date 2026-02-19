@@ -18,7 +18,7 @@ const ConfirmButtonWrapper = styled.div`
 
 const ConfirmButton = styled(Button)`
     border-radius: 15px;
-    border: 1px solid ${(props) => props.theme.colors.text};
+    border: 1px solid ${(props) => props.theme.colors.border};
 
     position: absolute;
     right: 10px;
@@ -26,7 +26,7 @@ const ConfirmButton = styled(Button)`
     text-align: right;
 
     :hover {
-        border-color: ${(props) => props.theme.colors.textInformation};
+        border-color: ${(props) => props.theme.colors.borderInformation};
         color: ${(props) => props.theme.colors.textInformation};
     }
 `;

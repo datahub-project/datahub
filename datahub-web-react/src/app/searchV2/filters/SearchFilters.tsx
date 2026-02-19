@@ -72,7 +72,7 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${props.theme.colors.border};
+        background: ${props.theme.colors.bgSurface};
         border-radius: 100%;
         color: ${props.theme.colors.textSecondary};
     `}

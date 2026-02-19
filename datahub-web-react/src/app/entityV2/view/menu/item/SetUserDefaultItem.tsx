@@ -26,7 +26,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             title="Make my default"
             icon={
                 <UserDefaultViewIcon
-                    color={isShowNavBarRedesign ? theme?.styles['primary-color'] : theme.colors.textSuccess}
+                    color={isShowNavBarRedesign ? theme?.colors?.iconBrand : theme.colors.textSuccess}
                 />
             }
         />

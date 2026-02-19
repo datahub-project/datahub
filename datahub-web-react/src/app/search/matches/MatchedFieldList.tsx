@@ -18,7 +18,7 @@ const MatchesContainer = styled.div`
 
 const MatchText = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.textSecondary};
-    background: ${(props) => props.theme.styles['highlight-color']};
+    background: ${(props) => props.theme.colors.bgHighlight};
     border-radius: 4px;
     padding: 2px 4px 2px 4px;
     padding-right: 4px;

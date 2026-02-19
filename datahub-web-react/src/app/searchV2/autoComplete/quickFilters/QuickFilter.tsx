@@ -31,10 +31,10 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     ${(props) =>
         props.selected &&
         `
-        border: 1px solid ${props.theme.styles['primary-color-dark']};
-        background-color: ${props.theme.styles['primary-color-light']};
+        border: 1px solid ${props.theme.colors.borderBrand};
+        background-color: ${props.theme.colors.bgSurfaceBrand};
         &:hover {
-            background-color: ${props.theme.styles['primary-color-light']};
+            background-color: ${props.theme.colors.bgSurfaceBrand};
         }
     `}
 `;

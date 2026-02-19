@@ -7,7 +7,7 @@ const Wrapper = styled.div`
     border-top-left-radius: 4px;
     border-top-right-radius: 4px;
     border: 1px solid ${(props) => props.theme.colors.border};
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
 
     display: flex;
     align-items: center;

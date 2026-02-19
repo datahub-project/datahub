@@ -38,15 +38,10 @@ const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
         if (props.disabled) {
             return props.theme.colors.textDisabled;
         }
-        return !props.isSelected
-            ? props.theme.colors.text
-            : props.theme.styles['primary-color'] || props.theme.colors.textBrand;
+        return !props.isSelected ? props.theme.colors.text : props.theme.colors.textSelected;
     }};
     &:hover {
-        color: ${(props) =>
-            props.disabled
-                ? props.theme.colors.textDisabled
-                : props.theme.styles['primary-color'] || props.theme.colors.textBrand};
+        color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : props.theme.colors.textHover)};
         cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     }
 `;

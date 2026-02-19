@@ -156,16 +156,14 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your email' }]}
                             name="email"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Email</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Email</span>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your name' }]}
                             name="fullName"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Full Name</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Full Name</span>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="name" />
                         </StyledFormItem>
@@ -184,8 +182,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                 }),
                             ]}
                             name="password"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Password</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Password</span>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </StyledFormItem>
@@ -202,9 +199,8 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                 }),
                             ]}
                             name="confirmPassword"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={
-                                <label style={{ color: themeConfig.colors.textOnFillDefault }}>Confirm Password</label>
+                                <span style={{ color: themeConfig.colors.textOnFillDefault }}>Confirm Password</span>
                             }
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="confirmPassword" />
@@ -212,8 +208,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your title!' }]}
                             name="title"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: themeConfig.colors.textOnFillDefault }}>Title</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Title</span>}
                         >
                             <TitleSelector placeholder="Title">
                                 <Select.Option value="Data Analyst">Data Analyst</Select.Option>

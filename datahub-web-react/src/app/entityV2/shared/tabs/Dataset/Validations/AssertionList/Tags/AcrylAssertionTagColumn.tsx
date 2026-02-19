@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
@@ -34,7 +33,7 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     transition: all 0.2s;
     &:hover {
         color: ${(props) => props.theme.colors.text};
-        background-color: ${getColor('gray', 100)};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -54,7 +53,7 @@ const TooltipTitleWrapper = styled.div`
 `;
 
 const TooltipMoreText = styled.div`
-    color: ${getColor('gray', 500)};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     margin-bottom: 4px;
 `;

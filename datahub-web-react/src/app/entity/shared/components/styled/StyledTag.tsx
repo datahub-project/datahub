@@ -11,8 +11,8 @@ export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSiz
         ${(props) =>
             props.highlightTag &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

@@ -51,7 +51,7 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         border-radius: 8px;
         &:focus-within {
             border-color: ${
-                props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.styles['primary-color']
+                props.$isShowNavBarRedesign ? props.theme.colors.borderBrand : props.theme.colors.borderBrand
             };
         }
     `}
@@ -75,12 +75,12 @@ const StyledSearchBar = styled(Input)<{
             !props.viewsEnabled &&
             `
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }`}
     }
 
     > .ant-input::placeholder {
-        color: ${(props) => props.$placeholderColor || props.theme.colors.textTertiary};
+        color: ${(props) => props.$placeholderColor || props.theme.colors.textPlaceholder};
     }
 
     > .ant-input {

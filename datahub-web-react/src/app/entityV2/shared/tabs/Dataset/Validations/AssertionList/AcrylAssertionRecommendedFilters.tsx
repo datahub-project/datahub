@@ -33,7 +33,7 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
     min-width: fit-content;
     cursor: pointer;
     color: ${({ selected, theme }) => (selected ? theme.colors.bg : theme.colors.textSecondary)};
-    background-color: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.border)};
+    background-color: ${({ selected, theme }) => (selected ? theme.colors.buttonFillBrand : theme.colors.bgSurface)};
 
     &:hover {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};

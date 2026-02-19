@@ -36,7 +36,7 @@ const FieldBadge = styled(Badge)`
     &&& .ant-badge-count {
         background-color: ${(props) => props.theme.colors.bg};
         color: ${(props) => props.theme.colors.text};
-        border: 1px solid ${(props) => props.theme.colors.textDisabled};
+        border: 1px solid ${(props) => props.theme.colors.border};
         font-size: 12px;
         font-weight: 400;
         height: 22px;

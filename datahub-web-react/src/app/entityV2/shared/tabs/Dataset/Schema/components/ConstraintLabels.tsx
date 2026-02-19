@@ -23,7 +23,7 @@ const ForeignKeyPill = styled(Pill)`
 
 const NullablePill = styled(Pill)`
     color: ${(props) => props.theme.colors.textTertiary} !important;
-    border-color: ${(props) => props.theme.colors.textTertiary};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 export function PrimaryKeyLabel() {

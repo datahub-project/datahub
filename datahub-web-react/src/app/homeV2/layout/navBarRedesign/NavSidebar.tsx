@@ -41,7 +41,6 @@ import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
@@ -94,16 +93,16 @@ const ScrollableContent = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textSecondary};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
 `;
 
 const Footer = styled.div`
@@ -453,8 +452,8 @@ export const NavSidebar = () => {
                 focusable="false"
             >
                 <linearGradient id="menu-item-selected-gradient" x2="1" y2="1">
-                    <stop offset="1%" stopColor={getColor('primary', 300, themeConfig)} />
-                    <stop offset="99%" stopColor={getColor('primary', 500, themeConfig)} />
+                    <stop offset="1%" stopColor={themeConfig.colors.textBrand} />
+                    <stop offset="99%" stopColor={themeConfig.colors.buttonFillBrand} />
                 </linearGradient>
             </svg>
         );

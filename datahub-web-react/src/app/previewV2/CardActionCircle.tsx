@@ -24,7 +24,7 @@ const IconContainer = styled.div<{ enabled?: boolean }>`
     }
     border: 1px solid ${(props) => props.theme.colors.border};
     :hover {
-        border: 1px solid ${({ enabled, theme }) => (enabled ? theme.styles['primary-color'] : theme.colors.bgSurface)};
+        border: 1px solid ${({ enabled, theme }) => (enabled ? theme.colors.borderBrand : theme.colors.bgSurface)};
     }
 `;
 

@@ -16,7 +16,7 @@ const StyledSelect = styled(Select)`
     border-radius: 5px;
     background: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

@@ -22,7 +22,7 @@ export default styled(MDEditor)`
                 height: 16px;
             }
             &.active > button {
-                color: ${(props) => props.theme.styles['primary-color']};
+                color: ${(props) => props.theme.colors.textActive};
                 background-color: ${(props) => props.theme.colors.bgSurface};
             }
         }

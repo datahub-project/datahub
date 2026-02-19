@@ -25,10 +25,10 @@ const Content = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 2px;
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textDisabled};
+        background: ${(props) => props.theme.colors.bgSurface};
         -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;

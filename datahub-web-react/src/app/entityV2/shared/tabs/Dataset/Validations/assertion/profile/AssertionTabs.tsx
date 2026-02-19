@@ -20,7 +20,7 @@ const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
     justify-content: center;
     padding: 0px 24px;
     border: none;
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'transparent')};
+    background-color: ${(props) => (props.selected ? props.theme.colors.buttonFillBrand : 'transparent')};
     color: ${(props) =>
         props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text || props.theme.colors.bgSurface};
     font-size: 12px;

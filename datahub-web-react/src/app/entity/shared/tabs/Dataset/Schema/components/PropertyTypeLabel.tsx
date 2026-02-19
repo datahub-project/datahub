@@ -23,9 +23,9 @@ export const PropertyTypeBadge = styled(Badge)<{ displayTransparent?: boolean }>
             background-color: transparent;
             `
                 : `
-        background-color: ${(props) => props.theme.colors.bg};
-        color: ${(props) => props.theme.colors.textSecondary};
-        border: 1px solid ${(props) => props.theme.colors.textDisabled};
+        background-color: ${props.theme.colors.bg};
+        color: ${props.theme.colors.textSecondary};
+        border: 1px solid ${props.theme.colors.border};
         `}
         font-size: 12px;
         font-weight: 500;

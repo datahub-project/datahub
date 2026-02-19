@@ -224,13 +224,13 @@ export const SaveButton = styled(Button)<{ disabled: boolean }>`
     width: 100%;
     height: 36px;
     border-radius: 4px;
-    border: 1px solid ${(props) => props.theme.styles['primary-color']};
-    background-color: ${({ disabled, theme }) => (disabled ? theme.colors.bgSurface : theme.styles['primary-color'])};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    background-color: ${({ disabled, theme }) => (disabled ? theme.colors.bgDisabled : theme.colors.buttonFillBrand)};
     font-size: 16px;
     font-weight: 600;
     line-height: 22.59px;
     justify-content: center;
-    color: ${({ disabled, theme }) => (disabled ? theme.colors.textTertiary : theme.colors.bg)};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.bg)};
 `;
 
 export const IncidentFooter = styled.div`
@@ -322,7 +322,7 @@ export const StyledSpinner = styled.div`
     width: 16px;
     height: 16px;
     margin-right: 8px;
-    border: 2px solid ${(props) => props.theme.colors.textTertiary};
+    border: 2px solid ${(props) => props.theme.colors.border};
     color: ${(props) => props.theme.colors.textTertiary};
     border-top: 2px solid transparent;
     border-radius: 50%;

@@ -80,7 +80,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
+        border: ${(props) => props.theme.colors.borderBrand} 1px solid;
     }
 `;
 
@@ -187,7 +187,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     trigger={['click']}
                     overlayStyle={{ borderRadius: '100px' }}
                 >
-                    <MenuIcon icon="MoreVert" variant="outline" size="2xl" color="gray" />
+                    <MenuIcon icon="MoreVert" variant="outline" size="2xl" />
                 </StyledDropdown>
             ),
         };

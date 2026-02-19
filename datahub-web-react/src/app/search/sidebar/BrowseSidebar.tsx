@@ -30,7 +30,7 @@ const SidebarHeader = styled.div`
     justify-content: space-between;
     padding-left: 24px;
     height: 47px;
-    border-bottom: 1px solid ${(props) => props.theme.styles['border-color-base']};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     white-space: nowrap;
 `;
 

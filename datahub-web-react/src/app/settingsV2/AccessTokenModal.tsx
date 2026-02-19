@@ -37,7 +37,7 @@ const Section = styled.div`
 
 const CodeBlock = styled.div`
     position: relative;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 6px;
     padding: 12px;
@@ -68,7 +68,7 @@ const CopyButton = styled(Button)`
 const Kbd = styled.code`
     display: inline;
     padding: 2px 6px;
-    background: ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;

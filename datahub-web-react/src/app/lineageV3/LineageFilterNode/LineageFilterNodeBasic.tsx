@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAvoidIntersectionsOften } from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
 import LineageFilterSearch from '@app/lineageV3/LineageFilterNode/LineageFilterSearch';
 import { ShowMoreButton } from '@app/lineageV3/LineageFilterNode/ShowMoreButton';
@@ -26,7 +25,7 @@ export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
-    border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
+    border: ${(props) => `1px solid ${props.theme.colors.border}`};
     border-radius: 12px;
     cursor: pointer;
     padding: 8px;

@@ -39,11 +39,11 @@ const Contents = styled.div<{ $disabled?: boolean }>`
     }
 
     :hover {
-        color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textSecondary : theme.colors.iconBrand)};
+        color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
 
         && svg {
-            color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textSecondary : theme.colors.iconBrand)};
+            color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
         }
     }
 `;

@@ -11,7 +11,7 @@ import { EntityType } from '@types';
 
 export const BrowseRow = styled(Row)`
     padding: 10px 20px;
-    background-color: ${(props) => props.theme.styles['body-background']};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     justify-content: space-between;
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
@@ -19,7 +19,7 @@ export const BrowseRow = styled(Row)`
 
 export const BreadcrumbItem = styled(Breadcrumb.Item)<{ disabled?: boolean }>`
     &&& :hover {
-        color: ${(props) => (props.disabled ? props.theme.colors.textTertiary : props.theme.styles['primary-color'])};
+        color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : props.theme.colors.textHover)};
         cursor: pointer;
     }
 `;

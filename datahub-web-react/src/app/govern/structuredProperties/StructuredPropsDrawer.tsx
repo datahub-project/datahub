@@ -320,22 +320,17 @@ const StructuredPropsDrawer = ({
                 <DrawerHeader>
                     {showAllowedValuesDrawer ? (
                         <TitleContainer>
-                            <StyledIcon
-                                icon="ArrowBack"
-                                color="gray"
-                                size="3xl"
-                                onClick={() => setShowAllowedValuesDrawer(false)}
-                            />
-                            <Text color="gray" weight="bold" size="lg">
+                            <StyledIcon icon="ArrowBack" size="3xl" onClick={() => setShowAllowedValuesDrawer(false)} />
+                            <Text weight="bold" size="lg">
                                 Allowed Values
                             </Text>
                         </TitleContainer>
                     ) : (
-                        <Text color="gray" weight="bold" size="lg">
+                        <Text weight="bold" size="lg">
                             {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
                         </Text>
                     )}
-                    <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                    <StyledIcon icon="Close" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={

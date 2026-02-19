@@ -16,7 +16,7 @@ import { SearchResult, SearchSuggestion } from '@types';
 const ResultList = styled(List)`
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
         margin-top: 8px;
         padding: 16px 32px;
         border-radius: 0px;

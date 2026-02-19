@@ -66,7 +66,7 @@ export const SearchContainer = styled.div`
 
     .ant-input-affix-wrapper:focus-within,
     .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-        border: 1px solid ${(props) => props.theme.styles['primary-color']};
+        border: 1px solid ${(props) => props.theme.colors.borderBrand};
     }
 
     .ant-input-affix-wrapper::selection {

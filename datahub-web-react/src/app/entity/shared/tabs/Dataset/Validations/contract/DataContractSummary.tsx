@@ -52,13 +52,13 @@ const CreateButton = styled(Button)`
     align-items: center;
     gap: 0.3rem;
     margin-right: 12px;
-    border-color: ${(props) => props.theme.styles['primary-color']};
-    color: ${(props) => props.theme.styles['primary-color']};
+    border-color: ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
     letter-spacing: 2px;
     &&:hover {
         color: ${(props) => props.theme.colors.textOnFillBrand};
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
 `;
 

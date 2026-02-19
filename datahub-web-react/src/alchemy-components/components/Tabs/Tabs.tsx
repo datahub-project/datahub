@@ -70,12 +70,17 @@ const StyledTabsPrimary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
 
+    .ant-tabs-tab.ant-tabs-tab-disabled,
+    .ant-tabs-tab.ant-tabs-tab-disabled .ant-tabs-tab-btn {
+        color: ${(props) => props.theme.colors.textDisabled};
+    }
+
     .ant-tabs-ink-bar {
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     .ant-tabs-content-holder {
@@ -138,12 +143,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active {
-        background-color: ${(props) => props.theme.styles['primary-color-light']}80;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
+    }
+
+    .ant-tabs-tab.ant-tabs-tab-disabled,
+    .ant-tabs-tab.ant-tabs-tab-disabled .ant-tabs-tab-btn {
+        color: ${(props) => props.theme.colors.textDisabled};
     }
 
     .ant-tabs-ink-bar {
@@ -185,7 +195,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${theme.colors.border};
+                background-color: ${theme.colors.bgSurface};
             }
         `}
 
@@ -203,7 +213,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textTertiary};`}
+    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textDisabled};`}
 `;
 
 function TabView({ tab }: { tab: Tab }) {

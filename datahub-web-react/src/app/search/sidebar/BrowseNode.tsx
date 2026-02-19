@@ -28,7 +28,7 @@ import { EntityType } from '@types';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 const Count = styled(Typography.Text)`
@@ -76,7 +76,7 @@ const BrowseNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
 
     const browsePathLength = useBrowsePathLength();
 
-    const color = '#000';
+    const color = 'inherit';
 
     const sortedGroups = useSort(groups, sortBy as SortBy);
 

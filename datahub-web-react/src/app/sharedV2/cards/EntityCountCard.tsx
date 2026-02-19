@@ -16,7 +16,7 @@ const Card = styled(Link)`
     min-width: 180px;
     padding: 16px;
     :hover {
-        border: 1.5px solid ${(props) => props.theme.colors.textInformation};
+        border: 1.5px solid ${(props) => props.theme.colors.borderInformation};
         cursor: pointer;
     }
 `;

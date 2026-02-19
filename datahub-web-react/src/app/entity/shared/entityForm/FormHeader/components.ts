@@ -5,7 +5,7 @@ import BackgroundDots from '@images/background_dots.svg';
 
 export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     padding: 16px 68px 16px 24px;
-    background-color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
     display: flex;
     justify-content: flex-end;
     ${(props) =>

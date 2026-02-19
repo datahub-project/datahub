@@ -16,7 +16,7 @@ const AssertionsSummaryWrapper = styled.span`
     font-weight: 700;
     line-height: 13px;
     color: ${(props) => props.theme.colors.textError};
-    border: 1px solid ${(props) => props.theme.colors.textError};
+    border: 1px solid ${(props) => props.theme.colors.borderError};
     border-radius: 8px;
     margin-left: 5px;
     padding: 0 3px;

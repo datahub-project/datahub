@@ -9,7 +9,7 @@ const StyledAnalyticsLink = styled(Typography.Text)`
     text-decoration: none;
     && {
         font-size: 14px;
-        color: ${(props) => props.theme.styles['layout-header-color']};
+        color: ${(props) => props.theme.colors.text};
     }
     &&:hover {
         color: ${(props) => props.theme.colors.text};

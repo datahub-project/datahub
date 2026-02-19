@@ -5,7 +5,7 @@ import { ButtonHTMLAttributes } from 'react';
 import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
-import { colors, radius, shadows, spacing, typography } from '@components/theme';
+import { radius, shadows, spacing, typography } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
@@ -33,32 +33,29 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         bgColor: color500,
         hoverBgColor: color500,
         activeBgColor: getColor(color, 700, theme),
-        disabledBgColor: getColor('gray', 100, theme),
+        disabledBgColor: theme?.colors?.bgDisabled ?? getColor('gray', 100, theme),
 
         // Borders
         borderColor: color500,
         activeBorderColor: getColor(color, 300, theme),
-        disabledBorderColor: getColor('gray', 200, theme),
+        disabledBorderColor: theme?.colors?.borderDisabled ?? getColor('gray', 200, theme),
 
         // Text
-        textColor: theme?.colors?.textBrandOnBgFill ?? colors.white,
-        disabledTextColor: getColor('gray', 300, theme),
+        textColor: theme?.colors?.textBrandOnBgFill ?? '#fff',
+        disabledTextColor: theme?.colors?.textDisabled ?? getColor('gray', 300, theme),
     };
 
-    // Specific color override for white
     if (color === 'white') {
-        base.textColor = theme?.colors?.text ?? colors.black;
-        base.disabledTextColor = getColor('gray', 500, theme);
+        base.textColor = theme?.colors?.text ?? '#000';
+        base.disabledTextColor = theme?.colors?.textDisabled ?? getColor('gray', 500, theme);
     }
 
-    // Specific color override for gray
     if (color === 'gray') {
-        base.textColor = getColor('gray', 500, theme);
-        base.bgColor = getColor('gray', 100, theme);
-        base.borderColor = getColor('gray', 100, theme);
-
-        base.hoverBgColor = getColor('gray', 100, theme);
-        base.activeBgColor = getColor('gray', 200, theme);
+        base.textColor = theme?.colors?.textSecondary ?? getColor('gray', 500, theme);
+        base.bgColor = theme?.colors?.bgSurface ?? getColor('gray', 100, theme);
+        base.borderColor = theme?.colors?.bgSurface ?? getColor('gray', 100, theme);
+        base.hoverBgColor = theme?.colors?.bgHover ?? getColor('gray', 100, theme);
+        base.activeBgColor = theme?.colors?.bgActive ?? getColor('gray', 200, theme);
     }
 
     // Override styles for outline variant
@@ -84,7 +81,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
             bgColor: 'transparent',
             borderColor: 'transparent',
-            hoverBgColor: theme?.colors?.bgHover ?? colors.gray[1500],
+            hoverBgColor: theme?.colors?.bgHover ?? 'transparent',
             activeBgColor: 'transparent',
             disabledBgColor: 'transparent',
             disabledBorderColor: 'transparent',
@@ -95,9 +92,9 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'secondary') {
         return {
             ...base,
-            bgColor: getColor('violet', 0, theme),
-            hoverBgColor: getColor('violet', 100, theme),
-            activeBgColor: getColor('violet', 200, theme),
+            bgColor: theme?.colors?.bgSurfaceBrand ?? getColor('violet', 0, theme),
+            hoverBgColor: theme?.colors?.bgSurfaceBrandHover ?? getColor('violet', 100, theme),
+            activeBgColor: theme?.colors?.buttonSurfaceBrandFocus ?? getColor('violet', 200, theme),
             textColor: color500,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
@@ -122,9 +119,6 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     return base;
 };
 
-const themeV1PrimaryColor = '#1890ff';
-const themeV2PrimaryColor = '#533FD1';
-
 // Generate color styles for button
 const getButtonVariantStyles = (
     variant: ButtonVariant,
@@ -133,14 +127,8 @@ const getButtonVariantStyles = (
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
-    // Adding a hack here for login/signup pages where v1 styles are still loaded by default
-    // Once we move to remove v1 styles we can revert this hack and always use styles from theme only
-    const resolvedPrimaryColor =
-        theme?.styles?.['primary-color'] === themeV1PrimaryColor
-            ? themeV2PrimaryColor
-            : (theme?.styles?.['primary-color'] ?? themeV2PrimaryColor);
 
-    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${resolvedPrimaryColor} 100%)`;
+    const primaryGradient = theme?.colors?.brandGradient ?? colorStyles.bgColor;
 
     const variantStyles = {
         filled: {
@@ -273,7 +261,7 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
 const getButtonActiveStyles = (colorStyles: ColorStyles, theme?: Theme) => ({
     borderColor: 'transparent',
     backgroundColor: colorStyles.activeBgColor,
-    boxShadow: `0 0 0 2px ${theme?.colors?.bg ?? '#fff'}, 0 0 0 4px ${colorStyles.activeBgColor}`,
+    boxShadow: `0 0 0 2px ${theme?.colors?.bg ?? 'transparent'}, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 
 // Generate loading styles for button

@@ -55,7 +55,7 @@ const MarkdownViewContainer = styled.div<{
             `
             &::after {
                 content: '...';
-                color: ${(props) => props.theme.colors.textSecondary};
+                color: ${props.theme.colors.textSecondary};
                 position: absolute;
                 bottom: 2rem;
             }

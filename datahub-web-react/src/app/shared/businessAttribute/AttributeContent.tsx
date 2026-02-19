@@ -15,8 +15,8 @@ const StyledAttribute = styled(Tag)<{ fontSize?: number; highlightAttribute?: bo
     &&& {
         ${(props) =>
             props.highlightAttribute &&
-            `background: ${props.theme.styles['highlight-color']};
-            border: 1px solid ${props.theme.styles['highlight-border-color']};
+            `background: ${props.theme.colors.bgHighlight};
+            border: 1px solid ${props.theme.colors.borderHover};
         `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

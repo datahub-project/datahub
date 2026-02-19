@@ -39,7 +39,7 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
                 border-radius: 100px;
                 cursor: pointer;
                 &.active {
-                    background: ${(props) => props.theme.styles['primary-color']};
+                    background: ${(props) => props.theme.colors.buttonFillBrand};
                     color: ${(props) => props.theme.colors.bg};
                 }
             }

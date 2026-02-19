@@ -12,7 +12,7 @@ export const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.textInformation};
+    background-color: ${(props) => props.theme.colors.bgSurfaceInfo};
     color: ${(props) => props.theme.colors.bg};
     width: 80px;
     height: 30px;
@@ -21,7 +21,7 @@ export const AccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color'] || props.theme.colors.hyperlinks};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.bg};
         border: none;
     }

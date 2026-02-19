@@ -155,7 +155,7 @@ export default function ProductUpdates() {
     return (
         <ToastContainer $sidebarWidth={sidebarWidth}>
             <Header>
-                <Heading type="h3" size="lg" weight="bold" color="gray" colorLevel={600}>
+                <Heading type="h3" size="lg" weight="bold">
                     {displayTitle}
                 </Heading>
                 <Tooltip title="Dismiss" placement="left">
@@ -168,11 +168,11 @@ export default function ProductUpdates() {
                 {description && (
                     <HeroSection>
                         {showTitleInContent && (
-                            <Text size="lg" weight="bold" color="gray" colorLevel={600}>
+                            <Text size="lg" weight="bold">
                                 {title}
                             </Text>
                         )}
-                        <Text size="md" weight="medium" color="gray" colorLevel={500} style={{ lineHeight: '1.4' }}>
+                        <Text size="md" weight="medium" color="textSecondary" style={{ lineHeight: '1.4' }}>
                             {description}
                         </Text>
                     </HeroSection>
@@ -190,8 +190,7 @@ export default function ProductUpdates() {
                                 <Text
                                     size="sm"
                                     weight="bold"
-                                    color="gray"
-                                    colorLevel={500}
+                                    color="textSecondary"
                                     style={{ textTransform: 'lowercase', whiteSpace: 'nowrap' }}
                                 >
                                     more in this release
@@ -233,20 +232,14 @@ export default function ProductUpdates() {
                                             </FeatureIconWrapper>
                                         )}
                                         <FeatureContent>
-                                            <Text size="md" weight="semiBold" color="gray" colorLevel={600}>
+                                            <Text size="md" weight="semiBold">
                                                 {feature.title}
                                             </Text>
-                                            <Text
-                                                size="md"
-                                                weight="normal"
-                                                color="gray"
-                                                colorLevel={500}
-                                                lineHeight="xs"
-                                            >
+                                            <Text size="md" weight="normal" color="textSecondary" lineHeight="xs">
                                                 {feature.description}
                                             </Text>
                                             {feature.availability && feature.availability !== 'null' && (
-                                                <Text type="span" size="sm" color="gray" colorLevel={400}>
+                                                <Text type="span" size="sm" color="textTertiary">
                                                     {feature.availability}
                                                 </Text>
                                             )}

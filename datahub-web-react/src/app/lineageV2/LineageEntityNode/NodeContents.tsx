@@ -8,7 +8,6 @@ import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV2/LineageEntityNode/Columns';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
@@ -49,13 +48,13 @@ const NodeWrapper = styled.div<{
     align-items: center;
     background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid
-        ${({ color, selected, isGhost }) => {
+        ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
+            if (isGhost) return `${theme.colors.border}50`;
+            return theme.colors.border;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.borderBrand}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -108,7 +107,7 @@ const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
 `;
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -202,9 +201,9 @@ const TitleLine = styled.span`
 
 const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     align-items: center;
-    border: 0.5px solid ${LINEAGE_COLORS.BLUE_1}50;
+    border: ${(props) => `0.5px solid ${props.theme.colors.borderBrand}50`};
     border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     justify-content: center;
     width: 100%;
@@ -214,7 +213,7 @@ const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     max-height: 16px;
 
     :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}20;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
         cursor: pointer;
     }
 `;

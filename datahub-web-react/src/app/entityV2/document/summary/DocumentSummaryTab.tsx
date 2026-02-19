@@ -54,7 +54,7 @@ const TopRightButton = styled(Button)`
     color: ${(props) => props.theme.colors.icon};
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -78,7 +78,7 @@ const ActionsMenuWrapper = styled.div`
         height: auto;
 
         &:hover {
-            background-color: ${(props) => props.theme.colors.border};
+            background-color: ${(props) => props.theme.colors.bgSurface};
         }
     }
 `;

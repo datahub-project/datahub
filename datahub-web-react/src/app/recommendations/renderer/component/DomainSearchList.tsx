@@ -20,7 +20,7 @@ const DomainListContainer = styled.div`
 `;
 
 const AllDomainsWrapper = styled.div`
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 14px;
 `;
 

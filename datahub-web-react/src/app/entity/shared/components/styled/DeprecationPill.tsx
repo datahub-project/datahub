@@ -14,7 +14,7 @@ import { Deprecation } from '@types';
 
 const DeprecatedContainer = styled.div`
     height: 18px;
-    border: 1px solid ${(props) => props.theme.colors.textError};
+    border: 1px solid ${(props) => props.theme.colors.borderError};
     border-radius: 15px;
     display: flex;
     justify-content: center;

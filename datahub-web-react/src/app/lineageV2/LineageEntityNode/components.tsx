@@ -1,12 +1,10 @@
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
-
 export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
     background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     display: flex;
     font-size: 18px;
@@ -38,6 +36,6 @@ export const Button = styled.span`
     line-height: 0;
 
     :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}30;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 `;

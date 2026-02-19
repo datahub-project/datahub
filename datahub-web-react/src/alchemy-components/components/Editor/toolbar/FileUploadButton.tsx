@@ -1,4 +1,4 @@
-import { Dropdown, Tooltip, colors } from '@components';
+import { Dropdown, Tooltip } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import { FileArrowUp } from 'phosphor-react';
 import React, { useState } from 'react';
@@ -22,8 +22,8 @@ const DropdownContainer = styled.div`
 export const FileUploadButton = () => {
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
-    const styledTheme = useTheme() as any;
-    const iconColor = styledTheme?.colors?.icon ?? colors.gray[1800];
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const [showDropdown, setShowDropdown] = useState(false);
 

@@ -68,7 +68,7 @@ const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles['primary-color']};`
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};`
                 : `color: ${props.theme.colors.icon};`}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
@@ -95,7 +95,7 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     position: absolute;
     width: 10px;
     height: 10px;
-    background: ${(props) => props.theme.styles['primary-color']};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 6px;
     border: 2px solid ${(props) => props.theme.colors.bgSurfaceNewNav};
     top: 6px;

@@ -207,7 +207,7 @@ export function IngestionSourceUpdatePage() {
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle="You have unsaved changes"
             confirmationModalContent={
-                <Text color="gray" colorLevel={1700}>
+                <Text color="textSecondary">
                     Exiting now will discard your configuration. You can continue setup or exit and start over later
                 </Text>
             }

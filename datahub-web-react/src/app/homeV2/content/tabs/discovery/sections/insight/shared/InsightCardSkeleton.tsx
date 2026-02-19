@@ -14,7 +14,7 @@ const CardHeader = styled.div`
 
     .ant-skeleton-button {
         height: 16px;
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSkeleton};
     }
 `;
 
@@ -25,7 +25,7 @@ const CardContent = styled.div`
 
     .ant-skeleton-button {
         height: 16px;
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bgSkeleton};
     }
 
     .ant-skeleton-avatar-square {

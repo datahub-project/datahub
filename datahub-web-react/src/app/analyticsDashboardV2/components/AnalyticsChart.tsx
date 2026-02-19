@@ -67,12 +67,12 @@ const LegendScrollArea = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textDisabled};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Firefox scrollbar */
@@ -125,7 +125,7 @@ const TooltipContainer = styled.div`
     pointer-events: none;
     z-index: 1000;
     box-shadow: ${(props) => props.theme.colors.shadowSm};
-    border: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 // Truncate label to max 11 characters total (based on "DATAPRODUCT" fitting perfectly)

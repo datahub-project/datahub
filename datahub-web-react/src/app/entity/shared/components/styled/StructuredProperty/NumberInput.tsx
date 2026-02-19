@@ -6,7 +6,7 @@ import MultipleOpenEndedInput from '@app/entity/shared/components/styled/Structu
 import { PropertyCardinality } from '@src/types.generated';
 
 const StyledInput = styled(Input)`
-    border: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border: 1px solid ${(props) => props.theme.colors.border};
     width: 250px;
 `;
 

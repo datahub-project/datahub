@@ -10,9 +10,8 @@ import {
     getToggleSize,
 } from '@components/components/Switch/utils';
 import { formLabelTextStyles } from '@components/components/commonStyles';
-import { borders, shadows, spacing, transition } from '@components/theme';
+import { borders, spacing, transition } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
-import { getColor } from '@components/theme/utils';
 
 export const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
@@ -57,7 +56,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
             top: '50%',
             left: '2px',
             transform: 'translate(0, -50%)',
-            backgroundColor: !isDisabled ? theme.colors.bg : theme.colors.border,
+            backgroundColor: !isDisabled ? theme.colors.bg : theme.colors.bgDisabled,
             boxShadow: theme.colors.shadowXs,
         },
         borderRadius: !isSquare ? '32px' : '0px',
@@ -97,10 +96,9 @@ export const StyledInput = styled.input<{
     }
 
     &:focus-within + ${Slider} {
-        border-color: ${(props) => (props.checked ? getColor(props.colorScheme, 200, props.theme) : 'transparent')};
-        outline: ${(props) =>
-            props.checked ? `${borders['2px']} ${getColor(props.colorScheme, 200, props.theme)}` : 'none'};
-        box-shadow: ${(props) => (props.checked ? shadows.xs : 'none')};
+        border-color: ${(props) => (props.checked ? props.theme.colors.borderBrandFocused : 'transparent')};
+        outline: ${(props) => (props.checked ? `${borders['2px']} ${props.theme.colors.borderBrandFocused}` : 'none')};
+        box-shadow: ${(props) => (props.checked ? props.theme.colors.shadowFocusBrand : 'none')};
     }
 `;
 

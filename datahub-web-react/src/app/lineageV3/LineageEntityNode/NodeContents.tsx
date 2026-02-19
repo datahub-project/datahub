@@ -9,7 +9,6 @@ import styled, { useTheme } from 'styled-components';
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
@@ -43,7 +42,7 @@ import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -108,7 +107,7 @@ const LinkOutWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

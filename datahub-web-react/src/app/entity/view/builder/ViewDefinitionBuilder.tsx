@@ -19,7 +19,7 @@ import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 const Container = styled.div`
     border-radius: 4px;
     padding: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     border: 1px solid ${(props) => props.theme.colors.bgSurface};
     margin-bottom: 20px;
 `;

@@ -56,7 +56,7 @@ const StyledSearchBar = styled(Input)`
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 2px solid ${(props) => props.theme.colors.textInformation};
+            border: 2px solid ${(props) => props.theme.colors.borderInformation};
         }
     }
     > .ant-input::placeholder {

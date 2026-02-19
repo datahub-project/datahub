@@ -44,13 +44,13 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
-        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+        border: 1px solid ${(props) => (props.isSelected ? props.theme.colors.borderBrand : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurfaceBrand : 'transparent')};
         border-radius: 8px;
     }
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color-light']};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 `;
 

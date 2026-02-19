@@ -4,6 +4,7 @@ import React from 'react';
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
 import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
+import { ColorOptions } from '@components/theme/config';
 import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';
@@ -62,14 +63,18 @@ export const Icon = ({
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
             <Tooltip title={tooltipText}>
-                <IconComponent
-                    sx={{
-                        fontSize: getFontSize(size),
-                        color: getColor(color, colorLevel, theme),
-                    }}
-                    style={{ color: getColor(color, colorLevel, theme) }}
-                    weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
-                />
+                {(() => {
+                    const semantic = theme?.colors?.[color ?? ''];
+                    const resolvedColor =
+                        typeof semantic === 'string' ? semantic : getColor(color as ColorOptions, colorLevel, theme);
+                    return (
+                        <IconComponent
+                            sx={{ fontSize: getFontSize(size), color: resolvedColor }}
+                            style={{ color: resolvedColor }}
+                            weight={source === 'phosphor' ? weight : undefined}
+                        />
+                    );
+                })()}
             </Tooltip>
         </IconWrapper>
     );

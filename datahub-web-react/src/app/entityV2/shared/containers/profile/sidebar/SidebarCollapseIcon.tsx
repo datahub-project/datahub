@@ -4,7 +4,6 @@ import React, { useContext } from 'react';
 import styled from 'styled-components';
 
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const Container = styled.div`
     display: flex;
@@ -30,15 +29,15 @@ const CloseButton = styled.div<{ $isClosed: boolean }>`
     width: 40px;
     border-radius: 6px;
     justify-content: center;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.iconBrand};
     ${(props) =>
         props.$isClosed &&
         `
-        background-color: ${getColor('primary', 600, props.theme)};
+        background-color: ${props.theme.colors.buttonFillBrand};
         color: ${props.theme.colors.bg};  
     `}
     :hover {
-        background-color: ${(p) => getColor('primary', 600, p.theme)};
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.bg};
     }
 `;

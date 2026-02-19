@@ -12,10 +12,8 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
-    HOVER_COLOR,
     LineageDisplayContext,
     LineageNodesContext,
-    SELECT_COLOR,
     createColumnRef,
     onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
@@ -42,20 +40,20 @@ const ColumnWrapper = styled.div<{
 }>`
     border: 1px solid transparent;
 
-    ${({ selected, highlighted, fromSelect }) => {
+    ${({ selected, highlighted, fromSelect, theme }) => {
         if (selected) {
-            return `border: ${SELECT_COLOR} 1px solid; background-color: ${SELECT_COLOR}20;`;
+            return `border: ${theme.colors.borderBrand} 1px solid; background-color: ${theme.colors.bgSurfaceBrand};`;
         }
         if (highlighted) {
             if (fromSelect) {
-                return `background-color: ${SELECT_COLOR}20;`;
+                return `background-color: ${theme.colors.bgSurfaceBrand};`;
             }
-            return `background-color: ${HOVER_COLOR}20;`;
+            return `background-color: ${theme.colors.bgSurfaceBrand};`;
         }
-        return `background-color: ${props.theme.colors.bgSurface};`;
+        return `background-color: ${theme.colors.bgSurface};`;
     }}
     border-radius: 4px;
-    color: ${({ disabled, theme }) => (disabled ? theme.colors.text : theme.colors.textTertiary)};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.textTertiary)};
     display: flex;
     font-size: 10px;
     gap: 4px;
@@ -97,7 +95,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

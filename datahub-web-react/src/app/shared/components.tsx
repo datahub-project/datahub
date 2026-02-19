@@ -13,9 +13,9 @@ export const HomePageButton = styled(Button)`
     align-items: center;
     flex-direction: column;
     border: 1px solid ${(props) => props.theme.colors.bgSurface};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
     white-space: unset;
 `;
@@ -49,6 +49,6 @@ export const BodyContainer = styled.div`
 
 export const WhiteButton = styled(Button)`
     background-color: ${(props) => props.theme.colors.bgSurface};
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
     text-shadow: none;
 `;

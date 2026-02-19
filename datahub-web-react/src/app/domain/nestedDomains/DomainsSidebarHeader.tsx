@@ -22,7 +22,7 @@ const HeaderWrapper = styled.div`
 
 const StyledButton = styled(Button)`
     box-shadow: none;
-    border-color: ${(props) => props.theme.colors.textDisabled};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const StyledLink = styled(Link)`

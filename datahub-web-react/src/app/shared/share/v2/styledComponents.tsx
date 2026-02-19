@@ -91,7 +91,7 @@ export const StyledModal = styled(Modal)`
     }
 
     .ant-modal-close-x {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.iconBrand};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -99,7 +99,7 @@ export const StyledModal = styled(Modal)`
         padding-top: 20px;
 
         :hover {
-            stroke: ${(props) => props.theme.styles['primary-color']};
+            stroke: ${(props) => props.theme.colors.iconBrand};
         }
     }
 `;
@@ -125,12 +125,12 @@ export const StyledFormItem = styled(Form.Item)`
         &:hover,
         &:focus,
         &:active {
-            border-color: ${(props) => props.theme.styles['primary-color']};
+            border-color: ${(props) => props.theme.colors.borderBrand};
         }
 
         &:focus,
         &:active {
-            color: ${(props) => props.theme.styles['primary-color']};
+            color: ${(props) => props.theme.colors.textBrand};
             box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
         }
     }

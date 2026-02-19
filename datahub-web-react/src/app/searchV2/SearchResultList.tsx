@@ -24,7 +24,7 @@ const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         margin-top: 8px;
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
         padding: ${(props) => (props.$isShowNavBarRedesign ? '0px 3px 0px 12px' : '0px 12px 0px 16px')};
         border-radius: 0px;
     }
@@ -57,7 +57,7 @@ export const ResultWrapper = styled.div<{
         border-bottom: 1px solid ${props.theme.colors.border};
         cursor: pointer;
         :hover {
-            ${!props.selected && `outline: 1px solid ${props.theme.styles['primary-color']}`};
+            ${!props.selected && `outline: 1px solid ${props.theme.colors.borderBrand}`};
         }
     `}
     position: relative;
@@ -65,8 +65,8 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${props.theme.styles['primary-color']};
-        border-left: 5px solid ${props.theme.styles['primary-color']};
+        outline: 1px solid ${props.theme.colors.borderBrand};
+        border-left: 5px solid ${props.theme.colors.borderBrand};
         left: -5px;
         width: calc(100% + 5px);
         position: relative;

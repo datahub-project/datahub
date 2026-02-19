@@ -16,5 +16,5 @@ interface Props {
 export function FileIcon({ extension, className }: Props) {
     const icon = useMemo(() => getFileIconFromExtension(extension || ''), [extension]);
 
-    return <StyledIcon icon={icon} size="lg" source="phosphor" color="primary" className={className} />;
+    return <StyledIcon icon={icon} size="lg" source="phosphor" color="iconBrand" className={className} />;
 }

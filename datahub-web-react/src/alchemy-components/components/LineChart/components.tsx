@@ -4,8 +4,6 @@ import styled, { useTheme } from 'styled-components';
 import { GLYPH_DROP_SHADOW_FILTER } from '@components/components/LineChart/constants';
 import { GlyphProps } from '@components/components/LineChart/types';
 
-import { colors } from '@src/alchemy-components/theme';
-
 export const ChartWrapper = styled.div`
     width: 100%;
     height: 100%;
@@ -14,9 +12,9 @@ export const ChartWrapper = styled.div`
 `;
 
 export const Glyph = ({ x, y }: GlyphProps): React.ReactElement => {
-    const styledTheme = useTheme() as any;
-    const bgColor = styledTheme?.colors?.bg ?? colors.white;
-    const brandColor = styledTheme?.colors?.iconBrand ?? colors.violet[500];
+    const styledTheme = useTheme();
+    const bgColor = styledTheme.colors.bg;
+    const brandColor = styledTheme.colors.iconBrand;
 
     return (
         <g>

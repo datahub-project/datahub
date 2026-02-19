@@ -24,7 +24,7 @@ const ProgressStyle = styled(Progress)`
 
     .ant-progress-bg {
         border-radius: 12px;
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
         height: 4px !important;
     }
 `;

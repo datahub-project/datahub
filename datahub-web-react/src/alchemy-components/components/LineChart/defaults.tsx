@@ -9,13 +9,11 @@ import { Datum, LineChartProps } from '@components/components/LineChart/types';
 import { roundToEven } from '@components/components/LineChart/utils';
 import { abbreviateNumber } from '@components/components/dataviz/utils';
 
-import { colors } from '@src/alchemy-components/theme';
-
 function getCommonTickLabelProps(themeColors?: Record<string, string>): TickLabelProps<Datum> {
     return {
         fontSize: 10,
         fontFamily: 'Mulish',
-        fill: themeColors?.textSecondary ?? colors.gray[1700],
+        fill: themeColors?.textSecondary ?? '#5F5E6C',
     };
 }
 
@@ -30,7 +28,7 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         yScale: { type: 'linear', nice: true, round: true, zero: true },
         shouldAdjustYZeroPoint: true,
 
-        lineColor: themeColors?.iconBrand ?? colors.violet[500],
+        lineColor: themeColors?.iconBrand ?? '#705EE4',
         areaColor: 'url(#line-gradient)',
         margin: { top: 0, right: 0, bottom: 0, left: 0 },
 
@@ -67,7 +65,7 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         gridProps: {
             rows: true,
             columns: false,
-            stroke: '#e0e0e0',
+            stroke: themeColors?.border ?? '#e0e0e0',
             computeNumTicks: () => 5,
             lineStyle: {},
         },
@@ -75,13 +73,13 @@ export function getLineChartDefaults(themeColors?: Record<string, string>): Line
         renderGradients: () => (
             <LinearGradient
                 id="line-gradient"
-                from={colors.violet[200]}
-                to={themeColors?.bg ?? colors.white}
+                from={themeColors?.chartsBrandLow ?? '#CAC3F1'}
+                to={themeColors?.bg ?? '#FFFFFF'}
                 toOpacity={0.6}
             />
         ),
         toolbarVerticalCrosshairStyle: {
-            stroke: themeColors?.bg ?? colors.white,
+            stroke: themeColors?.bg ?? '#FFFFFF',
             strokeWidth: 2,
             filter: GLYPH_DROP_SHADOW_FILTER,
         },

@@ -25,8 +25,6 @@ import {
 import { computeWhiskerOffset } from '@components/components/WhiskerChart/utils';
 import { abbreviateNumber } from '@components/components/dataviz/utils';
 
-import { colors } from '@src/alchemy-components/theme';
-
 const ChartWrapper = styled.div`
     width: 100%;
     height: 100%;
@@ -47,7 +45,7 @@ function InternalWhiskerChart({
     renderWhisker = whiskerChartDefaults.renderWhisker,
 }: InternalWhiskerChartProps) {
     const wrapperRef = useRef<HTMLDivElement>(null);
-    const themeConfig = useTheme() as any;
+    const themeConfig = useTheme();
 
     const defaultMargin = useMemo(() => {
         const axisLabelMarginOffset = axisLabel !== undefined ? AXIS_LABEL_MARGIN_OFFSET : 0;
@@ -103,7 +101,7 @@ function InternalWhiskerChart({
                         y2={minY}
                         width={chartWidth}
                         height={chartHeight}
-                        stroke={themeConfig?.colors?.border ?? colors.gray[100]}
+                        stroke={themeConfig.colors.border}
                         numTicks={5}
                     />
 
@@ -124,14 +122,7 @@ function InternalWhiskerChart({
                         </BoxPlot>
                     ))}
 
-                    <line
-                        x1={0}
-                        x2={width}
-                        y1={maxY}
-                        y2={maxY}
-                        strokeWidth={1}
-                        stroke={themeConfig?.colors?.border ?? colors.gray[100]}
-                    />
+                    <line x1={0} x2={width} y1={maxY} y2={maxY} strokeWidth={1} stroke={themeConfig.colors.border} />
                 </Group>
                 <Axis
                     scale={xScale}
@@ -144,7 +135,7 @@ function InternalWhiskerChart({
                     tickLabelProps={{
                         fontSize: '10px',
                         fontFamily: 'Mulish',
-                        fill: themeConfig?.colors?.textSecondary ?? colors.gray[1700],
+                        fill: themeConfig.colors.textSecondary,
                     }}
                     label={axisLabel}
                     labelProps={AXIS_LABEL_PROPS}

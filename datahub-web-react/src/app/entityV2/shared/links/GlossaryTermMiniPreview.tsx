@@ -24,8 +24,7 @@ const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background-color: ${(props) => props.theme.colors.border};
-        // background-color: red;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
     color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;

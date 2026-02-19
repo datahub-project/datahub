@@ -79,7 +79,7 @@ export const TabsContainer = styled.div<{ isThemeV2: boolean; formCreationEnable
                 }
                 
                 .ant-tabs-tab-active .ant-tabs-tab-btn {
-                    color: ${props.theme.styles['primary-color']};
+                    color: ${props.theme.colors.textSelected};
                 }
             `
         }

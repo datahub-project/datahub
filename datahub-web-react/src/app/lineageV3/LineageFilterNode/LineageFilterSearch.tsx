@@ -112,7 +112,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                 />
                 <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
             </SearchLine>
-            <SearchMatchesText type="div" size="xs" color="gray">
+            <SearchMatchesText type="div" size="xs">
                 {searchQuery.length >= 3 && (!loading || !!numMatches) && `${numMatches} matches`}
             </SearchMatchesText>
         </>

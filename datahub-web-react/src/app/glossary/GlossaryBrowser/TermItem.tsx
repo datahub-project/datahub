@@ -41,7 +41,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
         ${(props) =>
             props.showSelectStyles &&
             `
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${props.theme.colors.bgSurface};
         cursor: pointer;
         `}
     }

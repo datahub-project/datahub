@@ -70,7 +70,7 @@ const IconButton = styled(Button)<{ $show: boolean }>`
     pointer-events: ${(props) => (props.$show ? 'auto' : 'none')};
 
     &:hover {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.textBrand};
     }
 

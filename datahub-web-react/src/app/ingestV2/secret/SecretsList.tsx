@@ -300,7 +300,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             data-test-id="delete-secret-action"
                             data-icon="delete"
                         >
-                            <Icon icon="Trash" source="phosphor" color="red" />
+                            <Icon icon="Trash" source="phosphor" color="iconError" />
                         </button>
                     </ButtonsContainer>
                     <ConfirmationModal

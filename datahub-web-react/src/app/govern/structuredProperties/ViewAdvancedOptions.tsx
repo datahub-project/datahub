@@ -18,9 +18,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
     return (
         <StyledCollapse
             ghost
-            expandIcon={({ isActive }) => (
-                <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
-            )}
+            expandIcon={({ isActive }) => <Icon icon="ChevronRight" size="4xl" rotate={isActive ? '90' : '0'} />}
             expandIconPosition="end"
             defaultActiveKey={[]}
         >
@@ -28,7 +26,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
                 key={1}
                 header={
                     <CollapseHeader>
-                        <Text weight="bold" color="gray" size="lg">
+                        <Text weight="bold" size="lg">
                             Advanced Options
                         </Text>
                     </CollapseHeader>
@@ -38,7 +36,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
                 {propEntity && (
                     <RowContainer>
                         <StyledLabel>Qualified Name</StyledLabel>
-                        <Text color="gray"> {propEntity?.definition?.qualifiedName}</Text>
+                        <Text> {propEntity?.definition?.qualifiedName}</Text>
                     </RowContainer>
                 )}
             </Collapse.Panel>

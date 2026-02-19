@@ -42,7 +42,7 @@ const MoreInfoModal = ({ showModal, handleClose, modalContent }: Props) => {
             centered
             footer={null}
             title={
-                <Text size="xl" weight="bold" color="gray">
+                <Text size="xl" weight="bold">
                     No Data
                 </Text>
             }

@@ -179,7 +179,6 @@ export function SelectSourceStep() {
                                             <Icon
                                                 icon={isOpen ? 'CaretDown' : 'CaretRight'}
                                                 source="phosphor"
-                                                color="gray"
                                                 size="2xl"
                                                 onClick={() =>
                                                     setExpanded((prev) => ({ ...prev, [category]: !isOpen }))

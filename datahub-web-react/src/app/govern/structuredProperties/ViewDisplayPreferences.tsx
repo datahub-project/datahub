@@ -24,9 +24,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
         <>
             <StyledCollapse
                 ghost
-                expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
-                )}
+                expandIcon={({ isActive }) => <Icon icon="ChevronRight" size="4xl" rotate={isActive ? '90' : '0'} />}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}
             >

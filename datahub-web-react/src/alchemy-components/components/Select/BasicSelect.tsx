@@ -1,4 +1,4 @@
-import { Dropdown, Text, colors } from '@components';
+import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'styled-components';
@@ -72,7 +72,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
-    const styledTheme = useTheme() as any;
+    const styledTheme = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -227,9 +227,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                             <br />,
                                                             <span
                                                                 style={{
-                                                                    color:
-                                                                        styledTheme?.colors?.textTertiary ??
-                                                                        colors.gray[400],
+                                                                    color: styledTheme.colors.textTertiary,
                                                                 }}
                                                             >
                                                                 {option.description}
@@ -249,7 +247,9 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                     {option.icon}
                                                     <Text
                                                         color={
-                                                            selectedValues.includes(option.value) ? 'violet' : 'gray'
+                                                            selectedValues.includes(option.value)
+                                                                ? 'textBrand'
+                                                                : undefined
                                                         }
                                                         weight="semiBold"
                                                         size="md"
@@ -259,7 +259,6 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                 </ActionButtonsContainer>
                                                 {!!option.description && (
                                                     <Text
-                                                        color="gray"
                                                         weight="normal"
                                                         size="sm"
                                                         style={{ maxWidth: descriptionMaxWidth }}

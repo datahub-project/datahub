@@ -15,7 +15,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+import { radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -35,7 +35,7 @@ export const SelectBase = styled.div<SelectStyleProps>(
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
-        backgroundColor: isDisabled ? theme.colors.bgSurface : theme.colors.bg,
+        backgroundColor: isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg,
         width: width === 'full' ? '100%' : 'max-content',
     }),
 );
@@ -62,39 +62,42 @@ interface ContainerProps {
     isSelected?: boolean;
 }
 
-export const Container = styled.div<ContainerProps>(({ size, width, $minWidth, $selectLabelVariant, isSelected }) => {
-    const getMinWidth = () => {
-        if ($minWidth) return $minWidth;
-        if (width === 'fit-content') return 'undefined';
-        if ($selectLabelVariant === 'labeled') {
-            return isSelected ? '145px' : '103px';
-        }
-        return '175px';
-    };
+export const Container = styled.div<ContainerProps>(
+    ({ size, width, $minWidth, $selectLabelVariant, isSelected, theme }) => {
+        const getMinWidth = () => {
+            if ($minWidth) return $minWidth;
+            if (width === 'fit-content') return 'undefined';
+            if ($selectLabelVariant === 'labeled') {
+                return isSelected ? '145px' : '103px';
+            }
+            return '175px';
+        };
 
-    const getWitdh = () => {
-        switch (width) {
-            case 'full':
-                return '100%';
-            case 'fit-content':
-                return 'fit-content';
-            default:
-                return `${width}px`;
-        }
-    };
+        const getWitdh = () => {
+            switch (width) {
+                case 'full':
+                    return '100%';
+                case 'fit-content':
+                    return 'fit-content';
+                default:
+                    return `${width}px`;
+            }
+        };
 
-    return {
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        width: getWitdh(),
-        gap: '4px',
-        transition: sharedTransition,
-        minWidth: getMinWidth(),
-        ...getSelectFontStyles(size),
-        ...inputValueTextStyles(size),
-    };
-});
+        return {
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            width: getWitdh(),
+            gap: '4px',
+            transition: sharedTransition,
+            minWidth: getMinWidth(),
+            ...getSelectFontStyles(size),
+            ...inputValueTextStyles(size),
+            color: theme.colors.text,
+        };
+    },
+);
 
 export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight, theme }) => ({
     ...getDropdownStyle(),
@@ -121,7 +124,7 @@ export const SelectValue = styled.span(({ theme }) => ({
 
 export const Placeholder = styled.span(({ theme }) => ({
     ...inputPlaceholderTextStyles,
-    color: theme.colors.textTertiary,
+    color: theme.colors.textPlaceholder,
 }));
 
 export const ActionButtonsContainer = styled.div({
@@ -182,33 +185,34 @@ export const OptionLabel = styled.label<{
     ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme.colors),
 }));
 
-export const SelectLabel = styled.label({
+export const SelectLabel = styled.label(({ theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     marginBottom: spacing.xxsm,
-    textAlign: 'left',
-});
+    textAlign: 'left' as const,
+}));
 
 export const StyledIcon = styled(Icon)(({ theme }) => ({
     flexShrink: 0,
-    color: theme.colors.textTertiary,
+    color: theme.colors.icon,
 }));
 
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
 })(({ theme }) => ({
-    color: theme.colors.textTertiary,
+    color: theme.colors.icon,
     padding: '0px',
 
     '&:hover': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
         boxShadow: shadows.none,
     },
 
     '&:focus': {
         border: 'none',
-        backgroundColor: colors.transparent,
+        backgroundColor: 'transparent',
         boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${theme.colors.borderBrandFocused}`,
     },
 }));
@@ -220,7 +224,7 @@ export const ClearIcon = styled.span({
 
 export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) => ({
     marginLeft: 'auto',
-    border: `solid ${theme.colors.icon}`,
+    border: `solid ${theme.colors.border}`,
     borderWidth: '0 1px 1px 0',
     display: 'inline-block',
     padding: '3px',

@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 export const ChartCard = styled(Card)<{ $shouldScroll: boolean }>`
     margin: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 440px;
     overflow-y: ${(props) => (props.$shouldScroll ? 'scroll' : 'hidden')};
 `;

@@ -87,7 +87,7 @@ export const Table = <T,>({
         return (
             <LoadingContainer>
                 <LoadingOutlined />
-                <Text color="gray">Loading data...</Text>
+                <Text>Loading data...</Text>
             </LoadingContainer>
         );
     }

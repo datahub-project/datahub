@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border: 1px solid ${(props) => props.theme.colors.border};
     min-height: 115px;
     border-radius: 6px;
     width: 75%;

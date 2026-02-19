@@ -41,7 +41,7 @@ const Card = styled.div`
     padding: 16px;
     height: 100%;
     :hover {
-        border: 1.5px solid ${(props) => props.theme.colors.textInformation};
+        border: 1.5px solid ${(props) => props.theme.colors.borderInformation};
         cursor: pointer;
     }
 `;

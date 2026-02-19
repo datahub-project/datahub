@@ -9,7 +9,7 @@ const StyledInput = styled(Input)`
     width: 75%;
     min-width: 350px;
     max-width: 500px;
-    border: 1px solid ${(props) => props.theme.colors.textDisabled};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InputWrapper = styled.div`

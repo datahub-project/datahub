@@ -71,7 +71,7 @@ export const Checkmark = styled.div<{
     cursor: disabled ? 'normal' : 'pointer',
     ':hover': {
         ...(!disabled && {
-            borderColor: theme.styles['primary-color'],
+            borderColor: theme.colors.borderBrand,
         }),
     },
     '&:after': {
@@ -82,7 +82,7 @@ export const Checkmark = styled.div<{
         left: !intermediate ? '30%' : '45%',
         width: !intermediate ? '35%' : '0px',
         height: !intermediate ? '60%' : '50%',
-        border: disabled ? `solid ${theme.colors.textDisabled}` : `solid ${theme.colors.textBrandOnBgFill}`,
+        border: disabled ? `solid ${theme.colors.borderDisabled}` : `solid ${theme.colors.textBrandOnBgFill}`,
         borderWidth: '0 2px 2px 0',
         transform: !intermediate ? 'rotate(45deg)' : transform.rotate[90],
     },

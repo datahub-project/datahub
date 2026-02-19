@@ -19,7 +19,7 @@ export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ 
     cursor: !disabled ? 'pointer' : 'none',
     transition: 'border 0.3s ease, outline 0.3s ease',
     '&:hover': {
-        border: `${borders['2px']} ${!disabled && !error ? theme.styles['primary-color'] : getRadioBorderColor(disabled, error, theme.colors)}`,
+        border: `${borders['2px']} ${!disabled && !error ? theme.colors.borderBrand : getRadioBorderColor(disabled, error, theme.colors)}`,
         outline: !disabled && !error ? `${borders['2px']} ${theme.colors.border}` : 'none',
     },
 }));

@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import ContainerPath from '@app/lineageV3/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
@@ -15,7 +14,6 @@ import NodeSkeleton from '@app/lineageV3/LineageEntityNode/NodeSkeleton';
 import { FetchStatus } from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { downgradeV2FieldPath, useGetLineageUrl } from '@app/lineageV3/utils/lineageUtils';
-import { COLORS } from '@app/sharedV2/colors';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -26,7 +24,7 @@ import LinkOut from '@images/link-out.svg?react';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
-const NODE_COLOR = COLORS.blue_7;
+const NODE_COLOR = '#4DA1BF';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -38,13 +36,13 @@ const NodeWrapper = styled.div<{
     align-items: center;
     background-color: ${(props) => props.theme.colors.bgSurface};
     border: 1px solid
-        ${({ color, selected, isGhost }) => {
+        ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
+            if (isGhost) return `${theme.colors.border}50`;
+            return theme.colors.border;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.borderBrand}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -193,7 +191,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
