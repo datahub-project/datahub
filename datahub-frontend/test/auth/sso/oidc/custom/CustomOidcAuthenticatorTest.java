@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import auth.sso.oidc.OidcConfigs;
+import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
+import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +15,7 @@ import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.credentials.Credentials;
+import org.pac4j.core.exception.TechnicalException;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.OidcCredentials;
@@ -131,5 +135,77 @@ public class CustomOidcAuthenticatorTest {
   @Test
   void testConstructorInitializesCorrectly() {
     assertNotNull(authenticator);
+  }
+
+  @Test
+  void testConstructor_PrivateKeyJwtMethod() throws Exception {
+    // Setup for private_key_jwt authentication
+    OidcConfiguration pkjConfiguration = mock(OidcConfiguration.class);
+    OidcConfigs pkjOidcConfigs = mock(OidcConfigs.class);
+    OidcClient pkjClient = mock(OidcClient.class);
+    OidcOpMetadataResolver pkjMetadataResolver = mock(OidcOpMetadataResolver.class);
+    OIDCProviderMetadata pkjProviderMetadata = mock(OIDCProviderMetadata.class);
+
+    when(pkjClient.getConfiguration()).thenReturn(pkjConfiguration);
+    when(pkjOidcConfigs.getHttpRetryAttempts()).thenReturn("3");
+    when(pkjOidcConfigs.getHttpRetryDelay()).thenReturn("100");
+
+    when(pkjConfiguration.getClientId()).thenReturn("test-client-id");
+    when(pkjConfiguration.getOpMetadataResolver()).thenReturn(pkjMetadataResolver);
+    when(pkjMetadataResolver.load()).thenReturn(pkjProviderMetadata);
+
+    // Configure provider metadata to support private_key_jwt
+    when(pkjProviderMetadata.getTokenEndpointAuthMethods())
+        .thenReturn(List.of(ClientAuthenticationMethod.PRIVATE_KEY_JWT));
+    when(pkjProviderMetadata.getTokenEndpointURI()).thenReturn(new URI("https://example.com/token"));
+
+    // Configure private_key_jwt method with test key files
+    when(pkjConfiguration.getClientAuthenticationMethod())
+        .thenReturn(ClientAuthenticationMethod.PRIVATE_KEY_JWT);
+    when(pkjOidcConfigs.getPrivateKeyFilePath())
+        .thenReturn(Optional.of("test/resources/test-private-key.pem"));
+    when(pkjOidcConfigs.getPublicKeyFilePath())
+        .thenReturn(Optional.of("test/resources/test-certificate.pem"));
+    when(pkjOidcConfigs.getPrivateKeyPassword()).thenReturn(Optional.empty());
+    when(pkjOidcConfigs.getPrivateKeyJwtAlgorithm()).thenReturn("RS256");
+
+    // Create authenticator with private_key_jwt config
+    CustomOidcAuthenticator pkjAuthenticator = new CustomOidcAuthenticator(pkjClient, pkjOidcConfigs);
+
+    assertNotNull(pkjAuthenticator);
+  }
+
+  @Test
+  void testConstructor_PrivateKeyJwtMethod_MissingPrivateKeyPath() throws Exception {
+    // Setup for private_key_jwt with missing key path
+    OidcConfiguration pkjConfiguration = mock(OidcConfiguration.class);
+    OidcConfigs pkjOidcConfigs = mock(OidcConfigs.class);
+    OidcClient pkjClient = mock(OidcClient.class);
+    OidcOpMetadataResolver pkjMetadataResolver = mock(OidcOpMetadataResolver.class);
+    OIDCProviderMetadata pkjProviderMetadata = mock(OIDCProviderMetadata.class);
+
+    when(pkjClient.getConfiguration()).thenReturn(pkjConfiguration);
+    when(pkjOidcConfigs.getHttpRetryAttempts()).thenReturn("3");
+    when(pkjOidcConfigs.getHttpRetryDelay()).thenReturn("100");
+
+    when(pkjConfiguration.getClientId()).thenReturn("test-client-id");
+    when(pkjConfiguration.getOpMetadataResolver()).thenReturn(pkjMetadataResolver);
+    when(pkjMetadataResolver.load()).thenReturn(pkjProviderMetadata);
+
+    when(pkjProviderMetadata.getTokenEndpointAuthMethods())
+        .thenReturn(List.of(ClientAuthenticationMethod.PRIVATE_KEY_JWT));
+    when(pkjProviderMetadata.getTokenEndpointURI()).thenReturn(new URI("https://example.com/token"));
+
+    when(pkjConfiguration.getClientAuthenticationMethod())
+        .thenReturn(ClientAuthenticationMethod.PRIVATE_KEY_JWT);
+    // Missing private key path
+    when(pkjOidcConfigs.getPrivateKeyFilePath()).thenReturn(Optional.empty());
+    when(pkjOidcConfigs.getPublicKeyFilePath())
+        .thenReturn(Optional.of("test/resources/test-certificate.pem"));
+
+    // Should throw TechnicalException because privateKeyFilePath is missing
+    assertThrows(
+        TechnicalException.class,
+        () -> new CustomOidcAuthenticator(pkjClient, pkjOidcConfigs));
   }
 }
