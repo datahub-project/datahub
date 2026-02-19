@@ -131,6 +131,9 @@ if TYPE_CHECKING:
         DatahubGEProfiler,
         GEProfilerRequest,
     )
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -396,6 +399,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
+            if config_dict.get("stateful_ingestion", {}).get("enabled", False):
+                # Connection test should only care about config for connecting to the source
+                # Ingestion-only details like whether stateful_ingestion is enabled are irrelevant
+                # And specifically, stateful_ingestion requires a connection to DataHub
+                # which should not be required to test a connection
+                config_dict = {
+                    **config_dict,
+                    "stateful_ingestion": {"enabled": False},
+                }
             source = cast(
                 SQLAlchemySource,
                 cls.create(config_dict, PipelineContext(run_id="test_connection")),
@@ -1306,16 +1318,39 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
-    def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
-        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-            env=self.config.env,
+    def get_profiler_instance(
+        self, inspector: Inspector
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        # Import custom profiler first (no GE dependency)
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
         )
+
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            # Only import GE profiler if we're actually using it
+            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def get_profile_args(self) -> Dict:
         """Passed down to GE profiler"""
@@ -1457,7 +1492,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
-        profiler: "DatahubGEProfiler",
+        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(

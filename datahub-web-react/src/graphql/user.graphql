@@ -376,7 +376,7 @@ mutation updateUserHomePageSettings($input: UpdateUserHomePageSettingsInput!) {
     updateUserHomePageSettings(input: $input)
 }
 
-query getUserOwnedAssets($urns: [String!]!) {
+query getUserOwnedAssets($urns: [String!]!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
         ...searchResults
     }

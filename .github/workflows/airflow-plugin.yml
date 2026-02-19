@@ -95,8 +95,8 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: ingestion-airflow-plugin-test-results-${{ strategy.job-index }}
-          test-results-path: "metadata-ingestion-modules/airflow-plugin/test-results/**"
-          junit-file-glob: "metadata-ingestion-modules/airflow-plugin/test-results/*.xml"
+          test-results-paths: "metadata-ingestion-modules/airflow-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/airflow-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: (!cancelled())
         uses: codecov/codecov-action@v5
