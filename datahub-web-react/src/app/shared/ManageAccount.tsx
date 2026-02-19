@@ -1,15 +1,17 @@
 import { CaretDownOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Dropdown } from 'antd';
 import Cookies from 'js-cookie';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GlobalCfg } from '@src/conf';
@@ -134,7 +136,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     return (
         <Dropdown menu={{ items }} trigger={['click']}>
             <DropdownWrapper data-testid="manage-account-menu">
-                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
+                <Avatar name={name || ''} imageUrl={_pictureLink} type={AvatarType.user} />
                 <DownArrow />
             </DropdownWrapper>
         </Dropdown>

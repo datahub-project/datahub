@@ -1,7 +1,8 @@
+import { Avatar, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { CustomAvatar } from '@app/shared/avatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { EntityType } from '@types';
 
@@ -16,6 +17,12 @@ const OwnerContentWrapper = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 4px;
+`;
+
+const SubHeader = styled.div`
+    color: ${colors.gray[1700]};
+    font-size: 12px;
 `;
 
 type Props = {
@@ -29,14 +36,15 @@ type Props = {
 
 export const OwnerLabel = ({ name, avatarUrl, type, corpUserId, corpUserTitle, corpUserDepartmentName }: Props) => {
     const subHeader = [corpUserId, corpUserTitle, corpUserDepartmentName].filter(Boolean).join(' - ');
+    const avatarType = type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
         <OwnerContainerWrapper>
             <OwnerContentWrapper>
-                <CustomAvatar size={24} name={name} photoUrl={avatarUrl} isGroup={type === EntityType.CorpGroup} />
+                <Avatar name={name} imageUrl={avatarUrl} type={avatarType} />
                 <div>
                     <div>{name}</div>
-                    {subHeader && <div style={{ color: 'gray' }}>{subHeader}</div>}
+                    {subHeader && <SubHeader>{subHeader}</SubHeader>}
                 </div>
             </OwnerContentWrapper>
         </OwnerContainerWrapper>

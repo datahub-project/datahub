@@ -1,12 +1,14 @@
+import { Avatar } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -95,7 +97,7 @@ export const Preview = ({
             </div>
             <Link to={url}>
                 <AvatarContainer>
-                    <CustomAvatar size={48} photoUrl={photoUrl} name={name || undefined} />
+                    <Avatar name={name || ''} imageUrl={photoUrl} type={AvatarType.user} size="xl" />
                 </AvatarContainer>
             </Link>
         </PreviewContainer>

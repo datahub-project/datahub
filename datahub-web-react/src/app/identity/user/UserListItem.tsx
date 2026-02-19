@@ -1,8 +1,11 @@
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
@@ -10,7 +13,6 @@ import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
@@ -131,10 +133,11 @@ export default function UserListItem({
             <UserItemContainer>
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}>
                     <UserHeaderContainer>
-                        <CustomAvatar
-                            size={32}
+                        <Avatar
                             name={displayName}
-                            photoUrl={user.editableProperties?.pictureLink || undefined}
+                            imageUrl={user.editableProperties?.pictureLink || undefined}
+                            type={AvatarType.user}
+                            size="xl"
                         />
                         <div style={{ marginLeft: 16, marginRight: 20 }}>
                             <div>
