@@ -154,7 +154,7 @@ docker exec datahub-gms env | grep -E 'OPENAI_API_KEY|COHERE_API_KEY'
 
 **Solution:** Ensure both the ingestion connector AND GMS use the same embedding model. Check:
 
-- `EMBEDDING_PROVIDER_MODEL_ID` in GMS config
+- The provider-specific model env var (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, or `COHERE_EMBEDDING_MODEL`) in GMS config
 - Embedding model in your ingestion recipe
 
 ## Best Practices
