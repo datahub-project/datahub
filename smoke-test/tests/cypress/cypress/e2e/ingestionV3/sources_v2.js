@@ -17,6 +17,7 @@ const ingestionSourceDetails = {
   username: `user${number}`,
   password: `password${number}`,
   role: `role${number}`,
+  authentication_type: "Username & Password",
 };
 
 describe("ingestion sources", () => {
