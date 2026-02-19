@@ -146,6 +146,7 @@ export default function RunDetailsContent({
                 ),
                 key: TabType.Summary,
                 name: TabType.Summary,
+                dataTestId: 'run-details-summary-tab',
             },
             {
                 component: <SamplesTab data={data} />,
@@ -157,11 +158,13 @@ export default function RunDetailsContent({
                 component: <LogsTab urn={urn} data={data} />,
                 key: TabType.Logs,
                 name: TabType.Logs,
+                dataTestId: 'run-details-logs-tab',
             },
             {
                 component: <RecipeTab urn={urn} data={data} />,
                 key: TabType.Recipe,
                 name: TabType.Recipe,
+                dataTestId: 'run-details-recipe-tab',
             },
         ],
         [data, urn, result, status, allTableData],

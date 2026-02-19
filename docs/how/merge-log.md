@@ -4055,3 +4055,46 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **1acb7d69c1** - chore(git-ignore): add a few more patterns (#16219)
   *by Shirshanka Das <shirshanka@apache.org> on 2026-02-15*
+
+## Upstream Merge Session - 2026-02-17 19:30:54
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: 2026-02-17 19:30:54
+
+### Commits Included in This Merge
+
+- **682761d81a** - fix(ingest/looker): stop clearing LOOKERSDK_CLIENT_SECRET env var after init (#16226)
+  *by Tamas Nemeth <treff7es@gmail.com> on 2026-02-16*
+
+- **833e80f708** - docs: fix gradle command for deploying versioned custom model artifacts (#16230)
+  *by otto-the-otter-bot[bot] <261852411+otto-the-otter-bot[bot]@users.noreply.github.com> on 2026-02-16*
+
+- **1ee2d689c3** - docs: update version dropdown label to 1.4.0 (#16232)
+  *by otto-the-otter-bot[bot] <261852411+otto-the-otter-bot[bot]@users.noreply.github.com> on 2026-02-16*
+
+- **43aa36ffd1** - feat(snowflake): add support for external DMF assertion ingestion (#16058)
+  *by Rajat Singh <rajats2502@gmail.com> on 2026-02-17*
+
+- **1a72eac0f0** - fix(ingestion/datahub): prevent partial entity sync in DataHub source using URN pattern filtering (#16149)
+  *by Aviraj Gour <252974426+aviraj-gour@users.noreply.github.com> on 2026-02-17*
+
+- **87a2bb0831** - ci(datahub-actions) Add Test Summary for datahub-actions tests and some gradle cleanup (#16223)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-17*
+
+- **91888c17a8** - ci(dathub-agent-context) Add test reporting and coverage for datahub-agent-context (#16225)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-17*
+
+- **f32eb557bb** - ci(python) Update python projects to generate junit and add Github Action Summary (#16229)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-17*
+
+- **2360dedaee** - feat(test/ingestion): add cypress tests for the new ingestion flow (#16104)
+  *by Purnima Garg <139125209+purnimagarg1@users.noreply.github.com> on 2026-02-17*
+
+- **842414a79e** - feat(permissions) Include child domains in policies targeting assets underneath a domain (#16207)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-17*
