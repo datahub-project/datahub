@@ -1,8 +1,11 @@
 <configuration>
+    <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
+        <!-- SanitizingPatternLayout will clean %msg before output -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+        <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
+        </layout>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
         </filter>

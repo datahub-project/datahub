@@ -2,9 +2,11 @@
     <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/gms}"/>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
+        <!-- SanitizingPatternLayout will clean %msg before output -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+        <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
-        </encoder>
+        </layout>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
@@ -28,7 +30,9 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder will clean %msg before writing to file -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
@@ -53,7 +57,9 @@
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder for debug logs -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
@@ -74,7 +80,9 @@
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder for GraphQL debug logs -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>

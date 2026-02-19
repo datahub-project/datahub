@@ -1,10 +1,13 @@
 <configuration scan="true" scanPeriod="120 seconds">
     <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/datahub-upgrade}"/>
 
+    <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
+        <!-- SanitizingPatternLayout will clean %msg before output -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+        <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
-        </encoder>
+        </layout>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
@@ -14,6 +17,7 @@
         </filter>
     </appender>
 
+    <!-- FILE logs with sanitization -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/upgrade.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -28,7 +32,9 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder will clean %msg before writing to file -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
@@ -37,11 +43,12 @@
         </filter>
     </appender>
 
+    <!-- DEBUG_FILE logs with sanitization -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/upgrade.debug.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/upgrade.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
-            <!-- each archived file, size max 10MB -->
+            <!-- each archived file, size max 100MB -->
             <maxFileSize>100MB</maxFileSize>
             <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
             <totalSizeCap>2GB</totalSizeCap>
@@ -53,7 +60,9 @@
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder will clean %msg before writing debug logs -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
@@ -74,7 +83,6 @@
     <logger name="com.linkedin.metadata.models.registry.PatchEntityRegistry" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
-
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
