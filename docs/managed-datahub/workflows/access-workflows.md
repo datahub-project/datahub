@@ -67,6 +67,11 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 * What are common code snippets?
  -->
 
+### Video Walkthrough
+
+<div align="center"><iframe width="560" height="315" src="https://www.loom.com/share/bf9481118c6c404584a8616a15572b41" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
+
 ## Creating an Access Workflow
 
 For each Access Workflow, you can configure the following:
