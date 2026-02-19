@@ -37,7 +37,7 @@ jobs:
           if [ "$WB" = "success" ] && [ "$MI" = "success" ]; then
             echo "both_passed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Not both passed yet (WB=$WB, MI=$MI) — other trigger will handle it."
+            echo "Not both passed yet (WB=$WB, MI=$MI) — other trigger will handle it. If one of the upstream job failed, then connector tests will not run for this SHA."
             echo "both_passed=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -104,6 +104,8 @@ jobs:
       - name: Dispatch to connector-tests
         if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
         env:
+          # Fine-grained PAT scoped to acryldata/connector-tests with Contents: R/W.
+          # To rotate: generate a new token and update this repo secret.
           GH_TOKEN: ${{ secrets.CONNECTOR_TESTS_DISPATCH_TOKEN }}
           PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
