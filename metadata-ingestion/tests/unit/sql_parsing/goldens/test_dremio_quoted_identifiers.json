@@ -49,8 +49,7 @@
         {
             "join_type": "JOIN",
             "left_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)"
             ],
             "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)"

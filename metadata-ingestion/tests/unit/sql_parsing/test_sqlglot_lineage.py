@@ -41,6 +41,14 @@ FROM mytable
 
 def test_select_max_with_schema() -> None:
     # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
+
+    # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
+    # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
+    # Sqlglot confirmed this is intentional - v28 is more conservative with type inference when any argument is UNKNOWN.
+    # See https://github.com/tobymao/sqlglot/issues/6983
+    # The impact is that we miss type information for the max_col column when queries reference unresolved columns.
+    # That doesn't happen with the test_select_max_with_schema_all_resolved test because all columns are resolved.
+
     assert_sql_result(
         """
 SELECT max(`col1`, COL2, `this_will_not_resolve`) as max_col
@@ -54,6 +62,23 @@ FROM mytable
             },
         },
         expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
+    )
+
+
+def test_select_max_with_schema_all_resolved() -> None:
+    assert_sql_result(
+        """
+SELECT max(`col1`, COL2) as max_col
+FROM mytable
+""",
+        dialect="mysql",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)": {
+                "col1": "NUMBER",
+                "col2": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema_all_resolved.json",
     )
 
 
@@ -1644,6 +1669,82 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
 """,
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
+    )
+
+
+def test_snowflake_semantic_view_query() -> None:
+    # Regression test: a dbt model that queries a Snowflake semantic view using
+    # semantic_view(...) table function. Sqlglot has an infinite loop parsing this
+    # (https://github.com/tobymao/sqlglot/issues/6287).
+    assert_sql_result(
+        """SELECT a FROM SEMANTIC_VIEW(b FACTS c)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_query.json",
+    )
+
+
+@pytest.mark.xfail(
+    reason="sqlglot v28.10.0 does not support aliases in semantic view dimensions (e.g., '... as month') https://github.com/tobymao/sqlglot/issues/6993",
+    strict=True,
+)
+def test_snowflake_semantic_view_query_with_metrics() -> None:
+    # Reported by user as causing an infinite loop in sqlglot v27.
+    # Fixed in v28, but v28 still cannot parse aliases in dimensions clause.
+    assert_sql_result(
+        """\
+select
+    organization_id,
+    month,
+    active_users
+from semantic_view(
+    product_metrics.semantic.sv_board_opens
+    metrics active_users
+    dimensions organization_id, date_trunc('month', time) as month
+)
+order by organization_id, month desc
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_query_with_metrics.json",
+    )
+
+
+def test_snowflake_semantic_view_qualified_table() -> None:
+    # Test semantic view with fully qualified table name (db.schema.table)
+    assert_sql_result(
+        """SELECT col1, col2 FROM SEMANTIC_VIEW(mydb.myschema.mytable FACTS fact_col)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_qualified_table.json",
+    )
+
+
+def test_snowflake_semantic_view_with_metrics_only() -> None:
+    # Test semantic view with metrics clause only (no dimensions)
+    assert_sql_result(
+        """SELECT total_revenue FROM SEMANTIC_VIEW(sales_data METRICS total_revenue)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_metrics_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_dimensions_only() -> None:
+    # Test semantic view with dimensions clause only (no metrics)
+    assert_sql_result(
+        """SELECT region, product FROM SEMANTIC_VIEW(sales_data DIMENSIONS region, product)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_dimensions_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_where() -> None:
+    # Test semantic view with WHERE clause in the outer query
+    assert_sql_result(
+        """SELECT user_id, activity FROM SEMANTIC_VIEW(events FACTS activity) WHERE user_id > 100""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_with_where.json",
     )
 
 
