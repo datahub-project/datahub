@@ -126,6 +126,9 @@ function RecipeForm(props: Props) {
         data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
+    // Watch form values for conditional field visibility (e.g., Snowflake authentication type)
+    const formValues = Form.useWatch([], form) || {};
+
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
@@ -161,16 +164,23 @@ function RecipeForm(props: Props) {
                         header={<SectionHeader icon={<ApiOutlined />} text="Connection" />}
                         key="0"
                     >
-                        {fields.map((field, i) => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                secrets={secrets}
-                                refetchSecrets={refetchSecrets}
-                                removeMargin={i === fields.length - 1}
-                                updateFormValue={updateFormValue}
-                            />
-                        ))}
+                        {fields.map((field, i) => {
+                            // Check if field has conditional visibility logic
+                            if (field.shouldShow && !field.shouldShow(formValues)) {
+                                return null;
+                            }
+
+                            return (
+                                <FormField
+                                    key={field.name}
+                                    field={field}
+                                    secrets={secrets}
+                                    refetchSecrets={refetchSecrets}
+                                    removeMargin={i === fields.length - 1}
+                                    updateFormValue={updateFormValue}
+                                />
+                            );
+                        })}
                         {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
                             <TestConnectionWrapper>
                                 <TestConnectionButton
