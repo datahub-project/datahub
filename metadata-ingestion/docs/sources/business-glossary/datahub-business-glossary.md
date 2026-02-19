@@ -67,6 +67,90 @@ Example **GlossaryTerm**:
     - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
   domain: "urn:li:domain:Logistics" # (optional) domain name or domain urn
+  structured_properties: # (optional) a map of structured property assignments
+    io.mycompany.glossary.status: "In Glossary"
+    io.mycompany.glossary.priority: 1
+    io.mycompany.glossary.tags: ["tag1", "tag2", "tag3"]
+```
+
+## Structured Properties
+
+Structured properties allow you to attach custom, typed metadata fields to glossary terms. These properties must be defined in DataHub before they can be used in the business glossary YAML file.
+
+**Key Features**:
+
+- Support for single-valued and multi-valued properties
+- Type-safe values (strings, numbers, lists)
+- Automatic URN handling (with or without `urn:li:structuredProperty:` prefix)
+- Backward compatible (optional field)
+
+**Example Usage**:
+
+```yaml
+terms:
+  - name: "Customer Email"
+    description: "Customer's primary email address"
+    structured_properties:
+      # Single string value
+      io.mycompany.glossary.status: "In Glossary"
+
+      # Numeric value
+      io.mycompany.glossary.priority: 1
+
+      # Multi-valued property (list)
+      io.mycompany.glossary.tags: ["pii", "customer-data", "email"]
+
+      # With full URN prefix (also supported)
+      urn:li:structuredProperty:io.mycompany.glossary.owner_team: "Data Governance"
+```
+
+**Property Key Formats**:
+
+Both formats are supported:
+
+- Short form: `io.mycompany.property_name`
+- Full URN: `urn:li:structuredProperty:io.mycompany.property_name`
+
+The system automatically handles the URN prefix conversion.
+
+**Value Types**:
+
+- **String**: `"In Glossary"`
+- **Number**: `1` or `95.5`
+- **List of strings**: `["tag1", "tag2", "tag3"]`
+- **List of numbers**: `[1, 2, 3]`
+- **Mixed lists**: Not supported (use consistent types within a list)
+
+**Important Notes**:
+
+1. **Property Definitions**: Structured properties must be created in DataHub before use. See [Structured Properties Documentation](https://datahubproject.io/docs/api/tutorials/structured-properties/) for details.
+
+2. **Type Validation**: DataHub backend validates that values match the property's defined type and cardinality.
+
+3. **Empty Values**: Empty strings (`""`) are preserved and passed to DataHub for backend validation.
+
+4. **Backward Compatibility**: Terms without `structured_properties` work exactly as before.
+
+**Complete Example**:
+
+```yaml
+version: "1"
+source: DataHub
+nodes:
+  - name: "Data Governance"
+    description: "Data governance terms"
+    terms:
+      - name: "PII Data"
+        description: "Personally Identifiable Information"
+        structured_properties:
+          io.mycompany.glossary.status: "Approved"
+          io.mycompany.glossary.compliance_level: "High"
+          io.mycompany.glossary.data_classification: ["PII", "Sensitive"]
+          io.mycompany.glossary.retention_days: 365
+          io.mycompany.glossary.requires_encryption: "true"
+        domain: "urn:li:domain:DataGovernance"
+        custom_properties:
+          legacy_id: "pii-001"
 ```
 
 ## ID Management and URL Generation
@@ -175,6 +259,9 @@ nodes:
         description: Sensitive Data
         custom_properties:
           is_confidential: "false"
+        structured_properties:
+          io.mycompany.glossary.classification_level: "Sensitive"
+          io.mycompany.glossary.requires_approval: "true"
       - name: "Confidential Information" # Will generate: Data-Classification.Confidential-Information
         description: Confidential Data
         custom_properties:
@@ -198,6 +285,10 @@ nodes:
         owners:
           groups:
             - Trust and Safety
+        structured_properties:
+          io.mycompany.glossary.data_type: "PII"
+          io.mycompany.glossary.retention_days: 730
+          io.mycompany.glossary.regions: ["US", "EU", "APAC"]
       - name: "Address" # Will generate: Personal-Information.Address
         description: A physical address
       - name: "Gender" # Will generate: Personal-Information.Gender
