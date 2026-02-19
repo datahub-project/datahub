@@ -362,6 +362,8 @@ def _extract_sharding_key(
     implicitly uses rand() as the sharding key. For 4+ arguments, the 4th
     argument is the explicit sharding key.
 
+    Reference: https://clickhouse.com/docs/engines/table-engines/special/distributed
+
     Args:
         engine_full: The full engine definition string from system.tables
         default_sharding_key: Value to return for implicit sharding (default: "rand()")
@@ -379,6 +381,7 @@ def _extract_sharding_key(
 
     args = _split_distributed_args(match.group(1))
     if len(args) < 3:
+        logger.debug(f"Could not extract sharding_key from: {engine_full}")
         return None
     if len(args) == 3:
         # 3 args = cluster, database, table - implicit rand() sharding
@@ -386,6 +389,7 @@ def _extract_sharding_key(
 
     sharding_key = args[3].strip()
     if not sharding_key:
+        logger.debug(f"Could not extract sharding_key from: {engine_full}")
         return None
 
     return _strip_wrapping_quotes(sharding_key)
@@ -416,13 +420,22 @@ def _get_all_table_comments_and_properties(self, connection, **kw):
 
     result = connection.execute(text(comment_sql))
     for table in result:
+        properties = (
+            {k: str(v) for k, v in json.loads(table.properties).items()}
+            if table.properties
+            else {}
+        )
+        # Enrich with sharding_key for Distributed tables
+        engine_full = properties.get("engine_full")
+        sharding_key = _extract_sharding_key(engine_full)
+        if sharding_key:
+            properties["sharding_key"] = sharding_key
+        # engine_full is only needed for sharding key extraction
+        properties.pop("engine_full", None)
+
         all_table_comments[(table.database, table.table_name)] = {
             "text": table.comment,
-            "properties": (
-                {k: str(v) for k, v in json.loads(table.properties).items()}
-                if table.properties
-                else {}
-            ),
+            "properties": properties,
         }
     return all_table_comments
 
@@ -913,22 +926,6 @@ ORDER BY event_time ASC
                 context=f"query_id={row.get('query_id', 'unknown')}: {e}",
             )
             return None
-
-    def get_table_properties(
-        self, inspector: reflection.Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        description, properties, location = super().get_table_properties(
-            inspector, schema, table
-        )
-        engine_full = properties.get("engine_full") if properties else None
-        sharding_key = _extract_sharding_key(engine_full)
-        if sharding_key:
-            properties["sharding_key"] = sharding_key
-        elif engine_full and "Distributed" in engine_full:
-            logger.debug(f"Could not extract sharding_key from: {engine_full}")
-        # Remove engine_full from properties as it's only used for extraction
-        properties.pop("engine_full", None)
-        return description, properties, location
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         # Emit schema and definition-based lineage workunits
