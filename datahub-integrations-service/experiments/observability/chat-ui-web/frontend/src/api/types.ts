@@ -224,10 +224,21 @@ export interface SearchRequest {
   start?: number;
   count?: number;
   types?: string[];
+  searchType?: 'QUERY_THEN_FETCH' | 'DFS_QUERY_THEN_FETCH';
+  functionScoreOverride?: string;
+  rescoreEnabled?: boolean;
+  // Java/exp4j rescore overrides
+  rescoreFormulaOverride?: string;
+  rescoreSignalsOverride?: string;
 }
 
 export interface MatchedField {
   name: string;
+  value: string;
+}
+
+export interface CustomProperty {
+  key: string;
   value: string;
 }
 
@@ -236,12 +247,22 @@ export interface SearchResultEntity {
   type: string;
   name?: string;
   properties?: Record<string, any>;
+  editableProperties?: Record<string, any>;  // User-edited properties from DataHub UI
+  // Ranking-relevant metadata fields
+  tags?: string[];
+  glossaryTerms?: string[];
+  domain?: string | null;
+  subTypes?: string[];
+  browsePath?: string[];
+  customProperties?: CustomProperty[];
 }
 
 export interface SearchResultItem {
   entity: SearchResultEntity;
   matchedFields: MatchedField[];
   score?: number;
+  explanation?: Record<string, any>;
+  rescoreExplanation?: RescoreExplanation;
 }
 
 export interface SearchResponse {
@@ -261,7 +282,9 @@ export interface ExplainResponse {
   index: string;
   documentId: string;
   matched: boolean;
-  score?: number;
+  score?: number;  // Production-accurate score (multi-index)
+  singleIndexScore?: number;  // Single-index score (for comparison)
+  searchedEntityTypes?: string[];  // Entity types used for IDF calculation
   explanation: Record<string, any>;
 }
 
@@ -285,4 +308,74 @@ export interface RankingAnalysisResponse {
   analysis: string;
   model: string;
   tokens: Record<string, number>;
+}
+
+// Search Configuration types (Stage 1 and Stage 2)
+export type RescoreMode = 'JAVA_EXP4J' | 'ES_PAINLESS';
+
+export interface NormalizationConfig {
+  type: string;
+  inputMin?: number;
+  inputMax?: number;
+  steepness?: number;
+  scale?: number;
+  outputMin?: number;
+  outputMax?: number;
+  trueValue?: number;
+  falseValue?: number;
+}
+
+export interface SignalConfig {
+  name: string;
+  normalizedName: string;
+  fieldPath: string;
+  type: string;
+  boost: number;
+  normalization: NormalizationConfig;
+}
+
+export interface ConfigPreset {
+  name: string;
+  description: string;
+  config: string;
+}
+
+export interface Stage1Configuration {
+  source: string;
+  functionScore?: string;
+  presets: ConfigPreset[];
+}
+
+export interface Stage2Configuration {
+  enabled: boolean;
+  mode: RescoreMode;
+  windowSize: number;
+  formula?: string;
+  signals?: SignalConfig[];
+  presets: ConfigPreset[];
+}
+
+export interface SearchConfiguration {
+  stage1: Stage1Configuration;
+  stage2: Stage2Configuration;
+}
+
+// Stage 2 Rescore Explanation types
+export interface SignalExplanation {
+  name: string;
+  rawValue?: string;
+  numericValue: number;
+  normalizedValue: number;
+  boost: number;
+  contribution: number;
+}
+
+export interface RescoreExplanation {
+  documentId?: string;
+  bm25Score: number;       // Original ES/BM25 score
+  rescoreValue: number;    // Raw rescore formula result (before boost)
+  rescoreBoost: number;    // Dynamic boost added to ensure rescored > non-rescored
+  finalScore: number;      // rescoreValue + rescoreBoost (the displayed score)
+  formula: string;
+  signals?: SignalExplanation[] | Record<string, SignalExplanation>;  // Can be array or object/map
 }

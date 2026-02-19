@@ -193,5 +193,6 @@ markers = [
     "integration: mark a test as an integration test requiring external dependencies."
 ]
 norecursedirs = [
-    "scripts/teams/install/datahub-router"
+    "scripts/teams/install/datahub-router",
+    "experiments"
 ]

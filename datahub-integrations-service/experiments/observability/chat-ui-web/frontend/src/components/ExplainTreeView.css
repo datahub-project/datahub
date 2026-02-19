@@ -1,0 +1,130 @@
+/* ExplainTreeView - Galaxy Hubble-inspired scoring formula display */
+
+.explain-tree-node {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.explain-tree-node details {
+  margin: 2px 0;
+}
+
+.explain-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 4px 0;
+  user-select: none;
+  display: block;
+}
+
+.explain-summary::-webkit-details-marker {
+  display: none;
+}
+
+.explain-summary:hover {
+  background-color: #f8f9fa;
+}
+
+.explain-summary-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.explain-toggle {
+  color: #666;
+  font-size: 10px;
+  width: 12px;
+  display: inline-block;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.explain-score {
+  font-weight: bold;
+  color: #000;
+  min-width: 60px;
+  text-align: right;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  flex-shrink: 0;
+}
+
+.explain-equals {
+  color: #666;
+  flex-shrink: 0;
+}
+
+.explain-description {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.explain-operation {
+  color: #0066cc;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.explain-field {
+  color: #000;
+}
+
+.explain-field strong {
+  font-weight: 600;
+  color: #2c5282;
+}
+
+.explain-term {
+  color: #38a169;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.explain-params {
+  color: #C80815;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.explain-raw-description {
+  color: #4a5568;
+  font-size: 12px;
+}
+
+.explain-children {
+  margin-left: 0;
+}
+
+/* Compact mode for deeply nested nodes */
+.explain-tree-node details[open] > .explain-children {
+  border-left: 1px solid #e2e8f0;
+  padding-left: 4px;
+  margin-left: 8px;
+}
+
+/* Full description text */
+.explain-full-description {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+  margin-left: 76px; /* Align with description after score and equals */
+  font-style: italic;
+  line-height: 1.4;
+  max-width: 700px;
+  word-wrap: break-word;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border-left: 2px solid #d0d7de;
+}
+
+.explain-summary-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}

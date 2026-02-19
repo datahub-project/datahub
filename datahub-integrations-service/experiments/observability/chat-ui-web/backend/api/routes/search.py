@@ -5,7 +5,7 @@ Search routes - Proxy to DataHub search GraphQL and explain REST APIs.
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,8 +28,15 @@ from api.models import (
     RankingAnalysisRequest,
     RankingAnalysisResponse,
     SearchConfigResponse,
+    SearchConfigurationModel,
     SearchRequest,
     SearchResponse,
+    SignalConfigModel,
+    SignalNormalizationModel,
+    Stage1ConfigurationModel,
+    Stage1PresetModel,
+    Stage2ConfigurationModel,
+    Stage2PresetModel,
 )
 
 try:
@@ -46,7 +53,7 @@ except ImportError:
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-# GraphQL query matching production UI
+# GraphQL query matching production UI - extended with ranking-relevant fields
 SEARCH_QUERY = """
 query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
   searchAcrossEntities(input: $input) {
@@ -65,6 +72,49 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
           properties {
             name
             description
+            customProperties {
+              key
+              value
+            }
+          }
+          editableProperties {
+            description
+          }
+          tags {
+            tags {
+              tag {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          glossaryTerms {
+            terms {
+              term {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          domain {
+            domain {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+          subTypes {
+            typeNames
+          }
+          browsePathV2 {
+            path {
+              name
+            }
           }
         }
         ... on Dashboard {
@@ -72,6 +122,49 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
           properties {
             name
             description
+            customProperties {
+              key
+              value
+            }
+          }
+          editableProperties {
+            description
+          }
+          tags {
+            tags {
+              tag {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          glossaryTerms {
+            terms {
+              term {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          domain {
+            domain {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+          subTypes {
+            typeNames
+          }
+          browsePathV2 {
+            path {
+              name
+            }
           }
         }
         ... on Chart {
@@ -79,6 +172,49 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
           properties {
             name
             description
+            customProperties {
+              key
+              value
+            }
+          }
+          editableProperties {
+            description
+          }
+          tags {
+            tags {
+              tag {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          glossaryTerms {
+            terms {
+              term {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          domain {
+            domain {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+          subTypes {
+            typeNames
+          }
+          browsePathV2 {
+            path {
+              name
+            }
           }
         }
         ... on DataJob {
@@ -86,6 +222,46 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
           properties {
             name
             description
+            customProperties {
+              key
+              value
+            }
+          }
+          tags {
+            tags {
+              tag {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          glossaryTerms {
+            terms {
+              term {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          domain {
+            domain {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+          subTypes {
+            typeNames
+          }
+          browsePathV2 {
+            path {
+              name
+            }
           }
         }
         ... on DataFlow {
@@ -93,6 +269,46 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
           properties {
             name
             description
+            customProperties {
+              key
+              value
+            }
+          }
+          tags {
+            tags {
+              tag {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          glossaryTerms {
+            terms {
+              term {
+                urn
+                properties {
+                  name
+                }
+              }
+            }
+          }
+          domain {
+            domain {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+          subTypes {
+            typeNames
+          }
+          browsePathV2 {
+            path {
+              name
+            }
           }
         }
       }
@@ -101,6 +317,10 @@ query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
         value
       }
       score
+      extraProperties {
+        name
+        value
+      }
     }
   }
 }
@@ -119,6 +339,40 @@ async def search(
     """
     try:
         # Build GraphQL variables matching production format
+        search_flags = {
+            "fulltext": True,
+            "getSuggestions": False,
+            "includeStructuredPropertyFacets": False,
+            "includeExplain": True,
+            "searchType": request.searchType,
+        }
+
+        # Add functionScoreOverride if provided (for debugging Stage 1)
+        if request.functionScoreOverride:
+            try:
+                json.loads(request.functionScoreOverride)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON in functionScoreOverride: {e}")
+            search_flags["functionScoreOverride"] = request.functionScoreOverride
+            logger.info(f"Using Stage 1 function score override: {request.functionScoreOverride[:100]}...")
+
+        # Add rescoreEnabled if provided (for enabling/disabling Stage 2)
+        if request.rescoreEnabled is not None:
+            search_flags["rescoreEnabled"] = request.rescoreEnabled
+            logger.info(f"Stage 2 rescore enabled: {request.rescoreEnabled}")
+
+        # Add rescoreFormulaOverride if provided
+        if request.rescoreFormulaOverride:
+            search_flags["rescoreFormulaOverride"] = request.rescoreFormulaOverride
+
+        # Add rescoreSignalsOverride if provided
+        if request.rescoreSignalsOverride:
+            try:
+                json.loads(request.rescoreSignalsOverride)
+            except json.JSONDecodeError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON in rescoreSignalsOverride: {e}")
+            search_flags["rescoreSignalsOverride"] = request.rescoreSignalsOverride
+
         variables = {
             "input": {
                 "types": request.types,
@@ -126,10 +380,7 @@ async def search(
                 "start": request.start,
                 "count": request.count,
                 "filters": [],
-                "searchFlags": {
-                    "getSuggestions": False,
-                    "includeStructuredPropertyFacets": False,
-                },
+                "searchFlags": search_flags,
             }
         }
 
@@ -168,10 +419,35 @@ async def search(
 
             # Extract entity properties based on type
             properties = {}
-            if "properties" in entity_data:
-                properties = entity_data["properties"]
-            if "platform" in entity_data:
+            if "properties" in entity_data and entity_data["properties"] is not None:
+                properties = dict(entity_data["properties"])
+            if "platform" in entity_data and entity_data["platform"] is not None:
                 properties["platform"] = entity_data["platform"]["name"]
+
+            # Extract tags
+            tags = _extract_tags(entity_data)
+
+            # Extract glossary terms
+            glossary_terms = _extract_glossary_terms(entity_data)
+
+            # Extract domain
+            domain = _extract_domain(entity_data)
+
+            # Extract subTypes
+            sub_types = _extract_sub_types(entity_data)
+
+            # Extract browse path
+            browse_path = _extract_browse_path(entity_data)
+
+            # Extract custom properties
+            custom_properties = _extract_custom_properties(entity_data)
+            editable_properties = _extract_editable_properties(entity_data)
+
+            # Extract explanation if present
+            explanation = _extract_explanation(item)
+
+            # Extract rescore explanation if present (Stage 2)
+            rescore_explanation = _extract_rescore_explanation(item)
 
             # Build entity
             entity = {
@@ -179,6 +455,13 @@ async def search(
                 "type": entity_data.get("type", ""),
                 "name": _extract_entity_name(entity_data),
                 "properties": properties,
+                "editableProperties": editable_properties,
+                "tags": tags,
+                "glossaryTerms": glossary_terms,
+                "domain": domain,
+                "subTypes": sub_types,
+                "browsePath": browse_path,
+                "customProperties": custom_properties,
             }
 
             # Build matched fields
@@ -187,13 +470,22 @@ async def search(
                 for f in item.get("matchedFields", [])
             ]
 
-            search_results.append(
-                {
-                    "entity": entity,
-                    "matchedFields": matched_fields,
-                    "score": item.get("score"),
-                }
-            )
+            # Build result
+            result_dict = {
+                "entity": entity,
+                "matchedFields": matched_fields,
+                "score": item.get("score"),
+            }
+
+            # Include explanation only if present
+            if explanation:
+                result_dict["explanation"] = explanation
+
+            # Include rescore explanation only if present (Stage 2)
+            if rescore_explanation:
+                result_dict["rescoreExplanation"] = rescore_explanation
+
+            search_results.append(result_dict)
 
         return SearchResponse(
             start=search_data.get("start", 0),
@@ -202,6 +494,8 @@ async def search(
             searchResults=search_results,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -214,61 +508,26 @@ async def explain(
     """
     Get explain information for a specific search result.
 
-    This endpoint calls DataHub's explain REST API to get scoring details.
+    TODO: This endpoint is currently broken - the explainSearchQueryWithGlobalIdf endpoint
+    has been removed. This should be updated to use the standard search API with
+    includeExplain=true flag instead. The explain data will be available in the
+    search response's extraFields._explain field.
+
+    See: SearchFlags.includeExplain in metadata-models/src/main/pegasus/com/linkedin/metadata/query/SearchFlags.pdl
     """
-    try:
-        # Get GMS URL from graph client config
-        gms_url = graph.config.server
-        token = graph.config.token
-
-        # Build explain endpoint URL
-        explain_url = f"{gms_url}/openapi/operations/elasticSearch/explainSearchQuery"
-
-        # Build query parameters
-        params = {
-            "query": request.query,
-            "documentId": request.documentId,
-            "entityName": request.entityName,
-        }
-
-        # Make HTTP request to explain endpoint
-        headers = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                explain_url, params=params, headers=headers, timeout=30.0
-            )
-            response.raise_for_status()
-
-            data = response.json()
-
-            # Extract matched status from explanation object
-            explanation = data.get("explanation", {})
-            matched = explanation.get("match", False)
-
-            return ExplainResponse(
-                index=data.get("index", ""),
-                documentId=data.get("id", request.documentId),
-                matched=matched,
-                score=explanation.get("value"),
-                explanation=explanation,
-            )
-
-    except httpx.HTTPError as e:
-        logger.exception(f"Explain API call failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Explain API error: {str(e)}")
-    except Exception as e:
-        logger.exception(f"Explain failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # This endpoint is currently placeholder as the underlying GMS endpoint was removed
+    # The recommended path is to use the main search endpoint with includeExplain=true
+    raise HTTPException(
+        status_code=501,
+        detail="Explain endpoint is deprecated. Use search with includeExplain=true"
+    )
 
 
 def _extract_entity_name(entity_data: Dict[str, Any]) -> str:
     """Extract entity name from various entity types."""
     if "name" in entity_data:
         return entity_data["name"]
-    if "properties" in entity_data and "name" in entity_data["properties"]:
+    if "properties" in entity_data and entity_data["properties"] and "name" in entity_data["properties"]:
         return entity_data["properties"]["name"]
     if "dashboardId" in entity_data:
         return entity_data["dashboardId"]
@@ -279,6 +538,130 @@ def _extract_entity_name(entity_data: Dict[str, Any]) -> str:
     if "flowId" in entity_data:
         return entity_data["flowId"]
     return entity_data.get("urn", "Unknown")
+
+
+def _extract_tags(entity_data: Dict[str, Any]) -> List[str]:
+    """Extract tag names from entity."""
+    tags = []
+    tags_data = entity_data.get("tags") or {}
+    for tag_item in tags_data.get("tags") or []:
+        if not tag_item:
+            continue
+        tag = tag_item.get("tag") or {}
+        tag_props = tag.get("properties") or {}
+        tag_name = tag_props.get("name")
+        if tag_name:
+            tags.append(tag_name)
+        elif tag.get("urn"):
+            # Fallback: extract tag name from URN (e.g., "urn:li:tag:dbt:core" -> "dbt:core")
+            urn = tag["urn"]
+            if urn.startswith("urn:li:tag:"):
+                tags.append(urn.replace("urn:li:tag:", ""))
+    return tags
+
+
+def _extract_glossary_terms(entity_data: Dict[str, Any]) -> List[str]:
+    """Extract glossary term names from entity."""
+    terms = []
+    terms_data = entity_data.get("glossaryTerms") or {}
+    for term_item in terms_data.get("terms") or []:
+        if not term_item:
+            continue
+        term = term_item.get("term") or {}
+        term_props = term.get("properties") or {}
+        term_name = term_props.get("name")
+        if term_name:
+            terms.append(term_name)
+        elif term.get("urn"):
+            # Fallback: extract term name from URN
+            urn = term["urn"]
+            if urn.startswith("urn:li:glossaryTerm:"):
+                terms.append(urn.replace("urn:li:glossaryTerm:", ""))
+    return terms
+
+
+def _extract_domain(entity_data: Dict[str, Any]) -> Optional[str]:
+    """Extract domain name from entity."""
+    domain_data = entity_data.get("domain") or {}
+    domain = domain_data.get("domain") or {}
+    if domain:
+        domain_props = domain.get("properties") or {}
+        domain_name = domain_props.get("name")
+        if domain_name:
+            return domain_name
+        elif domain.get("urn"):
+            # Fallback: extract domain name from URN
+            urn = domain["urn"]
+            if urn.startswith("urn:li:domain:"):
+                return urn.replace("urn:li:domain:", "")
+    return None
+
+
+def _extract_sub_types(entity_data: Dict[str, Any]) -> List[str]:
+    """Extract subTypes from entity."""
+    sub_types_data = entity_data.get("subTypes") or {}
+    return sub_types_data.get("typeNames") or []
+
+
+def _extract_browse_path(entity_data: Dict[str, Any]) -> List[str]:
+    """Extract browse path from entity."""
+    browse_path_data = entity_data.get("browsePathV2") or {}
+    path = browse_path_data.get("path") or []
+    return [p.get("name", "") for p in path if p and p.get("name")]
+
+
+def _extract_custom_properties(entity_data: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Extract custom properties from entity."""
+    properties = entity_data.get("properties") or {}
+    custom_props = properties.get("customProperties") or []
+    return [{"key": p.get("key", ""), "value": p.get("value", "")} for p in custom_props if p]
+
+
+def _extract_editable_properties(entity_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract editable properties from entity."""
+    editable_props = entity_data.get("editableProperties")
+    if isinstance(editable_props, dict):
+        return dict(editable_props)
+    return {}
+
+
+def _extract_explanation(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Extract explanation from GraphQL extraProperties.
+
+    Looks for name="_explain" and parses its JSON value.
+    """
+    extra_props = item.get("extraProperties", [])
+    for prop in extra_props:
+        if prop.get("name") == "_explain":
+            value_str = prop.get("value")
+            if value_str:
+                try:
+                    return json.loads(value_str)
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse explanation JSON")
+                    return None
+    return None
+
+
+def _extract_rescore_explanation(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Extract Stage 2 rescore explanation from GraphQL extraProperties.
+
+    Looks for name="_rescoreExplain" and parses its JSON value.
+    This contains the Java/exp4j rescore breakdown with signal values.
+    """
+    extra_props = item.get("extraProperties", [])
+    for prop in extra_props:
+        if prop.get("name") == "_rescoreExplain":
+            value_str = prop.get("value")
+            if value_str:
+                try:
+                    return json.loads(value_str)
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse rescore explanation JSON")
+                    return None
+    return None
 
 
 @router.post("/analyze-ranking", response_model=RankingAnalysisResponse)
@@ -316,7 +699,7 @@ async def analyze_ranking(
             detailed_explain = _parse_detailed_explanation(item.explanation)
 
             result_info = {
-                "position": item.position + 1,  # 1-indexed for readability
+                "position": item.position,  # Already 1-indexed from frontend
                 "name": item.name,
                 "type": item.type,
                 "score": item.score,
@@ -535,4 +918,303 @@ DataHub Search Ranking Configuration:
 
     except Exception as e:
         logger.exception(f"Failed to get search config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/configuration", response_model=SearchConfigurationModel)
+async def get_search_configuration(
+    graph: DataHubGraph = Depends(get_datahub_graph),
+) -> SearchConfigurationModel:
+    """
+    Get complete search configuration including Stage 1 and Stage 2 settings.
+
+    Returns the full configuration used by the search debug UI, including
+    function score settings (Stage 1) and rescore configuration (Stage 2).
+    """
+    try:
+        # Stage 1 Configuration (Function Scores)
+        stage1_presets = [
+            Stage1PresetModel(
+                name="Server Default",
+                description="Use server configuration (from search_config.yaml or PDL)",
+                config="{}",
+            ),
+            Stage1PresetModel(
+                name="Quality Signals Only",
+                description="hasDescription +3, hasOwners +2, deprecated -10",
+                config=json.dumps({
+                    "functions": [
+                        {"filter": {"term": {"hasDescription": True}}, "weight": 3.0},
+                        {"filter": {"term": {"hasOwners": True}}, "weight": 2.0},
+                        {"filter": {"term": {"deprecated": True}}, "weight": -10.0},
+                    ],
+                    "score_mode": "sum",
+                    "boost_mode": "sum",
+                }),
+            ),
+            Stage1PresetModel(
+                name="Pure BM25",
+                description="No function scores, pure BM25 text relevance",
+                config=json.dumps({
+                    "functions": [],
+                    "score_mode": "sum",
+                    "boost_mode": "replace",
+                }),
+            ),
+        ]
+
+        stage1_config = Stage1ConfigurationModel(
+            source="pdl",
+            functionScore=None,
+            presets=stage1_presets,
+        )
+
+        # Stage 2 Configuration (Rescore)
+        # Default values - in production, these should be fetched from GMS configuration
+        stage2_signals = [
+            SignalConfigModel(
+                name="bm25",
+                normalizedName="norm_bm25",
+                fieldPath="_score",
+                type="SCORE",
+                boost=1.0,
+                normalization=SignalNormalizationModel(
+                    type="SIGMOID",
+                    inputMin=0.0,
+                    inputMax=500.0,
+                    steepness=6.0,
+                    outputMin=1.0,
+                    outputMax=2.0,
+                ),
+            ),
+            SignalConfigModel(
+                name="viewCount",
+                normalizedName="norm_views",
+                fieldPath="viewCountLast30DaysFeature",
+                type="NUMERIC",
+                boost=0.8,
+                normalization=SignalNormalizationModel(
+                    type="SIGMOID",
+                    inputMin=0.0,
+                    inputMax=1000.0,
+                    steepness=6.0,
+                    outputMin=1.0,
+                    outputMax=2.0,
+                ),
+            ),
+            SignalConfigModel(
+                name="queryCount",
+                normalizedName="norm_queries",
+                fieldPath="queryCountLast30DaysFeature",
+                type="NUMERIC",
+                boost=0.8,
+                normalization=SignalNormalizationModel(
+                    type="SIGMOID",
+                    inputMin=0.0,
+                    inputMax=1000.0,
+                    steepness=6.0,
+                    outputMin=1.0,
+                    outputMax=1.8,
+                ),
+            ),
+            SignalConfigModel(
+                name="usageCount",
+                normalizedName="norm_usage",
+                fieldPath="usageCountLast30DaysFeature",
+                type="NUMERIC",
+                boost=0.8,
+                normalization=SignalNormalizationModel(
+                    type="SIGMOID",
+                    inputMin=0.0,
+                    inputMax=500.0,
+                    steepness=6.0,
+                    outputMin=1.0,
+                    outputMax=1.5,
+                ),
+            ),
+            SignalConfigModel(
+                name="uniqueUserCount",
+                normalizedName="norm_users",
+                fieldPath="uniqueUserCountLast30DaysFeature",
+                type="NUMERIC",
+                boost=0.9,
+                normalization=SignalNormalizationModel(
+                    type="SIGMOID",
+                    inputMin=0.0,
+                    inputMax=20.0,
+                    steepness=6.0,
+                    outputMin=1.0,
+                    outputMax=1.8,
+                ),
+            ),
+            SignalConfigModel(
+                name="hasDescription",
+                normalizedName="hasDesc",
+                fieldPath="hasDescription",
+                type="BOOLEAN",
+                boost=1.3,
+                normalization=SignalNormalizationModel(
+                    type="BOOLEAN",
+                    trueValue=1.3,
+                    falseValue=1.0,
+                    outputMin=1.0,
+                    outputMax=1.3,
+                ),
+            ),
+            SignalConfigModel(
+                name="hasOwners",
+                normalizedName="hasOwners",
+                fieldPath="hasOwners",
+                type="BOOLEAN",
+                boost=1.2,
+                normalization=SignalNormalizationModel(
+                    type="BOOLEAN",
+                    trueValue=1.2,
+                    falseValue=1.0,
+                    outputMin=1.0,
+                    outputMax=1.2,
+                ),
+            ),
+            SignalConfigModel(
+                name="hasTags",
+                normalizedName="hasTags",
+                fieldPath="hasTags",
+                type="BOOLEAN",
+                boost=1.1,
+                normalization=SignalNormalizationModel(
+                    type="BOOLEAN",
+                    trueValue=1.1,
+                    falseValue=1.0,
+                    outputMin=1.0,
+                    outputMax=1.1,
+                ),
+            ),
+            SignalConfigModel(
+                name="hasGlossaryTerms",
+                normalizedName="hasTerms",
+                fieldPath="hasGlossaryTerms",
+                type="BOOLEAN",
+                boost=1.1,
+                normalization=SignalNormalizationModel(
+                    type="BOOLEAN",
+                    trueValue=1.1,
+                    falseValue=1.0,
+                    outputMin=1.0,
+                    outputMax=1.1,
+                ),
+            ),
+            SignalConfigModel(
+                name="lastModified",
+                normalizedName="recency",
+                fieldPath="lastModified",
+                type="TIMESTAMP",
+                boost=1.0,
+                normalization=SignalNormalizationModel(
+                    type="LINEAR_DECAY",
+                    scale=180.0,
+                    outputMin=0.7,
+                    outputMax=1.2,
+                ),
+            ),
+            SignalConfigModel(
+                name="deprecated",
+                normalizedName="notDeprecated",
+                fieldPath="deprecated",
+                type="BOOLEAN",
+                boost=1.0,
+                normalization=SignalNormalizationModel(
+                    type="BOOLEAN",
+                    trueValue=0.7,
+                    falseValue=1.0,
+                    outputMin=0.7,
+                    outputMax=1.0,
+                ),
+            ),
+            SignalConfigModel(
+                name="entityType",
+                normalizedName="entityTypeBoost",
+                fieldPath="_index",
+                type="INDEX_NAME",
+                boost=1.0,
+                normalization=SignalNormalizationModel(
+                    type="NONE",
+                ),
+            ),
+        ]
+
+        stage2_presets = [
+            Stage2PresetModel(
+                name="Server Default",
+                description="Use server configuration (from rescore_config.yaml)",
+                config="{}",
+            ),
+            Stage2PresetModel(
+                name="Disabled",
+                description="Disable Stage 2 rescoring entirely",
+                config=json.dumps({"enabled": False}),
+            ),
+            Stage2PresetModel(
+                name="BM25 + Quality",
+                description="Emphasize BM25 and quality signals (description, owners)",
+                config=json.dumps({
+                    "formula": "pow(norm_bm25, 1.0) * pow(hasDesc, 1.5) * pow(hasOwners, 1.3)",
+                    "signals": [
+                        {
+                            "name": "bm25",
+                            "normalizedName": "norm_bm25",
+                            "fieldPath": "_score",
+                            "type": "SCORE",
+                            "boost": 1.0,
+                            "normalization": {
+                                "type": "SIGMOID",
+                                "inputMax": 500,
+                                "outputMin": 1.0,
+                                "outputMax": 2.0,
+                            },
+                        },
+                        {
+                            "name": "hasDescription",
+                            "normalizedName": "hasDesc",
+                            "fieldPath": "hasDescription",
+                            "type": "BOOLEAN",
+                            "boost": 1.5,
+                            "normalization": {
+                                "type": "BOOLEAN",
+                                "trueValue": 1.5,
+                                "falseValue": 1.0,
+                            },
+                        },
+                        {
+                            "name": "hasOwners",
+                            "normalizedName": "hasOwners",
+                            "fieldPath": "hasOwners",
+                            "type": "BOOLEAN",
+                            "boost": 1.3,
+                            "normalization": {
+                                "type": "BOOLEAN",
+                                "trueValue": 1.3,
+                                "falseValue": 1.0,
+                            },
+                        },
+                    ],
+                }),
+            ),
+        ]
+
+        stage2_config = Stage2ConfigurationModel(
+            enabled=True,
+            mode="JAVA_EXP4J",
+            windowSize=100,  # Default from rescore_config.yaml
+            formula="pow(norm_bm25, 1.0) * pow(norm_views, 0.8) * pow(norm_queries, 0.8) * pow(norm_usage, 0.8) * pow(norm_users, 0.9) * pow(hasDesc, 1.3) * pow(recency, 1.0) * pow(notDeprecated, 1.0) * pow(entityTypeBoost, 1.0)",
+            signals=stage2_signals,
+            presets=stage2_presets,
+        )
+
+        return SearchConfigurationModel(
+            stage1=stage1_config,
+            stage2=stage2_config,
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to get search configuration: {e}")
         raise HTTPException(status_code=500, detail=str(e))

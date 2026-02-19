@@ -31,6 +31,7 @@ from api.routes import (
     kubectl,
     profiles,
     search,
+    search_debug,
     telemetry,
 )
 
@@ -73,6 +74,7 @@ app.include_router(auto_chat.router)
 app.include_router(archived_conversations.router)
 app.include_router(favorites.router)
 app.include_router(search.router)
+app.include_router(search_debug.router)
 app.include_router(telemetry.router)
 
 # Serve React app static files (production mode)

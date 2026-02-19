@@ -17,19 +17,20 @@ import type {
   ExplainResponse,
   RankingAnalysisRequest,
   RankingAnalysisResponse,
-} from './types';
+  SearchConfiguration,
+} from "./types";
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 
 class ApiClient {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options.headers,
       },
     });
@@ -48,58 +49,85 @@ class ApiClient {
   }
 
   async getConfig(): Promise<ConnectionConfig> {
-    return this.request<ConnectionConfig>('/config');
+    return this.request<ConnectionConfig>("/config");
   }
 
   async updateConfig(config: ConnectionConfig): Promise<ConnectionConfig> {
-    return this.request<ConnectionConfig>('/config', {
-      method: 'POST',
+    return this.request<ConnectionConfig>("/config", {
+      method: "POST",
       body: JSON.stringify(config),
     });
   }
 
   async testConnection(): Promise<{ success: boolean; error?: string }> {
-    return this.request('/config/test', { method: 'POST' });
+    return this.request("/config/test", { method: "POST" });
   }
 
-  async listKubectlContexts(): Promise<{ contexts?: string[]; current_context?: string; error?: string }> {
-    return this.request('/config/discover/contexts', { method: 'GET' });
+  async listKubectlContexts(): Promise<{
+    contexts?: string[];
+    current_context?: string;
+    error?: string;
+  }> {
+    return this.request("/config/discover/contexts", { method: "GET" });
   }
 
-  async listKubectlNamespaces(context?: string): Promise<{ namespaces?: string[]; context?: string; error?: string }> {
-    return this.request('/config/discover/namespaces', {
-      method: 'POST',
+  async listKubectlNamespaces(
+    context?: string,
+  ): Promise<{ namespaces?: string[]; context?: string; error?: string }> {
+    return this.request("/config/discover/namespaces", {
+      method: "POST",
       body: context ? JSON.stringify({ context }) : undefined,
     });
   }
 
-  async discoverGmsUrl(context?: string, namespace?: string): Promise<{ gms_url?: string; namespace?: string; context?: string; error?: string }> {
+  async discoverGmsUrl(
+    context?: string,
+    namespace?: string,
+  ): Promise<{
+    gms_url?: string;
+    namespace?: string;
+    context?: string;
+    error?: string;
+  }> {
     const body: any = {};
     if (context) body.context = context;
     if (namespace) body.namespace = namespace;
 
-    return this.request('/config/discover', {
-      method: 'POST',
+    return this.request("/config/discover", {
+      method: "POST",
       body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
     });
   }
 
-  async generateToken(gms_url: string): Promise<{ token?: string; error?: string }> {
-    return this.request('/config/token/generate', {
-      method: 'POST',
+  async generateToken(
+    gms_url: string,
+  ): Promise<{ token?: string; error?: string }> {
+    return this.request("/config/token/generate", {
+      method: "POST",
       body: JSON.stringify({ gms_url }),
     });
   }
 
-  async ssoLogin(profile?: string): Promise<{ success: boolean; message?: string; profile?: string; error?: string }> {
-    return this.request('/config/sso/login', {
-      method: 'POST',
+  async ssoLogin(
+    profile?: string,
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    profile?: string;
+    error?: string;
+  }> {
+    return this.request("/config/sso/login", {
+      method: "POST",
       body: profile ? JSON.stringify({ profile }) : undefined,
     });
   }
 
-  async listAwsProfiles(): Promise<{ success: boolean; profiles: string[]; error?: string }> {
-    return this.request('/config/aws/profiles');
+  async listAwsProfiles(): Promise<{
+    success: boolean;
+    profiles: string[];
+    error?: string;
+  }> {
+    return this.request("/config/aws/profiles");
   }
 
   async detectProfileForContext(context: string): Promise<{
@@ -118,7 +146,9 @@ class ApiClient {
     };
     error?: string;
   }> {
-    return this.request(`/config/aws/profile-for-context?context=${encodeURIComponent(context)}`);
+    return this.request(
+      `/config/aws/profile-for-context?context=${encodeURIComponent(context)}`,
+    );
   }
 
   async setupAwsProfile(config: {
@@ -128,34 +158,44 @@ class ApiClient {
     sso_region: string;
     role_name: string;
     region?: string;
-  }): Promise<{ success: boolean; instructions?: string; profile_name?: string; error?: string }> {
-    return this.request('/config/aws/setup-profile', {
-      method: 'POST',
+  }): Promise<{
+    success: boolean;
+    instructions?: string;
+    profile_name?: string;
+    error?: string;
+  }> {
+    return this.request("/config/aws/setup-profile", {
+      method: "POST",
       body: JSON.stringify(config),
     });
   }
 
-  async validateAwsProfile(profile: string): Promise<{ valid: boolean; profile?: string; error?: string }> {
-    return this.request('/config/aws/validate-profile', {
-      method: 'POST',
+  async validateAwsProfile(
+    profile: string,
+  ): Promise<{ valid: boolean; profile?: string; error?: string }> {
+    return this.request("/config/aws/validate-profile", {
+      method: "POST",
       body: JSON.stringify({ profile }),
     });
   }
 
-  async testTransport(integrations_url: string, mode: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    return this.request('/config/test-transport', {
-      method: 'POST',
+  async testTransport(
+    integrations_url: string,
+    mode: string,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    return this.request("/config/test-transport", {
+      method: "POST",
       body: JSON.stringify({ integrations_url, mode }),
     });
   }
 
   async getConversations(): Promise<Conversation[]> {
-    return this.request<Conversation[]>('/conversations');
+    return this.request<Conversation[]>("/conversations");
   }
 
   async createConversation(title?: string): Promise<Conversation> {
-    return this.request<Conversation>('/conversations', {
-      method: 'POST',
+    return this.request<Conversation>("/conversations", {
+      method: "POST",
       body: JSON.stringify({ title }),
     });
   }
@@ -165,7 +205,7 @@ class ApiClient {
   }
 
   async deleteConversation(id: string): Promise<void> {
-    await this.request(`/conversations/${id}`, { method: 'DELETE' });
+    await this.request(`/conversations/${id}`, { method: "DELETE" });
   }
 
   async deleteAllConversations(): Promise<{ deleted: number; failed: number }> {
@@ -192,32 +232,35 @@ class ApiClient {
     count: number = 20,
     originType?: ConversationOriginType,
     sortBy?: ConversationSortBy,
-    sortDesc?: boolean
+    sortDesc?: boolean,
   ): Promise<ArchivedConversationList> {
     const params = new URLSearchParams({
       start: start.toString(),
       count: count.toString(),
     });
     if (originType) {
-      params.append('origin_type', originType);
+      params.append("origin_type", originType);
     }
     if (sortBy) {
-      params.append('sort_by', sortBy);
+      params.append("sort_by", sortBy);
     }
     if (sortDesc !== undefined) {
-      params.append('sort_desc', sortDesc.toString());
+      params.append("sort_desc", sortDesc.toString());
     }
 
     return this.request<ArchivedConversationList>(
-      `/archived-conversations?${params.toString()}`
+      `/archived-conversations?${params.toString()}`,
     );
   }
 
-  async getArchivedConversation(urn: string, includeTelemetry: boolean = true): Promise<ArchivedConversation> {
+  async getArchivedConversation(
+    urn: string,
+    includeTelemetry: boolean = true,
+  ): Promise<ArchivedConversation> {
     const encodedUrn = encodeURIComponent(urn);
     const params = new URLSearchParams();
     if (includeTelemetry) {
-      params.append('include_telemetry', 'true');
+      params.append("include_telemetry", "true");
     }
     const queryString = params.toString();
     const url = queryString
@@ -226,10 +269,13 @@ class ApiClient {
     return this.request<ArchivedConversation>(url);
   }
 
-  async refreshArchivedConversations(): Promise<{ success: boolean; message: string }> {
+  async refreshArchivedConversations(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
     return this.request<{ success: boolean; message: string }>(
-      '/archived-conversations/refresh',
-      { method: 'POST' }
+      "/archived-conversations/refresh",
+      { method: "POST" },
     );
   }
 
@@ -242,16 +288,16 @@ class ApiClient {
     message: SendMessageRequest,
     onMessage: (data: any) => void,
     onError: (error: string) => void,
-    onDone: () => void
+    onDone: () => void,
   ): Promise<void> {
     // Use fetch to POST and read SSE stream
     const url = `${API_BASE}/conversations/${conversationId}/messages`;
 
     try {
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ message: message.content }),
       });
@@ -264,18 +310,18 @@ class ApiClient {
       const decoder = new TextDecoder();
 
       if (!reader) {
-        throw new Error('No response body');
+        throw new Error("No response body");
       }
 
       // Read the SSE stream
       let eventType: string | null = null;
-      let buffer = ''; // Buffer for incomplete lines
+      let buffer = ""; // Buffer for incomplete lines
 
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log('[SSE] Stream done, calling onDone()');
+          console.log("[SSE] Stream done, calling onDone()");
           onDone();
           break;
         }
@@ -283,46 +329,48 @@ class ApiClient {
         // Decode the chunk and add to buffer
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
-        console.log('[SSE] Received chunk:', chunk.substring(0, 100));
+        console.log("[SSE] Received chunk:", chunk.substring(0, 100));
 
         // Process complete lines (split by \n)
-        const lines = buffer.split('\n');
+        const lines = buffer.split("\n");
         // Keep the last incomplete line in buffer
-        buffer = lines.pop() || '';
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          console.log('[SSE] Processing line:', line.substring(0, 100));
+          console.log("[SSE] Processing line:", line.substring(0, 100));
 
-          if (line.startsWith('event:')) {
+          if (line.startsWith("event:")) {
             // Store event type for next data line
             eventType = line.substring(6).trim();
-            console.log('[SSE] Event type:', eventType);
-          } else if (line.startsWith('data:')) {
+            console.log("[SSE] Event type:", eventType);
+          } else if (line.startsWith("data:")) {
             const data = line.substring(5).trim();
             if (data) {
               try {
                 const parsed = JSON.parse(data);
-                console.log('[SSE] Parsed data:', parsed);
+                console.log("[SSE] Parsed data:", parsed);
 
                 // Transform backend format to frontend format
-                if (eventType === 'message') {
+                if (eventType === "message") {
                   // Backend sends: {"message": {"type": "internal", "text": "...", ...}, "message_type": "THINKING"}
                   // Frontend expects: {"type": "THINKING", "content": {"text": "..."}}
                   const message = parsed.message;
                   const messageType = parsed.message_type; // The actual type (THINKING, TOOL_CALL, etc.)
 
                   if (message && messageType) {
-                    console.log(`[SSE] Received ${messageType} message, transforming to frontend format`);
+                    console.log(
+                      `[SSE] Received ${messageType} message, transforming to frontend format`,
+                    );
 
                     // Build content object based on message type
                     let content: any;
-                    if (messageType === 'THINKING') {
+                    if (messageType === "THINKING") {
                       // For thinking messages, extract text from message.text
-                      content = { text: message.text || 'Thinking...' };
-                    } else if (messageType === 'TEXT') {
+                      content = { text: message.text || "Thinking..." };
+                    } else if (messageType === "TEXT") {
                       // For text messages, extract text from message.text
-                      content = { text: message.text || '' };
-                    } else if (messageType === 'TOOL_CALL') {
+                      content = { text: message.text || "" };
+                    } else if (messageType === "TOOL_CALL") {
                       // For tool calls, pass through content or build from message fields
                       content = message.content || message;
                     } else {
@@ -336,23 +384,33 @@ class ApiClient {
                       content: content,
                     });
                   }
-                } else if (eventType === 'done' || eventType === 'complete') {
+                } else if (eventType === "done" || eventType === "complete") {
                   // Backend sends: {"duration": ...}
                   // Frontend expects: {"type": "done", "message_id": "..."}
-                  console.log(`[SSE] Received done event, calling onMessage with done type`);
+                  console.log(
+                    `[SSE] Received done event, calling onMessage with done type`,
+                  );
                   onMessage({
-                    type: 'done',
+                    type: "done",
                     message_id: `msg-${Date.now()}`,
                   });
-                } else if (eventType === 'error') {
+                } else if (eventType === "error") {
                   // Backend sends: {"error": "..."}
-                  console.log(`[SSE] Received error from backend:`, parsed.error);
-                  onError(parsed.error || 'Unknown error');
+                  console.log(
+                    `[SSE] Received error from backend:`,
+                    parsed.error,
+                  );
+                  onError(parsed.error || "Unknown error");
                 }
 
                 eventType = null; // Reset after processing
               } catch (e) {
-                console.error('[SSE] Failed to parse SSE data:', e, 'Data:', data);
+                console.error(
+                  "[SSE] Failed to parse SSE data:",
+                  e,
+                  "Data:",
+                  data,
+                );
               }
             }
           }
@@ -364,137 +422,192 @@ class ApiClient {
   }
 
   async getHealth(): Promise<HealthStatus> {
-    return this.request<HealthStatus>('/health');
+    return this.request<HealthStatus>("/health");
   }
 
   async getDataHubHealth(): Promise<HealthStatus> {
-    return this.request<HealthStatus>('/health/datahub');
+    return this.request<HealthStatus>("/health/datahub");
   }
 
   // Profile management
   async listProfiles(): Promise<Profile[]> {
-    return this.request<Profile[]>('/profiles');
+    return this.request<Profile[]>("/profiles");
   }
 
   async getProfile(name: string): Promise<Profile> {
     return this.request<Profile>(`/profiles/${name}`);
   }
 
-  async createOrUpdateProfile(profile: Omit<Profile, 'created_at' | 'updated_at'>): Promise<Profile> {
-    return this.request<Profile>('/profiles', {
-      method: 'POST',
+  async createOrUpdateProfile(
+    profile: Omit<Profile, "created_at" | "updated_at">,
+  ): Promise<Profile> {
+    return this.request<Profile>("/profiles", {
+      method: "POST",
       body: JSON.stringify(profile),
     });
   }
 
   async deleteProfile(name: string): Promise<void> {
-    await this.request(`/profiles/${name}`, { method: 'DELETE' });
+    await this.request(`/profiles/${name}`, { method: "DELETE" });
   }
 
-  async testProfile(name: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    return this.request(`/profiles/${name}/test`, { method: 'POST' });
+  async testProfile(
+    name: string,
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    return this.request(`/profiles/${name}/test`, { method: "POST" });
   }
 
   async refreshProfileToken(name: string): Promise<Profile> {
-    return this.request<Profile>(`/profiles/${name}/refresh-token`, { method: 'POST' });
+    return this.request<Profile>(`/profiles/${name}/refresh-token`, {
+      method: "POST",
+    });
   }
 
-  async activateProfile(name: string): Promise<{ success: boolean; message: string; active_profile: string }> {
-    return this.request(`/profiles/${name}/activate`, { method: 'POST' });
+  async activateProfile(
+    name: string,
+  ): Promise<{ success: boolean; message: string; active_profile: string }> {
+    return this.request(`/profiles/${name}/activate`, { method: "POST" });
   }
 
   // Kubectl operations
   async getKubectlContexts(): Promise<string[]> {
-    return this.request<string[]>('/kubectl/contexts');
+    return this.request<string[]>("/kubectl/contexts");
   }
 
   async getKubectlNamespaces(context?: string): Promise<string[]> {
-    const query = context ? `?context=${encodeURIComponent(context)}` : '';
+    const query = context ? `?context=${encodeURIComponent(context)}` : "";
     return this.request<string[]>(`/kubectl/namespaces${query}`);
   }
 
-  async listClusters(mode: 'all' | 'trials' = 'all', search?: string, forceRefresh?: boolean): Promise<ClusterIndexResponse> {
+  async listClusters(
+    mode: "all" | "trials" = "all",
+    search?: string,
+    forceRefresh?: boolean,
+  ): Promise<ClusterIndexResponse> {
     const params = new URLSearchParams();
-    params.set('mode', mode);
+    params.set("mode", mode);
     if (search) {
-      params.set('search', search);
+      params.set("search", search);
     }
     if (forceRefresh) {
-      params.set('force_refresh', 'true');
+      params.set("force_refresh", "true");
     }
 
-    return this.request<ClusterIndexResponse>(`/kubectl/clusters?${params.toString()}`);
+    return this.request<ClusterIndexResponse>(
+      `/kubectl/clusters?${params.toString()}`,
+    );
   }
 
-  async discoverProfileFromKubectl(context: string, namespace: string): Promise<{ gms_url: string; gms_token: string; context: string; namespace: string }> {
-    return this.request('/kubectl/discover', {
-      method: 'POST',
+  async discoverProfileFromKubectl(
+    context: string,
+    namespace: string,
+  ): Promise<{
+    gms_url: string;
+    gms_token: string;
+    context: string;
+    namespace: string;
+  }> {
+    return this.request("/kubectl/discover", {
+      method: "POST",
       body: JSON.stringify({ context, namespace }),
     });
   }
 
   // Auto-chat management
-  async generateQuestion(request: { aws_profile?: string }): Promise<{ success: boolean; question?: string; error?: string }> {
-    return this.request('/auto-chat/generate-question', {
-      method: 'POST',
+  async generateQuestion(request: {
+    aws_profile?: string;
+  }): Promise<{ success: boolean; question?: string; error?: string }> {
+    return this.request("/auto-chat/generate-question", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   }
 
   async checkAwsHealth(): Promise<AwsHealthStatus> {
-    return this.request<AwsHealthStatus>('/auto-chat/health/aws');
+    return this.request<AwsHealthStatus>("/auto-chat/health/aws");
   }
 
   async getSketch(): Promise<any> {
-    return this.request('/auto-chat/sketch');
+    return this.request("/auto-chat/sketch");
   }
 
   // Search operations
   async search(request: SearchRequest): Promise<SearchResponse> {
-    return this.request<SearchResponse>('/search', {
-      method: 'POST',
+    return this.request<SearchResponse>("/search", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   }
 
   async explainScore(request: ExplainRequest): Promise<ExplainResponse> {
-    return this.request<ExplainResponse>('/search/explain', {
-      method: 'POST',
+    return this.request<ExplainResponse>("/search/explain", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   }
 
-  async analyzeRanking(request: RankingAnalysisRequest): Promise<RankingAnalysisResponse> {
-    return this.request<RankingAnalysisResponse>('/search/analyze-ranking', {
-      method: 'POST',
+  async analyzeRanking(
+    request: RankingAnalysisRequest,
+  ): Promise<RankingAnalysisResponse> {
+    return this.request<RankingAnalysisResponse>("/search/analyze-ranking", {
+      method: "POST",
       body: JSON.stringify(request),
     });
+  }
+
+  async getSearchConfiguration(): Promise<SearchConfiguration> {
+    return this.request<SearchConfiguration>("/search/configuration");
   }
 
   // Favorites operations
-  async getFavoriteUrns(): Promise<{ urns: string[]; count: number; profile_id: string }> {
-    return this.request('/favorites/urns');
+  async getFavoriteUrns(): Promise<{
+    urns: string[];
+    count: number;
+    profile_id: string;
+  }> {
+    return this.request("/favorites/urns");
   }
 
-  async addFavorite(urn: string, notes?: string): Promise<{ profile_id: string; urn: string; created_at: string; notes?: string }> {
-    return this.request('/favorites', {
-      method: 'POST',
+  async addFavorite(
+    urn: string,
+    notes?: string,
+  ): Promise<{
+    profile_id: string;
+    urn: string;
+    created_at: string;
+    notes?: string;
+  }> {
+    return this.request("/favorites", {
+      method: "POST",
       body: JSON.stringify({ urn, notes }),
     });
   }
 
-  async removeFavorite(urn: string): Promise<{ success: boolean; message: string }> {
+  async removeFavorite(
+    urn: string,
+  ): Promise<{ success: boolean; message: string }> {
     const encodedUrn = encodeURIComponent(urn);
-    return this.request(`/favorites/${encodedUrn}`, { method: 'DELETE' });
+    return this.request(`/favorites/${encodedUrn}`, { method: "DELETE" });
   }
 
-  async checkFavorite(urn: string): Promise<{ urn: string; is_favorite: boolean; profile_id: string }> {
+  async checkFavorite(
+    urn: string,
+  ): Promise<{ urn: string; is_favorite: boolean; profile_id: string }> {
     const encodedUrn = encodeURIComponent(urn);
     return this.request(`/favorites/check/${encodedUrn}`);
   }
 
-  async listFavorites(): Promise<{ favorites: Array<{ profile_id: string; urn: string; created_at: string; notes?: string }>; count: number; profile_id: string }> {
-    return this.request('/favorites');
+  async listFavorites(): Promise<{
+    favorites: Array<{
+      profile_id: string;
+      urn: string;
+      created_at: string;
+      notes?: string;
+    }>;
+    count: number;
+    profile_id: string;
+  }> {
+    return this.request("/favorites");
   }
 }
 
