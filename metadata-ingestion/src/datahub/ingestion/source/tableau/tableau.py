@@ -48,6 +48,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
@@ -219,7 +220,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau username, must be set if authenticating using username/password.",
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau password, must be set if authenticating using username/password.",
     )
@@ -227,7 +228,7 @@ class TableauConnectionConfig(ConfigModel):
         default=None,
         description="Tableau token name, must be set if authenticating using a personal access token.",
     )
-    token_value: Optional[str] = Field(
+    token_value: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Tableau token value, must be set if authenticating using a personal access token.",
     )
@@ -270,12 +271,12 @@ class TableauConnectionConfig(ConfigModel):
         if self.username and self.password:
             authentication = TableauAuth(
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 site_id=site,
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, site
+                self.token_name, self.token_value.get_secret_value(), site
             )
         else:
             raise ConfigurationError(
@@ -1841,6 +1842,18 @@ class TableauSiteSource:
                 Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
                 for table_urn in table_id_to_urn.values()
             ]
+
+            # If still no upstream tables after fallback attempt, report a warning
+            if not upstream_tables:
+                self.report.warning(
+                    title="No upstream table lineage found",
+                    message=(
+                        "No upstream tables lineage found for this datasource."
+                        "If lineage is expected, this may be due to known limitations in the Tableau Metadata API not returning complete information;"
+                        "else, this warning can be ignored."
+                    ),
+                    context=f"{datasource.get(c.NAME)} (ID: {datasource.get(c.ID)})",
+                )
 
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:

@@ -7,6 +7,8 @@ apply from: "../gradle/coverage/python-coverage.gradle"
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
+  // Constrain setuptools<82 in build isolation environments (e.g. when building flatdict from source)
+  uv_build_constraints = '--build-constraint build-constraints.txt'
 }
 
 ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "
@@ -39,7 +41,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e . &&" +
+    "uv pip install ${uv_build_constraints} -e . &&" +
     "touch ${sentinel_file}"
 }
 
@@ -49,7 +51,7 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e . ${extra_pip_requirements} && " +
+    "uv pip install ${uv_build_constraints} -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -67,7 +69,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install build && " +
+    "uv pip install ${uv_build_constraints} build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
@@ -79,7 +81,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e .[dev] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_build_constraints} -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -89,7 +91,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e .[all] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_build_constraints} -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -128,10 +130,12 @@ task lineageGen(type: Exec, dependsOn: [codegen]) {
 }
 
 task testScripts(type: Exec, dependsOn: [installDev]) {
-  inputs.files(project.fileTree(dir: "scripts/tests/", include: "**/*.py"))
-  outputs.dir("${venv_name}")
+  inputs.files(project.fileTree(dir: "scripts/", include: "**/*.py"))
+  inputs.file file("scripts/pytest.ini")
+  outputs.dir("scripts/test-results")
+  outputs.file file("scripts/.coverage")
 
-  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && cp ../setup.cfg . && PYTHONPATH=${project.projectDir} pytest -vvv tests/ --cov=. --cov-report=term --cov-report=html:./cov_html && rm setup.cfg"
+  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && PYTHONPATH=${project.projectDir} pytest -vv tests ${get_coverage_args('scripts')} --cov=."
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
@@ -153,18 +157,21 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
 }
 
-def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets
-def pytest_default_args = "--durations=20 -vv --continue-on-collection-errors"
+def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed socket
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
+  outputs.dir("test-results")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=junit.quick.xml"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
 task installDocs(type: Exec, dependsOn: [install]) {
@@ -174,7 +181,7 @@ task installDocs(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e .[docs] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_build_constraints} -e .[docs] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -185,7 +192,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+    "uv pip install ${uv_build_constraints} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -195,7 +202,7 @@ task testSingle(dependsOn: [installDevTest]) {
   if (testFile != 'unknown')  {
     exec {
       commandLine 'bash', '-c',
-        "${venv_activate_command} ${pytest_default_env} pytest ${testFile} ${pytest_default_args}"
+        "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
   } else {
    throw new GradleException("No file provided. Use -PtestFile=<test_file>")
@@ -208,21 +215,32 @@ def integrationBatchIds = ["0", "1", "2", "3", "4", "5", "Recording"]
 integrationBatchIds.each { batchId ->
     def markerName = "integration_batch_${batchId.toLowerCase()}"
     def taskName = "testIntegrationBatch${batchId}"
-    def junitXml = "junit.integrationbatch${batchId.toLowerCase()}.xml"
+    def junitXml = "test-results/junit.integrationbatch${batchId.toLowerCase()}.xml"
     def cvgArg = get_coverage_args("intBatch${batchId}")
-    
+
     tasks.register(taskName, Exec) {
         dependsOn installDevTest
+        inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+        inputs.files(project.fileTree(dir: "tests/"))
+        inputs.file file("pyproject.toml")
+        inputs.file file("setup.cfg")
+        inputs.file file("setup.py")
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
+            "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
+  outputs.dir("test-results")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${pytest_default_args} --junit-xml=junit.full.xml"
+    "${pytest_default_env} pytest ${get_coverage_args('full')}"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDocs]) {
@@ -271,28 +289,33 @@ task cleanPythonCache(type: Exec) {
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+    "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install
 check.dependsOn lint
 check.dependsOn testQuick
 
-clean {
-  delete venv_name
-  delete 'build'
-  delete 'dist'
-  delete 'src/datahub/metadata'
-  delete '../docs/generated'
-  delete 'generated'
-  delete '.ruff_cache'
-  delete '.mypy_cache'
-  delete '.pytest_cache'
-  delete '.preflight_sentinel'
-  delete '.coverage'
-  delete 'scripts/cov_html'
+task cleanGeneratedFiles(type: Delete) {
+    delete venv_name
+    delete 'build'
+    delete 'dist'
+    delete 'src/datahub/metadata'
+    delete '../docs/generated'
+    delete 'generated'
+    delete '.ruff_cache'
+    delete '.mypy_cache'
+    delete '.pytest_cache'
+    delete 'test-results'
+    delete '.preflight_sentinel'
+    delete '.coverage'
+    delete 'scripts/cov_html'
+    delete 'scripts/.coverage'
+    delete 'scripts/.pytest_cache'
+    delete 'scripts/test-results'
 }
-clean.dependsOn cleanPythonCache
+
+clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 
 idea {
   module {
