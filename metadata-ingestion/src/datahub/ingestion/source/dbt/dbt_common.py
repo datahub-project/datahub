@@ -763,20 +763,13 @@ def convert_semantic_model_fields_to_columns(
     dimensions: Sequence[SemanticModelDimension],
     measures: Sequence[SemanticModelMeasure],
 ) -> List[DBTColumn]:
-    """Convert semantic model entities, dimensions, and measures to DBTColumn objects.
-
-    This allows semantic models to have schema information displayed in DataHub,
-    showing the structure of the semantic layer definition.
-    """
+    """Convert semantic model fields to DBTColumn objects for schema display."""
     columns: List[DBTColumn] = []
     index = 0
 
-    # Add entities as columns
     for entity in entities:
         entity_type = entity.get("type", "unknown")
-        description = entity.get("description", "")
-        if not description:
-            description = f"Entity ({entity_type})"
+        description = entity.get("description", "") or f"Entity ({entity_type})"
         columns.append(
             DBTColumn(
                 name=entity["name"],
@@ -788,12 +781,9 @@ def convert_semantic_model_fields_to_columns(
         )
         index += 1
 
-    # Add dimensions as columns
     for dimension in dimensions:
         dim_type = dimension.get("type", "categorical")
-        description = dimension.get("description", "")
-        if not description:
-            description = f"Dimension ({dim_type})"
+        description = dimension.get("description", "") or f"Dimension ({dim_type})"
         columns.append(
             DBTColumn(
                 name=dimension["name"],
@@ -805,12 +795,9 @@ def convert_semantic_model_fields_to_columns(
         )
         index += 1
 
-    # Add measures as columns
     for measure in measures:
         agg_type = measure.get("agg", "unknown")
-        description = measure.get("description", "")
-        if not description:
-            description = f"Measure ({agg_type})"
+        description = measure.get("description", "") or f"Measure ({agg_type})"
         columns.append(
             DBTColumn(
                 name=measure["name"],

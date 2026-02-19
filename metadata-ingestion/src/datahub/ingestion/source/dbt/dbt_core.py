@@ -413,32 +413,24 @@ def extract_semantic_models(
     manifest_nodes: Dict[str, Dict[str, Any]],
     tag_prefix: str,
 ) -> List[DBTNode]:
-    """Extract dbt semantic models from the manifest.json semantic_models section.
-
-    Semantic models define the semantic layer for dbt (introduced in dbt 1.6+).
-    They contain entities, dimensions, and measures that describe business concepts.
-    """
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
     semantic_model_nodes: List[DBTNode] = []
 
     for key, sm_node in manifest_semantic_models.items():
         name = sm_node.get("name", "")
         description = sm_node.get("description", "")
 
-        # Get database and schema from node_relation if available (dbt 1.8+)
-        # or fall back to resolving from the referenced model
+        # node_relation available in dbt 1.8+, fallback to depends_on for older versions
         node_relation = sm_node.get("node_relation", {})
         database = node_relation.get("database")
         schema = node_relation.get("schema")
         alias = node_relation.get("alias")
 
-        # If node_relation doesn't have db/schema, try to resolve from depends_on
         if not database or not schema:
             depends_on = sm_node.get("depends_on", {})
             depends_on_nodes = (
                 depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
             )
-
-            # Try to find the referenced model to get database/schema
             for ref_node_id in depends_on_nodes:
                 if ref_node_id in manifest_nodes:
                     ref_node = manifest_nodes[ref_node_id]
@@ -448,23 +440,19 @@ def extract_semantic_models(
                         schema = ref_node.get("schema")
                     break
 
-        # Extract entities, dimensions, and measures
         entities = sm_node.get("entities", [])
         dimensions = sm_node.get("dimensions", [])
         measures = sm_node.get("measures", [])
 
-        # Convert semantic model fields to columns for schema display
         columns = convert_semantic_model_fields_to_columns(
             entities=entities,
             dimensions=dimensions,
             measures=measures,
         )
 
-        # Get tags and apply prefix
         tags = sm_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        # Get depends_on for lineage
         depends_on = sm_node.get("depends_on", {})
         upstream_nodes = (
             depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
@@ -473,7 +461,7 @@ def extract_semantic_models(
         semantic_model_nodes.append(
             DBTNode(
                 dbt_name=key,
-                dbt_adapter=None,  # Not available for semantic models
+                dbt_adapter=None,
                 dbt_package_name=sm_node.get("package_name"),
                 database=database,
                 schema=schema,
@@ -485,7 +473,7 @@ def extract_semantic_models(
                 comment="",
                 description=description,
                 upstream_nodes=upstream_nodes,
-                materialization=None,  # Semantic models don't have materialization
+                materialization=None,
                 catalog_type=None,
                 missing_from_catalog=False,
                 meta=sm_node.get("meta", {}),
@@ -493,7 +481,7 @@ def extract_semantic_models(
                 tags=tags,
                 owner=None,
                 language="yaml",
-                columns=columns,  # List[DBTColumn]
+                columns=columns,
                 compiled_code=None,
                 raw_code=None,
             )
