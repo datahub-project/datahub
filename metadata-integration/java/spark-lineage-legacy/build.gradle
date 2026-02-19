@@ -128,7 +128,7 @@ shadowJar {
   dependencies {
 
     exclude(dependency {
-            exclude_modules.contains(it.name)
+            exclude_modules.contains(it.name) && it.moduleGroup != 'org.slf4j'
         })
     exclude(dependency("org.scala-lang::"))
   }
