@@ -112,14 +112,21 @@ class StructuredLogEntry(Report):
 
 @dataclass
 class StructuredLogs(Report):
+    # Configuration for sample sizes.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
-        default_factory=lambda: {
-            StructuredLogLevel.ERROR: LossyDict(10),
-            StructuredLogLevel.WARN: LossyDict(10),
+        init=False
+    )
+
+    def __post_init__(self) -> None:
+        self._entries = {
+            StructuredLogLevel.ERROR: LossyDict(self.failure_sample_size),
+            StructuredLogLevel.WARN: LossyDict(self.warning_sample_size),
             StructuredLogLevel.INFO: LossyDict(10),
         }
-    )
 
     def report_log(
         self,
@@ -194,7 +201,14 @@ class StructuredLogs(Report):
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
-        result: LossyList[StructuredLogEntry] = LossyList()
+        # Use the appropriate sample size for the output LossyList
+        if level == StructuredLogLevel.ERROR:
+            max_elements = self.failure_sample_size
+        elif level == StructuredLogLevel.WARN:
+            max_elements = self.warning_sample_size
+        else:
+            max_elements = 10  # INFO uses default
+        result: LossyList[StructuredLogEntry] = LossyList(max_elements=max_elements)
         for log in entries.values():
             result.append(log)
         result.set_total(entries.total_key_count())
@@ -220,7 +234,11 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     events_produced_per_sec: int = 0
     num_input_fields_filtered: int = 0
 
-    _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
+    # Configuration for report behavior - these get passed to StructuredLogs.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+
+    _structured_logs: StructuredLogs = field(init=False)
 
     @property
     def warnings(self) -> LossyList[StructuredLogEntry]:
@@ -378,6 +396,29 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         super().__post_init__()
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
+        self._init_structured_logs()
+
+    def _init_structured_logs(self) -> None:
+        """Initialize or reinitialize StructuredLogs with current config."""
+        self._structured_logs = StructuredLogs(
+            failure_sample_size=self.failure_sample_size,
+            warning_sample_size=self.warning_sample_size,
+        )
+
+    def configure_report(
+        self,
+        failure_sample_size: int = 10,
+        warning_sample_size: int = 10,
+    ) -> None:
+        """Configure report sample size settings.
+
+        Updates the settings in place without losing existing entries.
+        """
+        self.failure_sample_size = failure_sample_size
+        self.warning_sample_size = warning_sample_size
+        # Update existing structured logs in place to preserve any entries
+        self._structured_logs.failure_sample_size = failure_sample_size
+        self._structured_logs.warning_sample_size = warning_sample_size
 
     def as_obj(self) -> dict:
         return {

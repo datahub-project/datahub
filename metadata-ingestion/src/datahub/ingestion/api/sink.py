@@ -20,11 +20,40 @@ logger = logging.getLogger(__name__)
 class SinkReport(Report):
     total_records_written: int = 0
     records_written_per_second: int = 0
-    warnings: LossyList[Any] = field(default_factory=LossyList)
-    failures: LossyList[Any] = field(default_factory=LossyList)
     start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
+
+    # Configuration for report sample sizes.
+    failure_sample_size: int = 10
+    warning_sample_size: int = 10
+
+    warnings: LossyList[Any] = field(init=False)
+    failures: LossyList[Any] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._init_lossy_lists()
+
+    def _init_lossy_lists(self) -> None:
+        """Initialize or reinitialize the LossyList fields based on current config."""
+        self.warnings = LossyList(max_elements=self.warning_sample_size)
+        self.failures = LossyList(max_elements=self.failure_sample_size)
+
+    def configure_report(
+        self,
+        failure_sample_size: int = 10,
+        warning_sample_size: int = 10,
+    ) -> None:
+        """Configure report sample size settings.
+
+        Updates settings in place. Only reinitializes LossyLists if they're empty,
+        to avoid losing any entries that were already recorded.
+        """
+        self.failure_sample_size = failure_sample_size
+        self.warning_sample_size = warning_sample_size
+        # Only reinitialize if no entries yet, to preserve existing data
+        if not self.failures and not self.warnings:
+            self._init_lossy_lists()
 
     def report_record_written(self, record_envelope: RecordEnvelope) -> None:
         self.total_records_written += 1
