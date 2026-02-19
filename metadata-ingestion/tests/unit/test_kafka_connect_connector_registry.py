@@ -505,7 +505,30 @@ class TestGenericConnector:
     """Test _GenericConnector implementation."""
 
     def test_extract_lineages(self) -> None:
-        """Test generic connector lineage extraction."""
+        """Test generic connector lineage extraction uses topic_names."""
+        manifest = create_manifest(SOURCE, "com.custom.CustomConnector")
+        manifest.topic_names = ["topic-a", "topic-b"]
+        config = create_mock_config()
+        report = create_mock_report()
+
+        generic_config = GenericConnectorConfig(
+            connector_name="test-connector",
+            source_platform="custom",
+            source_dataset="my_dataset",
+        )
+
+        connector = _GenericConnector(manifest, config, report, generic_config)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert lineages[0].source_platform == "custom"
+        assert lineages[0].source_dataset == "my_dataset"
+        assert lineages[0].target_dataset == "topic-a"
+        assert lineages[0].target_platform == "kafka"
+        assert lineages[1].target_dataset == "topic-b"
+
+    def test_extract_lineages_no_topics(self) -> None:
+        """Test generic connector returns empty lineages when no topics available."""
         manifest = create_manifest(SOURCE, "com.custom.CustomConnector")
         config = create_mock_config()
         report = create_mock_report()
@@ -519,11 +542,7 @@ class TestGenericConnector:
         connector = _GenericConnector(manifest, config, report, generic_config)
         lineages = connector.extract_lineages()
 
-        assert len(lineages) == 1
-        assert lineages[0].source_platform == "custom"
-        assert lineages[0].source_dataset == "my_dataset"
-        assert lineages[0].target_dataset == ""
-        assert lineages[0].target_platform == "kafka"
+        assert len(lineages) == 0
 
     def test_get_topics_from_config_topics_field(self) -> None:
         """Test topic extraction from 'topics' config field."""

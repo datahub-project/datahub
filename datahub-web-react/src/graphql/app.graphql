@@ -121,6 +121,7 @@ query appConfig {
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
+            hideLineageInSearchCards
         }
         chromeExtensionConfig {
             enabled
