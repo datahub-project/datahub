@@ -26,6 +26,7 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AssertionMonitorSettings;
+import com.linkedin.monitor.AssertionTimeBucketingStrategy;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -345,6 +346,10 @@ public class MonitorService extends BaseService {
     }
     monitorInfo.setAssertionMonitor(assertionMonitor);
     monitorInfo.setExecutorId(executorId, SetMode.IGNORE_NULL);
+
+    if (maybeExistingInfo != null) {
+      validateBucketingStrategyImmutability(maybeExistingInfo, monitorInfo);
+    }
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -767,5 +772,73 @@ public class MonitorService extends BaseService {
         log.error("Failed to close http response to monitors service.", e);
       }
     }
+  }
+
+  /**
+   * Validates that an update does not break bucketing strategy immutability. Changing {@code
+   * timestampFieldPath}, {@code bucketInterval}, or {@code timezone} would invalidate existing
+   * metrics-cube data.
+   */
+  private static void validateBucketingStrategyImmutability(
+      @Nonnull MonitorInfo existing, @Nonnull MonitorInfo proposed) {
+    AssertionTimeBucketingStrategy oldStrategy = extractBucketingStrategy(existing);
+    if (oldStrategy == null) {
+      return;
+    }
+    AssertionTimeBucketingStrategy newStrategy = extractBucketingStrategy(proposed);
+    if (newStrategy == null) {
+      throw new IllegalArgumentException(
+          "Cannot remove the bucketing strategy from a monitor that already has one. "
+              + "Removing it would invalidate existing metrics-cube data.");
+    }
+    if (!Objects.equals(oldStrategy.getTimestampFieldPath(), newStrategy.getTimestampFieldPath())) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Changing the timestampFieldPath of an existing bucketing strategy is not currently supported. "
+                  + "(was '%s', attempted '%s').",
+              oldStrategy.getTimestampFieldPath(), newStrategy.getTimestampFieldPath()));
+    }
+    if (!Objects.equals(oldStrategy.getBucketInterval(), newStrategy.getBucketInterval())) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Changing the bucketInterval of an existing bucketing strategy is not currently supported. "
+                  + "(was '%s', attempted '%s').",
+              oldStrategy.getBucketInterval(), newStrategy.getBucketInterval()));
+    }
+    if (!Objects.equals(oldStrategy.getTimezone(), newStrategy.getTimezone())) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Changing the timezone of an existing bucketing strategy is not currently supported. "
+                  + "(was '%s', attempted '%s').",
+              oldStrategy.getTimezone(), newStrategy.getTimezone()));
+    }
+  }
+
+  @Nullable
+  private static AssertionTimeBucketingStrategy extractBucketingStrategy(MonitorInfo monitorInfo) {
+    if (!monitorInfo.hasAssertionMonitor() || monitorInfo.getAssertionMonitor() == null) {
+      return null;
+    }
+    if (!monitorInfo.getAssertionMonitor().hasAssertions()
+        || monitorInfo.getAssertionMonitor().getAssertions() == null
+        || monitorInfo.getAssertionMonitor().getAssertions().isEmpty()) {
+      return null;
+    }
+    AssertionEvaluationSpec spec = monitorInfo.getAssertionMonitor().getAssertions().get(0);
+    if (!spec.hasParameters() || spec.getParameters() == null) {
+      return null;
+    }
+    AssertionEvaluationParameters params = spec.getParameters();
+    if (params.hasDatasetVolumeParameters() && params.getDatasetVolumeParameters() != null) {
+      if (params.getDatasetVolumeParameters().hasTimeBucketingStrategy()) {
+        return params.getDatasetVolumeParameters().getTimeBucketingStrategy();
+      }
+    }
+    if (params.hasDatasetFieldParameters() && params.getDatasetFieldParameters() != null) {
+      if (params.getDatasetFieldParameters().hasTimeBucketingStrategy()) {
+        return params.getDatasetFieldParameters().getTimeBucketingStrategy();
+      }
+    }
+    return null;
   }
 }
