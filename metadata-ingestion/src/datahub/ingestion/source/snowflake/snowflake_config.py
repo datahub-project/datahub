@@ -200,6 +200,8 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "filtering to Snowflake information_schema metadata queries using the RLIKE operator for improved performance. "
         "This applies only to metadata extraction queries (information_schema.databases, schemata, tables, views) — "
         "NOT to lineage/usage queries (for those, see push_down_database_pattern_access_history). "
+        "NOTE: view_pattern pushdown only works when fetch_views_from_information_schema is also enabled. "
+        "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
         "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
         "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
         "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
