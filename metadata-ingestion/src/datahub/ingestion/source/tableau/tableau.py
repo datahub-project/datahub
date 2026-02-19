@@ -3004,31 +3004,11 @@ class TableauSiteSource:
             yield from self.emit_table(database_table, tableau_columns)
             emitted_urns.add(database_table.urn)
 
-        # Phase 2: Emitting tables that were purely parsed from SQL queries
-        for database_table in self.database_tables.values():
-            # Only tables purely parsed from SQL queries don't have ID
-            if database_table.id:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
-                )
-                continue
-
-            if not self.config.ingest_tables_external:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
-                )
-                continue
-
-            yield from self.emit_table(database_table, None)
-            emitted_urns.add(database_table.urn)
-
-        # Phase 3: Catch tables that weren't emitted in Phase 1 or 2
+        # Phase 2: Emit remaining tables: SQL-parsed (no Tableau ID) and
+        # tables not returned by Tableau re-query (no column metadata)
         if self.config.ingest_tables_external:
             for database_table in self.database_tables.values():
                 if database_table.urn not in emitted_urns:
-                    logger.debug(
-                        f"Table {database_table.urn} not returned by Tableau re-query (likely no columns). Emitting anyway."
-                    )
                     yield from self.emit_table(database_table, None)
                     emitted_urns.add(database_table.urn)
 
