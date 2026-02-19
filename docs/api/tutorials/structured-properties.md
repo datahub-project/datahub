@@ -81,6 +81,12 @@ For example, below file represents a property `io.acryl.privacy.retentionTime`. 
       description: Use this for datasets that drive monthly reporting but contain pii
     - value: 365
       description: Use this for non-sensitive data that can be retained for longer
+  structured_property_settings:
+    isHidden: false
+    showAsAssetBadge: true
+    showInAssetSummary: true
+    showInColumnsTable: false
+    showInSearchFilters: true
 ```
 
 Use the CLI to create your properties:

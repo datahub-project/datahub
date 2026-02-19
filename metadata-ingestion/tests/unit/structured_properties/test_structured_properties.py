@@ -6,7 +6,7 @@ import yaml
 from datahub.api.entities.structuredproperties.structuredproperties import (
     AllowedValue,
     StructuredProperties,
-    StructuredPropertySettings,  # <-- import the settings model
+    StructuredPropertySettings,
     TypeQualifierAllowedTypes,
 )
 from datahub.ingestion.graph.client import DataHubGraph
