@@ -3,6 +3,7 @@ import React, { useContext } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
 import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
@@ -87,6 +88,7 @@ function EntityMenuActions(props: Props) {
                     {/* acryl-main only */}
                     {menuItems.has(EntityMenuItems.WORKFLOWS) && <WorkflowsMenuAction />}
                     {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
+                    {menuItems.has(EntityMenuItems.ANNOUNCE) && <AnnounceMenuAction />}
                     {/* end acryl-main only */}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
                     {menuItems.has(EntityMenuItems.UPDATE_DEPRECATION) && <UpdateDeprecationMenuAction />}
