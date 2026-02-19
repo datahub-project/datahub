@@ -835,6 +835,7 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
   public void testLowLevelRequest() throws IOException {
     log.info("Testing low-level request");
 
+    // Test GET request without entity
     org.opensearch.client.Request request =
         new org.opensearch.client.Request("GET", "/_cluster/health");
     request.addParameter("wait_for_status", "yellow");
@@ -861,6 +862,26 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
     assertNotNull(response2);
     assertEquals(response.getStatusLine().getStatusCode(), 200);
+  }
+
+  @Test(dependsOnMethods = "testIndexOperations")
+  public void testLowLevelRequestWithEntity() throws IOException {
+    log.info("Testing low-level request with entity");
+
+    // Test POST request with entity (search request body)
+    String searchBody =
+        "{\"query\":{\"match_all\":{}},\"size\":1,\"_source\":[\"*\"],\"sort\":[\"_doc\"]}";
+    org.opensearch.client.Request request =
+        new org.opensearch.client.Request("POST", "/" + TEST_INDEX + "/_search");
+    request.setJsonEntity(searchBody);
+
+    com.linkedin.metadata.utils.elasticsearch.responses.RawResponse response =
+        searchClientShim.performLowLevelRequest(request);
+    assertNotNull(response);
+    assertNotNull(response.getEntity());
+
+    // Verify the response contains search results
+    assertTrue(response.getStatusLine().getStatusCode() == 200);
   }
 
   @Test(dependsOnMethods = "testIndexOperations")
