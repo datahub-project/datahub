@@ -4098,3 +4098,31 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **842414a79e** - feat(permissions) Include child domains in policies targeting assets underneath a domain (#16207)
   *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-17*
+
+## Upstream Merge Session - 2026-02-19 07:00:51
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 5
+- **Strategy**: stacked
+- **Started**: 2026-02-19 07:00:51
+
+### Commits Included in This Merge
+
+- **c602488369** - fix(ingest/sql): Fix test connection with stateful_ingestion enabled (#15917)
+  *by Andrew Sikowitz <andrew.sikowitz@acryl.io> on 2026-02-17*
+
+- **8f563ccec0** - improvement(ingestion): update ordering of filter options (#16153)
+  *by v-tarasevich-blitz-brain <v.tarasevich@blitz-brain.com> on 2026-02-18*
+
+- **6c58438a02** - docs(release-notes): Update release notes for versions 0.3.16.1...3-acryl (#16252)
+  *by Gabe Lyons <gabe.lyons@acryl.io> on 2026-02-17*
+
+- **4b44a33487** - docs(release-notes): Update v_0_3_16.md (#16254)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2026-02-17*
+
+- **6f9fd58123** - ci(documentation): Update metadata-ingestion:testScripts to add coverage and standardized test reporting (#16239)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-18*
