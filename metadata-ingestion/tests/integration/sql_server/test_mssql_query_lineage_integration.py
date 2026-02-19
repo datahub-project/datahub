@@ -193,7 +193,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
+            limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params)
 
@@ -235,7 +235,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
+            limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params)
 
@@ -264,7 +264,6 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test",
             limit=100,
             min_calls=1,
             exclude_patterns=["%sys.%", "%@@%"],
@@ -284,7 +283,6 @@ class TestMSSQLLineageIntegration:
         malicious_pattern = "'; DROP TABLE lineage_test.source_orders; --"
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test",
             limit=10,
             min_calls=1,
             exclude_patterns=[malicious_pattern],
@@ -377,7 +375,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test", limit=100, min_calls=3, exclude_patterns=None
+            limit=100, min_calls=3, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params)
 
@@ -461,7 +459,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
+            limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params)
 
@@ -489,7 +487,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_dmv(
-            database="lineage_test", limit=100, min_calls=1, exclude_patterns=None
+            limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params)
         queries = list(result)
@@ -512,12 +510,12 @@ class TestMSSQLLineageIntegration:
         assert isinstance(MSSQLQuery.get_mssql_version(), TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_query_store(
-            database="test", limit=10, min_calls=1, exclude_patterns=None
+            limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_dmv(
-            database="test", limit=10, min_calls=1, exclude_patterns=None
+            limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 

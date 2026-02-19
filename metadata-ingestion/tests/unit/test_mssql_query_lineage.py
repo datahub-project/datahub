@@ -598,7 +598,6 @@ def test_mssql_query_entry_avg_exec_time():
 def test_query_store_sql_without_exclusions():
     """Test Query Store SQL generation without exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_query_store(
-        database="TestDB",
         limit=100,
         min_calls=5,
         exclude_patterns=None,
@@ -618,7 +617,6 @@ def test_query_store_sql_without_exclusions():
 def test_query_store_sql_with_exclusions():
     """Test Query Store SQL generation with exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_query_store(
-        database="TestDB",
         limit=100,
         min_calls=5,
         exclude_patterns=["%sys.%", "%temp%", "%msdb%"],
@@ -640,7 +638,6 @@ def test_query_store_sql_with_exclusions():
 def test_dmv_sql_without_exclusions():
     """Test DMV SQL generation without exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_dmv(
-        database="TestDB",
         limit=50,
         min_calls=10,
         exclude_patterns=None,
@@ -660,7 +657,6 @@ def test_dmv_sql_without_exclusions():
 def test_dmv_sql_with_exclusions():
     """Test DMV SQL generation with exclude patterns."""
     query, params = MSSQLQuery.get_query_history_from_dmv(
-        database="TestDB",
         limit=50,
         min_calls=10,
         exclude_patterns=["%INFORMATION_SCHEMA%", "%#%"],
@@ -1221,7 +1217,6 @@ def test_mssql_query_parameterized_patterns():
     """Test that query patterns are properly parameterized."""
     # Build query with multiple exclude patterns
     query, params = MSSQLQuery.get_query_history_from_query_store(
-        database="TestDB",
         limit=100,
         min_calls=1,
         exclude_patterns=["%sys.%", "%temp%", "%msdb.%"],

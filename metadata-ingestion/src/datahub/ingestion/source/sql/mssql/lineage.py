@@ -184,14 +184,12 @@ class MSSQLLineageExtractor:
 
         if method == "query_store":
             query, params = MSSQLQuery.get_query_history_from_query_store(
-                database=self.config.database,
                 limit=self.config.max_queries_to_extract,
                 min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,
             )
         else:  # dmv
             query, params = MSSQLQuery.get_query_history_from_dmv(
-                database=self.config.database,
                 limit=self.config.max_queries_to_extract,
                 min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,

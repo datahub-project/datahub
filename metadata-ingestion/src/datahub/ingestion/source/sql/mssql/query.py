@@ -82,7 +82,6 @@ class MSSQLQuery:
 
     @staticmethod
     def get_query_history_from_query_store(
-        database: Optional[str],
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
@@ -129,7 +128,6 @@ class MSSQLQuery:
 
     @staticmethod
     def get_query_history_from_dmv(
-        database: Optional[str],
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
