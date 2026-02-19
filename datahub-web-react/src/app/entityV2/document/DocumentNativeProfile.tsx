@@ -1,7 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
+
+import { ListBullets } from '@components/components/Icon/phosphor-icons';
 
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';

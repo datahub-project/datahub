@@ -1,6 +1,7 @@
-import * as PhosphorIcons from '@phosphor-icons/react';
-import { AppWindow } from '@phosphor-icons/react';
 import React from 'react';
+
+import * as PhosphorIcons from '@components/components/Icon/phosphor-icons';
+import { AppWindow } from '@components/components/Icon/phosphor-icons';
 
 import {
     NavBarMenuDropdownItemElement,

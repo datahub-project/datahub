@@ -1,9 +1,10 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import { MagnifyingGlass } from '@phosphor-icons/react';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { MagnifyingGlass } from '@components/components/Icon/phosphor-icons';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';

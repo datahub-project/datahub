@@ -1,5 +1,6 @@
 module.exports = {
     parser: '@typescript-eslint/parser', // Specifies the ESLint parser
+    ignorePatterns: ['scripts/**/*.js'], // Ignore Node.js scripts from TypeScript linting
     extends: [
         'airbnb',
         'airbnb-typescript',
@@ -26,6 +27,19 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
+        '@typescript-eslint/no-restricted-imports': [
+            'error',
+            {
+                patterns: [
+                    {
+                        group: ['@phosphor-icons/react', '@phosphor-icons/react/*'],
+                        message:
+                            'Please import from @components/components/Icon/phosphor-icons instead to use the optimized icon bundle (97 icons instead of 4,539). This reduces bundle size by ~6 MB.',
+                        allowTypeImports: true, // Allow type-only imports (don't affect bundle size)
+                    },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -84,6 +98,11 @@ module.exports = {
         {
             files: ['src/alchemy-components/theme/**/*.ts'],
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
+        },
+        {
+            // Allow the custom icon bundle file to import directly from @phosphor-icons/react
+            files: ['src/alchemy-components/components/Icon/phosphor-icons.ts'],
+            rules: { '@typescript-eslint/no-restricted-imports': 'off' },
         },
     ],
 };

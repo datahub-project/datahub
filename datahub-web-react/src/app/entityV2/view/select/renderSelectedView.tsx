@@ -1,9 +1,10 @@
 import { Tooltip } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
-import { FadersHorizontal } from '@phosphor-icons/react';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { FadersHorizontal } from '@components/components/Icon/phosphor-icons';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewLabel } from '@app/entityV2/view/select/styledComponents';

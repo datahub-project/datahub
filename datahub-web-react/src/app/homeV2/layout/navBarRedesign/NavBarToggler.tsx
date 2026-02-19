@@ -1,6 +1,7 @@
-import { Sidebar } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Sidebar } from '@components/components/Icon/phosphor-icons';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { colors } from '@src/alchemy-components';

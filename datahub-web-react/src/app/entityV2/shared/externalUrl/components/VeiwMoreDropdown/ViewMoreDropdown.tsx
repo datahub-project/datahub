@@ -1,7 +1,8 @@
-import { CaretDown } from '@phosphor-icons/react';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { CaretDown } from '@components/components/Icon/phosphor-icons';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';

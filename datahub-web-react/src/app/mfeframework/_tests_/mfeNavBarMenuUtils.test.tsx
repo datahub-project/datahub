@@ -1,6 +1,7 @@
-import { AppWindow, Archive } from '@phosphor-icons/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
+
+import { AppWindow, Archive } from '@components/components/Icon/phosphor-icons';
 
 import { NavBarMenuItemTypes } from '@app/homeV2/layout/navBarRedesign/types';
 import { MFESchema } from '@app/mfeframework/mfeConfigLoader';
