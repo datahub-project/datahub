@@ -15,6 +15,22 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,my_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,my_instance)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {

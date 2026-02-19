@@ -12,7 +12,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import (
     IngestionAttributionWarning,
 )
-from datahub.metadata.urns import DataFlowUrn, Urn
+from datahub.metadata.urns import DataFlowUrn, DataPlatformInstanceUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
     DomainInputType,
@@ -123,6 +123,7 @@ class DataFlow(
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.orchestrator, platform_instance)
+        self._set_default_browse_path(platform_instance)
 
         # Initialize DataFlowInfoClass directly with name
         self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
@@ -307,3 +308,25 @@ class DataFlow(
     def env(self) -> Optional[Union[str, models.FabricTypeClass]]:
         """Get the environment of the dataflow."""
         return self._ensure_dataflow_props().env
+
+    def _set_default_browse_path(self, platform_instance: Optional[str]) -> None:
+        """Set a default browse path for the dataflow based on platform and instance.
+
+        This creates a browse path with the platform instance as the root if provided,
+        preventing the dataflow from appearing in a generic "Default" folder.
+
+        Args:
+            platform_instance: Optional platform instance identifier.
+        """
+        browse_path = []
+        if platform_instance:
+            platform_instance_urn = DataPlatformInstanceUrn(
+                self.urn.orchestrator, platform_instance
+            )
+            browse_path.append(
+                models.BrowsePathEntryClass(
+                    id=platform_instance_urn.urn(), urn=platform_instance_urn.urn()
+                )
+            )
+
+        self._set_aspect(models.BrowsePathsV2Class(path=browse_path))

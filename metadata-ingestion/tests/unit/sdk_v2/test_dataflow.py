@@ -204,3 +204,32 @@ def test_dataflow_with_container() -> None:
     )
     assert flow.parent_container == container.urn
     assert flow.browse_path == [container.urn]
+
+
+def test_dataflow_browse_path_with_platform_instance() -> None:
+    """Test that DataFlow with platform_instance has a correct browse path."""
+    flow = DataFlow(
+        platform="fivetran",
+        name="my_connector",
+        platform_instance="prod_instance",
+    )
+
+    assert flow.platform_instance is not None
+    assert flow.browse_path is not None
+    assert len(flow.browse_path) == 1
+    assert (
+        str(flow.browse_path[0])
+        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,prod_instance)"
+    )
+
+
+def test_dataflow_browse_path_without_platform_instance() -> None:
+    """Test that DataFlow without platform_instance has an empty browse path."""
+    flow = DataFlow(
+        platform="fivetran",
+        name="my_connector",
+    )
+
+    assert flow.platform_instance is None
+    assert flow.browse_path is not None
+    assert len(flow.browse_path) == 0

@@ -20,6 +20,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,my_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,my_instance)"
+                },
+                {
                     "id": "my_instance.example_dag",
                     "urn": "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)"
                 }
