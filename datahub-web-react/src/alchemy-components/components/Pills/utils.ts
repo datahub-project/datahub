@@ -17,25 +17,25 @@ interface ColorStyles {
 function getSemanticPillColors(color: ColorOptions, themeColors: Record<string, string>): ColorStyles | null {
     const map: Partial<Record<ColorOptions, ColorStyles>> = {
         green: {
-            primaryColor: themeColors.textSuccess,
+            primaryColor: themeColors.textOnSurfaceSuccess || themeColors.textSuccess,
             bgColor: themeColors.bgSurfaceSuccess,
             hoverColor: themeColors.bgSurfaceSuccessHover,
             borderColor: themeColors.borderSuccess,
         },
         red: {
-            primaryColor: themeColors.textError,
+            primaryColor: themeColors.textOnSurfaceError || themeColors.textError,
             bgColor: themeColors.bgSurfaceError,
             hoverColor: themeColors.bgSurfaceErrorHover,
             borderColor: themeColors.borderError,
         },
         blue: {
-            primaryColor: themeColors.textInformation,
+            primaryColor: themeColors.textOnSurfaceInformation || themeColors.textInformation,
             bgColor: themeColors.bgSurfaceInfo,
             hoverColor: themeColors.bgSurfaceInformationHover,
             borderColor: themeColors.borderInformation,
         },
         yellow: {
-            primaryColor: themeColors.textWarning,
+            primaryColor: themeColors.textOnSurfaceWarning || themeColors.textWarning,
             bgColor: themeColors.bgSurfaceWarning,
             hoverColor: themeColors.bgSurfaceWarningHover,
             borderColor: themeColors.borderWarning,

@@ -71,6 +71,7 @@ export const TableCellMenu = () => {
         divider,
         {
             key: 4,
+            danger: true,
             label: (
                 <MenuItemStyle
                     icon={<DeleteOutlined />}
@@ -83,6 +84,7 @@ export const TableCellMenu = () => {
         },
         {
             key: 5,
+            danger: true,
             label: (
                 <MenuItemStyle icon={<DeleteOutlined />} onClick={() => commands.deleteTableColumn()}>
                     Delete column
@@ -91,6 +93,7 @@ export const TableCellMenu = () => {
         },
         {
             key: 6,
+            danger: true,
             label: (
                 <MenuItemStyle icon={<DeleteOutlined />} onClick={() => commands.deleteTable()}>
                     Delete table

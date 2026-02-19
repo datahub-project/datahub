@@ -21,7 +21,12 @@ export const StyledTag = styled(Tag)<{
     overflow: hidden;
     text-overflow: ellipsis;
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.textSecondary};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
         ${(props) =>
             props.$highlightTag &&
             `
@@ -45,7 +50,6 @@ export const StyledTag = styled(Tag)<{
                 margin-right: 4px;
             }
         `};
-    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
     ${(props) =>
         props.$showOneAndCount &&

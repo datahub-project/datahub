@@ -92,11 +92,35 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.bg};
         box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
-    .ant-dropdown-menu-item {
+    .ant-dropdown-menu .ant-dropdown-menu-item,
+    .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
         color: ${(props) => props.theme.colors.text};
     }
-    .ant-dropdown-menu-item:hover {
+    .ant-dropdown-menu .ant-dropdown-menu-item:hover,
+    .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
+    }
+    .ant-dropdown-menu .ant-dropdown-menu-item-danger,
+    .ant-dropdown-menu .ant-dropdown-menu-item-danger .anticon {
+        color: ${(props) => props.theme.colors.textError} !important;
+    }
+    .ant-dropdown-menu .ant-dropdown-menu-item-danger:hover {
+        background-color: ${(props) => props.theme.colors.bgSurfaceError} !important;
+    }
+    .ant-dropdown-menu-submenu-popup {
+        .ant-dropdown-menu,
+        .ant-dropdown-menu-sub {
+            background-color: ${(props) => props.theme.colors.bg} !important;
+            box-shadow: ${(props) => props.theme.colors.shadowMd} !important;
+        }
+        .ant-dropdown-menu-item,
+        .ant-dropdown-menu-submenu-title {
+            color: ${(props) => props.theme.colors.text} !important;
+        }
+        .ant-dropdown-menu-item:hover,
+        .ant-dropdown-menu-submenu-title:hover {
+            background-color: ${(props) => props.theme.colors.bgHover} !important;
+        }
     }
     .ant-select-dropdown {
         background-color: ${(props) => props.theme.colors.bg};
@@ -263,7 +287,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Tag ──────────────────────────────────────────────── */
     .ant-tag {
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.textSecondary};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
     }
 
     /* ── Form ─────────────────────────────────────────────── */

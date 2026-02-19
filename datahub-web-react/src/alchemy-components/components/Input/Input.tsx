@@ -115,9 +115,18 @@ export const Input = ({
                     </Tooltip>
                 )}
                 {!!onClear && value && (
-                    <ClearIcon className="clear-search" source="phosphor" icon="X" size="lg" onClick={onClear} />
+                    <ClearIcon
+                        className="clear-search"
+                        source="phosphor"
+                        icon="X"
+                        size="lg"
+                        color="icon"
+                        onClick={onClear}
+                    />
                 )}
-                {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
+                {isPassword && (
+                    <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" color="icon" />
+                )}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

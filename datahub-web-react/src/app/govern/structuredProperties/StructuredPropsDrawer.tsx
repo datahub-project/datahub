@@ -330,7 +330,7 @@ const StructuredPropsDrawer = ({
                             {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
                         </Text>
                     )}
-                    <StyledIcon icon="Close" onClick={handleClose} />
+                    <StyledIcon icon="Close" color="icon" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={

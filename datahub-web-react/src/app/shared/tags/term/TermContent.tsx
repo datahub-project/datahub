@@ -14,6 +14,12 @@ const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', p
 
 const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.text};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
         ${(props) =>
             props.highlightTerm &&
             `

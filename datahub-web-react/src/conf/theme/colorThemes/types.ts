@@ -32,6 +32,10 @@ export default interface ColorTheme {
     textInformation: string;
     textSuccess: string;
     textWarning: string;
+    textOnSurfaceError: string;
+    textOnSurfaceInformation: string;
+    textOnSurfaceSuccess: string;
+    textOnSurfaceWarning: string;
     hyperlinks: string;
     icon: string;
     iconBrand: string;

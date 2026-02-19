@@ -118,6 +118,7 @@ export default function UserListItem({
         },
         {
             key: 'delete',
+            danger: true,
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
                     <DeleteOutlined /> &nbsp;Delete

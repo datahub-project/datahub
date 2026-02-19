@@ -47,6 +47,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
                             key="0"
                             onClick={() => setShowConfirmationModa(true)}
                             data-testid={`query-delete-button-${index}`}
+                            danger
                         >
                             <DeleteOutlined /> &nbsp; Delete
                         </Menu.Item>

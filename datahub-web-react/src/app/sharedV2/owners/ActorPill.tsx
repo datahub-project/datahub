@@ -62,6 +62,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                             icon="X"
                             source="phosphor"
                             size="sm"
+                            color="icon"
                             data-testid={`remove-owner-${actor.urn}`}
                         />
                     )}

@@ -24,7 +24,7 @@ const CloseButton = styled.div`
         cursor: pointer;
     }
     && {
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 

@@ -67,7 +67,7 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
                         <UserAvatar createdActor={createdActor} createdOn={createdOn} />
                     </div>
                 )}
-                <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+                <Icon icon="X" source="phosphor" color="icon" onClick={() => removeEntity(entity)} />
             </AvatarWrapper>
         </EntityItem>
     );

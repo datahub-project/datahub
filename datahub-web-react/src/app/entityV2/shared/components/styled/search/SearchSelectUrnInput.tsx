@@ -150,7 +150,12 @@ export function SearchSelectUrnInput({
                                     <Skeleton.Input active />
                                 )}
                                 <IconWrapper>
-                                    <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+                                    <Icon
+                                        icon="X"
+                                        source="phosphor"
+                                        color="icon"
+                                        onClick={() => removeEntity(entity)}
+                                    />
                                 </IconWrapper>
                             </SelectedItem>
                         ))

@@ -1,7 +1,7 @@
 import { Icon, Text, Tooltip } from '@components';
 import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
@@ -39,7 +39,6 @@ interface Props {
 
 export default function ModuleMenu({ module, position }: Props) {
     const [showRemoveModuleConfirmation, setShowRemoveModuleConfirmation] = useState<boolean>(false);
-    const theme = useTheme();
     const { type } = module.properties;
     const canEdit = !DEFAULT_MODULE_URNS.includes(module.urn);
 
@@ -100,9 +99,9 @@ export default function ModuleMenu({ module, position }: Props) {
                 title: 'Remove',
                 label: 'Remove',
                 key: 'remove',
+                danger: true,
                 style: {
                     ...menuItemStyle,
-                    color: theme.colors.textError,
                 },
                 onClick: () => setShowRemoveModuleConfirmation(true),
                 'data-testid': 'remove-module',

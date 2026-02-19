@@ -63,7 +63,7 @@ const ViewStructuredPropsDrawer = ({
                                 {getDisplayName(selectedProperty)}
                             </Text>
 
-                            <StyledIcon icon="Close" onClick={handleClose} />
+                            <StyledIcon icon="Close" color="icon" onClick={handleClose} />
                         </DrawerHeader>
                     )}
                 </>

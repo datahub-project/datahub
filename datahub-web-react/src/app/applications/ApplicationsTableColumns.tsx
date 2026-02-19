@@ -2,7 +2,7 @@ import { Icon, typography } from '@components';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -109,7 +109,6 @@ export const ApplicationOwnersColumn = React.memo(
 export const ApplicationActionsColumn = React.memo(
     ({ applicationUrn, onDelete }: { applicationUrn: string; onDelete: () => void }) => {
         const entityRegistry = useEntityRegistry();
-        const theme = useTheme();
         const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
         const items = [
@@ -135,8 +134,9 @@ export const ApplicationActionsColumn = React.memo(
             },
             {
                 key: '2',
+                danger: true,
                 label: (
-                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: theme.colors.textError }}>
+                    <MenuItem onClick={onDelete} data-testid="action-delete">
                         Delete
                     </MenuItem>
                 ),

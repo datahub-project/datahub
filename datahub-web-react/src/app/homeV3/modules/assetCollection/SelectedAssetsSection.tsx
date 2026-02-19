@@ -67,6 +67,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                 icon="X"
                 source="phosphor"
                 size="md"
+                color="icon"
                 onClick={(e) => {
                     e.preventDefault();
                     handleRemoveAsset(entity);

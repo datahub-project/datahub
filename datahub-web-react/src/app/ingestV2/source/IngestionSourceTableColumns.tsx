@@ -1,4 +1,4 @@
-import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip } from '@components';
+import { Avatar, CellHoverWrapper, Icon, Pill, Tooltip } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
@@ -255,6 +255,7 @@ interface ActionsColumnProps {
 type MenuOption = {
     key: string;
     label: React.ReactNode;
+    danger?: boolean;
 };
 
 export function ActionsColumn({
@@ -267,7 +268,6 @@ export function ActionsColumn({
     onDelete,
     navigateToRunHistory,
 }: ActionsColumnProps) {
-    const theme = useTheme();
     const items: MenuOption[] = [];
 
     if (!record.cliIngestion)
@@ -351,13 +351,14 @@ export function ActionsColumn({
         });
     items.push({
         key: '6',
+        danger: true,
         label: (
             <MenuItem
                 onClick={() => {
                     onDelete(record.urn);
                 }}
             >
-                <Text style={{ color: theme.colors.textError }}>Delete </Text>
+                Delete
             </MenuItem>
         ),
     });

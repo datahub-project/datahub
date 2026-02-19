@@ -109,7 +109,9 @@ export function Modal({
             centered
             closable={closable}
             onCancel={onCancel}
-            closeIcon={closable ? <Icon icon="X" source="phosphor" data-testid="modal-close-icon" /> : null}
+            closeIcon={
+                closable ? <Icon icon="X" source="phosphor" color="icon" data-testid="modal-close-icon" /> : null
+            }
             hasChildren={!!children}
             data-testid={dataTestId}
             title={

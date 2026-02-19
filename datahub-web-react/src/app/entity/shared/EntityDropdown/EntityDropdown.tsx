@@ -248,6 +248,7 @@ function EntityDropdown(props: Props) {
         menuItems.has(EntityMenuItems.DELETE)
             ? {
                   key: 5,
+                  danger: true,
                   label: (
                       <StyledMenuItem
                           key="5"

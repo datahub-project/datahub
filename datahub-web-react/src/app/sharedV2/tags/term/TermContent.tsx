@@ -41,6 +41,7 @@ const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${(props) =>
             props.highlightTerm &&
             `
