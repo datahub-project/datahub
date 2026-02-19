@@ -38,8 +38,7 @@ public class OpenAIEmbeddingProvider implements EmbeddingProvider {
   private static final String DEFAULT_MODEL = "text-embedding-3-small";
   private static final String DEFAULT_ENDPOINT = "https://api.openai.com/v1/embeddings";
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
-  private static final int MAX_ATTEMPTS = 3;
-  private static final long RETRY_DELAY_MS = 1000L;
+  private static final int MAX_ATTEMPTS = 2;
 
   private final String apiKey;
   private final String endpoint;
@@ -117,18 +116,11 @@ public class OpenAIEmbeddingProvider implements EmbeddingProvider {
         lastException = e;
         if (attempt < MAX_ATTEMPTS) {
           log.warn(
-              "OpenAI embedding attempt {}/{} failed for model {}, retrying in {}s: {}",
+              "OpenAI embedding attempt {}/{} failed for model {}, retrying: {}",
               attempt,
               MAX_ATTEMPTS,
-              attempt,
               modelToUse,
               e.getMessage());
-          try {
-            Thread.sleep(attempt * RETRY_DELAY_MS);
-          } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            break;
-          }
         }
       }
     }
