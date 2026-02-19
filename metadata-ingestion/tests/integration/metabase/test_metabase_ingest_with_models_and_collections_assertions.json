@@ -1,0 +1,11 @@
+[
+  {
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.4,PROD)"
+  },
+  {
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+  },
+  {
+    "entityUrn": "urn:li:tag:metabase_collection_john_doe"
+  }
+]

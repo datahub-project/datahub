@@ -79,6 +79,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #15262: (Ingestion) The Metabase ingestion source has been improved with several robustness and performance enhancements:
+  - Collection name sanitization now properly handles special characters (e.g., `"Sales & Marketing"` → `metabase_collection_sales_marketing`)
+  - Added recursion depth protection to prevent stack overflow from circular card references
+  - Optimized collection API calls with caching to eliminate N+1 query problems (up to 620x performance improvement for large deployments)
+  - Improved error reporting to differentiate expected 404 errors from authentication/permission issues
+  - Consolidated duplicate lineage extraction logic for better maintainability
+  - Optimized model extraction to reduce duplicate API calls
+  - These changes are **fully backward compatible** and require no configuration changes
 - (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.

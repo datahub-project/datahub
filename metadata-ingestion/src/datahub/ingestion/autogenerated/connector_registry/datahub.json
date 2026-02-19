@@ -2070,7 +2070,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Supported by default",
+          "description": "Supported by default for charts and dashboards",
           "subtype_modifier": null,
           "supported": true
         }
