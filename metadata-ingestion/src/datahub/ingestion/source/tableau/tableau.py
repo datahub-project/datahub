@@ -1949,7 +1949,7 @@ class TableauSiteSource:
             # Tables without column metadata: create table-level lineage only
             if not is_custom_sql and not num_tbl_cols:
                 self.report.num_upstream_table_processed_without_columns += 1
-                logger.warning(
+                logger.info(
                     f"Table {table[c.ID]} has no column metadata from Tableau API. "
                     f"Creating table-level lineage only (column-level lineage will be skipped). "
                     f"Table details: {table}"
