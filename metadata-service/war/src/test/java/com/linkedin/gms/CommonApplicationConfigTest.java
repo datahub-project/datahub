@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import java.io.File;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
@@ -187,5 +188,116 @@ public class CommonApplicationConfigTest {
         server.getBeans().stream()
             .anyMatch(bean -> bean.getClass().getName().contains("MBeanContainer")),
         "Server should have MBeanContainer configured for JMX monitoring");
+  }
+
+  @Test
+  public void testHttpsEnabledWhenKeystoreProvided() throws Exception {
+    File tempKeystore = File.createTempFile("test-keystore", ".p12");
+    tempKeystore.deleteOnExit();
+
+    when(mockEnvironment.getProperty("server.ssl.key-store"))
+        .thenReturn(tempKeystore.getAbsolutePath());
+    when(mockEnvironment.getProperty("server.ssl.key-store-password")).thenReturn("secret");
+
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    ServerConnector connector = (ServerConnector) server.getConnectors()[0];
+
+    assertEquals(connector.getPort(), 8443);
+    assertNotNull(connector.getConnectionFactory("SSL"));
+  }
+
+  @Test
+  public void testTruststoreLoadedWhenProvided() throws Exception {
+    File tempKeystore = File.createTempFile("test-keystore", ".p12");
+    File tempTruststore = File.createTempFile("test-truststore", ".p12");
+    tempKeystore.deleteOnExit();
+    tempTruststore.deleteOnExit();
+
+    when(mockEnvironment.getProperty("server.ssl.key-store"))
+        .thenReturn(tempKeystore.getAbsolutePath());
+    when(mockEnvironment.getProperty("server.ssl.key-store-password")).thenReturn("secret");
+
+    when(mockEnvironment.getProperty("server.ssl.trust-store"))
+        .thenReturn(tempTruststore.getAbsolutePath());
+    when(mockEnvironment.getProperty("server.ssl.trust-store-password")).thenReturn("trustsecret");
+
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    verify(mockEnvironment).getProperty("server.ssl.trust-store");
+    verify(mockEnvironment).getProperty("server.ssl.trust-store-password");
+  }
+
+  @Test
+  public void testMtlsNeedClientAuth() throws Exception {
+    File tempKeystore = File.createTempFile("test-keystore", ".p12");
+    tempKeystore.deleteOnExit();
+
+    when(mockEnvironment.getProperty("server.ssl.key-store"))
+        .thenReturn(tempKeystore.getAbsolutePath());
+    when(mockEnvironment.getProperty("server.ssl.key-store-password")).thenReturn("secret");
+    when(mockEnvironment.getProperty("server.ssl.client-auth", "NONE")).thenReturn("NEED");
+
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    ServerConnector connector = (ServerConnector) server.getConnectors()[0];
+
+    // Correct extraction
+    var sslConnFactory =
+        connector.getConnectionFactory(org.eclipse.jetty.server.SslConnectionFactory.class);
+    assertNotNull(sslConnFactory, "SSLConnectionFactory should be present for HTTPS");
+
+    var sslContextFactory =
+        (org.eclipse.jetty.util.ssl.SslContextFactory.Server) sslConnFactory.getSslContextFactory();
+    assertNotNull(sslContextFactory, "SslContextFactory must not be null");
+
+    assertTrue(sslContextFactory.getNeedClientAuth(), "mTLS NEED must enforce client certificate");
+  }
+
+  @Test
+  public void testMtlsWantClientAuth() throws Exception {
+    File tempKeystore = File.createTempFile("test-keystore", ".p12");
+    tempKeystore.deleteOnExit();
+
+    when(mockEnvironment.getProperty("server.ssl.key-store"))
+        .thenReturn(tempKeystore.getAbsolutePath());
+    when(mockEnvironment.getProperty("server.ssl.key-store-password")).thenReturn("secret");
+    when(mockEnvironment.getProperty("server.ssl.client-auth", "NONE")).thenReturn("WANT");
+
+    WebServerFactoryCustomizer<JettyServletWebServerFactory> customizer = config.jettyCustomizer();
+    JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
+    customizer.customize(factory);
+
+    Server server = new Server();
+    factory.getServerCustomizers().forEach(sc -> sc.customize(server));
+
+    ServerConnector connector = (ServerConnector) server.getConnectors()[0];
+
+    var sslConnFactory =
+        connector.getConnectionFactory(org.eclipse.jetty.server.SslConnectionFactory.class);
+    assertNotNull(sslConnFactory);
+
+    var sslContextFactory =
+        (org.eclipse.jetty.util.ssl.SslContextFactory.Server) sslConnFactory.getSslContextFactory();
+    assertNotNull(sslContextFactory);
+
+    assertTrue(
+        sslContextFactory.getWantClientAuth(),
+        "mTLS WANT must request optional client certificate");
   }
 }
