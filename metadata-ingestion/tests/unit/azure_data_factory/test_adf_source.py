@@ -13,17 +13,22 @@ We do NOT test:
 - Pydantic validation (covered by test_adf_config.py)
 """
 
-from typing import TYPE_CHECKING, Callable
+from typing import Callable, Optional
+
+import pytest
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-        DatasetSchemaInfo,
-    )
+from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+    CopyActivityColumnLineageExtractor,
+    DatasetSchemaInfo,
+)
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
     LINKED_SERVICE_PLATFORM_MAP,
+)
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
 
 
@@ -469,26 +474,25 @@ class MockActivity:
         activity_type: str = "Copy",
         translator: dict | None = None,
         type_properties: dict | None = None,
+        name: str = "TestActivity",
     ):
+        self.name = name
         self.type = activity_type
         self.translator = translator
         self.type_properties = type_properties
 
 
 def make_schema_resolver(
-    schema_map: dict | None = None,
-) -> "Callable[[str], DatasetSchemaInfo | None]":
+    schema_map: Optional[dict[str, DatasetSchemaInfo]] = None,
+) -> Callable[[str], Optional[DatasetSchemaInfo]]:
     """Create a schema resolver function for testing.
 
     Args:
         schema_map: Optional dict mapping dataset URNs to DatasetSchemaInfo.
                    If None, resolver always returns None.
     """
-    from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-        DatasetSchemaInfo,
-    )
 
-    def resolver(dataset_urn: str) -> DatasetSchemaInfo | None:
+    def resolver(dataset_urn: str) -> Optional[DatasetSchemaInfo]:
         if schema_map is None:
             return None
         return schema_map.get(dataset_urn)
@@ -502,24 +506,24 @@ class TestCopyActivityColumnLineageExtractor:
     These tests verify the column mapping extraction logic for Copy activities.
     """
 
-    def test_supports_copy_activity_only(self) -> None:
+    @pytest.mark.parametrize(
+        "activity_type,expected",
+        [
+            ("Copy", True),
+            ("ExecuteDataFlow", False),
+            ("Lookup", False),
+            ("ForEach", False),
+            ("If", False),
+            ("Switch", False),
+        ],
+    )
+    def test_supports_activity_types(self, activity_type: str, expected: bool) -> None:
         """Extractor should only support Copy activity type."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
-
-        assert extractor.supports_activity("Copy") is True
-        assert extractor.supports_activity("ExecuteDataFlow") is False
-        assert extractor.supports_activity("Lookup") is False
-        assert extractor.supports_activity("ForEach") is False
+        assert extractor.supports_activity(activity_type) is expected
 
     def test_extract_dict_format_column_mappings(self) -> None:
         """Should parse legacy dictionary format: {source_col: sink_col}."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
 
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
@@ -560,10 +564,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_extract_list_format_column_mappings(self) -> None:
         """Should parse current list format: [{source: {name}, sink: {name}}]."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={
@@ -598,10 +598,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_empty_when_no_translator(self) -> None:
         """Should return empty list when no translator configuration."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(translator=None, type_properties=None)
 
@@ -619,10 +615,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_empty_when_missing_inlets_or_outlets(self) -> None:
         """Should return empty list when inlets or outlets are empty."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={"columnMappings": {"a": "b"}},
@@ -648,10 +640,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_handles_empty_column_names_gracefully(self) -> None:
         """Should skip mappings with empty or None column names."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={
@@ -684,10 +672,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_extract_from_sdk_flattened_translator(self) -> None:
         """Should extract translator from activity-level attribute (SDK flattening)."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         # Translator at activity level (not in typeProperties)
         activity = MockActivity(
@@ -715,10 +699,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_extract_from_type_properties_translator(self) -> None:
         """Should extract translator from typeProperties when not at activity level."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         # Translator in typeProperties (raw JSON format)
         activity = MockActivity(
@@ -750,11 +730,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_infer_auto_mapped_columns_from_source_schema(self) -> None:
         """Should infer 1:1 mappings from source schema when no explicit mappings."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-            DatasetSchemaInfo,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         # TabularTranslator without explicit mappings
         activity = MockActivity(
@@ -787,10 +762,6 @@ class TestCopyActivityColumnLineageExtractor:
 
     def test_no_inference_without_source_schema(self) -> None:
         """Should not infer mappings when source schema is unavailable."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={"type": "TabularTranslator"},  # No explicit mappings
@@ -881,10 +852,6 @@ class TestFineGrainedLineageOutput:
 
     def test_produces_correct_schema_field_urns(self) -> None:
         """Should produce valid SchemaFieldUrn for upstreams and downstreams."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={
@@ -915,13 +882,6 @@ class TestFineGrainedLineageOutput:
 
     def test_upstream_type_is_field_set(self) -> None:
         """Upstream type should be FIELD_SET (many-to-one possible)."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-        from datahub.metadata.schema_classes import (
-            FineGrainedLineageUpstreamTypeClass,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={"columnMappings": {"col": "col"}},
@@ -942,13 +902,6 @@ class TestFineGrainedLineageOutput:
 
     def test_downstream_type_is_field(self) -> None:
         """Downstream type should be FIELD (single field target)."""
-        from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
-            CopyActivityColumnLineageExtractor,
-        )
-        from datahub.metadata.schema_classes import (
-            FineGrainedLineageDownstreamTypeClass,
-        )
-
         extractor = CopyActivityColumnLineageExtractor()
         activity = MockActivity(
             translator={"columnMappings": {"col": "col"}},

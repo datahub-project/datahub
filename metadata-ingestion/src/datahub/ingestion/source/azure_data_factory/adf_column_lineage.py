@@ -11,7 +11,7 @@ mapping modes:
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
@@ -22,6 +22,21 @@ from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk._shared import DatasetUrnOrStr
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class ActivityProtocol(Protocol):
+    """Protocol defining the minimal interface for ADF activity objects.
+
+    This protocol defines only what's strictly required - the activity name.
+    Other attributes (translator, type_properties) are accessed via getattr
+    since they may not be present on all Activity implementations.
+    """
+
+    @property
+    def name(self) -> str:
+        """Activity name."""
+        ...
 
 
 @dataclass
@@ -67,7 +82,7 @@ class ColumnLineageExtractor(ABC):
     @abstractmethod
     def extract_column_lineage(
         self,
-        activity: Any,
+        activity: ActivityProtocol,
         inlets: list[DatasetUrnOrStr],
         outlets: list[DatasetUrnOrStr],
         schema_resolver: SchemaResolver,
@@ -117,7 +132,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
 
     def extract_column_lineage(
         self,
-        activity: Any,
+        activity: ActivityProtocol,
         inlets: list[DatasetUrnOrStr],
         outlets: list[DatasetUrnOrStr],
         schema_resolver: SchemaResolver,
@@ -136,9 +151,8 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         # Copy Activity should have exactly one source and one sink
         # Warn if there are multiple (unexpected for Copy Activity)
         if len(inlets) > 1 or len(outlets) > 1:
-            activity_name = getattr(activity, "name", "unknown")
             logger.warning(
-                f"Copy Activity '{activity_name}' has multiple inputs ({len(inlets)}) "
+                f"Copy Activity '{activity.name}' has multiple inputs ({len(inlets)}) "
                 f"or outputs ({len(outlets)}). Copy Activity typically has one source "
                 f"and one sink. Column-level lineage will use the first input/output pair."
             )
@@ -148,7 +162,12 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         sink_urn = str(outlets[0])
 
         # Get source schema for auto-mapping inference
-        source_schema = schema_resolver(source_urn)
+        # The schema resolver may raise an exception if the backend is unavailable
+        source_schema: Optional[DatasetSchemaInfo] = None
+        try:
+            source_schema = schema_resolver(source_urn)
+        except Exception as e:
+            logger.debug(f"Failed to resolve schema for {source_urn}: {e}")
 
         # Get translator - check SDK-flattened attribute first, then typeProperties
         translator = self._get_translator(activity)
@@ -170,14 +189,14 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
 
         return lineages
 
-    def _get_translator(self, activity: Any) -> Optional[dict[str, Any]]:
+    def _get_translator(self, activity: ActivityProtocol) -> Optional[dict[str, Any]]:
         """Get the translator configuration from the activity.
 
         The Azure SDK sometimes flattens CopyActivity properties to the activity
         level rather than nesting them in typeProperties.
         """
         # Try SDK-flattened attribute first
-        translator = getattr(activity, "translator", None)
+        translator = activity.translator if hasattr(activity, "translator") else None
         if translator is not None:
             # Could be a dict or an SDK object - normalize to dict
             if hasattr(translator, "as_dict"):
@@ -186,7 +205,9 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
                 return translator
 
         # Fall back to typeProperties (raw JSON or mock data)
-        type_properties = getattr(activity, "type_properties", None)
+        type_properties = (
+            activity.type_properties if hasattr(activity, "type_properties") else None
+        )
         if type_properties and isinstance(type_properties, dict):
             translator = type_properties.get("translator")
             if isinstance(translator, dict):
@@ -214,6 +235,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
             upstreams=[str(upstream_field_urn.urn())],
             downstreams=[str(downstream_field_urn.urn())],
+            transformOperation="COPY",
         )
 
     def _parse_translator(

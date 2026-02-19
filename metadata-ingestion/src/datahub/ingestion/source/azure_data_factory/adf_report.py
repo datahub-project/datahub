@@ -41,7 +41,7 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
 
     # Column-level lineage metrics
     column_lineage_extracted: int = 0  # Number of column mappings extracted
-    column_lineage_activities_skipped: Dict[str, int] = field(
+    column_lineage_activities_unsupported: Dict[str, int] = field(
         default_factory=dict
     )  # Activity types without CLL support
 
@@ -128,15 +128,15 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
         """Increment column lineage mappings counter."""
         self.column_lineage_extracted += 1
 
-    def report_column_lineage_skipped(self, activity_type: str) -> None:
-        """Record an activity type that was skipped for column lineage extraction.
+    def report_column_lineage_unsupported(self, activity_type: str) -> None:
+        """Record an activity type that doesn't support column lineage extraction.
 
         Args:
             activity_type: The ADF activity type (e.g., "Lookup", "ForEach")
         """
-        if activity_type not in self.column_lineage_activities_skipped:
-            self.column_lineage_activities_skipped[activity_type] = 0
-        self.column_lineage_activities_skipped[activity_type] += 1
+        if activity_type not in self.column_lineage_activities_unsupported:
+            self.column_lineage_activities_unsupported[activity_type] = 0
+        self.column_lineage_activities_unsupported[activity_type] += 1
 
     def report_pipeline_run_scanned(self) -> None:
         """Increment pipeline runs scanned counter."""

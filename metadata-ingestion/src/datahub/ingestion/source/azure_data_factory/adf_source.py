@@ -20,7 +20,7 @@ Usage:
 """
 
 import logging
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from azure.mgmt.datafactory.models import (
     Activity,
@@ -784,22 +784,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if not inlets or not outlets:
             # No inlets or outlets provided for activity
             logger.debug(f"No inlets or outlets provided for activity: {activity.name}")
-            self.report.report_column_lineage_skipped(activity_type)
+            self.report.report_column_lineage_unsupported(activity_type)
             return None
 
         # Find an extractor that supports this activity type
-        extractor: Optional[ColumnLineageExtractor] = None
-        for ext in self._column_lineage_extractors:
-            if ext.supports_activity(activity_type):
-                extractor = ext
-                break
+        extractor = self._get_extractor_for_activity_type(activity_type)
 
         if extractor is None:
             # No extractor supports this activity type - this is expected for most activities
             logger.debug(
                 f"No column lineage extractor for activity type: {activity_type}"
             )
-            self.report.report_column_lineage_skipped(activity_type)
+            self.report.report_column_lineage_unsupported(activity_type)
             return None
 
         # Create schema resolver bound to this factory
@@ -821,6 +817,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self.report.report_column_lineage_extracted()
 
         return fine_grained_lineages
+
+    def _get_extractor_for_activity_type(
+        self, activity_type: str
+    ) -> Optional[ColumnLineageExtractor]:
+        """Find a column lineage extractor that supports the given activity type.
+
+        Args:
+            activity_type: The ADF activity type (e.g., "Copy", "ExecuteDataFlow")
+
+        Returns:
+            A ColumnLineageExtractor instance if one supports this type, None otherwise
+        """
+        for extractor in self._column_lineage_extractors:
+            if extractor.supports_activity(activity_type):
+                return extractor
+        return None
 
     def _get_source_dataset_schema(
         self, source_urn: str, factory_key: str
@@ -867,35 +879,47 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         Tries schema_definition first, then falls back to structure field.
         """
         props = dataset.properties
-        columns: list[str] = []
 
-        # Try schema_definition first (newer format)
+        # Try schema_definition first (newer format), then structure (legacy)
         schema_def = getattr(props, "schema", None)
-        if schema_def and isinstance(schema_def, list):
-            for field in schema_def:
-                if isinstance(field, dict):
-                    name = field.get("name")
-                    if name:
-                        columns.append(str(name))
-                elif hasattr(field, "name") and field.name:
-                    columns.append(str(field.name))
+        columns = self._extract_column_names_from_field_list(schema_def)
 
-        # Fall back to structure field (legacy format)
         if not columns:
             structure = getattr(props, "structure", None)
-            if structure and isinstance(structure, list):
-                for field in structure:
-                    if isinstance(field, dict):
-                        name = field.get("name")
-                        if name:
-                            columns.append(str(name))
-                    elif hasattr(field, "name") and field.name:
-                        columns.append(str(field.name))
+            columns = self._extract_column_names_from_field_list(structure)
 
         if columns:
             return DatasetSchemaInfo(columns=columns)
 
         return None
+
+    def _extract_column_names_from_field_list(
+        self, field_list: Optional[list[Any]]
+    ) -> list[str]:
+        """Extract column names from a list of field definitions.
+
+        Handles both dict-style fields ({"name": "col"}) and SDK objects
+        with a name attribute.
+
+        Args:
+            field_list: List of field definitions, or None
+
+        Returns:
+            List of column names extracted from the field list
+        """
+        if not field_list or not isinstance(field_list, list):
+            return []
+
+        columns: list[str] = []
+        for field in field_list:
+            if isinstance(field, dict):
+                name = field.get("name")
+                if name:
+                    columns.append(str(name))
+            elif hasattr(field, "name") and field.name:
+                columns.append(str(field.name))
+
+        return columns
 
     def _get_data_flow_name_from_activity(
         self, activity: Activity, factory_key: str

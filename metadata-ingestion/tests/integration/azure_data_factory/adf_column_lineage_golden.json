@@ -234,6 +234,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_id)"
                     ],
+                    "transformOperation": "COPY",
                     "confidenceScore": 1.0
                 },
                 {
@@ -245,6 +246,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_name)"
                     ],
+                    "transformOperation": "COPY",
                     "confidenceScore": 1.0
                 },
                 {
@@ -256,6 +258,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_email)"
                     ],
+                    "transformOperation": "COPY",
                     "confidenceScore": 1.0
                 }
             ]
@@ -374,6 +377,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_x)"
                     ],
+                    "transformOperation": "COPY",
                     "confidenceScore": 1.0
                 },
                 {
@@ -385,6 +389,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_y)"
                     ],
+                    "transformOperation": "COPY",
                     "confidenceScore": 1.0
                 }
             ]
