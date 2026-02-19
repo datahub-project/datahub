@@ -5,10 +5,21 @@ namespace com.linkedin.common
  */
 record ExternalReference {
   /**
-   * URL where the reference exist
+   * URL to which users can view the entity in the source platform.
+   * May be changed from the true source platform url to improve user experience,
+   * e.g. by routing through a proxy.
    */
   @Searchable = {
     "fieldType": "KEYWORD"
   }
   externalUrl: optional Url
+
+  /**
+   * The true source platform url of the entity, to the best of our knowledge.
+   * In practice, only set when `externalUrl` is different than the true source platform url.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  baseExternalUrl: optional Url
 }
