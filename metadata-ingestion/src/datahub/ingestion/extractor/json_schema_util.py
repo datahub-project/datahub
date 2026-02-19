@@ -2,7 +2,7 @@ import json
 import logging
 import unittest.mock
 from hashlib import md5
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
 import jsonref
 import jsonschema
@@ -273,8 +273,18 @@ class JsonSchemaTranslator:
         pass
 
     @staticmethod
-    def _get_type_from_schema(schema: Dict) -> str:
-        """Returns a generic json type from a schema."""
+    def _get_type_from_schema(schema: Union[Dict, bool]) -> str:
+        """Returns a generic json type from a schema.
+
+        Note: Per JSON Schema specification, boolean schemas are valid:
+        - true: accepts any valid JSON
+        - false: never validates
+        Reference: https://json-schema.org/understanding-json-schema/basics#hello-world!
+        """
+        # Handle boolean schemas per JSON Schema spec: true accepts any JSON, false never validates
+        if isinstance(schema, bool):
+            return "object" if schema else "null"
+
         if Ellipsis in schema:
             return "object"
         if "oneOf" in schema or "anyOf" in schema or "allOf" in schema:
