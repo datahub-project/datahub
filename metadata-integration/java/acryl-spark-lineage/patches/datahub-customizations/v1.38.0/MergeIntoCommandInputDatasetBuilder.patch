@@ -1,0 +1,75 @@
+# Patch for DataHub customizations in MergeIntoCommandInputDatasetBuilder.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/MergeIntoCommandInputDatasetBuilder.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java	2025-10-02 14:47:52.336608842 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java	2025-09-12 19:50:04.457859239 +0200
+@@ -20,7 +20,7 @@
+     extends AbstractQueryPlanInputDatasetBuilder<MergeIntoCommand> {
+ 
+   public MergeIntoCommandInputDatasetBuilder(OpenLineageContext context) {
+-    super(context, false);
++    super(context, true); // FIXED: This enables recursive traversal of subqueries
+   }
+ 
+   @Override
+@@ -31,8 +31,54 @@
+   @Override
+   protected List<OpenLineage.InputDataset> apply(SparkListenerEvent event, MergeIntoCommand x) {
+     List<OpenLineage.InputDataset> datasets = new ArrayList<>();
+-    datasets.addAll(delegate(x.target(), event));
+-    datasets.addAll(delegate(x.source(), event));
++
++    // Process target table
++    List<OpenLineage.InputDataset> targetDatasets = delegate(x.target(), event);
++    datasets.addAll(targetDatasets);
++
++    // Process source - this will recursively process all datasets in the source plan,
++    // including those in subqueries
++    List<OpenLineage.InputDataset> sourceDatasets = delegate(x.source(), event);
++    datasets.addAll(sourceDatasets);
++
++    // Handle complex subqueries that aren't captured by standard delegation
++    if (sourceDatasets.isEmpty()) {
++      sourceDatasets.addAll(extractInputDatasetsFromComplexSource(x.source(), event));
++      datasets.addAll(sourceDatasets);
++    }
++
++    return datasets;
++  }
++
++  /**
++   * Extracts input datasets from complex source plans like subqueries with DISTINCT, PROJECT, etc.
++   * This handles cases where the standard delegation doesn't work due to missing builders for
++   * intermediate logical plan nodes.
++   */
++  private List<OpenLineage.InputDataset> extractInputDatasetsFromComplexSource(
++      LogicalPlan source, SparkListenerEvent event) {
++    List<OpenLineage.InputDataset> datasets = new ArrayList<>();
++
++    // Use a queue to traverse the logical plan tree depth-first
++    java.util.Queue<LogicalPlan> queue = new java.util.LinkedList<>();
++    queue.offer(source);
++
++    while (!queue.isEmpty()) {
++      LogicalPlan current = queue.poll();
++
++      // Try to delegate this node directly
++      List<OpenLineage.InputDataset> currentDatasets = delegate(current, event);
++      datasets.addAll(currentDatasets);
++
++      // If this node didn't produce any datasets, traverse its children
++      if (currentDatasets.isEmpty()) {
++        // Add all children to the queue for traversal
++        scala.collection.Iterator<LogicalPlan> children = current.children().iterator();
++        while (children.hasNext()) {
++          queue.offer(children.next());
++        }
++      }
++    }
+ 
+     return datasets;
+   }

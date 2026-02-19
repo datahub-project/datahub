@@ -1,0 +1,59 @@
+# Patch for DataHub customizations in MergeIntoCommandEdgeInputDatasetBuilder.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/MergeIntoCommandEdgeInputDatasetBuilder.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java	2025-10-02 14:47:52.097747891 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java	2025-09-12 19:50:04.457785281 +0200
+@@ -48,9 +48,48 @@
+       inputs.addAll(delegate((LogicalPlan) o1, event));
+     }
+     if (o2 != null && o2 instanceof LogicalPlan) {
+-      inputs.addAll(delegate((LogicalPlan) o2, event));
++      List<InputDataset> sourceDatasets = delegate((LogicalPlan) o2, event);
++      inputs.addAll(sourceDatasets);
++
++      // Handle complex subqueries that aren't captured by standard delegation
++      if (sourceDatasets.isEmpty()) {
++        inputs.addAll(extractInputDatasetsFromComplexSource((LogicalPlan) o2, event));
++      }
+     }
+ 
+     return inputs;
+   }
++
++  /**
++   * Extracts input datasets from complex source plans like subqueries with DISTINCT, PROJECT, etc.
++   * This handles cases where the standard delegation doesn't work due to missing builders for
++   * intermediate logical plan nodes.
++   */
++  private List<InputDataset> extractInputDatasetsFromComplexSource(
++      LogicalPlan source, SparkListenerEvent event) {
++    List<InputDataset> datasets = new ArrayList<>();
++
++    // Use a queue to traverse the logical plan tree depth-first
++    java.util.Queue<LogicalPlan> queue = new java.util.LinkedList<>();
++    queue.offer(source);
++
++    while (!queue.isEmpty()) {
++      LogicalPlan current = queue.poll();
++
++      // Try to delegate this node directly
++      List<InputDataset> currentDatasets = delegate(current, event);
++      datasets.addAll(currentDatasets);
++
++      // If this node didn't produce any datasets, traverse its children
++      if (currentDatasets.isEmpty()) {
++        // Add all children to the queue for traversal
++        scala.collection.Iterator<LogicalPlan> children = current.children().iterator();
++        while (children.hasNext()) {
++          queue.offer(children.next());
++        }
++      }
++    }
++
++    return datasets;
++  }
+ }

@@ -5,6 +5,8 @@
 
 package io.openlineage.spark.agent.util;
 
+import static io.openlineage.spark.agent.util.ScalaConversionUtils.asJavaOptional;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkLineageConf;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,6 +34,9 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
+import org.apache.spark.sql.types.ArrayType;
+import org.apache.spark.sql.types.MapType;
+import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import scala.PartialFunction;
@@ -119,16 +125,65 @@ public class PlanUtils {
 
   private static List<OpenLineage.SchemaDatasetFacetFields> transformFields(
       OpenLineage openLineage, StructField... fields) {
-    List<OpenLineage.SchemaDatasetFacetFields> list = new ArrayList<>();
-    for (StructField field : fields) {
-      list.add(
-          openLineage
-              .newSchemaDatasetFacetFieldsBuilder()
-              .name(field.name())
-              .type(field.dataType().typeName())
-              .build());
+    return Arrays.stream(fields)
+        .map(field -> transformField(openLineage, field))
+        .collect(Collectors.toList());
+  }
+
+  private static OpenLineage.SchemaDatasetFacetFields transformField(
+      OpenLineage openLineage, StructField field) {
+    OpenLineage.SchemaDatasetFacetFieldsBuilder builder =
+        openLineage
+            .newSchemaDatasetFacetFieldsBuilder()
+            .name(field.name())
+            .type(field.dataType().typeName());
+
+    if (field.metadata() != null) {
+      // field.getComment() actually tries to access field.metadata(),
+      // and fails with NullPointerException if it is null instead of expected Metadata.empty()
+      builder = builder.description(asJavaOptional(field.getComment()).orElse(null));
     }
-    return list;
+
+    if (field.dataType() instanceof StructType) {
+      StructType structField = (StructType) field.dataType();
+      return builder
+          .type("struct")
+          .fields(transformFields(openLineage, structField.fields()))
+          .build();
+    }
+
+    if (field.dataType() instanceof MapType) {
+      MapType mapField = (MapType) field.dataType();
+      return builder
+          .type("map")
+          .fields(
+              transformFields(
+                  openLineage,
+                  new StructField("key", mapField.keyType(), false, Metadata.empty()),
+                  new StructField(
+                      "value",
+                      mapField.valueType(),
+                      mapField.valueContainsNull(),
+                      Metadata.empty())))
+          .build();
+    }
+
+    if (field.dataType() instanceof ArrayType) {
+      ArrayType arrayField = (ArrayType) field.dataType();
+      return builder
+          .type("array")
+          .fields(
+              transformFields(
+                  openLineage,
+                  new StructField(
+                      "_element",
+                      arrayField.elementType(),
+                      arrayField.containsNull(),
+                      Metadata.empty())))
+          .build();
+    }
+
+    return builder.build();
   }
 
   /**
@@ -202,6 +257,28 @@ public class PlanUtils {
                         .build())
                 .build())
         .build();
+  }
+
+  /**
+   * Given a list of paths, it collects list of data location directories. For each path, a parent
+   * directory is taken and list of distinct locations is returned. Operation is optimized to check
+   * for each path if it was already added to the list of normalized paths.
+   *
+   * @param paths
+   * @param hadoopConf
+   * @return
+   */
+  public static List<Path> getDirectoryPaths(Collection<Path> paths, Configuration hadoopConf) {
+    LinkedHashSet<Path> normalizedPaths = new LinkedHashSet<>();
+    for (Path path : paths) {
+      // check if the root path is already contained in normalized Paths
+      Path parent = path.getParent();
+      if (parent != null && !normalizedPaths.contains(parent)) {
+        // if not, add new path to normalized paths -> call getDirectoryPath
+        normalizedPaths.add(PlanUtils.getDirectoryPath(path, hadoopConf));
+      }
+    }
+    return new ArrayList<>(normalizedPaths);
   }
 
   public static Path getDirectoryPathOl(Path p, Configuration hadoopConf) {
@@ -281,6 +358,9 @@ public class PlanUtils {
       return pfn.isDefinedAt(x);
     } catch (ClassCastException e) {
       // do nothing
+      return false;
+    } catch (TypeNotPresentException e) {
+      log.info("isDefinedAt method failed due to missing type: {}", e.getMessage());
       return false;
     } catch (Exception e) {
       if (e != null) {
