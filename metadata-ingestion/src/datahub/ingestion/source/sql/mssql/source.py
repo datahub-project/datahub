@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator, model_validator
@@ -650,170 +650,74 @@ class SQLServerSource(SQLAlchemySource):
         """
         Get job information with environment detection to choose optimal method first.
         """
-        jobs: Dict[str, Dict[str, Any]] = {}
-
         is_rds = self._detect_rds_environment(conn)
+        methods = (
+            [self._get_jobs_via_stored_procedures, self._get_jobs_via_direct_query]
+            if is_rds
+            else [self._get_jobs_via_direct_query, self._get_jobs_via_stored_procedures]
+        )
+
+        return self._get_jobs_with_fallback(conn, db_name, methods, is_rds)
+
+    def _get_jobs_with_fallback(
+        self,
+        conn: Connection,
+        db_name: str,
+        methods: List[Callable],
+        is_rds: bool,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Try each method in order, handle all exception types once."""
+        context_suffix = "managed" if is_rds else "on_prem"
+        env_desc = "managed environment" if is_rds else "on-premises environment"
+
+        for method in methods:
+            try:
+                jobs = method(conn, db_name)
+                logger.info("Retrieved jobs using %s (%s)", method.__name__, env_desc)
+                return jobs
+            except (DatabaseError, OperationalError, ProgrammingError) as e:
+                logger.warning("%s failed: %s", method.__name__, e)
+            except (KeyError, TypeError) as e:
+                logger.error("Job structure error %s: %s", method.__name__, e)
+                self.report.failure(
+                    message=f"Job structure error: {e}",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_structure_error_{context_suffix}",
+                    exc=e,
+                )
+            except Exception as e:
+                logger.error(
+                    "Unexpected error %s: %s", method.__name__, e, exc_info=True
+                )
+                self.report.failure(
+                    message=f"Unexpected error: {e}",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_extraction_error_{context_suffix}",
+                    exc=e,
+                )
 
         if is_rds:
-            try:
-                jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using stored procedures (managed environment)"
-                )
-                return jobs
-            except (DatabaseError, OperationalError, ProgrammingError) as sp_error:
-                logger.warning(
-                    "Expected failure retrieving jobs via stored procedures in managed environment (RDS/managed instances may restrict msdb access): %s",
-                    sp_error,
-                )
-                try:
-                    jobs = self._get_jobs_via_direct_query(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using direct query fallback in managed environment"
-                    )
-                    return jobs
-                except (
-                    DatabaseError,
-                    OperationalError,
-                    ProgrammingError,
-                ) as direct_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in managed environment (both stored procedures and direct query). "
-                        "This is expected on AWS RDS and some managed SQL instances that restrict msdb access. "
-                        "Jobs extraction will be skipped.",
-                        title="SQL Server Jobs Extraction",
-                        context="managed_environment_msdb_restricted",
-                        exc=direct_error,
-                    )
-                except (KeyError, TypeError) as struct_error:
-                    logger.error(
-                        "Job data structure error in managed environment: %s. This indicates missing columns or SQL Server version incompatibility.",
-                        struct_error,
-                        exc_info=True,
-                    )
-                    self.report.failure(
-                        message=f"Job data structure error: {struct_error}. Check SQL Server version compatibility.",
-                        title="SQL Server Jobs Extraction",
-                        context="job_structure_error_managed",
-                        exc=struct_error,
-                    )
-                except Exception as unexpected_error:
-                    logger.error(
-                        "Unexpected error retrieving jobs via direct query in managed environment: %s (%s). This is likely a bug.",
-                        unexpected_error,
-                        type(unexpected_error).__name__,
-                        exc_info=True,
-                    )
-                    self.report.failure(
-                        message=f"Unexpected error: {unexpected_error} ({type(unexpected_error).__name__})",
-                        title="SQL Server Jobs Extraction",
-                        context="job_extraction_unexpected_error_managed",
-                        exc=unexpected_error,
-                    )
-            except (KeyError, TypeError) as struct_error:
-                logger.error(
-                    "Job data structure error with stored procedures: %s. Expected columns: job_id, name, description, etc.",
-                    struct_error,
-                    exc_info=True,
-                )
-                self.report.failure(
-                    message=f"Job structure error: {struct_error}. Check if sp_help_job output format changed.",
-                    title="SQL Server Jobs Extraction",
-                    context="job_structure_error_sp_managed",
-                    exc=struct_error,
-                )
-            except Exception as unexpected_error:
-                logger.error(
-                    "Unexpected error with stored procedures in managed environment: %s (%s). This may indicate a permissions or configuration issue.",
-                    unexpected_error,
-                    type(unexpected_error).__name__,
-                    exc_info=True,
-                )
-                self.report.failure(
-                    message=f"Unexpected error: {unexpected_error}",
-                    title="SQL Server Jobs Extraction",
-                    context="job_extraction_unexpected_sp_managed",
-                    exc=unexpected_error,
-                )
+            self.report.failure(
+                message="Failed to retrieve jobs in managed environment (both stored procedures and direct query). "
+                "This is expected on AWS RDS and some managed SQL instances that restrict msdb access. "
+                "Jobs extraction will be skipped.",
+                title="SQL Server Jobs Extraction",
+                context="managed_environment_msdb_restricted",
+            )
         else:
-            try:
-                jobs = self._get_jobs_via_direct_query(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using direct query (on-premises environment)"
-                )
-                return jobs
-            except (DatabaseError, OperationalError, ProgrammingError) as direct_error:
-                logger.warning(
-                    "Database error retrieving jobs via direct query (missing permissions to msdb or syntax issue): %s. Trying stored procedures fallback.",
-                    direct_error,
-                )
-                try:
-                    jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
-                    )
-                    return jobs
-                except (DatabaseError, OperationalError, ProgrammingError) as sp_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
-                        "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
-                        "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
-                        title="SQL Server Jobs Extraction",
-                        context="on_prem_msdb_permission_denied",
-                        exc=sp_error,
-                    )
-                except (KeyError, TypeError) as struct_error:
-                    logger.error(
-                        "Job data structure error with stored procedures: %s. Check sp_help_job output compatibility.",
-                        struct_error,
-                        exc_info=True,
-                    )
-                    self.report.failure(
-                        message=f"Job structure error: {struct_error}",
-                        title="SQL Server Jobs Extraction",
-                        context="job_structure_error_sp_onprem",
-                        exc=struct_error,
-                    )
-                except Exception as unexpected_error:
-                    logger.error(
-                        "Unexpected error with stored procedures fallback: %s (%s)",
-                        unexpected_error,
-                        type(unexpected_error).__name__,
-                        exc_info=True,
-                    )
-                    self.report.failure(
-                        message=f"Unexpected error: {unexpected_error}",
-                        title="SQL Server Jobs Extraction",
-                        context="job_extraction_unexpected_sp_onprem",
-                        exc=unexpected_error,
-                    )
-            except (KeyError, TypeError) as struct_error:
-                logger.error(
-                    "Job data structure error with direct query: %s. Expected columns: job_id, name, description, step_id, etc.",
-                    struct_error,
-                    exc_info=True,
-                )
-                self.report.failure(
-                    message=f"Job structure error: {struct_error}. Check SQL Server version compatibility.",
-                    title="SQL Server Jobs Extraction",
-                    context="job_structure_error_direct_onprem",
-                    exc=struct_error,
-                )
-            except Exception as unexpected_error:
-                logger.error(
-                    "Unexpected error with direct query in on-premises environment: %s (%s). This may indicate SQL syntax issues or configuration problems.",
-                    unexpected_error,
-                    type(unexpected_error).__name__,
-                    exc_info=True,
-                )
-                self.report.failure(
-                    message=f"Unexpected error: {unexpected_error}",
-                    title="SQL Server Jobs Extraction",
-                    context="job_extraction_unexpected_direct_onprem",
-                    exc=unexpected_error,
-                )
+            self.report.failure(
+                message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
+                "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
+                "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
+                title="SQL Server Jobs Extraction",
+                context="on_prem_msdb_permission_denied",
+            )
 
-        return jobs
+        logger.error(
+            "All job retrieval methods failed for %s",
+            "RDS/managed" if is_rds else "on-premises",
+        )
+        return {}
 
     def _get_jobs_via_stored_procedures(
         self, conn: Connection, db_name: str
