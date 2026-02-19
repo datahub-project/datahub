@@ -86,7 +86,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
         const buttons: React.ReactNode[] = [];
 
         buttons.push(
-            <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
+            <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel} data-testid="cancel-button">
                 Cancel
             </Button>,
         );

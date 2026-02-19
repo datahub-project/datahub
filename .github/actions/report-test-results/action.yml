@@ -1,0 +1,32 @@
+name: Report Test Results
+description: Upload test results as an artifact and publish a job summary to Github
+
+inputs:
+  artifact-name:
+    description: "Name of the uploaded artifact"
+    required: false
+    default: "test-results"
+  test-results-paths:
+    description: "Paths to the test results directories to upload (one per line)"
+    required: true
+  junit-file-globs:
+    description: "Glob patterns for JUnit XML files to publish (one per line)"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Upload test results
+      if: (!cancelled())
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.test-results-paths }}
+        retention-days: 7
+
+    - name: Publish test results
+      if: (!cancelled())
+      uses: test-summary/action@v2
+      with:
+        paths: ${{ inputs.junit-file-globs }}
+        show: fail

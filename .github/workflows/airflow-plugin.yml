@@ -90,24 +90,22 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.extra_pip_requirements == 'apache-airflow~=2.7.3' }}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (Airflow Plugin ${{ matrix.python-version}})
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
-            !**/binary/**
+          artifact-name: ingestion-airflow-plugin-test-results-${{ strategy.job-index }}
+          test-results-paths: "metadata-ingestion-modules/airflow-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/airflow-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
-        if: always()
+        if: (!cancelled())
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-ingestion-modules/airflow-plugin/
           fail_ci_if_error: false
           flags: ingestion-airflow
-          name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
+          name: pytest-airflow-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
