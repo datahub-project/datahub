@@ -48,3 +48,10 @@ DataHub provided transformers for dataset are:
 - [Pattern Add Dataset dataProduct](./dataset_transformer.md#pattern-add-dataset-dataproduct)
 - [Add Dataset dataProduct](./dataset_transformer.md#add-dataset-dataproduct)
 - [Set browsePaths](./universal_transformers.md#set-browsepaths)
+
+Universal transformers that work on multiple entity types (datasets, charts, dashboards):
+
+- [Simple Add globalTags](./universal_transformers.md#simple-add-globaltags)
+- [Pattern Add globalTags](./universal_transformers.md#pattern-add-globaltags)
+- [Simple Add glossaryTerms](./universal_transformers.md#simple-add-glossaryterms)
+- [Pattern Add glossaryTerms](./universal_transformers.md#pattern-add-glossaryterms)
