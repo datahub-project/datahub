@@ -100,8 +100,17 @@ describe("create, edit and remove metadata test", () => {
     cy.contains(testName).click();
     cy.waitTextVisible("Edit Metadata Test");
     cy.get('[data-testid="modal-next-button"]').click();
-    cy.get('[role="dialog"] [type="search"]').eq(2).click();
+    cy.get('[role="dialog"] [type="search"]')
+      .eq(2)
+      .click()
+      .type("Cypress")
+      .wait(500);
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
+    cy.get('[role="dialog"] [type="search"]')
+      .eq(2)
+      .click()
+      .type("TagToPropose")
+      .wait(500);
     cy.get(".rc-virtual-list").find("div").contains("TagToPropose").click();
     cy.get(".ant-modal-content").click();
     // test conditions, verify that test fails
