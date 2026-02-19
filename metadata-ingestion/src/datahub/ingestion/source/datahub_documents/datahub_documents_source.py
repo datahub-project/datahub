@@ -93,20 +93,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
-    This source extracts Document entities from DataHub and generates semantic embeddings.
+    Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
-    It supports:
-    - **Batch mode**: Fetches documents via GraphQL
-    - **Event-driven mode**: Processes documents in real-time from Kafka MCL events (recommended)
-    - **Incremental processing**: Only reprocesses documents when content changes
-    - **Smart defaults**: Auto-configures connection, chunking, and embeddings from server
-
-    The minimal configuration requires just `config: {}` when using environment variables
-    (DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN) and will automatically align with your server's
-    semantic search configuration.
-
-    **Prerequisites:** Before using this source, configure semantic search on your DataHub server.
-    See the [Semantic Search Configuration Guide](../../how-to/semantic-search-configuration) for setup instructions.
+    Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
+    Automatically fetches embedding configuration from server to ensure alignment.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -139,11 +129,23 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
 
         # Initialize DataHub client
-        graph_config = DatahubClientConfig(
-            server=self.config.datahub.server,
-            token=self.config.datahub.token,
-        )
-        self.graph = DataHubGraph(config=graph_config)
+        # Use pipeline context graph if available (automatically configured from sink)
+        # This ensures we connect to the correct GMS in managed ingestion environments
+        if self.ctx.graph:
+            self.graph = self.ctx.graph
+        else:
+            # Fallback: Create graph from config (for standalone usage)
+            # Convert TransparentSecretStr to str for DatahubClientConfig
+            token_str = (
+                self.config.datahub.token.get_secret_value()
+                if self.config.datahub.token
+                else None
+            )
+            graph_config = DatahubClientConfig(
+                server=self.config.datahub.server,
+                token=token_str,
+            )
+            self.graph = DataHubGraph(config=graph_config)
 
         # Load/validate embedding configuration from server
         if not self.config.embedding.allow_local_embedding_config:
@@ -221,7 +223,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         f"  Model: {self.config.embedding.model}\n"
                         f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
                         f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                        f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                        f"Consider upgrading to DataHub 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     )
                     # Continue with local config (don't raise)
                 elif is_old_server:
@@ -233,7 +235,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "    provider: bedrock  # or cohere\n"
                         "    model: cohere.embed-english-v3\n"
                         "    aws_region: us-west-2\n\n"
-                        "Or upgrade your DataHub server to v0.14.0+ for automatic configuration sync."
+                        "Or upgrade your DataHub server to 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     ) from e
                 else:
                     # Other error (semantic search disabled, validation failed, etc.)

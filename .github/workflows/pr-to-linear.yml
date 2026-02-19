@@ -21,7 +21,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Find the Linear ticket ID from PR comments with proper error handling
-          if ! COMMENTS_JSON=$(gh pr view $PR_NUMBER --json comments 2>/dev/null); then
+          if ! COMMENTS_JSON=$(gh pr view "$PR_NUMBER" --json comments 2>/dev/null); then
             echo "⚠️  Failed to fetch PR comments for PR #$PR_NUMBER"
             exit 0
           fi
@@ -131,21 +131,21 @@ jobs:
         run: |
           # Skip draft PRs
           if [ "$PR_DRAFT" = "true" ]; then
-            echo "should_skip=true" >> $GITHUB_OUTPUT
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
             echo "⏭️  Skipping - PR is in draft"
             exit 0
           fi
 
           AUTHOR="$PR_AUTHOR"
-          echo "should_skip=false" >> $GITHUB_OUTPUT
+          echo "should_skip=false" >> "$GITHUB_OUTPUT"
 
           # Check if author is DataHub org member (for info only)
-          if gh api orgs/datahub-project/members/$AUTHOR --silent 2>/dev/null; then
+          if gh api "orgs/datahub-project/members/$AUTHOR" --silent 2>/dev/null; then
             ORG_CHECK="Internal"
           else
             ORG_CHECK="External"
           fi
-          echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
+          echo "contributor_type=$ORG_CHECK" >> "$GITHUB_OUTPUT"
           echo "✅ Author: $AUTHOR ($ORG_CHECK)"
 
       - name: Create Linear Ticket
@@ -171,7 +171,7 @@ jobs:
 
           # For file list, we need gh to get the actual paths
           # Use proper error handling - if this fails, use a fallback
-          if FILES_JSON=$(gh pr view $PR_NUMBER --json files 2>/dev/null); then
+          if FILES_JSON=$(gh pr view "$PR_NUMBER" --json files 2>/dev/null); then
             FILES_LIST=$(echo "$FILES_JSON" | jq -r '.files[:20] | map("- `" + .path + "`") | join("\n")' 2>/dev/null || echo "- Unable to fetch file list")
             if [ "$FILES_CHANGED" -gt 20 ]; then
               FILES_LIST="${FILES_LIST}\n- ... and $((FILES_CHANGED - 20)) more files"
@@ -181,7 +181,7 @@ jobs:
           fi
 
           # Get requested reviewers from gh with proper error handling
-          if REVIEWERS_JSON=$(gh pr view $PR_NUMBER --json reviewRequests 2>/dev/null); then
+          if REVIEWERS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null); then
             REVIEWERS=$(echo "$REVIEWERS_JSON" | jq -r '.reviewRequests | map("@" + .login) | join(", ")' 2>/dev/null || echo "None")
             if [ -z "$REVIEWERS" ] || [ "$REVIEWERS" = "" ]; then
               REVIEWERS="None"
@@ -217,14 +217,12 @@ jobs:
           TITLE="[PR Review] $PR_TITLE"
 
           # Pre-validate that we can JSON-encode the strings
-          TITLE_JSON=$(echo "$TITLE" | jq -Rs . 2>/dev/null)
-          if [ $? -ne 0 ] || [ -z "$TITLE_JSON" ]; then
+          if ! TITLE_JSON=$(echo "$TITLE" | jq -Rs . 2>/dev/null) || [ -z "$TITLE_JSON" ]; then
             echo "❌ Failed to JSON-encode title"
             exit 0
           fi
 
-          DESCRIPTION_JSON=$(echo "$DESCRIPTION" | jq -Rs . 2>/dev/null)
-          if [ $? -ne 0 ] || [ -z "$DESCRIPTION_JSON" ]; then
+          if ! DESCRIPTION_JSON=$(echo "$DESCRIPTION" | jq -Rs . 2>/dev/null) || [ -z "$DESCRIPTION_JSON" ]; then
             echo "❌ Failed to JSON-encode description"
             exit 0
           fi
@@ -263,7 +261,7 @@ jobs:
             echo "📎 $ISSUE_URL"
 
             # Comment on the PR with minimal format
-            if ! gh pr comment $PR_NUMBER --body "Linear: $ISSUE_ID" 2>/dev/null; then
+            if ! gh pr comment "$PR_NUMBER" --body "Linear: $ISSUE_ID" 2>/dev/null; then
               echo "⚠️  Created ticket but failed to comment on PR"
             fi
           else
