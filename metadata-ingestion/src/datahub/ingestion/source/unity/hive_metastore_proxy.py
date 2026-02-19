@@ -26,6 +26,15 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 logger = logging.getLogger(__name__)
 HIVE_METASTORE = "hive_metastore"
 
+
+def _escape_backtick_identifier(identifier: str) -> str:
+    """Escape a Spark SQL backtick-quoted identifier.
+
+    Backticks within the identifier are escaped by doubling them.
+    """
+    return identifier.replace("`", "``")
+
+
 type_map = {
     "boolean": ColumnTypeName.BOOLEAN,
     "tinyint": ColumnTypeName.INT,
@@ -120,7 +129,8 @@ class HiveMetastoreProxy(Closeable):
 
     def get_table_names(self, schema_name: str) -> List[str]:
         try:
-            rows = self._execute_sql(f"SHOW TABLES FROM `{schema_name}`")
+            escaped = _escape_backtick_identifier(schema_name)
+            rows = self._execute_sql(f"SHOW TABLES FROM `{escaped}`")
             # 3 columns - database, tableName, isTemporary
             return [row.tableName for row in rows]
         except Exception as e:
@@ -134,7 +144,8 @@ class HiveMetastoreProxy(Closeable):
 
     def get_view_names(self, schema_name: str) -> List[str]:
         try:
-            rows = self._execute_sql(f"SHOW VIEWS FROM `{schema_name}`")
+            escaped = _escape_backtick_identifier(schema_name)
+            rows = self._execute_sql(f"SHOW VIEWS FROM `{escaped}`")
             # 4 columns - namespace, viewName, isTemporary, isMaterialized
             return [row.viewName for row in rows]
         except Exception as e:
@@ -280,8 +291,10 @@ class HiveMetastoreProxy(Closeable):
 
     def _get_view_definition(self, schema_name: str, table_name: str) -> Optional[str]:
         try:
+            escaped_schema = _escape_backtick_identifier(schema_name)
+            escaped_table = _escape_backtick_identifier(table_name)
             rows = self._execute_sql(
-                f"SHOW CREATE TABLE `{schema_name}`.`{table_name}`"
+                f"SHOW CREATE TABLE `{escaped_schema}`.`{escaped_table}`"
             )
             for row in rows:
                 return row[0]
@@ -389,7 +402,11 @@ class HiveMetastoreProxy(Closeable):
         Rows are structured as shown in examples here
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
         """
-        return self._execute_sql(f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}`")
+        escaped_schema = _escape_backtick_identifier(schema_name)
+        escaped_table = _escape_backtick_identifier(table_name)
+        return self._execute_sql(
+            f"DESCRIBE EXTENDED `{escaped_schema}`.`{escaped_table}`"
+        )
 
     def _column_describe_extended(
         self, schema_name: str, table_name: str, column_name: str
@@ -398,8 +415,11 @@ class HiveMetastoreProxy(Closeable):
         Rows are structured as shown in examples here
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
         """
+        escaped_schema = _escape_backtick_identifier(schema_name)
+        escaped_table = _escape_backtick_identifier(table_name)
+        escaped_column = _escape_backtick_identifier(column_name)
         return self._execute_sql(
-            f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}"
+            f"DESCRIBE EXTENDED `{escaped_schema}`.`{escaped_table}` `{escaped_column}`"
         )
 
     def _execute_sql(self, sql: str) -> List[Row]:

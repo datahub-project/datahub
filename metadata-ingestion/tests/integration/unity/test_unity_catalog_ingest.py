@@ -402,7 +402,7 @@ ViewEntry = namedtuple(
 
 
 def mock_hive_sql(query):
-    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
+    if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` `betStatusId`":
         return [
             ("col_name", "betStatusId"),
             ("data_type", "bigint"),
@@ -415,7 +415,7 @@ def mock_hive_sql(query):
             ("max_col_len", 8),
             ("histogram", None),
         ]
-    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` channelId":
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` `channelId`":
         return [
             ("col_name", "channelId"),
             ("data_type", "bigint"),
@@ -428,7 +428,7 @@ def mock_hive_sql(query):
             ("max_col_len", 8),
             ("histogram", None),
         ]
-    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` combination":
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` `combination`":
         return [
             ("col_name", "combination"),
             (

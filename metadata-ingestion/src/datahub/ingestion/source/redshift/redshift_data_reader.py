@@ -9,6 +9,14 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.Logger(__name__)
 
 
+def _escape_redshift_identifier(identifier: str) -> str:
+    """Escape a Redshift identifier for safe use in double-quoted identifiers.
+
+    Double quotes within the identifier are escaped by doubling them.
+    """
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 class RedshiftDataReader(DataReader):
     @staticmethod
     def create(conn: redshift_connector.Connection) -> "RedshiftDataReader":
@@ -33,7 +41,11 @@ class RedshiftDataReader(DataReader):
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
         with PerfTimer() as timer, self.conn.cursor() as cursor:
-            sql = f"select * from {db_name}.{schema_name}.{table_name} limit {sample_size};"
+            # Escape identifiers to prevent SQL injection via embedded double quotes
+            escaped_db = _escape_redshift_identifier(db_name)
+            escaped_schema = _escape_redshift_identifier(schema_name)
+            escaped_table = _escape_redshift_identifier(table_name)
+            sql = f"select * from {escaped_db}.{escaped_schema}.{escaped_table} limit {int(sample_size)};"
             cursor.execute(sql)
             df = cursor.fetch_dataframe()
             # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.

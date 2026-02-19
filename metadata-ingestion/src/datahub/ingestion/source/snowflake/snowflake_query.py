@@ -12,13 +12,50 @@ SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
+def escape_snowflake_identifier(identifier: str) -> str:
+    """Escape a Snowflake identifier for safe use in double-quoted identifiers.
+
+    Snowflake uses double quotes for identifiers. To include a literal double quote
+    in the identifier, it must be escaped as two double quotes.
+    """
+    return identifier.replace('"', '""')
+
+
+def escape_single_quote_string(value: str) -> str:
+    """Escape a string for safe use in single-quoted SQL strings.
+
+    Single quotes are escaped by doubling them.
+    """
+    return value.replace("'", "''")
+
+
+def escape_like_pattern(value: str) -> str:
+    """Escape a string for safe use in SQL LIKE patterns.
+
+    Escapes LIKE wildcards (% and _) and single quotes so the value
+    is treated as a literal prefix/substring match, not a pattern.
+    Uses backslash as the escape character — requires ESCAPE '\\\\' clause.
+    """
+    value = value.replace("\\", "\\\\")
+    value = value.replace("%", "\\%")
+    value = value.replace("_", "\\_")
+    value = value.replace("'", "''")
+    return value
+
+
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
 ) -> str:
+    """Create SQL filter using RLIKE for deny patterns.
+
+    Note: deny_pattern values come from DEFAULT_TEMP_TABLES_PATTERNS or similar
+    hardcoded lists, not from user input. The patterns are embedded in SQL but
+    are developer-controlled.
+    """
     upstream_sql_filter = (
         " AND ".join(
             [
-                (f"NOT RLIKE({col_name},'{regexp}','i')")
+                (f"NOT RLIKE({col_name},'{escape_single_quote_string(regexp)}','i')")
                 for col_name in filter_cols
                 for regexp in deny_pattern
             ]
@@ -85,15 +122,19 @@ class SnowflakeQuery:
 
     @staticmethod
     def use_database(db_name: str) -> str:
-        return f'use database "{db_name}"'
+        escaped_db = escape_snowflake_identifier(db_name)
+        return f'use database "{escaped_db}"'
 
     @staticmethod
     def use_schema(schema_name: str) -> str:
-        return f'use schema "{schema_name}"'
+        escaped_schema = escape_snowflake_identifier(schema_name)
+        return f'use schema "{escaped_schema}"'
 
     @staticmethod
     def get_databases(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+        db_clause = (
+            f'"{escape_snowflake_identifier(db_name)}".' if db_name is not None else ""
+        )
         return f"""
         SELECT database_name AS "DATABASE_NAME",
         created AS "CREATED",
@@ -104,7 +145,8 @@ class SnowflakeQuery:
 
     @staticmethod
     def schemas_for_database(db_name: str) -> str:
-        db_clause = f'"{db_name}".'
+        escaped_db = escape_snowflake_identifier(db_name)
+        db_clause = f'"{escaped_db}".'
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
@@ -116,7 +158,8 @@ class SnowflakeQuery:
 
     @staticmethod
     def tables_for_database(db_name: str) -> str:
-        db_clause = f'"{db_name}".'
+        escaped_db = escape_snowflake_identifier(db_name)
+        db_clause = f'"{escaped_db}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -140,7 +183,9 @@ class SnowflakeQuery:
 
     @staticmethod
     def tables_for_schema(schema_name: str, db_name: str) -> str:
-        db_clause = f'"{db_name}".'
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
+        db_clause = f'"{escaped_db}".'
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
@@ -158,13 +203,14 @@ class SnowflakeQuery:
         is_hybrid AS "IS_HYBRID",
         retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
-        where table_schema='{schema_name}'
+        where table_schema='{escaped_schema}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
     def procedures_for_database(db_name: str) -> str:
-        db_clause = f'"{db_name}".'
+        escaped_db = escape_snowflake_identifier(db_name)
+        db_clause = f'"{escaped_db}".'
         return f"""
         SELECT procedure_catalog AS "PROCEDURE_CATALOG",
         procedure_schema AS "PROCEDURE_SCHEMA",
@@ -181,7 +227,8 @@ class SnowflakeQuery:
 
     @staticmethod
     def streamlit_apps_for_database(db_name: str) -> str:
-        return f'SHOW STREAMLITS IN DATABASE "{db_name}"'
+        escaped_db = escape_snowflake_identifier(db_name)
+        return f'SHOW STREAMLITS IN DATABASE "{escaped_db}"'
 
     @staticmethod
     def get_all_tags():
@@ -199,12 +246,15 @@ class SnowflakeQuery:
         db_name: str, quoted_identifier: str, domain: str
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_identifier = escape_single_quote_string(quoted_identifier)
+        escaped_domain = escape_single_quote_string(domain)
         return f"""
         SELECT tag_database as "TAG_DATABASE",
         tag_schema AS "TAG_SCHEMA",
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE"
-        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
+        FROM table("{escaped_db}".information_schema.tag_references('{escaped_identifier}', '{escaped_domain}'));
         """
 
     @staticmethod
@@ -218,6 +268,7 @@ class SnowflakeQuery:
             ")"
         )
 
+        escaped_db = escape_single_quote_string(db_name)
         # https://docs.snowflake.com/en/sql-reference/account-usage/tag_references.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
@@ -230,7 +281,7 @@ class SnowflakeQuery:
         column_name AS "COLUMN_NAME",
         domain as "DOMAIN"
         FROM snowflake.account_usage.tag_references
-        WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
+        WHERE (object_database = '{escaped_db}' OR object_name = '{escaped_db}')
         AND domain in {allowed_object_domains}
         AND object_deleted IS NULL;
         """
@@ -240,13 +291,15 @@ class SnowflakeQuery:
         db_name: str, quoted_table_identifier: str
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_table_id = escape_single_quote_string(quoted_table_identifier)
         return f"""
         SELECT tag_database as "TAG_DATABASE",
         tag_schema AS "TAG_SCHEMA",
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE",
         column_name AS "COLUMN_NAME"
-        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
+        FROM table("{escaped_db}".information_schema.tag_references_all_columns('{escaped_table_id}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
     @staticmethod
@@ -263,12 +316,16 @@ class SnowflakeQuery:
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
+        escaped_db = escape_snowflake_identifier(db_name)
         # To work around this, we paginate through the results using the FROM clause.
+        # Pagination marker is escaped for single-quoted string context
         from_clause = (
-            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+            f"""FROM '{escape_single_quote_string(view_pagination_marker)}'"""
+            if view_pagination_marker
+            else ""
         )
         return f"""\
-SHOW VIEWS IN DATABASE "{db_name}"
+SHOW VIEWS IN DATABASE "{escaped_db}"
 LIMIT {limit} {from_clause};
 """
 
@@ -277,6 +334,8 @@ LIMIT {limit} {from_clause};
         # We've seen some issues with the `SHOW VIEWS` query,
         # particularly when it requires pagination.
         # This is an experimental alternative query that might be more reliable.
+        escaped_db_ident = escape_snowflake_identifier(db_name)
+        escaped_db_str = escape_single_quote_string(db_name)
         return f"""\
 SELECT
   TABLE_CATALOG as "VIEW_CATALOG",
@@ -287,16 +346,17 @@ SELECT
   CREATED,
   LAST_ALTERED,
   IS_SECURE
-FROM "{db_name}".information_schema.views
-WHERE TABLE_CATALOG = '{db_name}'
+FROM "{escaped_db_ident}".information_schema.views
+WHERE TABLE_CATALOG = '{escaped_db_str}'
   AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
 """
 
     @staticmethod
     def get_views_for_schema(db_name: str, schema_name: str) -> str:
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 {SnowflakeQuery.get_views_for_database(db_name).rstrip()}
-  AND TABLE_SCHEMA = '{schema_name}'
+  AND TABLE_SCHEMA = '{escaped_schema}'
 """
 
     @staticmethod
@@ -315,6 +375,7 @@ WHERE TABLE_CATALOG = '{db_name}'
     @staticmethod
     def get_semantic_views_for_database(db_name: str) -> str:
         # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""\
 SELECT
   CATALOG as "SEMANTIC_VIEW_CATALOG",
@@ -322,14 +383,15 @@ SELECT
   NAME as "SEMANTIC_VIEW_NAME",
   COMMENT,
   CREATED
-FROM "{db_name}".information_schema.semantic_views
+FROM "{escaped_db}".information_schema.semantic_views
 """
 
     @staticmethod
     def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 {SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
-WHERE SCHEMA = '{schema_name}'
+WHERE SCHEMA = '{escaped_schema}'
 """
 
     @staticmethod
@@ -341,11 +403,15 @@ WHERE SCHEMA = '{schema_name}'
         Note: Inputs are expected to be pre-validated Snowflake identifiers from
         INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
         """
-        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_snowflake_identifier(schema_name)
+        escaped_view = escape_snowflake_identifier(semantic_view_name)
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{escaped_db}"."{escaped_schema}"."{escaped_view}"') AS "DDL";"""
 
     @staticmethod
     def get_semantic_tables_for_database(db_name: str) -> str:
         """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -359,13 +425,15 @@ SELECT
   unique_keys AS "UNIQUE_KEYS",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_tables
+FROM "{escaped_db}".information_schema.semantic_tables
 ORDER BY semantic_view_schema, semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
         """Generate query to get semantic tables for semantic views in a specific schema."""
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -378,14 +446,15 @@ SELECT
   primary_keys AS "PRIMARY_KEYS",
   unique_keys AS "UNIQUE_KEYS",
   comment AS "COMMENT"
-FROM "{db_name}".information_schema.semantic_tables
-WHERE semantic_view_schema = '{schema_name}'
+FROM "{escaped_db}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{escaped_schema}'
 ORDER BY semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_dimensions_for_database(db_name: str) -> str:
         """Generate query to get all semantic dimensions for a database."""
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -397,13 +466,15 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_dimensions
+FROM "{escaped_db}".information_schema.semantic_dimensions
 ORDER BY semantic_view_schema, semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
         """Generate query to get semantic dimensions for a specific schema."""
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -415,14 +486,15 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_dimensions
-WHERE semantic_view_schema = '{schema_name}'
+FROM "{escaped_db}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{escaped_schema}'
 ORDER BY semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_facts_for_database(db_name: str) -> str:
         """Generate query to get all semantic facts for a database."""
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -434,13 +506,15 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_facts
+FROM "{escaped_db}".information_schema.semantic_facts
 ORDER BY semantic_view_schema, semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
         """Generate query to get semantic facts for a specific schema."""
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -452,14 +526,15 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_facts
-WHERE semantic_view_schema = '{schema_name}'
+FROM "{escaped_db}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{escaped_schema}'
 ORDER BY semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_metrics_for_database(db_name: str) -> str:
         """Generate query to get all semantic metrics for a database."""
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -471,13 +546,15 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_metrics
+FROM "{escaped_db}".information_schema.semantic_metrics
 ORDER BY semantic_view_schema, semantic_view_name, name
 """
 
     @staticmethod
     def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
         """Generate query to get semantic metrics for a specific schema."""
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
         return f"""\
 SELECT
   semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
@@ -489,8 +566,8 @@ SELECT
   expression AS "EXPRESSION",
   comment AS "COMMENT",
   synonyms AS "SYNONYMS"
-FROM "{db_name}".information_schema.semantic_metrics
-WHERE semantic_view_schema = '{schema_name}'
+FROM "{escaped_db}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{escaped_schema}'
 ORDER BY semantic_view_name, name
 """
 
@@ -500,7 +577,11 @@ ORDER BY semantic_view_name, name
         db_name: str,
         prefix_groups: Optional[List[PrefixGroup]] = None,
     ) -> str:
-        columns_template = """\
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_single_quote_string(schema_name)
+
+        # Build the base query with escaped identifiers
+        base_query = f"""\
 SELECT
   table_catalog AS "TABLE_CATALOG",
   table_schema AS "TABLE_SCHEMA",
@@ -515,8 +596,8 @@ SELECT
   numeric_scale AS "NUMERIC_SCALE",
   column_default AS "COLUMN_DEFAULT",
   is_identity AS "IS_IDENTITY"
-FROM "{db_name}".information_schema.columns
-WHERE table_schema='{schema_name}' AND {extra_clause}"""
+FROM "{escaped_db}".information_schema.columns
+WHERE table_schema='{escaped_schema}' AND """
 
         selects = []
         if prefix_groups is None:
@@ -525,15 +606,15 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             if prefix_group.prefix == "":
                 extra_clause = "TRUE"
             elif prefix_group.exact_match:
-                extra_clause = f"table_name = '{prefix_group.prefix}'"
+                # Escape prefix for single-quoted string context
+                escaped_prefix = escape_single_quote_string(prefix_group.prefix)
+                extra_clause = f"table_name = '{escaped_prefix}'"
             else:
-                extra_clause = f"table_name LIKE '{prefix_group.prefix}%'"
+                # Escape prefix for LIKE pattern — escape %, _, \, and ' for literal matching
+                escaped_prefix = escape_like_pattern(prefix_group.prefix)
+                extra_clause = f"table_name LIKE '{escaped_prefix}%' ESCAPE '\\\\'"
 
-            selects.append(
-                columns_template.format(
-                    db_name=db_name, schema_name=schema_name, extra_clause=extra_clause
-                )
-            )
+            selects.append(base_query + extra_clause)
 
         return (
             "\nUNION ALL\n".join(selects)
@@ -542,13 +623,17 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_snowflake_identifier(schema_name)
         return f"""
-        show primary keys in schema "{db_name}"."{schema_name}" """
+        show primary keys in schema "{escaped_db}"."{escaped_schema}" """
 
     @staticmethod
     def show_foreign_keys_for_schema(schema_name: str, db_name: str) -> str:
+        escaped_db = escape_snowflake_identifier(db_name)
+        escaped_schema = escape_snowflake_identifier(schema_name)
         return f"""
-        show imported keys in schema "{db_name}"."{schema_name}" """
+        show imported keys in schema "{escaped_db}"."{escaped_schema}" """
 
     @staticmethod
     def operational_data_for_time_window(
@@ -841,14 +926,21 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
 
     @staticmethod
     def gen_email_filter_query(email_filter: AllowDenyPattern) -> str:
+        """Generate SQL filter clause for email patterns.
+
+        User-provided regex patterns are escaped to prevent SQL injection.
+        """
         allow_filters = []
         allow_filter = ""
+        case_flag = "i" if email_filter.ignoreCase else "c"
         if len(email_filter.allow) == 1 and email_filter.allow[0] == ".*":
             allow_filter = ""
         else:
             for allow_pattern in email_filter.allow:
+                # Escape single quotes in user-provided pattern
+                escaped_pattern = escape_single_quote_string(allow_pattern)
                 allow_filters.append(
-                    f"rlike(user_name, '{allow_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+                    f"rlike(user_name, '{escaped_pattern}','{case_flag}')"
                 )
             if allow_filters:
                 allow_filter = " OR ".join(allow_filters)
@@ -856,9 +948,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         deny_filters = []
         deny_filter = ""
         for deny_pattern in email_filter.deny:
-            deny_filters.append(
-                f"rlike(user_name, '{deny_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
-            )
+            # Escape single quotes in user-provided pattern
+            escaped_pattern = escape_single_quote_string(deny_pattern)
+            deny_filters.append(f"rlike(user_name, '{escaped_pattern}','{case_flag}')")
         if deny_filters:
             deny_filter = " OR ".join(deny_filters)
             deny_filter = f"({deny_filter})"
@@ -1173,11 +1265,17 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
 
+        escaped_db = escape_snowflake_identifier(db_name)
         # To work around this, we paginate through the results using the FROM clause.
+        # Pagination marker is escaped for single-quoted string context
         from_clause = (
-            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
+            f"""FROM '{escape_single_quote_string(stream_pagination_marker)}'"""
+            if stream_pagination_marker
+            else ""
         )
-        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+        return (
+            f"""SHOW STREAMS IN DATABASE "{escaped_db}" LIMIT {limit} {from_clause};"""
+        )
 
     @staticmethod
     def show_dynamic_tables_for_database(
@@ -1188,19 +1286,22 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
+        escaped_db = escape_snowflake_identifier(db_name)
+        # Pagination marker is escaped for single-quoted string context
         from_clause = (
-            f"""FROM '{dynamic_table_pagination_marker}'"""
+            f"""FROM '{escape_single_quote_string(dynamic_table_pagination_marker)}'"""
             if dynamic_table_pagination_marker
             else ""
         )
         return f"""\
-    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    SHOW DYNAMIC TABLES IN DATABASE "{escaped_db}"
     LIMIT {limit} {from_clause};
     """
 
     @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""
             SELECT
                 name,
@@ -1209,7 +1310,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 target_lag_sec,
                 scheduling_state,
                 alter_trigger
-            FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            FROM TABLE("{escaped_db}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             ORDER BY name
         """
 
@@ -1368,6 +1469,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         This aggregates counts from SEMANTIC_DIMENSIONS, SEMANTIC_FACTS, SEMANTIC_METRICS,
         and SEMANTIC_TABLES to populate the Stats tab (DatasetProfile).
         """
+        escaped_db = escape_snowflake_identifier(db_name)
         return f"""
         WITH dimension_counts AS (
             SELECT
@@ -1375,7 +1477,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 semantic_view_schema,
                 semantic_view_name,
                 COUNT(*) AS dimension_count
-            FROM "{db_name}".information_schema.semantic_dimensions
+            FROM "{escaped_db}".information_schema.semantic_dimensions
             GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
         ),
         fact_counts AS (
@@ -1384,7 +1486,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 semantic_view_schema,
                 semantic_view_name,
                 COUNT(*) AS fact_count
-            FROM "{db_name}".information_schema.semantic_facts
+            FROM "{escaped_db}".information_schema.semantic_facts
             GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
         ),
         metric_counts AS (
@@ -1393,7 +1495,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 semantic_view_schema,
                 semantic_view_name,
                 COUNT(*) AS metric_count
-            FROM "{db_name}".information_schema.semantic_metrics
+            FROM "{escaped_db}".information_schema.semantic_metrics
             GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
         ),
         table_counts AS (
@@ -1402,7 +1504,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 semantic_view_schema,
                 semantic_view_name,
                 COUNT(*) AS table_count
-            FROM "{db_name}".information_schema.semantic_tables
+            FROM "{escaped_db}".information_schema.semantic_tables
             GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
         )
         SELECT
@@ -1414,7 +1516,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             COALESCE(mc.metric_count, 0) AS "METRIC_COUNT",
             COALESCE(tc.table_count, 0) AS "TABLE_COUNT",
             COALESCE(dc.dimension_count, 0) + COALESCE(fc.fact_count, 0) + COALESCE(mc.metric_count, 0) AS "TOTAL_COLUMN_COUNT"
-        FROM "{db_name}".information_schema.semantic_views sv
+        FROM "{escaped_db}".information_schema.semantic_views sv
         LEFT JOIN dimension_counts dc
             ON sv.CATALOG = dc.semantic_view_catalog
             AND sv.SCHEMA = dc.semantic_view_schema

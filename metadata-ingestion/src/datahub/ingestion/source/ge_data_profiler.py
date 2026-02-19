@@ -550,18 +550,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 logger.debug(
                     f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
                 )
+                # SECURITY FIX: Use parameterized query to prevent SQL injection
                 get_estimate_script = sa.text(
-                    f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
-                )
+                    "SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = :table_name AND n.nspname = :schema_name"
+                ).bindparams(table_name=table_name, schema_name=schema_name)
             elif dialect_name == MYSQL:
                 schema_name = self.dataset_name.split(".")[0]
                 table_name = self.dataset_name.split(".")[1]
                 logger.debug(
                     f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
                 )
+                # SECURITY FIX: Use parameterized query to prevent SQL injection
                 get_estimate_script = sa.text(
-                    f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
-                )
+                    "SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = :schema_name AND table_name = :table_name"
+                ).bindparams(schema_name=schema_name, table_name=table_name)
             else:
                 logger.debug(
                     f"Dialect {dialect_name} not supported for feature "
@@ -1334,7 +1336,14 @@ class DatahubGEProfiler:
     def _drop_temp_table(self, temp_dataset: Dataset) -> None:
         schema = temp_dataset._table.schema
         table = temp_dataset._table.name
-        table_name = f'"{schema}"."{table}"' if schema else f'"{table}"'
+        # Escape identifiers to prevent SQL injection via embedded double quotes
+        escaped_schema = schema.replace('"', '""') if schema else None
+        escaped_table = table.replace('"', '""')
+        table_name = (
+            f'"{escaped_schema}"."{escaped_table}"'
+            if escaped_schema
+            else f'"{escaped_table}"'
+        )
         try:
             with self.base_engine.connect() as connection:
                 connection.execute(f"drop view if exists {table_name}")
@@ -1565,6 +1574,9 @@ def create_athena_temp_table(
             )
             temp_view = f"{schema_part_quoted}_{temp_view}"
 
+        # temp_view is a generated UUID — safe for identifier interpolation.
+        # sql is user-provided custom SQL — this is intentional by design for
+        # the custom SQL profiling feature. Input validation is the caller's responsibility.
         temp_view = f"ge_{uuid.uuid4()}"
         cursor.execute(f'create or replace view "{temp_view}" as {sql}')
     except Exception as e:

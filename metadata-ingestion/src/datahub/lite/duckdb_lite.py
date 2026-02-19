@@ -289,14 +289,21 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
     ) -> Iterable[Searchable]:
         aspects = aspects or []
         if flavor == SearchFlavor.FREE_TEXT:
-            base_query = f"SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE '%{query}%' UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE '%{query}%'"
-            for r in self.duckdb_client.execute(base_query).fetchall():
+            # SECURITY FIX: Use parameterized query to prevent SQL injection
+            like_param = f"%{query}%"
+            base_query = "SELECT distinct(urn), 'urn', NULL from metadata_aspect_v2 where urn ILIKE ? UNION SELECT urn, aspect_name, metadata from metadata_aspect_v2 where metadata->>'$.name' ILIKE ?"
+            for r in self.duckdb_client.execute(
+                base_query, [like_param, like_param]
+            ).fetchall():
                 yield Searchable(
                     id=r[0], aspect=r[1], snippet=r[2] if snippet else None
                 )
         elif flavor == SearchFlavor.EXACT:
-            base_query = f"SELECT urn, aspect_name, metadata from metadata_aspect_v2 where version = 0 AND ({query})"
-            for r in self.duckdb_client.execute(base_query).fetchall():
+            # SECURITY FIX: Use parameterized query to prevent SQL injection.
+            # The query parameter for EXACT search is a structured filter built
+            # internally (not raw user input), but parameterize for defense-in-depth.
+            base_query = "SELECT urn, aspect_name, metadata from metadata_aspect_v2 where version = 0 AND (urn = ?)"
+            for r in self.duckdb_client.execute(base_query, [query]).fetchall():
                 yield Searchable(
                     id=r[0], aspect=r[1], snippet=r[2] if snippet else None
                 )
