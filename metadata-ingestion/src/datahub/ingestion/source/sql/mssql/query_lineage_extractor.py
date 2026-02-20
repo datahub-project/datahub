@@ -182,7 +182,7 @@ class MSSQLLineageExtractor:
         is_ready, message, method = self.check_prerequisites()
 
         if not is_ready:
-            logger.error(
+            logger.warning(
                 f"Query history extraction not available: {message}. "
                 "Query-based lineage will be skipped."
             )
