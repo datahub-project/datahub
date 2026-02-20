@@ -17,6 +17,7 @@ from google.cloud.aiplatform.training_jobs import _TrainingJob
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -32,7 +33,6 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     DatasetTypes,
     ResourceCategory,
     TrainingJobTypes,
-    VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     AutoMLJobConfig,
@@ -323,7 +323,7 @@ class VertexAITrainingExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=job_urn,
-            subtype=VertexAISubTypes.TRAINING_JOB,
+            subtype=MLAssetSubTypes.VERTEX_TRAINING_JOB,
             resource_category=ResourceCategory.TRAINING_JOBS,
         )
 
@@ -447,7 +447,7 @@ class VertexAITrainingExtractor:
 
             yield from self._yield_common_aspects(
                 entity_urn=dataset_urn,
-                subtype=VertexAISubTypes.DATASET,
+                subtype=MLAssetSubTypes.VERTEX_DATASET,
                 resource_category=ResourceCategory.DATASETS,
             )
 

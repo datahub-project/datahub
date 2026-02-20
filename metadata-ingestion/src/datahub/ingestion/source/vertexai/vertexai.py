@@ -32,7 +32,7 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
     resolve_gcp_projects,
 )
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -53,7 +53,6 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     MLMetadataDefaults,
     ResourceCategory,
     ResourceCategoryType,
-    VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
@@ -414,7 +413,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         yield from gen_containers(
             container_key=self._get_project_container(),
             name=self._get_project_id(),
-            sub_types=[VertexAISubTypes.PROJECT],
+            sub_types=[MLAssetSubTypes.VERTEX_PROJECT],
         )
         yield from self._generate_resource_category_containers()
 
@@ -462,7 +461,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 parent_container_key=self._get_project_container(),
                 container_key=category_key,
                 name=category,
-                sub_types=[DatasetContainerSubTypes.FOLDER],
+                sub_types=[MLAssetSubTypes.FOLDER],
             )
 
     def _get_project_id(self) -> str:

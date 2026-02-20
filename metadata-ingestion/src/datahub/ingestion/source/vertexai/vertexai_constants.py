@@ -1,8 +1,6 @@
 import re
 from typing import Literal, Set
 
-from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
-
 # Platform identifier
 PLATFORM: Literal["vertexai"] = "vertexai"
 
@@ -85,36 +83,6 @@ class ResourceCategory:
     PIPELINES: ResourceCategoryType = "Pipelines"
     EXPERIMENTS: ResourceCategoryType = "Experiments"
     EVALUATIONS: ResourceCategoryType = "Evaluations"
-
-
-class VertexAISubTypes:
-    """
-    Vertex AI resource subtypes used for entity classification in DataHub.
-
-    These are imported from the common subtypes enum but organized here
-    for easy reference and maintenance of Vertex AI-specific subtypes.
-    """
-
-    # ML Resources
-    MODEL = MLAssetSubTypes.VERTEX_MODEL
-    MODEL_GROUP = MLAssetSubTypes.VERTEX_MODEL_GROUP
-    MODEL_EVALUATION = MLAssetSubTypes.VERTEX_MODEL_EVALUATION
-    ENDPOINT = MLAssetSubTypes.VERTEX_ENDPOINT
-
-    # Training & Experiments
-    TRAINING_JOB = MLAssetSubTypes.VERTEX_TRAINING_JOB
-    EXPERIMENT = MLAssetSubTypes.VERTEX_EXPERIMENT
-    EXPERIMENT_RUN = MLAssetSubTypes.VERTEX_EXPERIMENT_RUN
-    EXECUTION = MLAssetSubTypes.VERTEX_EXECUTION
-
-    # Pipelines
-    PIPELINE = MLAssetSubTypes.VERTEX_PIPELINE
-    PIPELINE_TASK = MLAssetSubTypes.VERTEX_PIPELINE_TASK
-    PIPELINE_TASK_RUN = MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN
-
-    # Data & Infra
-    DATASET = MLAssetSubTypes.VERTEX_DATASET
-    PROJECT = MLAssetSubTypes.VERTEX_PROJECT
 
 
 class MLMetadataSchemas:

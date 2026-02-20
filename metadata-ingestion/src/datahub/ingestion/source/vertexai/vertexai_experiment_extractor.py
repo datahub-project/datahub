@@ -11,6 +11,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -21,7 +22,6 @@ from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     ResourceCategory,
     ResourceTypes,
-    VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
@@ -223,7 +223,7 @@ class VertexAIExperimentExtractor:
                 id=self.name_formatter.format_experiment_id(experiment.name),
             ),
             name=experiment.name,
-            sub_types=[VertexAISubTypes.EXPERIMENT],
+            sub_types=[MLAssetSubTypes.VERTEX_EXPERIMENT],
             extra_properties={
                 "name": experiment.name,
                 "resourceName": experiment.resource_name,
@@ -351,7 +351,7 @@ class VertexAIExperimentExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=execution_urn,
-            subtype=VertexAISubTypes.EXECUTION,
+            subtype=MLAssetSubTypes.VERTEX_EXECUTION,
             include_container=False,
         )
 
@@ -450,7 +450,7 @@ class VertexAIExperimentExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=run_urn,
-            subtype=VertexAISubTypes.EXPERIMENT_RUN,
+            subtype=MLAssetSubTypes.VERTEX_EXPERIMENT_RUN,
             include_container=False,
         )
 

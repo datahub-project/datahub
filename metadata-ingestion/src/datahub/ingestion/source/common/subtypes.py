@@ -156,6 +156,8 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK = "Task"
     VERTEX_PIPELINE_TASK_RUN = "Task Run"
 
+    FOLDER = "Folder"
+
 
 class DataJobSubTypes(StrEnum):
     # ADF Activity Types

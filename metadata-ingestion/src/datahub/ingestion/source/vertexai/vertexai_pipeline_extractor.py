@@ -20,7 +20,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import UNKNOWN_USER
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -36,7 +36,6 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     LabelFormat,
     ResourceCategory,
     ResourceTypes,
-    VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelUsageTracker,
@@ -146,7 +145,7 @@ class VertexAIPipelineExtractor:
             resource_category=ResourceCategory.PIPELINES,
             container_key=container_key,
             name=pipeline_name,
-            sub_types=[DatasetContainerSubTypes.FOLDER],
+            sub_types=[MLAssetSubTypes.FOLDER],
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -253,7 +252,7 @@ class VertexAIPipelineExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
-            subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
+            subtype=MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN,
             include_container=False,
         )
 
@@ -282,7 +281,7 @@ class VertexAIPipelineExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=datajob.urn.urn(),
-            subtype=VertexAISubTypes.PIPELINE_TASK,
+            subtype=MLAssetSubTypes.VERTEX_PIPELINE_TASK,
             include_container=False,
         )
 
@@ -329,7 +328,7 @@ class VertexAIPipelineExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=dpi_urn,
-            subtype=VertexAISubTypes.PIPELINE_TASK_RUN,
+            subtype=MLAssetSubTypes.VERTEX_PIPELINE_TASK_RUN,
             include_container=False,
         )
 
@@ -710,7 +709,7 @@ class VertexAIPipelineExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=dataflow.urn.urn(),
-            subtype=VertexAISubTypes.PIPELINE,
+            subtype=MLAssetSubTypes.VERTEX_PIPELINE,
             include_platform=False,
             include_container=False,  # DataFlow already sets container via parent_container parameter
         )

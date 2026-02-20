@@ -9,6 +9,7 @@ from google.cloud.aiplatform.models import Model, VersionInfo
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -23,7 +24,6 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     MLModelType,
     ResourceCategory,
     ResourceTypes,
-    VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     EndpointDeploymentCustomProperties,
@@ -365,7 +365,7 @@ class VertexAIModelExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=evaluation_urn,
-            subtype=VertexAISubTypes.MODEL_EVALUATION,
+            subtype=MLAssetSubTypes.VERTEX_MODEL_EVALUATION,
             resource_category=ResourceCategory.MODELS,
             include_subtypes=False,
         )
@@ -399,7 +399,7 @@ class VertexAIModelExtractor:
             resource_category=ResourceCategory.MODELS,
             container_key=self._get_model_group_container(model),
             name=model.display_name,
-            sub_types=[VertexAISubTypes.MODEL_GROUP],
+            sub_types=[MLAssetSubTypes.FOLDER],
         )
 
     def _gen_ml_group_properties(self, model: Model) -> Iterable[MetadataWorkUnit]:
@@ -448,7 +448,7 @@ class VertexAIModelExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=ml_model_group_urn,
-            subtype=VertexAISubTypes.MODEL_GROUP,
+            subtype=MLAssetSubTypes.VERTEX_MODEL_GROUP,
             include_container=False,
         )
 
@@ -495,7 +495,7 @@ class VertexAIModelExtractor:
 
                 yield from self._yield_common_aspects(
                     entity_urn=endpoint_urn,
-                    subtype=VertexAISubTypes.ENDPOINT,
+                    subtype=MLAssetSubTypes.VERTEX_ENDPOINT,
                     resource_category=ResourceCategory.ENDPOINTS,
                     include_subtypes=False,
                 )
@@ -658,7 +658,7 @@ class VertexAIModelExtractor:
 
         yield from self._yield_common_aspects(
             entity_urn=model_urn,
-            subtype=VertexAISubTypes.MODEL,
+            subtype=MLAssetSubTypes.VERTEX_MODEL,
             include_container=False,
         )
 
