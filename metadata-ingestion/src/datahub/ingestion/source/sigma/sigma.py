@@ -404,7 +404,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 sql_parser_in_tables = create_lineage_sql_parsed_result(
                     query=element.query.strip(),
-                    default_db=None,
+                    default_db=data_source_platform_details.default_db,
+                    default_schema=data_source_platform_details.default_schema,
                     platform=data_source_platform_details.data_source_platform,
                     env=data_source_platform_details.env,
                     platform_instance=data_source_platform_details.platform_instance,

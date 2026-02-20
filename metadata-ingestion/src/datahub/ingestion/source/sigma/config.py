@@ -136,6 +136,16 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     data_source_platform: str = pydantic.Field(
         description="A chart's data sources platform name.",
     )
+    default_db: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default database name to use when parsing SQL queries. "
+        "Used to generate fully qualified table URNs (e.g., 'prod' for 'prod.public.table').",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Default schema name to use when parsing SQL queries. "
+        "Used to generate fully qualified table URNs (e.g., 'public' for 'prod.public.table').",
+    )
 
 
 class SigmaSourceConfig(
