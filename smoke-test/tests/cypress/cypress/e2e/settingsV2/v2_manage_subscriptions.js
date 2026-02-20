@@ -42,6 +42,16 @@ describe("entity subscription test", () => {
         }
       });
   };
+
+  const clickEdit = () => {
+    cy.getWithTestId("actions").scrollIntoView();
+    cy.getWithTestId("actions").should("be.visible");
+    cy.getWithTestId("actions").within(() => {
+      cy.get("button").click({ force: true });
+    });
+    cy.get('[data-icon="edit"]').click();
+  };
+
   it("subscribe to entity, edit and remove subscription", () => {
     // Configure a slack integration in settings
     setSubscriptionsEnabledFlag(true);
@@ -76,7 +86,7 @@ describe("entity subscription test", () => {
     cy.goToSubscriptionsSettings();
 
     // Edit subscription, verify that changes applied successfully
-    cy.get('[data-icon="edit"]').click();
+    clickEdit();
     cy.get(".ant-tree-checkbox").click({ multiple: true });
     cy.clickOptionWithTestId("subscribe-button");
     cy.waitTextVisible(
@@ -112,7 +122,7 @@ describe("entity subscription test", () => {
     cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
     // Go to my subscriptions settings page and unsubscribe
     cy.goToSubscriptionsSettings();
-    cy.get('[data-icon="edit"]').click();
+    clickEdit();
     cy.clickOptionWithTestId("cancel-button");
     cy.waitTextVisible("You have unsubscribed from this entity.").wait(5000);
     cy.ensureTextNotPresent(datasetName);
