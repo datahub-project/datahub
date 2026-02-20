@@ -4,6 +4,9 @@ const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)";
 const datasetName = "DatasetToProposeOn";
 
+const ELEMENT_TYPE_TAG = "tag";
+const ELEMENT_TYPE_TERM = "term";
+
 const clickSchemaLevel = (field_id, text_to_click) => {
   cy.get(`[data-testid="${field_id}"]`).within(() =>
     cy.contains(text_to_click).click(),
@@ -54,35 +57,42 @@ const rejectProposalDatasetPage = (to_type, thing) => {
   cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");
 };
 
-const removeTagSchemaLevel = (field_id, element, tagORTerm, text) => {
-  cy.get(".ant-drawer-content").contains(tagORTerm).should("be.visible");
-  cy.get(`[data-testid=${field_id}]`).within(() => {
-    cy.contains(element, tagORTerm)
-      .find(".ant-tag-close-icon")
-      .click({ force: true });
-  });
-  cy.contains("Yes").click();
-  cy.waitTextVisible(text);
-  cy.ensureTextNotPresent(text);
-  cy.get(".ant-drawer-content").contains(tagORTerm).should("not.exist");
-};
+const deleteOrReject = (elementType, field, tagOrTermName) => {
+  const elementTypePlural = elementType === ELEMENT_TYPE_TAG ? "tags" : "terms";
+  const elementTypeCapitalized =
+    elementType.charAt(0).toUpperCase() + elementType.slice(1);
+  const containerSelector = `[data-testid="schema-field-${field}-${elementTypePlural}"]`;
+  const proposedSelector = `[data-testid="proposed-${elementType}-${tagOrTermName}"]`;
+  const elementSelector = `[data-testid="${elementType}-${tagOrTermName}"]`;
 
-const deletePreviousEntity = (entity, locator, entityName, message) => {
-  cy.get(`[data-testid="schema-field-field_foo-${entity}"]`)
-    .invoke("text")
-    .then((text) => {
-      const storedVariable = text.trim();
-      if (storedVariable.includes(entityName)) {
-        removeTagSchemaLevel(
-          `schema-field-field_foo-${entity}`,
-          locator,
-          entityName,
-          message,
-        );
-      } else {
-        cy.ensureTextNotPresent(entityName);
+  cy.get("body").then(($body) => {
+    const $container = Cypress.$(containerSelector, $body);
+    const $proposed = Cypress.$(proposedSelector, $container);
+    if ($proposed.length > 0) {
+      cy.wrap($proposed).click({ force: true });
+      cy.getWithTestId("proposal-reject-button").should("be.visible").click();
+      cy.contains("Proposal declined.").should("be.visible");
+      cy.contains("Proposal declined.").should("not.exist");
+    }
+  });
+
+  cy.get("body").then(($body) => {
+    const $container = Cypress.$(containerSelector, $body);
+    const $element = Cypress.$(elementSelector, $container);
+    if ($element.length > 0) {
+      const $closeIcon = Cypress.$(".ant-tag-close-icon", $element);
+      if ($closeIcon.length > 0) {
+        cy.wrap($closeIcon).click({ force: true });
+        cy.contains("Yes").click();
+        cy.contains(`Removed ${elementTypeCapitalized}!`).should("be.visible");
+        cy.contains(`Removed ${elementTypeCapitalized}!`).should("not.exist");
       }
-    });
+    }
+  });
+
+  cy.get(containerSelector)
+    .should("be.visible")
+    .and("not.contain.text", tagOrTermName);
 };
 
 const setShowTaskCenterRedesignFlag = (isOn) => {
@@ -90,6 +100,8 @@ const setShowTaskCenterRedesignFlag = (isOn) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
         res.body.data.appConfig.featureFlags.showTaskCenterRedesign = isOn;
+        res.body.data.appConfig.featureFlags.themeV2Enabled = false;
+        res.body.data.appConfig.featureFlags.themeV2Default = false;
       });
     }
   });
@@ -106,12 +118,7 @@ describe("schemaProposals", () => {
     cy.login();
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity(
-      "tags",
-      '[data-testid="tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
     clickAddTagsSchemaLevel("schema-field-field_foo-tags");
     createProposalOnModal("TagToPropose", "Proposed Tag!");
     rejectProposalDatasetPage("TagToPropose", "tag");
@@ -122,7 +129,7 @@ describe("schemaProposals", () => {
 
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity("terms", ".ant-tag", "TermToPropose", "Removed Term!");
+    deleteOrReject(ELEMENT_TYPE_TERM, "field_foo", "TermToPropose");
 
     clickAddTermsSchemaLevel("schema-field-field_foo-terms");
     createProposalOnModal("TermToPropose", "Proposed Term!");
@@ -135,22 +142,13 @@ describe("schemaProposals", () => {
     // Proposing a tag
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity(
-      "tags",
-      '[data-testid="tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
+
     clickAddTagsSchemaLevel("schema-field-field_foo-tags");
     createProposalOnModal("TagToPropose", "Proposed Tag!");
     acceptProposalDatasetPage("TagToPropose", "tag");
     cy.clickOptionWithText("field_foo");
-    removeTagSchemaLevel(
-      "schema-field-field_foo-tags",
-      '[data-testid="tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
   });
 
   it("can propose a schema-level term and then accept term proposal from the dataset page", () => {
@@ -159,7 +157,7 @@ describe("schemaProposals", () => {
     // Proposing a term
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity("terms", ".ant-tag", "TermToPropose", "Removed Term!");
+    deleteOrReject(ELEMENT_TYPE_TERM, "field_foo", "TermToPropose");
     clickAddTermsSchemaLevel("schema-field-field_foo-terms");
     createProposalOnModal("TermToPropose", "Proposed Term!");
     acceptProposalDatasetPage("TermToPropose", "term");
@@ -181,12 +179,8 @@ describe("schemaProposals", () => {
     // Proposing a tag
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity(
-      "tags",
-      '[data-testid="proposed-tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
+
     clickAddTagsSchemaLevel("schema-field-field_foo-tags");
     createProposalOnModal("TagToPropose", "Proposed Tag!");
     cy.searchNotCachedContainsDataset("TagToPropose", datasetName);
@@ -201,7 +195,7 @@ describe("schemaProposals", () => {
     // Proposing a term
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity("terms", ".ant-tag", "TermToPropose", "Removed Term!");
+    deleteOrReject(ELEMENT_TYPE_TERM, "field_foo", "TermToPropose");
     clickAddTermsSchemaLevel("schema-field-field_foo-terms");
     createProposalOnModal("TermToPropose", "Proposed Term!");
     cy.searchNotCachedContainsDataset("TermToPropose", datasetName);
@@ -213,12 +207,7 @@ describe("schemaProposals", () => {
     cy.login();
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity(
-      "tags",
-      '[data-testid="proposed-tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
     clickAddTagsSchemaLevel("schema-field-field_foo-tags");
     createProposalOnModal("TagToPropose", "Proposed Tag!");
     cy.searchNotCachedContainsDataset("TagToPropose", datasetName);
@@ -231,12 +220,7 @@ describe("schemaProposals", () => {
       .should("be.visible")
       .contains("TagToPropose");
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should("not.exist");
-    removeTagSchemaLevel(
-      "schema-field-field_foo-tags",
-      '[data-testid="tag-TagToPropose"]',
-      "TagToPropose",
-      "Removed Tag!",
-    );
+    deleteOrReject(ELEMENT_TYPE_TAG, "field_foo", "TagToPropose");
   });
 
   it("can propose a schema-level term to dataset and then accept the proposal from the Inbox tab", () => {
@@ -245,7 +229,7 @@ describe("schemaProposals", () => {
     // Proposing a term
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
-    deletePreviousEntity("terms", ".ant-tag", "TermToPropose", "Removed Term!");
+    deleteOrReject(ELEMENT_TYPE_TERM, "field_foo", "TermToPropose");
     clickAddTermsSchemaLevel("schema-field-field_foo-terms");
     createProposalOnModal("TermToPropose", "Proposed Term!");
     cy.searchNotCachedContainsDataset("TermToPropose", datasetName);
