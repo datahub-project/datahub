@@ -29,7 +29,7 @@ _SEGMENT_BOUNDARY = chr(1)
 # https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html
 # plus common SQL keywords (BY, SET, INSERT, UPDATE, DELETE, etc.) that aren't
 # technically "reserved" in Redshift but still need space separation at boundaries.
-REDSHIFT_RESERVED_KEYWORDS: frozenset = frozenset(
+REDSHIFT_RESERVED_KEYWORDS: frozenset[str] = frozenset(
     {
         "ABORT",
         "AES128",
@@ -206,6 +206,19 @@ REDSHIFT_RESERVED_KEYWORDS: frozenset = frozenset(
 
 _WORD_END_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*$")
 _WORD_START_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*")
+
+
+def _boundary_aware_listagg(col: str, segment_size: int, order_col: str) -> str:
+    """Build a LISTAGG expression with CHR(1) boundary markers.
+
+    All 6 LISTAGG locations in this file must use the same boundary logic.
+    This helper ensures they stay in sync.
+    """
+    return (
+        f"LISTAGG(RTRIM({col}) || CASE WHEN LEN(RTRIM({col})) < {segment_size}"
+        f" THEN CHR(1) ELSE '' END, '')"
+        f" WITHIN GROUP (ORDER BY {order_col})"
+    )
 
 
 def stitch_query_segments(raw_text: str) -> str:
@@ -731,6 +744,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     def stl_scan_based_lineage_query(
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
+        # Uses a CTE to reconstruct full query text from STL_QUERYTEXT instead
+        # of stl_query.querytxt (truncated at 4000 chars and RTRIM-corrupted).
+        # The relevant_queries CTE scopes the LISTAGG to the time range.
         return """
                     WITH relevant_queries AS (
                         SELECT DISTINCT query
@@ -742,8 +758,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                         SELECT
                             qt.query,
                             qt.userid,
-                            LISTAGG(RTRIM(qt.text) || CASE WHEN LEN(RTRIM(qt.text)) < {_PROVISIONED_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-                                WITHIN GROUP (ORDER BY qt.sequence) AS querytxt
+                            {listagg_expr} AS querytxt
                         FROM STL_QUERYTEXT qt
                         JOIN relevant_queries rq ON rq.query = qt.query
                         WHERE qt.sequence < {_QUERY_SEQUENCE_LIMIT}
@@ -809,7 +824,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                         order by cluster, target_schema, target_table, starttime asc
                     """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
-            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
+            listagg_expr=_boundary_aware_listagg(
+                "qt.text", _PROVISIONED_SEGMENT_SIZE, "qt.sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -859,8 +876,7 @@ with query_txt as (
     select
         query,
         pid,
-        LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-            WITHIN GROUP (ORDER BY sequence) as ddl
+        {listagg_expr} as ddl
     from (
         select
             query,
@@ -914,7 +930,9 @@ group by
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
-            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
+            listagg_expr=_boundary_aware_listagg(
+                "text", _PROVISIONED_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -957,8 +975,7 @@ from (
                 xid,
                 type,
                 userid,
-                LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-                    WITHIN GROUP (ORDER BY sequence) as query_text
+                {_boundary_aware_listagg("text", _PROVISIONED_SEGMENT_SIZE, "sequence")} as query_text
             from
                 SVL_STATEMENTTEXT
             where
@@ -1187,8 +1204,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-                        WITHIN GROUP (ORDER BY sequence) AS query_text
+                    {listagg_expr} AS query_text
                 FROM
                     "queries" LEFT JOIN
                     unique_query_text qt ON qt.query_id = queries.query_id
@@ -1226,7 +1242,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             WHERE source_table_id <> target_table_id
             ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
                     """.format(
-            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
+            listagg_expr=_boundary_aware_listagg(
+                'qt."text"', _SERVERLESS_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1277,8 +1295,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < {_SERVERLESS_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-                    WITHIN GROUP (ORDER BY sequence) AS ddl,
+                {listagg_expr} AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
             FROM
@@ -1315,7 +1332,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ORDER BY cluster, query_id, target_schema, target_table, starttime ASC
             ;
                 """.format(
-            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
+            listagg_expr=_boundary_aware_listagg(
+                "querytxt", _SERVERLESS_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1360,8 +1379,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN CHR(1) ELSE '' END, '')
-                                                WITHIN GROUP (ORDER BY sequence) AS query_text
+                                            {_boundary_aware_listagg('qt."text"', _SERVERLESS_SEGMENT_SIZE, "sequence")} AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
                                             LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id
