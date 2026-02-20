@@ -1,10 +1,7 @@
-import logging
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import text
 from sqlalchemy.sql.elements import TextClause
-
-logger = logging.getLogger(__name__)
 
 
 class MSSQLQuery:
@@ -26,15 +23,16 @@ class MSSQLQuery:
 
         conditions = []
         for i in range(len(exclude_patterns)):
-            condition = column_expr + " NOT LIKE :exclude_" + str(i)
+            condition = f"{column_expr} NOT LIKE :exclude_{i}"
             conditions.append(condition)
 
         return "AND " + " AND ".join(conditions)
 
     @staticmethod
     def _build_exclude_params(
-        exclude_patterns: Optional[List[str]], base_params: dict
-    ) -> dict:
+        exclude_patterns: Optional[List[str]],
+        base_params: Dict[str, Union[int, str]],
+    ) -> Dict[str, Union[int, str]]:
         """
         Build parameter dict with exclude patterns (exclude_0, exclude_1, etc.).
 
@@ -43,7 +41,7 @@ class MSSQLQuery:
         params = base_params.copy()
         if exclude_patterns:
             for i, pattern in enumerate(exclude_patterns):
-                key = "exclude_" + str(i)
+                key = f"exclude_{i}"
                 params[key] = pattern
         return params
 
@@ -53,7 +51,7 @@ class MSSQLQuery:
         exclude_patterns: Optional[List[str]],
         limit: int,
         min_calls: int,
-    ) -> Tuple[TextClause, dict]:
+    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
         """Finalize query by building params and wrapping in TextClause."""
         params = MSSQLQuery._build_exclude_params(
             exclude_patterns, {"limit": limit, "min_calls": min_calls}
@@ -85,7 +83,7 @@ class MSSQLQuery:
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
-    ) -> Tuple[TextClause, dict]:
+    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
         """
         Extract query history from Query Store (SQL Server 2016+).
 
@@ -101,8 +99,7 @@ class MSSQLQuery:
             exclude_patterns, "qt.query_sql_text"
         )
 
-        query = (
-            """
+        query = f"""
             SELECT TOP(:limit)
                 CAST(q.query_id AS VARCHAR(50)) AS query_id,
                 qt.query_sql_text AS query_text,
@@ -118,16 +115,13 @@ class MSSQLQuery:
                 ON p.plan_id = rs.plan_id
             WHERE 
                 rs.count_executions >= :min_calls
-                """
-            + exclude_clause
-            + """
+                {exclude_clause}
                 AND qt.query_sql_text IS NOT NULL
                 AND LEN(qt.query_sql_text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
             GROUP BY q.query_id, qt.query_sql_text
             HAVING SUM(rs.count_executions) >= :min_calls
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
         """
-        )
 
         return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 
@@ -136,7 +130,7 @@ class MSSQLQuery:
         limit: int,
         min_calls: int,
         exclude_patterns: Optional[List[str]],
-    ) -> Tuple[TextClause, dict]:
+    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
         """
         Extract query history from Dynamic Management Views (DMVs).
 
@@ -154,8 +148,7 @@ class MSSQLQuery:
             exclude_patterns, "CAST(st.text AS NVARCHAR(MAX))"
         )
 
-        query = (
-            """
+        query = f"""
             SELECT TOP(:limit)
                 CAST(qs.sql_handle AS VARCHAR(50)) AS query_id,
                 CAST(st.text AS NVARCHAR(MAX)) AS query_text,
@@ -166,15 +159,12 @@ class MSSQLQuery:
             CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
             WHERE 
                 qs.execution_count >= :min_calls
-                """
-            + exclude_clause
-            + """
+                {exclude_clause}
                 AND st.text IS NOT NULL
                 AND LEN(st.text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
                 AND st.dbid = DB_ID()
             ORDER BY qs.total_elapsed_time DESC
         """
-        )
 
         return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
 
