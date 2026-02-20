@@ -405,7 +405,7 @@ class SigmaAPI:
                     # Skip workbook if workbook name filtered out by config
                     if not self.config.workbook_pattern.allowed(workbook.name):
                         self.report.workbooks.dropped(
-                            f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
+                            f"{workbook.name} ({workbook.workbookId})"
                         )
                         continue
 
