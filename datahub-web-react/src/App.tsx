@@ -11,7 +11,6 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { GlobalStyles } from '@components/components/GlobalStyles';
 
 import { Routes } from '@app/Routes';
-import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
@@ -51,17 +50,6 @@ const errorLink = onError((error) => {
     //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
     // }
     // TODO: Decide if we want this back.
-});
-
-const injectVariablesLink = new ApolloLink((operation, forward) => {
-    // eslint-disable-next-line no-param-reassign
-    operation.variables = {
-        ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current,
-        skipLineage: hideLineageInSearchCardsRef.current,
-    };
-
-    return forward(operation);
 });
 
 const injectVariablesLink = new ApolloLink((operation, forward) => {
