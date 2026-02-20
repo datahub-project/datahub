@@ -2,59 +2,27 @@
 
 #### Doris Version
 
-Doris 3.0.x is supported. Doris 2.0+ may work but is untested.
+Doris 3.0.x is required. Doris 2.0+ may work but is untested.
 
-Check your version:
+#### Required Permissions
 
-```sql
-SELECT version();
-```
-
-#### Network Access
-
-- **Doris FE port**: `9030`
-- Ensure network connectivity from DataHub to Doris FE
-
-#### User Permissions
-
-Minimal required permissions for the DataHub user:
+In order to execute this source, your Doris user will need specific privileges for extracting metadata.
 
 ```sql
 -- Create user
 CREATE USER 'datahub'@'%' IDENTIFIED BY 'your_password';
 
--- Grant minimal permissions
+-- Grant required privileges
 GRANT SELECT_PRIV ON *.* TO 'datahub'@'%';
 GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
 ```
 
-### Doris-Specific Features
+`SELECT_PRIV` is required to extract table and column metadata. `SHOW_VIEW_PRIV` is required to extract view definitions and lineage.
 
-This connector preserves Doris-specific data types:
+### Profiling
 
-| Doris Type         | MySQL Fallback | Description                                |
-| ------------------ | -------------- | ------------------------------------------ |
-| **HLL**            | BLOB           | HyperLogLog for approximate COUNT DISTINCT |
-| **BITMAP**         | BLOB           | Bitmap for efficient set operations        |
-| **QUANTILE_STATE** | BLOB           | For percentile calculations                |
-| **ARRAY**          | TEXT           | Array data types                           |
-| **JSONB**          | JSON           | Binary JSON storage                        |
+Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.
 
-### Known Limitations
+### Stored Procedures
 
-#### Stored Procedures
-
-Doris's `information_schema.ROUTINES` is always empty. Stored procedure ingestion is disabled by default.
-
-#### Profiling
-
-Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling because they don't support `COUNT DISTINCT` operations. Table-level statistics are still collected.
-
-### Migration from MySQL Connector
-
-If previously using the MySQL connector:
-
-- Change `type: mysql` → `type: doris`
-- Change port: `3306` → `9030`
-- Dataset URNs will change from `platform:mysql` to `platform:doris`, creating new entities in DataHub
-- Enable stateful ingestion to automatically clean up old MySQL entities (see configuration for threshold settings)
+Stored procedure ingestion is disabled by default because Doris's `information_schema.ROUTINES` table is always empty.
