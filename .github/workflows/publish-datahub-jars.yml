@@ -29,10 +29,10 @@ jobs:
         run: |
           if [[ "${{ github.repository }}" == "acryldata/datahub" ]]; then
             echo "Enable publish for main repository: ${{ env.SIGNING_KEY != '' }}"
-            echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+            echo "publish=${{ env.SIGNING_KEY != '' }}" >> "$GITHUB_OUTPUT"
           else
             echo "Skipping publish for repository: ${{ github.repository }}"
-            echo "publish=false" >> $GITHUB_OUTPUT
+            echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -49,8 +49,8 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           source .github/scripts/docker_helpers.sh
-          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
   publish:
     runs-on: ubuntu-latest
     permissions:
@@ -82,7 +82,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publish
       - name: release datahub-client jar
@@ -93,7 +93,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
       - name: publish datahub-spark-lineage snapshot jar
@@ -104,7 +104,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
           ./gradlew :metadata-integration:java:spark-lineage:publish
       - name: release datahub-spark-lineage jar
@@ -115,7 +115,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:spark-lineage:publish
           ./gradlew :metadata-integration:java:spark-lineage:closeAndReleaseRepository --info
       - name: publish datahub-protobuf snapshot jar
@@ -126,7 +126,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-protobuf:printVersion
           ./gradlew :metadata-integration:java:datahub-protobuf:publish
       - name: release datahub-protobuf jar
@@ -137,7 +137,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-protobuf:publish
           ./gradlew :metadata-integration:java:datahub-protobuf:closeAndReleaseRepository --info
       - name: publish datahub-auth-api snapshot jar
@@ -148,7 +148,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-auth:auth-api:printVersion
           ./gradlew :metadata-auth:auth-api:publish
       - name: release datahub-auth-api jar
@@ -159,7 +159,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-auth:auth-api:publish
           ./gradlew :metadata-auth:auth-api:closeAndReleaseRepository --info
       - name: publish datahub-custom-plugin-lib snapshot jar
@@ -170,7 +170,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:custom-plugin-lib:printVersion
           ./gradlew :metadata-integration:java:custom-plugin-lib:publish
       - name: release datahub-custom-plugin-lib jar
@@ -181,7 +181,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
           ./gradlew :metadata-integration:java:custom-plugin-lib:closeAndReleaseRepository --info
   publish-java8:
@@ -215,7 +215,7 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
           ./gradlew :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
       - name: release datahub-client jar
@@ -226,6 +226,6 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo signingKey=$SIGNING_KEY >> gradle.properties
+          echo "signingKey=$SIGNING_KEY" >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=17 -ParchiveAppendix=java8
           ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info -PjavaClassVersionDefault=17 -ParchiveAppendix=java8

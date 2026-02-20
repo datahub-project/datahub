@@ -345,10 +345,10 @@ jobs:
 
           # Install specific version of docker compose plugin
           DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
-          mkdir -p $DOCKER_CONFIG/cli-plugins
+          mkdir -p "$DOCKER_CONFIG/cli-plugins"
           curl -SL "https://github.com/docker/compose/releases/download/${{ matrix.compose_version }}/docker-compose-linux-x86_64" \
-            -o $DOCKER_CONFIG/cli-plugins/docker-compose
-          chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+            -o "$DOCKER_CONFIG/cli-plugins/docker-compose"
+          chmod +x "$DOCKER_CONFIG/cli-plugins/docker-compose"
 
           # Verify installation
           docker compose version
