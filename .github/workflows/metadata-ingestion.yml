@@ -66,7 +66,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@v5
         with:
           checkout-head-only: false
       - uses: actions/setup-python@v6
@@ -152,7 +152,7 @@ jobs:
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     steps:
-      - uses: acryldata/sane-checkout-action@v4
+      - uses: acryldata/sane-checkout-action@v5
       - name: Check if Python files were modified
         id: check-changes
         run: |
