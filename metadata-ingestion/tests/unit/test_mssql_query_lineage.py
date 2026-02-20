@@ -543,29 +543,6 @@ def test_mssql_lineage_extractor_populate_lineage():
         assert call_args.user is None
 
 
-def test_mssql_query_entry_avg_exec_time():
-    """Test MSSQLQueryEntry calculates average execution time correctly."""
-    entry = MSSQLQueryEntry(
-        query_id="1",
-        query_text="SELECT 1",
-        execution_count=10,
-        total_exec_time_ms=500.0,
-        database_name="db",
-    )
-
-    assert entry.avg_exec_time_ms == 50.0
-
-    entry_zero = MSSQLQueryEntry(
-        query_id="2",
-        query_text="SELECT 1",
-        execution_count=0,
-        total_exec_time_ms=0.0,
-        database_name="db",
-    )
-
-    assert entry_zero.avg_exec_time_ms == 0.0
-
-
 # Tests for SQL Query Generation
 
 

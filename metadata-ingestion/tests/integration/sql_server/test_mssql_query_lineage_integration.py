@@ -350,16 +350,8 @@ class TestMSSQLLineageIntegration:
         )
 
         assert entry.query_id == "12345"
-        assert entry.avg_exec_time_ms == 100.0  # 5000/50
-
-        entry_zero = MSSQLQueryEntry(
-            query_id="67890",
-            query_text="SELECT 1",
-            execution_count=0,
-            total_exec_time_ms=0.0,
-            database_name="testdb",
-        )
-        assert entry_zero.avg_exec_time_ms == 0.0
+        assert entry.execution_count == 50
+        assert entry.total_exec_time_ms == 5000.0
 
     def test_query_history_with_min_calls_filter(self, mssql_connection):
         """Test that min_calls filter works correctly."""

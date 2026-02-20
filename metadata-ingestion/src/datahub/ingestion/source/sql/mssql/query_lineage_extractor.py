@@ -35,15 +35,6 @@ class MSSQLQueryEntry:
     total_exec_time_ms: float
     database_name: str
 
-    @property
-    def avg_exec_time_ms(self) -> float:
-        """Calculate average execution time."""
-        return (
-            self.total_exec_time_ms / self.execution_count
-            if self.execution_count > 0
-            else 0.0
-        )
-
 
 class MSSQLLineageExtractor:
     """
