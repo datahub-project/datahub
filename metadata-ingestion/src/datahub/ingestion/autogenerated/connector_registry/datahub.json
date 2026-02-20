@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-01T01:53:34.171153+00:00",
-  "generated_by": "metadata-ingestion/scripts/capability_summary.py",
+  "generated_by": "metadata-ingestion/scripts/connector_registry.py",
+  "package": "datahub",
   "plugin_details": {
     "abs": {
       "capabilities": [
@@ -627,31 +627,31 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default when stateful ingestion is configured. Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
+          "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
+          "description": "Enabled by default, can be disabled via configuration `include_schema`",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+          "description": "Optionally enabled via configuration `include_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
-          "description": "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
@@ -3012,69 +3012,6 @@
       "classname": "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource",
       "platform_id": "qlik-sense",
       "platform_name": "Qlik Sense",
-      "support_status": "INCUBATING"
-    },
-    "rdf": {
-      "capabilities": [
-        {
-          "capability": "DATA_PROFILING",
-          "description": "Not applicable",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "DESCRIPTIONS",
-          "description": "Enabled by default (from skos:definition or rdfs:comment)",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "DELETION_DETECTION",
-          "description": "Enabled via stateful_ingestion.enabled: true",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "DOMAINS",
-          "description": "Not applicable (domains used internally for hierarchy)",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "OWNERSHIP",
-          "description": "Not supported",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "TAGS",
-          "description": "Not supported",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "Supported via platform_instance config",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "LINEAGE_COARSE",
-          "description": "Not in MVP",
-          "subtype_modifier": null,
-          "supported": false
-        }
-      ],
-      "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
-      "platform_id": "rdf",
-      "platform_name": "RDF",
-      "support_status": "INCUBATING"
-    },
-    "rdf-lite": {
-      "capabilities": [],
-      "classname": "rdf_lite.ingestion.rdf_source.RDFLiteSource",
-      "platform_id": "rdf-lite",
-      "platform_name": "RDF Lite",
       "support_status": "INCUBATING"
     },
     "redash": {
