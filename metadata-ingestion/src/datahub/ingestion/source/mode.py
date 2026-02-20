@@ -245,9 +245,7 @@ class ModeConfig(
         le=50,
         description="Maximum number of threads to use for parallel API requests. "
         "Increase to speed up ingestion for large workspaces. "
-        "Setting too high may trigger Mode API rate limiting (429 errors). "
-        "Note: API responses are cached in memory for deduplication; "
-        "large workspaces (1000+ reports) may use 50-100 MB of cache memory.",
+        "Setting too high may trigger Mode API rate limiting (429 errors).",
     )
 
     @field_validator("connect_uri", mode="after")
@@ -305,9 +303,6 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     dataset_get_api_called: int = 0
     query_get_api_called: int = 0
     chart_get_api_called: int = 0
-    get_cache_hits: int = 0
-    get_cache_misses: int = 0
-    get_cache_size: int = 0
     process_memory_used_mb: float = 0
     # Thread-safe cumulative timing accumulators (seconds).
     # Protected by _lock. These track time spent in worker threads.
@@ -1749,10 +1744,7 @@ class ModeSource(StatefulIngestionSourceBase):
             yield data
             page += 1
 
-    @lru_cache(maxsize=None)
     def _get_request_json(self, url: str) -> Dict:
-        # Thread-safe: lru_cache uses an internal lock. Callers must NOT
-        # mutate the returned dict, as it is shared across all cache hits.
         r = tenacity.Retrying(
             wait=wait_exponential(
                 multiplier=self.config.api_options.retry_backoff_multiplier,
@@ -2053,10 +2045,6 @@ class ModeSource(StatefulIngestionSourceBase):
         for space_token, space_name in self.space_tokens.items():
             yield from self._emit_workunits_for_space(space_token, space_name)
 
-        cache_info = self._get_request_json.cache_info()
-        self.report.get_cache_hits = cache_info.hits
-        self.report.get_cache_misses = cache_info.misses
-        self.report.get_cache_size = cache_info.currsize
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)
 
