@@ -23,6 +23,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 from datahub.ingestion.source.vertexai.vertexai_models import (
     VertexAIResourceCategoryKey,
 )
+from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,16 @@ def gen_resource_subfolder_container(
         extra_properties=extra_properties,
         external_url=external_url,
     )
+
+
+def gen_browse_path_from_container(container_key: ContainerKey) -> BrowsePathsV2Class:
+    browse_path: List[BrowsePathEntryClass] = []
+    current_container: Optional[ContainerKey] = container_key
+    while current_container is not None:
+        container_urn = current_container.as_urn()
+        browse_path.insert(0, BrowsePathEntryClass(id=container_urn, urn=container_urn))
+        current_container = current_container.parent_key()
+    return BrowsePathsV2Class(path=browse_path)
 
 
 def format_api_error_message(

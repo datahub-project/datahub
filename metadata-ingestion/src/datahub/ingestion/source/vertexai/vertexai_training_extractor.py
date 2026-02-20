@@ -53,7 +53,9 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     format_api_error_message,
+    gen_browse_path_from_container,
     get_actor_from_labels,
+    get_resource_category_container,
     log_checkpoint_time,
     log_progress,
 )
@@ -322,6 +324,18 @@ class VertexAITrainingExtractor:
             subtype=VertexAISubTypes.TRAINING_JOB,
             resource_category=ResourceCategory.TRAINING_JOBS,
         )
+
+        training_jobs_container = get_resource_category_container(
+            project_id=self.project_id,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            category=ResourceCategory.TRAINING_JOBS,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=job_urn,
+            aspect=gen_browse_path_from_container(training_jobs_container),
+        ).as_workunit()
 
         if dataset_urn or external_input_edges:
             yield MetadataChangeProposalWrapper(
