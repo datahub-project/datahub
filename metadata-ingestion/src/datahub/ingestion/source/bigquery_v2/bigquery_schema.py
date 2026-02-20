@@ -38,6 +38,10 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
 )
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GcpProjectFilterConfig,
+    resolve_gcp_projects,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
@@ -815,7 +819,14 @@ def get_projects(
             for project_id in filters.filter_config.project_ids
         ]
     elif filters.filter_config.project_labels:
-        return list(query_project_list_from_labels(schema_api, report, filters))
+        filter_cfg = GcpProjectFilterConfig(
+            project_labels=filters.filter_config.project_labels,
+            project_id_pattern=filters.filter_config.project_id_pattern,
+        )
+        resolved_projects = resolve_gcp_projects(
+            filter_cfg, report, projects_client=schema_api.projects_client
+        )
+        return [BigqueryProject(id=p.id, name=p.name) for p in resolved_projects]
     else:
         return list(query_project_list(schema_api, report, filters))
 
