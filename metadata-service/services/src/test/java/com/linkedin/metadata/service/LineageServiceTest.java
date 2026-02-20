@@ -275,6 +275,69 @@ public class LineageServiceTest {
                 opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testChartLineageNoDuplicateWhenDeprecatedFieldPopulated() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+
+    // Create chart with deprecated inputs field populated (simulating data from ingestion)
+    ChartInfo chartInfo = new ChartInfo();
+    com.linkedin.chart.ChartDataSourceTypeArray inputs =
+        new com.linkedin.chart.ChartDataSourceTypeArray();
+    inputs.add(
+        com.linkedin.chart.ChartDataSourceType.create(
+            com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1)));
+    chartInfo.setInputs(inputs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    chartInfo.setInputEdges(new EdgeArray());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.CHART_ENTITY_NAME),
+                eq(chartUrn1),
+                eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(chartUrn1)
+                .setEntityName(Constants.CHART_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.CHART_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))))));
+
+    // Try to add datasetUrn1 again (which already exists in deprecated inputs)
+    final List<Urn> upstreamUrnsToAdd = Arrays.asList(datasetUrn1, datasetUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateChartLineage(
+        opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    // Expected: Only datasetUrn2 should be added to inputEdges (datasetUrn1 is already in inputs)
+    ChartInfo updatedChartInfo = new ChartInfo();
+    com.linkedin.chart.ChartDataSourceTypeArray expectedInputs =
+        new com.linkedin.chart.ChartDataSourceTypeArray();
+    expectedInputs.add(
+        com.linkedin.chart.ChartDataSourceType.create(
+            com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1)));
+    updatedChartInfo.setInputs(expectedInputs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+
+    EdgeArray expectedEdges = new EdgeArray();
+    addNewEdge(datasetUrn2, chartUrn1, expectedEdges);
+    updatedChartInfo.setInputEdges(expectedEdges);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(chartUrn1);
+    proposal.setEntityType(Constants.CHART_ENTITY_NAME);
+    proposal.setAspectName(Constants.CHART_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedChartInfo));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
   // Adds upstreams for dashboard to dataset2 and chart2 and removes edge to dataset1 and chart1
   @Test
   public void testUpdateDashboardLineage() throws Exception {
@@ -363,6 +426,80 @@ public class LineageServiceTest {
                 opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testDashboardLineageNoDuplicateWhenDeprecatedFieldsPopulated() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dashboardUrn1)))
+        .thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+
+    // Create dashboard with deprecated charts and datasets fields populated
+    DashboardInfo dashboardInfo = new DashboardInfo();
+    com.linkedin.common.ChartUrnArray charts = new com.linkedin.common.ChartUrnArray();
+    charts.add(com.linkedin.common.urn.ChartUrn.createFromUrn(chartUrn1));
+    dashboardInfo.setCharts(charts);
+    dashboardInfo.setChartEdges(new EdgeArray());
+
+    UrnArray datasets = new UrnArray();
+    datasets.add(datasetUrn1);
+    dashboardInfo.setDatasets(datasets);
+    dashboardInfo.setDatasetEdges(new EdgeArray());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DASHBOARD_ENTITY_NAME),
+                eq(dashboardUrn1),
+                eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(dashboardUrn1)
+                .setEntityName(Constants.DASHBOARD_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DASHBOARD_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(dashboardInfo.data()))))));
+
+    // Try to add chartUrn1 and datasetUrn1 again (which already exist in deprecated fields)
+    final List<Urn> upstreamUrnsToAdd =
+        Arrays.asList(chartUrn1, chartUrn2, datasetUrn1, datasetUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDashboardLineage(
+        opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    // Expected: Only chartUrn2 and datasetUrn2 should be added to edges
+    DashboardInfo updatedDashboardInfo = new DashboardInfo();
+    com.linkedin.common.ChartUrnArray expectedCharts = new com.linkedin.common.ChartUrnArray();
+    expectedCharts.add(com.linkedin.common.urn.ChartUrn.createFromUrn(chartUrn1));
+    updatedDashboardInfo.setCharts(expectedCharts);
+
+    EdgeArray expectedChartEdges = new EdgeArray();
+    addNewEdge(chartUrn2, dashboardUrn1, expectedChartEdges);
+    updatedDashboardInfo.setChartEdges(expectedChartEdges);
+
+    UrnArray expectedDatasets = new UrnArray();
+    expectedDatasets.add(datasetUrn1);
+    updatedDashboardInfo.setDatasets(expectedDatasets);
+
+    EdgeArray expectedDatasetEdges = new EdgeArray();
+    addNewEdge(datasetUrn2, dashboardUrn1, expectedDatasetEdges);
+    updatedDashboardInfo.setDatasetEdges(expectedDatasetEdges);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(dashboardUrn1);
+    proposal.setEntityType(Constants.DASHBOARD_ENTITY_NAME);
+    proposal.setAspectName(Constants.DASHBOARD_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDashboardInfo));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
   // Adds upstream datajob3, upstream dataset3, downstream dataset4, removes upstream datajob2,
   // upstream dataset1, downstream dataset1
   // has existing upstream datajob2, upstream dataset1 and dataset2, downstream dataset4
@@ -446,6 +583,119 @@ public class LineageServiceTest {
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(datajobUrn1);
+    proposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDataJobInputOutput));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation")
+  public void testDataJobLineageNoDuplicateWhenDeprecatedFieldsPopulated() throws Exception {
+    Mockito.when(_mockClient.exists(opContext, datajobUrn1)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datajobUrn2)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datajobUrn3)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn1)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn2)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn3)).thenReturn(true);
+
+    // Create DataJobInputOutput with deprecated fields populated (simulating data from ingestion)
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+
+    com.linkedin.common.DatasetUrnArray inputDatasets = new com.linkedin.common.DatasetUrnArray();
+    inputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1));
+    dataJobInputOutput.setInputDatasets(
+        inputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
+
+    com.linkedin.common.DataJobUrnArray inputDatajobs = new com.linkedin.common.DataJobUrnArray();
+    inputDatajobs.add(com.linkedin.common.urn.DataJobUrn.createFromUrn(datajobUrn1));
+    dataJobInputOutput.setInputDatajobs(
+        inputDatajobs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
+
+    com.linkedin.common.DatasetUrnArray outputDatasets = new com.linkedin.common.DatasetUrnArray();
+    outputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn2));
+    dataJobInputOutput.setOutputDatasets(
+        outputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+    dataJobInputOutput.setOutputDatasetEdges(new EdgeArray());
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn2),
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(datajobUrn2)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(dataJobInputOutput.data()))))),
+            new EntityResponse()
+                .setUrn(datajobUrn2)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(dataJobInputOutput.data()))))));
+
+    // Try to add urns that already exist in deprecated fields
+    final List<Urn> upstreamUrnsToAdd =
+        Arrays.asList(datajobUrn1, datajobUrn3, datasetUrn1, datasetUrn3);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext, datajobUrn2, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
+
+    final List<Urn> downstreamUrnsToAdd = Arrays.asList(datasetUrn2, datasetUrn3);
+    final List<Urn> downstreamUrnsToRemove = Collections.emptyList();
+    _lineageService.updateDataJobDownstreamLineage(
+        opContext, datajobUrn2, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn);
+
+    // Expected: Only new urns should be added to edge fields
+    DataJobInputOutput updatedDataJobInputOutput = new DataJobInputOutput();
+
+    com.linkedin.common.DatasetUrnArray expectedInputDatasets =
+        new com.linkedin.common.DatasetUrnArray();
+    expectedInputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn1));
+    updatedDataJobInputOutput.setInputDatasets(
+        expectedInputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+
+    EdgeArray expectedInputDatasetEdges = new EdgeArray();
+    addNewEdge(datasetUrn3, datajobUrn2, expectedInputDatasetEdges);
+    updatedDataJobInputOutput.setInputDatasetEdges(expectedInputDatasetEdges);
+
+    com.linkedin.common.DataJobUrnArray expectedInputDatajobs =
+        new com.linkedin.common.DataJobUrnArray();
+    expectedInputDatajobs.add(com.linkedin.common.urn.DataJobUrn.createFromUrn(datajobUrn1));
+    updatedDataJobInputOutput.setInputDatajobs(
+        expectedInputDatajobs, com.linkedin.data.template.SetMode.IGNORE_NULL);
+
+    EdgeArray expectedInputDatajobEdges = new EdgeArray();
+    addNewEdge(datajobUrn3, datajobUrn2, expectedInputDatajobEdges);
+    updatedDataJobInputOutput.setInputDatajobEdges(expectedInputDatajobEdges);
+
+    com.linkedin.common.DatasetUrnArray expectedOutputDatasets =
+        new com.linkedin.common.DatasetUrnArray();
+    expectedOutputDatasets.add(com.linkedin.common.urn.DatasetUrn.createFromUrn(datasetUrn2));
+    updatedDataJobInputOutput.setOutputDatasets(
+        expectedOutputDatasets, com.linkedin.data.template.SetMode.IGNORE_NULL);
+
+    EdgeArray expectedOutputDatasetEdges = new EdgeArray();
+    addNewEdge(datasetUrn3, datajobUrn2, expectedOutputDatasetEdges);
+    updatedDataJobInputOutput.setOutputDatasetEdges(expectedOutputDatasetEdges);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(datajobUrn2);
     proposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
     proposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDataJobInputOutput));

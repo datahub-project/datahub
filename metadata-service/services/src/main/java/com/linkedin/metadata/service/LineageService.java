@@ -211,6 +211,7 @@ public class LineageService {
 
   /** Builds an MCP of ChartInfo for chart entities. */
   @Nonnull
+  @SuppressWarnings("deprecation")
   public MetadataChangeProposal buildChartLineageProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
@@ -244,13 +245,11 @@ public class LineageService {
     final EdgeArray inputEdges = chartInfo.getInputEdges();
     final List<Urn> upstreamsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamUrnsToAdd) {
-      // Check both inputEdges and deprecated inputs field to avoid duplicates
       if (inputEdges.stream()
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Also check deprecated inputs field if it exists (for backwards compatibility with ingestion
-      // sources)
+      // Check deprecated inputs field to avoid duplicates with ingestion data
       if (chartInfo.hasInputs()
           && chartInfo.getInputs().stream()
               .anyMatch(
@@ -382,17 +381,16 @@ public class LineageService {
    * Need to filter out any existing upstream chart urns in order to get a list of net new chart
    * urns to add to dashboard lineage
    */
+  @SuppressWarnings("deprecation")
   private List<Urn> getUpstreamChartToAdd(
       List<Urn> upstreamChartUrnsToAdd, List<Edge> chartEdges, DashboardInfo dashboardInfo) {
     final List<Urn> upstreamsChartsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamChartUrnsToAdd) {
-      // Check both chartEdges and deprecated charts field to avoid duplicates
       if (chartEdges.stream()
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Also check deprecated charts field if it exists (for backwards compatibility with ingestion
-      // sources)
+      // Check deprecated charts field to avoid duplicates with ingestion data
       if (dashboardInfo.hasCharts()
           && dashboardInfo.getCharts().stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
         continue;
@@ -444,17 +442,16 @@ public class LineageService {
     }
   }
 
+  @SuppressWarnings("deprecation")
   private List<Urn> getUpstreamDatasetsToAdd(
       List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DashboardInfo dashboardInfo) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
-      // Check both datasetEdges and deprecated datasets field to avoid duplicates
       if (datasetEdges.stream()
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Also check deprecated datasets field if it exists (for backwards compatibility with
-      // ingestion sources)
+      // Check deprecated datasets field to avoid duplicates with ingestion data
       if (dashboardInfo.hasDatasets()
           && dashboardInfo.getDatasets().stream()
               .anyMatch(dataset -> dataset.equals(upstreamUrn))) {
@@ -563,6 +560,7 @@ public class LineageService {
    * Then, remove all lineage edges from inputDatasets and inputDatasetEdges fields that are in
    * upstreamUrnsToRemove. Then update the DataJobInputOutput aspect.
    */
+  @SuppressWarnings("deprecation")
   private void updateUpstreamDatasetsForDataJobs(
       DataJobInputOutput dataJobInputOutput,
       List<Urn> upstreamUrnsToAdd,
@@ -598,21 +596,17 @@ public class LineageService {
     }
   }
 
-  // get new dataset edges that we should be adding to inputDatasetEdges and outputDatasetEdges for
-  // the DataJobInputOutput aspect
   private List<Urn> getInputOutputDatasetsToAdd(
       List<Urn> upstreamDatasetUrnsToAdd,
       List<Edge> datasetEdges,
       DatasetUrnArray deprecatedDatasets) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
-      // Check both datasetEdges and deprecated datasets field to avoid duplicates
       if (datasetEdges.stream()
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Also check deprecated datasets field if it exists (for backwards compatibility with
-      // ingestion sources)
+      // Check deprecated datasets field to avoid duplicates with ingestion data
       if (deprecatedDatasets != null
           && deprecatedDatasets.stream().anyMatch(dataset -> dataset.equals(upstreamUrn))) {
         continue;
@@ -633,6 +627,7 @@ public class LineageService {
    * all lineage edges from dataJobs and dataJobEdges fields that are in upstreamUrnsToRemove. Then
    * update the DataJobInputOutput aspect.
    */
+  @SuppressWarnings("deprecation")
   private void updateUpstreamDataJobs(
       DataJobInputOutput dataJobInputOutput,
       List<Urn> upstreamUrnsToAdd,
@@ -674,13 +669,11 @@ public class LineageService {
       DataJobUrnArray deprecatedDatajobs) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
-      // Check both dataJobEdges and deprecated datajobs field to avoid duplicates
       if (dataJobEdges.stream()
           .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
         continue;
       }
-      // Also check deprecated datajobs field if it exists (for backwards compatibility with
-      // ingestion sources)
+      // Check deprecated datajobs field to avoid duplicates with ingestion data
       if (deprecatedDatajobs != null
           && deprecatedDatajobs.stream().anyMatch(datajob -> datajob.equals(upstreamUrn))) {
         continue;
@@ -730,6 +723,7 @@ public class LineageService {
    * (deprecated) and outputDatasetEdges
    */
   @Nonnull
+  @SuppressWarnings("deprecation")
   public MetadataChangeProposal buildDataJobDownstreamLineageProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn dataJobUrn,
