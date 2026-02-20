@@ -21,7 +21,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
