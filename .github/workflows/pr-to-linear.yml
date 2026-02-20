@@ -1,7 +1,7 @@
 name: Create Linear Ticket for Ingestion PR Review
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, ready_for_review, closed]
     paths:
       - "metadata-ingestion/**"
@@ -164,6 +164,15 @@ jobs:
           DELETIONS: ${{ github.event.pull_request.deletions }}
           CONTRIBUTOR_TYPE: ${{ steps.check-author.outputs.contributor_type }}
         run: |
+          # Skip if a Linear ticket already exists for this PR (deduplication guard)
+          if COMMENTS_JSON=$(gh pr view "$PR_NUMBER" --json comments 2>/dev/null); then
+            EXISTING=$(echo "$COMMENTS_JSON" | jq -r '.comments[].body' 2>/dev/null | grep -oP 'Linear: ING-\d+' | head -n1 || echo "")
+            if [ -n "$EXISTING" ]; then
+              echo "⏭️  Linear ticket already exists for PR #$PR_NUMBER ($EXISTING), skipping creation"
+              exit 0
+            fi
+          fi
+
           # Use PR body from context, sanitize it
           if [ -z "$PR_BODY" ]; then
             PR_BODY="No description provided"
