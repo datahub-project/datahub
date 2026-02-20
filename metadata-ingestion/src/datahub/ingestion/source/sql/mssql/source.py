@@ -401,6 +401,7 @@ class SQLServerSource(SQLAlchemySource):
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
+        self._discovered_table_cache: Dict[str, bool] = {}
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
@@ -1437,9 +1438,6 @@ class SQLServerSource(SQLAlchemySource):
 
         Note: Uses instance-level caching to improve performance for repeated calls.
         """
-        if not hasattr(self, "_discovered_table_cache"):
-            self._discovered_table_cache: dict[str, bool] = {}
-
         if name in self._discovered_table_cache:
             return self._discovered_table_cache[name]
 
