@@ -5,7 +5,7 @@ import tempfile
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import TransparentSecretStr
