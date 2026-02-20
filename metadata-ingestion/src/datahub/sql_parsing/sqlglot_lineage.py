@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import logging
 import traceback
+import uuid
 from collections import defaultdict
 from typing import (
     AbstractSet,
@@ -54,6 +55,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
+from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -2221,6 +2223,178 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+        )
+    except Exception as e:
+        return SqlParsingResult.make_from_error(e)
+    finally:
+        if needs_close:
+            schema_resolver.close()
+
+
+def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+    if isinstance(queries, str):
+        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+    else:
+        result: List[str] = []
+        for q in queries:
+            if q and str(q).strip():
+                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+        return result
+
+
+def create_lineage_from_sql_statements(
+    queries: Union[str, List[str]],
+    default_db: Optional[str],
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    default_schema: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
+) -> SqlParsingResult:
+    """Parse multiple SQL statements and return merged lineage with temp table resolution.
+
+    Processes all statements sequentially with a shared session, resolving temp table
+    lineage to produce a single SqlParsingResult without temp tables.
+
+    This is the multi-statement counterpart to create_lineage_sql_parsed_result().
+
+    Args:
+        queries: Either a single SQL string (which may contain multiple statements
+                 separated by semicolons) or a list of SQL statement strings.
+                 If a string is provided, it will be split into statements using
+                 SQL-aware parsing that handles strings, comments, and keywords.
+        default_db: Default database for unqualified table references
+        platform: Data platform identifier (e.g., 'snowflake', 'postgres')
+        platform_instance: Optional platform instance identifier
+        env: Environment (e.g., 'PROD', 'DEV')
+        default_schema: Optional default schema for unqualified table references
+        graph: Optional DataHub graph client for schema resolution
+        schema_aware: Whether to use schema-aware parsing
+
+    Returns:
+        SqlParsingResult containing merged lineage from all statements
+    """
+    from datahub.sql_parsing.sql_parsing_aggregator import (
+        ObservedQuery,
+        QueryMetadata,
+        SqlParsingAggregator,
+    )
+
+    queries = _prepare_sql_query_list(queries)
+
+    if not queries:
+        return SqlParsingResult.make_from_error(
+            ValueError("No SQL statements provided")
+        )
+
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
+    if graph and schema_aware:
+        needs_close = False
+
+    try:
+        aggregator = SqlParsingAggregator(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            schema_resolver=schema_resolver,
+            generate_lineage=True,
+            generate_queries=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            generate_query_subject_fields=False,
+            generate_query_usage_statistics=False,
+        )
+
+        try:
+            session_id = str(uuid.uuid4())
+            for query in queries:
+                aggregator.add_observed_query(
+                    observed=ObservedQuery(
+                        query=query,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                        session_id=session_id,
+                    )
+                )
+
+            resolved_by_id: Dict[str, QueryMetadata] = {}
+            for query_id, query_meta in aggregator._query_map.items():
+                resolved_by_id[query_id] = aggregator._resolve_query_with_temp_tables(
+                    query_meta
+                )
+
+            # Invert _lineage_map (downstream → query_ids) so we can look up
+            # each query's target table during the single-pass aggregation below.
+            query_to_downstream: Dict[str, str] = {}
+            for table_urn in aggregator._lineage_map:
+                for query_id in aggregator._lineage_map[table_urn]:
+                    query_to_downstream[query_id] = table_urn
+
+            # Temp table creators produce CLL like "staging.id <- source.id"
+            # where staging is a temp table. We must exclude these because
+            # _resolve_query_with_temp_tables already traced downstream queries
+            # through the temp tables to produce "target.id <- source.id".
+            # Including both would create phantom CLL entries referencing temp
+            # tables that don't appear in out_tables.
+            temp_creator_ids: Set[str] = set()
+            session_temp_data = aggregator._temp_lineage_map.get(session_id)
+            if session_temp_data:
+                for creator_ids in session_temp_data.values():
+                    temp_creator_ids.update(creator_ids)
+
+            # _lineage_map only tracks non-temp outputs, so its keys are
+            # already the correct set of real downstream tables.
+            all_out_tables: List[str] = list(aggregator._lineage_map.keys())
+            in_tables: OrderedSet[str] = OrderedSet()
+            min_confidence = 1.0
+            has_resolved_queries = False
+            all_column_lineage: List[ColumnLineageInfo] = []
+
+            for query_id, resolved in resolved_by_id.items():
+                if query_id in temp_creator_ids:
+                    continue
+
+                has_resolved_queries = True
+
+                for upstream in resolved.upstreams:
+                    in_tables.add(upstream)
+                min_confidence = min(min_confidence, resolved.confidence_score)
+
+                # Skip CLL for SELECT-only queries (no output table).
+                downstream_urn: Optional[str] = query_to_downstream.get(query_id)
+                if downstream_urn is not None:
+                    all_column_lineage.extend(resolved.column_lineage)
+        finally:
+            aggregator.close()
+
+        all_in_tables = list(in_tables)
+
+        if not all_in_tables and not all_out_tables:
+            return SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                column_lineage=None,
+                debug_info=SqlParsingDebugInfo(
+                    confidence=0.0,
+                ),
+            )
+
+        return SqlParsingResult(
+            in_tables=all_in_tables,
+            out_tables=all_out_tables,
+            column_lineage=all_column_lineage if all_column_lineage else None,
+            debug_info=SqlParsingDebugInfo(
+                confidence=min_confidence if has_resolved_queries else 0.0,
+            ),
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
