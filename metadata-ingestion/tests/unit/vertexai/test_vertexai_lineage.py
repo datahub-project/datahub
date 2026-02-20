@@ -465,7 +465,9 @@ def test_model_group_includes_lineage_in_properties(source: VertexAISource) -> N
     )
     source.model_usage_tracker.track_model_usage(model_group_urn, downstream_job_urn)
 
-    mcps = list(source.model_extractor._gen_ml_group_mcps(mock_model))
+    container_mcps = list(source.model_extractor._gen_ml_group_container(mock_model))
+    properties_mcps = list(source.model_extractor._gen_ml_group_properties(mock_model))
+    mcps = container_mcps + properties_mcps
 
     model_group_props_mcp = next(
         (

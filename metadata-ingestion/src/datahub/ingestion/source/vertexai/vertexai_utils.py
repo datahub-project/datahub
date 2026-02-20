@@ -1,7 +1,7 @@
 import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Iterator, List, Optional, TypeVar
+from typing import Dict, Iterable, Iterator, List, Optional, TypeVar
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -14,7 +14,8 @@ from google.api_core.exceptions import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp_builder import ProjectIdKey
+from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PROGRESS_LOG_INTERVAL,
     ResourceCategoryType,
@@ -79,6 +80,37 @@ def get_resource_category_container(
         instance=platform_instance,
         env=env,
         category=category,
+    )
+
+
+def gen_resource_subfolder_container(
+    project_id: str,
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    resource_category: ResourceCategoryType,
+    container_key: ContainerKey,
+    name: str,
+    sub_types: List[str],
+    extra_properties: Optional[Dict[str, str]] = None,
+    external_url: Optional[str] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """Generate subfolder container: Project → Category → Subfolder."""
+    category_key = get_resource_category_container(
+        project_id=project_id,
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        category=resource_category,
+    )
+
+    yield from gen_containers(
+        parent_container_key=category_key,
+        container_key=container_key,
+        name=name,
+        sub_types=sub_types,
+        extra_properties=extra_properties,
+        external_url=external_url,
     )
 
 

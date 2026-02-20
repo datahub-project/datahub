@@ -9,7 +9,7 @@ from google.cloud.aiplatform_v1.types import Artifact, Execution
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ExperimentKey, gen_containers
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
@@ -37,8 +37,8 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     filter_by_update_time,
+    gen_resource_subfolder_container,
     get_actor_from_labels,
-    get_resource_category_container,
     log_checkpoint_time,
     log_progress,
     sort_by_update_time,
@@ -210,14 +210,12 @@ class VertexAIExperimentExtractor:
         self, experiment_meta: ExperimentMetadata
     ) -> Iterable[MetadataWorkUnit]:
         experiment = experiment_meta.experiment
-        yield from gen_containers(
-            parent_container_key=get_resource_category_container(
-                self.project_id,
-                self.platform,
-                self.config.platform_instance,
-                self.config.env,
-                ResourceCategory.EXPERIMENTS,
-            ),
+        yield from gen_resource_subfolder_container(
+            project_id=self.project_id,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            resource_category=ResourceCategory.EXPERIMENTS,
             container_key=ExperimentKey(
                 platform=self.platform,
                 instance=self.config.platform_instance,

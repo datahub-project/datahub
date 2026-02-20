@@ -8,7 +8,6 @@ from google.cloud.aiplatform.models import Model, VersionInfo
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
@@ -38,8 +37,8 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     filter_by_update_time,
+    gen_resource_subfolder_container,
     get_actor_from_labels,
-    get_resource_category_container,
     handle_google_api_errors,
     log_checkpoint_time,
     log_progress,
@@ -117,6 +116,8 @@ class VertexAIModelExtractor:
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
 
+            yield from self._gen_ml_group_container(model)
+
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 total_versions += 1
@@ -128,8 +129,7 @@ class VertexAIModelExtractor:
                     model=model, model_version=model_version
                 )
 
-            # Emit model group AFTER versions are processed (so downstream lineage is resolved)
-            yield from self._gen_ml_group_mcps(model)
+            yield from self._gen_ml_group_properties(model)
 
             if (
                 self.config.max_models is not None
@@ -390,23 +390,21 @@ class VertexAIModelExtractor:
                 )
             )
 
-    def _gen_ml_group_mcps(self, model: Model) -> Iterable[MetadataWorkUnit]:
-        model_group_container_key = self._get_model_group_container(model)
-
-        yield from gen_containers(
-            parent_container_key=get_resource_category_container(
-                self.project_id,
-                self.platform,
-                self.config.platform_instance,
-                self.config.env,
-                ResourceCategory.MODELS,
-            ),
-            container_key=model_group_container_key,
+    def _gen_ml_group_container(self, model: Model) -> Iterable[MetadataWorkUnit]:
+        yield from gen_resource_subfolder_container(
+            project_id=self.project_id,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            resource_category=ResourceCategory.MODELS,
+            container_key=self._get_model_group_container(model),
             name=model.display_name,
             sub_types=[VertexAISubTypes.MODEL_GROUP],
         )
 
+    def _gen_ml_group_properties(self, model: Model) -> Iterable[MetadataWorkUnit]:
         ml_model_group_urn = self.urn_builder.make_ml_model_group_urn(model)
+        model_group_container_urn = self._get_model_group_container(model).as_urn()
 
         training_jobs = self.model_usage_tracker.get_model_group_training_jobs(
             ml_model_group_urn
@@ -443,10 +441,15 @@ class VertexAIModelExtractor:
             ),
         ).as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=ml_model_group_urn,
+            aspect=ContainerClass(container=model_group_container_urn),
+        ).as_workunit()
+
         yield from self._yield_common_aspects(
             entity_urn=ml_model_group_urn,
             subtype=VertexAISubTypes.MODEL_GROUP,
-            resource_category=ResourceCategory.MODELS,
+            include_container=False,
         )
 
         self.model_usage_tracker.mark_emitted(ml_model_group_urn)

@@ -18,7 +18,6 @@ from google.cloud.aiplatform_v1.types import (
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import UNKNOWN_USER
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.vertexai.vertexai_builder import (
@@ -54,8 +53,8 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    gen_resource_subfolder_container,
     get_actor_from_labels,
-    get_resource_category_container,
     log_checkpoint_time,
     log_progress,
 )
@@ -138,16 +137,12 @@ class VertexAIPipelineExtractor:
     def _gen_pipeline_container(
         self, pipeline_name: str, container_key: PipelineContainerKey
     ) -> Iterable[MetadataWorkUnit]:
-        pipelines_category_key = get_resource_category_container(
+        yield from gen_resource_subfolder_container(
             project_id=self.project_id,
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            category=ResourceCategory.PIPELINES,
-        )
-
-        yield from gen_containers(
-            parent_container_key=pipelines_category_key,
+            resource_category=ResourceCategory.PIPELINES,
             container_key=container_key,
             name=pipeline_name,
             sub_types=[DatasetContainerSubTypes.FOLDER],
