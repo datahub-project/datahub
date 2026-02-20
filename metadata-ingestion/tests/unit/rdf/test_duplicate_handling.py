@@ -8,7 +8,7 @@ Tests verify how the RDF source handles:
 - RDF graph merging behavior
 """
 
-from rdflib import Graph
+from rdflib import Graph, Literal, URIRef
 
 from datahub.ingestion.source.rdf.entities.glossary_term.extractor import (
     GlossaryTermExtractor,
@@ -23,51 +23,20 @@ class TestDuplicateHandling:
         graph = Graph()
 
         # Define the same term multiple times with different properties
-        term_uri = "http://example.org/Term"
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2004/02/skos/core#Concept",
-            )
-        )
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/2004/02/skos/core#prefLabel",
-                "First Definition",
-            )
-        )
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/2004/02/skos/core#definition",
-                "First definition",
-            )
-        )
+        term_uri = URIRef("http://example.org/Term")
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        skos_concept = URIRef("http://www.w3.org/2004/02/skos/core#Concept")
+        pref_label = URIRef("http://www.w3.org/2004/02/skos/core#prefLabel")
+        definition = URIRef("http://www.w3.org/2004/02/skos/core#definition")
+
+        graph.add((term_uri, rdf_type, skos_concept))
+        graph.add((term_uri, pref_label, Literal("First Definition")))
+        graph.add((term_uri, definition, Literal("First definition")))
 
         # Define it again with different properties
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2004/02/skos/core#Concept",
-            )
-        )
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/2004/02/skos/core#prefLabel",
-                "Second Definition",
-            )
-        )
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/2004/02/skos/core#definition",
-                "Second definition",
-            )
-        )
+        graph.add((term_uri, rdf_type, skos_concept))
+        graph.add((term_uri, pref_label, Literal("Second Definition")))
+        graph.add((term_uri, definition, Literal("Second definition")))
 
         extractor = GlossaryTermExtractor()
         terms = extractor.extract_all(graph)
@@ -85,25 +54,17 @@ class TestDuplicateHandling:
         """Test that multiple values for same property are handled."""
         graph = Graph()
 
-        term_uri = "http://example.org/Term"
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2004/02/skos/core#Concept",
-            )
-        )
+        term_uri = URIRef("http://example.org/Term")
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        skos_concept = URIRef("http://www.w3.org/2004/02/skos/core#Concept")
+        pref_label = URIRef("http://www.w3.org/2004/02/skos/core#prefLabel")
+
+        graph.add((term_uri, rdf_type, skos_concept))
 
         # Add multiple prefLabels (RDF allows this)
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#prefLabel", "Label 1")
-        )
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#prefLabel", "Label 2")
-        )
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#prefLabel", "Label 3")
-        )
+        graph.add((term_uri, pref_label, Literal("Label 1")))
+        graph.add((term_uri, pref_label, Literal("Label 2")))
+        graph.add((term_uri, pref_label, Literal("Label 3")))
 
         extractor = GlossaryTermExtractor()
         terms = extractor.extract_all(graph)
@@ -120,25 +81,17 @@ class TestDuplicateHandling:
         """Test that RDF graph automatically merges triples with same subject."""
         graph = Graph()
 
-        term_uri = "http://example.org/Term"
+        term_uri = URIRef("http://example.org/Term")
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        skos_concept = URIRef("http://www.w3.org/2004/02/skos/core#Concept")
+        pref_label = URIRef("http://www.w3.org/2004/02/skos/core#prefLabel")
+        definition = URIRef("http://www.w3.org/2004/02/skos/core#definition")
 
         # Add triples in separate "statements" - RDF graph merges them
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2004/02/skos/core#Concept",
-            )
-        )
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#prefLabel", "Term Name")
-        )
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#definition", "Definition 1")
-        )
-        graph.add(
-            (term_uri, "http://www.w3.org/2004/02/skos/core#definition", "Definition 2")
-        )
+        graph.add((term_uri, rdf_type, skos_concept))
+        graph.add((term_uri, pref_label, Literal("Term Name")))
+        graph.add((term_uri, definition, Literal("Definition 1")))
+        graph.add((term_uri, definition, Literal("Definition 2")))
 
         extractor = GlossaryTermExtractor()
         terms = extractor.extract_all(graph)
@@ -157,24 +110,16 @@ class TestDuplicateHandling:
         """Test that seen_uris set prevents duplicate extraction."""
         graph = Graph()
 
-        term_uri = "http://example.org/Term"
+        term_uri = URIRef("http://example.org/Term")
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        skos_concept = URIRef("http://www.w3.org/2004/02/skos/core#Concept")
+        owl_class = URIRef("http://www.w3.org/2002/07/owl#Class")
+        pref_label = URIRef("http://www.w3.org/2004/02/skos/core#prefLabel")
 
         # Add term with multiple types (common in RDF)
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2004/02/skos/core#Concept",
-            )
-        )
-        graph.add(
-            (
-                term_uri,
-                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                "http://www.w3.org/2002/07/owl#Class",
-            )
-        )
-        graph.add((term_uri, "http://www.w3.org/2004/02/skos/core#prefLabel", "Term"))
+        graph.add((term_uri, rdf_type, skos_concept))
+        graph.add((term_uri, rdf_type, owl_class))
+        graph.add((term_uri, pref_label, Literal("Term")))
 
         extractor = GlossaryTermExtractor()
         terms = extractor.extract_all(graph)

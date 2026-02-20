@@ -23,7 +23,9 @@ class TestRDFConnection:
         """Test successful connection to valid RDF file."""
         test_file = tmp_path / "test.ttl"
         test_file.write_text(
-            '@prefix ex: <http://example.org/> .\nex:Term a skos:Concept ; skos:prefLabel "Term" .'
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
         )
 
         config_dict = {"source": str(test_file)}
@@ -98,7 +100,9 @@ class TestRDFConnection:
         test_dir.mkdir()
         test_file = test_dir / "test.ttl"
         test_file.write_text(
-            '@prefix ex: <http://example.org/> .\nex:Term a skos:Concept ; skos:prefLabel "Term" .'
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
         )
 
         config_dict = {"source": str(test_dir), "recursive": False}
