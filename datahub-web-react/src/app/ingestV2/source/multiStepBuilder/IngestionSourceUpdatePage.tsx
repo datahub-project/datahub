@@ -6,6 +6,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
@@ -50,6 +51,7 @@ export function IngestionSourceUpdatePage() {
     const location = useLocation();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const ingestionSourcesListQueryInputs = useMemo(() => location.state?.queryInputs, [location.state]);
     const ingestionSourcesListBackUrl = useMemo(() => location.state?.backUrl, [location.state]);
@@ -76,6 +78,9 @@ export function IngestionSourceUpdatePage() {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
                 const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
+
+                setCreatedOrUpdatedSource(urn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 if (ingestionSourcesListQueryInputs) {
                     const updatedSource = {
@@ -116,9 +121,7 @@ export function IngestionSourceUpdatePage() {
                 });
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
-                    createdOrUpdatedSourceUrn: urn,
                     sourcesListQueryInputs: ingestionSourcesListQueryInputs,
-                    shouldRun,
                 });
             } catch (e: unknown) {
                 message.destroy();
@@ -135,6 +138,8 @@ export function IngestionSourceUpdatePage() {
         },
         [
             updateIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
             urn,
             history,
             ingestionSourceData,
