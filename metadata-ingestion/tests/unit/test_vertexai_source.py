@@ -1057,7 +1057,11 @@ class TestErrorHandling:
     ) -> None:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["test-project"], region="us-west2"),
+            config=VertexAIConfig(
+                project_ids=["test-project"],
+                region="us-west2",
+                max_threads_resource_parallelism=1,
+            ),
         )
         source._projects = [GCPProject(id="test-project", name="Test")]
 
@@ -1090,7 +1094,11 @@ class TestErrorHandling:
         """Config errors (InvalidArgument, FailedPrecondition) are reported as failures."""
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
-            config=VertexAIConfig(project_ids=["project-one"], region="bad-region"),
+            config=VertexAIConfig(
+                project_ids=["project-one"],
+                region="bad-region",
+                max_threads_resource_parallelism=1,
+            ),
         )
         source._projects = [GCPProject(id="project-one", name="Project One")]
 
@@ -1119,6 +1127,7 @@ class TestMixedProjectErrors:
             config=VertexAIConfig(
                 project_ids=["project-ok", "project-denied", "project-notfound"],
                 region="us-west2",
+                max_threads_resource_parallelism=1,
             ),
         )
         source._projects = [
@@ -1158,6 +1167,7 @@ class TestMixedProjectErrors:
             config=VertexAIConfig(
                 project_ids=["proj-invalid", "proj-denied", "proj-notfound"],
                 region="us-west2",
+                max_threads_resource_parallelism=1,
             ),
         )
         source._projects = [
