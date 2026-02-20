@@ -357,7 +357,7 @@ class VertexAISource(Source):
             )
         else:
             logger.error(
-                "Programming error processing %s %s: %s",
+                "Unexpected error processing %s %s: %s",
                 resource_type,
                 resource_id or "",
                 exc,
