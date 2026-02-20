@@ -2,10 +2,10 @@
 title: "Using a Custom Ingestion Source"
 ---
 
-# How to use a custom ingestion source without forking Datahub?
+# How to use a custom ingestion source without forking DataHub?
 
-Adding a custom ingestion source is the easiest way to extend Datahubs ingestion framework to support source systems
-which are not yet officially supported by Datahub.
+Adding a custom ingestion source is the easiest way to extend DataHub's ingestion framework to support source systems
+which are not yet officially supported by DataHub.
 
 ## What you need to do
 
@@ -21,7 +21,7 @@ the [metadata-ingestion source guide](../../metadata-ingestion/adding-source.md)
 To be able to use this source you just need to do a few things.
 
 1. Build a python package out of your project including the custom source class.
-2. Install this package in your working environment where you are using the Datahub CLI to ingest metadata.
+2. Install this package in your working environment where you are using the DataHub CLI to ingest metadata.
 
 Now you are able to just reference your ingestion source class as a type in the YAML recipe by using the fully qualified
 package name. For example if your project structure looks like this `<project>/src/my-source/custom_ingestion_source.py`

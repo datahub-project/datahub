@@ -90,13 +90,13 @@ Note that the above will also run tests and a number of validations which makes 
 
 We suggest partially compiling DataHub according to your needs:
 
-- Build Datahub's backend GMS (Generalized metadata service):
+- Build DataHub's backend GMS (Generalized metadata service):
 
   ```
   ./gradlew :metadata-service:war:build
   ```
 
-- Build Datahub's frontend:
+- Build DataHub's frontend:
 
   ```
   ./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint

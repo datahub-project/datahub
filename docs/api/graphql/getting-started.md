@@ -120,7 +120,7 @@ For more information, please refer to following links.
 - [Editing Description (i.e. Documentation) on Columns](/docs/api/tutorials/descriptions.md#add-description-on-column)
 - [Soft Deleting](/docs/api/tutorials/datasets.md#delete-dataset)
 
-Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
+Please refer to [DataHub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
 
 ## Handling Errors
 
