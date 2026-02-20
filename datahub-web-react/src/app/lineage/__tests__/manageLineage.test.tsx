@@ -134,4 +134,12 @@ describe('getValidEntityTypes', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Container);
         expect(validEntityTypes).toMatchObject([]);
     });
+    it('should return an empty list if the entity type is undefined for upstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, undefined);
+        expect(validEntityTypes).toMatchObject([]);
+    });
+    it('should return an empty list if the entity type is undefined for downstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, undefined);
+        expect(validEntityTypes).toMatchObject([]);
+    });
 });

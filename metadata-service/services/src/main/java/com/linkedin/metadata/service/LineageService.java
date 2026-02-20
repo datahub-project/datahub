@@ -4,9 +4,7 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.utils.AuditStampUtils.getAuditStamp;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
-import com.linkedin.common.ChartUrnArray;
 import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
@@ -143,7 +141,8 @@ public class LineageService {
             opContext,
             Constants.DATASET_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME));
+            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
+            false);
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     if (entityResponse != null
@@ -224,7 +223,8 @@ public class LineageService {
             opContext,
             Constants.CHART_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME));
+            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME),
+            false);
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.CHART_INFO_ASPECT_NAME)) {
@@ -240,17 +240,22 @@ public class LineageService {
     if (!chartInfo.hasInputEdges()) {
       chartInfo.setInputEdges(new EdgeArray());
     }
-    if (!chartInfo.hasInputs()) {
-      chartInfo.setInputs(new ChartDataSourceTypeArray());
-    }
 
-    final ChartDataSourceTypeArray inputs = chartInfo.getInputs();
     final EdgeArray inputEdges = chartInfo.getInputEdges();
     final List<Urn> upstreamsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamUrnsToAdd) {
+      // Check both inputEdges and deprecated inputs field to avoid duplicates
       if (inputEdges.stream()
-              .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
-          || inputs.stream().anyMatch(input -> input.equals(upstreamUrn))) {
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      // Also check deprecated inputs field if it exists (for backwards compatibility with ingestion
+      // sources)
+      if (chartInfo.hasInputs()
+          && chartInfo.getInputs().stream()
+              .anyMatch(
+                  input ->
+                      input.getDatasetUrn() != null && input.getDatasetUrn().equals(upstreamUrn))) {
         continue;
       }
       upstreamsToAdd.add(upstreamUrn);
@@ -261,10 +266,8 @@ public class LineageService {
     }
 
     inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    inputs.removeIf(input -> upstreamUrnsToRemove.contains(input.getDatasetUrn()));
 
     chartInfo.setInputEdges(inputEdges);
-    chartInfo.setInputs(inputs);
 
     return buildMetadataChangeProposal(downstreamUrn, Constants.CHART_INFO_ASPECT_NAME, chartInfo);
   }
@@ -310,7 +313,8 @@ public class LineageService {
             opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME));
+            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME),
+            false);
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.DASHBOARD_INFO_ASPECT_NAME)) {
@@ -354,28 +358,23 @@ public class LineageService {
         upstreamUrnsToAdd.stream()
             .filter(urn -> urn.getEntityType().equals(Constants.CHART_ENTITY_NAME))
             .collect(Collectors.toList());
-    final ChartUrnArray charts = dashboardInfo.getCharts();
     final EdgeArray chartEdges = dashboardInfo.getChartEdges();
 
     final List<Urn> upstreamsChartsToAdd =
-        getUpstreamChartToAdd(upstreamChartUrnsToAdd, chartEdges, charts);
+        getUpstreamChartToAdd(upstreamChartUrnsToAdd, chartEdges, dashboardInfo);
 
     for (final Urn upstreamUrn : upstreamsChartsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, chartEdges);
     }
 
-    removeChartLineageEdges(chartEdges, charts, upstreamUrnsToRemove);
+    removeChartLineageEdges(chartEdges, upstreamUrnsToRemove);
 
     dashboardInfo.setChartEdges(chartEdges);
-    dashboardInfo.setCharts(charts);
   }
 
   private void initializeChartEdges(DashboardInfo dashboardInfo) {
     if (!dashboardInfo.hasChartEdges()) {
       dashboardInfo.setChartEdges(new EdgeArray());
-    }
-    if (!dashboardInfo.hasCharts()) {
-      dashboardInfo.setCharts(new ChartUrnArray());
     }
   }
 
@@ -384,12 +383,18 @@ public class LineageService {
    * urns to add to dashboard lineage
    */
   private List<Urn> getUpstreamChartToAdd(
-      List<Urn> upstreamChartUrnsToAdd, List<Edge> chartEdges, ChartUrnArray charts) {
+      List<Urn> upstreamChartUrnsToAdd, List<Edge> chartEdges, DashboardInfo dashboardInfo) {
     final List<Urn> upstreamsChartsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamChartUrnsToAdd) {
+      // Check both chartEdges and deprecated charts field to avoid duplicates
       if (chartEdges.stream()
-              .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
-          || charts.stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      // Also check deprecated charts field if it exists (for backwards compatibility with ingestion
+      // sources)
+      if (dashboardInfo.hasCharts()
+          && dashboardInfo.getCharts().stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
         continue;
       }
       upstreamsChartsToAdd.add(upstreamUrn);
@@ -397,10 +402,8 @@ public class LineageService {
     return upstreamsChartsToAdd;
   }
 
-  private void removeChartLineageEdges(
-      List<Edge> chartEdges, ChartUrnArray charts, List<Urn> upstreamUrnsToRemove) {
+  private void removeChartLineageEdges(List<Edge> chartEdges, List<Urn> upstreamUrnsToRemove) {
     chartEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    charts.removeIf(upstreamUrnsToRemove::contains);
   }
 
   /**
@@ -421,38 +424,40 @@ public class LineageService {
         upstreamUrnsToAdd.stream()
             .filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME))
             .collect(Collectors.toList());
-    final UrnArray datasets = dashboardInfo.getDatasets();
     final EdgeArray datasetEdges = dashboardInfo.getDatasetEdges();
 
     final List<Urn> upstreamDatasetsToAdd =
-        getUpstreamDatasetsToAdd(upstreamDatasetUrnsToAdd, datasetEdges, datasets);
+        getUpstreamDatasetsToAdd(upstreamDatasetUrnsToAdd, datasetEdges, dashboardInfo);
 
     for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, datasetEdges);
     }
 
-    removeDatasetLineageEdges(datasetEdges, datasets, upstreamUrnsToRemove);
+    removeDatasetLineageEdges(datasetEdges, upstreamUrnsToRemove);
 
     dashboardInfo.setDatasetEdges(datasetEdges);
-    dashboardInfo.setDatasets(datasets);
   }
 
   private void initializeDatasetEdges(DashboardInfo dashboardInfo) {
     if (!dashboardInfo.hasDatasetEdges()) {
       dashboardInfo.setDatasetEdges(new EdgeArray());
     }
-    if (!dashboardInfo.hasDatasets()) {
-      dashboardInfo.setDatasets(new UrnArray());
-    }
   }
 
   private List<Urn> getUpstreamDatasetsToAdd(
-      List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, UrnArray datasets) {
+      List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DashboardInfo dashboardInfo) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
+      // Check both datasetEdges and deprecated datasets field to avoid duplicates
       if (datasetEdges.stream()
-              .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
-          || datasets.stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      // Also check deprecated datasets field if it exists (for backwards compatibility with
+      // ingestion sources)
+      if (dashboardInfo.hasDatasets()
+          && dashboardInfo.getDatasets().stream()
+              .anyMatch(dataset -> dataset.equals(upstreamUrn))) {
         continue;
       }
       upstreamDatasetsToAdd.add(upstreamUrn);
@@ -460,11 +465,9 @@ public class LineageService {
     return upstreamDatasetsToAdd;
   }
 
-  private void removeDatasetLineageEdges(
-      List<Edge> datasetEdges, UrnArray datasets, List<Urn> upstreamUrnsToRemove) {
+  private void removeDatasetLineageEdges(List<Edge> datasetEdges, List<Urn> upstreamUrnsToRemove) {
     datasetEdges.removeIf(
         inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    datasets.removeIf(upstreamUrnsToRemove::contains);
   }
 
   /**
@@ -527,7 +530,8 @@ public class LineageService {
             opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
+            false);
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null
@@ -571,40 +575,46 @@ public class LineageService {
         upstreamUrnsToAdd.stream()
             .filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME))
             .collect(Collectors.toList());
-    final DatasetUrnArray inputDatasets = dataJobInputOutput.getInputDatasets();
     final EdgeArray inputDatasetEdges = dataJobInputOutput.getInputDatasetEdges();
 
     final List<Urn> upstreamDatasetsToAdd =
-        getInputOutputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
+        getInputOutputDatasetsToAdd(
+            upstreamDatasetUrnsToAdd,
+            inputDatasetEdges,
+            dataJobInputOutput.hasInputDatasets() ? dataJobInputOutput.getInputDatasets() : null);
 
     for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, inputDatasetEdges);
     }
 
-    removeDatasetEdges(inputDatasetEdges, inputDatasets, upstreamUrnsToRemove);
+    removeDatasetEdges(inputDatasetEdges, upstreamUrnsToRemove);
 
     dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
-    dataJobInputOutput.setInputDatasets(inputDatasets);
   }
 
   private void initializeInputDatasetEdges(DataJobInputOutput dataJobInputOutput) {
     if (!dataJobInputOutput.hasInputDatasetEdges()) {
       dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
     }
-    if (!dataJobInputOutput.hasInputDatasets()) {
-      dataJobInputOutput.setInputDatasets(new DatasetUrnArray());
-    }
   }
 
   // get new dataset edges that we should be adding to inputDatasetEdges and outputDatasetEdges for
   // the DataJobInputOutput aspect
   private List<Urn> getInputOutputDatasetsToAdd(
-      List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DatasetUrnArray inputDatasets) {
+      List<Urn> upstreamDatasetUrnsToAdd,
+      List<Edge> datasetEdges,
+      DatasetUrnArray deprecatedDatasets) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
+      // Check both datasetEdges and deprecated datasets field to avoid duplicates
       if (datasetEdges.stream()
-              .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
-          || inputDatasets.stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      // Also check deprecated datasets field if it exists (for backwards compatibility with
+      // ingestion sources)
+      if (deprecatedDatasets != null
+          && deprecatedDatasets.stream().anyMatch(dataset -> dataset.equals(upstreamUrn))) {
         continue;
       }
       upstreamDatasetsToAdd.add(upstreamUrn);
@@ -612,11 +622,9 @@ public class LineageService {
     return upstreamDatasetsToAdd;
   }
 
-  private void removeDatasetEdges(
-      List<Edge> datasetEdges, DatasetUrnArray datasets, List<Urn> upstreamUrnsToRemove) {
+  private void removeDatasetEdges(List<Edge> datasetEdges, List<Urn> upstreamUrnsToRemove) {
     datasetEdges.removeIf(
         inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    datasets.removeIf(upstreamUrnsToRemove::contains);
   }
 
   /**
@@ -637,38 +645,44 @@ public class LineageService {
         upstreamUrnsToAdd.stream()
             .filter(urn -> urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME))
             .collect(Collectors.toList());
-    final DataJobUrnArray dataJobs = dataJobInputOutput.getInputDatajobs();
     final EdgeArray dataJobEdges = dataJobInputOutput.getInputDatajobEdges();
 
     final List<Urn> upstreamDatasetsToAdd =
-        getInputDatajobsToAdd(upstreamDatajobUrnsToAdd, dataJobEdges, dataJobs);
+        getInputDatajobsToAdd(
+            upstreamDatajobUrnsToAdd,
+            dataJobEdges,
+            dataJobInputOutput.hasInputDatajobs() ? dataJobInputOutput.getInputDatajobs() : null);
 
     for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dataJobUrn, actor, dataJobEdges);
     }
 
-    removeInputDatajobEdges(dataJobEdges, dataJobs, upstreamUrnsToRemove);
+    removeInputDatajobEdges(dataJobEdges, upstreamUrnsToRemove);
 
     dataJobInputOutput.setInputDatajobEdges(dataJobEdges);
-    dataJobInputOutput.setInputDatajobs(dataJobs);
   }
 
   private void initializeInputDatajobEdges(DataJobInputOutput dataJobInputOutput) {
     if (!dataJobInputOutput.hasInputDatajobEdges()) {
       dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
     }
-    if (!dataJobInputOutput.hasInputDatajobs()) {
-      dataJobInputOutput.setInputDatajobs(new DataJobUrnArray());
-    }
   }
 
   private List<Urn> getInputDatajobsToAdd(
-      List<Urn> upstreamDatasetUrnsToAdd, List<Edge> dataJobEdges, DataJobUrnArray dataJobs) {
+      List<Urn> upstreamDatasetUrnsToAdd,
+      List<Edge> dataJobEdges,
+      DataJobUrnArray deprecatedDatajobs) {
     final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
+      // Check both dataJobEdges and deprecated datajobs field to avoid duplicates
       if (dataJobEdges.stream()
-              .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
-          || dataJobs.stream().anyMatch(chart -> chart.equals(upstreamUrn))) {
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      // Also check deprecated datajobs field if it exists (for backwards compatibility with
+      // ingestion sources)
+      if (deprecatedDatajobs != null
+          && deprecatedDatajobs.stream().anyMatch(datajob -> datajob.equals(upstreamUrn))) {
         continue;
       }
       upstreamDatasetsToAdd.add(upstreamUrn);
@@ -676,11 +690,9 @@ public class LineageService {
     return upstreamDatasetsToAdd;
   }
 
-  private void removeInputDatajobEdges(
-      List<Edge> dataJobEdges, DataJobUrnArray dataJobs, List<Urn> upstreamUrnsToRemove) {
+  private void removeInputDatajobEdges(List<Edge> dataJobEdges, List<Urn> upstreamUrnsToRemove) {
     dataJobEdges.removeIf(
         inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    dataJobs.removeIf(upstreamUrnsToRemove::contains);
   }
 
   /** Updates DataJob lineage in the downstream direction (outputDatasets and outputDatasetEdges) */
@@ -730,7 +742,8 @@ public class LineageService {
             opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             dataJobUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
+            false);
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null
@@ -746,20 +759,21 @@ public class LineageService {
 
     initializeOutputDatajobEdges(dataJobInputOutput);
 
-    final DatasetUrnArray outputDatasets = dataJobInputOutput.getOutputDatasets();
     final EdgeArray outputDatasetEdges = dataJobInputOutput.getOutputDatasetEdges();
 
     final List<Urn> downstreamDatasetsToAdd =
-        getInputOutputDatasetsToAdd(downstreamUrnsToAdd, outputDatasetEdges, outputDatasets);
+        getInputOutputDatasetsToAdd(
+            downstreamUrnsToAdd,
+            outputDatasetEdges,
+            dataJobInputOutput.hasOutputDatasets() ? dataJobInputOutput.getOutputDatasets() : null);
 
     for (final Urn downstreamUrn : downstreamDatasetsToAdd) {
       addNewEdge(downstreamUrn, dataJobUrn, actor, outputDatasetEdges);
     }
 
-    removeDatasetEdges(outputDatasetEdges, outputDatasets, downstreamUrnsToRemove);
+    removeDatasetEdges(outputDatasetEdges, downstreamUrnsToRemove);
 
     dataJobInputOutput.setOutputDatasetEdges(outputDatasetEdges);
-    dataJobInputOutput.setOutputDatasets(outputDatasets);
 
     return buildMetadataChangeProposal(
         dataJobUrn, Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, dataJobInputOutput);
@@ -823,7 +837,8 @@ public class LineageService {
             opContext,
             Constants.ML_MODEL_ENTITY_NAME,
             mlModelUrn,
-            ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME));
+            ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME),
+            false);
 
     MLModelProperties mlModelProperties = new MLModelProperties();
     if (entityResponse != null
@@ -913,7 +928,8 @@ public class LineageService {
             opContext,
             Constants.ML_MODEL_GROUP_ENTITY_NAME,
             mlModelGroupUrn,
-            ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME));
+            ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME),
+            false);
 
     MLModelGroupProperties mlModelGroupProperties = new MLModelGroupProperties();
     if (entityResponse != null

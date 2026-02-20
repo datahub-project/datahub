@@ -1,23 +1,17 @@
 package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.chart.ChartDataSourceType;
-import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.ChartUrnArray;
-import com.linkedin.common.DataJobUrnArray;
-import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.UrnArray;
-import com.linkedin.common.urn.ChartUrn;
-import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -81,10 +75,9 @@ public class LineageServiceTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test3)";
   private static final String ML_MODEL_URN_1 =
       "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model1,PROD)";
-  private static final String ML_MODEL_URN_2 =
-      "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model2,PROD)";
   private static final String ML_MODEL_GROUP_URN_1 =
       "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,modelGroup1,PROD)";
+  private static final String DATA_PROCESS_INSTANCE_URN_1 = "urn:li:dataProcessInstance:abc123";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
@@ -99,8 +92,8 @@ public class LineageServiceTest {
   private Urn datajobUrn2;
   private Urn datajobUrn3;
   private Urn mlModelUrn1;
-  private Urn mlModelUrn2;
   private Urn mlModelGroupUrn1;
+  private Urn dataProcessInstanceUrn1;
 
   @BeforeMethod
   public void setupTest() {
@@ -121,8 +114,8 @@ public class LineageServiceTest {
     datajobUrn2 = UrnUtils.getUrn(DATAJOB_URN_2);
     datajobUrn3 = UrnUtils.getUrn(DATAJOB_URN_3);
     mlModelUrn1 = UrnUtils.getUrn(ML_MODEL_URN_1);
-    mlModelUrn2 = UrnUtils.getUrn(ML_MODEL_URN_2);
     mlModelGroupUrn1 = UrnUtils.getUrn(ML_MODEL_GROUP_URN_1);
+    dataProcessInstanceUrn1 = UrnUtils.getUrn(DATA_PROCESS_INSTANCE_URN_1);
 
     _lineageService = new LineageService(_mockClient);
   }
@@ -144,7 +137,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.DATASET_ENTITY_NAME),
                 eq(datasetUrn1),
-                eq(ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(datasetUrn1)
@@ -219,7 +213,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.CHART_ENTITY_NAME),
                 eq(chartUrn1),
-                eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(chartUrn1)
@@ -304,7 +299,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.DASHBOARD_ENTITY_NAME),
                 eq(dashboardUrn1),
-                eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(dashboardUrn1)
@@ -406,7 +402,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.DATA_JOB_ENTITY_NAME),
                 eq(datajobUrn1),
-                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(datajobUrn1)
@@ -531,7 +528,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.ML_MODEL_ENTITY_NAME),
                 eq(mlModelUrn1),
-                eq(ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(mlModelUrn1)
@@ -586,7 +584,8 @@ public class LineageServiceTest {
                 any(OperationContext.class),
                 eq(Constants.ML_MODEL_GROUP_ENTITY_NAME),
                 eq(mlModelGroupUrn1),
-                eq(ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME))))
+                eq(ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME)),
+                eq(false)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(mlModelGroupUrn1)
@@ -645,6 +644,192 @@ public class LineageServiceTest {
                 actorUrn));
   }
 
+  @Test
+  public void testFailUpdateMlModelLineageWithInvalidDownstreamUrn() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+
+    final List<Urn> downstreamJobsToAdd = Collections.singletonList(datasetUrn1);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateMlModelLineage(
+                opContext,
+                mlModelUrn1,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                downstreamJobsToAdd,
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testUpdateMlModelLineageWithNullProperties() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(mlModelUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datajobUrn1))).thenReturn(true);
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.ML_MODEL_ENTITY_NAME),
+                eq(mlModelUrn1),
+                eq(ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(mlModelUrn1)
+                .setEntityName(Constants.ML_MODEL_ENTITY_NAME)
+                .setAspects(new EnvelopedAspectMap()));
+
+    final List<Urn> trainingJobsToAdd = Collections.singletonList(datajobUrn1);
+
+    _lineageService.updateMlModelLineage(
+        opContext,
+        mlModelUrn1,
+        trainingJobsToAdd,
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        actorUrn);
+
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal ->
+                    proposal.getEntityUrn().equals(mlModelUrn1)
+                        && proposal.getEntityType().equals(Constants.ML_MODEL_ENTITY_NAME)
+                        && proposal
+                            .getAspectName()
+                            .equals(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)
+                        && proposal.getChangeType() == ChangeType.UPSERT),
+            eq(false));
+  }
+
+  @Test
+  public void testUpdateMlModelGroupLineageRemoveAll() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(mlModelGroupUrn1)))
+        .thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datajobUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datajobUrn2))).thenReturn(true);
+
+    MLModelGroupProperties mlModelGroupProperties = new MLModelGroupProperties();
+    mlModelGroupProperties.setTrainingJobs(new UrnArray(Collections.singletonList(datajobUrn1)));
+    mlModelGroupProperties.setDownstreamJobs(new UrnArray(Collections.singletonList(datajobUrn2)));
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.ML_MODEL_GROUP_ENTITY_NAME),
+                eq(mlModelGroupUrn1),
+                eq(ImmutableSet.of(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(mlModelGroupUrn1)
+                .setEntityName(Constants.ML_MODEL_GROUP_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mlModelGroupProperties.data()))))));
+
+    final List<Urn> trainingJobsToRemove = Collections.singletonList(datajobUrn1);
+    final List<Urn> downstreamJobsToRemove = Collections.singletonList(datajobUrn2);
+
+    _lineageService.updateMlModelGroupLineage(
+        opContext,
+        mlModelGroupUrn1,
+        Collections.emptyList(),
+        trainingJobsToRemove,
+        Collections.emptyList(),
+        downstreamJobsToRemove,
+        actorUrn);
+
+    MLModelGroupProperties updatedProperties = new MLModelGroupProperties();
+    updatedProperties.setTrainingJobs(new UrnArray());
+    updatedProperties.setDownstreamJobs(new UrnArray());
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(mlModelGroupUrn1);
+    proposal.setEntityType(Constants.ML_MODEL_GROUP_ENTITY_NAME);
+    proposal.setAspectName(Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedProperties));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
+  }
+
+  @Test
+  public void testFailUpdateMlModelGroupLineageWithInvalidDownstreamUrn() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+
+    final List<Urn> downstreamJobsToAdd = Collections.singletonList(chartUrn1);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateMlModelGroupLineage(
+                opContext,
+                mlModelGroupUrn1,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                downstreamJobsToAdd,
+                Collections.emptyList(),
+                actorUrn));
+  }
+
+  @Test
+  public void testUpdateMlModelLineageWithDataProcessInstance() throws Exception {
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(mlModelUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dataProcessInstanceUrn1)))
+        .thenReturn(true);
+
+    MLModelProperties mlModelProperties = new MLModelProperties();
+
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.ML_MODEL_ENTITY_NAME),
+                eq(mlModelUrn1),
+                eq(ImmutableSet.of(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)),
+                eq(false)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(mlModelUrn1)
+                .setEntityName(Constants.ML_MODEL_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_MODEL_PROPERTIES_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mlModelProperties.data()))))));
+
+    final List<Urn> trainingJobsToAdd = Collections.singletonList(dataProcessInstanceUrn1);
+
+    _lineageService.updateMlModelLineage(
+        opContext,
+        mlModelUrn1,
+        trainingJobsToAdd,
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        actorUrn);
+
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(
+                proposal ->
+                    proposal.getEntityUrn().equals(mlModelUrn1)
+                        && proposal.getEntityType().equals(Constants.ML_MODEL_ENTITY_NAME)
+                        && proposal
+                            .getAspectName()
+                            .equals(Constants.ML_MODEL_PROPERTIES_ASPECT_NAME)
+                        && proposal.getChangeType() == ChangeType.UPSERT),
+            eq(false));
+  }
+
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     UpstreamArray upstreams = new UpstreamArray();
@@ -666,14 +851,12 @@ public class LineageServiceTest {
   private ChartInfo createChartInfo(Urn entityUrn, List<Urn> inputsToAdd, List<Urn> inputEdgesToAdd)
       throws Exception {
     ChartInfo chartInfo = new ChartInfo();
-    ChartDataSourceTypeArray inputs = new ChartDataSourceTypeArray();
-    for (Urn input : inputsToAdd) {
-      DatasetUrn datasetUrn = DatasetUrn.createFromUrn(input);
-      inputs.add((ChartDataSourceType.create(datasetUrn)));
-    }
-    chartInfo.setInputs(inputs);
 
     EdgeArray inputEdges = new EdgeArray();
+    // Add edges for both inputsToAdd and inputEdgesToAdd lists
+    for (Urn input : inputsToAdd) {
+      addNewEdge(input, entityUrn, inputEdges);
+    }
     for (Urn inputEdgeToAdd : inputEdgesToAdd) {
       addNewEdge(inputEdgeToAdd, entityUrn, inputEdges);
     }
@@ -691,23 +874,21 @@ public class LineageServiceTest {
       throws Exception {
     final DashboardInfo dashboardInfo = new DashboardInfo();
 
-    final ChartUrnArray charts = new ChartUrnArray();
-    for (Urn chartUrn : chartsToAdd) {
-      charts.add(ChartUrn.createFromUrn(chartUrn));
-    }
-    dashboardInfo.setCharts(charts);
-
     final EdgeArray chartEdges = new EdgeArray();
+    // Add edges for both chartsToAdd and chartEdgesToAdd lists
+    for (Urn chartUrn : chartsToAdd) {
+      addNewEdge(chartUrn, entityUrn, chartEdges);
+    }
     for (Urn chartUrn : chartEdgesToAdd) {
       addNewEdge(chartUrn, entityUrn, chartEdges);
     }
     dashboardInfo.setChartEdges(chartEdges);
 
-    final UrnArray datasets = new UrnArray();
-    datasets.addAll(datasetsToAdd);
-    dashboardInfo.setDatasets(datasets);
-
     final EdgeArray datasetEdges = new EdgeArray();
+    // Add edges for both datasetsToAdd and datasetEdgesToAdd lists
+    for (Urn datasetUrn : datasetsToAdd) {
+      addNewEdge(datasetUrn, entityUrn, datasetEdges);
+    }
     for (Urn datasetUrn : datasetEdgesToAdd) {
       addNewEdge(datasetUrn, entityUrn, datasetEdges);
     }
@@ -727,37 +908,31 @@ public class LineageServiceTest {
       throws Exception {
     final DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
 
-    final DatasetUrnArray inputDatasets = new DatasetUrnArray();
-    for (Urn datasetUrn : inputDatasetsToAdd) {
-      inputDatasets.add(DatasetUrn.createFromUrn(datasetUrn));
-    }
-    dataJobInputOutput.setInputDatasets(inputDatasets);
-
     final EdgeArray inputDatasetEdges = new EdgeArray();
+    // Add edges for both inputDatasetsToAdd and inputDatasetEdgesToAdd lists
+    for (Urn datasetUrn : inputDatasetsToAdd) {
+      addNewEdge(datasetUrn, entityUrn, inputDatasetEdges);
+    }
     for (Urn datasetUrn : inputDatasetEdgesToAdd) {
       addNewEdge(datasetUrn, entityUrn, inputDatasetEdges);
     }
     dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
 
-    final DataJobUrnArray inputDatajobs = new DataJobUrnArray();
-    for (Urn datajobUrn : inputDatajobsToAdd) {
-      inputDatajobs.add(DataJobUrn.createFromUrn(datajobUrn));
-    }
-    dataJobInputOutput.setInputDatajobs(inputDatajobs);
-
     final EdgeArray inputDatajobEdges = new EdgeArray();
+    // Add edges for both inputDatajobsToAdd and inputDatajobEdgesToAdd lists
+    for (Urn datajobUrn : inputDatajobsToAdd) {
+      addNewEdge(datajobUrn, entityUrn, inputDatajobEdges);
+    }
     for (Urn datajobUrn : inputDatajobEdgesToAdd) {
       addNewEdge(datajobUrn, entityUrn, inputDatajobEdges);
     }
     dataJobInputOutput.setInputDatajobEdges(inputDatajobEdges);
 
-    final DatasetUrnArray outputDatasets = new DatasetUrnArray();
-    for (Urn datasetUrn : outputDatasetsToAdd) {
-      outputDatasets.add(DatasetUrn.createFromUrn(datasetUrn));
-    }
-    dataJobInputOutput.setOutputDatasets(outputDatasets);
-
     final EdgeArray outputDatasetEdges = new EdgeArray();
+    // Add edges for both outputDatasetsToAdd and outputDatasetEdgesToAdd lists
+    for (Urn datasetUrn : outputDatasetsToAdd) {
+      addNewEdge(datasetUrn, entityUrn, outputDatasetEdges);
+    }
     for (Urn datasetUrn : outputDatasetEdgesToAdd) {
       addNewEdge(datasetUrn, entityUrn, outputDatasetEdges);
     }
