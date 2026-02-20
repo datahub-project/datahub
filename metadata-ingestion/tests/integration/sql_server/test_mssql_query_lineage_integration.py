@@ -8,11 +8,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import TextClause
 
-from datahub.ingestion.source.sql.mssql.lineage import (
+from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
+from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
 )
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator

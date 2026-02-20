@@ -50,7 +50,9 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureParameter,
     StoredProcedure,
 )
-from datahub.ingestion.source.sql.mssql.lineage import MSSQLLineageExtractor
+from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
+    MSSQLLineageExtractor,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
