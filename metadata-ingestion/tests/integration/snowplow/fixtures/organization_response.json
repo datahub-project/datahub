@@ -1,0 +1,18 @@
+{
+  "id": "92ef6ada-1101-4982-b627-45cadfd955a2",
+  "name": "Acrylic Datahub",
+  "domain": "datahub.io",
+  "defaultVendor": "com.datahub",
+  "tier": "ASCENT",
+  "tags": ["sso"],
+  "source": {
+    "name": "snowflake",
+    "metadata": {
+      "accountLocator": "abc.123"
+    }
+  },
+  "cloud": {
+    "provider": "aws",
+    "accounts": []
+  }
+}
