@@ -672,16 +672,22 @@ class SQLServerSource(SQLAlchemySource):
         """Try each method in order, handle all exception types once."""
         context_suffix = "managed" if is_rds else "on_prem"
         env_desc = "managed environment" if is_rds else "on-premises environment"
+        last_exception: Optional[Exception] = None
 
         for method in methods:
+            method_name = getattr(
+                method, "__name__", getattr(method, "_mock_name", str(method))
+            )
             try:
                 jobs = method(conn, db_name)
-                logger.info("Retrieved jobs using %s (%s)", method.__name__, env_desc)
+                logger.info("Retrieved jobs using %s (%s)", method_name, env_desc)
                 return jobs
             except (DatabaseError, OperationalError, ProgrammingError) as e:
-                logger.warning("%s failed: %s", method.__name__, e)
+                logger.warning("%s failed: %s", method_name, e)
+                last_exception = e
             except (KeyError, TypeError) as e:
-                logger.error("Job structure error %s: %s", method.__name__, e)
+                logger.error("Job structure error %s: %s", method_name, e)
+                last_exception = e
                 self.report.failure(
                     message=f"Job structure error: {e}",
                     title="SQL Server Jobs Extraction",
@@ -689,9 +695,8 @@ class SQLServerSource(SQLAlchemySource):
                     exc=e,
                 )
             except Exception as e:
-                logger.error(
-                    "Unexpected error %s: %s", method.__name__, e, exc_info=True
-                )
+                logger.error("Unexpected error %s: %s", method_name, e, exc_info=True)
+                last_exception = e
                 self.report.failure(
                     message=f"Unexpected error: {e}",
                     title="SQL Server Jobs Extraction",
@@ -706,6 +711,7 @@ class SQLServerSource(SQLAlchemySource):
                 "Jobs extraction will be skipped.",
                 title="SQL Server Jobs Extraction",
                 context="managed_environment_msdb_restricted",
+                exc=last_exception,
             )
         else:
             self.report.failure(
@@ -714,6 +720,7 @@ class SQLServerSource(SQLAlchemySource):
                 "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
                 title="SQL Server Jobs Extraction",
                 context="on_prem_msdb_permission_denied",
+                exc=last_exception,
             )
 
         logger.error(

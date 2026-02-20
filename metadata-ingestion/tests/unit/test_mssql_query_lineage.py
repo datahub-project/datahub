@@ -1322,7 +1322,6 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
     assert "テスト" in queries[0].query_text
 
 
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 # =============================================================================
 # Quick Win Tests: Config Edge Cases and Boundary Conditions
 # =============================================================================
