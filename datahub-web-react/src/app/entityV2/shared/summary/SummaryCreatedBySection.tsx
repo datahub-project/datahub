@@ -1,9 +1,10 @@
+import { Avatar, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { CorpGroup, CorpUser, EntityType } from '@types';
@@ -11,7 +12,7 @@ import { CorpGroup, CorpUser, EntityType } from '@types';
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
     font-size: 14px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${colors.gray[1700]};
     font-weight: 700;
 `;
 
@@ -19,7 +20,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${colors.gray[1700]};
     font-size: 14px;
     font-weight: 500;
 `;
@@ -45,6 +46,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
     }
     const ownerPictureLink =
         (owner && owner.__typename === 'CorpUser' && owner.editableProperties?.pictureLink) || undefined;
+    const avatarType = owner?.__typename === 'CorpGroup' ? AvatarType.group : AvatarType.user;
 
     return (
         <>
@@ -52,7 +54,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
                 <SectionContainer>
                     <StyledTitle>Created By</StyledTitle>
                     <Details>
-                        {!!ownerPictureLink && <CustomAvatar photoUrl={ownerPictureLink} size={28} useDefaultAvatar />}
+                        <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}
                     </Details>
                 </SectionContainer>

@@ -1,8 +1,11 @@
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { Button, Col, Divider, Row, Space, Tooltip, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import EditGroupDescriptionModal from '@app/entity/group/EditGroupDescriptionModal';
@@ -22,7 +25,6 @@ import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components
 import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -46,8 +48,6 @@ type Props = {
     sideBarData: SideBarData;
     refetch: () => Promise<any>;
 };
-
-const AVATAR_STYLE = { margin: '3px 5px 3px 0px' };
 
 const TITLES = {
     about: 'About',
@@ -249,13 +249,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                 <SideBarSubSection className={canEditGroup ? '' : 'fullView'}>
                     <GroupNameHeader>
                         <Col>
-                            <CustomAvatar
-                                useDefaultAvatar={false}
-                                size={64}
-                                photoUrl={photoUrl}
-                                name={avatarName}
-                                style={AVATAR_STYLE}
-                            />
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="xxl" />
                         </Col>
                         <Col>
                             <GroupTitle level={3} editable={canEditGroup ? { onChange: handleTitleUpdate } : false}>

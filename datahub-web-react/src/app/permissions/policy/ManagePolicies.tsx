@@ -257,7 +257,6 @@ export const ManagePolicies = () => {
                             groups={record?.resolvedGroups}
                             entityRegistry={entityRegistry}
                             maxCount={3}
-                            size={28}
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}

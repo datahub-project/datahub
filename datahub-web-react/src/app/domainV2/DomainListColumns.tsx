@@ -64,7 +64,7 @@ export function DomainOwnersColumn(ownership: Maybe<Ownership>) {
     }
     return (
         <AvatarGroupWrapper>
-            <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+            <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
         </AvatarGroupWrapper>
     );
 }

@@ -1,12 +1,14 @@
+import { Avatar } from '@components';
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { useUserContext } from '@app/context/useUserContext';
 import { NavLinks } from '@app/homeV2/layout/NavLinks';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -127,11 +129,11 @@ export const NavSidebar = () => {
                         <Spacer />
                         <UserIcon>
                             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
-                                <CustomAvatar
-                                    photoUrl={user?.editableProperties?.pictureLink || undefined}
+                                <Avatar
                                     name={user?.editableProperties?.displayName || ''}
-                                    size={44}
-                                    hideTooltip
+                                    imageUrl={user?.editableProperties?.pictureLink || undefined}
+                                    type={AvatarType.user}
+                                    size="xl"
                                 />
                             </Link>
                         </UserIcon>

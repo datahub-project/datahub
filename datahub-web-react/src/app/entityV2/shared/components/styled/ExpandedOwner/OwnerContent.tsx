@@ -1,21 +1,21 @@
-import { Popover } from '@components';
+import { Avatar, Popover, colors } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import {
     getDescriptionFromType,
     getNameFromType,
 } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Owner } from '@types';
+import { EntityType, Owner } from '@types';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${colors.gray[1700]};
 
     max-width: 150px;
     text-overflow: ellipsis;
@@ -28,10 +28,6 @@ const ContentWrapper = styled.span`
     gap: 4px;
 
     max-width: inherit;
-`;
-
-const AvatarWrapper = styled.div`
-    min-width: 24px;
 `;
 
 const OwnerPopoverTitleContainer = styled.div`
@@ -95,6 +91,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
     const ownerEntityType = owner.owner.type;
     const ownerEntityTypeDisplayName = entityRegistry.getEntityName(ownerEntityType);
     const ownerDisplayName = entityRegistry.getDisplayName(ownerEntityType, ownerEntity);
+    const avatarType = ownerEntityType === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
     let ownershipTypeName;
     let ownershipTypeDescription;
     if (owner.ownershipType && owner.ownershipType.info) {
@@ -105,21 +102,11 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
         ownershipTypeDescription = getDescriptionFromType(owner.type);
     }
 
-    const avatar: React.ReactNode = (
-        <CustomAvatar
-            name={name}
-            photoUrl={pictureLink}
-            useDefaultAvatar={false}
-            hideTooltip
-            style={{ marginRight: 0 }}
-        />
-    );
-
-    /* TODO: We probably do not want render if ownership type has been soft deleted */
+    const avatar = <Avatar name={name} imageUrl={pictureLink} type={avatarType} />;
 
     return (
         <ContentWrapper data-testid={dataTestId}>
-            <AvatarWrapper>{avatar}</AvatarWrapper>
+            {avatar}
             {hidePopOver ? (
                 <TextWrapper fontSize={fontSize}>{name}</TextWrapper>
             ) : (

@@ -1,14 +1,16 @@
 import { LockOutlined } from '@ant-design/icons';
+import { Avatar } from '@components';
 import { List, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import EntityDropdown from '@app/entity/shared/EntityDropdown';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
 import SelectRoleGroup from '@app/identity/group/SelectRoleGroup';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, DataHubRole, EntityType, OriginType } from '@types';
@@ -71,10 +73,11 @@ export default function GroupListItem({
             <GroupItemContainer>
                 <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}`}>
                     <GroupHeaderContainer>
-                        <CustomAvatar
-                            size={32}
+                        <Avatar
                             name={displayName}
-                            photoUrl={group?.editableProperties?.pictureLink || undefined}
+                            imageUrl={group?.editableProperties?.pictureLink || undefined}
+                            type={AvatarType.group}
+                            size="xl"
                         />
                         <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>

@@ -1,26 +1,34 @@
-import { Icon, Text, colors } from '@components';
+import { Avatar, Icon, colors } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { OwnerType } from '@types';
+import { EntityType, OwnerType } from '@types';
 
 const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
     display: inline-flex;
     align-items: center;
-    padding: 2px 6px 2px 4px;
+    gap: 4px;
+    padding: 3px 6px 3px 4px;
     border-radius: 20px;
-    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[1400]};
+    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[100]};
 
     :hover {
         cursor: pointer;
     }
+`;
+
+const NameText = styled.span`
+    color: ${colors.gray[1700]};
+    font-weight: 600;
+    font-size: 12px;
 `;
 
 const StyledIcon = styled(Icon)`
@@ -43,6 +51,8 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
 
     if (!actor) return null;
 
+    const avatarType = actor.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
+
     return (
         <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
             <Link
@@ -51,10 +61,8 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                 {...linkProps}
             >
                 <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
-                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm" data-testid="owner-name">
-                        {name}
-                    </Text>
+                    <Avatar name={name || ''} imageUrl={avatarUrl} type={avatarType} />
+                    <NameText data-testid="owner-name">{name}</NameText>
                     {!isProposed && onClose && (
                         <StyledIcon
                             onClick={onClose}

@@ -1,6 +1,9 @@
+import { Avatar } from '@components';
 import { Col, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { GroupBasicInfoSection } from '@app/entityV2/group/GroupBasicInfoSection';
@@ -14,7 +17,6 @@ import {
 } from '@app/entityV2/shared/SidebarStyledComponents';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
 import { EntityRelationshipsResult, Ownership } from '@types';
@@ -33,13 +35,7 @@ export type SidebarData = {
     urn: string;
 };
 
-const AVATAR_STYLE = {
-    borderRadius: '9px',
-    zIndex: '2',
-    height: '36px',
-    width: '36px',
-    backgroundColor: REDESIGN_COLORS.AVATAR_STYLE_WHITE_BACKGROUND,
-};
+// Profile header uses "lg" size for 28px circle
 
 const AvatarWithTitleContainer = styled.div`
     display: flex;
@@ -101,13 +97,7 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
                 <GroupInfo>
                     <AvatarWithTitleContainer>
                         <Col xxl={2} xl={3} lg={4} md={4} sm={3} xs={3}>
-                            <CustomAvatar
-                                useDefaultAvatar={false}
-                                size={36}
-                                photoUrl={photoUrl}
-                                name={avatarName}
-                                style={AVATAR_STYLE}
-                            />
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="xl" />
                         </Col>
                         <Col xxl={20} xl={18} lg={16} md={16} sm={19} xs={19}>
                             <GroupInfoHeaderSection

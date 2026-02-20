@@ -1,5 +1,9 @@
+import { Avatar } from '@components';
 import { Col } from 'antd';
 import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     CustomAvatarContainer,
@@ -11,15 +15,13 @@ import {
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContainer';
 import UserEditProfileModal from '@app/entityV2/user/UserEditProfileModal';
-import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 import { EntityRelationship, SearchResults } from '@types';
 
-const AVATAR_STYLE = {
-    marginRight: '0px',
-    borderRadius: '100%',
-    zIndex: '2',
-};
+const ProfileAvatarWrapper = styled.div`
+    position: relative;
+    z-index: 2;
+`;
 
 export type SidebarData = {
     photoUrl: string | undefined;
@@ -66,7 +68,9 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
                 <GradientContainer />
                 <UserInfo>
                     <Col xxl={8} xl={10} lg={24} md={24} sm={24} xs={24}>
-                        <CustomAvatar size={113} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                        <ProfileAvatarWrapper>
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="xxl" />
+                        </ProfileAvatarWrapper>
                     </Col>
                     <Col xxl={14} xl={10} lg={18} md={18} sm={18} xs={18}>
                         <UserBasicInfoContainer
