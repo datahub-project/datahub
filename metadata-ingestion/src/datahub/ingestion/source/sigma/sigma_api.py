@@ -349,7 +349,9 @@ class SigmaAPI:
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 # only element of table and visualization type have lineage and sql query supported
                 if element_dict.get("type") not in ["table", "visualization"]:
-                    logger.debug(f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'")
+                    logger.debug(
+                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                    )
                     continue
 
                 if not element_dict.get(Constant.NAME):
