@@ -13,8 +13,8 @@ from datahub.ingestion.source.sql.trino import TrinoConfig, TrinoSource
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
     SchemalessClass,
+    SchemaMetadataClass,
     StringTypeClass,
     UpstreamLineageClass,
 )
@@ -335,3 +335,145 @@ def test_trino_gen_lineage_workunit_upstreams_present_with_or_without_cll():
     assert upstream_lineage is not None
     assert len(upstream_lineage.upstreams) == 1
     assert upstream_lineage.upstreams[0].dataset == source_dataset_urn
+
+
+def test_trino_process_table_emits_connector_lineage_with_schema():
+    """Covers _process_table path: schema build + gen_lineage_workunit when connector source exists."""
+    source = get_test_trino_source(include_column_lineage=True)
+    dataset_name = "iceberg_catalog.ctx.t1"
+    schema, table = "ctx", "t1"
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ctx.t1,PROD)"
+    mock_inspector = mock.Mock()
+    mock_inspector.get_columns.return_value = [
+        {"name": "col1", "type": None, "nullable": True, "full_type": None}
+    ]
+    mock_inspector.get_pk_constraint.return_value = {}
+    sql_config = mock.Mock(spec=["view_pattern", "table_pattern"])
+    sql_config.view_pattern.allowed.return_value = True
+    sql_config.table_pattern.allowed.return_value = True
+
+    schema_fields = [
+        SchemaFieldClass(
+            fieldPath="col1",
+            nativeDataType="varchar",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        )
+    ]
+    schema_metadata = get_test_trino_schema_metadata(["col1"])
+
+    with (
+        mock.patch.object(SQLAlchemySource, "_process_table", return_value=iter([])),
+        mock.patch.object(source, "_get_source_dataset_urn", return_value=source_urn),
+        mock.patch.object(source, "get_schema_fields", return_value=schema_fields),
+        mock.patch(
+            "datahub.ingestion.source.sql.trino.get_schema_metadata",
+            return_value=schema_metadata,
+        ),
+    ):
+        workunits = list(
+            source._process_table(
+                dataset_name,
+                mock_inspector,
+                schema,
+                table,
+                sql_config,
+                data_reader=None,
+            )
+        )
+
+    mock_inspector.get_columns.assert_called_once_with(table, schema)
+    lineage_wus = [w for w in workunits if w.get_aspect_of_type(UpstreamLineageClass)]
+    assert len(lineage_wus) == 1
+    upstream_lineage = lineage_wus[0].get_aspect_of_type(UpstreamLineageClass)
+    assert upstream_lineage is not None
+    assert upstream_lineage.fineGrainedLineages is not None
+    assert len(upstream_lineage.fineGrainedLineages) == 1
+    assert upstream_lineage.upstreams[0].dataset == source_urn
+
+
+def test_trino_process_view_emits_connector_lineage_with_schema():
+    """Covers _process_view path: schema build + gen_lineage_workunit when connector source exists."""
+    source = get_test_trino_source(include_column_lineage=True)
+    dataset_name = "iceberg_catalog.ctx.v1"
+    schema, view = "ctx", "v1"
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ctx.v1,PROD)"
+    mock_inspector = mock.Mock()
+    mock_inspector.get_columns.return_value = [
+        {"name": "col1", "type": None, "nullable": True, "full_type": None}
+    ]
+    mock_inspector.get_pk_constraint.return_value = {}
+    sql_config = mock.Mock(spec=["view_pattern", "table_pattern"])
+    sql_config.view_pattern.allowed.return_value = True
+    sql_config.table_pattern.allowed.return_value = True
+
+    schema_fields = [
+        SchemaFieldClass(
+            fieldPath="col1",
+            nativeDataType="varchar",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        )
+    ]
+    schema_metadata = get_test_trino_schema_metadata(["col1"])
+
+    with (
+        mock.patch.object(SQLAlchemySource, "_process_view", return_value=iter([])),
+        mock.patch.object(source, "_get_source_dataset_urn", return_value=source_urn),
+        mock.patch.object(source, "get_schema_fields", return_value=schema_fields),
+        mock.patch(
+            "datahub.ingestion.source.sql.trino.get_schema_metadata",
+            return_value=schema_metadata,
+        ),
+    ):
+        workunits = list(
+            source._process_view(
+                dataset_name,
+                mock_inspector,
+                schema,
+                view,
+                sql_config,
+            )
+        )
+
+    mock_inspector.get_columns.assert_called_once_with(view, schema)
+    lineage_wus = [w for w in workunits if w.get_aspect_of_type(UpstreamLineageClass)]
+    assert len(lineage_wus) == 1
+    upstream_lineage = lineage_wus[0].get_aspect_of_type(UpstreamLineageClass)
+    assert upstream_lineage is not None
+    assert upstream_lineage.fineGrainedLineages is not None
+    assert len(upstream_lineage.fineGrainedLineages) == 1
+    assert upstream_lineage.upstreams[0].dataset == source_urn
+
+
+def test_trino_process_table_emits_lineage_without_cll_when_schema_build_fails():
+    """Covers _process_table path when schema building raises (e.g. get_columns fails)."""
+    source = get_test_trino_source(include_column_lineage=True)
+    dataset_name = "iceberg_catalog.ctx.t1"
+    schema, table = "ctx", "t1"
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ctx.t1,PROD)"
+    mock_inspector = mock.Mock()
+    mock_inspector.get_columns.side_effect = Exception("connection failed")
+    sql_config = mock.Mock(spec=["view_pattern", "table_pattern"])
+    sql_config.view_pattern.allowed.return_value = True
+    sql_config.table_pattern.allowed.return_value = True
+
+    with (
+        mock.patch.object(SQLAlchemySource, "_process_table", return_value=iter([])),
+        mock.patch.object(source, "_get_source_dataset_urn", return_value=source_urn),
+    ):
+        workunits = list(
+            source._process_table(
+                dataset_name,
+                mock_inspector,
+                schema,
+                table,
+                sql_config,
+                data_reader=None,
+            )
+        )
+
+    lineage_wus = [w for w in workunits if w.get_aspect_of_type(UpstreamLineageClass)]
+    assert len(lineage_wus) == 1
+    upstream_lineage = lineage_wus[0].get_aspect_of_type(UpstreamLineageClass)
+    assert upstream_lineage is not None
+    assert upstream_lineage.fineGrainedLineages is None
+    assert len(upstream_lineage.upstreams) == 1
