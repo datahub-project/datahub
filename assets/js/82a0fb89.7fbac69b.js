@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[24323],{17523:e=>{e.exports=JSON.parse('{"label":"Use Case","permalink":"/learn/tags/use-case","allTagsPath":"/learn/tags","count":5}')}}]);

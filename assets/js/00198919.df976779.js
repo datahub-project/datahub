@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[54878],{20129:a=>{a.exports=JSON.parse('{"label":"For Data Analysts","permalink":"/learn/tags/for-data-analysts","allTagsPath":"/learn/tags","count":1}')}}]);

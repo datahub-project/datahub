@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[59369],{75525:e=>{e.exports=JSON.parse('{"label":"For Data Engineers","permalink":"/learn/tags/for-data-engineers","allTagsPath":"/learn/tags","count":2}')}}]);

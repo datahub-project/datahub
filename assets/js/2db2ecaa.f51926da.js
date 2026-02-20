@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[20415],{59532:(e,s,t)=>{t.r(s),t.d(s,{default:()=>c});var u=t(96540);function c(){return(0,u.useEffect)((()=>{window.location.href="https://www.datahub.com/share-your-journey"}),[]),null}}}]);
