@@ -1,5 +1,4 @@
 import { getTimestampMillisNumDaysAgo } from "../../support/commands";
-import { hasOperationName } from "../utils";
 import {
   checkCounter,
   checkFilteringNodeExist,
@@ -18,12 +17,12 @@ import {
   filter,
   hoverColumn,
   selectColumn,
-  setFeatureFlags,
   showAll,
   showLess,
   showMore,
   unhoverColumn,
-} from "./utils";
+} from "../lineageV2/utils";
+import { setLineageV3FeatureFlags } from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const CHART_ENTITY_TYPE = "chart";
@@ -107,7 +106,7 @@ const FILTERING_NODE20_URN =
 
 describe("lineage_graph", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    setLineageV3FeatureFlags();
   });
   it("can see full history", () => {
     cy.login();

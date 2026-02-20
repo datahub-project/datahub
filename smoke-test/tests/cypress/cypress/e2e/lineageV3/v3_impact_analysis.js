@@ -66,9 +66,6 @@ describe("impact analysis", () => {
     cy.visit(
       `/dataset/${DATASET_URN}/Lineage?column=%5Bversion%3D2.0%5D.%5Btype%3Dboolean%5D.field_bar&is_lineage_mode=false`,
     );
-
-    // impact analysis can take a beat- don't want to time out here
-    cy.wait(5000);
     cy.contains("Impact Analysis").click();
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("shipment_info");
@@ -91,9 +88,6 @@ describe("impact analysis", () => {
     cy.visit(
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
-
-    // impact analysis can take a beat- don't want to time out here
-    cy.wait(5000);
     cy.contains("Impact Analysis").click();
     cy.contains("SampleCypressHdfsDataset").should("not.exist");
     cy.contains("Downstream column: shipment_info").should("not.exist");
