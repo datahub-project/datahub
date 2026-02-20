@@ -1,6 +1,7 @@
-import { BookOpen } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
+
+import { BookOpen } from '@components/components/Icon/phosphor-icons';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 

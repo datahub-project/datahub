@@ -1,8 +1,9 @@
-import { BookOpen } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
 import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router';
+
+import { BookOpen } from '@components/components/Icon/phosphor-icons';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';

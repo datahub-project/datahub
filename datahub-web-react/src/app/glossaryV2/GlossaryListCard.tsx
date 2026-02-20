@@ -1,7 +1,8 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { BookmarkSimple, BookmarksSimple } from '@components/components/Icon/phosphor-icons';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
