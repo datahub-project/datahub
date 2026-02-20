@@ -11,6 +11,7 @@ from datahub.ingestion.source.redshift.query import (
     RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
+    stitch_query_segments,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -599,7 +600,9 @@ class RedshiftDataDictionary:
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to remove the \\n.
                     ddl=(
-                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        stitch_query_segments(row[field_names.index("ddl")]).replace(
+                            "\\n", "\n"
+                        )
                         if "ddl" in field_names
                         else None
                     ),
@@ -642,9 +645,9 @@ class RedshiftDataDictionary:
                     session_id=session_id,
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
-                    query_text=row[field_names.index("query_text")].replace(
-                        r"\n", "\n"
-                    ),
+                    query_text=stitch_query_segments(
+                        row[field_names.index("query_text")]
+                    ).replace(r"\n", "\n"),
                     create_command=row[field_names.index("create_command")],
                     start_time=row[field_names.index("start_time")],
                     urn=None,
@@ -672,9 +675,9 @@ class RedshiftDataDictionary:
                     session_id=session_id,
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
-                    query_text=row[field_names.index("query_text")].replace(
-                        r"\n", "\n"
-                    ),
+                    query_text=stitch_query_segments(
+                        row[field_names.index("query_text")]
+                    ).replace(r"\n", "\n"),
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

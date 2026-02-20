@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import List
 
@@ -10,6 +11,237 @@ redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 _QUERY_SEQUENCE_LIMIT = 290
 
 _MAX_COPY_ENTRIES_PER_TABLE = 20
+
+# character(n) segment sizes for Redshift system tables.
+_PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
+_SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
+
+# Boundary marker inserted where RTRIM stripped trailing spaces from a segment.
+_SEGMENT_BOUNDARY = chr(1)
+
+# Keywords used to decide whether a segment boundary needs a space.
+# Based on Redshift reserved keywords from
+# https://docs.aws.amazon.com/redshift/latest/dg/r_pg_keywords.html
+# plus common SQL keywords (BY, SET, INSERT, UPDATE, DELETE, etc.) that aren't
+# technically "reserved" in Redshift but still need space separation at boundaries.
+REDSHIFT_RESERVED_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "ABORT",
+        "AES128",
+        "AES256",
+        "ALL",
+        "ALLOWOVERWRITE",
+        "ANALYSE",
+        "ANALYZE",
+        "AND",
+        "ANY",
+        "ARRAY",
+        "AS",
+        "ASC",
+        "AUTHORIZATION",
+        "BACKUP",
+        "BETWEEN",
+        "BINARY",
+        "BEGIN",
+        "BLANKSASNULL",
+        "BOTH",
+        "BY",
+        "BYTEDICT",
+        "BZIP2",
+        "CASE",
+        "CAST",
+        "CHECK",
+        "COLLATE",
+        "COLUMN",
+        "COMMIT",
+        "CONSTRAINT",
+        "COPY",
+        "CREATE",
+        "CREDENTIALS",
+        "CROSS",
+        "CURRENT_DATE",
+        "CURRENT_TIME",
+        "CURRENT_TIMESTAMP",
+        "CURRENT_USER",
+        "CURRENT_USER_ID",
+        "DEFAULT",
+        "DEFERRABLE",
+        "DEFLATE",
+        "DEFRAG",
+        "DELETE",
+        "DELTA",
+        "DELTA32K",
+        "DESC",
+        "DISABLE",
+        "DISTINCT",
+        "DO",
+        "ELSE",
+        "EMPTYASNULL",
+        "ENABLE",
+        "ENCODE",
+        "ENCRYPT",
+        "EXECUTE",
+        "EXISTS",
+        "ENCRYPTION",
+        "END",
+        "EXCEPT",
+        "EXPLICIT",
+        "FALSE",
+        "FOR",
+        "FOREIGN",
+        "FREEZE",
+        "FROM",
+        "FULL",
+        "GLOBALDICT256",
+        "GLOBALDICT64K",
+        "GRANT",
+        "GROUP",
+        "GZIP",
+        "HAVING",
+        "IDENTITY",
+        "IGNORE",
+        "INSERT",
+        "ILIKE",
+        "IN",
+        "INITIALLY",
+        "INNER",
+        "INTERSECT",
+        "INTO",
+        "IS",
+        "ISNULL",
+        "JOIN",
+        "LANGUAGE",
+        "LEADING",
+        "LEFT",
+        "LIKE",
+        "LIMIT",
+        "LOCALTIME",
+        "LOCALTIMESTAMP",
+        "LUN",
+        "LUNS",
+        "LZO",
+        "LZOP",
+        "MINUS",
+        "MOSTLY13",
+        "MOSTLY32",
+        "MOSTLY8",
+        "NATURAL",
+        "NEW",
+        "NOT",
+        "NOTNULL",
+        "NULL",
+        "NULLS",
+        "OFF",
+        "OFFLINE",
+        "OFFSET",
+        "OID",
+        "OLD",
+        "ON",
+        "ONLY",
+        "OPEN",
+        "OR",
+        "ORDER",
+        "OUTER",
+        "OVER",
+        "OVERLAPS",
+        "PARALLEL",
+        "PARTITION",
+        "PERCENT",
+        "PERMISSIONS",
+        "PLACING",
+        "PRIMARY",
+        "RAW",
+        "READRATIO",
+        "RECOVER",
+        "REFERENCES",
+        "RESPECT",
+        "REJECTLOG",
+        "REPLACE",
+        "RESORT",
+        "RESTORE",
+        "RIGHT",
+        "ROLLBACK",
+        "SELECT",
+        "SET",
+        "SESSION_USER",
+        "SIMILAR",
+        "SNAPSHOT",
+        "SOME",
+        "SYSDATE",
+        "SYSTEM",
+        "TABLE",
+        "TAG",
+        "TDES",
+        "TEXT255",
+        "TEXT32K",
+        "THEN",
+        "TIMESTAMP",
+        "TO",
+        "TOP",
+        "TRAILING",
+        "TRUE",
+        "TRUNCATE",
+        "TRUNCATECOLUMNS",
+        "UNION",
+        "UNLOAD",
+        "UPDATE",
+        "UNIQUE",
+        "USER",
+        "USING",
+        "VACUUM",
+        "VALUES",
+        "VERBOSE",
+        "WALLET",
+        "WHEN",
+        "WHERE",
+        "WITH",
+        "WITHOUT",
+    }
+)
+
+_WORD_END_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*$")
+_WORD_START_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*")
+
+
+def _boundary_aware_listagg(col: str, segment_size: int, order_col: str) -> str:
+    """Build a LISTAGG expression with CHR(1) boundary markers.
+
+    All 6 LISTAGG locations in this file must use the same boundary logic.
+    """
+    return (
+        f"LISTAGG(RTRIM({col}) || CASE WHEN LEN(RTRIM({col})) < {segment_size}"
+        f" THEN CHR(1) ELSE '' END, '')"
+        f" WITHIN GROUP (ORDER BY {order_col})"
+    )
+
+
+def stitch_query_segments(raw_text: str) -> str:
+    """Replace CHR(1) boundary markers with a space only when a keyword is at the edge.
+
+    Redshift stores query text in fixed-width segments. When we reconstruct the
+    full query via LISTAGG, segment boundaries where content didn't fill the
+    segment are marked with CHR(1). At each marker we check whether the word
+    immediately before or after is a Redshift reserved keyword; if so, a space
+    is needed to keep the tokens separate. Otherwise the marker is removed
+    (the segments were split mid-identifier).
+    """
+    if _SEGMENT_BOUNDARY not in raw_text:
+        return raw_text
+
+    parts = raw_text.split(_SEGMENT_BOUNDARY)
+    result = parts[0]
+    for part in parts[1:]:
+        if not part:
+            # Trailing marker from last segment — skip
+            continue
+        end_word = _WORD_END_RE.search(result)
+        next_word = _WORD_START_RE.search(part)
+        if (end_word and end_word.group(0).upper() in REDSHIFT_RESERVED_KEYWORDS) or (
+            next_word and next_word.group(0).upper() in REDSHIFT_RESERVED_KEYWORDS
+        ):
+            result += " "
+        result += part
+    return result
 
 
 class RedshiftCommonQuery:
@@ -506,7 +738,26 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     def stl_scan_based_lineage_query(
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
+        # Uses a CTE to reconstruct full query text from STL_QUERYTEXT instead
+        # of stl_query.querytxt (truncated at 4000 chars and RTRIM-corrupted).
+        # The relevant_queries CTE scopes the LISTAGG to the time range.
         return """
+                    WITH relevant_queries AS (
+                        SELECT DISTINCT query
+                        FROM stl_insert
+                        WHERE starttime >= '{start_time}'
+                        AND starttime < '{end_time}'
+                    ),
+                    query_txt AS (
+                        SELECT
+                            qt.query,
+                            qt.userid,
+                            {listagg_expr} AS querytxt
+                        FROM STL_QUERYTEXT qt
+                        JOIN relevant_queries rq ON rq.query = qt.query
+                        WHERE qt.sequence < {_QUERY_SEQUENCE_LIMIT}
+                        GROUP BY qt.query, qt.userid
+                    )
                         select
                             distinct cluster,
                             target_schema,
@@ -514,7 +765,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             username as username,
                             source_schema,
                             source_table,
-                            querytxt as ddl,  -- TODO: this querytxt is truncated to 4000 characters
+                            querytxt as ddl,
                             starttime as timestamp
                         from
                                 (
@@ -554,7 +805,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
-                            left join stl_query sq on
+                            left join query_txt sq on
                                 ss.query = sq.query
                             left join svl_user_info sui on
                                 sq.userid = sui.usesysid
@@ -566,6 +817,10 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             scan_type in (1, 2, 3)
                         order by cluster, target_schema, target_table, starttime asc
                     """.format(
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            listagg_expr=_boundary_aware_listagg(
+                "qt.text", _PROVISIONED_SEGMENT_SIZE, "qt.sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -610,15 +865,12 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     ) -> str:
         return """\
 with query_txt as (
+    -- TODO: This CTE scans all of STL_QUERYTEXT with no time filter.
+    -- Consider scoping to relevant query IDs from stl_insert.
     select
         query,
         pid,
-        LISTAGG(case
-            when LEN(RTRIM(text)) = 0 then text
-            else RTRIM(text)
-        end) within group (
-            order by sequence
-        ) as ddl
+        {listagg_expr} as ddl
     from (
         select
             query,
@@ -672,6 +924,9 @@ group by
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            listagg_expr=_boundary_aware_listagg(
+                "text", _PROVISIONED_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -714,13 +969,7 @@ from (
                 xid,
                 type,
                 userid,
-                LISTAGG(case
-                    when LEN(RTRIM(text)) = 0 then text
-                    else RTRIM(text)
-                end,
-                '') within group (
-                    order by sequence
-                ) as query_text
+                {_boundary_aware_listagg("text", _PROVISIONED_SEGMENT_SIZE, "sequence")} as query_text
             from
                 SVL_STATEMENTTEXT
             where
@@ -949,7 +1198,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                    {listagg_expr} AS query_text
                 FROM
                     "queries" LEFT JOIN
                     unique_query_text qt ON qt.query_id = queries.query_id
@@ -987,6 +1236,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             WHERE source_table_id <> target_table_id
             ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
                     """.format(
+            listagg_expr=_boundary_aware_listagg(
+                'qt."text"', _SERVERLESS_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1037,7 +1289,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) AS ddl,
+                {listagg_expr} AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
             FROM
@@ -1074,6 +1326,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ORDER BY cluster, query_id, target_schema, target_table, starttime ASC
             ;
                 """.format(
+            listagg_expr=_boundary_aware_listagg(
+                "querytxt", _SERVERLESS_SEGMENT_SIZE, "sequence"
+            ),
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1118,7 +1373,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                                            {_boundary_aware_listagg('qt."text"', _SERVERLESS_SEGMENT_SIZE, "sequence")} AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
                                             LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id
