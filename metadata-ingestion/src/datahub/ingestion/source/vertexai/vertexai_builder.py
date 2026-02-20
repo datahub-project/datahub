@@ -469,20 +469,6 @@ class VertexAIURIParser:
             )
         return None
 
-    def model_group_urn_from_artifact_uri(self, uri: Optional[str]) -> Optional[str]:
-        """Extract model group URN from artifact URI for DataJob-level lineage."""
-        if not uri:
-            return None
-
-        model_id = self._extract_model_id_from_uri(uri)
-        if model_id:
-            return builder.make_ml_model_group_urn(
-                platform=self.platform,
-                group_name=model_id,
-                env=self.env,
-            )
-        return None
-
     def _classify_uri_by_key_path(self, uri: str, key_path: List[str]) -> str:
         """
         Classify a URI as 'input' or 'output' based on its key path in the job config.
