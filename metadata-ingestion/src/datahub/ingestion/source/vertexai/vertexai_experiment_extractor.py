@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud import aiplatform
 from google.cloud.aiplatform import ExperimentRun
@@ -72,7 +72,7 @@ class VertexAIExperimentExtractor:
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
         uri_parser: VertexAIURIParser,
-        project_id: str,
+        get_project_id_fn: Callable[[], str],
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
@@ -83,7 +83,7 @@ class VertexAIExperimentExtractor:
         self.name_formatter = name_formatter
         self.url_builder = url_builder
         self.uri_parser = uri_parser
-        self.project_id = project_id
+        self._get_project_id = get_project_id_fn
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
@@ -211,7 +211,7 @@ class VertexAIExperimentExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         experiment = experiment_meta.experiment
         yield from gen_resource_subfolder_container(
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,

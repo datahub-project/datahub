@@ -181,3 +181,102 @@ def test_pipeline_stable_name_strips_kubeflow_timestamp(
     assert stable_name == expected_stable_name, (
         f"Expected {expected_stable_name}, got {stable_name}"
     )
+
+
+def test_multi_project_urns_are_project_specific() -> None:
+    project_1 = "project-alpha"
+    project_2 = "project-beta"
+
+    config = VertexAIConfig(
+        project_id="fallback-project",
+        project_ids=[project_1, project_2],
+        region="us-central1",
+    )
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="multi-project-test"),
+        config=config,
+    )
+
+    assert source._projects == [project_1, project_2]
+
+    source._current_project_id = project_1
+    project1_job_urn = source.urn_builder.make_training_job_urn("test-job")
+    project1_formatted_name = source.name_formatter.format_model_name("test-model")
+    project1_url = source.url_builder.make_job_url("test-job")
+
+    source._current_project_id = project_2
+    project2_job_urn = source.urn_builder.make_training_job_urn("test-job")
+    project2_formatted_name = source.name_formatter.format_model_name("test-model")
+    project2_url = source.url_builder.make_job_url("test-job")
+
+    assert project1_job_urn != project2_job_urn
+    assert project_1 in project1_job_urn
+    assert project_2 in project2_job_urn
+
+    assert project1_formatted_name != project2_formatted_name
+    assert project1_formatted_name == f"{project_1}.model.test-model"
+    assert project2_formatted_name == f"{project_2}.model.test-model"
+
+    assert project1_url != project2_url
+    assert project_1 in project1_url
+    assert project_2 in project2_url
+
+
+def test_multi_project_browse_path_cache() -> None:
+    project_1 = "project-alpha"
+    project_2 = "project-beta"
+
+    config = VertexAIConfig(
+        project_id="fallback-project",
+        project_ids=[project_1, project_2],
+        region="us-central1",
+    )
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="multi-project-cache-test"),
+        config=config,
+    )
+
+    source._current_project_id = project_1
+    browse_path_1a = source.training_extractor._get_training_jobs_browse_path()
+    browse_path_1b = source.training_extractor._get_training_jobs_browse_path()
+
+    source._current_project_id = project_2
+    browse_path_2a = source.training_extractor._get_training_jobs_browse_path()
+    browse_path_2b = source.training_extractor._get_training_jobs_browse_path()
+
+    source._current_project_id = project_1
+    browse_path_1c = source.training_extractor._get_training_jobs_browse_path()
+
+    assert browse_path_1a is browse_path_1b
+    assert browse_path_2a is browse_path_2b
+    assert browse_path_1a is browse_path_1c
+    assert browse_path_1a != browse_path_2a
+    assert len(browse_path_1a.path) > 0
+    assert len(browse_path_2a.path) > 0
+    assert browse_path_1a.path[0].id != browse_path_2a.path[0].id
+
+    assert len(source.training_extractor._browse_path_cache) == 2
+    assert project_1 in source.training_extractor._browse_path_cache
+    assert project_2 in source.training_extractor._browse_path_cache
+
+
+def test_multi_region_urls() -> None:
+    config = VertexAIConfig(
+        project_id="test-project",
+        region="us-west1",
+        regions=["us-west1", "europe-west4"],
+    )
+    source = VertexAISource(
+        ctx=PipelineContext(run_id="multi-region-test"),
+        config=config,
+    )
+
+    source._current_region = "us-west1"
+    url_west = source.url_builder.make_model_url("my-model")
+
+    source._current_region = "europe-west4"
+    url_europe = source.url_builder.make_model_url("my-model")
+
+    assert url_west != url_europe
+    assert "us-west1" in url_west
+    assert "europe-west4" in url_europe

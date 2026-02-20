@@ -61,6 +61,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathsV2Class,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -88,7 +89,7 @@ class VertexAITrainingExtractor:
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
         uri_parser: VertexAIURIParser,
-        project_id: str,
+        get_project_id_fn: Callable[[], str],
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         gen_ml_model_mcps_fn: Callable[[ModelMetadata], Iterable[MetadataWorkUnit]],
         get_job_lineage_from_ml_metadata_fn: Callable[
@@ -105,7 +106,7 @@ class VertexAITrainingExtractor:
         self.name_formatter = name_formatter
         self.url_builder = url_builder
         self.uri_parser = uri_parser
-        self.project_id = project_id
+        self._get_project_id = get_project_id_fn
         self._yield_common_aspects = yield_common_aspects_fn
         self._gen_ml_model_mcps = gen_ml_model_mcps_fn
         self._get_job_lineage_from_ml_metadata = get_job_lineage_from_ml_metadata_fn
@@ -115,6 +116,7 @@ class VertexAITrainingExtractor:
         self.model_usage_tracker = model_usage_tracker
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
+        self._browse_path_cache: Dict[str, BrowsePathsV2Class] = {}
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for training job extraction."""
@@ -325,16 +327,9 @@ class VertexAITrainingExtractor:
             resource_category=ResourceCategory.TRAINING_JOBS,
         )
 
-        training_jobs_container = get_resource_category_container(
-            project_id=self.project_id,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            category=ResourceCategory.TRAINING_JOBS,
-        )
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
-            aspect=gen_browse_path_from_container(training_jobs_container),
+            aspect=self._get_training_jobs_browse_path(),
         ).as_workunit()
 
         if dataset_urn or external_input_edges:
@@ -374,6 +369,21 @@ class VertexAITrainingExtractor:
                     durationMillis=duration,
                 ),
             ).as_workunit()
+
+    def _get_training_jobs_browse_path(self) -> BrowsePathsV2Class:
+        project_id = self._get_project_id()
+        if project_id not in self._browse_path_cache:
+            training_jobs_container = get_resource_category_container(
+                project_id=project_id,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                category=ResourceCategory.TRAINING_JOBS,
+            )
+            self._browse_path_cache[project_id] = gen_browse_path_from_container(
+                training_jobs_container
+            )
+        return self._browse_path_cache[project_id]
 
     def _ensure_datasets_cached(self) -> None:
         """Fetch and cache all datasets from Vertex AI (one-time operation)."""

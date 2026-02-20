@@ -5,11 +5,11 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 
 
 def test_vertexai_multi_project_context_naming() -> None:
-    name_formatter = VertexAINameFormatter(project_id="p2")
+    name_formatter = VertexAINameFormatter(get_project_id_fn=lambda: "p2")
     url_builder = VertexAIExternalURLBuilder(
         base_url="https://console.cloud.google.com/vertex-ai",
-        project_id="p2",
-        region="r2",
+        get_project_id_fn=lambda: "p2",
+        get_region_fn=lambda: "r2",
     )
 
     assert name_formatter.format_model_group_name("m") == "p2.model_group.m"

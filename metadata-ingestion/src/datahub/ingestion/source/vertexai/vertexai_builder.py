@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, List, Optional, Pattern
+from typing import Callable, Dict, List, Optional, Pattern
 
 from google.cloud.aiplatform import Experiment, ExperimentRun, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -27,14 +27,14 @@ class VertexAIUrnBuilder:
         self,
         platform: str,
         env: str,
-        project_id: str,
+        get_project_id_fn: Callable[[], str],
         platform_instance: Optional[str] = None,
     ):
         self.platform = platform
         self.env = env
-        self.project_id = project_id
+        self._get_project_id = get_project_id_fn
         self.platform_instance = platform_instance
-        self._name_formatter = VertexAINameFormatter(project_id)
+        self._name_formatter = VertexAINameFormatter(get_project_id_fn)
 
     def make_ml_model_urn(self, model_version: VersionInfo, model_name: str) -> str:
         return builder.make_ml_model_urn(
@@ -73,121 +73,126 @@ class VertexAIUrnBuilder:
 
 
 class VertexAINameFormatter:
-    def __init__(self, project_id: str):
-        self.project_id = project_id
+    def __init__(self, get_project_id_fn: Callable[[], str]):
+        self._get_project_id = get_project_id_fn
 
     def format_model_group_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.model_group.{entity_id}"
+        return f"{self._get_project_id()}.model_group.{entity_id}"
 
     def format_endpoint_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.endpoint.{entity_id}"
+        return f"{self._get_project_id()}.endpoint.{entity_id}"
 
     def format_model_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.model.{entity_id}"
+        return f"{self._get_project_id()}.model.{entity_id}"
 
     def format_dataset_name(self, entity_id: str) -> str:
-        return f"{self.project_id}.dataset.{entity_id}"
+        return f"{self._get_project_id()}.dataset.{entity_id}"
 
     def format_job_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for job name formatting")
-        return f"{self.project_id}.job.{entity_id}"
+        return f"{self._get_project_id()}.job.{entity_id}"
 
     def format_experiment_id(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for experiment ID formatting")
-        return f"{self.project_id}.experiment.{entity_id}"
+        return f"{self._get_project_id()}.experiment.{entity_id}"
 
     def format_experiment_run_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for experiment run name formatting"
             )
-        return f"{self.project_id}.experiment_run.{entity_id}"
+        return f"{self._get_project_id()}.experiment_run.{entity_id}"
 
     def format_run_execution_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for run execution name formatting"
             )
-        return f"{self.project_id}.execution.{entity_id}"
+        return f"{self._get_project_id()}.execution.{entity_id}"
 
     def format_pipeline_run_id(self, entity_id: Optional[str]) -> str:
         """Format ID for a pipeline run (execution instance)."""
         if entity_id is None:
             raise ValueError("entity_id cannot be None for pipeline run ID formatting")
-        return f"{self.project_id}.pipeline_run.{entity_id}"
+        return f"{self._get_project_id()}.pipeline_run.{entity_id}"
 
     def format_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError(
                 "entity_id cannot be None for pipeline task run ID formatting"
             )
-        return f"{self.project_id}.pipeline_task_run.{entity_id}"
+        return f"{self._get_project_id()}.pipeline_task_run.{entity_id}"
 
     def format_evaluation_name(self, entity_id: Optional[str]) -> str:
         if entity_id is None:
             raise ValueError("entity_id cannot be None for evaluation name formatting")
-        return f"{self.project_id}.model_evaluation.{entity_id}"
+        return f"{self._get_project_id()}.model_evaluation.{entity_id}"
 
 
 class VertexAIExternalURLBuilder:
-    def __init__(self, base_url: str, project_id: str, region: str):
+    def __init__(
+        self,
+        base_url: str,
+        get_project_id_fn: Callable[[], str],
+        get_region_fn: Callable[[], str],
+    ):
         self.base_url = base_url
-        self.project_id = project_id
-        self.region = region
+        self._get_project_id = get_project_id_fn
+        self._get_region = get_region_fn
 
     def make_artifact_url(self, experiment: Experiment, run: ExperimentRun) -> str:
         return self.base_url + ExternalURLs.EXPERIMENT_ARTIFACTS.format(
-            region=self.region,
+            region=self._get_region(),
             experiment_name=experiment.name,
             run_name=f"{experiment.name}-{run.name}",
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_job_url(self, job_name: str) -> str:
         return self.base_url + ExternalURLs.TRAINING_JOB.format(
             job_name=job_name,
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_model_url(self, model_name: str) -> str:
         return self.base_url + ExternalURLs.MODEL.format(
-            region=self.region,
+            region=self._get_region(),
             model_name=model_name,
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_model_version_url(self, model_name: str, version_id: str) -> str:
         return self.base_url + ExternalURLs.MODEL_VERSION.format(
-            region=self.region,
+            region=self._get_region(),
             model_name=model_name,
             version_id=version_id,
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_experiment_url(self, experiment_name: str) -> str:
         return self.base_url + ExternalURLs.EXPERIMENT.format(
-            region=self.region,
+            region=self._get_region(),
             experiment_name=experiment_name,
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_experiment_run_url(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
         return self.base_url + ExternalURLs.EXPERIMENT_RUN.format(
-            region=self.region,
+            region=self._get_region(),
             experiment_name=experiment.name,
             run_name=f"{experiment.name}-{run.name}",
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
     def make_pipeline_url(self, pipeline_name: str) -> str:
         return self.base_url + ExternalURLs.PIPELINE.format(
-            region=self.region,
+            region=self._get_region(),
             pipeline_name=pipeline_name,
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
         )
 
 

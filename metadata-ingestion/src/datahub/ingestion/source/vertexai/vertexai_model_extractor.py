@@ -1,7 +1,7 @@
 import logging
 from numbers import Real
 from operator import attrgetter
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
@@ -70,7 +70,7 @@ class VertexAIModelExtractor:
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
-        project_id: str,
+        get_project_id_fn: Callable[[], str],
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
@@ -81,7 +81,7 @@ class VertexAIModelExtractor:
         self.urn_builder = urn_builder
         self.name_formatter = name_formatter
         self.url_builder = url_builder
-        self.project_id = project_id
+        self._get_project_id = get_project_id_fn
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
@@ -392,7 +392,7 @@ class VertexAIModelExtractor:
 
     def _gen_ml_group_container(self, model: Model) -> Iterable[MetadataWorkUnit]:
         yield from gen_resource_subfolder_container(
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
@@ -456,7 +456,7 @@ class VertexAIModelExtractor:
 
     def _get_model_group_container(self, model: Model) -> ModelGroupKey:
         return ModelGroupKey(
-            project_id=self.project_id,
+            project_id=self._get_project_id(),
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,

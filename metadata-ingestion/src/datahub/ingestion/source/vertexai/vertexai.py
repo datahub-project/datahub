@@ -184,14 +184,16 @@ class VertexAISource(StatefulIngestionSourceBase):
         self.urn_builder = VertexAIUrnBuilder(
             platform=self.platform,
             env=self.config.env,
-            project_id=self._get_project_id(),
+            get_project_id_fn=self._get_project_id,
             platform_instance=self.config.platform_instance,
         )
-        self.name_formatter = VertexAINameFormatter(project_id=self._get_project_id())
+        self.name_formatter = VertexAINameFormatter(
+            get_project_id_fn=self._get_project_id
+        )
         self.url_builder = VertexAIExternalURLBuilder(
             base_url=self.config.vertexai_url or ExternalURLs.BASE_URL,
-            project_id=self._get_project_id(),
-            region=self._get_region(),
+            get_project_id_fn=self._get_project_id,
+            get_region_fn=self._get_region,
         )
         self.uri_parser = VertexAIURIParser(
             env=self.config.env,
@@ -207,7 +209,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             name_formatter=self.name_formatter,
             url_builder=self.url_builder,
             uri_parser=self.uri_parser,
-            project_id=self._get_project_id(),
+            get_project_id_fn=self._get_project_id,
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
@@ -219,7 +221,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             name_formatter=self.name_formatter,
             url_builder=self.url_builder,
             uri_parser=self.uri_parser,
-            project_id=self._get_project_id(),
+            get_project_id_fn=self._get_project_id,
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
@@ -232,7 +234,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             name_formatter=self.name_formatter,
             url_builder=self.url_builder,
             uri_parser=self.uri_parser,
-            project_id=self._get_project_id(),
+            get_project_id_fn=self._get_project_id,
             yield_common_aspects_fn=self._yield_common_aspects,
             gen_ml_model_mcps_fn=self._gen_ml_model_mcps,
             get_job_lineage_from_ml_metadata_fn=self._get_job_lineage_from_ml_metadata,
@@ -247,7 +249,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             urn_builder=self.urn_builder,
             name_formatter=self.name_formatter,
             url_builder=self.url_builder,
-            project_id=self._get_project_id(),
+            get_project_id_fn=self._get_project_id,
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,

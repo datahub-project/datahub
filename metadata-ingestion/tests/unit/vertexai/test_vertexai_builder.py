@@ -17,7 +17,7 @@ class TestVertexAIUrnBuilder:
         return VertexAIUrnBuilder(
             platform="vertexai",
             env="PROD",
-            project_id="test-project",
+            get_project_id_fn=lambda: "test-project",
             platform_instance=None,
         )
 
