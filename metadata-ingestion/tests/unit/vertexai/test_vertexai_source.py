@@ -222,44 +222,6 @@ def test_multi_project_urns_are_project_specific() -> None:
     assert project_2 in project2_url
 
 
-def test_multi_project_browse_path_cache() -> None:
-    project_1 = "project-alpha"
-    project_2 = "project-beta"
-
-    config = VertexAIConfig(
-        project_id="fallback-project",
-        project_ids=[project_1, project_2],
-        region="us-central1",
-    )
-    source = VertexAISource(
-        ctx=PipelineContext(run_id="multi-project-cache-test"),
-        config=config,
-    )
-
-    source._current_project_id = project_1
-    browse_path_1a = source.training_extractor._get_training_jobs_browse_path()
-    browse_path_1b = source.training_extractor._get_training_jobs_browse_path()
-
-    source._current_project_id = project_2
-    browse_path_2a = source.training_extractor._get_training_jobs_browse_path()
-    browse_path_2b = source.training_extractor._get_training_jobs_browse_path()
-
-    source._current_project_id = project_1
-    browse_path_1c = source.training_extractor._get_training_jobs_browse_path()
-
-    assert browse_path_1a is browse_path_1b
-    assert browse_path_2a is browse_path_2b
-    assert browse_path_1a is browse_path_1c
-    assert browse_path_1a != browse_path_2a
-    assert len(browse_path_1a.path) > 0
-    assert len(browse_path_2a.path) > 0
-    assert browse_path_1a.path[0].id != browse_path_2a.path[0].id
-
-    assert len(source.training_extractor._browse_path_cache) == 2
-    assert project_1 in source.training_extractor._browse_path_cache
-    assert project_2 in source.training_extractor._browse_path_cache
-
-
 def test_multi_region_urls() -> None:
     config = VertexAIConfig(
         project_id="test-project",

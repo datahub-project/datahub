@@ -53,15 +53,12 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     format_api_error_message,
-    gen_browse_path_from_container,
     get_actor_from_labels,
-    get_resource_category_container,
     log_checkpoint_time,
     log_progress,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    BrowsePathsV2Class,
     DataProcessInstanceInputClass,
     DataProcessInstanceOutputClass,
     DataProcessInstancePropertiesClass,
@@ -116,7 +113,6 @@ class VertexAITrainingExtractor:
         self.model_usage_tracker = model_usage_tracker
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
-        self._browse_path_cache: Dict[str, BrowsePathsV2Class] = {}
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for training job extraction."""
@@ -327,11 +323,6 @@ class VertexAITrainingExtractor:
             resource_category=ResourceCategory.TRAINING_JOBS,
         )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=self._get_training_jobs_browse_path(),
-        ).as_workunit()
-
         if dataset_urn or external_input_edges:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
@@ -369,21 +360,6 @@ class VertexAITrainingExtractor:
                     durationMillis=duration,
                 ),
             ).as_workunit()
-
-    def _get_training_jobs_browse_path(self) -> BrowsePathsV2Class:
-        project_id = self._get_project_id()
-        if project_id not in self._browse_path_cache:
-            training_jobs_container = get_resource_category_container(
-                project_id=project_id,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                category=ResourceCategory.TRAINING_JOBS,
-            )
-            self._browse_path_cache[project_id] = gen_browse_path_from_container(
-                training_jobs_container
-            )
-        return self._browse_path_cache[project_id]
 
     def _ensure_datasets_cached(self) -> None:
         """Fetch and cache all datasets from Vertex AI (one-time operation)."""
