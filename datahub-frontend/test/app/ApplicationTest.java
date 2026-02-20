@@ -1131,6 +1131,10 @@ public class ApplicationTest extends WithBrowser {
 
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
     assertEquals("", browser.url());
+
+    // Protocol-relative URL (///google.com) must not redirect to external host
+    browser.goTo("/authenticate?redirect_uri=%2F%2F%2Fgoogle.com");
+    assertEquals("", browser.url());
   }
 
   /** Test module that provides comprehensive mocks to handle all GMS interactions */

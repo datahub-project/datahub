@@ -1,0 +1,99 @@
+ragment relatedDocumentsFields on RelatedDocumentsResult {
+    start
+    count
+    total
+    documents {
+        urn
+        type
+        info {
+            title
+        }
+    }
+}
+
+query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on Dataset {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Dashboard {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Chart {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataJob {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataFlow {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Container {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModel {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLModelGroup {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLPrimaryKey {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeature {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on MLFeatureTable {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on DataProduct {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Domain {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryTerm {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on GlossaryNode {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+        ... on Application {
+            relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+            }
+        }
+    }
+}

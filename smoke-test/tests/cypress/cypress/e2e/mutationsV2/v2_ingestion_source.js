@@ -26,6 +26,9 @@ describe("ingestion source creation flow", () => {
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
+    // Select Username & Password authentication to make password field visible
+    cy.get("#authentication_type").click({ force: true });
+    cy.get('.ant-select-dropdown [title="Username & Password"]').click();
     cy.get("#password").type(password);
     cy.focused().blur();
     cy.get("#role").type(role);
@@ -49,18 +52,24 @@ describe("ingestion source creation flow", () => {
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
     cy.waitTextVisible(ingestion_source_name);
     cy.get('[data-testid="ingestion-source-table-status"]')
-      .contains("Pending...")
+      .contains("Pending")
       .should("be.visible");
 
     // Verify ingestion source details are saved correctly
     // Find the row containing our ingestion source by name, then click its edit button
     cy.contains("tr", ingestion_source_name)
-      .find('[data-testid="ingestion-source-table-edit-button"]')
+      .find("button")
+      .contains("EDIT")
       .click();
+
     cy.waitTextVisible("Account");
     cy.get("#account_id").should("have.value", accound_id);
     cy.get("#warehouse").should("have.value", warehouse_id);
     cy.get("#username").should("have.value", username);
+    // Verify authentication type is set correctly (should infer from password presence)
+    cy.get("#authentication_type")
+      .parents(".ant-form-item")
+      .should("contain", "Username & Password");
     cy.get("#password").should("have.value", password);
     cy.get("#role").should("have.value", role);
     cy.get("button").contains("Next").click();
@@ -74,9 +83,10 @@ describe("ingestion source creation flow", () => {
     cy.waitTextVisible(`${ingestion_source_name} EDITED`);
 
     // Remove ingestion source
-    cy.get(
-      `[data-testid="delete-ingestion-source-${ingestion_source_name} EDITED"]`,
-    ).click();
+    cy.contains("tr", `${ingestion_source_name} EDITED`)
+      .find('[data-icon="delete"]')
+      .first()
+      .click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");

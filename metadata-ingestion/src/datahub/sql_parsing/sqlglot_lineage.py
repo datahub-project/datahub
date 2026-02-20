@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import logging
 import traceback
+import uuid
 from collections import defaultdict
 from typing import (
     AbstractSet,
@@ -54,6 +55,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
+from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -388,13 +390,11 @@ def _extract_table_names(
 # ClickHouse-specific helpers
 # ==============================================================================
 # ClickHouse has unique SQL features that require special handling:
-# 1. Dictionary functions (DICTGET, etc.) - first arg is dict name, not a table
+# 1. Dictionary functions (dictGet, etc.) - first arg is a dict name backed by a table
 # 2. Materialized views with TO clause - output goes to target table, not the view
 # 3. ARRAY JOIN pseudo-tables - may create unresolvable table references
 
-
 # Dictionary functions that take a dictionary name as first argument.
-# These are NOT table references and should be excluded from lineage.
 # See: https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
 _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
     {
@@ -412,31 +412,62 @@ _CLICKHOUSE_DICTIONARY_FUNCTIONS = frozenset(
 )
 
 
-def _is_in_clickhouse_dict_function(table: sqlglot.exp.Table) -> bool:
-    """Check if a Table node is a dictionary reference in a ClickHouse dict function.
+def _clickhouse_extract_dictget_tables(
+    statement: sqlglot.Expression,
+    dialect: sqlglot.Dialect,
+) -> OrderedSet[_TableName]:
+    """Extract dictionary references from ClickHouse dictGet() function calls.
 
-    ClickHouse dictionary functions like DICTGET(dict_name, attr_name, key) take a
-    dictionary name (e.g., 'default.subscriptions') as the first argument. sqlglot
-    parses this as a Table node, but it's not a real table reference for lineage.
+    sqlglot parses dictGet(dict_name, ...) first arg as a Column node, not a
+    Table node. This extracts those references as _TableName for upstream lineage.
+
+    TODO: CLL currently points to dict_name as a column; should point to
+    dict_name.attr_name. Needs post-processor to extract attr_name from second
+    argument and map to table.column.
     """
-    node: Optional[sqlglot.exp.Expression] = table.parent
-    while node is not None:
-        if isinstance(node, sqlglot.exp.Anonymous):
-            func_name = node.this
-            if (
-                isinstance(func_name, str)
-                and func_name.lower() in _CLICKHOUSE_DICTIONARY_FUNCTIONS
-                and node.expressions
-            ):
-                first_arg = node.expressions[0]
-                if first_arg is table or (
-                    hasattr(first_arg, "find")
-                    and table in list(first_arg.find_all(sqlglot.exp.Table))
-                ):
-                    return True
-            break
-        node = node.parent
-    return False
+    if not is_dialect_instance(dialect, "clickhouse"):
+        return OrderedSet()
+
+    result: OrderedSet[_TableName] = OrderedSet()
+    for func in statement.find_all(sqlglot.exp.Anonymous):
+        if (
+            not isinstance(func.this, str)
+            or func.this.lower() not in _CLICKHOUSE_DICTIONARY_FUNCTIONS
+            or not func.expressions
+        ):
+            continue
+
+        first_arg = func.expressions[0]
+        if isinstance(first_arg, sqlglot.exp.Column):
+            # dictGet(dict_name, ...) → Column(name='dict_name')
+            # dictGet(db.dict_name, ...) → Column(table='db', name='dict_name')
+            result.add(
+                _TableName(
+                    database=None,
+                    db_schema=first_arg.table if first_arg.table else None,
+                    table=first_arg.name,
+                )
+            )
+        elif isinstance(first_arg, sqlglot.exp.Literal) and first_arg.is_string:
+            # dictGet('db.dict_name', ...) → Literal('db.dict_name')
+            parts = first_arg.this.split(".")
+            parts = [p for p in parts if p]
+            if len(parts) == 2:
+                result.add(
+                    _TableName(database=None, db_schema=parts[0], table=parts[1])
+                )
+            elif len(parts) == 1:
+                result.add(_TableName(database=None, db_schema=None, table=parts[0]))
+            else:
+                logger.warning(
+                    f"Unexpected dictGet literal with {len(parts)} parts: {first_arg.this}"
+                )
+        else:
+            logger.debug(f"Unexpected dictGet first argument type: {type(first_arg)}")
+
+    if result:
+        logger.debug(f"Extracted dictGet table references: {result}")
+    return result
 
 
 def _clickhouse_extract_to_tables(
@@ -472,7 +503,6 @@ def _is_clickhouse_non_input(
     """Check if a table should be excluded from input tables for ClickHouse.
 
     Excludes:
-    - Dictionary references inside DICTGET functions (not real tables)
     - TO table references (they are outputs, not inputs)
     - Materialized view name when TO table exists (not an input)
 
@@ -481,10 +511,8 @@ def _is_clickhouse_non_input(
     if not is_dialect_instance(dialect, "clickhouse"):
         return False
 
-    return (
-        _is_in_clickhouse_dict_function(table)
-        or isinstance(table.parent, sqlglot.exp.ToTableProperty)
-        or (has_to_table and isinstance(table.parent, sqlglot.exp.Schema))
+    return isinstance(table.parent, sqlglot.exp.ToTableProperty) or (
+        has_to_table and isinstance(table.parent, sqlglot.exp.Schema)
     )
 
 
@@ -494,7 +522,7 @@ def _clickhouse_filter_column_lineage(
 ) -> List[_ColumnLineageInfo]:
     """Filter column lineage to remove entries with unresolvable tables.
 
-    ClickHouse DICTGET functions and ARRAY JOIN can create pseudo-table references
+    ClickHouse ARRAY JOIN and other constructs can create pseudo-table references
     that don't exist in the table mapping. This filters those out to prevent
     KeyError during translation.
     """
@@ -709,16 +737,19 @@ def _table_level_lineage(
     )
 
     tables = (
-        _extract_table_names(
-            (
-                table
-                for table in statement.find_all(sqlglot.exp.Table)
-                if not isinstance(table.parent, sqlglot.exp.Drop)
-                and not _is_clickhouse_non_input(
-                    table, dialect, bool(clickhouse_to_tables)
-                )
-            ),
-            dialect,
+        (
+            _extract_table_names(
+                (
+                    table
+                    for table in statement.find_all(sqlglot.exp.Table)
+                    if not isinstance(table.parent, sqlglot.exp.Drop)
+                    and not _is_clickhouse_non_input(
+                        table, dialect, bool(clickhouse_to_tables)
+                    )
+                ),
+                dialect,
+            )
+            | _clickhouse_extract_dictget_tables(statement, dialect)
         )
         # ignore references created in this query
         - modified
@@ -2221,6 +2252,178 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+        )
+    except Exception as e:
+        return SqlParsingResult.make_from_error(e)
+    finally:
+        if needs_close:
+            schema_resolver.close()
+
+
+def _prepare_sql_query_list(queries: Union[str, List[str]]) -> List[str]:
+    if isinstance(queries, str):
+        return [stmt for stmt in split_statements(queries) if stmt.strip()]
+    else:
+        result: List[str] = []
+        for q in queries:
+            if q and str(q).strip():
+                result.extend(stmt for stmt in split_statements(str(q)) if stmt.strip())
+        return result
+
+
+def create_lineage_from_sql_statements(
+    queries: Union[str, List[str]],
+    default_db: Optional[str],
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    default_schema: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
+) -> SqlParsingResult:
+    """Parse multiple SQL statements and return merged lineage with temp table resolution.
+
+    Processes all statements sequentially with a shared session, resolving temp table
+    lineage to produce a single SqlParsingResult without temp tables.
+
+    This is the multi-statement counterpart to create_lineage_sql_parsed_result().
+
+    Args:
+        queries: Either a single SQL string (which may contain multiple statements
+                 separated by semicolons) or a list of SQL statement strings.
+                 If a string is provided, it will be split into statements using
+                 SQL-aware parsing that handles strings, comments, and keywords.
+        default_db: Default database for unqualified table references
+        platform: Data platform identifier (e.g., 'snowflake', 'postgres')
+        platform_instance: Optional platform instance identifier
+        env: Environment (e.g., 'PROD', 'DEV')
+        default_schema: Optional default schema for unqualified table references
+        graph: Optional DataHub graph client for schema resolution
+        schema_aware: Whether to use schema-aware parsing
+
+    Returns:
+        SqlParsingResult containing merged lineage from all statements
+    """
+    from datahub.sql_parsing.sql_parsing_aggregator import (
+        ObservedQuery,
+        QueryMetadata,
+        SqlParsingAggregator,
+    )
+
+    queries = _prepare_sql_query_list(queries)
+
+    if not queries:
+        return SqlParsingResult.make_from_error(
+            ValueError("No SQL statements provided")
+        )
+
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
+    if graph and schema_aware:
+        needs_close = False
+
+    try:
+        aggregator = SqlParsingAggregator(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            schema_resolver=schema_resolver,
+            generate_lineage=True,
+            generate_queries=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            generate_query_subject_fields=False,
+            generate_query_usage_statistics=False,
+        )
+
+        try:
+            session_id = str(uuid.uuid4())
+            for query in queries:
+                aggregator.add_observed_query(
+                    observed=ObservedQuery(
+                        query=query,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                        session_id=session_id,
+                    )
+                )
+
+            resolved_by_id: Dict[str, QueryMetadata] = {}
+            for query_id, query_meta in aggregator._query_map.items():
+                resolved_by_id[query_id] = aggregator._resolve_query_with_temp_tables(
+                    query_meta
+                )
+
+            # Invert _lineage_map (downstream → query_ids) so we can look up
+            # each query's target table during the single-pass aggregation below.
+            query_to_downstream: Dict[str, str] = {}
+            for table_urn in aggregator._lineage_map:
+                for query_id in aggregator._lineage_map[table_urn]:
+                    query_to_downstream[query_id] = table_urn
+
+            # Temp table creators produce CLL like "staging.id <- source.id"
+            # where staging is a temp table. We must exclude these because
+            # _resolve_query_with_temp_tables already traced downstream queries
+            # through the temp tables to produce "target.id <- source.id".
+            # Including both would create phantom CLL entries referencing temp
+            # tables that don't appear in out_tables.
+            temp_creator_ids: Set[str] = set()
+            session_temp_data = aggregator._temp_lineage_map.get(session_id)
+            if session_temp_data:
+                for creator_ids in session_temp_data.values():
+                    temp_creator_ids.update(creator_ids)
+
+            # _lineage_map only tracks non-temp outputs, so its keys are
+            # already the correct set of real downstream tables.
+            all_out_tables: List[str] = list(aggregator._lineage_map.keys())
+            in_tables: OrderedSet[str] = OrderedSet()
+            min_confidence = 1.0
+            has_resolved_queries = False
+            all_column_lineage: List[ColumnLineageInfo] = []
+
+            for query_id, resolved in resolved_by_id.items():
+                if query_id in temp_creator_ids:
+                    continue
+
+                has_resolved_queries = True
+
+                for upstream in resolved.upstreams:
+                    in_tables.add(upstream)
+                min_confidence = min(min_confidence, resolved.confidence_score)
+
+                # Skip CLL for SELECT-only queries (no output table).
+                downstream_urn: Optional[str] = query_to_downstream.get(query_id)
+                if downstream_urn is not None:
+                    all_column_lineage.extend(resolved.column_lineage)
+        finally:
+            aggregator.close()
+
+        all_in_tables = list(in_tables)
+
+        if not all_in_tables and not all_out_tables:
+            return SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                column_lineage=None,
+                debug_info=SqlParsingDebugInfo(
+                    confidence=0.0,
+                ),
+            )
+
+        return SqlParsingResult(
+            in_tables=all_in_tables,
+            out_tables=all_out_tables,
+            column_lineage=all_column_lineage if all_column_lineage else None,
+            debug_info=SqlParsingDebugInfo(
+                confidence=min_confidence if has_resolved_queries else 0.0,
+            ),
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
