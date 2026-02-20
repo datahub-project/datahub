@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field
 
@@ -100,16 +100,3 @@ class VertexAIStateHandler(
             run_id=self.run_id,
             state=self._last_state,
         )
-
-
-class ModelUsageTracker:
-    def __init__(self):
-        self.used_model_urns: Dict[str, List[str]] = {}
-
-    def track_model_usage(self, model_urn: str, used_in_urn: str) -> None:
-        if model_urn not in self.used_model_urns:
-            self.used_model_urns[model_urn] = []
-        self.used_model_urns[model_urn].append(used_in_urn)
-
-    def get_model_usage(self, model_urn: str) -> List[str]:
-        return self.used_model_urns.get(model_urn, [])

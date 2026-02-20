@@ -40,6 +40,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetrics,
     ModelMetadata,
+    ModelUsageTracker,
     TrainingJobCustomProperties,
     TrainingJobMetadata,
     TrainingJobURNsAndEdges,
@@ -94,6 +95,7 @@ class VertexAITrainingExtractor:
         platform: str,
         report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
+        model_usage_tracker: ModelUsageTracker,
     ):
         self.config = config
         self.client = client
@@ -108,6 +110,7 @@ class VertexAITrainingExtractor:
         self.platform = platform
         self.report = report
         self.state_handler = state_handler
+        self.model_usage_tracker = model_usage_tracker
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
 
@@ -164,36 +167,35 @@ class VertexAITrainingExtractor:
     def _gen_output_model_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataWorkUnit]:
+        """
+        Track lineage between training jobs and their output models.
+        Note: Model metadata is emitted by the model extractor during Model.list().
+        This only tracks the training job relationship for later inclusion in model properties.
+        """
         if job_meta.output_model and job_meta.output_model_version:
             job = job_meta.job
             job_urn = builder.make_data_process_instance_urn(
                 self.name_formatter.format_job_name(entity_id=job.name)
             )
 
-            training_data_urns: List[str] = []
-            if job_meta.input_dataset:
-                dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=self.name_formatter.format_dataset_name(
-                        entity_id=job_meta.input_dataset.name
-                    ),
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-                training_data_urns.append(dataset_urn)
-            if job_meta.external_input_urns:
-                training_data_urns.extend(job_meta.external_input_urns)
-
-            yield from self._gen_ml_model_mcps(
-                ModelMetadata(
-                    model=job_meta.output_model,
-                    model_version=job_meta.output_model_version,
-                    training_job_urn=job_urn,
-                    training_data_urns=training_data_urns
-                    if training_data_urns
-                    else None,
-                )
+            model_name = self.name_formatter.format_model_name(
+                entity_id=job_meta.output_model.name
             )
+            model_urn = self.urn_builder.make_ml_model_urn(
+                job_meta.output_model_version, model_name=model_name
+            )
+            model_group_urn = self.urn_builder.make_ml_model_group_urn(
+                job_meta.output_model
+            )
+
+            # Track training job relationships (will be emitted when model is processed)
+            self.model_usage_tracker.track_model_training_job(model_urn, job_urn)
+            self.model_usage_tracker.track_model_group_training_job(
+                model_group_urn, job_urn
+            )
+
+        return
+        yield
 
     def _get_job_duration_millis(self, job: VertexAiResourceNoun) -> Optional[int]:
         create_time = job.create_time

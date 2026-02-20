@@ -39,6 +39,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     VertexAISubTypes,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ModelUsageTracker,
     PipelineContainerKey,
     PipelineMetadata,
     PipelineProperties,
@@ -51,10 +52,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_pipeline_task_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import (
-    ModelUsageTracker,
-    VertexAIStateHandler,
-)
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     get_resource_category_container,
@@ -385,10 +383,8 @@ class VertexAIPipelineExtractor:
                 [EdgeClass(destinationUrn=urn) for urn in task.output_dataset_urns]
             )
 
-        if task.output_model_urns:
-            output_edges.extend(
-                [EdgeClass(destinationUrn=urn) for urn in task.output_model_urns]
-            )
+        # Note: Model outputs are tracked for downstream lineage but not emitted as edges here,
+        # since we need to resolve resource names to URNs when processing the actual models
 
         if output_edges:
             yield MetadataChangeProposalWrapper(
@@ -464,12 +460,10 @@ class VertexAIPipelineExtractor:
                 if input_entry.artifacts:
                     for artifact in input_entry.artifacts:
                         if artifact.uri:
-                            model_urn = self.uri_parser.model_urn_from_artifact_uri(
-                                artifact.uri
-                            )
-                            if model_urn:
-                                self.model_usage_tracker.track_model_usage(
-                                    model_urn, task_urn
+                            if self.uri_parser._is_model_uri(artifact.uri):
+                                # Track by resource name, to be resolved later when we process the model
+                                self.model_usage_tracker.track_resource_usage(
+                                    artifact.uri, task_urn
                                 )
                             else:
                                 input_dataset_urns.extend(
@@ -488,23 +482,26 @@ class VertexAIPipelineExtractor:
             return PipelineTaskArtifacts()
 
     def _extract_pipeline_task_outputs(
-        self, task_detail: PipelineTaskDetail, task_name: str
+        self, task_detail: PipelineTaskDetail, task_name: str, task_urn: str
     ) -> PipelineTaskArtifacts:
         if not task_detail.outputs:
             return PipelineTaskArtifacts()
 
         output_dataset_urns: List[str] = []
-        output_model_urns: List[str] = []
+        output_model_resource_names: List[str] = []
         try:
             for output_entry in task_detail.outputs.values():
                 if output_entry.artifacts:
                     for artifact in output_entry.artifacts:
                         if artifact.uri:
-                            model_urn = self.uri_parser.model_urn_from_artifact_uri(
-                                artifact.uri
-                            )
-                            if model_urn:
-                                output_model_urns.append(model_urn)
+                            # Check if this is a model resource
+                            if self.uri_parser._is_model_uri(artifact.uri):
+                                # Store resource name for later resolution
+                                output_model_resource_names.append(artifact.uri)
+                                # Also track for downstream lineage (will be resolved when model is processed)
+                                self.model_usage_tracker.track_resource_usage(
+                                    artifact.uri, task_urn
+                                )
                             else:
                                 output_dataset_urns.extend(
                                     self.uri_parser.dataset_urns_from_artifact_uri(
@@ -515,7 +512,9 @@ class VertexAIPipelineExtractor:
                 output_dataset_urns=output_dataset_urns
                 if output_dataset_urns
                 else None,
-                output_model_urns=output_model_urns if output_model_urns else None,
+                output_model_resource_names=output_model_resource_names
+                if output_model_resource_names
+                else None,
             )
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(
@@ -586,10 +585,12 @@ class VertexAIPipelineExtractor:
                     task_meta.input_dataset_urns = inputs.input_dataset_urns
 
                     outputs = self._extract_pipeline_task_outputs(
-                        task_detail, task_name
+                        task_detail, task_name, dpi_urn
                     )
                     task_meta.output_dataset_urns = outputs.output_dataset_urns
-                    task_meta.output_model_urns = outputs.output_model_urns
+                    task_meta.output_model_resource_names = (
+                        outputs.output_model_resource_names
+                    )
 
                 tasks.append(task_meta)
         return tasks

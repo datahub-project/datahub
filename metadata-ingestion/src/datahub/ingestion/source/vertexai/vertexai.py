@@ -68,15 +68,13 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
     ModelMetadata,
+    ModelUsageTracker,
     VertexAIResourceCategoryKey,
 )
 from datahub.ingestion.source.vertexai.vertexai_pipeline_extractor import (
     VertexAIPipelineExtractor,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import (
-    ModelUsageTracker,
-    VertexAIStateHandler,
-)
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
@@ -241,6 +239,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             platform=self.platform,
             report=self.report,
             state_handler=self.state_handler,
+            model_usage_tracker=self.model_usage_tracker,
         )
         self.model_extractor = VertexAIModelExtractor(
             config=self.config,
@@ -393,6 +392,13 @@ class VertexAISource(StatefulIngestionSourceBase):
                 # Process models AFTER jobs so we can add downstream lineage
                 if self.config.include_models:
                     yield from auto_workunit(self.model_extractor.get_model_workunits())
+
+                    # Emit lineage updates for models that have tracked lineage but
+                    # weren't re-processed (e.g., in incremental mode when a new pipeline
+                    # references an existing model that hasn't changed)
+                    yield from auto_workunit(
+                        self.model_extractor.emit_pending_lineage_updates()
+                    )
 
                 if self.config.include_evaluations:
                     yield from auto_workunit(

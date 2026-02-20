@@ -26,6 +26,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 from datahub.ingestion.source.vertexai.vertexai_models import (
     ExperimentMetadata,
     ExperimentRunMetadata,
+    ModelUsageTracker,
     RunTimestamps,
     YieldCommonAspectsProtocol,
 )
@@ -33,10 +34,7 @@ from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
     get_execution_result_status,
     is_status_for_run_event_class,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import (
-    ModelUsageTracker,
-    VertexAIStateHandler,
-)
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     filter_by_update_time,
     get_actor_from_labels,

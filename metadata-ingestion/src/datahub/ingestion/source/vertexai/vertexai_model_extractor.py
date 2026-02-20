@@ -20,6 +20,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     CREATE_TIME_FIELD,
     ORDER_BY_UPDATE_TIME_DESC,
     VERSION_ID_FIELD,
+    VERSION_SORT_ID_PADDING,
     MLModelType,
     ResourceCategory,
     ResourceTypes,
@@ -31,12 +32,10 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelEvaluationCustomProperties,
     ModelGroupKey,
     ModelMetadata,
+    ModelUsageTracker,
     YieldCommonAspectsProtocol,
 )
-from datahub.ingestion.source.vertexai.vertexai_state import (
-    ModelUsageTracker,
-    VertexAIStateHandler,
-)
+from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     filter_by_update_time,
     get_actor_from_labels,
@@ -117,7 +116,7 @@ class VertexAIModelExtractor:
 
             if not self.config.model_name_pattern.allowed(model.display_name or ""):
                 continue
-            yield from self._gen_ml_group_mcps(model)
+
             model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 total_versions += 1
@@ -128,6 +127,9 @@ class VertexAIModelExtractor:
                 yield from self._get_ml_model_mcps(
                     model=model, model_version=model_version
                 )
+
+            # Emit model group AFTER versions are processed (so downstream lineage is resolved)
+            yield from self._gen_ml_group_mcps(model)
 
             if (
                 self.config.max_models is not None
@@ -197,6 +199,54 @@ class VertexAIModelExtractor:
             logger.info(
                 f"Finished processing {total_evaluations} model evaluations from Vertex AI"
             )
+
+    def emit_pending_lineage_updates(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit lineage-only updates for models/model groups that have tracked lineage
+        but weren't emitted during normal processing (e.g., in incremental mode).
+
+        This ensures downstream lineage appears even for unchanged models when new
+        pipelines/jobs start referencing them.
+        """
+        pending_urns = self.model_usage_tracker.get_pending_lineage_urns()
+
+        if not pending_urns:
+            return
+
+        logger.info(
+            f"Emitting lineage updates for {len(pending_urns)} models/model groups that weren't re-processed"
+        )
+
+        for urn in pending_urns:
+            # Determine if this is a model or model group URN
+            is_model_group = ":mlModelGroup:" in urn
+
+            if is_model_group:
+                training_jobs = self.model_usage_tracker.get_model_group_training_jobs(
+                    urn
+                )
+                downstream_jobs = self.model_usage_tracker.get_model_group_usage(urn)
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=MLModelGroupPropertiesClass(
+                        trainingJobs=training_jobs if training_jobs else None,
+                        downstreamJobs=downstream_jobs if downstream_jobs else None,
+                    ),
+                ).as_workunit()
+            else:
+                training_job = self.model_usage_tracker.get_model_training_job(urn)
+                downstream_jobs = self.model_usage_tracker.get_model_usage(urn)
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=MLModelPropertiesClass(
+                        trainingJobs=[training_job] if training_job else None,
+                        downstreamJobs=downstream_jobs if downstream_jobs else None,
+                    ),
+                ).as_workunit()
+
+            self.model_usage_tracker.mark_emitted(urn)
 
     def _extract_evaluation_metrics(
         self, evaluation: ModelEvaluation
@@ -358,6 +408,13 @@ class VertexAIModelExtractor:
 
         ml_model_group_urn = self.urn_builder.make_ml_model_group_urn(model)
 
+        training_jobs = self.model_usage_tracker.get_model_group_training_jobs(
+            ml_model_group_urn
+        )
+        downstream_jobs = self.model_usage_tracker.get_model_group_usage(
+            ml_model_group_urn
+        )
+
         yield MetadataChangeProposalWrapper(
             entityUrn=ml_model_group_urn,
             aspect=MLModelGroupPropertiesClass(
@@ -379,6 +436,8 @@ class VertexAIModelExtractor:
                     if model.update_time
                     else None
                 ),
+                trainingJobs=training_jobs if training_jobs else None,
+                downstreamJobs=downstream_jobs if downstream_jobs else None,
                 customProperties=None,
                 externalUrl=self.url_builder.make_model_url(model.name),
             ),
@@ -389,6 +448,8 @@ class VertexAIModelExtractor:
             subtype=VertexAISubTypes.MODEL_GROUP,
             resource_category=ResourceCategory.MODELS,
         )
+
+        self.model_usage_tracker.mark_emitted(ml_model_group_urn)
 
     def _get_model_group_container(self, model: Model) -> ModelGroupKey:
         return ModelGroupKey(
@@ -520,7 +581,7 @@ class VertexAIModelExtractor:
                     ),
                 ),
                 versionSet=self._get_version_set_urn(model).urn(),
-                sortId=str(model_version.version_id).zfill(10),
+                sortId=str(model_version.version_id).zfill(VERSION_SORT_ID_PADDING),
                 aliases=None,
             ),
         ).as_workunit()
@@ -553,7 +614,28 @@ class VertexAIModelExtractor:
         model_urn = self.urn_builder.make_ml_model_urn(
             model_version, model_name=model_name
         )
+
+        # Resolve any pending resource usage from pipeline tasks that referenced this model
+        if model.resource_name:
+            self.model_usage_tracker.resolve_and_track_resource(
+                model.resource_name, model_urn, model_group_urn
+            )
+
+        # Retrieve training job if it was tracked earlier
+        if not training_job_urn:
+            training_job_urn = self.model_usage_tracker.get_model_training_job(
+                model_urn
+            )
+
         downstream_job_urns = self.model_usage_tracker.get_model_usage(model_urn)
+
+        if training_job_urn:
+            self.model_usage_tracker.track_model_training_job(
+                model_urn, training_job_urn
+            )
+            self.model_usage_tracker.track_model_group_training_job(
+                model_group_urn, training_job_urn
+            )
 
         yield self._create_ml_model_properties_aspect(
             model,
@@ -582,6 +664,8 @@ class VertexAIModelExtractor:
         training_data_urns = model_metadata.training_data_urns
         if training_data_urns:
             yield self._create_training_data_aspect(model_urn, training_data_urns)
+
+        self.model_usage_tracker.mark_emitted(model_urn)
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
         guid_dict = {"platform": self.platform, "name": model.name}

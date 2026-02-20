@@ -17,6 +17,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     ModelMetadata,
 )
 from datahub.metadata.schema_classes import (
+    MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     TrainingDataClass,
 )
@@ -232,13 +233,31 @@ def test_model_downstream_lineage_from_pipeline_tasks(source: VertexAISource) ->
         }
     }
 
+    # Step 1: Process pipeline - this tracks the resource usage by artifact URI
     with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
         mock_list.return_value = [mock_pipeline]
         list(source.pipeline_extractor.get_workunits())
 
-    expected_model_urn = "urn:li:mlModel:(urn:li:dataPlatform:vertexai,123456,PROD)"
+    # Step 2: Simulate model processing to resolve resource name to URN
+    resource_name = "projects/test-project/locations/us-central1/models/123456"
+    mock_model = MagicMock()
+    mock_model.name = "test_model"
+    mock_model.resource_name = resource_name
 
-    downstream_urns = source.model_usage_tracker.get_model_usage(expected_model_urn)
+    mock_version = MagicMock()
+    mock_version.version_id = "1"
+
+    model_name = source.name_formatter.format_model_name(mock_model.name)
+    model_urn = source.urn_builder.make_ml_model_urn(mock_version, model_name)
+    model_group_urn = source.urn_builder.make_ml_model_group_urn(mock_model)
+
+    # This is what happens during model processing
+    source.model_usage_tracker.resolve_and_track_resource(
+        resource_name, model_urn, model_group_urn
+    )
+
+    # Step 3: Verify downstream lineage
+    downstream_urns = source.model_usage_tracker.get_model_usage(model_urn)
     assert len(downstream_urns) == 1
     assert any("prediction_task" in urn for urn in downstream_urns)
 
@@ -325,3 +344,149 @@ def test_model_includes_downstream_jobs_in_properties(source: VertexAISource) ->
     assert model_props_mcp.metadata.aspect.downstreamJobs is not None
     assert len(model_props_mcp.metadata.aspect.downstreamJobs) > 0
     assert downstream_job_urn in model_props_mcp.metadata.aspect.downstreamJobs
+
+
+def test_model_group_downstream_lineage_from_pipeline_tasks(
+    source: VertexAISource,
+) -> None:
+    """Test that pipeline tasks using models as inputs create downstream lineage for model groups."""
+    mock_pipeline = MagicMock(spec=PipelineJob)
+    mock_pipeline.name = "test-pipeline"
+    mock_pipeline.display_name = "test-pipeline-display"
+    mock_pipeline.resource_name = "projects/test/locations/us-west2/pipelineJobs/12345"
+    mock_pipeline.location = "us-west2"
+    mock_pipeline.labels = {}
+    mock_pipeline.state = MagicMock()
+    mock_pipeline.state.value = 3
+    mock_pipeline.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_pipeline.update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    mock_task_detail = MagicMock(spec=PipelineTaskDetail)
+    mock_task_detail.task_name = "prediction_task"
+    mock_task_detail.task_id = 1
+    mock_task_detail.state = PipelineTaskDetail.State.SUCCEEDED
+    mock_task_detail.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_task_detail.create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_task_detail.end_time = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+    mock_artifact = MagicMock()
+    mock_artifact.uri = "projects/test-project/locations/us-central1/models/123456789"
+
+    mock_input_entry = MagicMock()
+    mock_input_entry.artifacts = [mock_artifact]
+
+    mock_task_detail.inputs = {"model": mock_input_entry}
+    mock_task_detail.outputs = {}
+
+    # Set up the pipeline spec
+    gca_resource = MagicMock(spec=PipelineJobType)
+    mock_pipeline.gca_resource = gca_resource
+    mock_pipeline.task_details = [mock_task_detail]
+    gca_resource.pipeline_spec = {
+        "root": {
+            "dag": {
+                "tasks": {
+                    "prediction_task": {
+                        "componentRef": {"name": "comp-prediction"},
+                    }
+                }
+            }
+        }
+    }
+
+    # Step 1: Process pipeline - this tracks resource usage by artifact URI
+    with patch("google.cloud.aiplatform.PipelineJob.list") as mock_list:
+        mock_list.return_value = [mock_pipeline]
+        list(source.pipeline_extractor.get_workunits())
+
+    # Step 2: Simulate model processing to resolve resource name to URNs
+    resource_name = "projects/test-project/locations/us-central1/models/123456789"
+    mock_model = MagicMock()
+    mock_model.name = "test_model_group"
+    mock_model.resource_name = resource_name
+
+    mock_version = MagicMock()
+    mock_version.version_id = "1"
+
+    model_name = source.name_formatter.format_model_name(mock_model.name)
+    model_urn = source.urn_builder.make_ml_model_urn(mock_version, model_name)
+    model_group_urn = source.urn_builder.make_ml_model_group_urn(mock_model)
+
+    # This is what happens during model processing
+    source.model_usage_tracker.resolve_and_track_resource(
+        resource_name, model_urn, model_group_urn
+    )
+
+    # Step 3: Verify downstream lineage for model group
+    downstream_urns = source.model_usage_tracker.get_model_group_usage(model_group_urn)
+    assert len(downstream_urns) == 1
+    assert any("prediction_task" in urn for urn in downstream_urns)
+
+
+def test_model_group_training_jobs_tracked(source: VertexAISource) -> None:
+    """Test that model groups track training jobs from model versions."""
+    mock_model = gen_mock_model()
+    mock_version = MagicMock()
+    mock_version.version_id = "1"
+    mock_version.version_description = "Test version"
+    mock_version.version_create_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    mock_version.version_update_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    training_job_urn = "urn:li:dataProcessInstance:training_job_123"
+
+    model_metadata = ModelMetadata(
+        model=mock_model,
+        model_version=mock_version,
+        endpoints=[],
+        training_job_urn=training_job_urn,
+    )
+
+    list(source._gen_ml_model_mcps(model_metadata))
+
+    model_group_urn = source.urn_builder.make_ml_model_group_urn(mock_model)
+    tracked_training_jobs = source.model_usage_tracker.get_model_group_training_jobs(
+        model_group_urn
+    )
+
+    assert len(tracked_training_jobs) == 1
+    assert training_job_urn in tracked_training_jobs
+
+
+def test_model_group_includes_lineage_in_properties(source: VertexAISource) -> None:
+    """Test that model groups include training jobs and downstream jobs in their properties."""
+    mock_model = gen_mock_model()
+
+    model_group_urn = source.urn_builder.make_ml_model_group_urn(mock_model)
+    training_job_urn = "urn:li:dataProcessInstance:training_job_123"
+    downstream_job_urn = "urn:li:dataJob:downstream_pipeline.task"
+
+    source.model_usage_tracker.track_model_group_training_job(
+        model_group_urn, training_job_urn
+    )
+    source.model_usage_tracker.track_model_usage(model_group_urn, downstream_job_urn)
+
+    mcps = list(source.model_extractor._gen_ml_group_mcps(mock_model))
+
+    model_group_props_mcp = next(
+        (
+            mcp
+            for mcp in mcps
+            if isinstance(mcp.metadata, MetadataChangeProposalWrapper)
+            and isinstance(mcp.metadata.aspect, MLModelGroupPropertiesClass)
+        ),
+        None,
+    )
+
+    assert model_group_props_mcp is not None
+    assert isinstance(model_group_props_mcp.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(
+        model_group_props_mcp.metadata.aspect, MLModelGroupPropertiesClass
+    )
+
+    assert model_group_props_mcp.metadata.aspect.trainingJobs is not None
+    assert len(model_group_props_mcp.metadata.aspect.trainingJobs) == 1
+    assert training_job_urn in model_group_props_mcp.metadata.aspect.trainingJobs
+
+    assert model_group_props_mcp.metadata.aspect.downstreamJobs is not None
+    assert len(model_group_props_mcp.metadata.aspect.downstreamJobs) == 1
+    assert downstream_job_urn in model_group_props_mcp.metadata.aspect.downstreamJobs

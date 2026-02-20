@@ -1,5 +1,6 @@
+import logging
 from datetime import datetime, timedelta
-from typing import Annotated, Dict, Iterable, List, Optional, Protocol
+from typing import Annotated, Dict, Iterable, List, Optional, Protocol, Set
 
 from google.cloud.aiplatform import Endpoint, Experiment, ExperimentRun, Model
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -17,6 +18,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 )
 from datahub.metadata.schema_classes import EdgeClass, MLHyperParamClass, MLMetricClass
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+logger = logging.getLogger(__name__)
 
 
 class YieldCommonAspectsProtocol(Protocol):
@@ -194,7 +197,7 @@ class PipelineTaskArtifacts(BaseModel):
 
     input_dataset_urns: Optional[List[str]] = None
     output_dataset_urns: Optional[List[str]] = None
-    output_model_urns: Optional[List[str]] = None
+    output_model_resource_names: Optional[List[str]] = None
 
 
 class PipelineTaskMetadata(BaseModel):
@@ -214,7 +217,7 @@ class PipelineTaskMetadata(BaseModel):
     duration: Optional[int] = None
     input_dataset_urns: Optional[List[str]] = None
     output_dataset_urns: Optional[List[str]] = None
-    output_model_urns: Optional[List[str]] = None
+    output_model_resource_names: Optional[List[str]] = None
 
 
 class PipelineMetadata(BaseModel):
@@ -390,3 +393,128 @@ class AutoMLJobConfig(BaseModel):
     modelToUpload: Optional[ModelToUpload] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+
+class ModelLineageRelationships(BaseModel):
+    """Lineage relationships for a single model or model group."""
+
+    downstream_jobs: List[str] = Field(default_factory=list)
+    training_jobs: List[str] = Field(default_factory=list)
+
+    def add_downstream_job(self, job_urn: str) -> None:
+        if job_urn not in self.downstream_jobs:
+            self.downstream_jobs.append(job_urn)
+
+    def add_training_job(self, job_urn: str) -> None:
+        if job_urn not in self.training_jobs:
+            self.training_jobs.append(job_urn)
+
+    def set_training_job(self, job_urn: str) -> None:
+        """Set the single training job (for models with one training job)."""
+        if not self.training_jobs or job_urn not in self.training_jobs:
+            self.training_jobs = [job_urn]
+
+
+class PendingResourceUsage(BaseModel):
+    """Pending lineage for a model resource before URN is resolved."""
+
+    downstream_job_urns: List[str] = Field(default_factory=list)
+
+    def add_downstream_job(self, job_urn: str) -> None:
+        if job_urn not in self.downstream_job_urns:
+            self.downstream_job_urns.append(job_urn)
+
+
+class ModelUsageTracker(BaseModel):
+    """Tracks ML Model and ML Model Group lineage relationships with DataJobs."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    relationships: Dict[str, ModelLineageRelationships] = Field(default_factory=dict)
+    pending_resources: Dict[str, PendingResourceUsage] = Field(default_factory=dict)
+    emitted_urns: Set[str] = Field(default_factory=set)
+
+    def _get_or_create_relationships(self, urn: str) -> ModelLineageRelationships:
+        if urn not in self.relationships:
+            self.relationships[urn] = ModelLineageRelationships()
+        return self.relationships[urn]
+
+    def _get_or_create_pending(self, resource_name: str) -> PendingResourceUsage:
+        if resource_name not in self.pending_resources:
+            self.pending_resources[resource_name] = PendingResourceUsage()
+        return self.pending_resources[resource_name]
+
+    def track_model_usage(self, model_urn: str, used_in_urn: str) -> None:
+        self._get_or_create_relationships(model_urn).add_downstream_job(used_in_urn)
+
+    def track_model_group_training_job(
+        self, model_group_urn: str, training_job_urn: str
+    ) -> None:
+        self._get_or_create_relationships(model_group_urn).add_training_job(
+            training_job_urn
+        )
+
+    def track_model_training_job(self, model_urn: str, training_job_urn: str) -> None:
+        self._get_or_create_relationships(model_urn).set_training_job(training_job_urn)
+
+    def track_resource_usage(self, resource_name: str, used_in_urn: str) -> None:
+        self._get_or_create_pending(resource_name).add_downstream_job(used_in_urn)
+
+    def resolve_and_track_resource(
+        self, resource_name: str, model_urn: str, model_group_urn: str
+    ) -> None:
+        """
+        Resolve a pending resource to actual model URNs and track usage.
+        Call this when processing a model to link it with jobs that referenced it by resource name.
+        """
+        if resource_name in self.pending_resources:
+            pending = self.pending_resources[resource_name]
+            for job_urn in pending.downstream_job_urns:
+                self.track_model_usage(model_urn, job_urn)
+                self.track_model_usage(model_group_urn, job_urn)
+
+    def get_model_usage(self, model_urn: str) -> List[str]:
+        return (
+            self.relationships[model_urn].downstream_jobs
+            if model_urn in self.relationships
+            else []
+        )
+
+    def get_model_group_usage(self, model_group_urn: str) -> List[str]:
+        return (
+            self.relationships[model_group_urn].downstream_jobs
+            if model_group_urn in self.relationships
+            else []
+        )
+
+    def get_model_group_training_jobs(self, model_group_urn: str) -> List[str]:
+        return (
+            self.relationships[model_group_urn].training_jobs
+            if model_group_urn in self.relationships
+            else []
+        )
+
+    def get_model_training_job(self, model_urn: str) -> Optional[str]:
+        if model_urn in self.relationships:
+            jobs = self.relationships[model_urn].training_jobs
+            return jobs[0] if jobs else None
+        return None
+
+    def mark_emitted(self, urn: str) -> None:
+        """Mark a URN as having been emitted (to avoid duplicates in incremental mode)."""
+        self.emitted_urns.add(urn)
+
+    def get_pending_lineage_urns(self) -> List[str]:
+        """
+        Get all URNs with tracked lineage that haven't been emitted yet.
+        Used in incremental mode to emit lineage updates for models that weren't re-processed.
+        """
+        return [
+            urn
+            for urn in self.relationships
+            if urn not in self.emitted_urns
+            and (
+                self.relationships[urn].downstream_jobs
+                or self.relationships[urn].training_jobs
+            )
+        ]

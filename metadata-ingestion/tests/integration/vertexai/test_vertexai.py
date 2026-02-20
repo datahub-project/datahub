@@ -90,10 +90,18 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
         )
         mock_ds.return_value = [gen_mock_dataset()]
 
-        mock_model = exit_stack.enter_context(
+        # Mock Model constructor to return gen_mock_model(1) when called with model_name
+        # Patch both the module location and where it's imported in the training extractor
+        mock_model_class = exit_stack.enter_context(
             patch("google.cloud.aiplatform.models.Model")
         )
-        mock_model.return_value = gen_mock_model()
+        mock_model_class.return_value = gen_mock_model(1)
+
+        # Also patch where it's imported in the training extractor
+        mock_model_training = exit_stack.enter_context(
+            patch("datahub.ingestion.source.vertexai.vertexai_training_extractor.Model")
+        )
+        mock_model_training.return_value = gen_mock_model(1)
 
         mock_exp = exit_stack.enter_context(
             patch("google.cloud.aiplatform.Experiment.list")

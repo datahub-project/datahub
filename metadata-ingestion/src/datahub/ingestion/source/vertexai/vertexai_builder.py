@@ -438,12 +438,15 @@ class VertexAIURIParser:
             )
         return urns
 
+    def _is_model_uri(self, uri: str) -> bool:
+        """Check if a URI represents a Vertex AI model resource."""
+        return (
+            URIPatterns.PROJECTS_PREFIX in uri and URIPatterns.MODEL_PATH_PATTERN in uri
+        )
+
     def _extract_model_id_from_uri(self, uri: str) -> Optional[str]:
         """Extract model ID from Vertex AI model resource URI."""
-        if (
-            URIPatterns.PROJECTS_PREFIX not in uri
-            or URIPatterns.MODEL_PATH_PATTERN not in uri
-        ):
+        if not self._is_model_uri(uri):
             return None
 
         parts = uri.split("/")
@@ -465,6 +468,20 @@ class VertexAIURIParser:
             return builder.make_ml_model_urn(
                 platform=self.platform,
                 model_name=model_id,
+                env=self.env,
+            )
+        return None
+
+    def model_group_urn_from_artifact_uri(self, uri: Optional[str]) -> Optional[str]:
+        """Extract model group URN from ML Metadata artifact URI."""
+        if not uri:
+            return None
+
+        model_id = self._extract_model_id_from_uri(uri)
+        if model_id:
+            return builder.make_ml_model_group_urn(
+                platform=self.platform,
+                group_name=model_id,
                 env=self.env,
             )
         return None

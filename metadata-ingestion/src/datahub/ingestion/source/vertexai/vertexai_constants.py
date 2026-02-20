@@ -18,6 +18,10 @@ UPDATE_TIME_FIELD = "update_time"
 CREATE_TIME_FIELD = "create_time"
 VERSION_ID_FIELD = "version_id"
 
+# Model version sorting configuration
+# Padding for version IDs to ensure correct string-based sorting (supports up to 9,999,999,999)
+VERSION_SORT_ID_PADDING = 10
+
 # API ordering for incremental ingestion
 ORDER_BY_UPDATE_TIME_DESC = f"{UPDATE_TIME_FIELD} desc"
 ORDER_BY_CREATE_TIME_DESC = f"{CREATE_TIME_FIELD} desc"

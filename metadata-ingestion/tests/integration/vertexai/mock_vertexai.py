@@ -88,6 +88,18 @@ def gen_mock_training_custom_job(labels: Optional[Dict[str, str]] = None) -> Cus
         type(mock_training_job).labels = PropertyMock(return_value=labels)
     mock_training_job.labels = {}
 
+    # Link training job to output model (for training job lineage)
+    # Use the same model name as gen_mock_model(1) produces
+    mock_training_job.to_dict.return_value = {
+        "jobSpec": {
+            "output": {"artifactOutputUri": "gs://bucket/training-output/model"}
+        },
+        "modelToUpload": {
+            "name": "projects/123/locations/us-central1/models/234",
+            "versionId": "1",
+        },
+    }
+
     return mock_training_job
 
 
@@ -97,10 +109,18 @@ def gen_mock_training_automl_job() -> AutoMLTabularTrainingJob:
     mock_automl_job.create_time = MOCK_CREATE_TIME
     mock_automl_job.update_time = MOCK_UPDATE_TIME
     mock_automl_job.display_name = "mock_auto_automl_tabular_job_display_name"
-    mock_automl_job.description = "mock_auto_automl_tabular_job_display_name"
+    mock_automl_job.description = "mock_auto_automl_tabular_job_description"
+    mock_automl_job.labels = {}
+
+    # Link training job to output model (for training job lineage)
     mock_automl_job.to_dict.return_value = {
-        "inputDataConfig": {"datasetId": "2562882439508656128"}
+        "inputDataConfig": {"datasetId": "2562882439508656128"},
+        "modelToUpload": {
+            "name": "projects/123/locations/us-central1/models/234",
+            "versionId": "1",
+        },
     }
+
     return mock_automl_job
 
 
@@ -174,14 +194,29 @@ def get_mock_pipeline_job() -> PipelineJob:
     gca_resource = MagicMock(spec=PipelineJobType)
     mock_pipeline_job.gca_resource = gca_resource
     task_detail = MagicMock(spec=PipelineTaskDetail)
-    task_detail.task_name = "mock_pipeline_task"
-    task_detail.task_id = "dummy_task_id"
-    task_detail.task_id = "dummy_state"
+    task_detail.task_name = "reverse"
+    task_detail.task_id = 1
+    task_detail.state = PipelineTaskDetail.State.SUCCEEDED
     task_detail.start_time = MOCK_TASK_START_TIME
     task_detail.create_time = MOCK_CREATE_TIME
     task_detail.end_time = MOCK_TASK_END_TIME
-    task_detail.inputs = {}
-    task_detail.outputs = {}
+
+    # Add model artifact in task inputs to test downstream lineage
+    # Use same project/location as gen_mock_model(1) produces: projects/123/locations/us-central1/models/234
+    mock_model_artifact = MagicMock()
+    mock_model_artifact.uri = "projects/123/locations/us-central1/models/234"
+    mock_input_entry = MagicMock()
+    mock_input_entry.artifacts = [mock_model_artifact]
+    task_detail.inputs = {"model": mock_input_entry}
+
+    # Add model artifact in outputs for completeness
+    # Use model 2: projects/123/locations/us-central1/models/345
+    mock_output_model_artifact = MagicMock()
+    mock_output_model_artifact.uri = "projects/123/locations/us-central1/models/345"
+    mock_output_entry = MagicMock()
+    mock_output_entry.artifacts = [mock_output_model_artifact]
+    task_detail.outputs = {"output_model": mock_output_entry}
+
     mock_pipeline_job.task_details = [task_detail]
     gca_resource.pipeline_spec = {
         "root": {
