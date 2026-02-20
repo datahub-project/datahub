@@ -583,7 +583,7 @@ elasticsearch:
       searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
       autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     rescore:
-      enabled: ${ELASTICSEARCH_QUERY_RESCORE_ENABLED:true} # Enable Stage 2 reranking with rescore
+      enabled: ${ELASTICSEARCH_QUERY_RESCORE_ENABLED:false} # Disable OpenSearch reranking, use Java/exp4j based rescoring instead
       file: ${ELASTICSEARCH_QUERY_RESCORE_CONFIG_FILE:rescore_config.yaml} # Rescore configuration file
       windowSize: ${ELASTICSEARCH_QUERY_RESCORE_WINDOW_SIZE:100} # Number of top results to rescore (fallback if file not loaded)
       queryWeight: ${ELASTICSEARCH_QUERY_RESCORE_QUERY_WEIGHT:0.0} # Weight for Stage 1 score (0.0 = Stage 2 replaces Stage 1)
