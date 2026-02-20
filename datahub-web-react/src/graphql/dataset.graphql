@@ -408,13 +408,6 @@ query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
         ...datasetSchema
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...datasetSchema
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -423,7 +416,9 @@ query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 entity {
                     urn
                     type
-                    ...datasetSchema
+                    ... on Dataset {
+                        ...datasetSchema
+                    }
                 }
             }
         }
