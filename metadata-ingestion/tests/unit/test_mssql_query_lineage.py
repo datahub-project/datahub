@@ -1351,8 +1351,7 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
 # =============================================================================
 
 
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_max_queries_zero_handled_gracefully(create_engine_mock):
+def test_mssql_max_queries_zero_handled_gracefully():
     """Test max_queries_to_extract=0 is rejected with clear error message."""
     with pytest.raises(ValueError, match="must be positive"):
         SQLServerConfig.model_validate(

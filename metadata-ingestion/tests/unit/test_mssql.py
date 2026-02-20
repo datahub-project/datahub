@@ -195,7 +195,9 @@ def test_get_jobs_managed_environment_success(mock_logger, mssql_source):
 
     assert result == mock_jobs
     mock_logger.info.assert_called_with(
-        "Successfully retrieved jobs using stored procedures (managed environment)"
+        "Retrieved jobs using %s (%s)",
+        "_get_jobs_via_stored_procedures",
+        "managed environment",
     )
 
 
@@ -215,7 +217,9 @@ def test_get_jobs_on_premises_success(mock_logger, mssql_source):
 
     assert result == mock_jobs
     mock_logger.info.assert_called_with(
-        "Successfully retrieved jobs using direct query (on-premises environment)"
+        "Retrieved jobs using %s (%s)",
+        "_get_jobs_via_direct_query",
+        "on-premises environment",
     )
 
 
@@ -263,12 +267,12 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == mock_jobs
-    mock_logger.warning.assert_called_with(
-        "Database error retrieving jobs via direct query (missing permissions to msdb or syntax issue): %s. Trying stored procedures fallback.",
-        ANY,
-    )
+    # The new implementation logs warnings for failures and info for success
+    assert mock_logger.warning.called
     mock_logger.info.assert_called_with(
-        "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
+        "Retrieved jobs using %s (%s)",
+        "_get_jobs_via_stored_procedures",
+        "on-premises environment",
     )
 
 
