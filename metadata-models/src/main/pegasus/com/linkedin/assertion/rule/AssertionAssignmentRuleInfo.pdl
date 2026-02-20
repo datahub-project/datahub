@@ -1,0 +1,72 @@
+namespace com.linkedin.assertion.rule
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an Assertion Assignment Rule.
+ * An Assertion Assignment Rule automatically assigns assertions and subscriptions
+ * to entities matching a filter.
+ */
+@Aspect = {
+  "name": "assertionAssignmentRuleInfo"
+}
+record AssertionAssignmentRuleInfo {
+    /**
+     * Display name of the rule.
+     */
+    @Searchable = {
+      "fieldType": "TEXT_PARTIAL"
+    }
+    name: string
+
+    /**
+     * The mode of the rule (ENABLED or DISABLED).
+     */
+    @Searchable = {
+      "fieldType": "KEYWORD",
+      "addToFilters": true
+    }
+    mode: AssertionAssignmentRuleMode = "ENABLED"
+
+    /**
+     * The filter criteria used to match entities for assertion assignment.
+     */
+    entityFilter: AssertionAssignmentRuleFilter
+
+    /**
+     * Configuration for freshness assertions.
+     */
+    freshnessConfig: optional FreshnessAssertionAssignmentRuleConfig
+
+    /**
+     * Configuration for volume assertions.
+     */
+    volumeConfig: optional VolumeAssertionAssignmentRuleConfig
+
+    /**
+     * Configuration for subscriptions.
+     */
+    subscriptionConfig: optional SubscriptionAssignmentRuleConfig
+
+    /**
+     * Audit stamp capturing when and by whom this rule was created.
+     */
+    @Searchable = {
+      "/time": {
+        "fieldName": "createdTime",
+        "fieldType": "DATETIME"
+      }
+    }
+    created: optional AuditStamp
+
+    /**
+     * Audit stamp capturing when and by whom this rule was last updated.
+     */
+    @Searchable = {
+      "/time": {
+        "fieldName": "updatedTime",
+        "fieldType": "DATETIME"
+      }
+    }
+    updated: optional AuditStamp
+}

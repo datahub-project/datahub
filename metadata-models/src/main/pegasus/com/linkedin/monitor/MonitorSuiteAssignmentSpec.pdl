@@ -4,6 +4,9 @@ import com.linkedin.metadata.query.filter.Filter
 
 /**
  * Information about entities that should be monitored by a monitor suite.
+ *
+ * @deprecated DO NOT USE. MonitorSuite was never implemented — no service layer, no hooks, no UI,
+ * no customer data exists. Safe to remove entirely in a future release.
  */
 record MonitorSuiteAssignmentSpec {
     /**

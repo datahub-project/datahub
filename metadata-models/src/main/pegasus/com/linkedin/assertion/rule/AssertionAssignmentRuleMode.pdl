@@ -1,0 +1,16 @@
+namespace com.linkedin.assertion.rule
+
+/**
+ * The mode of an Assertion Assignment Rule.
+ */
+enum AssertionAssignmentRuleMode {
+  /**
+   * The rule is actively evaluating and assigning assertions.
+   */
+  ENABLED
+
+  /**
+   * The rule is paused and not evaluating.
+   */
+  DISABLED
+}

@@ -4,6 +4,9 @@ import com.linkedin.subscription.EntityChangeDetails
 import com.linkedin.subscription.SubscriptionNotificationConfig
 /**
  * Settings for notifications from monitors within a monitor suite.
+ *
+ * @deprecated DO NOT USE. MonitorSuite was never implemented — no service layer, no hooks, no UI,
+ * no customer data exists. Safe to remove entirely in a future release.
  */
 record MonitorSuiteNotificationSettings {
 

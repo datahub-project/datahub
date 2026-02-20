@@ -82,8 +82,30 @@ record SubscriptionInfo {
     }
     entityChangeTypes: optional array[EntityChangeDetails]
 
-   /**
+    /**
+     * Operational metadata about source entities currently managing this subscription.
+     * A subscription may be managed by multiple source entities.
+     */
+    @Searchable = {
+        "/*/sourceEntity": {
+            "fieldType": "URN",
+            "fieldName": "managedBySourceEntities"
+        }
+    }
+    managedBy: optional array[record SubscriptionManagedBy {
+        /**
+         * The source entity managing this subscription.
+         */
+        sourceEntity: Urn
+
+        /**
+         * Optional list of typed change categories most recently applied by this source entity.
+         */
+        lastAppliedChangeTypes: optional array[EntityChangeType]
+    }]
+
+    /**
     * Optional notification config.
-    */
+     */
     notificationConfig: optional SubscriptionNotificationConfig
 }

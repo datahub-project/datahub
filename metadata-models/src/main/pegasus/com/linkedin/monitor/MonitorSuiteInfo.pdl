@@ -4,6 +4,11 @@ import com.linkedin.common.AuditStamp
 
 /**
  * Information about an asset monitor.
+ *
+ * @deprecated DO NOT USE. This entity was never implemented — no service layer, no hooks, no UI,
+ * no customer data exists. It is a schema-only placeholder that was never wired into the system.
+ * Use {@link com.linkedin.assertion.rule.AssertionAssignmentRuleInfo} instead.
+ * Safe to remove entirely in a future release.
  */
 @Aspect = {
   "name": "monitorSuiteInfo"

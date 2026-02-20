@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an Assertion Assignment Rule
+ */
+@Aspect = {
+  "name": "assertionAssignmentRuleKey"
+}
+record AssertionAssignmentRuleKey {
+  /**
+   * Unique id for the assertion assignment rule.
+   */
+  id: string
+}

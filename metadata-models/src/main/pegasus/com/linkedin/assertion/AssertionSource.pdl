@@ -1,13 +1,14 @@
 namespace com.linkedin.assertion
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
 
 /**
  * The source of an assertion
  */
 record AssertionSource {
     /**
-     * The type of the Assertion Source
+     * Note, in reality this describes the execution mode rather than the actual source type of the assertion.
      */
     @Searchable = {
        "fieldName": "sourceType",
@@ -16,7 +17,7 @@ record AssertionSource {
     }
     type:  enum AssertionSourceType {
       /**
-       * The assertion was defined natively on DataHub by a user.
+       * The assertion was defined natively on DataHub, with exact criteria.
        * DataHub Cloud only
        */
       NATIVE
@@ -25,7 +26,7 @@ record AssertionSource {
        */
       EXTERNAL
       /**
-       * The assertion was inferred, e.g. from offline AI / ML models.
+       * The assertion's criteria was inferred, and potentially generated automatically e.g. from AI suggestions.
        * DataHub Cloud only
        */
       INFERRED
@@ -36,4 +37,25 @@ record AssertionSource {
       * This field is only present for Native assertions created after this field was introduced.
       */
     created: optional AuditStamp
+
+    /**
+     * Operational metadata about the system entity managing this assertion.
+     */
+    managedBy: optional record AssertionManagedBy {
+      /**
+       * The source entity that created or manages this assertion
+       * (e.g. an Assertion Assignment Rule URN).
+       */
+      @Searchable = {
+        "fieldType": "URN",
+        "fieldName": "managedBySourceEntity"
+      }
+      sourceEntity: optional Urn
+
+      /**
+       * An operational run identifier used for tracking which execution
+       * of a rule created or last touched this assertion.
+       */
+      runId: optional string
+    }
 }

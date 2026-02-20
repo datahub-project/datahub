@@ -1,0 +1,29 @@
+namespace com.linkedin.assertion.rule
+
+import com.linkedin.assertion.AssertionAction
+import com.linkedin.monitor.DatasetVolumeAssertionParameters
+
+/**
+ * Configuration for volume assertions in an Assertion Assignment Rule.
+ */
+record VolumeAssertionAssignmentRuleConfig {
+    /**
+     * Whether volume assertion assignment is enabled.
+     */
+    enabled: boolean = true
+
+    /**
+     * Preferred parameters for volume evaluation (source type, time bucketing strategy, etc.).
+     */
+    preferredEvaluationParameters: optional DatasetVolumeAssertionParameters
+
+    /**
+     * Actions to take when the assertion succeeds.
+     */
+    onSuccess: optional array[AssertionAction]
+
+    /**
+     * Actions to take when the assertion fails.
+     */
+    onFailure: optional array[AssertionAction]
+}

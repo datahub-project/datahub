@@ -1,0 +1,19 @@
+namespace com.linkedin.assertion.rule
+
+import com.linkedin.common.Urn
+import com.linkedin.subscription.EntityChangeType
+
+/**
+ * Configuration for subscriptions in an Assertion Assignment Rule.
+ */
+record SubscriptionAssignmentRuleConfig {
+    /**
+     * The subscriber URNs to be added to matching entities (e.g. corpuser or corpGroup URNs).
+     */
+    subscribers: array[Urn]
+
+    /**
+     * Entity change types that trigger notifications.
+     */
+    entityChangeTypes: array[EntityChangeType]
+}

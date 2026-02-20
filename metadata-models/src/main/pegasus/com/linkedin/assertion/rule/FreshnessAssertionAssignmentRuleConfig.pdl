@@ -1,0 +1,29 @@
+namespace com.linkedin.assertion.rule
+
+import com.linkedin.assertion.AssertionAction
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters
+
+/**
+ * Configuration for freshness assertions in an Assertion Assignment Rule.
+ */
+record FreshnessAssertionAssignmentRuleConfig {
+    /**
+     * Whether freshness assertion assignment is enabled.
+     */
+    enabled: boolean = true
+
+    /**
+     * Preferred parameters for freshness evaluation (source type, field spec, audit log spec, etc.).
+     */
+    preferredEvaluationParameters: optional DatasetFreshnessAssertionParameters
+
+    /**
+     * Actions to take when the assertion succeeds.
+     */
+    onSuccess: optional array[AssertionAction]
+
+    /**
+     * Actions to take when the assertion fails.
+     */
+    onFailure: optional array[AssertionAction]
+}
