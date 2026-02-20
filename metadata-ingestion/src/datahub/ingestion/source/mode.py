@@ -2,12 +2,14 @@ import dataclasses
 import logging
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from json import JSONDecodeError
 from typing import (
+    Any,
     Dict,
     Iterable,
     Iterator,
@@ -126,11 +128,17 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger: logging.Logger = logging.getLogger(__name__)
 # Default API limit for items returned per API call
 # Used for the default per_page value for paginated API requests
 DEFAULT_API_ITEMS_PER_PAGE = 30
+
+# Override Undefined.__str__ so that unresolved Liquid template variables
+# render as "NULL" instead of raising. Done at module level (once) rather
+# than per-call to avoid redundant global mutation from worker threads.
+Undefined.__str__ = lambda self: "NULL"  # type: ignore
 
 
 class SpaceKey(ContainerKey):
@@ -141,17 +149,21 @@ class SpaceKey(ContainerKey):
 class ModeAPIConfig(ConfigModel):
     retry_backoff_multiplier: Union[int, float] = Field(
         default=2,
+        ge=0,
         description="Multiplier for exponential backoff when waiting to retry",
     )
     max_retry_interval: Union[int, float] = Field(
-        default=10, description="Maximum interval to wait when retrying"
+        default=10, ge=0, description="Maximum interval to wait when retrying"
     )
     max_attempts: int = Field(
-        default=5, description="Maximum number of attempts to retry before failing"
+        default=5,
+        ge=1,
+        description="Maximum number of attempts to retry before failing",
     )
     timeout: int = Field(
         default=40,
-        description="Timout setting, how long to wait for the Mode rest api to send data before giving up",
+        ge=1,
+        description="Timeout setting, how long to wait for the Mode rest api to send data before giving up",
     )
 
 
@@ -174,6 +186,14 @@ class ModeConfig(
         default=False, description="Exclude restricted collections"
     )
 
+    exclude_personal_collections: bool = Field(
+        default=True,
+        description="Exclude personal collections from ingestion using Mode's "
+        "server-side filter (?filter=custom). When True, only shared/custom "
+        "collections are fetched from the API. When False, all collections are "
+        "fetched (space_pattern still applies for client-side filtering).",
+    )
+
     workspace: str = Field(
         description="The Mode workspace username. If you navigate to Workspace Settings > Details, "
         "the url will be `https://app.mode.com/organizations/<workspace-username>`. "
@@ -191,7 +211,7 @@ class ModeConfig(
         description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
     )
 
-    owner_username_instead_of_email: Optional[bool] = Field(
+    owner_username_instead_of_email: bool = Field(
         default=True, description="Use username for owner URN instead of Email"
     )
     api_options: ModeAPIConfig = Field(
@@ -205,7 +225,7 @@ class ModeConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    tag_measures_and_dimensions: Optional[bool] = Field(
+    tag_measures_and_dimensions: bool = Field(
         default=True, description="Tag measures and dimensions in the schema"
     )
 
@@ -216,6 +236,17 @@ class ModeConfig(
 
     exclude_archived: bool = Field(
         default=False, description="Exclude archived reports"
+    )
+
+    max_threads: int = Field(
+        default=1,
+        ge=1,
+        le=50,
+        description="Maximum number of threads to use for parallel API requests. "
+        "Increase to speed up ingestion for large workspaces. "
+        "Setting too high may trigger Mode API rate limiting (429 errors). "
+        "Note: API responses are cached in memory for deduplication; "
+        "large workspaces (1000+ reports) may use 50-100 MB of cache memory.",
     )
 
     @field_validator("connect_uri", mode="after")
@@ -245,6 +276,15 @@ class HTTPError504(HTTPError):
 ModeRequestError = (HTTPError, JSONDecodeError)
 
 
+def _is_http_404(error: Exception) -> bool:
+    """Check if an exception is an HTTP 404 error with a valid response object."""
+    return (
+        isinstance(error, HTTPError)
+        and getattr(error, "response", None) is not None
+        and error.response.status_code == 404
+    )
+
+
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
@@ -268,14 +308,32 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     get_cache_misses: int = 0
     get_cache_size: int = 0
     process_memory_used_mb: float = 0
+    # PerfTimer is NOT thread-safe. These timers must only be used from the
+    # main thread (e.g., in _get_space_name_and_tokens, _get_reports,
+    # _get_datasets), never from threaded _process_report workers.
     space_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     report_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     dataset_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
-    query_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
-    chart_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    # Lock protects structured log methods (report_warning, report_failure, etc.)
+    # which mutate LossyList/LossyDict with multi-step non-atomic operations,
+    # and counter increments from worker threads.
+    _lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
 
     def report_dropped_space(self, ent_name: str) -> None:
-        self.filtered_spaces.append(ent_name)
+        with self._lock:
+            self.filtered_spaces.append(ent_name)
+
+    def report_warning(self, *args: Any, **kwargs: Any) -> None:
+        with self._lock:
+            super().report_warning(*args, **kwargs)
+
+    def report_failure(self, *args: Any, **kwargs: Any) -> None:
+        with self._lock:
+            super().report_failure(*args, **kwargs)
+
+    def info(self, *args: Any, **kwargs: Any) -> None:
+        with self._lock:
+            super().info(*args, **kwargs)
 
 
 @platform_name("Mode")
@@ -373,13 +431,21 @@ class ModeSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = ModeSourceReport()
         self.ctx = ctx
+        self._creator_cache: Dict[str, str] = {}
+        self._data_sources_by_id_cache: Optional[Dict[int, dict]] = None
+        self._definitions_map_cache: Optional[Dict[str, str]] = None
 
         self.session = requests.Session()
         # Handling retry and backoff
         retries = 3
         backoff_factor = 10
         retry = Retry(total=retries, backoff_factor=backoff_factor)
-        adapter = HTTPAdapter(max_retries=retry)
+        pool_size = self.config.max_threads + 10
+        adapter = HTTPAdapter(
+            max_retries=retry,
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+        )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
@@ -394,6 +460,8 @@ class ModeSource(StatefulIngestionSourceBase):
             }
         )
 
+        self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
+
         # Test the connection
         try:
             key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
@@ -404,8 +472,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 message="Unable to verify connection to mode.",
                 context=f"Error: {str(e)}",
             )
+            self.space_tokens: Dict[str, str] = {}
+            return
 
-        self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
         self.space_tokens = self._get_space_name_and_tokens()
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:
@@ -442,6 +511,12 @@ class ModeSource(StatefulIngestionSourceBase):
     def _dashboard_urn(self, report_info: dict) -> str:
         return builder.make_dashboard_urn(self.platform, str(report_info.get("id", "")))
 
+    @staticmethod
+    def _parse_timestamp_ms(ts_str: Optional[str]) -> int:
+        if ts_str:
+            return int(dp.parse(ts_str).timestamp() * 1000)
+        return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+
     def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
         # Mode queries are refreshed, and that timestamp is reflected correctly here.
         # However, datasets are synced, and that's captured by the sync timestamps.
@@ -454,7 +529,7 @@ class ModeSource(StatefulIngestionSourceBase):
         return last_refreshed_ts
 
     def construct_dashboard(
-        self, space_token: str, report_info: dict
+        self, space_token: str, report_info: dict, chart_urns: List[str]
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
         report_token = report_info.get("token", "")
         # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
@@ -489,9 +564,7 @@ class ModeSource(StatefulIngestionSourceBase):
         )
         if creator:
             creator_actor = builder.make_user_urn(creator)
-            created_ts = int(
-                dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
-            )
+            created_ts = self._parse_timestamp_ms(report_info.get("created_at"))
             last_modified.created = AuditStamp(time=created_ts, actor=creator_actor)
 
         # Last modified ts.
@@ -511,14 +584,13 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Datasets
         datasets = []
-        for imported_dataset_name in report_info.get("imported_datasets", {}):
+        for imported_dataset_name in report_info.get("imported_datasets", []):
             try:
                 mode_dataset = self._get_request_json(
                     f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
                 )
             except HTTPError as http_error:
-                status_code = http_error.response.status_code
-                if status_code == 404:
+                if _is_http_404(http_error):
                     self.report.report_warning(
                         title="Report Not Found",
                         message="Referenced report for reusable dataset was not found.",
@@ -540,7 +612,7 @@ class ModeSource(StatefulIngestionSourceBase):
         dashboard_info_class = DashboardInfoClass(
             description=description if description else "",
             title=title if title else "",
-            charts=self._get_chart_urns(report_token),
+            charts=chart_urns,
             datasets=datasets if datasets else None,
             lastModified=last_modified,
             lastRefreshed=last_refreshed_ts,
@@ -595,8 +667,16 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return None
 
-    @lru_cache(maxsize=None)
     def _get_creator(self, href: str) -> Optional[str]:
+        if not href:
+            return None
+        # Manual cache that only stores successful lookups, so transient
+        # failures don't permanently suppress ownership for a user.
+        # Thread-safety: dict reads/writes are atomic under CPython's GIL.
+        # Concurrent misses for the same href may cause duplicate API calls
+        # but the result is idempotent.
+        if href in self._creator_cache:
+            return self._creator_cache[href]
         user = None
         try:
             user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
@@ -611,30 +691,20 @@ class ModeSource(StatefulIngestionSourceBase):
                 message=f"Unable to retrieve user for {href}",
                 context=f"Reason: {str(e)}",
             )
+        if user is not None:
+            self._creator_cache[href] = user
         return user
-
-    def _get_chart_urns(self, report_token: str) -> list:
-        chart_urns = []
-        queries = self._get_queries(report_token)
-        for query in queries:
-            charts = self._get_charts(report_token, query.get("token", ""))
-            # build chart urns
-            for chart in charts:
-                logger.debug(f"Chart: {chart.get('token')}")
-                chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
-                )
-                chart_urns.append(chart_urn)
-
-        return chart_urns
 
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
             with self.report.space_get_timer:
+                space_filter = (
+                    "custom" if self.config.exclude_personal_collections else "all"
+                )
                 for spaces_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces?filter=all",
+                    f"{self.workspace_uri}/spaces?filter={space_filter}",
                     "spaces",
                     self.config.items_per_page,
                 ):
@@ -653,13 +723,13 @@ class ModeSource(StatefulIngestionSourceBase):
                             s.get("restricted")
                             or s.get("default_access_level") == "restricted"
                         ):
-                            logging.debug(
+                            logger.debug(
                                 f"Skipping space {space_name} due to exclude restricted"
                             )
                             continue
                         if not self.config.space_pattern.allowed(space_name):
                             self.report.report_dropped_space(space_name)
-                            logging.debug(
+                            logger.debug(
                                 f"Skipping space {space_name} due to space pattern"
                             )
                             continue
@@ -808,63 +878,95 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return platform
 
-    @lru_cache(maxsize=None)
-    def _get_data_sources(self) -> List[dict]:
-        data_sources = []
+    def _get_data_sources_by_id(self) -> Dict[int, dict]:
+        """Fetch data sources and index by ID for O(1) lookup.
+
+        Uses a manual cache that only stores successful results so transient
+        API failures are retried on the next call instead of being permanently
+        cached as empty.
+        """
+        if self._data_sources_by_id_cache is not None:
+            return self._data_sources_by_id_cache
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
+            self._data_sources_by_id_cache = {
+                ds.get("id", -1): ds for ds in data_sources
+            }
+            return self._data_sources_by_id_cache
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to retrieve Data Sources",
                 message="Unable to retrieve data sources from Mode.",
                 context=f"Error: {str(e)}",
             )
+            return {}
 
-        return data_sources
-
-    @lru_cache(maxsize=None)
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-        data_sources = self._get_data_sources()
+        data_sources_by_id = self._get_data_sources_by_id()
 
-        if not data_sources:
+        if not data_sources_by_id:
             self.report.report_failure(
                 title="No Data Sources Found",
                 message="Could not find data sources matching some ids",
-                context=f"Data Soutce ID: {data_source_id}",
+                context=f"Data Source ID: {data_source_id}",
             )
             return None, None
 
-        for data_source in data_sources:
-            if data_source.get("id", -1) == data_source_id:
-                platform = self._get_datahub_friendly_platform(
-                    data_source.get("adapter", ""), data_source.get("name", "")
-                )
-                database = data_source.get("database", "")
-                # This is hacky but on bigquery we want to change the database if its default
-                # For lineage we need project_id.db.table
-                if platform == "bigquery" and database == "default":
-                    database = data_source.get("host", "")
-                return platform, database
-        else:
+        data_source = data_sources_by_id.get(data_source_id)
+        if data_source is None:
             self.report.report_warning(
                 title="Unable to construct upstream lineage",
                 message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
                 context=f"Data Source ID: {data_source_id}",
             )
-        return None, None
+            return None, None
 
-    def _replace_definitions(self, raw_query: str) -> str:
+        platform = self._get_datahub_friendly_platform(
+            data_source.get("adapter", ""), data_source.get("name", "")
+        )
+        database = data_source.get("database", "")
+        # On bigquery, change the database from "default" to the host (project_id)
+        # For lineage we need project_id.db.table
+        if platform == "bigquery" and database == "default":
+            database = data_source.get("host", "")
+        return platform, database
+
+    def _replace_definitions(
+        self,
+        raw_query: str,
+        _depth: int = 0,
+        _seen: Optional[Set[str]] = None,
+    ) -> str:
+        if _depth > 10:
+            logger.warning(
+                "Definition replacement exceeded max depth of 10, returning query as-is"
+            )
+            return raw_query
+
+        if _seen is None:
+            _seen = set()
+
         query = raw_query
         definitions = re.findall(r"({{(?:\s+)?@[^}{]+}})", raw_query)
         for definition_variable in definitions:
             definition_name, definition_alias = self._parse_definition_name(
                 definition_variable
             )
+
+            if definition_name in _seen:
+                logger.warning(
+                    f"Circular definition detected for '{definition_name}', skipping"
+                )
+                query = query.replace(
+                    definition_variable, f"{definition_name} as {definition_alias}"
+                )
+                continue
+
+            _seen.add(definition_name)
             definition_query = self._get_definition(definition_name)
-            # if unable to retrieve definition, then replace the {{}} so that it doesn't get picked up again in recursive call
             if definition_query is not None:
                 query = query.replace(
                     definition_variable, f"({definition_query}) as {definition_alias}"
@@ -873,7 +975,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 query = query.replace(
                     definition_variable, f"{definition_name} as {definition_alias}"
                 )
-            query = self._replace_definitions(query)
+            query = self._replace_definitions(query, _depth + 1, _seen)
             query = query.replace("\\n", "\n")
             query = query.replace("\\t", "\t")
 
@@ -894,24 +996,33 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return name, alias
 
-    @lru_cache(maxsize=None)
-    def _get_definition(self, definition_name):
+    def _get_definitions_map(self) -> Dict[str, str]:
+        """Fetch all definitions and return a {name: source} mapping.
+
+        Uses a manual cache that only stores successful results so transient
+        API failures are retried on the next call.
+        """
+        if self._definitions_map_cache is not None:
+            return self._definitions_map_cache
         try:
             definition_json = self._get_request_json(
                 f"{self.workspace_uri}/definitions"
             )
             definitions = definition_json.get("_embedded", {}).get("definitions", [])
-            for definition in definitions:
-                if definition.get("name", "") == definition_name:
-                    return definition.get("source", "")
-
+            self._definitions_map_cache = {
+                d.get("name", ""): d.get("source", "") for d in definitions
+            }
+            return self._definitions_map_cache
         except ModeRequestError as e:
             self.report.report_failure(
-                title="Failed to Retrieve Definition",
-                message="Unable to retrieve definition from Mode.",
-                context=f"Definition Name: {definition_name}, Error: {str(e)}",
+                title="Failed to Retrieve Definitions",
+                message="Unable to retrieve definitions from Mode.",
+                context=f"Error: {str(e)}",
             )
-        return None
+            return {}
+
+    def _get_definition(self, definition_name: str) -> Optional[str]:
+        return self._get_definitions_map().get(definition_name)
 
     def _get_datasource_urn(
         self,
@@ -920,19 +1031,17 @@ class ModeSource(StatefulIngestionSourceBase):
         database: str,
         source_tables: List[str],
     ) -> List[str]:
-        dataset_urn = None
-        if platform or database is not None:
-            dataset_urn = [
-                builder.make_dataset_urn_with_platform_instance(
-                    platform,
-                    f"{database}.{s_table}",
-                    platform_instance=platform_instance,
-                    env=self.config.env,
-                )
-                for s_table in source_tables
-            ]
-
-        return dataset_urn
+        if not platform and not database:
+            return []
+        return [
+            builder.make_dataset_urn_with_platform_instance(
+                platform,
+                f"{database}.{s_table}",
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
+            for s_table in source_tables
+        ]
 
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
@@ -966,37 +1075,48 @@ class ModeSource(StatefulIngestionSourceBase):
             field.globalTags = GlobalTagsClass(tags=[tag])
 
     def normalize_mode_query(self, query: str) -> str:
-        regex = r"{% form %}(.*?){% endform %}"
-        rendered_query: str = query
         normalized_query: str = query
 
-        self.report.num_query_template_render += 1
-        matches = re.findall(regex, query, re.MULTILINE | re.DOTALL | re.IGNORECASE)
-        try:
-            jinja_params: Dict = {}
-            if matches:
+        with self.report._lock:
+            self.report.num_query_template_render += 1
+        matches = re.findall(
+            r"{% form %}(.*?){% endform %}",
+            query,
+            re.MULTILINE | re.DOTALL | re.IGNORECASE,
+        )
+        jinja_params: Dict = {}
+        if matches:
+            try:
                 for match in matches:
                     definition = Template(source=match).render()
                     parameters = yaml.safe_load(definition)
                     for key in parameters:
                         jinja_params[key] = parameters[key].get("default", "")
-
-                normalized_query = re.sub(
-                    pattern=r"{% form %}(.*){% endform %}",
-                    repl="",
-                    string=query,
-                    count=0,
-                    flags=re.MULTILINE | re.DOTALL,
+            except Exception as e:
+                logger.warning(
+                    f"Parsing form parameters failed, rendering without params: {e}"
                 )
 
-            # Wherever we don't resolve the jinja params, we replace it with NULL
-            Undefined.__str__ = lambda self: "NULL"  # type: ignore
+            normalized_query = re.sub(
+                pattern=r"{% form %}(.*){% endform %}",
+                repl="",
+                string=query,
+                count=0,
+                flags=re.MULTILINE | re.DOTALL,
+            )
+
+        try:
             rendered_query = Template(normalized_query).render(jinja_params)
-            self.report.num_query_template_render_success += 1
+            with self.report._lock:
+                self.report.num_query_template_render_success += 1
         except Exception as e:
-            logger.debug(f"Rendering query {query} failed with {e}")
-            self.report.num_query_template_render_failures += 1
-            return rendered_query
+            logger.warning(
+                f"Rendering Liquid template failed, lineage may be incomplete: {e}"
+            )
+            with self.report._lock:
+                self.report.num_query_template_render_failures += 1
+            # Return form-stripped query so SQL parsers don't choke on template syntax
+            return normalized_query
 
         return rendered_query
 
@@ -1089,15 +1209,22 @@ class ModeSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
+        data_source_id = query_data.get("data_source_id")
+        if data_source_id is None:
+            return
         (
             upstream_warehouse_platform,
             upstream_warehouse_db_name,
-        ) = self._get_platform_and_dbname(query_data.get("data_source_id"))
+        ) = self._get_platform_and_dbname(int(data_source_id))
         if upstream_warehouse_platform is None:
-            # this means we can't infer the platform
             return
 
-        query = query_data["raw_query"]
+        query = query_data.get("raw_query")
+        if not query:
+            logger.warning(
+                f"No raw_query found for report {report_token} query {query_token}, skipping lineage"
+            )
+            return
         query = self._replace_definitions(query)
         normalized_query = self.normalize_mode_query(query)
         query_to_parse = normalized_query
@@ -1137,21 +1264,24 @@ class ModeSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
-        self.report.num_sql_parsed += 1
+        with self.report._lock:
+            self.report.num_sql_parsed += 1
+            if parsed_query_object.debug_info.table_error:
+                self.report.num_sql_parser_table_error += 1
+                self.report.num_sql_parser_failures += 1
+            elif parsed_query_object.debug_info.column_error:
+                self.report.num_sql_parser_column_error += 1
+                self.report.num_sql_parser_failures += 1
+            else:
+                self.report.num_sql_parser_success += 1
         if parsed_query_object.debug_info.table_error:
-            self.report.num_sql_parser_table_error += 1
-            self.report.num_sql_parser_failures += 1
             logger.info(
                 f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
             )
         elif parsed_query_object.debug_info.column_error:
-            self.report.num_sql_parser_column_error += 1
-            self.report.num_sql_parser_failures += 1
             logger.info(
                 f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
             )
-        else:
-            self.report.num_sql_parser_success += 1
 
         schema_fields = infer_output_schema(parsed_query_object)
         if schema_fields:
@@ -1179,9 +1309,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         operation = OperationClass(
             operationType=OperationTypeClass.UPDATE,
-            lastUpdatedTimestamp=int(
-                dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
-            ),
+            lastUpdatedTimestamp=self._parse_timestamp_ms(query_data.get("updated_at")),
             timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
         )
 
@@ -1197,12 +1325,8 @@ class ModeSource(StatefulIngestionSourceBase):
             creator if creator is not None else "unknown"
         )
 
-        created_ts = int(
-            dp.parse(query_data.get("created_at", "now")).timestamp() * 1000
-        )
-        modified_ts = int(
-            dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
-        )
+        created_ts = self._parse_timestamp_ms(query_data.get("created_at"))
+        modified_ts = self._parse_timestamp_ms(query_data.get("updated_at"))
 
         query_instance_urn = self.get_query_instance_urn_from_query(query_data)
         value = query_data.get("raw_query")
@@ -1224,19 +1348,17 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def get_upstream_lineage_for_parsed_sql(
         self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
-    ) -> List[MetadataWorkUnit]:
-        wu = []
-
+    ) -> Iterable[MetadataWorkUnit]:
         if parsed_query_object is None:
             logger.info(
                 f"Failed to extract column level lineage from datasource {query_urn}"
             )
-            return []
+            return
         if parsed_query_object.debug_info.error:
             logger.info(
                 f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.error}"
             )
-            return []
+            return
 
         cll: List[ColumnLineageInfo] = (
             parsed_query_object.column_lineage
@@ -1246,14 +1368,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
-        table_urn = None
-
         for cll_info in cll:
-            if table_urn is None:
-                for column_ref in cll_info.upstreams:
-                    table_urn = column_ref.table
-                    break
-
             downstream = (
                 [builder.make_schema_field_urn(query_urn, cll_info.downstream.column)]
                 if cll_info.downstream is not None
@@ -1285,14 +1400,10 @@ class ModeSource(StatefulIngestionSourceBase):
             fineGrainedLineages=fine_grained_lineages,
         )
 
-        wu.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=query_urn,
-                aspect=upstream_lineage,
-            ).as_workunit()
-        )
-
-        return wu
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=upstream_lineage,
+        ).as_workunit()
 
     def get_formula_columns(
         self, node: Dict, columns: Optional[Set[str]] = None
@@ -1366,12 +1477,8 @@ class ModeSource(StatefulIngestionSourceBase):
         )
         if creator is not None:
             modified_actor = builder.make_user_urn(creator)
-            created_ts = int(
-                dp.parse(chart_data.get("created_at", "now")).timestamp() * 1000
-            )
-            modified_ts = int(
-                dp.parse(chart_data.get("updated_at", "now")).timestamp() * 1000
-            )
+            created_ts = self._parse_timestamp_ms(chart_data.get("created_at"))
+            modified_ts = self._parse_timestamp_ms(chart_data.get("updated_at"))
             last_modified = ChangeAuditStamps(
                 created=AuditStamp(time=created_ts, actor=modified_actor),
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
@@ -1434,7 +1541,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Browse Path
         space_name = self.space_tokens[space_token]
-        report_name = report_info["name"]
+        report_name = report_info.get("name", report_info.get("token", "unknown"))
         path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
@@ -1490,7 +1597,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         ]
                     yield reports_page
         except ModeRequestError as e:
-            if isinstance(e, HTTPError) and e.response.status_code == 404:
+            if _is_http_404(e):
                 self.report.report_warning(
                     title="No Reports Found in Space",
                     message="No reports were found in the space. It may have been recently deleted.",
@@ -1504,9 +1611,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
 
     def _get_datasets(self, space_token: str) -> Iterator[List[dict]]:
-        """
-        Retrieves datasets for a given space token.
-        """
         try:
             with self.report.dataset_get_timer:
                 for dataset_page in self._get_paged_request_json(
@@ -1520,7 +1624,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     )
                     yield dataset_page
         except ModeRequestError as e:
-            if isinstance(e, HTTPError) and e.response.status_code == 404:
+            if _is_http_404(e):
                 self.report.report_warning(
                     title="No Datasets Found in Space",
                     message="No datasets were found in the space. It may have been recently deleted.",
@@ -1535,18 +1639,18 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def _get_queries(self, report_token: str) -> List[dict]:
         try:
-            with self.report.query_get_timer:
-                # This endpoint does not handle pagination properly
-                queries = self._get_request_json(
-                    f"{self.workspace_uri}/reports/{report_token}/queries"
-                )
+            # This endpoint does not handle pagination properly
+            queries = self._get_request_json(
+                f"{self.workspace_uri}/reports/{report_token}/queries"
+            )
+            with self.report._lock:
                 self.report.query_get_api_called += 1
-                logger.debug(
-                    f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
-                )
-                return queries.get("_embedded", {}).get("queries", [])
+            logger.debug(
+                f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
+            )
+            return queries.get("_embedded", {}).get("queries", [])
         except ModeRequestError as e:
-            if isinstance(e, HTTPError) and e.response.status_code == 404:
+            if _is_http_404(e):
                 self.report.report_warning(
                     title="No Queries Found",
                     message="No queries found for the report token. Maybe the report is deleted...",
@@ -1560,39 +1664,20 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
             return []
 
-    @lru_cache(maxsize=None)
-    def _get_last_query_run(self, report_token: str, report_run_id: str) -> list:
-        # This function is unused and may be subject to removal in a future revision of this source
-        query_runs = []
-        try:
-            for query_run_page in self._get_paged_request_json(
-                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs?filter=all",
-                "query_runs",
-                self.config.items_per_page,
-            ):
-                query_runs.extend(query_run_page)
-        except ModeRequestError as e:
-            self.report.report_failure(
-                title="Failed to Retrieve Queries for Report",
-                message="Unable to retrieve queries for report token.",
-                context=f"Report Token:{report_token}, Error: {str(e)}",
-            )
-        return query_runs
-
     def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
         try:
-            with self.report.chart_get_timer:
-                # This endpoint does not handle pagination properly
-                charts = self._get_request_json(
-                    f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
-                )
+            # This endpoint does not handle pagination properly
+            charts = self._get_request_json(
+                f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
+            )
+            with self.report._lock:
                 self.report.chart_get_api_called += 1
-                logger.debug(
-                    f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
-                )
-                return charts.get("_embedded", {}).get("charts", [])
+            logger.debug(
+                f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
+            )
+            return charts.get("_embedded", {}).get("charts", [])
         except ModeRequestError as e:
-            if isinstance(e, HTTPError) and e.response.status_code == 404:
+            if _is_http_404(e):
                 self.report.report_warning(
                     title="No Charts Found for Query",
                     message="No charts were found for the query. The query may have been recently deleted.",
@@ -1621,6 +1706,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_request_json(self, url: str) -> Dict:
+        # Thread-safe: lru_cache uses an internal lock. Callers must NOT
+        # mutate the returned dict, as it is shared across all cache hits.
         r = tenacity.Retrying(
             wait=wait_exponential(
                 multiplier=self.config.api_options.retry_backoff_multiplier,
@@ -1648,17 +1735,24 @@ class ModeSource(StatefulIngestionSourceBase):
                 return response.json()
             except HTTPError as http_error:
                 error_response = http_error.response
+                if error_response is None:
+                    raise http_error
                 if error_response.status_code == 429:
-                    self.report.num_requests_exceeding_rate_limit += 1
-                    # respect Retry-After
+                    with self.report._lock:
+                        self.report.num_requests_exceeding_rate_limit += 1
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
-                    raise HTTPError429 from None
+                    raise HTTPError429(
+                        str(http_error), response=error_response
+                    ) from http_error
                 elif error_response.status_code == 504:
-                    self.report.num_requests_retried_on_timeout += 1
+                    with self.report._lock:
+                        self.report.num_requests_retried_on_timeout += 1
                     time.sleep(0.1)
-                    raise HTTPError504 from None
+                    raise HTTPError504(
+                        str(http_error), response=error_response
+                    ) from http_error
 
                 logger.debug(
                     f"Error response ({error_response.status_code}): {error_response.text}"
@@ -1708,121 +1802,183 @@ class ModeSource(StatefulIngestionSourceBase):
             aspect=BrowsePathsV2Class(path=self._browse_path_space()),
         ).as_workunit()
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for space_token, space_name in self.space_tokens.items():
-            yield from self.construct_space_container(space_token, space_name)
-            space_container_key = self.gen_space_key(space_token)
+    def _process_report(
+        self,
+        space_token: str,
+        report: dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single report: queries, dashboard, and charts."""
+        report_token = report.get("token", "")
+        report_name = report.get("name", "")
+        logger.debug(f"Report: name: {report_name} token: {report_token}")
 
-            for report_page in self._get_reports(space_token):
-                for report in report_page:
-                    logger.debug(
-                        f"Report: name: {report.get('name')} token: {report.get('token')}"
-                    )
-                    dashboard_tuple_from_report = self.construct_dashboard(
-                        space_token=space_token, report_info=report
-                    )
+        try:
+            yield from self._process_report_inner(space_token, report)
+        except Exception as e:
+            try:
+                logger.warning(
+                    f"Failed to process report {report_name} ({report_token}) "
+                    f"in space {space_token}",
+                    exc_info=True,
+                )
+                self.report.report_failure(
+                    title="Failed to Process Report",
+                    message=f"Unexpected error processing report {report_name} ({report_token}).",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                    exc=e,
+                )
+            except Exception:
+                # Guard against the error handler itself raising (e.g., a
+                # serialization issue in report_failure). If this propagated,
+                # ThreadedIteratorExecutor would abort all remaining workers.
+                logger.error(
+                    f"Failed to record error for report {report_token}",
+                    exc_info=True,
+                )
 
-                    if dashboard_tuple_from_report is None:
-                        continue
-                    (
-                        dashboard_snapshot_from_report,
-                        browse_mcpw,
-                    ) = dashboard_tuple_from_report
+    def _process_report_inner(
+        self,
+        space_token: str,
+        report: dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        report_token = report.get("token", "")
+        space_container_key = self.gen_space_key(space_token)
 
-                    mce = MetadataChangeEvent(
-                        proposedSnapshot=dashboard_snapshot_from_report
-                    )
+        queries = self._get_queries(report_token)
+        chart_urns: List[str] = []
+        query_chart_data: List[
+            Tuple[dict, Dict[str, SchemaFieldClass], List[dict]]
+        ] = []
 
-                    mcpw = MetadataChangeProposalWrapper(
-                        entityUrn=dashboard_snapshot_from_report.urn,
-                        aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
-                    )
-                    yield mcpw.as_workunit()
-                    yield from add_dataset_to_container(
-                        container_key=space_container_key,
-                        dataset_urn=dashboard_snapshot_from_report.urn,
-                    )
-                    yield browse_mcpw.as_workunit()
+        for query in queries:
+            query_mcps = self.construct_query_or_dataset(
+                report_token,
+                query,
+                space_token=space_token,
+                report_info=report,
+                is_mode_dataset=False,
+            )
+            chart_fields: Dict[str, SchemaFieldClass] = {}
+            for wu in query_mcps:
+                if isinstance(
+                    wu.metadata, MetadataChangeProposalWrapper
+                ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
+                    schema_metadata = wu.metadata.aspect
+                    for field in schema_metadata.fields:
+                        chart_fields.setdefault(field.fieldPath, field)
+                yield wu
 
-                    usage_statistics = DashboardUsageStatisticsClass(
-                        timestampMillis=round(datetime.now().timestamp() * 1000),
-                        viewsCount=report.get("view_count", 0),
-                    )
+            charts = self._get_charts(report_token, query.get("token", ""))
+            for chart in charts:
+                chart_urn = builder.make_chart_urn(
+                    self.platform, chart.get("token", "")
+                )
+                chart_urns.append(chart_urn)
+            query_chart_data.append((query, chart_fields, charts))
 
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dashboard_snapshot_from_report.urn,
-                        aspect=usage_statistics,
-                    ).as_workunit()
+        dashboard_tuple_from_report = self.construct_dashboard(
+            space_token=space_token,
+            report_info=report,
+            chart_urns=chart_urns,
+        )
 
-                    if self.config.ingest_embed_url is True:
-                        yield self.create_embed_aspect_mcp(
-                            entity_urn=dashboard_snapshot_from_report.urn,
-                            embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
-                        ).as_workunit()
+        if dashboard_tuple_from_report is not None:
+            (
+                dashboard_snapshot_from_report,
+                browse_mcpw,
+            ) = dashboard_tuple_from_report
 
-                    yield MetadataWorkUnit(
-                        id=dashboard_snapshot_from_report.urn, mce=mce
-                    )
+            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot_from_report)
 
-    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        # Space/collection -> report -> query -> Chart
-        for space_token in self.space_tokens:
-            for report_page in self._get_reports(space_token):
-                for report in report_page:
-                    report_token = report.get("token", "")
+            mcpw = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_snapshot_from_report.urn,
+                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
+            )
+            yield mcpw.as_workunit()
+            yield from add_dataset_to_container(
+                container_key=space_container_key,
+                dataset_urn=dashboard_snapshot_from_report.urn,
+            )
+            yield browse_mcpw.as_workunit()
 
+            usage_statistics = DashboardUsageStatisticsClass(
+                timestampMillis=round(datetime.now().timestamp() * 1000),
+                viewsCount=report.get("view_count", 0),
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_snapshot_from_report.urn,
+                aspect=usage_statistics,
+            ).as_workunit()
+
+            if self.config.ingest_embed_url is True:
+                yield self.create_embed_aspect_mcp(
+                    entity_urn=dashboard_snapshot_from_report.urn,
+                    embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
+                ).as_workunit()
+
+            yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
+
+        for query, chart_fields, charts in query_chart_data:
+            for i, chart in enumerate(charts):
+                yield from self.construct_chart_from_api_data(
+                    i,
+                    chart,
+                    chart_fields,
+                    query,
+                    space_token=space_token,
+                    report_info=report,
+                    query_name=query.get("name", query.get("token", "unknown")),
+                )
+
+    def _emit_workunits_for_space(
+        self, space_token: str, space_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from self.construct_space_container(space_token, space_name)
+
+        all_reports = [
+            report
+            for report_page in self._get_reports(space_token)
+            for report in report_page
+        ]
+
+        if self.config.max_threads > 1:
+            yield from ThreadedIteratorExecutor.process(
+                worker_func=self._process_report,
+                args_list=[(space_token, report) for report in all_reports],
+                max_workers=self.config.max_threads,
+            )
+        else:
+            for report in all_reports:
+                yield from self._process_report(space_token, report)
+
+        # Datasets use a separate API endpoint
+        for dataset_page in self._get_datasets(space_token):
+            for dataset_report in dataset_page:
+                try:
+                    report_token = dataset_report.get("token", "")
                     queries = self._get_queries(report_token)
                     for query in queries:
-                        query_mcps = self.construct_query_or_dataset(
+                        yield from self.construct_query_or_dataset(
                             report_token,
                             query,
                             space_token=space_token,
-                            report_info=report,
-                            is_mode_dataset=False,
-                        )
-                        chart_fields: Dict[str, SchemaFieldClass] = {}
-                        for wu in query_mcps:
-                            if isinstance(
-                                wu.metadata, MetadataChangeProposalWrapper
-                            ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
-                                schema_metadata = wu.metadata.aspect
-                                for field in schema_metadata.fields:
-                                    chart_fields.setdefault(field.fieldPath, field)
-
-                            yield wu
-
-                        charts = self._get_charts(report_token, query.get("token", ""))
-                        # build charts
-                        for i, chart in enumerate(charts):
-                            yield from self.construct_chart_from_api_data(
-                                i,
-                                chart,
-                                chart_fields,
-                                query,
-                                space_token=space_token,
-                                report_info=report,
-                                query_name=query["name"],
-                            )
-
-    def emit_dataset_mces(self):
-        """
-        Emits MetadataChangeEvents (MCEs) for datasets within each space.
-        """
-        for space_token, _ in self.space_tokens.items():
-            for dataset_page in self._get_datasets(space_token):
-                for report in dataset_page:
-                    report_token = report.get("token", "")
-                    queries = self._get_queries(report_token)
-                    for query in queries:
-                        query_mcps = self.construct_query_or_dataset(
-                            report_token,
-                            query,
-                            space_token=space_token,
-                            report_info=report,
+                            report_info=dataset_report,
                             is_mode_dataset=True,
                         )
-                        for wu in query_mcps:
-                            yield wu
+                except Exception as e:
+                    dataset_token = dataset_report.get("token", "")
+                    logger.warning(
+                        f"Failed to process dataset {dataset_token} "
+                        f"in space {space_token}",
+                        exc_info=True,
+                    )
+                    self.report.report_failure(
+                        title="Failed to Process Dataset",
+                        message=f"Unexpected error processing dataset {dataset_token}.",
+                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        exc=e,
+                    )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
@@ -1838,9 +1994,9 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_dataset_mces()
-        yield from self.emit_chart_mces()
+        for space_token, space_name in self.space_tokens.items():
+            yield from self._emit_workunits_for_space(space_token, space_name)
+
         cache_info = self._get_request_json.cache_info()
         self.report.get_cache_hits = cache_info.hits
         self.report.get_cache_misses = cache_info.misses
