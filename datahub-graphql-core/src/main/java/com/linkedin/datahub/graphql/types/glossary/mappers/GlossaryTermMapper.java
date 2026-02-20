@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -37,12 +38,14 @@ import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
  *
  * <p>To be replaced by auto-generated mappers implementations
  */
+@Slf4j
 public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryTerm> {
 
   public static final GlossaryTermMapper INSTANCE = new GlossaryTermMapper();
@@ -141,6 +144,13 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull GlossaryTerm glossaryTerm,
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
+    try {
+      final Urn entityUrn = Urn.createFromString(glossaryTerm.getUrn());
+      glossaryTerm.setDomainsAssociations(
+          DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      log.debug("Failed to parse URN for domainsAssociations: {}", glossaryTerm.getUrn(), e);
+    }
     glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
   }
 

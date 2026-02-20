@@ -38,6 +38,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -50,7 +51,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   public static final NotebookMapper INSTANCE = new NotebookMapper();
 
@@ -250,7 +253,12 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   private static void mapDomains(
       @Nullable final QueryContext context, @Nonnull Notebook notebook, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    // Currently we only take the first domain if it exists.
+    try {
+      final Urn entityUrn = Urn.createFromString(notebook.getUrn());
+      notebook.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      log.debug("Failed to parse URN for domainsAssociations: {}", notebook.getUrn(), e);
+    }
     notebook.setDomain(DomainAssociationMapper.map(context, domains, notebook.getUrn()));
   }
 }

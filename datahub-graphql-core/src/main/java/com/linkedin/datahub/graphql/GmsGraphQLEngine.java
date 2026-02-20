@@ -77,11 +77,13 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolve
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.AddDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.RemoveDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
@@ -160,9 +162,11 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
@@ -1309,6 +1313,15 @@ public class GmsGraphQLEngine {
                   "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
               .dataFetcher(
                   "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "addDomains", new AddDomainsResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "removeDomains", new RemoveDomainsResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "batchAddDomains", new BatchAddDomainsResolver(this.entityService, entityClient))
+              .dataFetcher(
+                  "batchRemoveDomains",
+                  new BatchRemoveDomainsResolver(this.entityService, entityClient))
               .dataFetcher(
                   "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))

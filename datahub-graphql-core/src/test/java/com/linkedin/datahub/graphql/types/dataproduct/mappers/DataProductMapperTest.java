@@ -450,6 +450,40 @@ public class DataProductMapperTest {
     }
   }
 
+  @Test
+  public void testMapDomainsAssociations() throws URISyntaxException {
+    final Urn domainUrn1 = Urn.createFromString("urn:li:domain:engineering");
+    final Urn domainUrn2 = Urn.createFromString("urn:li:domain:marketing");
+
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    Domains domains = new Domains();
+    com.linkedin.common.UrnArray domainUrns = new com.linkedin.common.UrnArray();
+    domainUrns.add(domainUrn1);
+    domainUrns.add(domainUrn2);
+    domains.setDomains(domainUrns);
+    addAspectToResponse(entityResponse, DOMAINS_ASPECT_NAME, domains);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)))
+          .thenReturn(true);
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn1))).thenReturn(true);
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn2))).thenReturn(true);
+
+      DataProduct result = DataProductMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getDomainsAssociations());
+      assertEquals(result.getDomainsAssociations().getDomains().size(), 2);
+      assertEquals(
+          result.getDomainsAssociations().getDomains().get(0).getDomain().getUrn(),
+          domainUrn1.toString());
+      assertEquals(
+          result.getDomainsAssociations().getDomains().get(1).getDomain().getUrn(),
+          domainUrn2.toString());
+    }
+  }
+
   // Helper methods
 
   private EntityResponse createBasicEntityResponse() {
