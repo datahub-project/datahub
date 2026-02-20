@@ -276,10 +276,10 @@ class MSSQLLineageExtractor:
     def populate_lineage_from_queries(self) -> None:
         """Extract lineage from query history and add to SQL aggregator."""
         if not self.config.include_query_lineage:
-            logger.info("Query-based lineage extraction disabled in config")
+            logger.debug("Query-based lineage extraction disabled in config")
             return
 
-        logger.info(
+        logger.debug(
             f"Starting query-based lineage extraction (max_queries={self.config.max_queries_to_extract})"
         )
 
@@ -336,7 +336,7 @@ class MSSQLLineageExtractor:
                     )
                     self.queries_failed += 1
 
-        logger.info(
+        logger.debug(
             f"Processed {self.queries_parsed} queries for lineage extraction ({self.queries_failed} failed) "
             f"in {timer.elapsed_seconds():.2f} seconds"
         )
