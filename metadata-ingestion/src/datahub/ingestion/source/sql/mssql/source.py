@@ -1386,9 +1386,9 @@ class SQLServerSource(SQLAlchemySource):
                         context="lineage_metadata_generation_failed",
                     )
 
-        logger.info(
-            f"Generated {mcp_count} lineage workunits from queries "
-            f"in {timer.elapsed_seconds():.2f} seconds"
+        logger.info(f"Generated {mcp_count} lineage workunits from queries")
+        logger.debug(
+            f"Lineage workunit generation completed in {timer.elapsed_seconds():.2f} seconds"
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

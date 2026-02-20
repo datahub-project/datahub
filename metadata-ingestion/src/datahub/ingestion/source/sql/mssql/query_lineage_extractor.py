@@ -221,8 +221,9 @@ class MSSQLLineageExtractor:
                         )
                     )
 
-                logger.info(
-                    f"Extracted {self.queries_extracted} queries from {method} in {timer.elapsed_seconds():.2f} seconds"
+                logger.info(f"Extracted {self.queries_extracted} queries from {method}")
+                logger.debug(
+                    f"Query extraction completed in {timer.elapsed_seconds():.2f} seconds"
                 )
 
                 self.report.num_queries_extracted = self.queries_extracted
@@ -332,9 +333,11 @@ class MSSQLLineageExtractor:
                     )
                     self.queries_failed += 1
 
+        logger.info(
+            f"Processed {self.queries_parsed} queries for lineage extraction ({self.queries_failed} failed)"
+        )
         logger.debug(
-            f"Processed {self.queries_parsed} queries for lineage extraction ({self.queries_failed} failed) "
-            f"in {timer.elapsed_seconds():.2f} seconds"
+            f"Query parsing completed in {timer.elapsed_seconds():.2f} seconds"
         )
 
         self.report.num_queries_parsed = self.queries_parsed
