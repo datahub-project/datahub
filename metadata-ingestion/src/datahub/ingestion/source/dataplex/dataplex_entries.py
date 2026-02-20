@@ -14,7 +14,7 @@ from datahub.ingestion.source.dataplex.dataplex_containers import (
     track_bigquery_container,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    EntityDataTuple,
+    EntryDataTuple,
     make_audit_stamp,
     parse_entry_fqn,
 )
@@ -40,8 +40,8 @@ def process_entry(
     entry: dataplex_v1.Entry,
     entry_group_id: str,
     config: DataplexConfig,
-    entity_data_by_project: dict[str, set[EntityDataTuple]],
-    entity_data_lock: Lock,
+    entry_data_by_project: dict[str, set[EntryDataTuple]],
+    entry_data_lock: Lock,
     bq_containers: dict[str, set[str]],
     bq_containers_lock: Lock,
     construct_mcps_fn: Callable[[str, list], Iterable[MetadataChangeProposalWrapper]],
@@ -53,8 +53,8 @@ def process_entry(
         entry: Entry object from Catalog API
         entry_group_id: Entry group ID
         config: Dataplex configuration object
-        entity_data_by_project: Mapping of project IDs to entity data tuples
-        entity_data_lock: Lock for entity_data_by_project access
+        entry_data_by_project: Mapping of project IDs to entry data tuples
+        entry_data_lock: Lock for entry_data_by_project access
         bq_containers: BigQuery containers cache
         bq_containers_lock: Lock for bq_containers access
         construct_mcps_fn: Function to construct MCPs from dataset URN and aspects
@@ -121,20 +121,15 @@ def process_entry(
                 )
                 return
 
-    # Track entry for lineage extraction (entries don't have lake/zone/asset info,
-    # but lineage API only needs FQN which we can construct from entry metadata)
-    with entity_data_lock:
-        if project_id not in entity_data_by_project:
-            entity_data_by_project[project_id] = set()
-        entity_data_by_project[project_id].add(
-            EntityDataTuple(
-                lake_id="",  # Not available in Entry objects
-                zone_id="",  # Not available in Entry objects
-                entity_id=entry_id,
-                asset_id="",  # Not available in Entry objects
+    # Track entry for lineage extraction
+    with entry_data_lock:
+        if project_id not in entry_data_by_project:
+            entry_data_by_project[project_id] = set()
+        entry_data_by_project[project_id].add(
+            EntryDataTuple(
+                entry_id=entry_id,
                 source_platform=source_platform,
                 dataset_id=dataset_id,
-                is_entry=True,  # Flag that this is from Entries API
             )
         )
 

@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Set
 
 from google.api_core import exceptions as google_exceptions
-from google.cloud import dataplex_v1
 from tenacity import (
     before_sleep_log,
     retry,
@@ -24,13 +23,11 @@ if TYPE_CHECKING:
 # google-cloud-datacatalog-lineage is a required dependency (pinned to 0.2.2 in setup.py)
 from google.cloud.datacatalog.lineage_v1 import EntityReference, SearchLinksRequest
 
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_helpers import (
-    EntityDataTuple,
-    make_entity_dataset_urn,
-)
+from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -45,7 +42,7 @@ logger = logging.getLogger(__name__)
 @dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
     """
-    Represents a lineage edge between two entities.
+    Represents a lineage edge between two entries.
 
     This dataclass uses frozen=True, eq=True, and order=True because:
     - frozen=True: Makes instances immutable and hashable, allowing them to be stored in sets
@@ -56,12 +53,12 @@ class LineageEdge:
     immutability and hashability.
 
     Attributes:
-        entity_id: The upstream entity ID in Dataplex format
+        entry_id: The upstream entry ID in Dataplex format
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
     """
 
-    entity_id: str
+    entry_id: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
 
@@ -71,7 +68,7 @@ class DataplexLineageExtractor:
     Extracts lineage information from Google Dataplex using the Data Lineage API.
 
     This class queries the Dataplex Lineage API to discover upstream and downstream
-    relationships between entities and generates DataHub lineage metadata.
+    relationships between entries and generates DataHub lineage metadata.
     """
 
     def __init__(
@@ -79,7 +76,6 @@ class DataplexLineageExtractor:
         config: DataplexConfig,
         report: DataplexReport,
         lineage_client: Optional[LineageClient] = None,
-        dataplex_client: Optional[dataplex_v1.DataplexServiceClient] = None,
         redundant_run_skip_handler: Optional[Any] = None,
     ):
         """
@@ -89,34 +85,32 @@ class DataplexLineageExtractor:
             config: Dataplex source configuration
             report: Source report for tracking metrics
             lineage_client: Optional pre-configured LineageClient
-            dataplex_client: Optional pre-configured DataplexServiceClient
             redundant_run_skip_handler: Optional handler to skip redundant lineage runs
         """
         self.config = config
         self.report = report
         self.lineage_client = lineage_client
-        self.dataplex_client = dataplex_client
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
-        # Map entity IDs to their upstream dependencies to enable efficient lineage lookups
+        # Map entry IDs to their upstream dependencies to enable efficient lineage lookups
         # during workunit generation without re-querying the Lineage API
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
-    def get_lineage_for_entity(
-        self, project_id: str, entity: EntityDataTuple
+    def get_lineage_for_entry(
+        self, project_id: str, entry: EntryDataTuple
     ) -> Optional[Dict[str, list]]:
         """
-        Get lineage information for a specific Dataplex entity with automatic retries.
+        Get lineage information for a specific Dataplex entry with automatic retries.
 
         This method uses tenacity to automatically retry transient errors (timeouts, rate limits, etc.)
         with exponential backoff. After retries are exhausted, logs a warning and continues.
 
         Args:
             project_id: GCP project ID
-            entity: EntityDataTuple
+            entry: EntryDataTuple
 
         Returns:
-            Dictionary with 'upstream' and 'downstream' lists of entity FQNs,
+            Dictionary with 'upstream' and 'downstream' lists of entry FQNs,
             or None if lineage extraction is disabled or fails after retries
         """
         if not self.config.include_lineage or not self.lineage_client:
@@ -124,25 +118,20 @@ class DataplexLineageExtractor:
 
         try:
             fully_qualified_name = self._construct_fqn(
-                entity.source_platform,
-                project_id,
-                entity.dataset_id,
-                entity.entity_id,
-                entity.is_entry,
+                entry.source_platform,
+                entry.dataset_id,
             )
             lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
-            # We only need multi-region name like US, EU, etc., specific region name like us-central1, eu-central1, etc. does not work
-            parent = (
-                f"projects/{project_id}/locations/{self.config.location.split('-')[0]}"
-            )
+            # We only need multi-region name like US, EU, etc.
+            parent = f"projects/{project_id}/locations/{self.config.entries_location}"
 
-            # Get upstream lineage (where this entity is the target) - retries are handled inside _search_links_by_target
+            # Get upstream lineage (where this entry is the target) - retries are handled inside _search_links_by_target
             upstream_links = self._search_links_by_target(parent, fully_qualified_name)
             for link in upstream_links:
                 if link.source and link.source.fully_qualified_name:
                     lineage_data["upstream"].append(link.source.fully_qualified_name)
 
-            # Get downstream lineage (where this entity is the source) - retries are handled inside _search_links_by_source
+            # Get downstream lineage (where this entry is the source) - retries are handled inside _search_links_by_source
             downstream_links = self._search_links_by_source(
                 parent, fully_qualified_name
             )
@@ -152,7 +141,7 @@ class DataplexLineageExtractor:
 
             if lineage_data["upstream"] or lineage_data["downstream"]:
                 logger.debug(
-                    f"Found lineage for {entity.entity_id}: "
+                    f"Found lineage for {entry.entry_id}: "
                     f"{len(lineage_data['upstream'])} upstream, "
                     f"{len(lineage_data['downstream'])} downstream"
                 )
@@ -164,8 +153,8 @@ class DataplexLineageExtractor:
             # After retries are exhausted, report structured warning and continue
             self.report.num_lineage_entries_failed += 1
             self.report.report_warning(
-                "Failed to get lineage for entity after retries. Continuing with other entities.",
-                context=entity.entity_id,
+                "Failed to get lineage for entry after retries. Continuing with other entries.",
+                context=entry.entry_id,
                 exc=e,
             )
             return None
@@ -193,7 +182,7 @@ class DataplexLineageExtractor:
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
         """
-        Implementation of searching for lineage links where the entity is a target (to find upstream).
+        Implementation of searching for lineage links where the entry is a target (to find upstream).
         This method is wrapped with retry logic in _search_links_by_target.
 
         Raises:
@@ -215,13 +204,13 @@ class DataplexLineageExtractor:
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
         """
-        Search for lineage links where the entity is a target (to find upstream).
+        Search for lineage links where the entry is a target (to find upstream).
 
         Applies configurable retry logic with exponential backoff for transient errors.
 
         Args:
             parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entity
+            fully_qualified_name: FQN of the entry
 
         Returns:
             List of Link objects (all pages automatically retrieved)
@@ -238,7 +227,7 @@ class DataplexLineageExtractor:
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
         """
-        Implementation of search for lineage links where the entity is a source (to find downstream).
+        Implementation of search for lineage links where the entry is a source (to find downstream).
 
         Note: The Google Cloud Lineage API client automatically handles pagination.
         The search_links() method returns a SearchLinksPager that fetches all pages
@@ -246,7 +235,7 @@ class DataplexLineageExtractor:
 
         Args:
             parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entity
+            fully_qualified_name: FQN of the entry
 
         Returns:
             List of Link objects (all pages automatically retrieved)
@@ -275,7 +264,7 @@ class DataplexLineageExtractor:
 
         Args:
             parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entity
+            fully_qualified_name: FQN of the entry
 
         Returns:
             List of Link objects (all pages automatically retrieved)
@@ -287,208 +276,151 @@ class DataplexLineageExtractor:
     def _construct_fqn(
         self,
         platform: str,
-        project_id: str,
         dataset_id: str,
-        entity_id: str,
-        is_entry: bool = False,
     ) -> str:
         """
-        Construct a fully qualified name for an entity based on platform.
+        Construct a fully qualified name for an entry based on platform.
 
         The FQN format varies by platform per Google Cloud Lineage API:
         - BigQuery: bigquery:{project}.{dataset}.{table}
-        - GCS: gcs:{bucket} or gcs:{bucket}.{path/to/file}
+        - GCS: gcs:{bucket}/{path}
 
         Args:
             platform: Source platform ("bigquery" or "gcs")
-            project_id: GCP project ID
-            dataset_id: Dataset ID format depends on is_entry:
-                - For entries (is_entry=True): Full path like "project.dataset.table"
-                - For entities (is_entry=False): Just dataset name like "dataset"
-            entity_id: Entity ID (table name for BigQuery, file path for GCS)
-            is_entry: True if from Entries API, False if from Entities API
+            dataset_id: Full path like "project.dataset.table" for BigQuery
+                        or "bucket/path" for GCS
 
         Returns:
             Fully qualified name string in the format expected by Google Lineage API
         """
         if platform == "bigquery":
             # BigQuery format: bigquery:{project}.{dataset}.{table}
-            if is_entry:
-                # For entries, dataset_id already contains "project.dataset.table"
-                # so we just prepend the platform
-                return f"bigquery:{dataset_id}"
-            else:
-                # For entities, construct from components
-                return f"bigquery:{project_id}.{dataset_id}.{entity_id}"
+            # For entries, dataset_id already contains "project.dataset.table"
+            return f"bigquery:{dataset_id}"
         elif platform == "gcs":
-            # GCS format: gcs:{bucket} or gcs:{bucket}.{path}
-            if is_entry:
-                # For entries, dataset_id already contains the full path
-                return f"gcs:{dataset_id}"
-            else:
-                # For entities, construct from components
-                # entity_id might be empty (bucket-level) or a path
-                if entity_id and entity_id != dataset_id:
-                    # If entity_id is a path, construct gcs:{bucket}.{path}
-                    return f"gcs:{dataset_id}.{entity_id}"
-                else:
-                    # Bucket-level resource
-                    return f"gcs:{dataset_id}"
+            # GCS format: gcs:{bucket}/{path}
+            # For entries, dataset_id already contains the full path
+            return f"gcs:{dataset_id}"
         else:
             # Fallback for unknown platforms (shouldn't happen in practice)
             logger.warning(
                 f"Unknown platform '{platform}' for FQN construction, using generic format"
             )
-            if is_entry:
-                return f"{platform}:{dataset_id}"
-            else:
-                return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
+            return f"{platform}:{dataset_id}"
 
     def build_lineage_map(
-        self, project_id: str, entity_data: Iterable[EntityDataTuple]
+        self, project_id: str, entry_data: Iterable[EntryDataTuple]
     ) -> Dict[str, Set[LineageEdge]]:
         """
-        Build a map of entity lineage for multiple entities.
+        Build a map of entry lineage for multiple entries.
 
         Args:
             project_id: GCP project ID
-            entity_data: Iterable of EntityDataTuple objects to process
+            entry_data: Iterable of EntryDataTuple objects to process
 
         Returns:
-            Dictionary mapping entity IDs to sets of LineageEdge objects
+            Dictionary mapping dataset IDs (full paths) to sets of LineageEdge objects
         """
         logger.info(f"Starting lineage map build for project {project_id}")
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
-        entity_count = 0
+        entry_count = 0
 
-        for entity in entity_data:
-            entity_count += 1
+        for entry in entry_data:
+            entry_count += 1
             logger.debug(
-                f"Processing entity {entity_count}: {entity.entity_id} (platform: {entity.source_platform})"
+                f"Processing entry {entry_count}: {entry.dataset_id} (platform: {entry.source_platform})"
             )
-            lineage_data = self.get_lineage_for_entity(project_id, entity)
+            lineage_data = self.get_lineage_for_entry(project_id, entry)
 
             if not lineage_data:
                 continue
 
             # Convert upstream FQNs to LineageEdge objects
             for upstream_fqn in lineage_data.get("upstream", []):
-                # Extract entity ID from FQN
-                upstream_entity_id = self._extract_entity_id_from_fqn(upstream_fqn)
+                # Extract dataset ID from FQN (full path like project.dataset.table)
+                upstream_dataset_id = self._extract_entry_id_from_fqn(upstream_fqn)
 
-                if upstream_entity_id:
+                if upstream_dataset_id:
                     edge = LineageEdge(
-                        entity_id=upstream_entity_id,
+                        entry_id=upstream_dataset_id,
                         audit_stamp=datetime.now(timezone.utc),
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
-                    lineage_map[entity.entity_id].add(edge)
+                    # Use full dataset_id as key to avoid collisions between tables with same name
+                    lineage_map[entry.dataset_id].add(edge)
                     logger.debug(
-                        f"  Added lineage edge: {entity.entity_id} <- {upstream_entity_id}"
+                        f"  Added lineage edge: {entry.dataset_id} <- {upstream_dataset_id}"
                     )
 
         self.lineage_map = lineage_map
 
         # Summary logging
         total_edges = sum(len(edges) for edges in lineage_map.values())
-        entities_with_lineage = len(lineage_map)
+        entries_with_lineage = len(lineage_map)
         logger.info(
-            f"Lineage map complete: {entities_with_lineage} entities with lineage, {total_edges} total edges"
+            f"Lineage map complete: {entries_with_lineage} entries with lineage, {total_edges} total edges"
         )
 
         return lineage_map
 
-    def _extract_entity_id_from_fqn(self, fqn: str) -> Optional[str]:
+    def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
         """
-        Extract entity ID from a fully qualified name.
+        Extract entry ID from a fully qualified name.
 
         Handles platform-specific FQN formats:
         - BigQuery: bigquery:{project}.{dataset}.{table} -> {project}.{dataset}.{table}
-        - GCS: gcs:{bucket}.{path} -> {bucket}.{path}
+        - GCS: gcs:{bucket}/{path} -> {bucket}/{path}
         - GCS: gcs:{bucket} -> {bucket}
 
         Args:
             fqn: Fully qualified name in format "{platform}:{identifier}"
 
         Returns:
-            Entity ID (everything after the platform prefix) or None if extraction fails
+            Entry ID (everything after the platform prefix) or None if extraction fails
         """
         try:
             if ":" in fqn:
-                platform, entity_part = fqn.split(":", 1)
+                platform, entry_part = fqn.split(":", 1)
 
                 # Validate that we have a known platform
                 if platform not in ["bigquery", "gcs", "dataplex"]:
                     logger.warning(f"Unexpected platform '{platform}' in FQN: {fqn}")
 
-                return entity_part
+                return entry_part
             else:
                 # No platform prefix, return as-is (shouldn't happen in practice)
                 logger.warning(f"FQN missing platform prefix: {fqn}")
                 return fqn
         except Exception as e:
-            logger.error(f"Failed to extract entity ID from FQN '{fqn}': {e}")
+            logger.error(f"Failed to extract entry ID from FQN '{fqn}': {e}")
             return None
 
     def get_lineage_for_table(
-        self, entity_id: str, dataset_urn: str, platform: str
+        self, dataset_id: str, dataset_urn: str, platform: str
     ) -> Optional[UpstreamLineageClass]:
         """
-        Build UpstreamLineageClass for a specific entity.
+        Build UpstreamLineageClass for a specific entry.
 
         Args:
-            entity_id: Entity ID
+            dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
-            platform: Source platform for the entity (bigquery, gcs, etc.)
+            platform: Source platform for the entry (bigquery, gcs, etc.)
 
         Returns:
             UpstreamLineageClass object or None if no lineage exists
         """
-        if entity_id not in self.lineage_map:
+        if dataset_id not in self.lineage_map:
             return None
 
         upstream_list: list[UpstreamClass] = []
 
-        for lineage_edge in self.lineage_map[entity_id]:
-            # Generate URN for the upstream entity
-            # Extract project_id from entity_id (format: project_id.dataset_id.entity_name)
-            if "." in lineage_edge.entity_id:
-                parts = lineage_edge.entity_id.split(".", 2)
-                if len(parts) == 3:
-                    project_id, dataset_id, entity_name = parts
-                elif len(parts) == 2:
-                    # GCS format might be bucket.path or just bucket
-                    dataset_id, entity_name = parts
-                    project_id = (
-                        self.config.project_ids[0]
-                        if self.config.project_ids
-                        else "unknown"
-                    )
-                else:
-                    # Fallback if format is unexpected
-                    project_id = (
-                        self.config.project_ids[0]
-                        if self.config.project_ids
-                        else "unknown"
-                    )
-                    dataset_id = "unknown"
-                    entity_name = lineage_edge.entity_id
-            else:
-                # Fallback if format is different
-                project_id = (
-                    self.config.project_ids[0] if self.config.project_ids else "unknown"
-                )
-                dataset_id = "unknown"
-                entity_name = lineage_edge.entity_id
-
-            # Use the same platform as the downstream entity
-            # This assumes lineage is typically within the same platform
-            upstream_urn = make_entity_dataset_urn(
-                project_id=project_id,
-                entity_id=entity_name,
+        for lineage_edge in self.lineage_map[dataset_id]:
+            # Generate URN for the upstream entry using the full dataset_id
+            upstream_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=platform,
+                name=lineage_edge.entry_id,
+                platform_instance=None,
                 env=self.config.env,
-                dataset_id=dataset_id,
             )
 
             # Create table-level lineage
@@ -511,7 +443,7 @@ class DataplexLineageExtractor:
 
     def gen_lineage(
         self,
-        entity_id: str,
+        dataset_id: str,
         dataset_urn: str,
         platform: str,
         upstream_lineage: Optional[UpstreamLineageClass] = None,
@@ -520,7 +452,7 @@ class DataplexLineageExtractor:
         Generate lineage workunits for a dataset.
 
         Args:
-            entity_id: Entity ID
+            dataset_id: Full dataset ID (e.g., project.dataset.table for BigQuery)
             dataset_urn: DataHub URN for the dataset
             platform: Source platform (bigquery, gcs, etc.)
             upstream_lineage: Optional pre-built UpstreamLineageClass
@@ -530,7 +462,7 @@ class DataplexLineageExtractor:
         """
         if upstream_lineage is None:
             upstream_lineage = self.get_lineage_for_table(
-                entity_id, dataset_urn, platform
+                dataset_id, dataset_urn, platform
             )
 
         if upstream_lineage is None:
@@ -541,18 +473,18 @@ class DataplexLineageExtractor:
         ).as_workunit()
 
     def get_lineage_workunits(
-        self, project_id: str, entity_data: Iterable[EntityDataTuple]
+        self, project_id: str, entry_data: Iterable[EntryDataTuple]
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Main entry point to get lineage workunits for multiple entities.
+        Main entry point to get lineage workunits for multiple entries.
 
-        Processes entities in batches to reduce memory consumption for large deployments.
+        Processes entries in batches to reduce memory consumption for large deployments.
         Batch size is controlled by config.batch_size (default: 1000).
-        Set to -1 to disable batching and process all entities at once.
+        Set to None to disable batching and process all entries at once.
 
         Args:
             project_id: GCP project ID
-            entity_data: Iterable of EntityDataTuple objects
+            entry_data: Iterable of EntryDataTuple objects
 
         Yields:
             MetadataWorkUnit objects containing lineage information
@@ -564,103 +496,79 @@ class DataplexLineageExtractor:
         logger.info(f"Extracting lineage for project {project_id}")
 
         # Convert to list to allow multiple iterations and get total count
-        entity_list = list(entity_data)
-        total_entities = len(entity_list)
+        entry_list = list(entry_data)
+        total_entries = len(entry_list)
 
-        # Check if batching is disabled (None) or batch size >= total entities
-        if self.config.batch_size is None or self.config.batch_size >= total_entities:
-            logger.info(f"Processing all {total_entities} entities in a single batch")
-            # Process all entities at once (original behavior)
-            self.build_lineage_map(project_id, entity_list)
+        # Check if batching is disabled (None) or batch size >= total entries
+        if self.config.batch_size is None or self.config.batch_size >= total_entries:
+            logger.info(f"Processing all {total_entries} entries in a single batch")
+            # Process all entries at once (original behavior)
+            self.build_lineage_map(project_id, entry_list)
 
-            for entity in entity_list:
-                # Construct dataset URN based on whether this is from Entries API or Entities API
-                if entity.is_entry:
-                    import datahub.emitter.mce_builder as builder
-
-                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                        platform=entity.source_platform,
-                        name=entity.dataset_id,
-                        platform_instance=None,
-                        env=self.config.env,
-                    )
-                else:
-                    # For entities, use hierarchical naming (project.dataset.entity)
-                    dataset_urn = make_entity_dataset_urn(
-                        project_id=project_id,
-                        entity_id=entity.entity_id,
-                        platform=entity.source_platform,
-                        env=self.config.env,
-                        dataset_id=entity.dataset_id,
-                    )
+            for entry in entry_list:
+                # Construct dataset URN - entries use full dataset_id path
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=entry.source_platform,
+                    name=entry.dataset_id,
+                    platform_instance=None,
+                    env=self.config.env,
+                )
 
                 try:
                     yield from self.gen_lineage(
-                        entity.entity_id, dataset_urn, entity.source_platform
+                        entry.dataset_id, dataset_urn, entry.source_platform
                     )
                 except Exception as e:
                     self.report.num_lineage_entries_failed += 1
                     self.report.report_warning(
-                        "Failed to generate lineage for entity.",
-                        context=entity.entity_id,
+                        "Failed to generate lineage for entry.",
+                        context=entry.dataset_id,
                         exc=e,
                     )
         else:
-            # Process entities in batches
+            # Process entries in batches
             batch_size = self.config.batch_size
             num_batches = (
-                total_entities + batch_size - 1
+                total_entries + batch_size - 1
             ) // batch_size  # Ceiling division
 
             logger.info(
-                f"Processing {total_entities} entities in {num_batches} batches "
+                f"Processing {total_entries} entries in {num_batches} batches "
                 f"of {batch_size} (memory optimization enabled)"
             )
 
             for batch_idx in range(num_batches):
                 start_idx = batch_idx * batch_size
-                end_idx = min(start_idx + batch_size, total_entities)
-                batch = entity_list[start_idx:end_idx]
+                end_idx = min(start_idx + batch_size, total_entries)
+                batch = entry_list[start_idx:end_idx]
 
                 logger.info(
                     f"Processing batch {batch_idx + 1}/{num_batches} "
-                    f"({len(batch)} entities: {start_idx} to {end_idx - 1})"
+                    f"({len(batch)} entries: {start_idx} to {end_idx - 1})"
                 )
 
                 # Build lineage map for this batch only
                 self.build_lineage_map(project_id, batch)
 
-                # Generate workunits for entities in this batch
-                for entity in batch:
-                    # Construct dataset URN based on whether this is from Entries API or Entities API
-                    if entity.is_entry:
-                        import datahub.emitter.mce_builder as builder
-
-                        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                            platform=entity.source_platform,
-                            name=entity.dataset_id,
-                            platform_instance=None,
-                            env=self.config.env,
-                        )
-                    else:
-                        # For entities, use hierarchical naming (project.dataset.entity)
-                        dataset_urn = make_entity_dataset_urn(
-                            project_id=project_id,
-                            entity_id=entity.entity_id,
-                            platform=entity.source_platform,
-                            env=self.config.env,
-                            dataset_id=entity.dataset_id,
-                        )
+                # Generate workunits for entries in this batch
+                for entry in batch:
+                    # Construct dataset URN - entries use full dataset_id path
+                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                        platform=entry.source_platform,
+                        name=entry.dataset_id,
+                        platform_instance=None,
+                        env=self.config.env,
+                    )
 
                     try:
                         yield from self.gen_lineage(
-                            entity.entity_id, dataset_urn, entity.source_platform
+                            entry.dataset_id, dataset_urn, entry.source_platform
                         )
                     except Exception as e:
                         self.report.num_lineage_entries_failed += 1
                         self.report.report_warning(
-                            "Failed to generate lineage for entity.",
-                            context=entity.entity_id,
+                            "Failed to generate lineage for entry.",
+                            context=entry.dataset_id,
                             exc=e,
                         )
 
