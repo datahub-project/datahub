@@ -448,6 +448,81 @@ def test_custom_headers_all_empty_becomes_none() -> None:
         assert new_model_config.custom_model_provider.custom_headers == {}
 
 
+def test_single_custom_header_name_and_value() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADER_NAME": "Authorization",
+        "MODEL_CUSTOM_HEADER_VALUE": "Bearer token123",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "Authorization": "Bearer token123",
+        }
+
+
+def test_single_custom_header_merged_with_multi_headers() -> None:
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADERS": "X-Tenant-ID:tenant-abc,X-Region:us-west-2",
+        "MODEL_CUSTOM_HEADER_NAME": "Authorization",
+        "MODEL_CUSTOM_HEADER_VALUE": "Bearer token123",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers == {
+            "X-Tenant-ID": "tenant-abc",
+            "X-Region": "us-west-2",
+            "Authorization": "Bearer token123",
+        }
+
+
+def test_single_custom_header_missing_value_is_ignored() -> None:
+    """Only name set (no value) — single-header env vars should be ignored."""
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADER_NAME": "Authorization",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is None
+
+
+def test_single_custom_header_missing_name_is_ignored() -> None:
+    """Only value set (no name) — single-header env vars should be ignored."""
+    env_vars = {
+        "MODEL_CUSTOM_BASE_URL": "https://test_url.com",
+        "MODEL_CUSTOM_HEADER_VALUE": "Bearer token123",
+    }
+
+    with patch.dict(os.environ, env_vars, clear=True):
+        import datahub_integrations.gen_ai.model_config
+
+        importlib.reload(datahub_integrations.gen_ai.model_config)
+        new_model_config = datahub_integrations.gen_ai.model_config.model_config
+
+        assert new_model_config.custom_model_provider is not None
+        assert new_model_config.custom_model_provider.custom_headers is None
+
+
 # Mode-to-model mapping tests (using string keys now instead of Mode enum)
 
 
