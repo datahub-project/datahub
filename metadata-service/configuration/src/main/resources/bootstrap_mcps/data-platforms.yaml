@@ -548,6 +548,16 @@
     displayName: Metabase
     type: OTHERS
     logoUrl: "assets/platforms/metabaselogo.svg"
+- entityUrn: urn:li:dataPlatform:flink
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: flink
+    displayName: Apache Flink
+    type: OTHERS
+    logoUrl: "assets/platforms/flinklogo.png"
 - entityUrn: urn:li:dataPlatform:nifi
   entityType: dataPlatform
   aspectName: dataPlatformInfo

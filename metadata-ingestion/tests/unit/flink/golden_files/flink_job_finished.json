@@ -1,0 +1,100 @@
+{
+  "jid": "e5c5b2345678901bcdef2345678901b",
+  "name": "etl_pipeline",
+  "isStoppable": false,
+  "state": "FINISHED",
+  "start-time": 1707590400000,
+  "end-time": 1707594000000,
+  "duration": 3600000,
+  "maxParallelism": 64,
+  "now": 1707763200000,
+  "timestamps": {
+    "INITIALIZING": 1707590399000,
+    "CREATED": 1707590399500,
+    "RUNNING": 1707590400000,
+    "FAILING": 0,
+    "FAILED": 0,
+    "CANCELLING": 0,
+    "CANCELED": 0,
+    "FINISHED": 1707594000000,
+    "RESTARTING": 0,
+    "SUSPENDED": 0,
+    "RECONCILING": 0
+  },
+  "vertices": [],
+  "status-counts": {
+    "CREATED": 0,
+    "SCHEDULED": 0,
+    "DEPLOYING": 0,
+    "RUNNING": 0,
+    "FINISHED": 2,
+    "CANCELING": 0,
+    "CANCELED": 0,
+    "FAILED": 0,
+    "RECONCILING": 0,
+    "INITIALIZING": 0
+  },
+  "plan": {
+    "jid": "e5c5b2345678901bcdef2345678901b",
+    "name": "etl_pipeline",
+    "type": "STREAMING",
+    "nodes": [
+      {
+        "id": "1",
+        "parallelism": 2,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "Source: KafkaSource-orders -> Map",
+        "inputs": [],
+        "optimizer_properties": {}
+      },
+      {
+        "id": "2",
+        "parallelism": 2,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "Source: KafkaSource-users -> Map",
+        "inputs": [],
+        "optimizer_properties": {}
+      },
+      {
+        "id": "3",
+        "parallelism": 2,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "KeyBy -> Join -> Map",
+        "inputs": [
+          {
+            "num": 0,
+            "id": "1",
+            "ship_strategy": "HASH",
+            "exchange": "pipelined_bounded"
+          },
+          {
+            "num": 1,
+            "id": "2",
+            "ship_strategy": "HASH",
+            "exchange": "pipelined_bounded"
+          }
+        ],
+        "optimizer_properties": {}
+      },
+      {
+        "id": "4",
+        "parallelism": 2,
+        "operator": "",
+        "operator_strategy": "",
+        "description": "Sink: KafkaSink-enriched-orders",
+        "inputs": [
+          {
+            "num": 0,
+            "id": "3",
+            "ship_strategy": "FORWARD",
+            "exchange": "pipelined_bounded"
+          }
+        ],
+        "optimizer_properties": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,99 @@
+source:
+  type: flink
+  config:
+    # ============================================
+    # Connection Configuration (required)
+    # ============================================
+
+    # Flink JobManager REST API base URL.
+    # This is the address where the Flink Web UI is accessible.
+    rest_endpoint: "http://localhost:8081"
+
+    # ============================================
+    # Authentication (optional)
+    # ============================================
+    # Choose ONE of: bearer token OR basic auth. They are mutually exclusive.
+
+    # Option A: Bearer token auth (e.g. behind an API gateway or reverse proxy)
+    # token: "${FLINK_TOKEN}"
+
+    # Option B: HTTP Basic auth
+    # username: "${FLINK_USERNAME}"
+    # password: "${FLINK_PASSWORD}"
+
+    # Whether to verify SSL certificates. Set to false for self-signed certs.
+    # verify_ssl: true
+
+    # ============================================
+    # Kafka Lineage Configuration
+    # ============================================
+
+    # IMPORTANT: For lineage edges to connect to your existing Kafka datasets,
+    # kafka_platform_instance must match the platform_instance used by your
+    # Kafka ingestion source. If unset, URNs are constructed with env only.
+    # kafka_platform_instance: "my-kafka-cluster"
+
+    # Environment for Kafka dataset URNs. Defaults to the connector's env.
+    # kafka_env: "PROD"
+
+    # Whether to extract source/sink lineage from Flink execution plans.
+    # include_lineage: true
+
+    # ============================================
+    # Job Filtering
+    # ============================================
+
+    # Filter jobs by name using regex patterns.
+    # job_name_pattern:
+    #   allow:
+    #     - "^prod_.*"       # Only ingest jobs starting with "prod_"
+    #   deny:
+    #     - ".*_test$"       # Exclude jobs ending with "_test"
+
+    # Which Flink job states to include.
+    # Valid: CANCELED, CANCELLING, CREATED, FAILED, FAILING, FINISHED,
+    #        INITIALIZING, RECONCILING, RESTARTING, RUNNING, SUSPENDED
+    # include_job_states:
+    #   - RUNNING
+    #   - FINISHED
+    #   - FAILED
+    #   - CANCELED
+
+    # ============================================
+    # Run History
+    # ============================================
+
+    # Whether to emit DataProcessInstance entities for job execution tracking.
+    # include_run_history: true
+
+    # ============================================
+    # Performance
+    # ============================================
+
+    # Max parallel threads for fetching job details. (default: 10)
+    # max_workers: 10
+
+    # HTTP request timeout in seconds. (default: 30)
+    # request_timeout_seconds: 30
+
+    # ============================================
+    # Platform Instance & Environment (optional)
+    # ============================================
+
+    # Unique identifier for this Flink cluster.
+    # platform_instance: "my-flink-cluster"
+
+    # Environment tag (PROD, DEV, STAGING, etc.)
+    # env: "PROD"
+
+    # ============================================
+    # Stateful Ingestion (optional)
+    # ============================================
+    # When enabled, entities from previous runs that no longer exist
+    # will be soft-deleted automatically.
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+sink:
+  # sink configs

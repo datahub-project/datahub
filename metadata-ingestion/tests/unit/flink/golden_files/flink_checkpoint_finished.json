@@ -1,0 +1,11 @@
+{
+  "mode": "at_least_once",
+  "interval": 30000,
+  "timeout": 300000,
+  "min_pause": 0,
+  "max_concurrent": 1,
+  "state_backend": "hashmap",
+  "checkpoint_storage": "jobmanager",
+  "unaligned_checkpoints": false,
+  "tolerable_failed_checkpoints": 3
+}

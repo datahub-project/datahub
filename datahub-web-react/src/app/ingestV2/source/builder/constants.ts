@@ -19,6 +19,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
+import flinkLogo from '@images/flinklogo.png';
 import glueLogo from '@images/gluelogo.png';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
@@ -161,6 +162,8 @@ export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+export const FLINK = 'flink';
+export const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
 export const CSV = 'csv-enricher';
 export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 export const SPARK = 'spark';
@@ -241,6 +244,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
+    [FLINK_URN]: flinkLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,

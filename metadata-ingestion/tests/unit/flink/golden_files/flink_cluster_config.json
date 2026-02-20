@@ -1,0 +1,13 @@
+{
+  "refresh-interval": 3000,
+  "timezone-name": "Coordinated Universal Time",
+  "timezone-offset": "+00:00",
+  "flink-version": "1.20.0",
+  "flink-revision": "abc123 @ 2024-01-15T10:30:00+00:00",
+  "features": {
+    "web-submit": false,
+    "web-cancel": false,
+    "web-rescale": false,
+    "web-history": true
+  }
+}
