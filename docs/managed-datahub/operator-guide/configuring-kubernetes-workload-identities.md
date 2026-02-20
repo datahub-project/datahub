@@ -147,12 +147,13 @@ helm install datahub-executor ./charts/datahub-executor-worker \
 ### 6. Verify Configuration
 
 ```bash
-# Verify the pod can access GCS
+# Verify the pod is authenticated to GCP
 kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
   gcloud auth list
 
+# Test BigQuery access
 kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
-  gsutil ls gs://my-datahub-ingestion-bucket
+  bq ls --project_id=my-gcp-project
 ```
 
 ---
@@ -239,7 +240,7 @@ aws iam create-policy \
 
 ### 3. Create IAM Role with Trust Policy
 
-Create trust policy file (`trust-policy.json`):
+Create a trust policy file (`trust-policy.json`):
 
 ```json
 {
@@ -548,7 +549,7 @@ kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub 
 1. **Principle of Least Privilege**: Grant only the minimum permissions required for the executor to function
 2. **Namespace Isolation**: Use separate service accounts per namespace for multi-tenant deployments
 3. **Audit Logging**: Enable cloud audit logs to monitor service account usage
-4. **Rotation**: Regularly review and rotate credentials and access policies
+4. **Rotation**: Regularly review and update IAM bindings and access policies
 5. **Network Policies**: Implement Kubernetes network policies to restrict pod-to-pod communication
 
 ---
