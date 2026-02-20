@@ -15,6 +15,7 @@ import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appCo
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
@@ -58,6 +59,17 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
         ...operation.variables,
         skipSiblingsSearch: showSeparateSiblingsRef.current,
         skipLineage: hideLineageInSearchCardsRef.current,
+    };
+
+    return forward(operation);
+});
+
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current.showSeparateSiblings,
+        skipLineage: hideLineageInSearchCardsRef.current.hideLineageInSearchCards,
     };
 
     return forward(operation);
