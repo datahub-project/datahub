@@ -47,9 +47,6 @@ from datahub.ingestion.source.sql.sql_common import (
     get_schema_metadata,
     register_custom_type,
 )
-from datahub.utilities.urns.field_paths import (
-    get_simple_field_path_from_v2_field_path,
-)
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
@@ -60,16 +57,19 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
-from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
     NumberTypeClass,
     RecordTypeClass,
     SchemaField,
+)
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+)
+from datahub.utilities.urns.field_paths import (
+    get_simple_field_path_from_v2_field_path,
 )
 
 register_custom_type(datatype.ROW, RecordTypeClass)
@@ -394,9 +394,7 @@ class TrinoSource(SQLAlchemySource):
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(source_dataset_urn, path)
-                            ],
+                            upstreams=[make_schema_field_urn(source_dataset_urn, path)],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[make_schema_field_urn(dataset_urn, path)],
                         )
