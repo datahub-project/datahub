@@ -89,6 +89,52 @@ class PowerBiAPI:
         # reports and tiles across different workspaces.
         self.dataset_registry: Dict[str, PowerBIDataset] = {}
 
+    def _ensure_dataset_in_registry(
+        self, workspace: Workspace, dataset_id: str
+    ) -> Optional[PowerBIDataset]:
+        """
+        When there is no scan result (regular API path), fetch a dataset from the
+        workspace and add it to the registry so report/tile lineage can resolve.
+        Returns the dataset if found or already in registry, else None.
+        """
+        existing = self.dataset_registry.get(dataset_id)
+        if existing is not None:
+            return existing
+        # Only skip on-demand fetch when we have a real scan result (registry was
+        # populated from scan). When scan failed, scan_result is {} so we fetch.
+        if (
+            workspace.scan_result
+            and isinstance(workspace.scan_result, dict)
+            and workspace.scan_result.get(Constant.DATASETS) is not None
+        ):
+            return None
+        try:
+            dataset_instance = self._get_resolver().get_dataset(
+                workspace=workspace,
+                dataset_id=dataset_id,
+            )
+            if dataset_instance is not None:
+                self.dataset_registry[dataset_id] = dataset_instance
+                workspace.datasets[dataset_id] = dataset_instance
+            return dataset_instance
+        except Exception:
+            return None
+
+    def _get_dataset_workspace_context(self, dataset_id: str) -> str:
+        """
+        Resolve dataset to its workspace via Admin API when available.
+        Returns a string to append to error context, e.g.
+        ", dataset-workspace-id: x, dataset-workspace-name: y" or "".
+        """
+        resolved = self.__admin_api_resolver.get_dataset_workspace_as_admin(dataset_id)
+        if not resolved:
+            return ""
+        workspace_id, workspace_name = resolved
+        parts = [f", dataset-workspace-id: {workspace_id}"]
+        if workspace_name:
+            parts.append(f", dataset-workspace-name: {workspace_name}")
+        return "".join(parts)
+
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
         _, e, _ = sys.exc_info()
@@ -209,12 +255,17 @@ class PowerBiAPI:
             # Fill Report dataset
             for report in reports.values():
                 if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
+                    report.dataset = self._ensure_dataset_in_registry(
+                        workspace, report.dataset_id
+                    )
                     if report.dataset is None:
+                        dataset_ctx = self._get_dataset_workspace_context(
+                            report.dataset_id
+                        )
                         self.reporter.info(
                             title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                            message="Report references a dataset from another workspace that could not be resolved (dataset not in any ingested workspace). The workspace below is where the report lives. Add the dataset's workspace to ingestion or relax workspace_id_pattern.",
+                            context=f"report-workspace: {workspace.name}, report-name: {report.name}, dataset-id: {report.dataset_id}{dataset_ctx}",
                         )
         except Exception:
             self.log_http_error(
@@ -762,12 +813,17 @@ class PowerBiAPI:
                     # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
                     # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
-                        tile.dataset = self.dataset_registry.get(tile.dataset_id)
+                        tile.dataset = self._ensure_dataset_in_registry(
+                            workspace, tile.dataset_id
+                        ) or self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
+                            dataset_ctx = self._get_dataset_workspace_context(
+                                tile.dataset_id
+                            )
                             self.reporter.info(
                                 title="Missing Dataset Lineage For Tile",
-                                message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
+                                message="Tile references a dataset from another workspace that could not be resolved. Add the dataset's workspace to ingestion or relax workspace_id_pattern.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}{dataset_ctx}",
                             )
 
         def fill_reports() -> None:
