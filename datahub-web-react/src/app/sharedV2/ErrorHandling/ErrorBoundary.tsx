@@ -28,7 +28,7 @@ const logError = (error: unknown, info: { componentStack: string }, enableSentry
         console.error('Component Info:', info);
         console.error('URL:', window.location.href);
 
-        console.warn('🔧 ACTION REQUIRED: Please report this error to your Datahub Administrator');
+        console.warn('🔧 ACTION REQUIRED: Please report this error to your DataHub Administrator');
         console.warn('📧 Include the above error details in your report');
         console.groupEnd();
     }
@@ -46,7 +46,7 @@ export const ErrorBoundary = ({ children, variant = 'route', fallback, resetKeys
                 // Custom message for on-prem customers
                 actionMessage={
                     !enableSentry
-                        ? 'Please report the error messages from your browser to your Datahub Administrator'
+                        ? 'Please report the error messages from your browser to your DataHub Administrator'
                         : undefined
                 }
             />
