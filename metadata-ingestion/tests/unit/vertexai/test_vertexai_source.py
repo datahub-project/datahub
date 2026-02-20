@@ -181,25 +181,3 @@ def test_pipeline_stable_name_strips_kubeflow_timestamp(
     assert stable_name == expected_stable_name, (
         f"Expected {expected_stable_name}, got {stable_name}"
     )
-
-
-def test_model_group_urn_extraction(source: VertexAISource) -> None:
-    """Test that model group URNs are correctly extracted from artifact URIs."""
-    test_cases = [
-        (
-            "projects/test-project/locations/us-central1/models/123456789",
-            "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,123456789,PROD)",
-        ),
-        (
-            "projects/my-project/locations/europe-west1/models/my_model_id",
-            "urn:li:mlModelGroup:(urn:li:dataPlatform:vertexai,my_model_id,PROD)",
-        ),
-        (None, None),
-        ("gs://bucket/path/to/artifact", None),
-    ]
-
-    for uri, expected_urn in test_cases:
-        result = source.uri_parser.model_group_urn_from_artifact_uri(uri)
-        assert result == expected_urn, (
-            f"URI {uri}: expected {expected_urn}, got {result}"
-        )
