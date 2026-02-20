@@ -16,6 +16,7 @@ import {
 import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvancedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
+import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/ScheduleSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -24,6 +25,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative;
 `;
 
 export function ConnectionDetailsStep() {
@@ -176,6 +178,8 @@ export function ConnectionDetailsStep() {
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={updateStagedRecipeAndState}
                 />
+
+                <ScheduleSection />
 
                 <AdvancedSection state={state} updateState={updateState} />
             </Container>

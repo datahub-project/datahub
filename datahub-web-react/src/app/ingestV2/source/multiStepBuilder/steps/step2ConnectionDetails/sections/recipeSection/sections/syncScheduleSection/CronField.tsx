@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Cron from 'react-js-cron';
 import styled from 'styled-components';
 
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 
 const CronText = styled.div`
     margin-top: 8px;

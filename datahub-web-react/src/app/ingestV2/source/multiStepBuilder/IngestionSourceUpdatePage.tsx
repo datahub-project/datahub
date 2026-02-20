@@ -11,7 +11,6 @@ import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSo
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -36,12 +35,6 @@ const STEPS: IngestionSourceFormStep[] = [
         subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
-    },
-    {
-        label: 'Sync Schedule ',
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
-        subTitle: 'Configure an ingestion schedule',
     },
 ];
 

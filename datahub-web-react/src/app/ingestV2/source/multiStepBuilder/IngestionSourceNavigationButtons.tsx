@@ -1,20 +1,27 @@
 import { Button } from '@components';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
     SubmitOptions,
 } from '@app/ingestV2/source/multiStepBuilder/types';
-import { MultiStepFormBottomPanel } from '@app/sharedV2/forms/multiStepForm/MultiStepFormBottomPanel';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
-export function IngestionSourceBottomPanel() {
-    const { isFinalStep, isCurrentStepCompleted, submit } = useMultiStepContext<
+const ButtonsContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+`;
+
+export default function IngestionSourceNavigationButtons() {
+    const { submit, cancel, isFinalStep, isCurrentStepCompleted } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep,
         SubmitOptions
     >();
+
     const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState<boolean>(false);
 
     const save = useCallback(
@@ -37,11 +44,17 @@ export function IngestionSourceBottomPanel() {
         await save({ shouldRun: true });
     }, [save]);
 
-    const renderRightButtons = useCallback(
-        (buttons: React.ReactNode[]) => {
-            if (!isFinalStep()) return buttons;
-            return [
-                ...buttons,
+    const navigationButtons = useMemo(() => {
+        const buttons: React.ReactNode[] = [];
+
+        buttons.push(
+            <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
+                Cancel
+            </Button>,
+        );
+
+        if (isFinalStep()) {
+            buttons.push(
                 <Button
                     size="sm"
                     variant="outline"
@@ -59,15 +72,11 @@ export function IngestionSourceBottomPanel() {
                 >
                     Save and Run
                 </Button>,
-            ];
-        },
-        [isFinalStep, isCurrentStepCompleted, onSave, onSaveAndRun, isSaveAndRunInProgress],
-    );
+            );
+        }
 
-    return (
-        <MultiStepFormBottomPanel
-            renderRightButtons={renderRightButtons}
-            disabledNextTooltip="Enter a name to continue"
-        />
-    );
+        return buttons;
+    }, [cancel, isFinalStep, isCurrentStepCompleted, isSaveAndRunInProgress, onSave, onSaveAndRun]);
+
+    return <ButtonsContainer>{navigationButtons}</ButtonsContainer>;
 }
