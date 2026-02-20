@@ -1,0 +1,134 @@
+name: Connector Tests Trigger
+on:
+  workflow_run:
+    workflows: ["Python Build", "Metadata Ingestion"]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      actions: read
+      statuses: write
+      deployments: read
+    steps:
+      - name: Check BOTH workflows passed for this SHA
+        id: check-both
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          REPO="${{ github.repository }}"
+
+          WB=$(gh api "/repos/${REPO}/actions/workflows/python-build-pages.yml/runs?head_sha=${SHA}&per_page=1" \
+            --jq '.workflow_runs[0].conclusion // empty')
+          MI=$(gh api "/repos/${REPO}/actions/workflows/metadata-ingestion.yml/runs?head_sha=${SHA}&per_page=1" \
+            --jq '.workflow_runs[0].conclusion // empty')
+
+          echo "Python Build: $WB, Metadata Ingestion: $MI"
+
+          if [ "$WB" = "success" ] && [ "$MI" = "success" ]; then
+            echo "both_passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not both passed yet (WB=$WB, MI=$MI) — other trigger will handle it. If one of the upstream job failed, then connector tests will not run for this SHA."
+            echo "both_passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get Cloudflare URL
+        if: steps.check-both.outputs.both_passed == 'true'
+        id: cloudflare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          REPO="${{ github.repository }}"
+
+          DEPLOY_ID=$(gh api "/repos/${REPO}/deployments?sha=${SHA}&per_page=10" \
+            --jq '[.[] | select(.environment | test("wheels"; "i"))][0].id // empty')
+
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "::error::No Cloudflare deployment found for SHA ${SHA}. Re-run the Python Build workflow."
+            exit 1
+          fi
+
+          DEPLOY_URL=$(gh api "/repos/${REPO}/deployments/${DEPLOY_ID}/statuses" \
+            --jq '.[0].environment_url // empty')
+
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::Cloudflare deployment ${DEPLOY_ID} exists but has no URL."
+            exit 1
+          fi
+
+          echo "url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
+          echo "Cloudflare URL: ${DEPLOY_URL}"
+
+      - name: Get PR info
+        if: steps.check-both.outputs.both_passed == 'true'
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          REPO="${{ github.repository }}"
+          HEAD_REPO="${{ github.event.workflow_run.head_repository.full_name }}"
+
+          PR_NUMBER=$(gh api "/repos/${REPO}/pulls?head=${HEAD_REPO}:${BRANCH}&state=open" \
+            --jq '.[0].number // empty')
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR found for branch ${BRANCH} — skipping"
+            echo "has_pr=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_pr=true" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "Found PR #${PR_NUMBER}"
+          fi
+
+      - name: Set pending commit status
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_sha }}" \
+            -f state=pending \
+            -f context="connector-tests" \
+            -f description="Connector tests triggered, waiting for results..."
+
+      - name: Dispatch to connector-tests
+        if: steps.check-both.outputs.both_passed == 'true' && steps.pr-info.outputs.has_pr == 'true'
+        env:
+          # Fine-grained PAT scoped to acryldata/connector-tests with Contents: R/W.
+          # To rotate: generate a new token and update this repo secret.
+          GH_TOKEN: ${{ secrets.CONNECTOR_TESTS_DISPATCH_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_REPO: ${{ github.repository }}
+          WHEEL_URL: ${{ steps.cloudflare.outputs.url }}
+        run: |
+          jq -nc \
+            --arg event "oss-pr-connector-tests" \
+            --arg pr "$PR_NUMBER" \
+            --arg sha "$COMMIT_SHA" \
+            --arg repo "$SOURCE_REPO" \
+            --arg url "$WHEEL_URL" \
+            '{event_type: $event, client_payload: {pr_number: $pr, sha: $sha, source_repo: $repo, wheel_url: $url}}' \
+          | gh api "/repos/acryldata/connector-tests/dispatches" --input -
+
+          echo "Dispatched for PR #${PR_NUMBER}"
+
+      - name: On failure — set error commit status
+        if: failure() && steps.pr-info.outputs.has_pr == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_sha }}" \
+            -f state=error \
+            -f context="connector-tests" \
+            -f description="Failed to trigger connector tests (infra issue)"
