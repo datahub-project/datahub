@@ -917,7 +917,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.doris.DorisSource",
+      "classname": "datahub.ingestion.source.sql.doris.doris_source.DorisSource",
       "platform_id": "doris",
       "platform_name": "Apache Doris",
       "support_status": "INCUBATING"
@@ -2508,7 +2508,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "description": "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
           "subtype_modifier": null,
           "supported": true
         },
