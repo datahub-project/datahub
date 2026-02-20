@@ -2676,7 +2676,7 @@
     "deletions": 2
   },
   "metadata-ingestion/pyproject.toml": {
-    "additions": 1,
+    "additions": 3,
     "deletions": 1
   },
   "metadata-ingestion/scripts/analyticseventsdocgen.sh": {
