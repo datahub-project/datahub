@@ -133,6 +133,8 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
     builder.setHttpClientConfigCallback(
         httpAsyncClientBuilder -> {
+          // System properties like http.proxyHost, https.proxyHost or http.nonProxyHosts will be taken into account.
+          httpAsyncClientBuilder.useSystemProperties();
           if (shimConfiguration.isUseSSL()) {
             httpAsyncClientBuilder
                 .setSSLContext(shimConfiguration.getSSLContext())

@@ -263,6 +263,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     // Configure HTTP client
     builder.setHttpClientConfigCallback(
         httpAsyncClientBuilder -> {
+          // System properties like http.proxyHost, https.proxyHost or http.nonProxyHosts will be taken into account.
+          httpAsyncClientBuilder.useSystemProperties();
           // SSL configuration
           if (config.isUseSSL()) {
             try {
@@ -1557,6 +1559,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
+            // IMPORTANT: Submit as an async task so the response contains a task id.
+            .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 
