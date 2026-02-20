@@ -1,8 +1,7 @@
 import React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
@@ -46,14 +45,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             entityType={EntityType.Domain}
-            typeIcon={
-                <DomainIcon
-                    style={{
-                        fontSize: 14,
-                        color: '#BFBFBF',
-                    }}
-                />
-            }
+            typeIcon={entityRegistry.getIcon(EntityType.Domain, 14, IconStyleType.ACCENT)}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

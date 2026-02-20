@@ -1,4 +1,4 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Clock } from '@phosphor-icons/react';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -105,7 +105,7 @@ export const Preview = ({
             subHeader={
                 (lastRunTimeMs && [
                     <StatText>
-                        <ClockCircleOutlined style={{ paddingRight: 8 }} />
+                        <Clock size={14} color="currentColor" style={{ paddingRight: 8 }} />
                         Last run {toRelativeTimeString(lastRunTimeMs)}
                     </StatText>,
                 ]) ||

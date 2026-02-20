@@ -1,35 +1,49 @@
 import { Tooltip } from '@components';
 import { NodeViewComponentProps } from '@remirror/react';
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@src/app/entityV2/Entity';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
 
-const { Text } = Typography;
-
-const InvalidEntityText = styled(Text)`
-    display: inline-block;
+const InvalidEntityText = styled.span`
     font-weight: 500;
-    color: ${ANTD_GRAY[7]};
+    text-decoration: line-through;
+    color: ${(props) => props.theme.colors.textDisabled};
 `;
 
-const ValidEntityText = styled(Text)`
-    display: inline-block;
+const EntityName = styled.span`
     font-weight: 500;
-    margin-left: 4px !important;
+    margin-left: 4px;
     word-break: break-all;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.text};
 `;
 
-// !important is needed to override inline styles
 const Container = styled.span`
-    & > .anticon {
-        color: ${(props) => props.theme.styles['primary-color']} !important;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    color: ${(props) => props.theme.colors.icon};
+`;
+
+const IconWrapper = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+
+    svg {
+        display: block;
+    }
+
+    img {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
     }
 `;
 
@@ -43,26 +57,26 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
     });
 
     if (loading) {
-        return <ValidEntityText>{name}</ValidEntityText>;
+        return <EntityName>{name}</EntityName>;
     }
 
     if (!data || !data.entity) {
         return (
             <Tooltip title="Failed to find entity">
-                <InvalidEntityText delete>{name}</InvalidEntityText>
+                <InvalidEntityText>{name}</InvalidEntityText>
             </Tooltip>
         );
     }
 
     const { entity } = data;
-    const entityName = registry.getDisplayName(entity.type, entity);
-    const entityType = registry.getIcon(entity.type, 14, IconStyleType.ACCENT);
+    const displayName = registry.getDisplayName(entity.type, entity);
+    const icon = registry.getIcon(entity.type, 14, IconStyleType.ACCENT);
 
     return (
         <HoverEntityTooltip entity={entity}>
             <Container>
-                {entityType}
-                <ValidEntityText>{entityName}</ValidEntityText>
+                <IconWrapper>{icon}</IconWrapper>
+                <EntityName>{displayName}</EntityName>
             </Container>
         </HoverEntityTooltip>
     );

@@ -48,7 +48,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookmarkSimple style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarkSimple size={20} color="currentColor" />}
             entityType={EntityType.GlossaryTerm}
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}

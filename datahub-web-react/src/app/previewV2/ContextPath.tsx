@@ -91,8 +91,10 @@ export default function ContextPath(props: Props) {
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
+    const ICON_SIZE = 14;
     const entityTypeIcon =
-        getSubTypeIcon(displayedEntityType) || entityRegistry.getIcon(entityType, undefined, IconStyleType.ACCENT);
+        getSubTypeIcon(displayedEntityType, ICON_SIZE) ||
+        entityRegistry.getIcon(entityType, ICON_SIZE, IconStyleType.ACCENT);
 
     const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
     const hasParentEntities = !!parentEntities?.length;

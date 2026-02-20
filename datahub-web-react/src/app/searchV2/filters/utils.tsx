@@ -147,10 +147,9 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
     return browseEntries[browseEntries.length - 1] || '';
 }
 
-const SubTypeIcon = styled.span<{ $fontSize?: number }>`
+const SubTypeIcon = styled.span`
     display: inline-flex;
     color: ${ANTD_GRAY[9]};
-    font-size: ${({ $fontSize }) => $fontSize || 12}px;
 `;
 
 function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
@@ -161,7 +160,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
         label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
-        icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
+        icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType, false, size || 12)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);
