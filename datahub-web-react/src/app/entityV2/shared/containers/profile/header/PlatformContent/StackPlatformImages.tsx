@@ -1,5 +1,5 @@
 import React from 'react';
-import styled, { CSSObject } from 'styled-components';
+import styled, { CSSObject, useTheme } from 'styled-components';
 
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 
@@ -11,18 +11,18 @@ const Container = styled.div`
     position: relative;
 `;
 
-const secondIconStyles = (isSmall: boolean) => ({
+const secondIconStyles = (isSmall: boolean, bgColor: string) => ({
     marginLeft: isSmall ? '-10px' : '-16px',
     zIndex: 0,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: `1px solid ${bgColor}`,
     padding: isSmall ? '4px' : '10px',
 });
 
-const firstIconStyles = (isSmall: boolean) => ({
+const firstIconStyles = (isSmall: boolean, bgColor: string) => ({
     zIndex: 1,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: `1px solid ${bgColor}`,
     padding: isSmall ? '4px' : '10px',
 });
 
@@ -35,6 +35,8 @@ interface Props {
 }
 
 const StackImages = ({ platforms, size = 28, styles }: Props) => {
+    const theme = useTheme();
+    const bgColor = theme.colors.bg;
     const uniquePlatforms = platforms.reduce<DataPlatform[]>((acc, current) => {
         if (!acc.find((platform) => platform.urn === current.urn)) {
             acc.push(current);
@@ -54,8 +56,8 @@ const StackImages = ({ platforms, size = 28, styles }: Props) => {
                             size={size}
                             styles={
                                 styles
-                                    ? { ...secondIconStyles(areIconsSmall), ...styles }
-                                    : secondIconStyles(areIconsSmall)
+                                    ? { ...secondIconStyles(areIconsSmall, bgColor), ...styles }
+                                    : secondIconStyles(areIconsSmall, bgColor)
                             }
                         />
                     ) : (
@@ -64,8 +66,8 @@ const StackImages = ({ platforms, size = 28, styles }: Props) => {
                             size={size}
                             styles={
                                 styles
-                                    ? { ...firstIconStyles(areIconsSmall), ...styles }
-                                    : firstIconStyles(areIconsSmall)
+                                    ? { ...firstIconStyles(areIconsSmall, bgColor), ...styles }
+                                    : firstIconStyles(areIconsSmall, bgColor)
                             }
                         />
                     )}

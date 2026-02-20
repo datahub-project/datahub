@@ -4,8 +4,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 import RowIcon from '@images/row-icon.svg?react';
 
 const Prefix = styled.div<{ padding: number }>`
@@ -27,12 +25,12 @@ const Padding = styled.span<{ padding: number }>`
 
 const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
-        stroke: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
+        stroke: ${(props) => props.theme.colors.textHover};
         stroke-width: 140px;
     }
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    stroke: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
+    stroke: ${(props) => props.theme.colors.textSecondary};
     stroke-width: 100px;
     padding-right: 5px;
     ${(props) =>
@@ -45,12 +43,12 @@ const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
 
 const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${(props) => props.theme.styles['primary-color']};
-        color: ${(props) => props.theme.styles['primary-color']};
+        stroke: ${(props) => props.theme.colors.textHover};
+        color: ${(props) => props.theme.colors.textHover};
         stroke-width: 140px;
     }
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    stroke: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
+    stroke: ${(props) => props.theme.colors.textSecondary};
     stroke-width: 100px;
     padding-right: 5px;
     ${(props) =>
@@ -70,7 +68,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
     height: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     width: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     border-radius: 50%;
-    background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
     margin-left: -7px;
     margin-top: -12px;
     display: flex;
@@ -80,7 +78,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.bg};
     font-size: 10px;
     font-weight: 400;
 `;
@@ -88,11 +86,11 @@ const DepthNumber = styled(Typography.Text)`
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {
         border-radius: 3px;
-        background: #e5eff1;
+        background: ${(props) => props.theme.colors.bgSurface};
         font-size: 10px;
         font-weight: 400;
         line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

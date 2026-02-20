@@ -2,8 +2,6 @@ import { Skeleton, Space } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Wrapper = styled(Space)`
     min-height: 50px;
     width: 100%;
@@ -14,7 +12,7 @@ const NameSkeleton = styled(Skeleton.Input)`
         height: 20px;
         width: 240px;
         border-radius: 4px;
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         margin-right: 12px;
     }
 `;

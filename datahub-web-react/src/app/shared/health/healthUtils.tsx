@@ -7,7 +7,6 @@ import {
     WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,8 +15,6 @@ import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const HEALTH_INDICATOR_COLOR = colors.red[500];
-
 const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
     && {
         font-size: ${(props) => props.fontSize}px;
@@ -25,7 +22,7 @@ const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number 
 `;
 
 const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
-    color: ${HEALTH_INDICATOR_COLOR};
+    color: ${(props) => props.theme.colors.iconError};
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -69,7 +66,7 @@ export const getHealthSummaryIcon = (
     if (unhealthy) {
         const iconComponent =
             type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
+                <UnhealthyIconFilled twoToneColor={FAILURE_COLOR_HEX} fontSize={fontSize} />
             ) : (
                 <UnhealthyIconOutlined fontSize={fontSize} />
             );

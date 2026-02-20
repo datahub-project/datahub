@@ -8,7 +8,6 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { Editor, Tooltip } from '@src/alchemy-components';
@@ -20,12 +19,13 @@ import { MetadataAttribution } from '@types';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const AddNewDescription = styled(Button)`
     display: flex;
     width: 140px;
-    background-color: #fafafa;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     align-items: center;
     justify-content: center;
@@ -46,31 +46,31 @@ const DescriptionContainer = styled.div`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     vertical-align: middle;
     &:hover ${EditIcon} {
         display: inline-block;
     }
 
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError};
         text-decoration: line-through;
         &: hover {
-            background-color: #ffa39eaa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceError};
         }
     }
 `;
 const EditedLabel = styled(Typography.Text)`
     display: inline-block;
     margin-left: 8px;
-    color: rgba(150, 150, 150, 0.5);
+    color: ${(props) => props.theme.colors.textDisabled};
     font-style: italic;
     position: relative;
     top: -2px;
@@ -89,7 +89,7 @@ const StyledViewer = styled(Editor)`
         font-size: 12px;
         font-weight: 400;
         line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
         vertical-align: middle;
     }
 `;
@@ -160,9 +160,7 @@ export default function DescriptionField({
     };
 
     const enableEdits = isSchemaEditable && !isReadOnly;
-    const EditButton =
-        (enableEdits && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />) ||
-        undefined;
+    const EditButton = (enableEdits && description && <EditIcon onClick={() => setShowAddModal(true)} />) || undefined;
 
     const showAddButton = enableEdits && !description;
 

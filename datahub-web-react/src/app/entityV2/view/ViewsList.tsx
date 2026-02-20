@@ -1,7 +1,7 @@
 import { SearchBar, Text } from '@components';
 import { Pagination, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ViewsTable } from '@app/entityV2/view/ViewsTable';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entityV2/view/utils';
@@ -62,13 +62,13 @@ const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -148,10 +148,12 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
     const totalViews = viewsData?.total || 0;
     const views = searchViews(viewsData?.views || [], query);
 
+    const theme = useTheme();
+
     if (!totalViews) {
         return (
             <EmptyContainer>
-                <Text size="md" color="gray" weight="bold">
+                <Text size="md" weight="bold" style={{ color: theme.colors.textSecondary }}>
                     No Views yet!
                 </Text>
             </EmptyContainer>

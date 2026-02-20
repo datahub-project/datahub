@@ -15,7 +15,6 @@ import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
 import DomainIcon from '@app/domain/DomainIcon';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
@@ -57,7 +56,7 @@ const NavTitleText = styled.span`
 const NavTitleDescription = styled.div`
     font-size: 12px;
     font-weight: normal;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {

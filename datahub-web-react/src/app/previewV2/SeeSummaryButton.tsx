@@ -4,10 +4,10 @@ import styled from 'styled-components';
 
 const SummaryButton = styled.div<{ maxWidth: number }>`
     align-items: center;
-    border: 1px solid #328980;
+    border: 1px solid ${(props) => props.theme.colors.borderSuccess};
     border-radius: 4px;
-    background: #328980;
-    color: white;
+    background: ${(props) => props.theme.colors.bgSurfaceSuccess};
+    color: ${(props) => props.theme.colors.textOnFillSuccess};
     display: flex;
     max-width: ${(props) => props.maxWidth}px;
     padding: 6px;

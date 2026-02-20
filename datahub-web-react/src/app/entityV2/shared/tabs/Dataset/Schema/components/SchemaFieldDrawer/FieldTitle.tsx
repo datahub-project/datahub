@@ -2,10 +2,8 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const FieldName = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.WHITE_WIRE};
+    color: ${(props) => props.theme.colors.border};
     font-size: 16px;
     font-weight: 700;
     line-height: 24px;

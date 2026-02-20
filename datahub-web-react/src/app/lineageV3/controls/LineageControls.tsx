@@ -9,9 +9,8 @@ import {
 import { Button, Divider } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { Panel, useReactFlow } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import DownloadLineageScreenshotButton from '@app/lineageV3/controls/DownloadLineageScreenshotButton';
@@ -44,6 +43,14 @@ const StyledExpandContractButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.text};
+    border-color: ${(props) => props.theme.colors.border};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.textBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
+    }
 `;
 
 const StyledDivider = styled(Divider)`
@@ -56,6 +63,7 @@ const ControlsColumn = styled.div``;
 type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
+    const theme = useTheme();
     const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
         useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
@@ -107,7 +115,7 @@ export default function LineageControls() {
                             style={{
                                 color:
                                     hideTransformations || !showDataProcessInstances || showGhostEntities
-                                        ? REDESIGN_COLORS.BLUE
+                                        ? theme.colors.textInformation
                                         : undefined,
                             }}
                         />
@@ -120,7 +128,7 @@ export default function LineageControls() {
                         }
                     >
                         <CalendarOutlined
-                            style={{ color: isLineageTimeUnchanged ? undefined : REDESIGN_COLORS.BLUE }}
+                            style={{ color: isLineageTimeUnchanged ? undefined : theme.colors.textInformation }}
                         />
                         {showExpandedText ? 'Time Range' : null}
                     </StyledPanelButton>

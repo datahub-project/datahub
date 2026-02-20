@@ -1,12 +1,11 @@
 import { Empty } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button, Input, Loader, Modal, Table, Text } from '@src/alchemy-components';
 import { Column } from '@src/alchemy-components/components/Table';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useListServiceAccountsQuery } from '@graphql/auth.generated';
 import { ServiceAccount } from '@types';
@@ -24,7 +23,7 @@ const ModalContent = styled.div`
 `;
 
 const DescriptionText = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const LoadingContainer = styled.div`
@@ -36,14 +35,14 @@ const LoadingContainer = styled.div`
 `;
 
 const TableWrapper = styled.div`
-    border: 1px solid ${colors.gray[200]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     overflow: hidden;
     max-height: 350px;
     overflow-y: auto;
 
     .selected-row {
-        background-color: ${colors.violet[0]} !important;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand} !important;
     }
 
     tr {
@@ -66,6 +65,7 @@ const ModalFooter = styled.div`
 const DEBOUNCE_MS = 300;
 
 export default function SelectServiceAccountModal({ visible, onClose, onSelectServiceAccount }: Props) {
+    const theme = useTheme();
     const [selectedAccount, setSelectedAccount] = useState<ServiceAccount | null>(null);
     const [searchText, setSearchText] = useState('');
     const [debouncedSearchText, setDebouncedSearchText] = useState('');
@@ -116,7 +116,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                             {displayName}
                         </Text>
                         {record.description && (
-                            <Text size="sm" color="gray">
+                            <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                                 {record.description}
                             </Text>
                         )}

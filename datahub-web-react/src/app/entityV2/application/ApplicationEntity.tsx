@@ -47,7 +47,12 @@ export class ApplicationEntity implements Entity<Application> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <AppWindow className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <AppWindow
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
+            );
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -57,7 +62,7 @@ export class ApplicationEntity implements Entity<Application> {
         return (
             <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

@@ -1,9 +1,9 @@
-import { Icon, Pagination, SearchBar, Table, colors } from '@components';
+import { Icon, Pagination, SearchBar, Table } from '@components';
 import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import EmptySources from '@app/ingestV2/EmptySources';
@@ -31,7 +31,7 @@ const ButtonsContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 24px;
         height: 24px;
@@ -40,7 +40,7 @@ const ButtonsContainer = styled.div`
         align-items: center;
         justify-content: center;
         background: none;
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
 
         :hover {
             cursor: pointer;
@@ -78,7 +78,7 @@ const TableContainer = styled.div`
 `;
 
 const TextContainer = styled(Typography.Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type TableDataType = {
@@ -93,6 +93,7 @@ interface Props {
 }
 
 export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateModal: setIsCreatingSecret }: Props) => {
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -252,8 +253,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     ellipsis={{
                         tooltip: {
                             title: record.name,
-                            color: 'white',
-                            overlayInnerStyle: { color: colors.gray[1700] },
+                            overlayInnerStyle: { color: theme.colors.textSecondary },
                             showArrow: false,
                         },
                     }}
@@ -272,8 +272,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                         ellipsis={{
                             tooltip: {
                                 title: record.description,
-                                color: 'white',
-                                overlayInnerStyle: { color: colors.gray[1700] },
+                                overlayInnerStyle: { color: theme.colors.textSecondary },
                                 showArrow: false,
                             },
                         }}
@@ -301,7 +300,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             data-test-id="delete-secret-action"
                             data-icon="delete"
                         >
-                            <Icon icon="Trash" source="phosphor" color="red" />
+                            <Icon icon="Trash" source="phosphor" color="iconError" />
                         </button>
                     </ButtonsContainer>
                     <ConfirmationModal

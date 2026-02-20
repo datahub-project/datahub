@@ -175,7 +175,7 @@ export const UserList = () => {
                             allowClear
                         />
                         {query.length > 0 && query.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                            <Text size="xs" style={{ marginTop: '4px' }}>
                                 Enter at least 3 characters to search
                             </Text>
                         )}

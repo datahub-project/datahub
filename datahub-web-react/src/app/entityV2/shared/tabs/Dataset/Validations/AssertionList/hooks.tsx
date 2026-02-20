@@ -13,13 +13,12 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionResultType, AssertionType } from '@src/types.generated';
 
 const CategoryType = styled.div`
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     white-space: nowrap;
@@ -31,7 +30,7 @@ const CategoryType = styled.div`
 
 const LastRun = styled(Typography.Text)`
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;

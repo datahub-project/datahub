@@ -3,7 +3,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -25,7 +24,7 @@ const CloseButton = styled.div`
         cursor: pointer;
     }
     && {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 

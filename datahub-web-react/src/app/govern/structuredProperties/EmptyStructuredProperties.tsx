@@ -12,13 +12,13 @@ const EmptyStructuredProperties = ({ isEmptySearch }: Props) => {
     return (
         <EmptyContainer>
             {isEmptySearch ? (
-                <Text size="lg" color="gray" weight="bold">
+                <Text size="lg" weight="bold">
                     No search results!
                 </Text>
             ) : (
                 <>
                     <EmptyFormsImage />
-                    <Text size="md" color="gray" weight="bold">
+                    <Text size="md" weight="bold">
                         No properties yet!
                     </Text>
                 </>

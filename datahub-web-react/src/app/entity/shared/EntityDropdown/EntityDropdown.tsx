@@ -25,7 +25,6 @@ import {
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
 } from '@app/entity/shared/EntityDropdown/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
@@ -59,7 +58,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 const MenuItem = styled.div`
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
@@ -70,7 +69,7 @@ const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
         props.disabled
             ? `
             ${MenuItem} {
-                color: ${ANTD_GRAY[7]};
+                color: ${props.theme.colors.textTertiary};
             }
     `
             : ''}
@@ -249,6 +248,7 @@ function EntityDropdown(props: Props) {
         menuItems.has(EntityMenuItems.DELETE)
             ? {
                   key: 5,
+                  danger: true,
                   label: (
                       <StyledMenuItem
                           key="5"

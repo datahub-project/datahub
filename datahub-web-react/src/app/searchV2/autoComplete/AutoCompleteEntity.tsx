@@ -1,8 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
@@ -34,8 +33,8 @@ const ContentWrapper = styled.div`
 `;
 
 const Subtype = styled.span`
-    color: ${ANTD_GRAY_V2[8]};
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    color: ${(props) => props.theme.colors.textSecondary};
+    border: 1px solid ${(props) => props.theme.colors.borderDisabled};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -52,7 +51,7 @@ const ItemHeader = styled.div`
 `;
 
 const Divider = styled.div`
-    border-right: 1px solid ${ANTD_GRAY_V2[6]};
+    border-right: 1px solid ${(props) => props.theme.colors.borderDisabled};
     height: 12px;
 `;
 
@@ -65,6 +64,7 @@ interface Props {
 
 // TODO: Migrate from using parent entities to using BrowsePathsV2 to mimic search card
 export default function AutoCompleteEntity({ query, entity, siblings, hasParentTooltip }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -112,9 +112,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                         </ItemHeader>
                     )}
                     <Typography.Text
-                        ellipsis={
-                            hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }
-                        }
+                        ellipsis={hasParentTooltip ? {} : { tooltip: { title: displayName, color: theme.colors.text } }}
                     >
                         <Typography.Text strong>{matchedText}</Typography.Text>
                         {unmatchedText}

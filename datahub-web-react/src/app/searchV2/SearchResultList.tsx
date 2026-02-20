@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { PreviewType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
 import { useSearchContext } from '@app/search/context/SearchContext';
@@ -25,7 +24,7 @@ const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         margin-top: 8px;
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
         padding: ${(props) => (props.$isShowNavBarRedesign ? '0px 3px 0px 12px' : '0px 12px 0px 16px')};
         border-radius: 0px;
     }
@@ -51,14 +50,14 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.showUpdatedStyles &&
         `    
-        background-color: white;
+        background-color: ${props.theme.colors.bg};
         border-radius: ${props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
         padding: 16px 20px;
-        box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-        border-bottom: 1px solid ${ANTD_GRAY[5]};
+        box-shadow: ${props.theme.colors.shadowXs};
+        border-bottom: 1px solid ${props.theme.colors.border};
         cursor: pointer;
         :hover {
-            ${!props.selected && `outline: 1px solid ${props.theme.styles['primary-color']}`};
+            ${!props.selected && `outline: 1px solid ${props.theme.colors.borderBrand}`};
         }
     `}
     position: relative;
@@ -66,8 +65,8 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${props.theme.styles['primary-color']};
-        border-left: 5px solid ${props.theme.styles['primary-color']};
+        outline: 1px solid ${props.theme.colors.borderBrand};
+        border-left: 5px solid ${props.theme.colors.borderBrand};
         left: -5px;
         width: calc(100% + 5px);
         position: relative;
@@ -87,9 +86,9 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.areMatchesExpanded &&
         `
-        -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-        -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
-         box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+        -webkit-box-shadow: ${props.theme.colors.shadowLg};
+        -moz-box-shadow: ${props.theme.colors.shadowLg};
+         box-shadow: ${props.theme.colors.shadowLg};
     `}
 `;
 

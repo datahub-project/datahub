@@ -9,7 +9,6 @@ import {
     toLocalDateTimeString,
     toRelativeTimeString,
 } from '@app/shared/time/timeUtils';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 
@@ -17,18 +16,18 @@ const StatContainer = styled.div`
     display: flex;
     margin-top: 20px;
     height: 20px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     width: 130px;
     justify-content: center;
 `;
 
 const PopoverContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 0.8rem;
 `;
 
 const Title = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     border-bottom: none;
     font-size: 0.8rem;
     font-weight: 600;

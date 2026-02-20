@@ -16,10 +16,10 @@ const NoPermission = ({ statName }: Props) => {
     return (
         <EmptyMessageContainer data-testid="no-permissions">
             <EmptyMessageWrapper>
-                <Text size="2xl" weight="bold" color="gray">
+                <Text size="2xl" weight="bold">
                     No Permission
                 </Text>
-                <Text color="gray">{`You do not have permission to view ${statName} data.`}</Text>
+                <Text>{`You do not have permission to view ${statName} data.`}</Text>
             </EmptyMessageWrapper>
         </EmptyMessageContainer>
     );

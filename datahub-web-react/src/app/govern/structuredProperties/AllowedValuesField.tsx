@@ -34,7 +34,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                                 title="Define the set of valid values for this property. If none are provided, any value will be allowed"
                                 showArrow={false}
                             >
-                                <Icon icon="Info" color="violet" size="lg" />
+                                <Icon icon="Info" color="iconBrand" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                     </FieldLabel>
@@ -52,11 +52,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                                 })}
                             </ValuesList>
                             <Tooltip title="Update allowed values" showArrow={false}>
-                                <StyledIcon
-                                    icon="ChevronRight"
-                                    color="gray"
-                                    onClick={() => setShowAllowedValuesDrawer(true)}
-                                />
+                                <StyledIcon icon="ChevronRight" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ItemsContainer>
                     ) : (
@@ -65,7 +61,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                             <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
                             value will be allowed
                             <Tooltip title="Update allowed values" showArrow={false}>
-                                <Icon icon="Add" color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
+                                <Icon icon="Add" onClick={() => setShowAllowedValuesDrawer(true)} />
                             </Tooltip>
                         </ValueListContainer>
                     )}

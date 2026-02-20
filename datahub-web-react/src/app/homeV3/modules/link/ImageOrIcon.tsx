@@ -20,5 +20,5 @@ export default function ImageOrIcon({ imageUrl }: { imageUrl?: string | null }) 
         return <Image src={imageUrl} alt="Link image" onError={() => setHasError(true)} />;
     }
 
-    return <Icon icon="LinkSimple" source="phosphor" size="3xl" color="gray" />;
+    return <Icon icon="LinkSimple" source="phosphor" size="3xl" />;
 }

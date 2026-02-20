@@ -24,19 +24,19 @@ const FormInput = styled(Input)`
     &&& {
         height: 32px;
         font-size: 12px;
-        border: 1px solid #555555;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 5px;
         background-color: transparent;
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         line-height: 1.5715;
     }
     > .ant-input {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
     > .ant-input:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
@@ -109,8 +109,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your email' }]}
                             name="email"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Email</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Email</span>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </StyledFormItem>
@@ -129,8 +128,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                                 }),
                             ]}
                             name="password"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Password</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Password</span>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </StyledFormItem>
@@ -147,8 +145,9 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                                 }),
                             ]}
                             name="confirmPassword"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Confirm Password</label>}
+                            label={
+                                <span style={{ color: themeConfig.colors.textOnFillDefault }}>Confirm Password</span>
+                            }
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="confirmPassword" />
                         </StyledFormItem>

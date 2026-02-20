@@ -2,7 +2,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 
@@ -19,7 +18,7 @@ type Props = {
 
 const Container = styled.div`
     padding: 10px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledDivider = styled(Divider)`
@@ -39,7 +38,7 @@ const ShowMoreWrapper = styled.div`
     display: flex;
     justify-content: end;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
 `;
 

@@ -10,7 +10,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, EntityType } from '@types';
 
 const StyledAvatar = styled(Avatar)<{ backgroundColor: string }>`
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     background-color: ${(props) => props.backgroundColor};
     margin-right: 20px;
     height: 22px;

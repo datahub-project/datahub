@@ -1,8 +1,6 @@
 import { Button, List, Space, Tag, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components';
 
 import { Policy, PolicyState } from '@types';
 
@@ -11,17 +9,16 @@ type Props = {
     onView: () => void;
 };
 
-const inactiveTextColor = ANTD_GRAY[7];
-
 const PolicyItemContainer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
 export default function PolicyListItem({ policy, onView }: Props) {
+    const theme = useTheme();
     const isActive = policy.state === PolicyState.Active;
     const isEditable = policy.editable;
-    const titleColor = isEditable ? undefined : inactiveTextColor;
+    const titleColor = isEditable ? undefined : theme.colors.textDisabled;
 
     const policyPreview = () => {
         return (

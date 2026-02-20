@@ -5,7 +5,7 @@ import styled from 'styled-components';
 const EmptyContentMessage = styled(Typography.Text)`
     font-size: 12px;
     font-weight: 400;
-    color: #56668e;
+    color: ${(props) => props.theme.colors.textSecondary};
     opacity: 0.5;
 `;
 

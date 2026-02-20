@@ -25,7 +25,7 @@ const MenuItem = styled.div`
     display: flex;
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 interface Props {

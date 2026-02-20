@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { EntityContext, useEntityContext } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import EntityInfo from '@app/entity/shared/containers/profile/sidebar/EntityInfo/EntityInfo';
 import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/ProfileSidebar';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
@@ -12,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 
 const ContentWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     max-height: 100%;
     display: flex;
     flex-direction: column;

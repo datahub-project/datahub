@@ -23,7 +23,7 @@ export default function Header() {
     return (
         <Container>
             <Text weight="semiBold">Stats & Insights</Text>
-            <Text color="gray">Last Updated: {lastUpdatedAtString}</Text>
+            <Text>Last Updated: {lastUpdatedAtString}</Text>
         </Container>
     );
 }

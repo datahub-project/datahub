@@ -3,14 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';
 
 const StyledTooltip = styled(Tooltip)`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export default function getTypeIcon(

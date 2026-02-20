@@ -3,19 +3,18 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
 import { DataHubViewType } from '@types';
 
+const StyledMatchingViewsLabel = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 const MatchingViewsLabel = () => {
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
-
-    const StyledMatchingViewsLabel = styled.div`
-        color: ${ANTD_GRAY[8]};
-    `;
 
     /**
      * Fetch all personal/private views using listMyViews

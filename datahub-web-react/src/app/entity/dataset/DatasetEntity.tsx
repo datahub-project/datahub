@@ -57,7 +57,7 @@ export class DatasetEntity implements Entity<Dataset> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <DatabaseFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -70,7 +70,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <DatabaseOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

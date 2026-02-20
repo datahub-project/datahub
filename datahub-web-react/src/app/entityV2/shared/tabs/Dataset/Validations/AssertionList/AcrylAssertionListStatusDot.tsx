@@ -1,26 +1,11 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { AssertionResultType, AssertionRunEvent } from '@src/types.generated';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;
 `;
-
-const statusColors = {
-    success: {
-        backgroundColor: '#248F5B',
-        outerColor: '#F7FBF4',
-    },
-    failure: {
-        backgroundColor: '#E54D1F',
-        outerColor: '#FBF3EF',
-    },
-    gray: {
-        backgroundColor: '#d9d9d9',
-        outerColor: '#f5f5f5',
-    },
-};
 
 type Props = {
     run?: AssertionRunEvent;
@@ -29,7 +14,24 @@ type Props = {
 };
 
 const AcrylAssertionListStatusDot = ({ run, disabled, size = 12 }: Props) => {
+    const theme = useTheme();
     const status = (run?.result?.type as AssertionResultType) || 'gray';
+
+    const statusColors = {
+        success: {
+            backgroundColor: theme.colors.iconSuccess,
+            outerColor: theme.colors.bgSurfaceSuccess,
+        },
+        failure: {
+            backgroundColor: theme.colors.iconError,
+            outerColor: theme.colors.bgSurfaceError,
+        },
+        gray: {
+            backgroundColor: theme.colors.border,
+            outerColor: theme.colors.bgSurface,
+        },
+    };
+
     const { backgroundColor, outerColor } = statusColors[status.toLocaleLowerCase()] || statusColors.gray;
 
     const dotStyle = {

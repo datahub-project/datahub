@@ -8,11 +8,17 @@ export const generateColor = new ColorHash({
 
 export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; highlightTag?: boolean }>`
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.textSecondary};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
         ${(props) =>
             props.highlightTag &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

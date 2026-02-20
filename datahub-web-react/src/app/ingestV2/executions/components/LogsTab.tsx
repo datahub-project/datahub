@@ -35,9 +35,7 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
                 Logs
             </Heading>
             <SectionSubHeader>
-                <SubHeaderParagraph color="gray" colorLevel={600}>
-                    View logs that were collected during the sync.
-                </SubHeaderParagraph>
+                <SubHeaderParagraph>View logs that were collected during the sync.</SubHeaderParagraph>
                 <Tooltip title="Download Logs">
                     <Button variant="text" onClick={downloadLogs}>
                         <DownloadOutlined />

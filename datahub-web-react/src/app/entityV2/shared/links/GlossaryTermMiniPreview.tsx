@@ -21,13 +21,12 @@ const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     height: 34px;
     border-radius: 5px;
     justify-content: center;
-    border: 1px solid #ccd1dd;
-    background-color: #f8f8f8;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background-color: #f2f2f2;
-        // background-color: red;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
-    color: #565657;
+    color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;
     font-family: Mulish;
     overflow: hidden;

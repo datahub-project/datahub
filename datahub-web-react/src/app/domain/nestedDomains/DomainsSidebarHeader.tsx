@@ -9,11 +9,10 @@ import CreateDomainModal from '@app/domain/CreateDomainModal';
 import { useDomainsContext } from '@app/domain/DomainsContext';
 import DomainsTitle from '@app/domain/nestedDomains/DomainsTitle';
 import { updateListDomainsCache } from '@app/domain/utils';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { PageRoutes } from '@conf/Global';
 
 const HeaderWrapper = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: 16px;
     font-size: 20px;
     display: flex;
@@ -23,7 +22,7 @@ const HeaderWrapper = styled.div`
 
 const StyledButton = styled(Button)`
     box-shadow: none;
-    border-color: ${ANTD_GRAY_V2[6]};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const StyledLink = styled(Link)`

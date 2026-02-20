@@ -3,7 +3,7 @@ import React from 'react';
 
 const RequiredAsterisk = () => {
     return (
-        <Text color="red" weight="bold">
+        <Text color="textError" weight="bold">
             *
         </Text>
     );

@@ -1,9 +1,8 @@
 import { Modal, PageTitle, Pill, Text, spacing } from '@components';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     CapabilityReport,
     SourceCapability,
@@ -25,7 +24,7 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -69,6 +68,7 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
+    const theme = useTheme();
     const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
 
     const renderTitlePill = useCallback(() => {
@@ -90,7 +90,9 @@ function TestConnectionModal({
                     <SourceIcon alt="source logo" src={logoUrl} />
                     <HeaderText>
                         {sourceConfig?.displayName} Connection Test
-                        <Text color="gray">Here&apos;s what DataHub can access with your provided credentials</Text>
+                        <Text style={{ color: theme.colors.textSecondary }}>
+                            Here&apos;s what DataHub can access with your provided credentials
+                        </Text>
                     </HeaderText>
                 </ModalHeader>
             }

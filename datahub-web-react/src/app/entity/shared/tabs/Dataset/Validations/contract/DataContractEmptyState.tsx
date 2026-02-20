@@ -3,8 +3,6 @@ import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Container = styled.div``;
 
 const Summary = styled.div`
@@ -15,8 +13,8 @@ const Summary = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
-    box-shadow: 0px 2px 6px 0px #0000000d;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SummaryDescription = styled.div`
@@ -44,13 +42,13 @@ const Actions = styled.div`
 
 const CreateButton = styled(Button)`
     margin-right: 12px;
-    border-color: ${(props) => props.theme.styles['primary-color']};
-    color: ${(props) => props.theme.styles['primary-color']};
+    border-color: ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
     letter-spacing: 2px;
     &&:hover {
-        color: white;
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
 `;
 

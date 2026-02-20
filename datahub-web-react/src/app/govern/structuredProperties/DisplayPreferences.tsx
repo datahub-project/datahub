@@ -58,9 +58,7 @@ const DisplayPreferences = ({
         <>
             <StyledCollapse
                 ghost
-                expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
-                )}
+                expandIcon={({ isActive }) => <Icon icon="ChevronRight" size="4xl" rotate={isActive ? '90' : '0'} />}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}
             >
@@ -68,9 +66,7 @@ const DisplayPreferences = ({
                     key={1}
                     header={
                         <CollapseHeader>
-                            <Text weight="bold" color="gray">
-                                Display Preferences
-                            </Text>
+                            <Text weight="bold">Display Preferences</Text>
                         </CollapseHeader>
                     }
                     forceRender

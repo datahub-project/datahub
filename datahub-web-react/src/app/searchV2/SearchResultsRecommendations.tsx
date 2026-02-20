@@ -2,7 +2,6 @@ import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { RecommendationModule } from '@app/recommendations/RecommendationModule';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
@@ -23,7 +22,7 @@ const ThinDivider = styled(Divider)`
 `;
 
 const RecommendationTitle = styled(Typography.Title)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

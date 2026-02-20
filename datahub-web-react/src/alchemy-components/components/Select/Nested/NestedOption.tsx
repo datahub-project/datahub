@@ -1,4 +1,4 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -8,7 +8,6 @@ import useNestedSelectOptionChildren from '@components/components/Select/Nested/
 import useNestedOption from '@components/components/Select/Nested/useSelectOption';
 import { OptionLabel } from '@components/components/Select/components';
 import { CustomOptionRenderer } from '@components/components/Select/types';
-import theme from '@components/theme';
 
 const ParentOption = styled.div`
     display: flex;
@@ -21,7 +20,7 @@ const ChildOptions = styled.div`
 
 const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
     .ant-checkbox-inner {
-        border: 1px solid ${colors.gray[300]} !important;
+        border: 1px solid ${({ theme }) => theme.colors.border} !important;
         border-radius: 3px;
     }
     margin-left: auto;
@@ -30,8 +29,8 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         !props.indeterminate &&
         `
 		.ant-checkbox-inner {
-			background-color: ${theme.semanticTokens.colors.primary};
-			border-color: ${theme.semanticTokens.colors.primary} !important;
+			background-color: ${props.theme.colors.buttonFillBrand};
+			border-color: ${props.theme.colors.borderBrand} !important;
 		}
 	`}
     ${(props) =>
@@ -39,7 +38,7 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         `
 		.ant-checkbox-inner {
 			&:after {
-				background-color: ${theme.semanticTokens.colors.primary};
+				background-color: ${props.theme.colors.buttonFillBrand};
 			}
 		}
 	`}
@@ -47,7 +46,7 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         props.disabled &&
         `
 		.ant-checkbox-inner {
-			background-color: ${colors.gray[200]} !important;
+			background-color: ${props.theme.colors.border} !important;
 		}
 	`}
 `;
@@ -173,7 +172,6 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             icon="ChevronLeft"
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
-                            color="gray"
                             style={{ cursor: 'pointer', marginLeft: '4px' }}
                         />
                     )}

@@ -3,13 +3,12 @@ import { Button } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { pluralize } from '@app/shared/textUtil';
 
 import { SchemaField } from '@types';
 
 const HeaderWrapper = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY_V2[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     display: flex;
     justify-content: space-between;
     padding: 8px 16px;
@@ -32,7 +31,7 @@ const StyledButton = styled(Button)`
 
 const FieldIndexText = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 0 8px;
 `;
 

@@ -12,7 +12,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { AddImageButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/AddImageButton';
 import { AddLinkButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/AddLinkButton';
 import { CommandButton } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
@@ -23,8 +22,8 @@ const Container = styled.div`
     position: sticky;
     top: 0;
     z-index: 99;
-    background-color: #fff;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 4px 20px;
 `;
 

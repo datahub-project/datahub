@@ -2,7 +2,6 @@ import { Tooltip } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageTabContext } from '@app/entity/shared/tabs/Lineage/LineageTabContext';
 import ColumnsRelationshipText from '@app/preview/EntityPaths/ColumnsRelationshipText';
 import DisplayedColumns from '@app/preview/EntityPaths/DisplayedColumns';
@@ -11,13 +10,13 @@ import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '@ty
 
 export const ResultText = styled.span`
     &:hover {
-        border-bottom: 1px solid black;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
         cursor: pointer;
     }
 `;
 
 const DescriptionWrapper = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {

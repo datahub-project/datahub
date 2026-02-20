@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -8,7 +7,7 @@ import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 const EditorContainer = styled.div`
     height: 300px;
     overflow: auto;
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
 `;
 

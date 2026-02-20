@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { SearchSelectActions } from '@app/entity/shared/components/styled/search/SearchSelectActions';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 
 const CheckboxContainer = styled.div`
@@ -21,7 +20,7 @@ const CancelButton = styled(Button)`
     && {
         margin-left: 8px;
         padding: 0px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

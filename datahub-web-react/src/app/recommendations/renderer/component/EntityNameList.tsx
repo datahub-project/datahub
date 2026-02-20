@@ -13,7 +13,7 @@ import { Entity } from '@types';
 export const StyledList = styled(List)`
     overflow-y: auto;
     height: 100%;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     flex: 1;
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
@@ -32,12 +32,12 @@ export const StyledList = styled(List)`
     &::-webkit-scrollbar {
         height: 12px;
         width: 5px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 ` as typeof List;
 

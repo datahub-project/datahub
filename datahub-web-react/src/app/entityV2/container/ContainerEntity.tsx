@@ -47,7 +47,12 @@ export class ContainerEntity implements Entity<Container> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <FolderOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
+            );
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -59,7 +64,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <FolderOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

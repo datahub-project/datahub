@@ -2,7 +2,6 @@ import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { getDisplayedColumns } from '@app/previewV2/EntityPaths/ColumnPathsText';
 import ColumnsRelationshipText from '@app/previewV2/EntityPaths/ColumnsRelationshipText';
@@ -15,9 +14,9 @@ const PathWrapper = styled.div`
     display: inline-block;
     margin: 15px 0 15px -4px;
     padding: 20px;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
-    box-shadow: 1px 1px 12px 4px #0000000d;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     width: 100%;
 `;
 
@@ -29,7 +28,7 @@ const Header = styled.div`
 const ErrorContainer = styled.div`
     font-size: 14px;
     padding: 8px 0px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {

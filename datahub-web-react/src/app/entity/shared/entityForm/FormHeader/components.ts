@@ -1,13 +1,11 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-
 import BackgroundDots from '@images/background_dots.svg';
 
 export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     padding: 16px 68px 16px 24px;
-    background-color: ${ANTD_GRAY_V2[10]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
     display: flex;
     justify-content: flex-end;
     ${(props) =>
@@ -21,7 +19,7 @@ export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
 
 export const NavigationWrapper = styled.div<{ isHidden: boolean }>`
     font-size: 20px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     display: flex;
     flex-wrap: nowrap;
     ${(props) => props.isHidden && 'opacity: 0;'}

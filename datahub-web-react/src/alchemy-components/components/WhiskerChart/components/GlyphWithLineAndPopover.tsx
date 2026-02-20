@@ -26,10 +26,8 @@ export default function GlyphWithLineAndPopover({ x, y, minY, maxY, datum }: Too
 
         return (
             <>
-                <Text type="span" color="gray">
-                    {label}:&nbsp;
-                </Text>
-                <Text weight="semiBold" color="gray" type="span">
+                <Text type="span">{label}:&nbsp;</Text>
+                <Text weight="semiBold" type="span">
                     {value}
                 </Text>
             </>

@@ -11,6 +11,7 @@ const EditIcon = styled(EditOutlined)`
     top: 0;
     right: -8px;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const MarkdownContainer = styled.div<{ editable?: string }>`
@@ -31,7 +32,7 @@ const MarkdownContainer = styled.div<{ editable?: string }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
-    color: #6a737d;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const MarkdownViewContainer = styled.div<{
@@ -54,7 +55,7 @@ const MarkdownViewContainer = styled.div<{
             `
             &::after {
                 content: '...';
-                color: #6a737d;
+                color: ${props.theme.colors.textSecondary};
                 position: absolute;
                 bottom: 2rem;
             }
@@ -113,7 +114,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                     {showAll ? 'show less' : 'show more'}
                 </CustomButton>
             )}
-            {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
+            {editable && <EditIcon onClick={onEditClicked} />}
         </MarkdownContainer>
     );
 }

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import LineageEntityView from '@app/lineage/manage/LineageEntityView';
 import { Direction } from '@app/lineage/types';
 import { getValidEntityTypes } from '@app/lineage/utils/manageLineageUtils';
@@ -44,7 +43,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

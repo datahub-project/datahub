@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Dataset, EntityType } from '@types';
@@ -12,11 +11,11 @@ import { Dataset, EntityType } from '@types';
 const DatasetText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const DatasetIcon = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-right: 4px;
     font-size: 12px;
 `;

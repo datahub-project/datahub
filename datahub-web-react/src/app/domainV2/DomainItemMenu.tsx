@@ -45,7 +45,7 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
                 trigger={['click']}
                 overlay={
                     <Menu>
-                        <Menu.Item onClick={() => setShowDeleteModal(true)} key="delete">
+                        <Menu.Item onClick={() => setShowDeleteModal(true)} key="delete" danger>
                             <DeleteOutlined /> &nbsp;Delete
                         </Menu.Item>
                     </Menu>

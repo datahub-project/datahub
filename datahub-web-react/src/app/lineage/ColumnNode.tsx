@@ -1,9 +1,8 @@
 import { Group } from '@visx/group';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { truncate } from '@app/entity/shared/utils';
 import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, centerY, iconX, width } from '@app/lineage/constants';
 import { NodeData } from '@app/lineage/types';
@@ -28,6 +27,7 @@ interface Props {
 }
 
 export default function ColumnNode({ field, index, node, titleHeight, onHover }: Props) {
+    const theme = useTheme();
     const { highlightedEdges, setHighlightedEdges, selectedField, setSelectedField, fineGrainedMap } =
         useContext(LineageExplorerContext);
     const [showHoverText, setShowHoverText] = useState(false);
@@ -84,8 +84,8 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 y={centerY + 60 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                 width={width - 2}
                 height="29"
-                fill={isFieldSelected ? '#e7f3ff' : 'white'}
-                stroke={isFieldHighlighted && hasEdge ? '#1890FF' : 'transparent'}
+                fill={isFieldSelected ? theme.colors.bgSurfaceBrand : theme.colors.bg}
+                stroke={isFieldHighlighted && hasEdge ? theme.colors.borderBrand : 'transparent'}
                 strokeWidth="1px"
                 ry="4"
                 rx="4"
@@ -98,7 +98,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                         width={width + (fieldPath?.substring(MAX_NUM_FIELD_CHARACTERS).length || 0) * 7}
                         height="29"
                         fill="white"
-                        stroke={ANTD_GRAY[8]}
+                        stroke={theme.colors.textSecondary}
                         strokeWidth="1px"
                         filter="drop-shadow( 0 0 5px rgba(0, 0, 0, .12))"
                         ry="4"
@@ -110,7 +110,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                         y={centerY + 45 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                         fontSize={12}
                         fontFamily="'Roboto Mono',monospace"
-                        fill={hasEdge ? 'black' : ANTD_GRAY[7]}
+                        fill={hasEdge ? 'black' : theme.colors.textTertiary}
                     >
                         {fieldPath}
                     </UnselectableText>
@@ -122,7 +122,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 y={centerY + 75 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                 fontSize={12}
                 fontFamily="'Roboto Mono',monospace"
-                fill={hasEdge ? 'black' : ANTD_GRAY[7]}
+                fill={hasEdge ? 'black' : theme.colors.textTertiary}
                 onMouseEnter={() => {
                     if (isTruncated) setShowHoverText(true);
                 }}

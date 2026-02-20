@@ -1,6 +1,6 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
@@ -16,7 +16,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;
@@ -51,6 +51,7 @@ type Props = {
 };
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const hasLinkPermissions = useLinkPermission();
 
@@ -70,7 +71,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             flex: 1,
                             minWidth: 0 /* Critical for truncation in flex containers */,
                         }}
-                        color="primary"
+                        color="textBrand"
                         lineHeight="normal"
                         data-testid="link-label"
                     >
@@ -78,7 +79,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                     </Text>
                 </LeftSection>
                 <RightSection>
-                    <Text color="gray" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         Added{' '}
                         <Tooltip title={formatDateString(link.created.time)}>
                             <span>{toRelativeTimeString(link.created.time) || 'recently'}</span>
@@ -91,8 +92,6 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             <StyledIcon
                                 icon="PencilSimpleLine"
                                 source="phosphor"
-                                color="gray"
-                                colorLevel={600}
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -104,8 +103,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                             <StyledIcon
                                 icon="Trash"
                                 source="phosphor"
-                                color="red"
-                                colorLevel={500}
+                                color="iconError"
                                 size="md"
                                 onClick={(e) => {
                                     e.preventDefault();

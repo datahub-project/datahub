@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { FileText } from '@phosphor-icons/react';
 import * as React from 'react';
 
@@ -33,7 +32,7 @@ export class DocumentEntity implements Entity<Document> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FileText size={fontSize || 20} color={color || '#1890ff'} weight="duotone" />;
+            return <FileText size={fontSize || 20} color={color || 'var(--theme-icon, #1890ff)'} weight="duotone" />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -49,7 +48,7 @@ export class DocumentEntity implements Entity<Document> {
             );
         }
 
-        return <FileText size={fontSize || 20} color={color || colors.gray[1700]} weight="duotone" />;
+        return <FileText size={fontSize || 20} color={color || 'var(--theme-icon, #5F6685)'} weight="duotone" />;
     };
 
     isSearchEnabled = () => true;

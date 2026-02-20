@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { css } from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -12,24 +12,24 @@ import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding: 13px 0;
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 18)}px);
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    background-color: ${(props) => props.$isSelected && props.theme.colors.bgSurfaceBrand};
     display: flex;
 `;
 
-const nameStyles = `
+const nameStyles = css`
     display: inline-block;
     height: 100%;
     width: 100%;
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 
     &:hover {
-        color: ${REDESIGN_COLORS.HOVER_PURPLE_2};
+        color: ${(props) => props.theme.colors.borderBrandFocused};
         opacity: 1;
     }
 `;
@@ -45,8 +45,9 @@ export const TermLink = styled(Link)<TermLinkProps>`
     ${nameStyles}
 
     ${(props) => props.$isChildNode && `opacity: 1;`}
-    ${(props) => props.$areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 500; opacity: 1;`}
-    ${(props) => props.$isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
+    ${(props) =>
+        props.$areChildrenVisible && `color: ${props.theme.colors.borderBrandFocused}; font-weight: 500; opacity: 1;`}
+    ${(props) => props.$isSelected && `color: ${props.theme.colors.buttonFillBrand}; font-weight: 700; opacity: 1;`}
 `;
 
 export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
@@ -56,7 +57,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
         ${(props) =>
             props.showSelectStyles &&
             `
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${props.theme.colors.bgSurface};
         cursor: pointer;
         `}
     }

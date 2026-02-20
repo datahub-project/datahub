@@ -25,6 +25,7 @@ export const DeleteViewItem = ({ key, onClick }: Props) => {
             tip="Delete this View"
             title="Delete"
             icon={<DeleteOutlineOutlinedIconStyle />}
+            danger
         />
     );
 };

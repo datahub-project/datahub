@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import QueryCardDetails from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardDetails';
 import QueryCardHeader from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardHeader';
 import QueryCardQuery from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardQuery';
 
 const Card = styled.div<{ isCompact?: boolean }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     max-width: 450px;
 
     ${(props) => !props.isCompact && `height: 380px;`}

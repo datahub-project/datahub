@@ -28,7 +28,7 @@ export default function ShortMarkdownViewer({ content, clearMarkdown }: Props) {
     }, [content, clearMarkdown]);
 
     return (
-        <StyledText color="gray" colorLevel={1700} type="div">
+        <StyledText color="textSecondary" type="div">
             {processedContent}
         </StyledText>
     );

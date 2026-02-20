@@ -1,16 +1,15 @@
 import { FolderOutlined, RightOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryNode } from '@types';
 
 export const StyledRightOutlined = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 8px;
     margin: 0 10px;
 `;
@@ -26,7 +25,7 @@ export const ParentNodesWrapper = styled.div`
 `;
 
 export const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-right: 2px;
 `;
 
@@ -57,6 +56,7 @@ interface Props {
 
 export default function ParentNodesView({ parentNodes }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
 
     return (
@@ -65,8 +65,8 @@ export default function ParentNodesView({ parentNodes }: Props) {
                 <>
                     {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
                         <>
-                            <GlossaryNodeIcon color="white" />
-                            <GlossaryNodeText color="white">
+                            <GlossaryNodeIcon color={theme.colors.textOnFillDefault} />
+                            <GlossaryNodeText color={theme.colors.textOnFillDefault}>
                                 {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                             </GlossaryNodeText>
                             {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
@@ -80,10 +80,10 @@ export default function ParentNodesView({ parentNodes }: Props) {
             <ParentNodesWrapper ref={contentRef}>
                 {[...(parentNodes || [])]?.map((parentNode, idx) => (
                     <>
-                        <GlossaryNodeText color={ANTD_GRAY[7]}>
+                        <GlossaryNodeText color={theme.colors.textTertiary}>
                             {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                         </GlossaryNodeText>
-                        <GlossaryNodeIcon color={ANTD_GRAY[7]} />
+                        <GlossaryNodeIcon color={theme.colors.textTertiary} />
                         {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
                     </>
                 ))}

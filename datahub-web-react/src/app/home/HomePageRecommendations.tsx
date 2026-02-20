@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HomePagePosts } from '@app/home/HomePagePosts';
 import {
     HOME_PAGE_DOMAINS_ID,
@@ -61,7 +60,7 @@ const BrowseCardContainer = styled.div`
 
 const NoMetadataEmpty = styled(Empty)`
     font-size: 18px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const NoMetadataContainer = styled.div`

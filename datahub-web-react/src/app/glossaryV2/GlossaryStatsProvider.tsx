@@ -4,17 +4,15 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 import OwnersIcon from '@images/glossary_account_circle.svg?react';
 import ActiveGlossaryTermIcon from '@images/glossary_bookmark_added.svg?react';
 import ApprovedGlossaryTermIcon from '@images/glossary_verified.svg?react';
 
 const StatusWrapper = styled.div`
-    background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE_2};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 9px;
-    border: 1px solid ${ANTD_GRAY[1]};
-    background: ${ANTD_GRAY[1]};
+    border: 1px solid ${(props) => props.theme.colors.bg};
+    background: ${(props) => props.theme.colors.bg};
     margin-bottom: 10px;
     display: flex;
     justify-content: space-around;
@@ -27,7 +25,7 @@ const IconWrapper = styled.div`
 `;
 
 const CountTerms = styled.div`
-    color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+    color: ${(props) => props.theme.colors.text};
     font-family: Mulish;
     font-size: 20px;
     font-style: normal;
@@ -37,7 +35,7 @@ const CountTerms = styled.div`
 `;
 
 const HeaderTitle = styled(Typography)`
-    color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+    color: ${(props) => props.theme.colors.text};
     text-align: center;
     font-family: Mulish;
     font-size: 12px;

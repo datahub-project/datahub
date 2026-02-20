@@ -2,14 +2,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 
 const LINE_LIMIT = 10;
 
 const SourceDescriptionWrapper = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: 16px 0 16px 32px;
 `;
 

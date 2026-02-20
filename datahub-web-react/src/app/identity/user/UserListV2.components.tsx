@@ -1,10 +1,10 @@
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Avatar, Button, Pill, ResizablePills, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Pill, ResizablePills, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -27,7 +27,7 @@ const UserInfo = styled.div`
 const UserDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const GroupTags = styled.div`
@@ -64,13 +64,13 @@ export const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -125,6 +125,7 @@ type UserActionsMenuProps = {
 
 // User name cell component
 export const UserNameCell = ({ user }: UserCellProps) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const displayName = user.info?.displayName || user.editableProperties?.displayName;
     const email = user.info?.email;
@@ -150,12 +151,12 @@ export const UserNameCell = ({ user }: UserCellProps) => {
                     rel="noreferrer"
                     style={{ textDecoration: 'none' }}
                 >
-                    <Text weight="medium" size="md" color="gray">
+                    <Text weight="medium" size="md" style={{ color: theme.colors.textSecondary }}>
                         {primaryText}
                     </Text>
                 </a>
                 {secondaryText && (
-                    <Text size="sm" color="gray">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         {secondaryText}
                     </Text>
                 )}
@@ -175,6 +176,7 @@ export const UserStatusCell = ({ user }: StatusCellProps) => {
 
 // User groups cell component
 export const UserGroupsCell = ({ user }: GroupsCellProps) => {
+    const theme = useTheme();
     const groupRelationships = user?.groups?.relationships || [];
     const groups = groupRelationships.map((relationship) => {
         const group = relationship.entity;
@@ -198,7 +200,7 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
                 )}
                 overflowTooltipContent={() => (
                     <div>
-                        <div style={{ fontWeight: 'bold', color: '#374066' }}>Groups</div>
+                        <div style={{ fontWeight: 'bold', color: theme.colors.text }}>Groups</div>
                         <div
                             style={{
                                 display: 'flex',

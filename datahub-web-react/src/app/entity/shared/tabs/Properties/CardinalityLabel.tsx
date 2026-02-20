@@ -1,6 +1,6 @@
 import { Tooltip } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { PropertyTypeBadge } from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
@@ -22,12 +22,13 @@ interface Props {
 }
 
 export default function CardinalityLabel({ structuredProperty }: Props) {
+    const theme = useTheme();
     const labelText =
         structuredProperty.definition.cardinality === PropertyCardinality.Single ? 'Single-Select' : 'Multi-Select';
 
     return (
         <Tooltip
-            color="#373D44"
+            color={theme.colors.bgTooltip}
             title={
                 <>
                     <Header>Property Options</Header>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 
 import {
     ActivityStatusText,
@@ -8,7 +9,7 @@ import {
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import useGetUserName from '@app/entityV2/shared/tabs/Incident/hooks';
 import { TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
@@ -17,6 +18,7 @@ type TimelineContentProps = {
 };
 
 export default function IncidentActivityContent({ incidentActivities }: TimelineContentProps) {
+    const theme = useTheme();
     const { action, actor, time, message } = incidentActivities;
     const getUserName = useGetUserName();
     const entityRegistry = useEntityRegistryV2();
@@ -32,7 +34,7 @@ export default function IncidentActivityContent({ incidentActivities }: Timeline
                     }}
                 >
                     <ActivityStatusText>{action}</ActivityStatusText>
-                    <Text color="gray" type="span" style={{ color: colors.gray[1700] }}>
+                    <Text type="span" style={{ color: theme.colors.textSecondary }}>
                         by
                     </Text>
                     <ActivityStatusText>
@@ -43,8 +45,8 @@ export default function IncidentActivityContent({ incidentActivities }: Timeline
                         )}
                     </ActivityStatusText>
                 </Text>
-                <Text style={{ color: colors.gray[1700] }}>{getTimeFromNow(time)}</Text>
-                {message ? <Text style={{ color: colors.gray[1700] }}>{message}</Text> : null}
+                <Text style={{ color: theme.colors.textSecondary }}>{getTimeFromNow(time)}</Text>
+                {message ? <Text style={{ color: theme.colors.textSecondary }}>{message}</Text> : null}
             </ContentRow>
         </Content>
     );

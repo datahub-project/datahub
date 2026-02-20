@@ -4,7 +4,7 @@ import styled from 'styled-components';
 export const StyledDrawer = styled(Drawer)`
     .ant-drawer-header {
         padding: 16px;
-        box-shadow: 0px 0px 6px 0px rgba(93, 102, 139, 0.2);
+        box-shadow: ${({ theme }) => theme.colors.shadowSm};
     }
 
     .ant-drawer-body {

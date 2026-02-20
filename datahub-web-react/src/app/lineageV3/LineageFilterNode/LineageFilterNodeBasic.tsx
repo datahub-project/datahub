@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAvoidIntersectionsOften } from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
 import LineageFilterSearch from '@app/lineageV3/LineageFilterNode/LineageFilterSearch';
 import { ShowMoreButton } from '@app/lineageV3/LineageFilterNode/ShowMoreButton';
@@ -25,8 +24,8 @@ import { EntityType } from '@types';
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
-    background-color: white;
-    border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: ${(props) => `1px solid ${props.theme.colors.border}`};
     border-radius: 12px;
     cursor: pointer;
     padding: 8px;
@@ -34,8 +33,8 @@ const NodeWrapper = styled.div`
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`
-    background-color: white;
-    border: 1px solid #eee;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
     bottom: ${({ bottom }) => bottom}px;
     height: 40px;

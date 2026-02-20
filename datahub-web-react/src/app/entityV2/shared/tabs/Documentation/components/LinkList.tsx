@@ -1,16 +1,14 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { Pencil } from '@phosphor-icons/react';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -30,7 +28,7 @@ const LinkListItem = styled(List.Item)`
         }
     }
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${LinkButtonsContainer} {
             > .ant-btn {
                 opacity: 1;
@@ -50,6 +48,7 @@ export const LinkList = () => {
     const [editingMetadata, setEditingMetadata] = useState<InstitutionalMemoryMetadata>();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const links = entityData?.institutionalMemory?.elements || [];
 
     const { handleDeleteLink } = useLinkUtils(editingMetadata);
@@ -81,7 +80,7 @@ export const LinkList = () => {
                                         shape="circle"
                                         data-testid="edit-link-button"
                                     >
-                                        <Pencil size={16} color={colors.gray[500]} />
+                                        <Pencil size={16} color={theme.colors.icon} />
                                     </Button>
                                     <Button
                                         onClick={() => handleDeleteLink(link)}

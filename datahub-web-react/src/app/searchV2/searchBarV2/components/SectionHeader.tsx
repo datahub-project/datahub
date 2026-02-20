@@ -7,9 +7,5 @@ interface Props {
 }
 
 export default function SectionHeader({ text }: Props) {
-    return (
-        <Text color="gray" weight="semiBold">
-            {text}
-        </Text>
-    );
+    return <Text weight="semiBold">{text}</Text>;
 }

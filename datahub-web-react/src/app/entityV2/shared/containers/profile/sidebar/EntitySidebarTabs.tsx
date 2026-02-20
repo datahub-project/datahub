@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
@@ -78,21 +78,8 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
             height: 100%;
         }
         &:hover {
-            background: ${(props) =>
-                props.$isClosed
-                    ? `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`
-                    : `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`} !important;
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+            background: ${(props) => props.theme.colors.bgHover} !important;
+            box-shadow: ${(props) => props.theme.colors.shadowFocus};
         }
         &:last-child {
             margin-bottom: 0 !important;
@@ -100,41 +87,22 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     }
     &&& .ant-tabs-tab-active {
         background: ${(props) =>
-            props.$isClosed
-                ? 'transparent !important'
-                : `linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        ) !important`};
+            props.$isClosed ? 'transparent !important' : `${props.theme.colors.bgSelectedSubtle} !important`};
         box-shadow: ${(props) =>
-            props.$isClosed ? 'none !important' : '0px 0px 0px 1px rgba(108, 71, 255, 0.08) !important'};
+            props.$isClosed ? 'none !important' : `${props.theme.colors.shadowFocusBrand} !important`};
         .ant-tabs-tab-btn {
             color: inherit !important;
         }
         &:hover {
             background: ${(props) =>
-                props.$isClosed
-                    ? `linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            )`
-                    : `linear-gradient(
-                180deg,
-                rgba(83, 63, 209, 0.04) -3.99%,
-                rgba(112, 94, 228, 0.04) 53.04%,
-                rgba(112, 94, 228, 0.04) 100%
-            )`} !important;
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+                props.$isClosed ? props.theme.colors.bgHover : props.theme.colors.bgSelectedSubtle} !important;
+            box-shadow: ${(props) => props.theme.colors.shadowFocus};
         }
     }
     &&& .ant-tabs-content-holder {
         display: none;
     }
-    background-color: #ffffff;
+    background-color: transparent;
 `;
 
 const Tab = styled(Tabs.TabPane)`
@@ -150,7 +118,7 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     align-items: center;
     justify-content: center;
     transition: none !important;
-    color: #8088a3;
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 48px;
     height: 48px;
     padding: 0;
@@ -173,11 +141,12 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     text-overflow: ellipsis;
     white-space: nowrap;
     /* Override any Ant Design styling that could cause blue text */
-    color: ${(props) => (props.$isSelected ? 'transparent !important' : '#8088a3 !important')};
+    color: ${(props) =>
+        props.$isSelected ? 'transparent !important' : `${props.theme.colors.textTertiary} !important`};
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(#7565d6 20%, #5340cc 80%) !important;
+        background: ${props.theme.colors.brandGradientSelected} !important;
         background-clip: text !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
@@ -217,7 +186,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* For Phosphor icons */
     && svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) =>
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px !important;
         height: 20px !important;
         min-width: 20px !important;
@@ -234,7 +206,10 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) =>
+            props.$isSelected
+                ? `color: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
+                : `color: ${props.theme.colors.textTertiary};`}
         width: 20px !important;
         height: 20px !important;
 
@@ -250,20 +225,26 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
 
     /* Ensure Phosphor icon weights are correctly applied */
     & .ph-fill {
-        fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
+        fill: ${(props) =>
+            props.$isSelected
+                ? `url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected}`
+                : props.theme.colors.icon};
     }
 `;
 
-const GradientDefs = () => (
-    <svg width="0" height="0">
-        <defs>
-            <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="20%" stopColor="#7565d6" />
-                <stop offset="80%" stopColor="#5340cc" />
-            </linearGradient>
-        </defs>
-    </svg>
-);
+const GradientDefs = () => {
+    const theme = useTheme();
+    return (
+        <svg width="0" height="0">
+            <defs>
+                <linearGradient id="menu-item-selected-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="20%" stopColor={theme.colors.iconBrand} />
+                    <stop offset="80%" stopColor={theme.colors.buttonFillBrand} />
+                </linearGradient>
+            </defs>
+        </svg>
+    );
+};
 
 const TabsWrapper = styled.div`
     width: 64px;

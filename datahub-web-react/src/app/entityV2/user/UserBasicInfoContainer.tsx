@@ -2,6 +2,7 @@ import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Divider } from 'antd';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import {
     BasicDetails,
@@ -15,7 +16,6 @@ import {
     SocialInfo,
     TitleRole,
 } from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 type Props = {
     name: string | undefined;
@@ -27,6 +27,7 @@ type Props = {
 };
 
 export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, slack, phone }: Props) => {
+    const theme = useTheme();
     return (
         <BasicDetailsContainer>
             <BasicDetails>
@@ -37,7 +38,7 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
                         </Tooltip>
                         {dataHubRoleName ? <RoleName>{dataHubRoleName}</RoleName> : null}
                     </Name>
-                    <TitleRole>{role || <EmptyValue color={REDESIGN_COLORS.WHITE} />}</TitleRole>
+                    <TitleRole>{role || <EmptyValue color={theme.colors.bg} />}</TitleRole>
                 </NameTitleContainer>
                 <Divider />
                 <SocialInfo>

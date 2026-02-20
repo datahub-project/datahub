@@ -56,6 +56,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
     const items = [
         {
             key: 'delete',
+            danger: true,
             label: (
                 <MenuItemStyle onClick={onConfirmDelete}>
                     <DeleteOutlined /> &nbsp;Delete

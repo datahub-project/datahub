@@ -13,11 +13,10 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
-import { colors } from '@src/alchemy-components/theme';
 
 const MenuButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

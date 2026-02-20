@@ -6,7 +6,6 @@ import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
@@ -31,7 +30,7 @@ const CronText = styled(Typography.Paragraph)`
     &&& {
         margin-bottom: 0px;
     }
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const CronInput = styled(Input)`
@@ -54,7 +53,7 @@ const AdvancedCheckBox = styled(Typography.Text)`
 `;
 
 const CronSuccessCheck = styled(CheckCircleOutlined)`
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textInformation};
     margin-right: 4px;
 `;
 
@@ -66,7 +65,7 @@ const ControlsContainer = styled.div`
 
 const StyledFormItem = styled(Form.Item)`
     .cron-builder {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
     .cron-builder-select {
         min-width: 100px;
@@ -74,7 +73,7 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const WarningContainer = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledWarningOutlined = styled(WarningOutlined)`

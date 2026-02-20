@@ -1,19 +1,17 @@
-import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Image, Popover } from 'antd';
 import moment from 'moment-timezone';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledDot = styled.div<{ color: string }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 50%;
     background-color: ${(props) => props.color};
     width: 10px;
@@ -39,7 +37,7 @@ const PopoverContentWrapper = styled.div``;
 const MainContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const RelativeDescription = styled.div`
@@ -49,13 +47,13 @@ const RelativeDescription = styled.div`
 `;
 
 const SubText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 10px;
     font-style: italic;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 7px;
     font-size: 10px;
 `;
@@ -85,30 +83,34 @@ const PreviewImage = styled(Image)`
 `;
 
 function TooltipContent() {
+    const theme = useTheme();
     return (
         <div>
             <TooltipSection>
-                <StyledDot color={green[5]} /> Synchronized in the&nbsp;<b>past week</b>
+                <StyledDot color={theme.colors.textSuccess} /> Synchronized in the&nbsp;<b>past week</b>
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={orange[5]} /> Synchronized in the&nbsp;<b>past month</b>
+                <StyledDot color={theme.colors.textWarning} /> Synchronized in the&nbsp;<b>past month</b>
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={red[5]} /> Synchronized&nbsp;<b>more than a month ago</b>
+                <StyledDot color={theme.colors.textError} /> Synchronized&nbsp;<b>more than a month ago</b>
             </TooltipSection>
         </div>
     );
 }
 
-export function getLastIngestedColor(lastIngested: number) {
+export function getLastIngestedColor(
+    lastIngested: number,
+    colors: { textSuccess: string; textWarning: string; textError: string },
+) {
     const lastIngestedDate = moment(lastIngested);
     if (lastIngestedDate.isAfter(moment().subtract(1, 'week'))) {
-        return green[5];
+        return colors.textSuccess;
     }
     if (lastIngestedDate.isAfter(moment().subtract(1, 'month'))) {
-        return orange[5];
+        return colors.textWarning;
     }
-    return red[5];
+    return colors.textError;
 }
 
 interface Props {
@@ -116,10 +118,11 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
+    const theme = useTheme();
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
-    const lastIngestedColor = getLastIngestedColor(lastIngested);
+    const lastIngestedColor = getLastIngestedColor(lastIngested, theme.colors);
     const platformName = getPlatformName(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
 

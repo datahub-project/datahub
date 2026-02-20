@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { DefaultTheme } from 'styled-components';
 
 import { pluralize } from '@app/shared/textUtil';
 
@@ -15,13 +15,13 @@ type Props = {
     highlightedText?: string;
 };
 
-const computeColor = (enabled?: boolean, active?: boolean) => {
-    let color = '#b0a2c2';
+const computeColor = (theme: DefaultTheme, enabled?: boolean, active?: boolean) => {
+    let color = theme.colors.textDisabled;
     if (enabled) {
         if (active) {
-            color = 'white';
+            color = theme.colors.bg;
         } else {
-            color = '#81879F';
+            color = theme.colors.textTertiary;
         }
     }
     return color;
@@ -31,7 +31,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};
-    background-color: ${({ active, theme }) => (active ? `${theme.styles['primary-color']}` : '#f7f7f7')};
+    background-color: ${({ active, theme }) => (active ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface)};
     cursor: pointer;
     border-radius: 20px;
     text-align: center;
@@ -40,28 +40,29 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     justify-content: center;
     align-items: center;
     gap: 6px;
-    color: ${(props) => computeColor(props.enabled, props.active)};
+    color: ${(props) => computeColor(props.theme, props.enabled, props.active)};
     font-size: 10px;
     font-weight: 400;
 
     & svg {
         font-size: 12px;
-        color: ${(props) => computeColor(props.enabled, props.active)};
-        fill: ${(props) => computeColor(props.enabled, props.active)};
+        color: ${(props) => computeColor(props.theme, props.enabled, props.active)};
+        fill: ${(props) => computeColor(props.theme, props.enabled, props.active)};
     }
 
     :hover {
-        color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-        background-color: ${({ enabled, theme }) => (enabled ? `${theme.styles['primary-color']}` : '#f7f7f7')};
+        color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+        background-color: ${({ enabled, theme }) =>
+            enabled ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface};
 
         svg {
-            color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-            fill: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
+            color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+            fill: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
         }
 
         >div: last-child {
-            color: white;
-            background-color: rgba(255, 255, 255, 0.2);
+            color: ${({ theme }) => theme.colors.textOnFillBrand};
+            background-color: ${({ theme }) => theme.colors.overlayOnBrand};
         }
     }
 `;
@@ -73,7 +74,7 @@ const Container = styled.div`
 `;
 
 const CountContainer = styled.div<{ active?: boolean }>`
-    background-color: ${({ active }) => (active ? 'rgba(255, 255, 255, 0.2)' : '#eee')};
+    background-color: ${({ active, theme }) => (active ? theme.colors.overlayOnBrand : theme.colors.bgSurface)};
     border-radius: 20px;
     height: 24px;
     min-width: 35px;

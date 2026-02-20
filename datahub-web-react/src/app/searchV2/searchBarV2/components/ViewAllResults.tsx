@@ -1,9 +1,10 @@
 import { ArrowElbowDownLeft, MagnifyingGlass } from '@phosphor-icons/react';
 import React from 'react';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 
 const LeftInternalContainer = styled.span`
     display: flex;
@@ -24,13 +25,14 @@ interface Props {
 }
 
 export default function ViewAllResults({ searchText, dataTestId }: Props) {
+    const theme = useTheme();
     return (
         <Container data-testid={dataTestId}>
             <LeftInternalContainer>
-                <MagnifyingGlass size={16} color={colors.gray[500]} />
-                <Text color="gray">
+                <MagnifyingGlass size={16} color={theme.colors.textSecondary} />
+                <Text style={{ color: theme.colors.textSecondary }}>
                     View all results for&nbsp;
-                    <Text type="span" color="gray" weight="semiBold">
+                    <Text type="span" weight="semiBold" style={{ color: theme.colors.textSecondary }}>
                         {searchText}
                     </Text>
                 </Text>

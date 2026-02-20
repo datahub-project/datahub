@@ -3,12 +3,13 @@ import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
 import { Axis, AxisScale, BarSeries, Grid, Margin, Tooltip, XYChart } from '@visx/xychart';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import { ChartWrapper, StyledBarSeries } from '@components/components/BarChart/components';
 import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
 import TruncatableTick from '@components/components/BarChart/components/TruncatableTick';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from '@components/components/BarChart/constants';
-import { barChartDefault } from '@components/components/BarChart/defaults';
+import { DEFAULT_COLOR_SCHEME, getColorSchemeParams } from '@components/components/BarChart/constants';
+import { getBarChartDefaults } from '@components/components/BarChart/defaults';
 import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
 import usePrepareAccessors from '@components/components/BarChart/hooks/usePrepareAccessors';
 import usePreparedScales from '@components/components/BarChart/hooks/usePreparedScales';
@@ -24,30 +25,42 @@ import {
 import { getMockedProps } from '@components/components/BarChart/utils';
 import { Popover } from '@components/components/Popover';
 
-import { colors } from '@src/alchemy-components/theme';
-
 export function BarChart({
     data,
     isEmpty,
     horizontal,
 
-    xScale = barChartDefault.xScale,
-    yScale = barChartDefault.yScale,
+    xScale,
+    yScale,
     maxYDomainForZeroData,
     minYForZeroData,
 
     margin,
 
-    leftAxisProps = barChartDefault.leftAxisProps,
-    maxLengthOfLeftAxisLabel = barChartDefault.maxLengthOfLeftAxisLabel,
-    showLeftAxisLine = barChartDefault.showLeftAxisLine,
-    bottomAxisProps = barChartDefault.bottomAxisProps,
-    gridProps = barChartDefault.gridProps,
+    leftAxisProps,
+    maxLengthOfLeftAxisLabel,
+    showLeftAxisLine,
+    bottomAxisProps,
+    gridProps,
 
     popoverRenderer,
 
     dataTestId,
 }: BarChartProps) {
+    const theme = useTheme();
+    const defaults = useMemo(
+        () => getBarChartDefaults(theme.colors.textSecondary, theme.colors.border),
+        [theme.colors.textSecondary, theme.colors.border],
+    );
+
+    const resolvedXScale = xScale ?? defaults.xScale;
+    const resolvedYScale = yScale ?? defaults.yScale;
+    const resolvedLeftAxisProps = leftAxisProps ?? defaults.leftAxisProps;
+    const resolvedMaxLengthOfLeftAxisLabel = maxLengthOfLeftAxisLabel ?? defaults.maxLengthOfLeftAxisLabel;
+    const resolvedShowLeftAxisLine = showLeftAxisLine ?? defaults.showLeftAxisLine;
+    const resolvedBottomAxisProps = bottomAxisProps ?? defaults.bottomAxisProps;
+    const resolvedGridProps = gridProps ?? defaults.gridProps;
+
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
     const [howeredBarIndex, setHoweredBarIndex] = useState<number | null>(null);
@@ -66,30 +79,32 @@ export function BarChart({
     const xAccessor: XAccessor = (datum) => datum.x;
     const yAccessor: YAccessor = (datum) => datum.y;
     const accessors = usePrepareAccessors(data, !!horizontal, xAccessor, yAccessor, minYForZeroData);
-    const scales = usePreparedScales(data, xScale, xAccessor, yScale, yAccessor, {
+    const scales = usePreparedScales(data, resolvedXScale, xAccessor, resolvedYScale, yAccessor, {
         horizontal,
         maxDomainValueForZeroData: maxYDomainForZeroData,
     });
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
-        leftAxisProps,
-        barChartDefault.leftAxisProps,
+        resolvedLeftAxisProps,
+        defaults.leftAxisProps,
     );
 
     const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
-        bottomAxisProps,
-        barChartDefault.bottomAxisProps,
+        resolvedBottomAxisProps,
+        defaults.bottomAxisProps,
     );
 
-    const mergedGridProps = useMergedProps<GridProps>(gridProps, barChartDefault.gridProps);
+    const mergedGridProps = useMergedProps<GridProps>(resolvedGridProps, defaults.gridProps);
+
+    const colorSchemeMap = useMemo(() => getColorSchemeParams(theme.colors), [theme.colors]);
 
     const gradientIdSuffix = useMemo(() => `bar${horizontal ? `-horizontal` : ''}`, [horizontal]);
 
     const colorAccessor: ColorAccessor = useCallback(
         (datum, index) => {
-            if (isEmpty) return colors.transparent;
+            if (isEmpty) return 'transparent';
             const colorTheme = datum.colorScheme ?? DEFAULT_COLOR_SCHEME;
-            const colorThemeParams = COLOR_SCHEME_TO_PARAMS[colorTheme];
+            const colorThemeParams = colorSchemeMap[colorTheme];
             if (index === selectedBarIndex) return colorThemeParams.mainColor;
             if (index === howeredBarIndex) return colorThemeParams.mainColor;
 
@@ -97,7 +112,7 @@ export function BarChart({
 
             return `url(#${gradientIdSuffix}-${colorTheme}${isInversed ? '-inversed' : ''})`;
         },
-        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty, accessors, horizontal],
+        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty, accessors, horizontal, colorSchemeMap],
     );
 
     const renderGradients = () => {
@@ -111,7 +126,7 @@ export function BarChart({
         return (
             <>
                 {colorSchemes.map((colorScheme) => {
-                    const colorSchemeParams = COLOR_SCHEME_TO_PARAMS[colorScheme ?? DEFAULT_COLOR_SCHEME];
+                    const colorSchemeParams = colorSchemeMap[colorScheme ?? DEFAULT_COLOR_SCHEME];
                     const { mainColor } = colorSchemeParams;
                     const { alternativeColor } = colorSchemeParams;
                     const fromColor = horizontal ? alternativeColor : mainColor;
@@ -183,7 +198,7 @@ export function BarChart({
                                 orientation="left"
                                 numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
                                 tickComponent={(props) => (
-                                    <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
+                                    <TruncatableTick {...props} limit={resolvedMaxLengthOfLeftAxisLabel} />
                                 )}
                                 axisClassName="left-axis"
                                 {...mergedLeftAxisProps}
@@ -206,12 +221,12 @@ export function BarChart({
                                         x2={dynamicMargin.left}
                                         y1={0}
                                         y2={height - dynamicMargin.bottom}
-                                        stroke="white"
+                                        stroke={theme.colors.bg}
                                         strokeWidth={2}
                                     />
                                 )}
 
-                                {showLeftAxisLine && (
+                                {resolvedShowLeftAxisLine && (
                                     <line
                                         x1={dynamicMargin.left}
                                         x2={dynamicMargin.left}

@@ -5,13 +5,13 @@ import styled from 'styled-components';
 
 import NavBarMenuItem from '@app/homeV2/layout/navBarRedesign/NavBarMenuItem';
 import { NavBarMenuDropdownItem } from '@app/homeV2/layout/navBarRedesign/types';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 const StyledDropdownContentWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
 `;
 
@@ -20,18 +20,20 @@ const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     ${(props) =>
         props.$disabled
-            ? `color: ${colors.gray[1800]};`
+            ? `color: ${props.theme.colors.textTertiary};`
             : `
+                color: ${props.theme.colors.text};
                 cursor: pointer;
                 &:hover {
-                    background: linear-gradient(
-                        180deg,
-                        rgba(243, 244, 246, 0.5) -3.99%,
-                        rgba(235, 236, 240, 0.5) 53.04%,
-                        rgba(235, 236, 240, 0.5) 100%
-                    );
+                    background: ${props.theme.colors.bgHover};
                 }
     `}
+`;
+
+const DescriptionText = styled.span`
+    display: block;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -95,9 +97,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
                                         // Default rendering for other items
                                         <Text>{dropdownItem.title}</Text>
                                     )}
-                                    <Text size="sm" color="gray">
-                                        {dropdownItem.description}
-                                    </Text>
+                                    <DescriptionText>{dropdownItem.description}</DescriptionText>
                                 </StyledDropDownOption>
                             );
                         })}

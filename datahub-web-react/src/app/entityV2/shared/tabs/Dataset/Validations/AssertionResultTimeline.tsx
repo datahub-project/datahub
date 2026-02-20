@@ -5,11 +5,10 @@ import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 import { AssertionResultType } from '@types';
 
@@ -36,18 +35,16 @@ type Props = {
     width: number;
 };
 
-const INIT_COLOR_HEX = '#8C8C8C';
-
-const getFillColor = (type: AssertionResultType) => {
+const getFillColor = (type: AssertionResultType, colors: ColorTheme) => {
     switch (type) {
         case AssertionResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return colors.iconSuccess;
         case AssertionResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return colors.iconError;
         case AssertionResultType.Error:
-            return ERROR_COLOR_HEX;
+            return colors.iconWarning;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return colors.iconDisabled;
         default:
             throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
     }
@@ -57,6 +54,7 @@ const getFillColor = (type: AssertionResultType) => {
  * Assertion run results displayed on a horizontal timeline.
  */
 export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
+    const theme = useTheme();
     const yMax = 60;
     const left = 0;
 
@@ -89,7 +87,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = getFillColor(d.type);
+                        const fillColor = getFillColor(d.type, theme.colors);
                         return (
                             <LinkWrapper to={d.url} target="_blank">
                                 <Popover
@@ -105,7 +103,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                                         key={`bar-${d.time}`}
                                         x={barX}
                                         y={barY}
-                                        stroke="white"
+                                        stroke={theme.colors.bg}
                                         width={barWidth}
                                         height={barHeight}
                                         fill={fillColor}
@@ -120,7 +118,7 @@ export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
                     left={left}
                     scale={xScale}
                     numTicks={7}
-                    stroke={ANTD_GRAY[5]}
+                    stroke={theme.colors.border}
                     tickFormat={(v: any) => v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' })}
                     tickLabelProps={(_) => ({
                         fontSize: 11,

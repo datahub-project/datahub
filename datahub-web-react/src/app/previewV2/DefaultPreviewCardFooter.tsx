@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import Pills from '@app/previewV2/Pills';
@@ -56,11 +55,11 @@ const EntityLink = styled.div`
     .ant-btn-link {
         display: flex;
         align-items: center;
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         height: 100%;
 
         :hover {
-            color: ${REDESIGN_COLORS.HOVER_PURPLE};
+            color: ${(props) => props.theme.colors.buttonFillBrand};
         }
 
         > span:first-child {
@@ -73,7 +72,7 @@ const EntityLink = styled.div`
 `;
 
 const HorizontalDivider = styled(Divider)`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_2};
+    color: ${(props) => props.theme.colors.border};
     margin-top: 14px;
     margin-bottom: 8px;
     width: calc(100% + 40px) !important;

@@ -9,7 +9,7 @@ const OptionContainer = styled.div``;
 
 const LinkTitle = styled.span`
     display: block;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font: 700 12px/20px Mulish;
     white-space: break-spaces;
 `;
@@ -21,7 +21,7 @@ const TitleWrapper = styled.div`
 
 const DescriptionWrapper = styled.span`
     display: block;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     white-space: break-spaces;
 
     display: block;

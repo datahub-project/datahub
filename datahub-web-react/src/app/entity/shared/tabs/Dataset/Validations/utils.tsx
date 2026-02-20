@@ -29,10 +29,6 @@ import {
     VolumeAssertionType,
 } from '@types';
 
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
-
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
     && {
         margin: 0px;
@@ -80,7 +76,7 @@ const StyledApiOutlined = styled(ApiOutlined)`
 
 const StyledCheckOutlined = styled(CheckOutlined)`
     && {
-        color: ${SUCCESS_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconSuccess};
         font-size: 14px;
         padding: 0px;
         margin: 0px;
@@ -89,7 +85,7 @@ const StyledCheckOutlined = styled(CheckOutlined)`
 
 const StyledCloseOutlined = styled(CloseOutlined)`
     && {
-        color: ${FAILURE_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconError};
         font-size: 14px;
         padding: 0px;
         margin: 0px;
@@ -98,7 +94,7 @@ const StyledCloseOutlined = styled(CloseOutlined)`
 
 const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     && {
-        color: ${WARNING_COLOR_HEX};
+        color: ${(props) => props.theme.colors.iconWarning};
         font-size: 14px;
         padding: 0px;
         margin: 0px;

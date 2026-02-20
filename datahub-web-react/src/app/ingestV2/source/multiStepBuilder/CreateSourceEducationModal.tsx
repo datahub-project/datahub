@@ -1,7 +1,7 @@
 import { Modal, Text } from '@components';
 import { Image } from 'antd';
 import React, { useContext } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXTERNAL_SOURCE_REDIRECT_URL } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
@@ -20,8 +20,8 @@ const ContentContainer = styled.div`
 
 const StyledImage = styled(Image)`
     border-radius: 8px;
-    box-shadow: 0 0 24px 0 rgba(83, 63, 209, 0.1);
-    border: 0.3px solid #f3f5f8;
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    border: 0.3px solid ${(props) => props.theme.colors.border};
 `;
 
 const ItalicsText = styled(Text)`
@@ -29,6 +29,7 @@ const ItalicsText = styled(Text)`
 `;
 
 export default function CreateSourceEducationModal() {
+    const theme = useTheme();
     const hasSeenStep = useHasSeenEducationStep(INGESTION_SELECT_SOURCE_ID);
     const { updateEducationStep } = useUpdateEducationStep();
     const { isTourOpen, setIsTourOpen } = useContext(OnboardingContext);
@@ -63,25 +64,25 @@ export default function CreateSourceEducationModal() {
             bodyStyle={{ padding: '16px' }}
         >
             <ContentContainer>
-                <Text color="gray" colorLevel={600} size="lg" weight="bold">
+                <Text size="lg" weight="bold" style={{ color: theme.colors.text }}>
                     Set Up Your First Source in Minutes
                 </Text>
-                <Text color="gray" colorLevel={1700} weight="medium">
+                <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
                     We&apos;ll guide you through each step - Ask DataHub is here to help with configuration and
                     troubleshooting as you go.
                 </Text>
-                <Text color="gray" colorLevel={1700} weight="medium">
+                <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
                     <Text weight="bold" type="span">
                         Pro Tip:{' '}
                     </Text>
                     Start with your data warehouse (Snowflake, BigQuery, Databricks) as a strong foundation.
                 </Text>
-                <Text color="gray" colorLevel={1700} weight="medium">
+                <Text weight="medium" style={{ color: theme.colors.textSecondary }}>
                     Then, connect upstream platforms where data originates or downstream tools where it&apos;s consumed,
                     and let DataHub automatically map lineage between them.
                 </Text>
                 <StyledImage src={displayImage} preview={false} />
-                <ItalicsText color="gray" size="sm">
+                <ItalicsText size="sm" style={{ color: theme.colors.textSecondary }}>
                     Prefer to keep credentials local? Get started with{' '}
                     <a href={EXTERNAL_SOURCE_REDIRECT_URL} target="_blank" rel="noreferrer">
                         DataHub&apos;s Ingestion CLI

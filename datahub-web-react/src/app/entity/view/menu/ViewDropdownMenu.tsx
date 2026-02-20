@@ -259,6 +259,7 @@ export const ViewDropdownMenu = ({
         canManageView
             ? {
                   key: 3,
+                  danger: true,
                   label: <DeleteViewItem key="3" onClick={confirmDeleteView} />,
               }
             : null,

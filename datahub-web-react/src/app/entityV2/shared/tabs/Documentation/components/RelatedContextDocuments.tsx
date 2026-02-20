@@ -6,20 +6,19 @@ import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { EntityType } from '@types';
 
 const SectionContainer = styled.div`
     margin: 0 32px;
     padding: 24px 0;
-    border-top: 1px solid ${colors.gray[200]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SectionTitle = styled.h3`
     font-size: 16px;
     font-weight: 600;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin: 0 0 16px 0;
 `;
 
@@ -39,13 +38,13 @@ const DocumentItem = styled.div`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const DocumentTitle = styled.span`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 500;
 `;
 
@@ -54,12 +53,12 @@ const DocumentMetadata = styled.div`
     align-items: center;
     gap: 12px;
     font-size: 12px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const EmptyState = styled.div`
     font-size: 14px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-style: italic;
     padding: 8px 0;
 `;

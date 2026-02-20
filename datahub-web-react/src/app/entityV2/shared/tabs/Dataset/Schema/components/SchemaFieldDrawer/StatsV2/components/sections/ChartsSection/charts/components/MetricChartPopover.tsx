@@ -12,10 +12,8 @@ interface MetricChartPopoverProps {
 export default function MetricChartPopover({ datum, renderDatumMetric }: MetricChartPopoverProps) {
     return (
         <>
-            <Text size="sm" color="gray">
-                {dayjs(datum.x).format('dddd, MMM, D ‘YY')}
-            </Text>
-            <Text weight="semiBold" size="sm" color="gray">
+            <Text size="sm">{dayjs(datum.x).format('dddd, MMM, D ‘YY')}</Text>
+            <Text weight="semiBold" size="sm">
                 {renderDatumMetric(datum)}
             </Text>
         </>

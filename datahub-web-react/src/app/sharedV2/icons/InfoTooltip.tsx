@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 const InfoWrapper = styled.div`
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 interface Props {

@@ -1,19 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-
 export const ShowMoreButton = styled.div`
     padding: 4px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;
     font-weight: 700;
     font-size: 12px;
     font-family: 'Mulish';
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         text-decoration: underline;
     }
 `;

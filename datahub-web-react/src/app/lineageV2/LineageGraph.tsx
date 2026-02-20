@@ -10,7 +10,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { EntityType } from '@types';
 
 const LineageFullscreenWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     display: flex;
 `;

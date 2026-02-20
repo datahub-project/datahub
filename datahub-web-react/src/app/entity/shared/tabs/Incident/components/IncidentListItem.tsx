@@ -2,13 +2,13 @@ import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@
 import { Button, Dropdown, List, Popover, Tag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
 import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
@@ -55,7 +55,7 @@ const IncidentTitle = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 700;
     margin-right: 16px;
-    color: #000000;
+    color: ${(props) => props.theme.colors.text};
     line-height: 22px;
     text-align: justify;
     max-width: 500px;
@@ -68,7 +68,7 @@ const IncidentTypeTag = styled(Tag)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     padding: 2px 15px;
     white-space: nowrap;
     overflow: hidden;
@@ -81,7 +81,7 @@ const IncidentDescriptionText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: block;
     word-wrap: break-word;
     white-space: normal;
@@ -92,7 +92,7 @@ const IncidentDescriptionLabel = styled(Typography.Text)`
     margin-top: 4px;
     font-weight: 400;
     font-size: 10px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
     display: block;
     word-wrap: break-word;
     white-space: normal;
@@ -103,14 +103,14 @@ const IncidentCreatedTime = styled(Typography.Text)`
     font-weight: 500;
     font-size: 10px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const IncidentResolvedText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const IncidentResolvedTextContainer = styled.div`
@@ -125,12 +125,12 @@ const IncidentResolvedContainer = styled.div`
 `;
 
 const IncidentResolvedButton = styled(Button)`
-    background: #ffffff;
-    border: 1px solid #d9d9d9;
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     box-sizing: border-box;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border-radius: 5px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
@@ -146,6 +146,7 @@ const MenuIcon = styled(MoreOutlined)`
 `;
 
 export default function IncidentListItem({ incident, refetch }: Props) {
+    const theme = useTheme();
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -297,7 +298,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 </IncidentResolvedText>
                             </Popover>
                             <CheckCircleFilled
-                                style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
+                                style={{ fontSize: '28px', color: theme.colors.iconSuccess, marginLeft: '16px' }}
                             />
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
@@ -312,7 +313,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             >
                                 Resolve
                             </IncidentResolvedButton>
-                            <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
+                            <WarningFilled
+                                style={{ fontSize: '28px', marginLeft: '16px', color: theme.colors.iconError }}
+                            />
                         </IncidentResolvedContainer>
                     )}
                 </IncidentItemContainer>

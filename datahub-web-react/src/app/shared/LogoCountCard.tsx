@@ -2,7 +2,6 @@ import { Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HomePageButton } from '@app/shared/components';
 import { formatNumber } from '@app/shared/formatNumber';
 
@@ -16,7 +15,7 @@ const PlatformLogo = styled(Image)`
 
 const CountText = styled(Typography.Text)`
     font-size: 18px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const LogoContainer = styled.div``;

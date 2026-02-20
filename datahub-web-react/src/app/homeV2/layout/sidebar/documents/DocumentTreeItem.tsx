@@ -1,12 +1,10 @@
 import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     position: relative;
@@ -26,26 +24,16 @@ const TreeItemContainer = styled.div<{ $level: number; $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
     `}
 
     ${(props) =>
         !props.$isSelected &&
         `
         &:hover {
-            background: linear-gradient(
-                180deg,
-                rgba(243, 244, 246, 0.5) -3.99%,
-                rgba(235, 236, 240, 0.5) 53.04%,
-                rgba(235, 236, 240, 0.5) 100%
-            );
-            box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+            background: ${props.theme.colors.bgHover};
+            box-shadow: ${props.theme.colors.shadowFocus};
         }
     `}
 `;
@@ -96,8 +84,8 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : `color: ${colors.gray[1800]};`}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.textTertiary};`}
     }
 `;
 
@@ -107,12 +95,12 @@ const Title = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
+        background: ${props.theme.colors.brandGradientSelected};
         background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 600;
@@ -129,7 +117,7 @@ const Actions = styled.div`
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -166,6 +154,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
 }) => {
+    const theme = useTheme();
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
 
@@ -200,8 +189,12 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                     aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
                     {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                    {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
-                    {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
+                    {!isLoading && isExpanded && (
+                        <CaretDown color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
+                    {!isLoading && !isExpanded && (
+                        <CaretRight color={theme.colors.textTertiary} size={16} weight="bold" />
+                    )}
                 </ExpandButton>
             );
         }

@@ -2,7 +2,6 @@ import { Divider, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
 import ProfilingRunsChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
 import StatChart from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
@@ -22,7 +21,7 @@ import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
     margin-top: 12px;
 `;
@@ -39,7 +38,7 @@ const ChartRow = styled.div`
 `;
 
 const ChartDivider = styled(Divider)<{ height: number; width: number }>`
-    background-color: ${ANTD_GRAY[0]};
+    background-color: ${(props) => props.theme.colors.bg};
     height: ${(props) => props.height}px;
     width: ${(props) => props.width}px;
     margin: 20px;

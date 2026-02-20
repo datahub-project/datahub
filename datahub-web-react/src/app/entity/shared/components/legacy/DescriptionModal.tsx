@@ -2,7 +2,6 @@ import { Button, Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
@@ -11,7 +10,7 @@ const FormLabel = styled(Typography.Text)`
 `;
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const StyledViewer = styled(Editor)`

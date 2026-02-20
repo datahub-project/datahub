@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { X } from '@phosphor-icons/react';
 import styled from 'styled-components';
 
@@ -14,8 +13,8 @@ export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     max-height: calc(100vh - 48px);
     padding: 0;
     border-radius: 12px;
-    background: linear-gradient(180deg, #f9fafc 0%, #f1f3fd 100%);
-    box-shadow: 0 4px 28px 0 rgba(9, 1, 61, 0.14);
+    background: ${(props) => props.theme.colors.bgSurface};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     z-index: 1000;
     transition:
         left 250ms ease-in-out,
@@ -40,15 +39,15 @@ export const Header = styled.div`
     align-items: center;
     width: 100%;
     padding: 16px 16px 12px 16px;
-    border-bottom: 1px solid ${colors.gray[200]};
-    background: white;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 12px 12px 0 0;
 `;
 
 export const CloseButton = styled.button`
     background: none;
     border: none;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
     padding: 4px;
     display: flex;
@@ -57,7 +56,7 @@ export const CloseButton = styled.button`
     transition: color 0.2s;
 
     &:hover {
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -99,7 +98,7 @@ export const SectionHeaderContainer = styled.div`
 export const SectionHeaderLine = styled.div`
     flex: 1;
     height: 1px;
-    background: ${colors.gray[200]};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export const FeaturesSection = styled.div`
@@ -126,7 +125,7 @@ export const FeatureIconWrapper = styled.div`
     justify-content: center;
     min-width: 20px;
     min-height: 20px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     flex-shrink: 0;
     margin-top: 2px;
 `;
@@ -145,9 +144,9 @@ export const CTAContainer = styled.div`
     align-items: center;
     gap: 8px;
     padding: 16px;
-    border-top: 1px solid ${colors.gray[200]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     width: calc(100% + 32px);
-    background: white;
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 0 0 12px 12px;
     margin: 0 -16px;
 `;

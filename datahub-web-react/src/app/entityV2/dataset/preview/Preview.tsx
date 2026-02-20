@@ -1,10 +1,10 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
@@ -101,6 +101,7 @@ export const Preview = ({
     browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
 
     return (
@@ -138,7 +139,7 @@ export const Preview = ({
                         rowCount={rowCount}
                         queryCountLast30Days={statsSummary?.queryCountLast30Days}
                         uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
-                        color={ANTD_GRAY[8]}
+                        color={theme.colors.textSecondary}
                     />
                 )
             }

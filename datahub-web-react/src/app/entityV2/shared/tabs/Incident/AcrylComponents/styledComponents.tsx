@@ -1,15 +1,14 @@
 import { Form, Table } from 'antd';
 import styled, { keyframes } from 'styled-components';
 
-import { Button, colors } from '@src/alchemy-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { Button } from '@src/alchemy-components';
 
 export const IncidentListStyledTable = styled(Table)`
     max-width: none;
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
         font-size: 12px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -27,7 +26,7 @@ export const IncidentListStyledTable = styled(Table)`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
+        border: 1px solid ${(props) => props.theme.colors.bgHover};
     }
     &&& .ant-table-thead > tr > th {
         line-height: 5px;
@@ -37,18 +36,18 @@ export const IncidentListStyledTable = styled(Table)`
     }
 
     &&& .acryl-selected-incidents-table-row {
-        background-color: ${ANTD_GRAY[4]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 
     .group-header {
         cursor: pointer;
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
     &&& .acryl-incidents-table-row {
         cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         :hover {
-            background-color: ${ANTD_GRAY[3]};
+            background-color: ${(props) => props.theme.colors.bgHover};
         }
     }
 `;
@@ -100,7 +99,7 @@ export const DetailsLabel = styled.div`
     margin-right: 60px;
     width: 20%;
     font-weight: 600;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
 `;
 
@@ -112,7 +111,7 @@ export const ActivitySection = styled.div`
 export const ActivityLabelSection = styled.div`
     font-weight: 500;
     font-size: 18px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     padding: 8px 4px;
     margin-bottom: 8px;
 `;
@@ -138,7 +137,7 @@ export const Content = styled.div`
 
 export const ActivityStatusText = styled.div`
     font-size: 14px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
     a {
         color: inherit;
@@ -155,11 +154,11 @@ export const Header = styled.div`
 `;
 
 export const ToggleIcon = styled.span`
-    color: #666;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const Divider = styled.div`
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     margin: 16px 0;
 `;
 
@@ -170,7 +169,7 @@ export const Container = styled.div`
 
 export const Text = styled.div`
     font-size: 12px;
-    color: #0066cc;
+    color: ${(props) => props.theme.colors.hyperlinks};
     text-decoration: underline;
     &&:hover {
         cursor: pointer;
@@ -180,7 +179,7 @@ export const Text = styled.div`
 export const CategoryText = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const SelectFormItem = styled(Form.Item)<{ customStyle?: React.CSSProperties }>`
@@ -199,7 +198,7 @@ export const SelectFormItem = styled(Form.Item)<{ customStyle?: React.CSSPropert
         min-width: 25%;
     }
     .ant-form-item-label > label {
-        color: ${({ customStyle }) => customStyle?.color || `${colors.gray[600]} !important`};
+        color: ${({ customStyle, theme }) => customStyle?.color || `${theme.colors.text} !important`};
     }
     .ant-form-item-label > label.ant-form-item-required::before {
         content: none;
@@ -217,7 +216,7 @@ export const InputFormItem = styled(Form.Item)`
     line-height: 20.08px;
     text-align: left;
     .ant-form-item-label > label {
-        color: ${colors.gray[600]} !important;
+        color: ${(props) => props.theme.colors.text} !important;
     }
 `;
 
@@ -225,24 +224,24 @@ export const SaveButton = styled(Button)<{ disabled: boolean }>`
     width: 100%;
     height: 36px;
     border-radius: 4px;
-    border: 1px solid ${(props) => props.theme.styles['primary-color']};
-    background-color: ${({ disabled, theme }) => (disabled ? '#f9fafc' : theme.styles['primary-color'])};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    background-color: ${({ disabled, theme }) => (disabled ? theme.colors.bgDisabled : theme.colors.buttonFillBrand)};
     font-size: 16px;
     font-weight: 600;
     line-height: 22.59px;
     justify-content: center;
-    color: ${({ disabled }) => (disabled ? '#8088a3' : '#ffffff')};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.bg)};
 `;
 
 export const IncidentFooter = styled.div`
     width: 100%;
     padding: 16px;
-    border-top: 1px solid #e9eaee;
-    box-shadow: 0px 0px 6px 0px #5d668b33;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     max-height: 68px;
     position: absolute;
     bottom: 0;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
 `;
 
 export const StyledFormElements = styled.div`
@@ -289,7 +288,7 @@ export const StyledHeader = styled.div`
     align-items: center;
     padding: 16px;
     justify-content: space-between;
-    box-shadow: 0px 0px 6px 0px #5d668b33;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 export const StyledHeaderTitleContainer = styled.div`
@@ -301,7 +300,7 @@ export const StyledHeaderActions = styled.div`
     display: flex;
     gap: 20px;
     align-items: center;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     cursor: pointer;
 `;
 
@@ -310,7 +309,7 @@ export const StyledTitle = styled.span`
     font-weight: 700;
     line-height: 20.08px;
     text-align: left;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const spin = keyframes`
@@ -323,8 +322,8 @@ export const StyledSpinner = styled.div`
     width: 16px;
     height: 16px;
     margin-right: 8px;
-    border: 2px solid #8088a3;
-    color: #8088a3;
+    border: 2px solid ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.textTertiary};
     border-top: 2px solid transparent;
     border-radius: 50%;
     animation: ${spin} 0.8s linear infinite;
@@ -338,5 +337,5 @@ export const ForPlatformWrapper = styled.div`
     font-size: 0.75rem;
     margin-left: 12px;
     padding-left: 12px;
-    border-left: 0.5px solid #ddd;
+    border-left: 0.5px solid ${(props) => props.theme.colors.border};
 `;

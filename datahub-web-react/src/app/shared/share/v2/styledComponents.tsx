@@ -2,16 +2,14 @@ import { Modal } from '@components';
 import { Button, Checkbox, Form, Menu, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
-    background-color: #fff !important;
+    background-color: ${(props) => props.theme.colors.bgSurface} !important;
     height: 28px;
     font-size: 12px;
     font-weight: 300;
     padding: 12px;
-    color: #46507b;
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         background-color: transparent;
     }
@@ -55,15 +53,15 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
         display: flex;
         align-items: center;
         gap: 5px;
-        box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
         border-color: ${(props) => props.$color};
-        color: ${(props) => (props.$type === 'filled' ? 'white' : props.$color)};
+        color: ${(props) => (props.$type === 'filled' ? props.theme.colors.textOnFillBrand : props.$color)};
         background-color: ${(props) => (props.$type === 'filled' ? props.$color : 'transparent')};
 
         :hover {
             border-color: ${(props) => (props.$hoverColor ? props.$hoverColor : props.$color)};
             background-color: ${(props) => (props.$hoverColor ? props.$hoverColor : props.$color)};
-            color: ${(props) => !(props.$type === 'filled') && 'white'};
+            color: ${(props) => !(props.$type === 'filled') && props.theme.colors.textOnFillBrand};
         }
     }
 `;
@@ -74,9 +72,7 @@ export const StyledModal = styled(Modal)`
     max-width: 680px;
 
     &&& .ant-modal-content {
-        box-shadow:
-            0px 4px 4px 0px rgba(0, 0, 0, 0.25),
-            0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
@@ -95,7 +91,7 @@ export const StyledModal = styled(Modal)`
     }
 
     .ant-modal-close-x {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.iconBrand};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -103,7 +99,7 @@ export const StyledModal = styled(Modal)`
         padding-top: 20px;
 
         :hover {
-            stroke: ${(props) => props.theme.styles['primary-color']};
+            stroke: ${(props) => props.theme.colors.iconBrand};
         }
     }
 `;
@@ -114,7 +110,7 @@ export const ModalTitle = styled.span`
     gap: 8px;
     font-size: 22px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const StyledFormItem = styled(Form.Item)`
@@ -124,18 +120,18 @@ export const StyledFormItem = styled(Form.Item)`
         font-size: 14px;
         font-weight: 500;
         border-radius: 8px;
-        color: ${REDESIGN_COLORS.FOUNDATION_BLUE_5};
+        color: ${(props) => props.theme.colors.textSecondary};
 
         &:hover,
         &:focus,
         &:active {
-            border-color: ${(props) => props.theme.styles['primary-color']};
+            border-color: ${(props) => props.theme.colors.borderBrand};
         }
 
         &:focus,
         &:active {
-            color: ${(props) => props.theme.styles['primary-color']};
-            box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
+            color: ${(props) => props.theme.colors.textBrand};
+            box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
         }
     }
 `;
@@ -144,5 +140,5 @@ export const FormItemTitle = styled(Typography.Text)`
     margin-bottom: 8px;
     font-size: 14px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;

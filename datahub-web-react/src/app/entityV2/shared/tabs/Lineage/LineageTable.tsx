@@ -4,7 +4,6 @@ import VisiblitySensor from 'react-visibility-sensor';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
@@ -32,7 +31,7 @@ const LineageList = styled(List)`
 const ItemPlaceholder = styled.div`
     min-height: 100px;
     width: 100%;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const ListItem = styled(List.Item)`

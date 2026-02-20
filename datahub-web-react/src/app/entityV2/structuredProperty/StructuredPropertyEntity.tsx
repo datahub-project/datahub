@@ -26,13 +26,18 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <TableIcon
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
+            );
         }
 
         return (
             <TableIcon
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

@@ -43,10 +43,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <ArrowsClockwise style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
-        return <ArrowsClockwise style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return <ArrowsClockwise style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }} />;
     };
 
     isSearchEnabled = () => false;

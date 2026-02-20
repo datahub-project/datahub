@@ -1,8 +1,6 @@
 import { Skeleton } from 'antd';
 import * as React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components';
 
 const Container = styled.div`
     width: 100%;
@@ -13,15 +11,15 @@ const Container = styled.div`
     flex: 1;
 `;
 
-const cardStyle = {
-    backgroundColor: ANTD_GRAY[2],
-    height: 120,
-    minWidth: '98%',
-    borderRadius: 8,
-    marginBottom: 20,
-};
-
 export default function SearchResultsLoadingSection() {
+    const theme = useTheme();
+    const cardStyle = {
+        backgroundColor: theme.colors.bgSurface,
+        height: 120,
+        minWidth: '98%',
+        borderRadius: 8,
+        marginBottom: 20,
+    };
     return (
         <Container>
             <Skeleton.Input active style={cardStyle} />

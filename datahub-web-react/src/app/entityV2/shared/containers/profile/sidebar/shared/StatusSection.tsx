@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
@@ -42,14 +41,14 @@ const StyledIcon = styled.div`
     svg {
         height: 18px;
         width: 18px;
-        color: ${REDESIGN_COLORS.DARK_DIVIDER};
-        stroke: ${REDESIGN_COLORS.DARK_DIVIDER};
+        color: ${(props) => props.theme.colors.border};
+        stroke: ${(props) => props.theme.colors.border};
         stroke-width: 1px;
     }
 `;
 
 const EmptyText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StatusSection = () => {

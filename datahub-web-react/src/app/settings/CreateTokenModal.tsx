@@ -1,7 +1,6 @@
-import { red } from '@ant-design/colors';
 import { Button, Form, Input, Modal, Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { AccessTokenModal } from '@app/settings/AccessTokenModal';
@@ -37,10 +36,11 @@ const ExpirationDurationSelect = styled(Select)`
 `;
 
 const OptionText = styled.span<{ isRed: boolean }>`
-    ${(props) => props.isRed && `color: ${red[5]};`}
+    ${(props) => props.isRed && `color: ${props.theme.colors.textError};`}
 `;
 
 export default function CreateTokenModal({ currentUserUrn, open, onClose, onCreateToken }: Props) {
+    const theme = useTheme();
     const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -183,7 +183,7 @@ export default function CreateTokenModal({ currentUserUrn, open, onClose, onCrea
                             {({ getFieldValue }) => (
                                 <Typography.Text
                                     type="secondary"
-                                    style={hasSelectedNoExpiration ? { color: `${red[5]}` } : {}}
+                                    style={hasSelectedNoExpiration ? { color: theme.colors.textError } : {}}
                                 >
                                     {getFieldValue('duration') && getTokenExpireDate(getFieldValue('duration'))}
                                 </Typography.Text>

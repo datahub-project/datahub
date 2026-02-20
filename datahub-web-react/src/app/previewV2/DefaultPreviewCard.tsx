@@ -11,7 +11,6 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -56,7 +55,7 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -71,7 +70,7 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 
@@ -108,7 +107,7 @@ const InsightsText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const InsightIconContainer = styled.span`

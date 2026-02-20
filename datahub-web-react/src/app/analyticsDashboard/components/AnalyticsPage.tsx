@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { ChartGroup } from '@app/analyticsDashboard/components/ChartGroup';
 import { Highlight } from '@app/analyticsDashboard/components/Highlight';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import filterSearchQuery from '@app/search/utils/filterSearchQuery';
 import { Message } from '@app/shared/Message';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
@@ -17,14 +16,14 @@ import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    background-color: ${(props) => (props.isV2 ? props.theme.colors.bg : 'inherit')};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         height: 100%;
         margin: 5px;
         overflow: auto;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -56,7 +55,7 @@ const MetadataAnalyticsPlaceholder = styled.span`
     margin: 25px;
     margin-bottom: 50px;
     font-size: 18px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const DomainSelect = styled(Select)`
@@ -69,7 +68,7 @@ const StyledSearchBar = styled(Input)`
     &&& {
         margin-left: 10px;
         border-radius: 70px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
         width: 250px;
     }
 `;

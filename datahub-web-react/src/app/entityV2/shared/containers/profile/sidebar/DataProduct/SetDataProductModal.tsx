@@ -2,7 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, message } from 'antd';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
@@ -14,7 +14,6 @@ import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/type
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, Text } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -47,6 +46,7 @@ export default function SetDataProductModal({
     setDataProduct,
     refetch,
 }: Props) {
+    const themeConfig = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -232,7 +232,7 @@ export default function SetDataProductModal({
                         <Empty
                             description="No Data Products Found"
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            style={{ color: ANTD_GRAY[7] }}
+                            style={{ color: themeConfig.colors.textTertiary }}
                         />
                     ) : null
                 }

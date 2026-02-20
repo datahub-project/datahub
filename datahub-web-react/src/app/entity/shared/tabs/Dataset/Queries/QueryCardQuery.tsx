@@ -2,10 +2,8 @@ import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Statement = styled.div<{ fullHeight?: boolean }>`
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     height: ${(props) => (props.fullHeight && '378px') || '240px'};
     margin: 0px 0px 4px 0px;
     border-radius: 8px;

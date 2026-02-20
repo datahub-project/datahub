@@ -1,9 +1,9 @@
-import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Avatar, CellHoverWrapper, Icon, Pill, Tooltip } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
@@ -29,7 +29,7 @@ const PreviewImage = styled(Image)`
 `;
 
 const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     ${(props) =>
         props.$shouldUnderline &&
         `
@@ -42,7 +42,7 @@ const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
 const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -72,7 +72,7 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
 const SourceTypeText = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -96,6 +96,7 @@ interface NameColumnProps {
 }
 
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
     const textRef = useRef<HTMLDivElement>(null);
@@ -132,14 +133,13 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
             ) : (
-                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
+                <Icon icon="Plugs" source="phosphor" size="2xl" />
             )}
             <DisplayNameContainer>
                 {showTooltip ? (
                     <Tooltip
                         title={record.name}
-                        color="white"
-                        overlayInnerStyle={{ color: colors.gray[1700] }}
+                        overlayInnerStyle={{ color: theme.colors.textSecondary }}
                         showArrow={false}
                     >
                         {textElement}
@@ -147,7 +147,9 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 ) : (
                     textElement
                 )}
-                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
+                {!iconUrl && typeDisplayName && (
+                    <SourceTypeText style={{ color: theme.colors.textSecondary }}>{typeDisplayName}</SourceTypeText>
+                )}
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
@@ -161,6 +163,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
 }
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const theme = useTheme();
     let scheduleText: string;
 
     try {
@@ -177,8 +180,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
             ellipsis={{
                 tooltip: {
                     title: scheduleText,
-                    color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
                     showArrow: false,
                 },
             }}
@@ -253,6 +255,7 @@ interface ActionsColumnProps {
 type MenuOption = {
     key: string;
     label: React.ReactNode;
+    danger?: boolean;
 };
 
 export function ActionsColumn({
@@ -348,13 +351,14 @@ export function ActionsColumn({
         });
     items.push({
         key: '6',
+        danger: true,
         label: (
             <MenuItem
                 onClick={() => {
                     onDelete(record.urn);
                 }}
             >
-                <Text color="red">Delete </Text>
+                Delete
             </MenuItem>
         ),
     });
@@ -368,7 +372,7 @@ export function ActionsColumn({
                     icon="Stop"
                     source="phosphor"
                     weight="fill"
-                    color="primary"
+                    color="iconBrand"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCancel(record.lastExecUrn, record.urn);
@@ -382,7 +386,7 @@ export function ActionsColumn({
                 icon="Play"
                 source="phosphor"
                 weight="fill"
-                color="violet"
+                color="iconBrand"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);

@@ -1,6 +1,6 @@
 import { Button, Modal, Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
@@ -33,6 +33,7 @@ interface Props {
 function AddRelatedTermsModal(props: Props) {
     const { onClose, relationshipType } = props;
 
+    const theme = useTheme();
     const [inputValue, setInputValue] = useState('');
     const [selectedUrns, setSelectedUrns] = useState<any[]>([]);
     const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
@@ -158,7 +159,7 @@ function AddRelatedTermsModal(props: Props) {
                     alignItems: 'center',
                     whiteSpace: 'nowrap',
                     opacity: 1,
-                    color: '#434343',
+                    color: theme.colors.text,
                     lineHeight: '16px',
                 }}
             >

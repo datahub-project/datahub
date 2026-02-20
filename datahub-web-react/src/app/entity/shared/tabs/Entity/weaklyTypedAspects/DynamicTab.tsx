@@ -3,7 +3,6 @@ import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import DynamicPropertiesTab from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/DynamicPropertiesTab';
 import DynamicTabularTab from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/DynamicTabularTab';
 
@@ -18,7 +17,7 @@ type Props = {
 const QueryText = styled(Typography.Paragraph)`
     margin: 20px;
     &&& pre {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border: none;
     }
 `;

@@ -1,10 +1,9 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useCustomTheme } from '@src/customThemeContext';
 
 type Props = {
     key: string;
@@ -16,7 +15,7 @@ type Props = {
  */
 export const SetUserDefaultItem = ({ key, onClick }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { theme } = useCustomTheme();
+    const theme = useTheme();
 
     return (
         <ViewItem
@@ -27,7 +26,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             title="Make my default"
             icon={
                 <UserDefaultViewIcon
-                    color={isShowNavBarRedesign ? theme?.styles['primary-color'] : REDESIGN_COLORS.TERTIARY_GREEN}
+                    color={isShowNavBarRedesign ? theme?.colors?.iconBrand : theme.colors.textSuccess}
                 />
             }
         />

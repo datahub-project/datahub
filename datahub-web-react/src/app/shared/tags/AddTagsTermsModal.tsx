@@ -4,7 +4,6 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/search/filters/ParentEntities';
@@ -53,7 +52,7 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.text};
     line-height: 16px;
 `;
 
@@ -64,12 +63,9 @@ export const BrowserWrapper = styled.div<{
     minWidth?: number;
     maxWidth?: number;
 }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -100,7 +96,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -566,7 +562,7 @@ export default function EditTagTermsModal({
                                     <Empty
                                         description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
                                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
+                                        style={{ color: undefined }}
                                     />
                                 ) : null
                             }

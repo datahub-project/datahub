@@ -2,8 +2,6 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-
 const Container = styled(Button)`
     padding: 32px;
     height: 200px;
@@ -12,11 +10,11 @@ const Container = styled(Button)`
     border-radius: 8px;
     align-items: start;
     flex-direction: column;
-    border: 1px solid #e0e0e0;
-    background-color: #ffffff;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bg};
     &&:hover {
-        border: 1px solid ${REDESIGN_COLORS.BLUE};
-        background-color: #ffffff;
+        border: 1px solid ${(props) => props.theme.colors.borderBrand};
+        background-color: ${(props) => props.theme.colors.bg};
     }
     white-space: unset;
 `;
@@ -35,7 +33,7 @@ const LogoContainer = styled.div`
 
 const Title = styled.div`
     word-break: break-word;
-    color: #464646;
+    color: ${(props) => props.theme.colors.text};
     font-weight: bold;
     font-size: 16px;
     margin-bottom: 8px;
@@ -44,7 +42,7 @@ const Title = styled.div`
 const Description = styled.div`
     word-break: break-word;
     text-align: left;
-    color: #7c7c7c;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

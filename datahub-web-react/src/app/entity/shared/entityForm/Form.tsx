@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 import { getFormAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
@@ -20,7 +19,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { FormPrompt } from '@types';
 
 const TabWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: auto;
     padding: 24px;
     flex: 1;
@@ -39,7 +38,7 @@ const SubTitle = styled(PromptSubTitle)`
 `;
 
 const RequestedByWrapper = styled(PromptSubTitle)`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

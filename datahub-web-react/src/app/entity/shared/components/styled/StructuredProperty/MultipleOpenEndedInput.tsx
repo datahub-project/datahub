@@ -3,15 +3,13 @@ import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-
 const MultiStringWrapper = styled.div``;
 
 const StyledInput = styled(Input)`
     width: 75%;
     min-width: 350px;
     max-width: 500px;
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InputWrapper = styled.div`

@@ -4,8 +4,7 @@ import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { Popover } from 'antd';
 import React, { useMemo } from 'react';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useTheme } from 'styled-components';
 
 export type BooleanResult = {
     result: boolean;
@@ -29,13 +28,11 @@ type Props = {
     width: number;
 };
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-
 /**
  * True / false results displayed on a horizontal timeline.
  */
 export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
+    const theme = useTheme();
     const yMax = 60;
     const left = 0;
 
@@ -67,7 +64,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = d.result ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
+                        const fillColor = d.result ? theme.colors.iconSuccess : theme.colors.iconError;
                         return (
                             <Popover
                                 key={d.time}
@@ -96,7 +93,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                     left={left}
                     scale={xScale}
                     numTicks={7}
-                    stroke={ANTD_GRAY[5]}
+                    stroke={theme.colors.border}
                     tickFormat={(v: any) => v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' })}
                     tickLabelProps={(_) => ({
                         fontSize: 11,

@@ -1,16 +1,14 @@
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     flex-direction: row;
     gap: 5px;
@@ -23,7 +21,7 @@ const LastUpdatedContainer = styled.div<{ color: string }>`
 const PopoverContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -59,6 +57,7 @@ export const getFreshnessTitle = (property: string | undefined) => {
 };
 
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+    const theme = useTheme();
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -82,7 +81,7 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
             placement="bottom"
             showArrow={false}
         >
-            <LastUpdatedContainer color={getLastIngestedColor(time)}>
+            <LastUpdatedContainer color={getLastIngestedColor(time, theme.colors)}>
                 <UpdateOutlinedIcon /> {showDate && toLocalDateString(time)}
             </LastUpdatedContainer>
         </Popover>

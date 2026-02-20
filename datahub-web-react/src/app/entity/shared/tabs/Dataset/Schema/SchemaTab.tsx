@@ -9,7 +9,6 @@ import SchemaRawView from '@app/entity/dataset/profile/schema/components/SchemaR
 import { KEY_SCHEMA_PREFIX } from '@app/entity/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import SchemaContext from '@app/entity/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entity/shared/tabs/Dataset/Schema/SchemaTable';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
@@ -26,7 +25,7 @@ import { useGetVersionedDatasetQuery } from '@graphql/versionedDataset.generated
 import { SchemaFieldBlame, SemanticVersionStruct } from '@types';
 
 const NoSchema = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
 

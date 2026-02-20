@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 import {
     PopularityTier,
@@ -29,7 +28,7 @@ const Container = styled.div`
 
 const StyledDivider = styled(Divider)`
     height: 16px;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_2};
+    color: ${(props) => props.theme.colors.border};
 `;
 
 interface Props {

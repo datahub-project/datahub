@@ -3,7 +3,6 @@ import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import AddPropertyButton from '@app/entity/shared/tabs/Properties/AddPropertyButton';
 import { Maybe, StructuredProperties } from '@src/types.generated';
 
@@ -14,7 +13,7 @@ const StyledInput = styled(Input)`
 
 const TableHeader = styled.div`
     padding: 8px 16px;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
 `;

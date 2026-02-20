@@ -1,10 +1,9 @@
 import { Layout } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
 import DemoButton from '@app/entity/shared/components/styled/DemoButton';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SearchBar } from '@app/search/SearchBar';
 import AppLogoLink from '@app/shared/AppLogoLink';
 import { ManageAccount } from '@app/shared/ManageAccount';
@@ -15,19 +14,22 @@ import { AutoCompleteResultForEntity, EntityType } from '@types';
 
 const { Header } = Layout;
 
-const styles = {
-    header: {
-        position: 'fixed',
-        zIndex: 10,
-        width: '100%',
-        lineHeight: '20px',
-        padding: '0px 20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: `1px solid ${ANTD_GRAY[4.5]}`,
-    },
-};
+function useStyles() {
+    const theme = useTheme();
+    return {
+        header: {
+            position: 'fixed',
+            zIndex: 10,
+            width: '100%',
+            lineHeight: '20px',
+            padding: '0px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: `1px solid ${theme.colors.border}`,
+        },
+    };
+}
 
 const LogoSearchContainer = styled.div`
     display: flex;
@@ -69,6 +71,7 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
+    const styles = useStyles();
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const appConfig = useAppConfig();

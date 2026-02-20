@@ -1,11 +1,9 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export const SeeMore = styled(Button)`
     margin-top: -20px;
-    background-color: ${ANTD_GRAY[4]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 8px;
     border: none;
     line-height: 8px;

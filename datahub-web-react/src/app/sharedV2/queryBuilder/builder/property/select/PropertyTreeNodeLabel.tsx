@@ -3,12 +3,11 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 
 const StyledCaret = styled(CaretRightFilled)`
     padding: 4px;
-    color: ${ANTD_GRAY[5]};
+    color: ${(props) => props.theme.colors.border};
     font-size: 12px;
 `;
 

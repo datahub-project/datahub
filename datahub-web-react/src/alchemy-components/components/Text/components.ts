@@ -1,54 +1,68 @@
 import styled from 'styled-components';
 
 import { TextProps } from '@components/components/Text/types';
-import { colors, typography } from '@components/theme';
+import { typography } from '@components/theme';
+import { ColorOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
-// Text Styles
+import { Theme } from '@conf/theme/types';
+
+type ThemedTextProps = TextProps & { theme: Theme };
+
 const textStyles = {
     fontSize: typography.fontSizes.md,
     lineHeight: typography.lineHeights.md,
     fontWeight: typography.fontWeights.normal,
 };
 
-// Default styles
 const baseStyles = {
     fontFamily: typography.fonts.body,
     margin: 0,
-
-    '& a': {
-        color: colors.violet[400],
-        textDecoration: 'none',
-        transition: 'color 0.15s ease',
-
-        '&:hover': {
-            color: colors.violet[500],
-        },
-    },
 };
 
 // Prop Driven Styles
-const propStyles = (props: TextProps, isText = false) => {
+const propStyles = (props: ThemedTextProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color) styles.color = getColor(props.color, props.colorLevel, props.theme);
+    if (props.color) {
+        const semantic = props.theme.colors[props.color];
+        styles.color =
+            typeof semantic === 'string'
+                ? semantic
+                : getColor(props.color as ColorOptions, props.colorLevel, props.theme);
+    }
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
     if (isText) styles.lineHeight = typography.lineHeights[props.lineHeight || props.size || 'md'];
     return styles;
 };
 
-export const P = styled.p({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
-    ...propStyles(props as TextProps, true),
+const themeAwareOverrides = (props: ThemedTextProps) => ({
+    '& a': {
+        color: props.theme.colors.hyperlinks,
+        textDecoration: 'none',
+        transition: 'color 0.15s ease',
+        '&:hover': {
+            color: props.theme.colors.textBrand,
+        },
+    },
+});
+
+export const P = styled.p({ ...baseStyles, ...textStyles }, (props: ThemedTextProps) => ({
+    ...propStyles(props, true),
+    ...themeAwareOverrides(props),
 }));
 
-export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
-    ...propStyles(props as TextProps, true),
+export const Span = styled.span({ ...baseStyles, ...textStyles }, (props: ThemedTextProps) => ({
+    ...propStyles(props, true),
+    ...themeAwareOverrides(props),
 }));
 
-export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
-    ...propStyles(props as TextProps, true),
+export const Div = styled.div({ ...baseStyles, ...textStyles }, (props: ThemedTextProps) => ({
+    ...propStyles(props, true),
+    ...themeAwareOverrides(props),
 }));
 
-export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: TextProps) => ({
-    ...propStyles(props as TextProps, true),
+export const Pre = styled.pre({ ...baseStyles, ...textStyles }, (props: ThemedTextProps) => ({
+    ...propStyles(props, true),
+    ...themeAwareOverrides(props),
 }));

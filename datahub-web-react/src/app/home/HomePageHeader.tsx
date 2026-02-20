@@ -8,7 +8,6 @@ import styled, { useTheme } from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import DemoButton from '@app/entity/shared/components/styled/DemoButton';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HALF_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
 import AcrylDemoBanner from '@app/home/AcrylDemoBanner';
 import { HOME_PAGE_SEARCH_BAR_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
@@ -49,7 +48,7 @@ const styles = {
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: '50vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px', maxWidth: '650px' },
-    subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
+    subtitle: { marginTop: '28px', fontSize: 12 },
 };
 
 const HeaderContainer = styled.div`
@@ -110,7 +109,7 @@ const SuggestionTag = styled(Tag)`
 const SuggestedQueriesText = styled(Typography.Text)`
     margin-left: 12px;
     margin-bottom: 12px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SearchBarContainer = styled.div`
@@ -266,7 +265,9 @@ export const HomePageHeader = () => {
                     style={styles.logoImage}
                 />
                 {!!themeConfig.content.subtitle && (
-                    <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
+                    <Typography.Text style={{ ...styles.subtitle, color: themeConfig.colors.textOnFillDefault }}>
+                        {themeConfig.content.subtitle}
+                    </Typography.Text>
                 )}
                 <SearchBarContainer id={HOME_PAGE_SEARCH_BAR_ID}>
                     <SearchBar

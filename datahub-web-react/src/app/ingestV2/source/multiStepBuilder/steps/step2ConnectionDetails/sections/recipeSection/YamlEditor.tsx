@@ -1,8 +1,8 @@
-import { Button, Icon, Text, borders, colors, radius, spacing, typography } from '@components';
+import { Button, Icon, Text, borders, radius, spacing, typography } from '@components';
 import Editor, { loader } from '@monaco-editor/react';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -16,7 +16,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${radius.lg};
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -24,10 +24,10 @@ const Header = styled.div`
     display: flex;
     flex-direction: row;
     gap: ${spacing.md};
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: ${spacing.xsm} ${spacing.md};
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    border-bottom: ${borders['1px']} ${colors.gray[100]};
+    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.border};
 `;
 
 const Spacer = styled.div`
@@ -65,6 +65,7 @@ type Props = {
 };
 
 export function YamlEditor({ value, onChange }: Props) {
+    const theme = useTheme();
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const editorRef = useRef<any>(null);
     const editorWrapperRef = useRef<HTMLDivElement>(null);
@@ -117,7 +118,7 @@ export function YamlEditor({ value, onChange }: Props) {
     return (
         <Container ref={containerRef}>
             <Header>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold" style={{ color: theme.colors.text }}>
                     YAML
                 </Text>
                 <Spacer />

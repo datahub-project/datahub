@@ -1,5 +1,4 @@
 import { lineColors } from '@app/analyticsDashboard/components/lineColors';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export function hashString(str: string) {
     let hash = 0;
@@ -16,9 +15,9 @@ export function hashString(str: string) {
     return Math.abs(hash);
 }
 
-export default function getAvatarColor(name?: string) {
+export default function getAvatarColor(name?: string, fallbackColor?: string) {
     if (!name) {
-        return ANTD_GRAY[7];
+        return fallbackColor ?? '#8C8C8C';
     }
     return lineColors[hashString(name) % lineColors.length];
 }

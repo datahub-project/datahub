@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
 import { AdvancedSearchFilterConditionSelect } from '@app/search/AdvancedSearchFilterConditionSelect';
 import { AdvancedSearchFilterValuesSection } from '@app/search/AdvancedSearchFilterValuesSection';
@@ -23,7 +22,7 @@ type Props = {
 };
 
 const FieldFilterSection = styled.span<{ isCompact: boolean }>`
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     padding: ${(props) => (props.isCompact ? '2px 4px' : '4px')};
     display: flex;
     justify-content: space-between;

@@ -7,7 +7,6 @@ import styled from 'styled-components/macro';
 import { useRouteToTab } from '@app/entity/shared/EntityContext';
 import MarkdownViewer, { MarkdownView } from '@app/entity/shared/components/legacy/MarkdownViewer';
 import NoMarkdownViewer, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useIsOnTab } from '@app/entity/shared/containers/profile/utils';
 import CompactContext from '@app/shared/CompactContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -26,13 +25,13 @@ const ContentWrapper = styled.div`
 
 const BaContentWrapper = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 8px;
     font-size: 14px;
     ${MarkdownView} {
         font-size: 14px;
     }
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {

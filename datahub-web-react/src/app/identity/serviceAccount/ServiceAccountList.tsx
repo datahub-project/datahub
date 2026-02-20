@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
 import { ModalFooter, ServiceAccountTable } from '@app/identity/serviceAccount/ServiceAccountList.components';
@@ -10,7 +10,6 @@ import {
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 const PageContainer = styled.div`
     display: flex;
@@ -27,7 +26,7 @@ const NoPermissionContainer = styled.div`
     padding: 60px 20px;
     text-align: center;
     gap: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type ServiceAccountListProps = {
@@ -40,6 +39,7 @@ export const ServiceAccountList = ({
     isCreatingServiceAccount: externalIsCreating,
     setIsCreatingServiceAccount: externalSetIsCreating,
 }: ServiceAccountListProps) => {
+    const theme = useTheme();
     const {
         query,
         setQuery,
@@ -95,11 +95,11 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon="ShieldWarning" source="phosphor" size="4xl" />
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>
-                <Text size="md" color="gray">
+                <Text size="md" style={{ color: theme.colors.textSecondary }}>
                     You do not have permission to manage service accounts.
                 </Text>
             </NoPermissionContainer>

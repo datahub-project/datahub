@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import TableValueElement from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/TableValueElement';
 
 type Props = {
@@ -13,7 +12,7 @@ type Props = {
 const NameText = styled(Typography.Text)`
     font-weight: 600;
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {

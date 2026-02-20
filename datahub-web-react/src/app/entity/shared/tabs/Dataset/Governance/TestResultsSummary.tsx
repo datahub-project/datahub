@@ -1,9 +1,7 @@
 import { CheckCircle, Stop, XCircle } from '@phosphor-icons/react';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { colors } from '@src/alchemy-components/theme';
+import styled, { useTheme } from 'styled-components';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -12,7 +10,7 @@ const SummaryHeader = styled.div`
     padding-bottom: 20px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SummaryContainer = styled.div``;
@@ -39,14 +37,17 @@ type Props = {
     summary: TestsSummary;
 };
 
-const getSummaryIcon = (summary: TestsSummary) => {
+const getSummaryIcon = (
+    summary: TestsSummary,
+    theme: { colors: { text: string; textSuccess: string; textError: string } },
+) => {
     if (summary.total === 0) {
-        return <Stop size={28} color={colors.gray[600]} />;
+        return <Stop size={28} color={theme.colors.text} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckCircle size={28} color={colors.green[500]} />;
+        return <CheckCircle size={28} color={theme.colors.textSuccess} />;
     }
-    return <XCircle size={28} color={colors.red[500]} />;
+    return <XCircle size={28} color={theme.colors.textError} />;
 };
 
 const getSummaryMessage = (summary: TestsSummary) => {
@@ -63,7 +64,8 @@ const getSummaryMessage = (summary: TestsSummary) => {
 };
 
 export const TestResultsSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(summary, theme);
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.passing} passing tests, ${summary.failing} failing tests`;
     return (

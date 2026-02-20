@@ -1,11 +1,12 @@
-import { PageTitle, Switch, colors } from '@components';
+import { PageTitle, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useAppConfig } from '@app/useAppConfig';
+import { useIsDarkMode } from '@app/useIsDarkMode';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -24,9 +25,9 @@ const HeaderContainer = styled.div`
 `;
 
 const StyledCard = styled.div`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     padding: 16px;
     display: flex;
     justify-content: space-between;
@@ -58,18 +59,19 @@ const UserSettingRow = styled.div`
 
 const SettingText = styled.div`
     font-size: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
 const DescriptionText = styled.div`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 14px;
     font-weight: 400;
     line-height: 1.5;
 `;
 
 export const Preferences = () => {
+    const theme = useTheme();
     // Current User Urn
     const { user, refetchUser } = useUserContext();
     const isThemeV2 = useIsThemeV2();
@@ -77,6 +79,8 @@ export const Preferences = () => {
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
+
+    const [isDarkMode, toggleDarkMode] = useIsDarkMode();
 
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
@@ -96,6 +100,31 @@ export const Preferences = () => {
                         <PageTitle title="Appearance" subTitle="Manage your appearance settings." />
                     </HeaderContainer>
                 </TokensContainer>
+                {isThemeV2 && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>Dark Mode</SettingText>
+                                <DescriptionText>
+                                    Switch to a dark color scheme for reduced eye strain in low-light environments.
+                                </DescriptionText>
+                            </TextContainer>
+                            <Switch
+                                label=""
+                                checked={isDarkMode}
+                                onChange={() => {
+                                    toggleDarkMode();
+                                    analytics.event({
+                                        type: isDarkMode
+                                            ? EventType.DisableDarkModeEvent
+                                            : EventType.EnableDarkModeEvent,
+                                    });
+                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                }}
+                            />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
                 {showSimplifiedHomepageSetting && (
                     <StyledCard>
                         <UserSettingRow>
@@ -195,9 +224,12 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplicationAppearance && (
-                    <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
-                )}
+                {!isThemeV2 &&
+                    !showSimplifiedHomepageSetting &&
+                    !isThemeV2Toggleable &&
+                    !canManageApplicationAppearance && (
+                        <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
+                    )}
             </SourceContainer>
         </Page>
     );

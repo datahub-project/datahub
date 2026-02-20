@@ -1,4 +1,4 @@
-import { Icon, Tooltip, borders, colors } from '@components';
+import { Icon, Tooltip, borders } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -10,28 +10,28 @@ const Wrapper = styled.div<{ $bordered?: boolean }>`
     display: flex;
     gap: 2px;
     align-items: center;
-    background: ${colors.white};
+    background: ${(props) => props.theme.colors.bg};
     padding: 2px;
     border-radius: 16px;
-    ${(props) => props.$bordered && `border: ${borders['1px']} ${colors.gray[100]};`}
+    ${(props) => props.$bordered && `border: ${borders['1px']} ${props.theme.colors.border};`}
 `;
 
 const IconWrapper = styled.div<{ $active?: boolean }>`
     flex-shrink: 0;
     padding: 2px;
-    background: ${(props) => (props.$active ? colors.primary[500] : colors.white)};
+    background: ${(props) => (props.$active ? props.theme.colors.textBrand : props.theme.colors.bg)};
+    color: ${(props) => (props.$active ? props.theme.colors.textOnFillBrand : 'inherit')};
     border-radius: 100%;
     cursor: pointer;
     width: 20px;
     height: 20px;
 `;
 
-const ICON_ACTIVE_COLOR: FontColorOptions = 'white';
 const ICON_INACTIVE_COLOR: FontColorOptions = 'gray';
 const ICON_INACTIVE_COLOR_LEVEL: FontColorLevelOptions = 1800;
 
 const ACTIVE_ICON_PROPS = {
-    color: ICON_ACTIVE_COLOR,
+    color: 'inherit' as FontColorOptions,
 };
 
 const INACTIVE_ICON_PROPS = {

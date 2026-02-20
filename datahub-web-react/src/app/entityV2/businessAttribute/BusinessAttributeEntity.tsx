@@ -34,7 +34,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <GlobalOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <GlobalOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -44,7 +44,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             );
         }
 
-        return <GlobalOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return <GlobalOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }} />;
     };
 
     displayName = (data: BusinessAttribute) => {

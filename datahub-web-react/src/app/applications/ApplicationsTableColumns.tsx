@@ -1,4 +1,4 @@
-import { Icon, colors, typography } from '@components';
+import { Icon, typography } from '@components';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -12,7 +12,7 @@ import { EntityType, Ownership } from '@src/types.generated';
 const ApplicationName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -25,7 +25,7 @@ const ApplicationName = styled.div`
 const ApplicationDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
 `;
@@ -48,7 +48,7 @@ const MenuItem = styled.div`
     padding: 5px 70px 5px 5px;
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-family: ${typography.fonts.body};
 `;
 
@@ -134,8 +134,9 @@ export const ApplicationActionsColumn = React.memo(
             },
             {
                 key: '2',
+                danger: true,
                 label: (
-                    <MenuItem onClick={onDelete} data-testid="action-delete" style={{ color: colors.red[500] }}>
+                    <MenuItem onClick={onDelete} data-testid="action-delete">
                         Delete
                     </MenuItem>
                 ),

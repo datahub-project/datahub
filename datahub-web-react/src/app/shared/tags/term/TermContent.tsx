@@ -10,15 +10,21 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+const highlightMatchStyle = { background: 'var(--theme-bgHighlight, #ffe58f)', padding: '0' };
 
 const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.text};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
         ${(props) =>
             props.highlightTerm &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

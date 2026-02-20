@@ -1,4 +1,4 @@
-import { Input, colors } from '@components';
+import { Input } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 import { CirclePicker, ColorResult } from 'react-color';
 import styled from 'styled-components';
@@ -40,7 +40,7 @@ const ColorPreview = styled.div`
     height: 100px;
     border-radius: 8px 8px 0px 0px;
     margin-top: 24px;
-    border: 1px solid ${colors.gray[200]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const PickerWrapper = styled.div`

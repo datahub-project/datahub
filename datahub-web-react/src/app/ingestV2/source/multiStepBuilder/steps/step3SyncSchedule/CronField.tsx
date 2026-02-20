@@ -1,7 +1,7 @@
-import { Input, Switch, Text, colors } from '@components';
+import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
 import Cron from 'react-js-cron';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 
@@ -28,13 +28,13 @@ const AdvancedSchedule = styled.div`
 
 const ScheduleContainer = styled.div`
     .cron-builder {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-size: 14px;
         display: flex;
         gap: 8px;
     }
     .cron-builder-select {
-        color: ${colors.gray[500]};
+        color: ${(props) => props.theme.colors.textSecondary};
         font-size: 14px;
 
         .ant-select-selector {
@@ -48,7 +48,7 @@ const ScheduleContainer = styled.div`
 `;
 
 const CronFormat = styled.div`
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
     border-radius: 4px;
     padding: 3px 6px;
     width: fit-content;
@@ -64,6 +64,7 @@ interface Props {
 }
 
 export default function CronField({ scheduleCronInterval, setScheduleCronInterval, cronAsText }: Props) {
+    const theme = useTheme();
     const [advancedCronCheck, setAdvancedCronCheck] = useState(false);
 
     return (
@@ -97,7 +98,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
             </Schedule>
             <CronText>
                 {cronAsText.error && (
-                    <Text color="red" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textError }}>
                         Invalid cron schedule. Cron must be of UNIX form:
                     </Text>
                 )}
@@ -107,7 +108,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                     </CronFormat>
                 )}
                 {cronAsText.text && (
-                    <Text color="gray" size="sm">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         {cronAsText.text}
                     </Text>
                 )}

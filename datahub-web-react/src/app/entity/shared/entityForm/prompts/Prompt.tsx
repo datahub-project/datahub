@@ -9,7 +9,7 @@ import { useSubmitFormPromptMutation } from '@graphql/form.generated';
 import { FormPromptType, FormPrompt as PromptEntity, SchemaField, SubmitFormPromptInput } from '@types';
 
 export const PromptWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 8px;

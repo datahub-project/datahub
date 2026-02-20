@@ -17,7 +17,7 @@ import { PageRoutes } from '@conf/Global';
 
 const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`
     ${(props) => !props.$isClosed && 'padding: 16px;'}
-    border-right: 1px solid #e8e8e8;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     flex: 1;
     overflow: inherit;
 `;

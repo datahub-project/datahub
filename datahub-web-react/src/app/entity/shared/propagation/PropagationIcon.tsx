@@ -1,22 +1,20 @@
 import { ThunderboltFilled } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-
 export const PropagateThunderbolt = styled(ThunderboltFilled)`
     && {
-        color: #a7c7fa;
+        color: ${(props) => props.theme.colors.icon};
     }
     font-size: 16px;
     &:hover {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.textInformation};
     }
     margin-right: 4px;
 `;
 
 export const PropagateThunderboltFilled = styled(ThunderboltFilled)`
     && {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.textInformation};
     }
     font-size: 16px;
     margin-right: 4px;

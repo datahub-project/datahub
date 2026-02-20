@@ -1,4 +1,4 @@
-import { colors, radius } from '@components';
+import { radius } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -16,7 +16,7 @@ const Container = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     height: 28px;
     width: 28px;
     border-radius: ${radius.full};

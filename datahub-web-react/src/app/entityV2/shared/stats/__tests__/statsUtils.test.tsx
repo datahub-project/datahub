@@ -1,4 +1,3 @@
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 describe('percentileToLabel', () => {
@@ -19,9 +18,9 @@ describe('percentileToLabel', () => {
 });
 
 describe('percentileToColor', () => {
-    it('should return ANTD_GRAY[3] when percentile is <= 30', () => {
+    it('should return "#F5F5F5" when percentile is <= 30', () => {
         const color = percentileToColor(25);
-        expect(color).toBe(ANTD_GRAY[3]);
+        expect(color).toBe('#F5F5F5');
     });
 
     it('should return "#EBF3F2" when percentile is > 30 and <= 80', () => {

@@ -2,9 +2,9 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY, EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
 import { DomainLink } from '@app/shared/tags/DomainLink';
 import Tag from '@app/shared/tags/tag/Tag';
@@ -42,11 +42,9 @@ const NoElementButton = styled(Button)`
 `;
 
 const TagText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin: 0 7px 0 0;
 `;
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 export default function TagTermGroup({
     uneditableTags,
@@ -69,9 +67,11 @@ export default function TagTermGroup({
     refetch,
     readOnly,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
     const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
 

@@ -2,10 +2,9 @@ import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons'
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
@@ -70,6 +69,7 @@ export default function UserListItem({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
@@ -93,9 +93,9 @@ export default function UserListItem({
     const getUserStatusColor = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return REDESIGN_COLORS.BLUE;
+                return theme.colors.textInformation;
             default:
-                return ANTD_GRAY[6];
+                return theme.colors.textDisabled;
         }
     };
 
@@ -118,6 +118,7 @@ export default function UserListItem({
         },
         {
             key: 'delete',
+            danger: true,
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
                     <DeleteOutlined /> &nbsp;Delete
@@ -146,7 +147,7 @@ export default function UserListItem({
                         </div>
                         {userStatus && (
                             <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || ANTD_GRAY[6]}>{userStatus}</Tag>
+                                <Tag color={userStatusColor || theme.colors.textDisabled}>{userStatus}</Tag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>

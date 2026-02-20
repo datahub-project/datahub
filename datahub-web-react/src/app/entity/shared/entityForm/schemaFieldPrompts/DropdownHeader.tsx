@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getNumPromptsCompletedForField } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { pluralize } from '@app/shared/textUtil';
@@ -22,13 +21,13 @@ const HeaderWrapper = styled.div`
 
 const PromptsRemainingText = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
 `;
 
 const PromptsCompletedText = styled.span`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 

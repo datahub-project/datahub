@@ -9,7 +9,6 @@ import { notEmpty } from '@app/entity/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Pill } from '@src/alchemy-components/components/Pills';
-import { colors } from '@src/alchemy-components/theme';
 
 import { GetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
 import { EntityType } from '@types';
@@ -37,7 +36,7 @@ const NameLink = styled.a`
     font-size: 0.9rem;
 
     &:hover {
-        color: ${colors.blue[400]} !important;
+        color: ${(props) => props.theme.colors.textInformation} !important;
     }
 `;
 
@@ -47,7 +46,7 @@ const TagContainer = styled.div`
     margin-top: 3px;
     flex-wrap: wrap;
     margin-right: 8px;
-    backgroundcolor: white;
+    background-color: ${(props) => props.theme.colors.bg};
     gap: 5px;
 `;
 

@@ -1,6 +1,7 @@
 import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import { useTheme } from 'styled-components';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -61,6 +62,7 @@ const StructuredPropsTable = ({
     updatedProperty,
     isSearchLoading,
 }: Props) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -143,7 +145,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            <TableIcon color="#705EE4" />
+                            <TableIcon color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName

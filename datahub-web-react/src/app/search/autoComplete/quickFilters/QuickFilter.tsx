@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import analytics, { Event, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getQuickFilterDetails } from '@app/search/autoComplete/quickFilters/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
@@ -11,11 +10,11 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 16px;
     box-shadow: none;
     font-weight: 400;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -24,16 +23,16 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     margin: 4px;
 
     &:hover {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
     }
 
     ${(props) =>
         props.selected &&
         `
-        border: 1px solid ${props.theme.styles['primary-color-dark']};
-        background-color: ${props.theme.styles['primary-color-light']};
+        border: 1px solid ${props.theme.colors.borderBrand};
+        background-color: ${props.theme.colors.bgSurfaceBrand};
         &:hover {
-            background-color: ${props.theme.styles['primary-color-light']};
+            background-color: ${props.theme.colors.bgSurfaceBrand};
         }
     `}
 `;

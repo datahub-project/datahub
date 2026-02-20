@@ -21,7 +21,7 @@ const CapabilityInfo = styled.div`
 `;
 
 const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     margin-left: 4px;
 `;
 
@@ -38,9 +38,9 @@ export function ConnectionCapabilityView({ success, capability, displayMessage, 
         <Container>
             <IconWrapper>
                 {success ? (
-                    <Icon source="phosphor" icon="Check" size="2xl" color="green" colorLevel={1000} />
+                    <Icon source="phosphor" icon="Check" size="2xl" color="iconSuccess" />
                 ) : (
-                    <Icon source="phosphor" icon="X" size="2xl" color="red" colorLevel={1000} />
+                    <Icon source="phosphor" icon="X" size="2xl" color="iconError" />
                 )}
             </IconWrapper>
 

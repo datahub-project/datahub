@@ -1,9 +1,8 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingest/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
@@ -32,17 +31,17 @@ const SearchBarContainer = styled.div`
 `;
 
 const StyledSearchBar = styled(Input)`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
-    box-shadow: 0px 0px 30px 0px rgb(239 239 239);
-    border: 1px solid #e0e0e0;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin: 0 0 15px 0px;
     max-width: 300px;
     font-size: 16px;
 `;
 
 const StyledSearchOutlined = styled(SearchOutlined)`
-    color: #a9adbd;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PlatformListContainer = styled.div`
@@ -60,12 +59,13 @@ interface SourceOptionProps {
 }
 
 function SourceOption({ source, onClick }: SourceOptionProps) {
+    const theme = useTheme();
     const { name, displayName, description } = source;
 
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+        logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
     }
 
     return (

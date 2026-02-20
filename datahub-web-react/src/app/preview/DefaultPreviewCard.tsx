@@ -10,7 +10,6 @@ import { usePreviewData } from '@app/entity/shared/PreviewContext';
 import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
 import { ExpandedActorGroup } from '@app/entity/shared/components/styled/ExpandedActorGroup';
 import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
 import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
@@ -98,20 +97,20 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PlatformDivider = styled.div`
     display: inline-block;
     padding-left: 10px;
     margin-right: 10px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
+    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
     height: 21px;
     vertical-align: text-top;
 `;
 
 const DescriptionContainer = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 8px;
 `;
 
@@ -126,7 +125,7 @@ const TagContainer = styled.div`
 const TagSeparator = styled.div`
     margin: 2px 8px 0 0;
     height: 17px;
-    border-right: 1px solid #cccccc;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InsightContainer = styled.div`
@@ -137,7 +136,7 @@ const InsightsText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const InsightIconContainer = styled.span`

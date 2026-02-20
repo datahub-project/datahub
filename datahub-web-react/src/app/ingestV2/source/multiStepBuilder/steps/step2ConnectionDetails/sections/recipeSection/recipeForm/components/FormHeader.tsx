@@ -26,9 +26,9 @@ export function FormHeader() {
             <Text weight="semiBold" size="lg">
                 {sourceDisplayName} Connection Details
             </Text>
-            <Text color="gray" type="span">
+            <Text type="span">
                 Configure how DataHub connects to {sourceDisplayName}.{' '}
-                <Text color="gray" type="span" size="sm">
+                <Text type="span" size="sm">
                     <a href={INGESTION_SECURITY_URL} target="_blank" rel="noreferrer">
                         Learn more about keeping credentials in your environment.
                     </a>

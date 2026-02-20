@@ -11,7 +11,6 @@ import { sanitizeRichText } from '@components/components/Editor/utils';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -27,10 +26,10 @@ import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
 const AddNewDescription = styled.div`
     margin: 0px;
     padding: 0px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
@@ -42,12 +41,12 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 `;
 
 const AddDescriptionText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
     :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 

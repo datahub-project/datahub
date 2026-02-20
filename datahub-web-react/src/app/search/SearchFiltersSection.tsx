@@ -31,7 +31,7 @@ const FiltersContainer = styled.div`
     min-width: 260px;
     overflow-wrap: break-word;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -47,7 +47,7 @@ const FiltersHeader = styled.div`
     height: 47px;
     line-height: 47px;
     border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 
     justify-content: space-between;
     display: flex;
@@ -61,12 +61,12 @@ const SearchFiltersWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 

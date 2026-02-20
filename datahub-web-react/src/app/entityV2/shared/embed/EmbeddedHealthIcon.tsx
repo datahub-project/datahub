@@ -1,4 +1,3 @@
-import { orange } from '@ant-design/colors';
 import { WarningFilled } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import React from 'react';
@@ -23,7 +22,7 @@ const ICON_ID = 'embedded-datahub-health-icon';
 const DEFAULT_ICON_SIZE = 16;
 
 const StyledWarning = styled(WarningFilled)<{ size: number }>`
-    color: ${orange[5]};
+    color: ${(props) => props.theme.colors.textWarning};
     font-size: ${({ size }) => size}px;
 `;
 

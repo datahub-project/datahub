@@ -59,11 +59,11 @@ const ViewStructuredPropsDrawer = ({
                 <>
                     {selectedProperty && (
                         <DrawerHeader>
-                            <Text color="gray" weight="bold" size="2xl">
+                            <Text weight="bold" size="2xl">
                                 {getDisplayName(selectedProperty)}
                             </Text>
 
-                            <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                            <StyledIcon icon="Close" color="icon" onClick={handleClose} />
                         </DrawerHeader>
                     )}
                 </>
@@ -74,16 +74,16 @@ const ViewStructuredPropsDrawer = ({
             <ViewFieldsContainer>
                 {selectedPropEntity.definition.description && (
                     <DescriptionContainer>
-                        <Text weight="bold" color="gray" size="lg">
+                        <Text weight="bold" size="lg">
                             Description
                         </Text>
-                        <Text color="gray"> {selectedPropEntity.definition.description}</Text>
+                        <Text> {selectedPropEntity.definition.description}</Text>
                         <ViewDivider />
                     </DescriptionContainer>
                 )}
                 <RowContainer>
                     <StyledLabel>Property Type</StyledLabel>
-                    <Text color="gray"> {propType}</Text>
+                    <Text> {propType}</Text>
                 </RowContainer>
                 {allowedTypes && allowedTypes.length > 0 && (
                     <RowContainer>
@@ -92,7 +92,7 @@ const ViewStructuredPropsDrawer = ({
                             {allowedTypes.map((type, index) => {
                                 return (
                                     <>
-                                        <Text color="gray">{entityRegistry.getEntityName(type.info.type)}</Text>
+                                        <Text>{entityRegistry.getEntityName(type.info.type)}</Text>
                                         {index < allowedTypes.length - 1 && <VerticalDivider type="vertical" />}
                                     </>
                                 );
@@ -107,9 +107,7 @@ const ViewStructuredPropsDrawer = ({
                             {allowedValues?.map((val, index) => {
                                 return (
                                     <>
-                                        <Text color="gray">
-                                            {(val.value as any).stringValue || (val.value as any).numberValue}
-                                        </Text>
+                                        <Text>{(val.value as any).stringValue || (val.value as any).numberValue}</Text>
                                         {index < allowedValues?.length - 1 && <VerticalDivider type="vertical" />}
                                     </>
                                 );
@@ -124,7 +122,7 @@ const ViewStructuredPropsDrawer = ({
                         {selectedPropEntity.definition.entityTypes?.map((type, index) => {
                             return (
                                 <>
-                                    <Text color="gray">{entityRegistry.getEntityName(type.info.type)}</Text>
+                                    <Text>{entityRegistry.getEntityName(type.info.type)}</Text>
                                     {index < selectedPropEntity.definition.entityTypes?.length - 1 && (
                                         <VerticalDivider type="vertical" />
                                     )}

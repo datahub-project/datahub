@@ -6,31 +6,28 @@ import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
-import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
+import { Icon, SearchBar, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-
-const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
 
 const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
     border-width: 2px !important;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
 
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
-        border-color: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+        background: ${props.theme.colors.bgSurfaceDarker};
+        border-color: ${props.theme.colors.bgSurfaceDarker};
 
         &:hover,
         &:focus,
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']} !important;
+            border-color: ${props.theme.colors.borderBrand} !important;
         }
 
         .ant-input, .ant-input-clear-icon {
-            color: ${colors.white};
-            background: ${PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND};
+            color: ${props.theme.colors.bg};
+            background: ${props.theme.colors.bgSurfaceDarker};
         }
     `}
 `;
@@ -54,8 +51,8 @@ export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boo
         props.$open &&
         props.$isShowNavBarRedesign &&
         `
-        background: ${colors.gray[1500]};
-        box-shadow: ${BOX_SHADOW};
+        background: ${props.theme.colors.bgSurface};
+        box-shadow: ${props.theme.colors.shadowXl};
     `}
 `;
 

@@ -5,8 +5,6 @@ import styled from 'styled-components';
 
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
-import { getColor } from '@src/alchemy-components/theme/utils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
@@ -30,12 +28,12 @@ const StyledPill = styled.div<{ color?: string; backgroundColor?: string }>`
     background-color: ${(props) => props.backgroundColor || 'none'};
     height: 24px;
     width: 24px;
-    color: ${(props) => props.color || '#5F6685'};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
     border-radius: 100px;
     transition: all 0.2s;
     &:hover {
-        color: black;
-        background-color: ${getColor('gray', 100)};
+        color: ${(props) => props.theme.colors.text};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -46,7 +44,7 @@ const AdditionalPillCount = styled.div`
     align-items: center;
     font-size: 12px;
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TooltipTitleWrapper = styled.div`
@@ -55,7 +53,7 @@ const TooltipTitleWrapper = styled.div`
 `;
 
 const TooltipMoreText = styled.div`
-    color: ${getColor('gray', 500)};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     margin-bottom: 4px;
 `;
@@ -98,7 +96,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             ))}
             {remainingTagsCount > 0 ? (
                 <DataHubTooltip
-                    overlayInnerStyle={{ backgroundColor: 'white' }}
+                    overlayInnerStyle={{}}
                     open={popoverVisible ? false : undefined}
                     title={
                         <TooltipTitleWrapper onClick={() => setPopoverVisible(true)}>

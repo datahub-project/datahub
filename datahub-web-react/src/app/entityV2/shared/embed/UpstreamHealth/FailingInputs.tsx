@@ -1,11 +1,9 @@
-import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ActiveIncidents from '@app/entityV2/shared/embed/UpstreamHealth/ActiveIncidents';
 import FailingAssertions from '@app/entityV2/shared/embed/UpstreamHealth/FailingAssertions';
@@ -20,18 +18,18 @@ const FailingEntityTitle = styled(Typography.Text)`
 `;
 
 const StyledWarning = styled(WarningFilled)`
-    color: ${orange[5]};
+    color: ${(props) => props.theme.colors.textWarning};
     font-size: 14px;
 `;
 
 const FailingDetailsWrapper = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-left: 6px;
     white-space: nowrap;
     &:hover {
         cursor: pointer;
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

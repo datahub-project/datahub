@@ -17,9 +17,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
     return (
         <StyledCollapse
             ghost
-            expandIcon={({ isActive }) => (
-                <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
-            )}
+            expandIcon={({ isActive }) => <Icon icon="ChevronRight" size="4xl" rotate={isActive ? '90' : '0'} />}
             expandIconPosition="end"
             defaultActiveKey={[]}
         >
@@ -27,9 +25,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                 key={1}
                 header={
                     <CollapseHeader>
-                        <Text weight="bold" color="gray">
-                            Advanced Options
-                        </Text>
+                        <Text weight="bold">Advanced Options</Text>
                     </CollapseHeader>
                 }
                 forceRender
@@ -41,7 +37,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                             title="Optionally provide a dot-separated fully qualified name for this property. This name serves as an ID, and must be unique across properties"
                             showArrow={false}
                         >
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon="Info" color="iconBrand" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </InputLabel>

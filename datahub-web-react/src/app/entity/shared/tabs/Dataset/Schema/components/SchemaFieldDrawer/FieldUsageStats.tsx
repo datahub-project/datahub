@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import {
     SectionHeader,
     StyledDivider,
@@ -21,7 +20,7 @@ const UsageBarWrapper = styled.div`
 `;
 
 const UsageBarBackground = styled.div`
-    background-color: ${ANTD_GRAY_V2[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 2px;
     height: 4px;
     width: ${USAGE_BAR_MAX_WIDTH}px;

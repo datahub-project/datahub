@@ -18,8 +18,8 @@ const TabTitle = styled.span`
 
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
-    background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'none')};
+    background-color: ${(props) => (props.selected && props.theme.colors.bgSurface) || 'none'};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
@@ -27,7 +27,7 @@ const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     padding: 0px 4px 0px 4px;
     font-size: 14px;
     height: 36px;
-    color: ${(props) => (props.disabled && '#00000040') || 'none'};
+    color: ${(props) => (props.disabled && props.theme.colors.textDisabled) || 'none'};
 `;
 const TabToolbar = styled.div`
     display: flex;

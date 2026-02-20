@@ -30,12 +30,12 @@ const useDomainModuleUtils = ({ domains }: Props) => {
         return (
             <>
                 {assetCount > 0 && (
-                    <Text size="sm" color="gray">
+                    <Text size="sm">
                         {formatNumber(assetCount)} {pluralize(assetCount, 'asset')}{' '}
                     </Text>
                 )}
                 {dataProductCount > 0 && (
-                    <Text size="sm" color="gray">
+                    <Text size="sm">
                         , {formatNumber(dataProductCount)} data {pluralize(dataProductCount, 'product')}
                     </Text>
                 )}

@@ -1,21 +1,20 @@
 import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
 import { Popover, Tooltip } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-left: 4px;
 `;
 
@@ -34,12 +33,13 @@ export const ChartStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    const theme = useTheme();
     const statsViews = [
         (!!chartCount && (
             <ExpandingStat
                 disabled={!needsFormatting(chartCount)}
                 render={(isExpanded) => (
-                    <StatText color={ANTD_GRAY[8]}>
+                    <StatText color={theme.colors.textSecondary}>
                         <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
                         charts
                     </StatText>
@@ -49,14 +49,14 @@ export const ChartStatsSummary = ({
             undefined,
         (!!viewCount && (
             <StatText>
-                <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                <EyeOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                 <b>{formatNumberWithoutAbbreviation(viewCount)}</b> views
             </StatText>
         )) ||
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                <TeamOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
             </StatText>
         )) ||
@@ -76,7 +76,7 @@ export const ChartStatsSummary = ({
                 }
             >
                 <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                    <ClockCircleOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                     Changed {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>

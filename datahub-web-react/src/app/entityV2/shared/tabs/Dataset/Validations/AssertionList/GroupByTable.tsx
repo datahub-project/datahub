@@ -2,19 +2,18 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 
 const GroupContainer = styled.div`
-    background: #fafafa;
+    background: ${(props) => props.theme.colors.bgSurface};
     &&& .acryl-selected-assertions-table-row {
-        background-color: ${ANTD_GRAY[4]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const Row = styled.div`
     display: flex;
     width: 100%;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px;
 `;
 
