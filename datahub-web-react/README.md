@@ -104,6 +104,28 @@ These are not yet widely used but will be the primary way to configure colors in
 While developing on your theme, all changes to assets and content are seen immediately in your local app. However, changes to styles require
 you to terminate and re-run `yarn start` to see updated styles.
 
+#### Loading External Scripts
+
+You can load external JavaScript files into your DataHub instance by configuring them in your theme file. This is useful for adding analytics, chat widgets, or other third-party integrations.
+
+To add external scripts:
+
+1. Edit your theme file (e.g., `./src/conf/theme/customTheme.ts`)
+2. Add script URLs to the `assets.externalScripts` array:
+
+```typescript
+assets: {
+    logoUrl: '/assets/logo.png',
+    externalScripts: [
+        'http://example.host/widget/widget.js',
+    ],
+}
+```
+
+Scripts are loaded asynchronously using `react-helmet-async` and will be added to the document `<head>`. The `ExternalScriptLoader` component handles loading.
+
+**Note:** External scripts are loaded from the URLs you specify. Ensure the URLs are accessible and trusted sources to maintain security.
+
 ## Design Details
 
 ### Package Organization
