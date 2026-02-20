@@ -1,0 +1,95 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767714388622,
+        "runId": "rdf-test-fibo-include-provisional",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.ReleasedTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "fibo:termIRI": "http://example.org/ReleasedTerm",
+                "rdf:originalIRI": "http://example.org/ReleasedTerm"
+            },
+            "name": "Released Term",
+            "definition": "A term that has been released",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/ReleasedTerm",
+            "sourceUrl": "http://example.org/ReleasedTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767714388623,
+        "runId": "rdf-test-fibo-include-provisional",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.ProvisionalTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "fibo:termIRI": "http://example.org/ProvisionalTerm",
+                "rdf:originalIRI": "http://example.org/ProvisionalTerm"
+            },
+            "name": "Provisional Term",
+            "definition": "A term that is still provisional",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/ProvisionalTerm",
+            "sourceUrl": "http://example.org/ProvisionalTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767714388624,
+        "runId": "rdf-test-fibo-include-provisional",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.NoMaturityTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "fibo:termIRI": "http://example.org/NoMaturityTerm",
+                "rdf:originalIRI": "http://example.org/NoMaturityTerm"
+            },
+            "name": "No Maturity Term",
+            "definition": "A term without maturity level",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/NoMaturityTerm",
+            "sourceUrl": "http://example.org/NoMaturityTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1767714388624,
+        "runId": "rdf-test-fibo-include-provisional",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

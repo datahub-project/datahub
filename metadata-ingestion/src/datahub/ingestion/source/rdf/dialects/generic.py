@@ -87,15 +87,14 @@ class GenericDialect(RDFDialectInterface):
         # Check for SKOS Concept
         is_skos_concept = (uri, RDF.type, SKOS.Concept) in graph
         if is_skos_concept:
-            # Exclude if it has any ontology construct types
+            # Exclude if it has any ontology construct types (but allow OWL.Class and RDFS.Class
+            # as they are valid term types that can coexist with SKOS.Concept)
             ontology_types = [
                 OWL.Ontology,
                 RDF.Property,
                 OWL.ObjectProperty,
                 OWL.DatatypeProperty,
                 OWL.FunctionalProperty,
-                RDFS.Class,
-                OWL.Class,
             ]
 
             has_ontology_type = any(
