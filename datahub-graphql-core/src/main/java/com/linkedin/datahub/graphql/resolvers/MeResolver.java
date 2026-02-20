@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
 import com.linkedin.datahub.graphql.resolvers.application.ApplicationAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.connection.ConnectionUtils;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -120,6 +121,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setCanViewIngestionPage(canViewIngestionPage(context));
             platformPrivileges.setCreateSupportTickets(canCreateSupportTickets(context));
             platformPrivileges.setManageServiceAccounts(canManageServiceAccounts(context));
+            platformPrivileges.setManageConnections(ConnectionUtils.canManageConnections(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(

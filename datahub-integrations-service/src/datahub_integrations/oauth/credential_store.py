@@ -176,7 +176,7 @@ class UserCredentials:
 
         Handles multiple formats:
         - Standard format: {"type": "api_key", "api_key": "value"}
-        - GMS format (from UpsertServiceResolver): {"apiKey": "value"}
+        - GMS format (from UpsertAiPluginResolver): {"apiKey": "value"}
         - OAuth format: {"type": "oauth", "access_token": ..., ...}
 
         Args:
@@ -442,7 +442,7 @@ query GetConnection($urn: String!) {
         and should not be transformed through build_connection_urn().
 
         Uses the REST API directly since GraphQL `connection` query may not find
-        connections created via GMS (e.g., by UpsertServiceResolver).
+        connections created via GMS (e.g., by UpsertAiPluginResolver).
 
         Args:
             connection_urn: The full URN of the DataHubConnection entity.

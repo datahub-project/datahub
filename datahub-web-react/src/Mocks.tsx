@@ -4307,6 +4307,7 @@ export const platformPrivileges: PlatformPrivileges = {
     managePolicies: true,
     manageIdentities: true,
     manageServiceAccounts: true,
+    manageConnections: true,
     generatePersonalAccessTokens: true,
     manageDomains: true,
     manageIngestion: true,

@@ -97,6 +97,7 @@ query getMe {
             createSupportTickets
             manageDocuments
             manageServiceAccounts
+            manageConnections
         }
     }
 }

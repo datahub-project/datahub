@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import analytics, { EventType } from '@app/analytics';
 import { AiPluginRow } from '@app/settingsV2/platform/ai/plugins/utils/pluginDataUtils';
 import { extractPlatformFromUrl } from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
-import { useDeleteAiPluginMutation, useUpsertServiceMutation } from '@src/graphql/aiPlugins.generated';
+import { useDeleteAiPluginMutation, useUpsertAiPluginMutation } from '@src/graphql/aiPlugins.generated';
 import { ServiceSubType } from '@src/types.generated';
 
 type UsePluginActionsOptions = {
@@ -47,7 +47,7 @@ export function buildToggleInput(pluginRow: AiPluginRow) {
  */
 export function usePluginActions({ onSuccess }: UsePluginActionsOptions = {}): UsePluginActionsResult {
     const [deleteAiPlugin, { loading: isDeleting }] = useDeleteAiPluginMutation();
-    const [upsertService, { loading: isUpdating }] = useUpsertServiceMutation();
+    const [upsertAiPlugin, { loading: isUpdating }] = useUpsertAiPluginMutation();
 
     const handleToggleEnabled = useCallback(
         async (pluginRow: AiPluginRow) => {
@@ -61,7 +61,7 @@ export function usePluginActions({ onSuccess }: UsePluginActionsOptions = {}): U
             }
 
             try {
-                await upsertService({
+                await upsertAiPlugin({
                     variables: {
                         input: buildToggleInput(pluginRow),
                     },
@@ -73,13 +73,13 @@ export function usePluginActions({ onSuccess }: UsePluginActionsOptions = {}): U
                 console.error('Error toggling plugin enabled:', error);
             }
         },
-        [upsertService, onSuccess],
+        [upsertAiPlugin, onSuccess],
     );
 
     const handleDelete = useCallback(
         async (pluginRow: AiPluginRow) => {
             try {
-                await deleteAiPlugin({ variables: { id: pluginRow.id } });
+                await deleteAiPlugin({ variables: { urn: pluginRow.id } });
 
                 // Emit analytics event
                 const pluginUrl = pluginRow.plugin.service?.mcpServerProperties?.url;

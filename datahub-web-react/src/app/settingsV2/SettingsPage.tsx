@@ -116,7 +116,9 @@ export const SettingsPage = () => {
 
     // SaaS Only
     const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
-    const showAiSettings = config.featureFlags.aiFeaturesEnabled && me?.platformPrivileges?.manageGlobalSettings;
+    const showAiSettings =
+        config.featureFlags.aiFeaturesEnabled &&
+        (me?.platformPrivileges?.manageGlobalSettings || me?.platformPrivileges?.manageConnections);
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
     const showMyIntegrations = config.featureFlags.aiPluginsEnabled;
     // End SaaS Only

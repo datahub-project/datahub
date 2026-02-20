@@ -16,16 +16,16 @@ import {
 import { ValidationErrors, validatePluginForm } from '@app/settingsV2/platform/ai/plugins/utils/pluginFormValidation';
 import { extractPlatformFromUrl } from '@app/settingsV2/platform/ai/plugins/utils/pluginLogoUtils';
 import {
+    buildUpsertAiPluginInput,
     buildUpsertOAuthServerInput,
-    buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
 } from '@app/settingsV2/platform/ai/plugins/utils/pluginMutationBuilder';
 
 import {
     useOAuthAuthorizationServerQuery,
     useServiceQuery,
+    useUpsertAiPluginMutation,
     useUpsertOAuthAuthorizationServerMutation,
-    useUpsertServiceMutation,
 } from '@graphql/aiPlugins.generated';
 import { AiPluginAuthType, AiPluginConfig } from '@types';
 
@@ -94,7 +94,7 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
         skip: !existingOAuthServerUrn,
     });
 
-    const [upsertService, { loading: isSavingService }] = useUpsertServiceMutation();
+    const [upsertAiPlugin, { loading: isSavingService }] = useUpsertAiPluginMutation();
     const [upsertOAuthServer, { loading: isSavingOAuth }] = useUpsertOAuthAuthorizationServerMutation();
     const isSaving = isSavingService || isSavingOAuth;
 
@@ -165,18 +165,18 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
             }
 
             // Build service input - use oauthServerUrn (not newOAuthServer) when editing existing OAuth
-            const input = buildUpsertServiceInput(formState, {
+            const input = buildUpsertAiPluginInput(formState, {
                 editingUrn,
                 existingOAuthServerUrn: hasExistingOAuth ? existingOAuthServerUrn : null,
                 sourceConfig,
             });
 
-            const result = await upsertService({
+            const result = await upsertAiPlugin({
                 variables: { input },
             });
 
             // Emit analytics event
-            const pluginId = result.data?.upsertService?.urn || editingUrn || undefined;
+            const pluginId = result.data?.upsertAiPlugin?.urn || editingUrn || undefined;
             const platform = extractPlatformFromUrl(formState.url);
             if (isEditing) {
                 analytics.event({
@@ -210,7 +210,7 @@ export function usePluginForm(options: UsePluginFormOptions): UsePluginFormResul
         editingUrn,
         existingOAuthServerUrn,
         existingOAuthServerId,
-        upsertService,
+        upsertAiPlugin,
         upsertOAuthServer,
         isEditing,
         onSuccess,

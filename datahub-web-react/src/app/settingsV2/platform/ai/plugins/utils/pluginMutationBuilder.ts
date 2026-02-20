@@ -46,7 +46,7 @@ export interface McpServerPropertiesInput {
 /**
  * Service upsert mutation input
  */
-export interface UpsertServiceInput {
+export interface UpsertAiPluginInput {
     id?: string;
     displayName: string;
     description?: string;
@@ -200,7 +200,7 @@ export function buildNewOAuthServerInput(state: PluginFormState): OAuthServerInp
 /**
  * Builds the complete mutation input from form state
  */
-export function buildUpsertServiceInput(state: PluginFormState, options: MutationBuilderOptions): UpsertServiceInput {
+export function buildUpsertAiPluginInput(state: PluginFormState, options: MutationBuilderOptions): UpsertAiPluginInput {
     const { editingUrn, existingOAuthServerUrn, sourceConfig } = options;
 
     // Determine OAuth handling:

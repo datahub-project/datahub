@@ -2607,3 +2607,196 @@ class TestCreatePopupResponse:
 
         body = _get_response_body_str(response)
         assert "Please try again" in body
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for token exchange edge cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestTokenExchangeEdgeCases:
+    @pytest.mark.asyncio
+    async def test_provider_returns_html_instead_of_json(self) -> None:
+        from datahub_integrations.oauth.router import exchange_code_for_tokens
+
+        server_config = {
+            "tokenUrl": "https://provider.com/oauth/token",
+            "clientId": "test-client",
+            "clientSecret": "test-secret",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.side_effect = Exception(
+                "Expecting value: line 1 column 1"
+            )
+            mock_response.text = "<html><body>Login page</body></html>"
+            mock_client.post.return_value = mock_response
+
+            with pytest.raises(HTTPException) as exc_info:
+                await exchange_code_for_tokens(
+                    server_config=server_config,
+                    code="auth-code",
+                    redirect_uri="https://example.com/callback",
+                    code_verifier="test-verifier",
+                )
+
+            assert exc_info.value.status_code == 500
+            assert "Token exchange failed" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_provider_returns_invalid_grant_error(self) -> None:
+        from datahub_integrations.oauth.router import exchange_code_for_tokens
+
+        server_config = {
+            "tokenUrl": "https://provider.com/oauth/token",
+            "clientId": "test-client",
+            "clientSecret": "test-secret",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "error": "invalid_grant",
+                "error_description": "The authorization code has been revoked",
+            }
+            mock_client.post.return_value = mock_response
+
+            with pytest.raises(HTTPException) as exc_info:
+                await exchange_code_for_tokens(
+                    server_config=server_config,
+                    code="revoked-code",
+                    redirect_uri="https://example.com/callback",
+                    code_verifier="test-verifier",
+                )
+
+            assert exc_info.value.status_code == 400
+            assert "invalid_grant" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_provider_returns_empty_json_object(self) -> None:
+        from datahub_integrations.oauth.router import exchange_code_for_tokens
+
+        server_config = {
+            "tokenUrl": "https://provider.com/oauth/token",
+            "clientId": "test-client",
+            "clientSecret": "test-secret",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {}
+            mock_client.post.return_value = mock_response
+
+            with pytest.raises(HTTPException) as exc_info:
+                await exchange_code_for_tokens(
+                    server_config=server_config,
+                    code="auth-code",
+                    redirect_uri="https://example.com/callback",
+                    code_verifier="test-verifier",
+                )
+
+            assert exc_info.value.status_code == 500
+            assert "missing access_token" in str(exc_info.value.detail)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for OAuth callback error scenarios (end-to-end through handler)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestOAuthCallbackErrorScenarios:
+    @pytest.mark.asyncio
+    async def test_user_cancels_oauth_popup(self) -> None:
+        from datahub_integrations.oauth.router import handle_oauth_callback_unified
+
+        mock_state_store = MagicMock()
+        mock_credential_store = MagicMock()
+
+        response = await handle_oauth_callback_unified(
+            state_store=mock_state_store,
+            credential_store=mock_credential_store,
+            code="",
+            state="some-state",
+            error="access_denied",
+            error_description="The user denied the request",
+        )
+
+        body_str = _get_response_body_str(response)
+        assert "Connection Failed" in body_str
+        assert "The user denied the request" in body_str
+        mock_state_store.get_and_consume_state.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("datahub_integrations.oauth.router.exchange_code_for_tokens")
+    @patch("datahub_integrations.oauth.router.get_oauth_server_config")
+    @patch("datahub_integrations.oauth.router.get_plugin_config")
+    async def test_token_exchange_raises_unexpected_exception(
+        self,
+        mock_get_plugin: MagicMock,
+        mock_get_server: MagicMock,
+        mock_exchange: MagicMock,
+    ) -> None:
+        from datahub_integrations.oauth.router import handle_oauth_callback_unified
+        from datahub_integrations.oauth.state_store import OAuthState
+
+        mock_state_store = MagicMock()
+        mock_state_store.get_and_consume_state.return_value = OAuthState(
+            user_urn="urn:li:corpuser:test",
+            plugin_id="urn:li:service:plugin",
+            redirect_uri="https://example.com/callback",
+            code_verifier="verifier",
+            created_at=time.time(),
+            auth_token="jwt-token",
+        )
+        mock_credential_store = MagicMock()
+
+        mock_get_plugin.return_value = {
+            "oauthConfig": {"serverUrn": "urn:li:oauthServer:test"}
+        }
+        mock_get_server.return_value = {"tokenUrl": "https://provider.com/token"}
+        mock_exchange.side_effect = RuntimeError("Unexpected internal error")
+
+        response = await handle_oauth_callback_unified(
+            state_store=mock_state_store,
+            credential_store=mock_credential_store,
+            code="auth-code",
+            state="valid-state",
+            error=None,
+            error_description=None,
+        )
+
+        body_str = _get_response_body_str(response)
+        assert "Connection Failed" in body_str
+
+    @pytest.mark.asyncio
+    async def test_provider_returns_server_error(self) -> None:
+        from datahub_integrations.oauth.router import handle_oauth_callback_unified
+
+        mock_state_store = MagicMock()
+        mock_credential_store = MagicMock()
+
+        response = await handle_oauth_callback_unified(
+            state_store=mock_state_store,
+            credential_store=mock_credential_store,
+            code="",
+            state="some-state",
+            error="server_error",
+            error_description="The authorization server encountered an unexpected condition",
+        )
+
+        body_str = _get_response_body_str(response)
+        assert "Connection Failed" in body_str
+        assert "unexpected condition" in body_str

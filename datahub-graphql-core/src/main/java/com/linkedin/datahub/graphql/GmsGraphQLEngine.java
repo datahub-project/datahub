@@ -241,10 +241,9 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchConfigurationResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
-import com.linkedin.datahub.graphql.resolvers.service.DeleteServiceResolver;
+import com.linkedin.datahub.graphql.resolvers.service.DeleteAiPluginResolver;
 import com.linkedin.datahub.graphql.resolvers.service.ListServicesResolver;
-import com.linkedin.datahub.graphql.resolvers.service.UpsertServiceResolver;
-import com.linkedin.datahub.graphql.resolvers.settings.DeleteAiPluginResolver;
+import com.linkedin.datahub.graphql.resolvers.service.UpsertAiPluginResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
@@ -971,7 +970,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(SERVICE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(SERVICE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(AI_PLUGIN_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1616,8 +1616,7 @@ public class GmsGraphQLEngine {
                   "updateApplicationsSettings",
                   new UpdateApplicationsSettingsResolver(this.settingsService))
               .dataFetcher(
-                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient))
-              .dataFetcher("deleteAiPlugin", new DeleteAiPluginResolver(this.entityClient));
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -4068,9 +4067,9 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher(
-                    "upsertService",
-                    new UpsertServiceResolver(entityClient, secretService, connectionService))
-                .dataFetcher("deleteService", new DeleteServiceResolver(entityClient)));
+                    "upsertAiPlugin",
+                    new UpsertAiPluginResolver(entityClient, secretService, connectionService))
+                .dataFetcher("deleteAiPlugin", new DeleteAiPluginResolver(entityClient)));
     builder.type(
         "Query",
         typeWiring ->

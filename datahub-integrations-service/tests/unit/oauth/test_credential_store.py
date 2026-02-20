@@ -1225,3 +1225,314 @@ class TestRefreshOAuthToken:
             store._refresh_oauth_token(
                 "invalid-refresh-token", "urn:li:oauthServer:test"
             )
+
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_expired_refresh_token_invalid_grant(
+        self, mock_httpx_client: MagicMock
+    ) -> None:
+        mock_graph = MagicMock()
+        mock_graph.execute_graphql.return_value = {
+            "oauthAuthorizationServer": {
+                "urn": "urn:li:oauthServer:test",
+                "properties": {
+                    "tokenUrl": "https://oauth.example.com/token",
+                    "clientId": "client-id",
+                },
+            }
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = (
+            '{"error":"invalid_grant","error_description":"Refresh token expired"}'
+        )
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__ = MagicMock(return_value=mock_client_instance)
+        mock_client_instance.__exit__ = MagicMock(return_value=None)
+        mock_client_instance.post.return_value = mock_response
+        mock_httpx_client.return_value = mock_client_instance
+
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+
+        with pytest.raises(TokenRefreshError, match="status 400"):
+            store._refresh_oauth_token("stale-refresh-token", "urn:li:oauthServer:test")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for Token Refresh -- Rotation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _make_oauth_graphql_side_effect(past_time: float):
+    """Build a graphql side_effect that returns expired credentials and a valid OAuth server."""
+
+    def side_effect(query: str, variables=None):
+        if "GetConnection" in query or "connection(" in query:
+            return {
+                "connection": {
+                    "urn": "urn:li:dataHubConnection:test",
+                    "details": {
+                        "type": "JSON",
+                        "json": {
+                            "blob": json.dumps(
+                                {
+                                    "type": "oauth",
+                                    "access_token": "expired-token",
+                                    "refresh_token": "original-refresh-token",
+                                    "expires_at": past_time,
+                                }
+                            )
+                        },
+                    },
+                }
+            }
+        elif "oauthAuthorizationServer" in query:
+            return {
+                "oauthAuthorizationServer": {
+                    "urn": "urn:li:oauthServer:test",
+                    "properties": {
+                        "tokenUrl": "https://oauth.example.com/token",
+                        "clientId": "client-id",
+                        "clientSecretUrn": None,
+                    },
+                }
+            }
+        elif "upsertConnection" in query:
+            return {"upsertConnection": {"urn": "urn:li:dataHubConnection:test"}}
+        return {}
+
+    return side_effect
+
+
+def _make_httpx_mock(token_response: dict) -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = token_response
+    mock_client = MagicMock()
+    mock_client.__enter__ = MagicMock(return_value=mock_client)
+    mock_client.__exit__ = MagicMock(return_value=None)
+    mock_client.post.return_value = mock_response
+    return mock_client
+
+
+class TestTokenRefreshRotation:
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_provider_returns_new_refresh_token(
+        self, mock_httpx_client: MagicMock
+    ) -> None:
+        mock_graph = MagicMock()
+        past_time = time.time() - 3600
+        mock_graph.execute_graphql.side_effect = _make_oauth_graphql_side_effect(
+            past_time
+        )
+        mock_httpx_client.return_value = _make_httpx_mock(
+            {
+                "access_token": "new-at",
+                "refresh_token": "rotated-rt",
+                "expires_in": 3600,
+            }
+        )
+
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+        new_tokens = store._refresh_oauth_token(
+            "original-refresh-token", "urn:li:oauthServer:test"
+        )
+
+        assert new_tokens.access_token == "new-at"
+        assert new_tokens.refresh_token == "rotated-rt"
+
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_provider_omits_refresh_token_preserves_original(
+        self, mock_httpx_client: MagicMock
+    ) -> None:
+        mock_graph = MagicMock()
+        past_time = time.time() - 3600
+        mock_graph.execute_graphql.side_effect = _make_oauth_graphql_side_effect(
+            past_time
+        )
+        mock_httpx_client.return_value = _make_httpx_mock(
+            {
+                "access_token": "new-at",
+                "expires_in": 3600,
+            }
+        )
+
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+        new_tokens = store._refresh_oauth_token(
+            "original-refresh-token", "urn:li:oauthServer:test"
+        )
+
+        assert new_tokens.access_token == "new-at"
+        assert new_tokens.refresh_token == "original-refresh-token"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for Token Refresh -- 5-min Buffer Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestTokenRefreshBufferEdgeCases:
+    def test_buffer_constant_is_300(self) -> None:
+        from datahub_integrations.oauth.credential_store import (
+            TOKEN_REFRESH_BUFFER_SECONDS,
+        )
+
+        assert TOKEN_REFRESH_BUFFER_SECONDS == 300
+
+    def test_token_expiring_at_boundary_triggers_refresh(self) -> None:
+        now = time.time()
+        tokens = OAuthTokens(
+            access_token="at",
+            refresh_token="rt",
+            expires_at=now + 300,
+        )
+        # time.time() >= (now + 300) - 300 => time.time() >= now => True
+        assert tokens.is_expired(buffer_seconds=300) is True
+
+    def test_token_just_outside_buffer_does_not_trigger_refresh(self) -> None:
+        now = time.time()
+        tokens = OAuthTokens(
+            access_token="at",
+            refresh_token="rt",
+            # +301 means: time.time() >= (now + 301) - 300 => time.time() >= now + 1 => False
+            expires_at=now + 301,
+        )
+        assert tokens.is_expired(buffer_seconds=300) is False
+
+    def test_token_just_inside_buffer_triggers_refresh(self) -> None:
+        now = time.time()
+        tokens = OAuthTokens(
+            access_token="at",
+            refresh_token="rt",
+            # +299 means: time.time() >= (now + 299) - 300 => time.time() >= now - 1 => True
+            expires_at=now + 299,
+        )
+        assert tokens.is_expired(buffer_seconds=300) is True
+
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_get_access_token_skips_refresh_when_outside_buffer(
+        self, mock_httpx_client: MagicMock
+    ) -> None:
+        mock_graph = MagicMock()
+        future_time = time.time() + 301
+        mock_graph.execute_graphql.return_value = {
+            "connection": {
+                "urn": "urn:li:dataHubConnection:test",
+                "details": {
+                    "type": "JSON",
+                    "json": {
+                        "blob": json.dumps(
+                            {
+                                "type": "oauth",
+                                "access_token": "still-valid",
+                                "refresh_token": "rt",
+                                "expires_at": future_time,
+                            }
+                        )
+                    },
+                },
+            }
+        }
+
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+        result = store.get_access_token(
+            "urn:li:corpuser:admin",
+            "urn:li:service:plugin",
+            "urn:li:oauthServer:test",
+        )
+
+        assert result == "still-valid"
+        mock_httpx_client.assert_not_called()
+
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_get_access_token_refreshes_when_inside_buffer(
+        self, mock_httpx_client: MagicMock
+    ) -> None:
+        mock_graph = MagicMock()
+        near_time = time.time() + 299
+        mock_graph.execute_graphql.side_effect = _make_oauth_graphql_side_effect(
+            near_time
+        )
+        mock_httpx_client.return_value = _make_httpx_mock(
+            {
+                "access_token": "refreshed-at",
+                "refresh_token": "new-rt",
+                "expires_in": 3600,
+            }
+        )
+
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+        result = store.get_access_token(
+            "urn:li:corpuser:admin",
+            "urn:li:service:plugin",
+            "urn:li:oauthServer:test",
+        )
+
+        assert result == "refreshed-at"
+        mock_httpx_client.return_value.post.assert_called_once()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for on_refresh Callback
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestOnRefreshCallback:
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_callback_on_successful_refresh(self, mock_httpx_client: MagicMock) -> None:
+        mock_graph = MagicMock()
+        past_time = time.time() - 3600
+        mock_graph.execute_graphql.side_effect = _make_oauth_graphql_side_effect(
+            past_time
+        )
+        mock_httpx_client.return_value = _make_httpx_mock(
+            {"access_token": "new-at", "expires_in": 3600}
+        )
+
+        callback = MagicMock()
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+        store.get_access_token(
+            "urn:li:corpuser:admin",
+            "urn:li:service:plugin",
+            "urn:li:oauthServer:test",
+            on_refresh=callback,
+        )
+
+        callback.assert_called_once()
+        duration, success = callback.call_args[0]
+        assert isinstance(duration, float)
+        assert duration >= 0
+        assert success is True
+
+    @patch("datahub_integrations.oauth.credential_store.httpx.Client")
+    def test_callback_on_failed_refresh(self, mock_httpx_client: MagicMock) -> None:
+        mock_graph = MagicMock()
+        past_time = time.time() - 3600
+        mock_graph.execute_graphql.side_effect = _make_oauth_graphql_side_effect(
+            past_time
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=None)
+        mock_client.post.return_value = mock_response
+        mock_httpx_client.return_value = mock_client
+
+        callback = MagicMock()
+        store = DataHubConnectionCredentialStore(graph=mock_graph)
+
+        with pytest.raises(TokenRefreshError):
+            store.get_access_token(
+                "urn:li:corpuser:admin",
+                "urn:li:service:plugin",
+                "urn:li:oauthServer:test",
+                on_refresh=callback,
+            )
+
+        callback.assert_called_once()
+        duration, success = callback.call_args[0]
+        assert isinstance(duration, float)
+        assert success is False

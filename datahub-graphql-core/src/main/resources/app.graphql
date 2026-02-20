@@ -67,12 +67,6 @@ extend type Mutation {
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 
   """
-  Delete an AI plugin configuration.
-  Requires the 'Manage Platform Settings' Platform Privilege.
-  """
-  deleteAiPlugin(id: String!): Boolean!
-
-  """
   Update the sample data settings (enable/disable sample data visibility).
   When disabled, sample data entities are soft-deleted and hidden from search/browse.
   Requires the 'Manage Global Settings' Platform Privilege.
@@ -298,6 +292,12 @@ type PlatformPrivileges {
   Whether the user can create, update, and delete service accounts.
   """
   manageServiceAccounts: Boolean!
+
+  """
+  Whether the user can manage connections to external platforms
+  (AI plugins, OAuth servers, etc.).
+  """
+  manageConnections: Boolean!
 }
 
 """

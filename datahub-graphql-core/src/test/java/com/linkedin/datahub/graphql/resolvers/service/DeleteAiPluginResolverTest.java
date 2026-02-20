@@ -36,7 +36,7 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class DeleteServiceResolverTest {
+public class DeleteAiPluginResolverTest {
 
   private static final String SERVICE_URN = "urn:li:service:test-service";
   private static final String OTHER_SERVICE_URN = "urn:li:service:other-service";
@@ -46,21 +46,21 @@ public class DeleteServiceResolverTest {
   @Mock private EntityClient entityClient;
   @Mock private DataFetchingEnvironment environment;
 
-  private DeleteServiceResolver resolver;
+  private DeleteAiPluginResolver resolver;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    resolver = new DeleteServiceResolver(entityClient);
+    resolver = new DeleteAiPluginResolver(entityClient);
   }
 
   @Test
   public void testConstructorNullCheck() {
-    assertThrows(NullPointerException.class, () -> new DeleteServiceResolver(null));
+    assertThrows(NullPointerException.class, () -> new DeleteAiPluginResolver(null));
   }
 
   @Test
-  public void testDeleteServiceSuccess() throws Exception {
+  public void testDeleteAiPluginSuccess() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn(SERVICE_URN);
@@ -85,7 +85,7 @@ public class DeleteServiceResolverTest {
   }
 
   @Test
-  public void testDeleteServiceRemovesFromGlobalSettingsPreservesOthers() throws Exception {
+  public void testDeleteAiPluginRemovesFromGlobalSettingsPreservesOthers() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn(SERVICE_URN);
@@ -121,7 +121,7 @@ public class DeleteServiceResolverTest {
   }
 
   @Test
-  public void testDeleteServiceNotInGlobalSettings() throws Exception {
+  public void testDeleteAiPluginNotInGlobalSettings() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn(SERVICE_URN);
@@ -142,7 +142,7 @@ public class DeleteServiceResolverTest {
   }
 
   @Test
-  public void testDeleteServiceEmptyGlobalSettings() throws Exception {
+  public void testDeleteAiPluginEmptyGlobalSettings() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn(SERVICE_URN);
@@ -162,7 +162,7 @@ public class DeleteServiceResolverTest {
   }
 
   @Test
-  public void testDeleteServiceUnauthorized() throws Exception {
+  public void testDeleteAiPluginUnauthorized() throws Exception {
     QueryContext mockContext = getMockDenyContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn(SERVICE_URN);
@@ -190,7 +190,7 @@ public class DeleteServiceResolverTest {
   }
 
   @Test
-  public void testDeleteServiceInvalidUrnFormat() {
+  public void testDeleteAiPluginInvalidUrnFormat() {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     when(environment.getArgument("urn")).thenReturn("not-a-valid-urn");

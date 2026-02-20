@@ -44,6 +44,7 @@ public class Constants {
   public static final String MODULE_SCHEMA_FILE = "module.graphql";
   public static final String PATCH_SCHEMA_FILE = "patch.graphql";
   public static final String SERVICE_SCHEMA_FILE = "service.graphql";
+  public static final String AI_PLUGIN_SCHEMA_FILE = "aiPlugin.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

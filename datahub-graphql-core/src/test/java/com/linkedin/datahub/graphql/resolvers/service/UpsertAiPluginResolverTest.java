@@ -29,8 +29,8 @@ import com.linkedin.datahub.graphql.generated.McpServerPropertiesInput;
 import com.linkedin.datahub.graphql.generated.McpTransport;
 import com.linkedin.datahub.graphql.generated.ServiceSubType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.UpsertAiPluginInput;
 import com.linkedin.datahub.graphql.generated.UpsertOAuthAuthorizationServerInput;
-import com.linkedin.datahub.graphql.generated.UpsertServiceInput;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -61,7 +61,7 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class UpsertServiceResolverTest {
+public class UpsertAiPluginResolverTest {
 
   private static final String TEST_SERVICE_ID = "test-mcp-server";
   private static final String TEST_SERVICE_URN = "urn:li:service:test-mcp-server";
@@ -71,13 +71,13 @@ public class UpsertServiceResolverTest {
   @Mock private ConnectionService connectionService;
   @Mock private DataFetchingEnvironment environment;
 
-  private UpsertServiceResolver resolver;
+  private UpsertAiPluginResolver resolver;
   private List<MetadataChangeProposal> capturedProposals;
 
   @BeforeMethod
   public void setup() throws Exception {
     MockitoAnnotations.openMocks(this);
-    resolver = new UpsertServiceResolver(entityClient, secretService, connectionService);
+    resolver = new UpsertAiPluginResolver(entityClient, secretService, connectionService);
     capturedProposals = new ArrayList<>();
 
     // Mock secret encryption
@@ -105,7 +105,7 @@ public class UpsertServiceResolverTest {
     when(environment.getContext()).thenReturn(mockContext);
 
     // Create input with MCP_SERVER subType but NO mcpServerProperties
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test MCP Server");
     input.setSubType(ServiceSubType.MCP_SERVER);
     input.setMcpServerProperties(null); // Missing required properties!
@@ -138,7 +138,7 @@ public class UpsertServiceResolverTest {
     when(environment.getContext()).thenReturn(mockContext);
 
     // Create valid input with MCP_SERVER subType AND mcpServerProperties
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test MCP Server");
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -167,12 +167,12 @@ public class UpsertServiceResolverTest {
 
   /** Test that unauthorized users cannot create services. */
   @Test
-  public void testUnauthorizedUserCannotCreateService() throws Exception {
+  public void testUnauthorizedUserCannotCreateAiPlugin() throws Exception {
     // Setup deny context
     QueryContext mockContext = getMockDenyContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test Service");
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -202,7 +202,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName(null); // Missing required displayName
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -228,7 +228,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test Service");
     input.setSubType(null); // Missing required subType
 
@@ -250,7 +250,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test MCP Server");
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -274,7 +274,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName("Test MCP Server");
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -298,7 +298,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setDisplayName(""); // Empty displayName
     input.setSubType(ServiceSubType.MCP_SERVER);
 
@@ -322,7 +322,7 @@ public class UpsertServiceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     // Create a very long display name (1000 characters)
     String longName = "A".repeat(1000);
     input.setDisplayName(longName);
@@ -354,7 +354,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setId(TEST_SERVICE_ID);
     input.setDisplayName("Full MCP Server");
     input.setDescription("A fully configured MCP server");
@@ -412,7 +412,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.getMcpServerProperties().setTransport(McpTransport.HTTP);
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -438,7 +438,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.getMcpServerProperties().setTransport(McpTransport.WEBSOCKET);
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -464,7 +464,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.getMcpServerProperties().setTransport(null); // Not specified
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -490,7 +490,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.getMcpServerProperties().setTimeout(null); // Not specified
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -514,13 +514,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with auth type NONE. */
   @Test
-  public void testServiceWithAuthTypeNone() throws Exception {
+  public void testAiPluginWithAuthTypeNone() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.NONE);
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -539,13 +539,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with USER_OAUTH auth type and existing OAuth server. */
   @Test
-  public void testServiceWithUserOAuthAndExistingServer() throws Exception {
+  public void testAiPluginWithUserOAuthAndExistingServer() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
     input.setOauthServerUrn("urn:li:oauthAuthorizationServer:existing-server");
     input.setRequiredScopes(ImmutableList.of("read", "write"));
@@ -566,13 +566,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with inline OAuth server (no ID - creates new). */
   @Test
-  public void testServiceWithInlineOAuthServer() throws Exception {
+  public void testAiPluginWithInlineOAuthServer() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
     // Inline OAuth server - NO ID (creates new server with auto-generated UUID)
@@ -610,7 +610,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
     // Inline OAuth server WITH an ID - this should fail
@@ -653,7 +653,7 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with SHARED_API_KEY auth type. */
   @Test
-  public void testServiceWithSharedApiKey() throws Exception {
+  public void testAiPluginWithSharedApiKey() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
@@ -665,7 +665,7 @@ public class UpsertServiceResolverTest {
     when(connectionService.upsertConnection(any(), any(), any(), any(), any(), any()))
         .thenReturn(credentialUrn);
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
     input.setOauthServerUrn("urn:li:oauthAuthorizationServer:api-key-server");
     input.setSharedApiKey("my-shared-api-key-value");
@@ -722,7 +722,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(existingSettings);
 
     // Create update input WITHOUT providing a new API key
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
     input.setSharedApiKey(null); // No new API key provided!
     // Don't provide auth settings - should be preserved from existing config
@@ -814,7 +814,7 @@ public class UpsertServiceResolverTest {
         .thenReturn(newCredentialUrn);
 
     // Create update input WITH a new API key
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.SHARED_API_KEY);
     input.setSharedApiKey("new-api-key-value"); // New API key provided!
     input.setSharedApiKeyAuthScheme("Token"); // New auth scheme
@@ -890,7 +890,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(existingSettings);
 
     // Create update input WITHOUT providing auth settings (just disable the plugin)
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_API_KEY);
     input.setEnabled(false);
     // Don't provide auth settings - should be preserved from existing config
@@ -972,7 +972,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(existingSettings);
 
     // Create update input WITHOUT providing OAuth server or scopes (just disable the plugin)
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
     input.setEnabled(false);
     // Don't provide oauthServer or requiredScopes - should be preserved from existing config
@@ -1025,13 +1025,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with enabled=false. */
   @Test
-  public void testServiceWithEnabledFalse() throws Exception {
+  public void testAiPluginWithEnabledFalse() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setEnabled(false);
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -1050,13 +1050,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with instructions. */
   @Test
-  public void testServiceWithInstructions() throws Exception {
+  public void testAiPluginWithInstructions() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setInstructions("Use this server for search queries. Always verify results.");
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -1081,21 +1081,21 @@ public class UpsertServiceResolverTest {
   public void testConstructorNullEntityClient() {
     assertThrows(
         NullPointerException.class,
-        () -> new UpsertServiceResolver(null, secretService, connectionService));
+        () -> new UpsertAiPluginResolver(null, secretService, connectionService));
   }
 
   @Test
   public void testConstructorNullSecretService() {
     assertThrows(
         NullPointerException.class,
-        () -> new UpsertServiceResolver(entityClient, null, connectionService));
+        () -> new UpsertAiPluginResolver(entityClient, null, connectionService));
   }
 
   @Test
   public void testConstructorNullConnectionService() {
     assertThrows(
         NullPointerException.class,
-        () -> new UpsertServiceResolver(entityClient, secretService, null));
+        () -> new UpsertAiPluginResolver(entityClient, secretService, null));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1104,7 +1104,7 @@ public class UpsertServiceResolverTest {
 
   /** Test that a UUID is generated when no ID is provided. */
   @Test
-  public void testAutoGeneratedServiceId() throws Exception {
+  public void testAutoGeneratedAiPluginId() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
@@ -1128,7 +1128,7 @@ public class UpsertServiceResolverTest {
               return ImmutableMap.of(serviceUrn, response);
             });
 
-    UpsertServiceInput input = new UpsertServiceInput();
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setId(null); // No ID - should auto-generate
     input.setDisplayName("Auto ID Service");
     input.setSubType(ServiceSubType.MCP_SERVER);
@@ -1159,13 +1159,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service creation with description. */
   @Test
-  public void testServiceWithDescription() throws Exception {
+  public void testAiPluginWithDescription() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setDescription("This is a test MCP server for search capabilities.");
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -1193,7 +1193,7 @@ public class UpsertServiceResolverTest {
 
   /** Test that service entity is created even if GlobalSettings fetch fails. */
   @Test
-  public void testServiceCreationWithGlobalSettingsFetchFailure() throws Exception {
+  public void testAiPluginCreationWithGlobalSettingsFetchFailure() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
 
@@ -1201,7 +1201,7 @@ public class UpsertServiceResolverTest {
     when(entityClient.getV2(any(), eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME), any(), any()))
         .thenThrow(new RuntimeException("Failed to fetch GlobalSettings"));
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     when(environment.getArgument("input")).thenReturn(input);
 
     // Execute - should throw
@@ -1231,7 +1231,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
 
     List<StringMapEntryInput> headers = new ArrayList<>();
 
@@ -1284,7 +1284,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     when(environment.getArgument("input")).thenReturn(input);
 
     try {
@@ -1309,7 +1309,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
     // Full OAuth server configuration - NO ID (creates new server)
@@ -1351,7 +1351,7 @@ public class UpsertServiceResolverTest {
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_OAUTH);
 
     UpsertOAuthAuthorizationServerInput oauthInput = new UpsertOAuthAuthorizationServerInput();
@@ -1387,13 +1387,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service with USER_API_KEY auth type. */
   @Test
-  public void testServiceWithUserApiKeyAuthType() throws Exception {
+  public void testAiPluginWithUserApiKeyAuthType() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(AiPluginAuthType.USER_API_KEY);
     input.setOauthServerUrn("urn:li:oauthAuthorizationServer:api-key-server");
 
@@ -1412,13 +1412,13 @@ public class UpsertServiceResolverTest {
 
   /** Test service with default auth type (null = NONE). */
   @Test
-  public void testServiceWithNullAuthTypeDefaultsToNone() throws Exception {
+  public void testAiPluginWithNullAuthTypeDefaultsToNone() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getContext()).thenReturn(mockContext);
     setupGlobalSettingsMock(new GlobalSettingsInfo());
     setupServiceResponseMock();
 
-    UpsertServiceInput input = createBasicServiceInput();
+    UpsertAiPluginInput input = createBasicServiceInput();
     input.setAuthType(null); // Should default to NONE
 
     when(environment.getArgument("input")).thenReturn(input);
@@ -1438,8 +1438,8 @@ public class UpsertServiceResolverTest {
   // Helper Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
-  private UpsertServiceInput createBasicServiceInput() {
-    UpsertServiceInput input = new UpsertServiceInput();
+  private UpsertAiPluginInput createBasicServiceInput() {
+    UpsertAiPluginInput input = new UpsertAiPluginInput();
     input.setId(TEST_SERVICE_ID);
     input.setDisplayName("Test MCP Server");
     input.setSubType(ServiceSubType.MCP_SERVER);

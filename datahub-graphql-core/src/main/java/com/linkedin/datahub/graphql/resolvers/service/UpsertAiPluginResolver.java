@@ -21,8 +21,8 @@ import com.linkedin.datahub.graphql.generated.McpServerPropertiesInput;
 import com.linkedin.datahub.graphql.generated.Service;
 import com.linkedin.datahub.graphql.generated.ServiceSubType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.UpsertAiPluginInput;
 import com.linkedin.datahub.graphql.generated.UpsertOAuthAuthorizationServerInput;
-import com.linkedin.datahub.graphql.generated.UpsertServiceInput;
 import com.linkedin.datahub.graphql.resolvers.connection.ConnectionUtils;
 import com.linkedin.datahub.graphql.resolvers.settings.SettingsMapper;
 import com.linkedin.datahub.graphql.types.service.ServiceType;
@@ -61,7 +61,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Creates or updates a Service entity. */
 @Slf4j
-public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Service>> {
+public class UpsertAiPluginResolver implements DataFetcher<CompletableFuture<Service>> {
 
   private static final Urn AI_PLUGIN_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:datahub");
 
@@ -69,7 +69,7 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
   private final SecretService secretService;
   private final ConnectionService connectionService;
 
-  public UpsertServiceResolver(
+  public UpsertAiPluginResolver(
       @Nonnull final EntityClient entityClient,
       @Nonnull final SecretService secretService,
       @Nonnull final ConnectionService connectionService) {
@@ -84,8 +84,8 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
       throws Exception {
 
     final QueryContext context = getQueryContext(environment);
-    final UpsertServiceInput input =
-        bindArgument(environment.getArgument("input"), UpsertServiceInput.class);
+    final UpsertAiPluginInput input =
+        bindArgument(environment.getArgument("input"), UpsertAiPluginInput.class);
 
     // Reuse MANAGE_CONNECTIONS privilege since Services are external connections
     if (!ConnectionUtils.canManageConnections(context)) {
@@ -231,7 +231,7 @@ public class UpsertServiceResolver implements DataFetcher<CompletableFuture<Serv
    * </ul>
    */
   private void updateGlobalSettingsAiPlugin(
-      final QueryContext context, final Urn serviceUrn, final UpsertServiceInput input)
+      final QueryContext context, final Urn serviceUrn, final UpsertAiPluginInput input)
       throws Exception {
 
     // If newOAuthServer is provided, create it first

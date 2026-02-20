@@ -156,9 +156,9 @@ query ListOAuthAuthorizationServers($input: ListOAuthAuthorizationServersInput!)
     }
 }
 
-# Mutation to create/update a Service
-mutation UpsertService($input: UpsertServiceInput!) {
-    upsertService(input: $input) {
+# Mutation to create/update an AI plugin (Service + AiPluginConfig)
+mutation UpsertAiPlugin($input: UpsertAiPluginInput!) {
+    upsertAiPlugin(input: $input) {
         urn
         subType
         properties {
@@ -171,11 +171,6 @@ mutation UpsertService($input: UpsertServiceInput!) {
             timeout
         }
     }
-}
-
-# Mutation to delete a Service
-mutation DeleteService($urn: String!) {
-    deleteService(urn: $urn)
 }
 
 # Mutation to create/update an OAuth Authorization Server
@@ -199,9 +194,9 @@ mutation UpdateAiPluginSettings($input: UpdateGlobalSettingsInput!) {
     updateGlobalSettings(input: $input)
 }
 
-# Mutation to delete an AI plugin from GlobalSettings
-mutation DeleteAiPlugin($id: String!) {
-    deleteAiPlugin(id: $id)
+# Mutation to delete an AI plugin (removes AiPluginConfig + deletes Service entity)
+mutation DeleteAiPlugin($urn: String!) {
+    deleteAiPlugin(urn: $urn)
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

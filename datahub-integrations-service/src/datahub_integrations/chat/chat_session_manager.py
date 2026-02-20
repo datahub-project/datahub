@@ -445,10 +445,11 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
 
             # Yield error message with deep link to settings
             error_timestamp = int(time.time() * 1000)
+            error_detail = f"\n\n> {e}" if str(e) else ""
             error_message = (
                 f"We couldn't connect to AI plugin **{e.plugin_name}** and have disabled it. "
                 f"You can reconnect it in [My AI Settings]"
-                f"(/settings/my-ai-settings#{e.plugin_id})."
+                f"(/settings/my-ai-settings#{e.plugin_id}).{error_detail}"
             )
 
             # Save the error message to conversation
@@ -530,10 +531,11 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
                 settings_url = (
                     f"{DATAHUB_FRONTEND_URL}/settings/my-ai-settings#{e.plugin_id}"
                 )
+                error_detail = f"\n\n> {e}" if str(e) else ""
                 next_message_container[0] = NextMessage(
                     text=(
                         f"We couldn't connect to AI plugin **{e.plugin_name}** and have disconnected it. "
-                        f"You can reconnect it in [My AI Settings]({settings_url})."
+                        f"You can reconnect it in [My AI Settings]({settings_url}).{error_detail}"
                     )
                 )
             except LlmDailyLimitExceededException:

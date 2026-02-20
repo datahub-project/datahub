@@ -6,8 +6,8 @@ import {
     buildCustomHeadersInput,
     buildNewOAuthServerInput,
     buildStructuredHeadersInput,
+    buildUpsertAiPluginInput,
     buildUpsertOAuthServerInput,
-    buildUpsertServiceInput,
     extractOAuthServerIdFromUrn,
     parseCommaSeparatedList,
 } from '@app/settingsV2/platform/ai/plugins/utils/pluginMutationBuilder';
@@ -290,7 +290,7 @@ describe('pluginMutationBuilder', () => {
         });
     });
 
-    describe('buildUpsertServiceInput', () => {
+    describe('buildUpsertAiPluginInput', () => {
         it('builds basic input correctly', () => {
             const state: PluginFormState = {
                 ...DEFAULT_PLUGIN_FORM_STATE,
@@ -302,7 +302,7 @@ describe('pluginMutationBuilder', () => {
                 enabled: true,
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result).toEqual({
                 id: undefined,
@@ -327,7 +327,7 @@ describe('pluginMutationBuilder', () => {
 
         it('extracts ID from editing URN', () => {
             const state = { ...DEFAULT_PLUGIN_FORM_STATE, displayName: 'My Plugin', url: 'https://example.com' };
-            const result = buildUpsertServiceInput(state, {
+            const result = buildUpsertAiPluginInput(state, {
                 editingUrn: 'urn:li:service:my-plugin-id',
             });
 
@@ -344,7 +344,7 @@ describe('pluginMutationBuilder', () => {
                 sharedApiKeyAuthScheme: 'Token',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.sharedApiKey).toBe('my-api-key');
             expect(result.sharedApiKeyAuthScheme).toBe('Token');
@@ -359,7 +359,7 @@ describe('pluginMutationBuilder', () => {
                 sharedApiKey: 'should-be-ignored',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.sharedApiKey).toBeUndefined();
         });
@@ -372,7 +372,7 @@ describe('pluginMutationBuilder', () => {
                 requiredScopes: 'read, write, delete',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.requiredScopes).toEqual(['read', 'write', 'delete']);
         });
@@ -385,7 +385,7 @@ describe('pluginMutationBuilder', () => {
                 timeout: '45',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.mcpServerProperties.timeout).toBe(45);
         });
@@ -398,7 +398,7 @@ describe('pluginMutationBuilder', () => {
                 timeout: 'invalid',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.mcpServerProperties.timeout).toBe(30);
         });
@@ -415,7 +415,7 @@ describe('pluginMutationBuilder', () => {
                 oauthTokenUrl: 'https://provider.com/token',
             };
 
-            const result = buildUpsertServiceInput(state, {
+            const result = buildUpsertAiPluginInput(state, {
                 editingUrn: 'urn:li:service:my-plugin-id',
                 existingOAuthServerUrn: 'urn:li:oauthAuthorizationServer:existing-oauth-id',
             });
@@ -437,7 +437,7 @@ describe('pluginMutationBuilder', () => {
                 oauthTokenUrl: 'https://provider.com/token',
             };
 
-            const result = buildUpsertServiceInput(state, {});
+            const result = buildUpsertAiPluginInput(state, {});
 
             expect(result.oauthServerUrn).toBeUndefined();
             expect(result.newOAuthServer).toBeDefined();

@@ -1,5 +1,6 @@
-# Service and OAuth Authorization Server GraphQL types
-# For AI Plugin infrastructure (MCP servers, etc.)
+# Service and OAuth Authorization Server entity types.
+# Pure entity queries and OAuth server mutations live here.
+# AI plugin workflow mutations (upsertAiPlugin, deleteAiPlugin) are in aiPlugin.graphql.
 
 extend type Query {
   """
@@ -29,18 +30,6 @@ extend type Query {
 }
 
 extend type Mutation {
-  """
-  Create or update a Service entity.
-  Requires the MANAGE_SERVICES platform privilege.
-  """
-  upsertService(input: UpsertServiceInput!): Service!
-
-  """
-  Delete a Service entity.
-  Requires the MANAGE_SERVICES platform privilege.
-  """
-  deleteService(urn: String!): Boolean!
-
   """
   Create or update an OAuth Authorization Server entity.
   Requires the MANAGE_CONNECTIONS platform privilege.
@@ -235,136 +224,6 @@ type ListServicesResult {
   The list of services.
   """
   services: [Service!]!
-}
-
-"""
-Input for creating or updating a Service entity.
-"""
-input UpsertServiceInput {
-  """
-  Optional ID for the service URN. If not provided, a UUID will be generated.
-  """
-  id: String
-
-  """
-  Display name shown in UI.
-  """
-  displayName: String!
-
-  """
-  Description of what this service provides.
-  """
-  description: String
-
-  """
-  The subtype of service.
-  """
-  subType: ServiceSubType!
-
-  """
-  MCP-specific properties. Required when subType is MCP_SERVER.
-  """
-  mcpServerProperties: McpServerPropertiesInput
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # AI Plugin Configuration (stored in GlobalSettings.aiPlugins)
-  # ═══════════════════════════════════════════════════════════════════════════
-
-  """
-  Whether this plugin is enabled for Ask DataHub. Defaults to true.
-  """
-  enabled: Boolean = true
-
-  """
-  Custom instructions for the LLM when using this plugin's tools.
-  """
-  instructions: String
-
-  """
-  How this plugin authenticates requests. Defaults to NONE.
-  """
-  authType: AiPluginAuthType = NONE
-
-  """
-  URN of an existing OAuthAuthorizationServer.
-  Use this OR newOAuthServer, not both.
-  Required when authType is not NONE and newOAuthServer is not provided.
-  """
-  oauthServerUrn: String
-
-  """
-  Create a new OAuthAuthorizationServer inline.
-  Use this OR oauthServerUrn, not both.
-  The new server will be created first, then linked to this plugin.
-  """
-  newOAuthServer: UpsertOAuthAuthorizationServerInput
-
-  """
-  Shared API key value for SHARED_API_KEY auth type.
-  Will be encrypted and stored in a DataHubConnection owned by the Service.
-  Pass null to keep existing value (when editing).
-  """
-  sharedApiKey: String
-
-  # ─── Shared API Key Auth Injection Settings ─────────────────────────────────
-  # Used when authType is SHARED_API_KEY.
-
-  """
-  Where to inject the shared API key in HTTP requests.
-  Defaults to HEADER. Only used when authType is SHARED_API_KEY.
-  """
-  sharedApiKeyAuthLocation: AuthInjectionLocation = HEADER
-
-  """
-  For HEADER: which header name to use for the shared API key.
-  Defaults to "Authorization". Only used when authType is SHARED_API_KEY.
-  """
-  sharedApiKeyAuthHeaderName: String = "Authorization"
-
-  """
-  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
-  Only used when authType is SHARED_API_KEY.
-  """
-  sharedApiKeyAuthScheme: String
-
-  """
-  For QUERY_PARAM: which query parameter name to use for the shared API key.
-  Only used when authType is SHARED_API_KEY.
-  """
-  sharedApiKeyAuthQueryParam: String
-
-  # ─── User API Key Auth Injection Settings ───────────────────────────────────
-  # Used when authType is USER_API_KEY. These define how to inject the user's API key.
-
-  """
-  Where to inject the user API key in HTTP requests.
-  Defaults to HEADER. Only used when authType is USER_API_KEY.
-  """
-  userApiKeyAuthLocation: AuthInjectionLocation = HEADER
-
-  """
-  For HEADER: which header name to use for the user API key.
-  Defaults to "Authorization". Only used when authType is USER_API_KEY.
-  """
-  userApiKeyAuthHeaderName: String = "Authorization"
-
-  """
-  For HEADER: optional scheme prefix (e.g., "Bearer", "ApiKey").
-  Only used when authType is USER_API_KEY.
-  """
-  userApiKeyAuthScheme: String
-
-  """
-  For QUERY_PARAM: which query parameter name to use for the user API key.
-  Only used when authType is USER_API_KEY.
-  """
-  userApiKeyAuthQueryParam: String
-
-  """
-  Additional OAuth scopes required by this plugin.
-  Only used when authType is USER_OAUTH.
-  """
-  requiredScopes: [String!]
 }
 
 """

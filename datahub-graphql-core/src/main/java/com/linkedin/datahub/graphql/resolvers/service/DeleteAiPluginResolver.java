@@ -25,13 +25,13 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-/** Deletes a Service entity. */
+/** Deletes a Service entity and its AiPluginConfig from GlobalSettings. */
 @Slf4j
-public class DeleteServiceResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class DeleteAiPluginResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient entityClient;
 
-  public DeleteServiceResolver(@Nonnull final EntityClient entityClient) {
+  public DeleteAiPluginResolver(@Nonnull final EntityClient entityClient) {
     this.entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
   }
 

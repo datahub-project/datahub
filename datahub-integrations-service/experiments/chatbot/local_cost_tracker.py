@@ -159,12 +159,16 @@ class LocalCostTracker(CostTrackerProtocol):
 
     def record_tool_call(
         self,
+        *,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record a tool invocation by the LLM (Tier 3)."""
-        self._delegate.record_tool_call(ai_module, tool, success)
+        self._delegate.record_tool_call(
+            ai_module=ai_module, tool=tool, success=success, is_external=is_external
+        )
 
     def record_user_request_latency(
         self,
@@ -193,13 +197,21 @@ class LocalCostTracker(CostTrackerProtocol):
 
     def record_tool_call_latency(
         self,
+        *,
         duration_seconds: float,
         ai_module: AIModule,
         tool: str,
         success: bool = True,
+        is_external: bool = False,
     ) -> None:
         """Record latency for a tool invocation (Tier 3)."""
-        self._delegate.record_tool_call_latency(duration_seconds, ai_module, tool, success)
+        self._delegate.record_tool_call_latency(
+            duration_seconds=duration_seconds,
+            ai_module=ai_module,
+            tool=tool,
+            success=success,
+            is_external=is_external,
+        )
 
     # ===== Local tracking methods (not part of protocol) =====
 
