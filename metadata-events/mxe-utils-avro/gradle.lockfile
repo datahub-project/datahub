@@ -3,16 +3,14 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataTemplate,testRestClient,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-annotations:2.10.2=pegasusPlugin,restClient,restClientCompile,testRestClient
-com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-core:2.10.2=dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,testDataTemplate,testRestClient
-com.fasterxml.jackson.core:jackson-core:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.10.2=pegasusPlugin,restClient,restClientCompile,testRestClient
-com.fasterxml.jackson.core:jackson-databind:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.10.2=dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,testDataTemplate,testRestClient
-com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.10.2=dataTemplate,dataTemplateCompile,testDataTemplate
+com.fasterxml.jackson.core:jackson-core:2.18.4=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-databind:2.18.4=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.10.2=dataTemplate,dataTemplateCompile,testDataTemplate
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.18.4=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
 com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson:jackson-bom:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson:jackson-bom:2.18.4=compileClasspath,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testRestClient,testRuntimeClasspath
 com.github.ben-manes.caffeine:caffeine:2.7.0=compileClasspath,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataTemplate,testRestClient,testRuntimeClasspath
 com.google.android:annotations:4.1.1.4=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.google.api.grpc:proto-google-common-protos:2.41.0=pegasusPlugin,restClient,restClientCompile,testRestClient
