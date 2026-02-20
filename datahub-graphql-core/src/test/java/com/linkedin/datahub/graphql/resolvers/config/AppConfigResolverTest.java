@@ -605,8 +605,11 @@ public class AppConfigResolverTest {
 
     EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
     embeddingProvider.setType("aws-bedrock");
-    embeddingProvider.setModelId("cohere.embed-english-v3");
-    embeddingProvider.setAwsRegion("us-west-2");
+    EmbeddingProviderConfiguration.BedrockConfig bedrockConfig =
+        new EmbeddingProviderConfiguration.BedrockConfig();
+    bedrockConfig.setModel("cohere.embed-english-v3");
+    bedrockConfig.setAwsRegion("us-west-2");
+    embeddingProvider.setBedrock(bedrockConfig);
 
     ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
     modelConfig.setVectorDimension(1024);
@@ -720,8 +723,11 @@ public class AppConfigResolverTest {
 
       EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
       embeddingProvider.setType("aws-bedrock");
-      embeddingProvider.setModelId(modelId);
-      embeddingProvider.setAwsRegion("us-west-2");
+      EmbeddingProviderConfiguration.BedrockConfig bedrockConfig =
+          new EmbeddingProviderConfiguration.BedrockConfig();
+      bedrockConfig.setModel(modelId);
+      bedrockConfig.setAwsRegion("us-west-2");
+      embeddingProvider.setBedrock(bedrockConfig);
 
       ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
       modelConfig.setVectorDimension(1024);

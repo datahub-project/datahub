@@ -13,6 +13,7 @@ which generates a single embedding for the entire document.
 import hashlib
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -166,9 +167,12 @@ class DocumentChunkingSource(Source):
                 if not model_name.startswith("cohere/"):
                     model_name = f"cohere/{model_name}"
                 self.embedding_model = model_name
-                if not self.config.embedding.api_key:
+                if not self.config.embedding.api_key and not os.environ.get(
+                    "COHERE_API_KEY"
+                ):
                     raise ValueError(
-                        "Cohere API key is required when using cohere provider"
+                        "Cohere API key is required when using cohere provider. "
+                        "Set cohere.api_key in your recipe or the COHERE_API_KEY environment variable."
                     )
             elif self.config.embedding.provider == "openai":
                 # Prefix with openai/ for litellm
@@ -177,9 +181,12 @@ class DocumentChunkingSource(Source):
                 if not model_name.startswith("openai/"):
                     model_name = f"openai/{model_name}"
                 self.embedding_model = model_name
-                if not self.config.embedding.api_key:
+                if not self.config.embedding.api_key and not os.environ.get(
+                    "OPENAI_API_KEY"
+                ):
                     raise ValueError(
-                        "OpenAI API key is required when using openai provider"
+                        "OpenAI API key is required when using openai provider. "
+                        "Set openai.api_key in your recipe or the OPENAI_API_KEY environment variable."
                     )
             else:
                 raise ValueError(
@@ -1024,12 +1031,12 @@ class DocumentChunkingSource(Source):
                     failure_reason="Cohere model not specified in embedding config",
                     mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
                 )
-            if not embedding_config.api_key:
+            if not embedding_config.api_key and not os.environ.get("COHERE_API_KEY"):
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="Cohere API key not provided",
-                    mitigation_message="Set embedding.api_key to your Cohere API key. "
-                    "Get one at https://dashboard.cohere.com/api-keys",
+                    mitigation_message="Set embedding.api_key to your Cohere API key or set the COHERE_API_KEY "
+                    "environment variable. Get one at https://dashboard.cohere.com/api-keys",
                 )
             model_name = embedding_config.model
             if not model_name.startswith("cohere/"):
@@ -1043,12 +1050,12 @@ class DocumentChunkingSource(Source):
                     failure_reason="OpenAI model not specified in embedding config",
                     mitigation_message="Set embedding.model to a valid OpenAI model (e.g., 'text-embedding-3-small')",
                 )
-            if not embedding_config.api_key:
+            if not embedding_config.api_key and not os.environ.get("OPENAI_API_KEY"):
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="OpenAI API key not provided",
-                    mitigation_message="Set embedding.api_key to your OpenAI API key. "
-                    "Get one at https://platform.openai.com/api-keys",
+                    mitigation_message="Set embedding.api_key to your OpenAI API key or set the OPENAI_API_KEY "
+                    "environment variable. Get one at https://platform.openai.com/api-keys",
                 )
             model_name = embedding_config.model
             if not model_name.startswith("openai/"):
