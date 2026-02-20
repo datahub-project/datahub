@@ -76,7 +76,20 @@ describe('getValidEntityTypes', () => {
     });
     it('should get valid entity types to query upstream lineage for datajobs', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.DataJob);
-        expect(validEntityTypes).toMatchObject([EntityType.DataJob, EntityType.Dataset]);
+        expect(validEntityTypes).toMatchObject([
+            EntityType.DataJob,
+            EntityType.Dataset,
+            EntityType.Mlmodel,
+            EntityType.MlmodelGroup,
+        ]);
+    });
+    it('should get valid entity types to query upstream lineage for mlmodels', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Mlmodel);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob]);
+    });
+    it('should get valid entity types to query upstream lineage for mlmodel groups', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.MlmodelGroup);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob]);
     });
     it('should return an empty list if the entity type is unexpected for upstream', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Container);
@@ -102,10 +115,31 @@ describe('getValidEntityTypes', () => {
     });
     it('should get valid entity types to query downstream lineage for datajobs', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.DataJob);
-        expect(validEntityTypes).toMatchObject([EntityType.DataJob, EntityType.Dataset]);
+        expect(validEntityTypes).toMatchObject([
+            EntityType.DataJob,
+            EntityType.Dataset,
+            EntityType.Mlmodel,
+            EntityType.MlmodelGroup,
+        ]);
+    });
+    it('should get valid entity types to query downstream lineage for mlmodels', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Mlmodel);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob]);
+    });
+    it('should get valid entity types to query downstream lineage for mlmodel groups', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.MlmodelGroup);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob]);
     });
     it('should return an empty list if the entity type is unexpected for downstream', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Container);
+        expect(validEntityTypes).toMatchObject([]);
+    });
+    it('should return an empty list if the entity type is undefined for upstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, undefined);
+        expect(validEntityTypes).toMatchObject([]);
+    });
+    it('should return an empty list if the entity type is undefined for downstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, undefined);
         expect(validEntityTypes).toMatchObject([]);
     });
 });

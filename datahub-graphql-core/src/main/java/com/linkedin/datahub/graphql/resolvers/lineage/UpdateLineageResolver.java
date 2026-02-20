@@ -116,6 +116,28 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       upstreamUrnsToRemove,
                       actor);
                   break;
+                case Constants.ML_MODEL_ENTITY_NAME:
+                  // For ML Models as downstream: upstream URNs are training jobs
+                  _lineageService.updateMlModelLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      new ArrayList<>(),
+                      new ArrayList<>(),
+                      actor);
+                  break;
+                case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+                  // For ML Model Groups as downstream: upstream URNs are training jobs
+                  _lineageService.updateMlModelGroupLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      new ArrayList<>(),
+                      new ArrayList<>(),
+                      actor);
+                  break;
                 default:
               }
             } catch (Exception e) {
@@ -160,6 +182,26 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                     upstreamUrn,
                     filteredDownstreamUrnsToAdd,
                     filteredDownstreamUrnsToRemove,
+                    actor);
+              } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_ENTITY_NAME)) {
+                // For ML Models as upstream: downstream URNs are consuming jobs
+                _lineageService.updateMlModelLineage(
+                    context.getOperationContext(),
+                    upstreamUrn,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    downstreamUrnsToAdd,
+                    downstreamUrnsToRemove,
+                    actor);
+              } else if (upstreamUrn.getEntityType().equals(Constants.ML_MODEL_GROUP_ENTITY_NAME)) {
+                // For ML Model Groups as upstream: downstream URNs are consuming jobs
+                _lineageService.updateMlModelGroupLineage(
+                    context.getOperationContext(),
+                    upstreamUrn,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    downstreamUrnsToAdd,
+                    downstreamUrnsToRemove,
                     actor);
               }
             } catch (Exception e) {
