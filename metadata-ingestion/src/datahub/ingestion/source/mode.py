@@ -24,7 +24,6 @@ import dateutil.parser as dp
 import psutil
 import pydantic
 import requests
-import sqlglot
 import tenacity
 import yaml
 from liquid import Template, Undefined
@@ -122,9 +121,11 @@ from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
-    create_lineage_sql_parsed_result,
+    create_and_cache_schema_resolver,
     infer_output_schema,
+    sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import parse_statements_and_pick
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
@@ -308,6 +309,15 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     get_cache_misses: int = 0
     get_cache_size: int = 0
     process_memory_used_mb: float = 0
+    # Thread-safe cumulative timing accumulators (seconds).
+    # Protected by _lock. These track time spent in worker threads.
+    query_api_total_sec: float = 0
+    chart_api_total_sec: float = 0
+    sql_parsing_total_sec: float = 0
+    # Entity counts (protected by _lock for thread-safety)
+    num_reports_processed: int = 0
+    num_queries_processed: int = 0
+    num_charts_processed: int = 0
     # PerfTimer is NOT thread-safe. These timers must only be used from the
     # main thread (e.g., in _get_space_name_and_tokens, _get_reports,
     # _get_datasets), never from threaded _process_report workers.
@@ -891,8 +901,12 @@ class ModeSource(StatefulIngestionSourceBase):
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
             self._data_sources_by_id_cache = {
-                ds.get("id", -1): ds for ds in data_sources
+                int(ds.get("id", -1)): ds for ds in data_sources
             }
+            fetched_ids = sorted(self._data_sources_by_id_cache.keys())
+            logger.info(
+                f"Fetched {len(fetched_ids)} data sources from Mode. IDs: {fetched_ids}"
+            )
             return self._data_sources_by_id_cache
         except ModeRequestError as e:
             self.report.report_failure(
@@ -917,9 +931,14 @@ class ModeSource(StatefulIngestionSourceBase):
 
         data_source = data_sources_by_id.get(data_source_id)
         if data_source is None:
+            available_ids = sorted(data_sources_by_id.keys())
             self.report.report_warning(
                 title="Unable to construct upstream lineage",
-                message="We did not find a data source / connection with a matching ID, meaning that we do not know the platform/database to use in lineage.",
+                message=f"Data source ID {data_source_id} not found among "
+                f"the {len(available_ids)} data sources in the workspace "
+                f"(available IDs: {available_ids}). This typically means the "
+                f"database connection was deleted from Mode but queries still "
+                f"reference it. Lineage will be skipped for affected queries.",
                 context=f"Data Source ID: {data_source_id}",
             )
             return None, None
@@ -1227,42 +1246,58 @@ class ModeSource(StatefulIngestionSourceBase):
             return
         query = self._replace_definitions(query)
         normalized_query = self.normalize_mode_query(query)
-        query_to_parse = normalized_query
-        # If multiple query is present in the query, we get the last one.
-        # This won't work for complex cases where temp table is created and used in the same query.
-        # But it should be good enough for simple use-cases.
-        try:
-            for partial_query in sqlglot.parse(normalized_query):
-                if not partial_query:
-                    continue
-                # This is hacky but on snowlake we want to change the default warehouse if use warehouse is present
-                if upstream_warehouse_platform == "snowflake":
-                    regexp = r"use\s+warehouse\s+(.*)(\s+)?;"
-                    matches = re.search(
-                        regexp,
-                        partial_query.sql(dialect=upstream_warehouse_platform),
-                        re.MULTILINE | re.DOTALL | re.IGNORECASE,
-                    )
-                    if matches and matches.group(1):
-                        upstream_warehouse_db_name = matches.group(1)
 
-                query_to_parse = partial_query.sql(dialect=upstream_warehouse_platform)
+        # Detect Snowflake USE WAREHOUSE via regex on the raw string (no parse needed).
+        if upstream_warehouse_platform == "snowflake":
+            regexp = r"use\s+warehouse\s+(.*)(\s+)?;"
+            matches = re.search(
+                regexp,
+                normalized_query,
+                re.MULTILINE | re.DOTALL | re.IGNORECASE,
+            )
+            if matches and matches.group(1):
+                upstream_warehouse_db_name = matches.group(1)
+
+        # Parse multi-statement SQL and pick the last meaningful statement.
+        # Uses cached parse_statement internally, with proper dialect.
+        sql_parse_start = time.perf_counter()
+        try:
+            parsed_expression = parse_statements_and_pick(
+                normalized_query, upstream_warehouse_platform
+            )
+            query_to_parse = parsed_expression.sql(dialect=upstream_warehouse_platform)
         except Exception as e:
-            logger.debug(f"sqlglot.parse failed on: {normalized_query}, error: {e}")
+            logger.debug(
+                f"parse_statements_and_pick failed on: {normalized_query}, error: {e}"
+            )
             query_to_parse = normalized_query
 
-        parsed_query_object = create_lineage_sql_parsed_result(
-            query=query_to_parse,
-            default_db=upstream_warehouse_db_name,
-            platform=upstream_warehouse_platform,
-            platform_instance=(
-                self.config.platform_instance_map.get(upstream_warehouse_platform)
-                if upstream_warehouse_platform and self.config.platform_instance_map
-                else None
-            ),
-            env=self.config.env,
-            graph=self.ctx.graph,
+        # Use create_and_cache_schema_resolver + sqlglot_lineage directly.
+        # This enables the _sqlglot_lineage_cached lru_cache to get hits,
+        # since the same SchemaResolver instance is reused for the same
+        # (platform, env, graph, platform_instance) combination.
+        platform_instance = (
+            self.config.platform_instance_map.get(upstream_warehouse_platform)
+            if upstream_warehouse_platform and self.config.platform_instance_map
+            else None
         )
+        try:
+            schema_resolver = create_and_cache_schema_resolver(
+                platform=upstream_warehouse_platform,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                platform_instance=platform_instance,
+            )
+            parsed_query_object = sqlglot_lineage(
+                sql=query_to_parse,
+                schema_resolver=schema_resolver,
+                default_db=upstream_warehouse_db_name,
+            )
+        except Exception as e:
+            parsed_query_object = SqlParsingResult.make_from_error(e)
+        sql_parse_elapsed = time.perf_counter() - sql_parse_start
+        with self.report._lock:
+            self.report.sql_parsing_total_sec += sql_parse_elapsed
 
         with self.report._lock:
             self.report.num_sql_parsed += 1
@@ -1638,6 +1673,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
 
     def _get_queries(self, report_token: str) -> List[dict]:
+        start = time.perf_counter()
         try:
             # This endpoint does not handle pagination properly
             queries = self._get_request_json(
@@ -1663,8 +1699,13 @@ class ModeSource(StatefulIngestionSourceBase):
                     context=f"Report Token: {report_token}, Error: {str(e)}",
                 )
             return []
+        finally:
+            elapsed = time.perf_counter() - start
+            with self.report._lock:
+                self.report.query_api_total_sec += elapsed
 
     def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
+        start = time.perf_counter()
         try:
             # This endpoint does not handle pagination properly
             charts = self._get_request_json(
@@ -1690,6 +1731,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
                 )
             return []
+        finally:
+            elapsed = time.perf_counter() - start
+            with self.report._lock:
+                self.report.chart_api_total_sec += elapsed
 
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
@@ -1812,8 +1857,15 @@ class ModeSource(StatefulIngestionSourceBase):
         report_name = report.get("name", "")
         logger.debug(f"Report: name: {report_name} token: {report_token}")
 
+        report_start = time.perf_counter()
         try:
             yield from self._process_report_inner(space_token, report)
+            with self.report._lock:
+                self.report.num_reports_processed += 1
+            logger.debug(
+                f"Processed report {report_name} ({report_token}) "
+                f"in {time.perf_counter() - report_start:.2f}s"
+            )
         except Exception as e:
             try:
                 logger.warning(
@@ -1845,6 +1897,8 @@ class ModeSource(StatefulIngestionSourceBase):
         space_container_key = self.gen_space_key(space_token)
 
         queries = self._get_queries(report_token)
+        with self.report._lock:
+            self.report.num_queries_processed += len(queries)
         chart_urns: List[str] = []
         query_chart_data: List[
             Tuple[dict, Dict[str, SchemaFieldClass], List[dict]]
@@ -1869,6 +1923,8 @@ class ModeSource(StatefulIngestionSourceBase):
                 yield wu
 
             charts = self._get_charts(report_token, query.get("token", ""))
+            with self.report._lock:
+                self.report.num_charts_processed += len(charts)
             for chart in charts:
                 chart_urn = builder.make_chart_urn(
                     self.platform, chart.get("token", "")
