@@ -33,27 +33,35 @@ buildscript {
     }
   }
 
-  ext.junitJupiterVersion = '5.6.1'
+  ext.junitJupiterVersion = '5.12.2'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.8.1'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.11'
-  ext.springBootVersion = '3.4.5'
+  ext.springVersion = '6.2.13'
+  ext.springBootVersion = '3.5.6'
   ext.springKafkaVersion = '3.3.8'
   ext.openTelemetryVersion = '1.56.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
-  ext.testContainersVersion = '1.21.1'
+  ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.4'
-  ext.jettyVersion = '12.0.21'
+  ext.jettyVersion = '12.0.32'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
+  ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   ext.log4jVersion = '2.25.3'
+  // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
+  ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
+  ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
+  ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
+  ext.sparkLineageJetty94Version = '9.4.57.v20241219' // CVE-2024-13009 (Jetty 9.4 EOL line)
+  ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
   ext.hadoop3Version = '3.3.6'
@@ -183,6 +191,7 @@ project.ext.externalDependency = [
     'jacksonJsr310': 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310',
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml',
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
+    'xercesImpl': 'xerces:xercesImpl:2.12.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
@@ -440,23 +449,89 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
+    resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
+    resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
+    resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
-    resolutionStrategy.force 'org.lz4:lz4-java:1.8.1'
-    // Resolve capability conflict between org.lz4:lz4-java and at.yawk.lz4:lz4-java (CVE-2025-12183 fix)
-    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
-      select 'org.lz4:lz4-java:0'
+    // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
+        details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
+        details.because("CVE-2025-12183, upgrade to 1.10.1")
+      }
     }
-    resolutionStrategy {
-      force "org.eclipse.jetty:jetty-security:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-server:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-ee10-servlet:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-ee10-webapp:${jettyVersion}"
-      force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
+    resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+      select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
+    }
+    resolutionStrategy.force 'org.junit.platform:junit-platform-engine:1.12.2'
+    resolutionStrategy.force 'org.junit.platform:junit-platform-launcher:1.12.2'
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-api:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit.jupiter:junit-jupiter-params:${rootProject.ext.junitJupiterVersion}"
+    resolutionStrategy.force "org.junit:junit-bom:${rootProject.ext.junitJupiterVersion}"
+    // Force all Jetty 12 modules to same version (overrides BOM and dependency lock). Single list used for
+    // both force() and allprojects eachDependency so 12.0.x and 12.1.x are never mixed (API incompatible).
+    def jv = project.rootProject.ext.jettyVersion
+    [
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-common',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server',
+      'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-servlet',
+      'org.eclipse.jetty.ee10:jetty-ee10-annotations',
+      'org.eclipse.jetty.ee10:jetty-ee10-plus',
+      'org.eclipse.jetty.ee10:jetty-ee10-servlet',
+      'org.eclipse.jetty.ee10:jetty-ee10-servlets',
+      'org.eclipse.jetty.ee10:jetty-ee10-webapp',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-client',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-common',
+      'org.eclipse.jetty.websocket:jetty-websocket-core-server',
+      'org.eclipse.jetty.websocket:jetty-websocket-jetty-api',
+      'org.eclipse.jetty.websocket:jetty-websocket-jetty-common',
+      'org.eclipse.jetty:jetty-alpn-client',
+      'org.eclipse.jetty:jetty-client',
+      'org.eclipse.jetty:jetty-ee',
+      'org.eclipse.jetty:jetty-http',
+      'org.eclipse.jetty:jetty-io',
+      'org.eclipse.jetty:jetty-plus',
+      'org.eclipse.jetty:jetty-security',
+      'org.eclipse.jetty:jetty-server',
+      'org.eclipse.jetty:jetty-session',
+      'org.eclipse.jetty:jetty-xml',
+    ].each { resolutionStrategy.force "${it}:${jv}" }
+  }
+}
+
+// Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
+configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
+  configurations.all {
+    resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
+    resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"
+    resolutionStrategy.force "com.nimbusds:nimbus-jose-jwt:${rootProject.ext.sparkLineageNimbusJoseJwtVersion}"
+    resolutionStrategy.force "org.apache.commons:commons-configuration2:${rootProject.ext.sparkLineageCommonsConfiguration2Version}"
+    resolutionStrategy.force "org.eclipse.jetty:jetty-servlet:${rootProject.ext.sparkLineageJetty94Version}"
+    resolutionStrategy.force "org.eclipse.jetty:jetty-util-ajax:${rootProject.ext.sparkLineageJetty94Version}"
+    resolutionStrategy.force "org.eclipse.jetty:jetty-webapp:${rootProject.ext.sparkLineageJetty94Version}"
+  }
+}
+
+// Also align any other Jetty 12 modules (e.g. future BOM additions). Exclude legacy Jetty 9.x websocket
+// artifacts (websocket-api, websocket-client, websocket-common) used by Hadoop etc.; no 12.x for those.
+allprojects {
+  if (project == rootProject) return
+  configurations.all {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group.startsWith('org.eclipse.jetty') &&
+          !details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common']) {
+        details.useVersion(rootProject.ext.jettyVersion)
+        details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
+      }
     }
   }
 }
@@ -539,7 +614,7 @@ subprojects {
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
         implementation('org.apache.commons:commons-configuration2:2.10.1') // GHSA-xjp4-hw94-mvp5: StackOverflowError
-        implementation('org.apache.commons:commons-compress:1.27.1')
+        implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
@@ -547,6 +622,8 @@ subprojects {
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
+        implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
+        implementation(externalDependency.gson) // Gson before 2.8.9: deserialization DoS (writeReplace)
       }
     }
 

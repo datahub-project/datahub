@@ -52,19 +52,17 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install prefect package
-        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint :metadata-ingestion-modules:prefect-plugin:testQuick
+        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint :metadata-ingestion-modules:prefect-plugin:testFull
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/prefect-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.python-version == '3.11'}}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (Prefect Plugin ${{ matrix.python-version}})
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
-            !**/binary/**
+          artifact-name: ingestion-prefect-test-results-${{ strategy.job-index }}
+          test-results-paths: "metadata-ingestion-modules/prefect-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/prefect-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5
@@ -73,7 +71,7 @@ jobs:
           directory: ./build/coverage-reports/metadata-ingestion-modules/prefect-plugin/
           fail_ci_if_error: false
           flags: ingestion-prefect-plugin
-          name: pytest-prefect-${{ matrix.python-version }}
+          name: pytest-prefect-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov

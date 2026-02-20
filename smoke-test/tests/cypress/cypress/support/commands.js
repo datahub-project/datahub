@@ -621,12 +621,6 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
         res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-        // TODO: Remove this once tests are updated to accommodate lineage v3, asset summary tabs, & new home page.
-        res.body.data.appConfig.featureFlags.lineageGraphV3 = false;
-        res.body.data.appConfig.featureFlags.assetSummaryPageV1 = false;
-        res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
-        res.body.data.appConfig.featureFlags.themeV2Toggleable = false;
-        res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
       });
     } else if (hasOperationName(req, "getMe")) {
       req.alias = "gqlgetMeQuery";
@@ -636,6 +630,33 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
     }
   });
 });
+
+Cypress.Commands.add(
+  "setFeatureFlags",
+  (itThemeV2Enabled, updateFeatureFlags) => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.alias = "gqlappConfigQuery";
+
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.themeV2Enabled =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.themeV2Default =
+            itThemeV2Enabled;
+          res.body.data.appConfig.featureFlags.showNavBarRedesign =
+            itThemeV2Enabled;
+          updateFeatureFlags(res);
+        });
+      } else if (hasOperationName(req, "getMe")) {
+        req.alias = "gqlgetMeQuery";
+        req.on("response", (res) => {
+          res.body.data.me.corpUser.settings.appearance.showThemeV2 =
+            itThemeV2Enabled;
+        });
+      }
+    });
+  },
+);
 
 Cypress.Commands.add("interceptGraphQLOperation", (operationName) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {

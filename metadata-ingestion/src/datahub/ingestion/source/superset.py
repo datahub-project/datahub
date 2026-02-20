@@ -15,7 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -213,7 +213,9 @@ class SupersetConfig(
         description="Regex patterns for databases to filter in ingestion.",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
-    password: Optional[str] = Field(default=None, description="Superset password.")
+    password: Optional[TransparentSecretStr] = Field(
+        default=None, description="Superset password."
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
@@ -328,7 +330,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             f"{self.config.connect_uri}/api/v1/security/login",
             json={
                 "username": self.config.username,
-                "password": self.config.password,
+                "password": self.config.password.get_secret_value()
+                if self.config.password
+                else None,
                 "refresh": True,
                 "provider": self.config.provider,
             },

@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterator, Optional
 from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class GCPCredential(ConfigModel):
         None, description="Project id to set the credentials"
     )
     private_key_id: str = Field(description="Private key id")
-    private_key: SecretStr = Field(
+    private_key: TransparentSecretStr = Field(
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = Field(description="Client email")
@@ -122,42 +123,19 @@ class GCPCredential(ConfigModel):
             )
         return self
 
-    def _get_serializable_config(
-        self, project_id: Optional[str] = None
-    ) -> Dict[str, str]:
-        """Get config dict with SecretStr values converted to strings."""
+    def _dump_with_secrets(self, project_id: Optional[str] = None) -> Dict[str, str]:
         configs = self.model_dump()
-        if hasattr(self.private_key, "get_secret_value"):
-            configs["private_key"] = self.private_key.get_secret_value()
+        configs["private_key"] = self.private_key.get_secret_value()
         if project_id:
             configs["project_id"] = project_id
         return configs
 
-    # TODO: To be deprecated in favor of temporary_credentials_file
     def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
-        configs = self._get_serializable_config(project_id)
+        configs = self._dump_with_secrets(project_id)
         with tempfile.NamedTemporaryFile(delete=False) as fp:
             cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
             fp.write(cred_json.encode())
             return fp.name
 
     def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
-        return self._get_serializable_config(project_id)
-
-    @contextmanager
-    def as_context(self, project_id: Optional[str] = None) -> Iterator[None]:
-        """Context manager that sets up these credentials for GCP API calls.
-
-        Creates a temporary credentials file, sets GOOGLE_APPLICATION_CREDENTIALS,
-        and cleans up on exit.
-
-        Example:
-            with config.credential.as_context():
-                client = bigquery.Client()
-        """
-        creds_dict = self.to_dict(project_id)
-        with (
-            temporary_credentials_file(creds_dict) as cred_path,
-            with_temporary_credentials(cred_path),
-        ):
-            yield
+        return self._dump_with_secrets(project_id)

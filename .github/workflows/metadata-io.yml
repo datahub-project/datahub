@@ -77,21 +77,24 @@ jobs:
       - name: Gradle build (and test)
         run: |
           ./gradlew :metadata-io:test
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (metadata-io)
-          path: |
+          artifact-name: Test Results (metadata-io)
+          test-results-paths: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
-            **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
@@ -109,7 +112,7 @@ jobs:
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
             --repository "${{ github.repository }}" \
             --workflow-name "${{ github.workflow }}" \
-            --branch "${{ github.head_ref || github.ref_name }}" \
+            --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}"
 

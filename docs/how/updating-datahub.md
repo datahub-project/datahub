@@ -37,6 +37,10 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Spark integration upgraded from 3.0.3 to 3.3.4 (minimum version required for Java 17 support)
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
+- (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
+- #16149 (Ingestion) DataHub source: now uses URN pattern filtering to exclude environment-specific entities by default. This prevents copying credentials and creating invalid entities.
+  - **Default behavior change**: Previously `exclude_aspects` contained `dataHubIngestionSourceInfo`, `dataHubSecretValue`, `dataHubExecutionRequestInput`, `globalSettingsInfo`. Now `urn_pattern.deny` contains `urn:li:dataHubIngestionSource:.*`, `urn:li:dataHubSecret:.*`, `urn:li:globalSettings:.*`, `urn:li:dataHubExecutionRequest:.*` to exclude entire entity types instead of individual aspects.
+  - **Note**: If you override `urn_pattern` or `exclude_aspects` in recipe, carefully configure them based on your requirements to avoid syncing sensitive data or creating invalid entities. Recommended to keep new defaults.
 
 ### Known Issues
 
@@ -46,6 +50,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
+
 ## v1.4.0
 
 ### Breaking Changes
@@ -53,6 +59,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - Python 3.9 support has been dropped. All Python modules now require Python 3.10 or later. This affects `acryl-datahub`, `acryl-datahub-airflow-plugin`, `acryl-datahub-dagster-plugin`, `acryl-datahub-gx-plugin`, `prefect-datahub`, and `acryl-datahub-actions`. Upgrade to Python 3.10+ before upgrading these packages.
 - #15930: The Airflow plugin's kill switch for Airflow 2.x now uses environment variables instead of Airflow Variables. If you were using `airflow variables set datahub_airflow_plugin_disable_listener true` to disable the plugin, you must now use `export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true` instead.
 - #15877: The LDAP ingestion source now enforces TLS certificate verification by default (`tls_verify: true`). This prevents Man-in-the-Middle attacks (CWE-295) but may break existing configurations using self-signed certificates. To restore the previous behavior, explicitly set `tls_verify: false` in your recipe.
+- #15748: PowerBI ingestion source `create_corp_user` default changed from `True` to `False`. Previously, PowerBI would create user entities by default, potentially overwriting existing user profiles from LDAP/Okta. Now, PowerBI emits ownership URNs only (soft references) by default. To restore previous behavior, explicitly set `ownership.create_corp_user: true` in your recipe. **Migration note**: If upgrading and users appear with incomplete profiles, re-ingest from your authoritative source (LDAP/Okta/SCIM). Additionally, when `create_corp_user: true`, the connector now emits both `CorpUserKeyClass` and `CorpUserInfoClass` (was only `CorpUserKeyClass`), providing complete user metadata. **Stateful ingestion note**: User entities created by PowerBI are now marked as non-primary (`is_primary_source=False`), so they will NOT be soft-deleted by stateful ingestion when they disappear. This prevents accidental deletion of users who may also exist in LDAP/Okta/SCIM.
 - #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. Existing entities will be automatically reindexed in the background after upgrade. New MLModel and MLModelGroup entities ingested after the upgrade will work immediately.
 - #15397: Grafana ingestion source dataset granularity changed from per-datasource to per-panel (per visual). This improves lineage accuracy by ensuring each panel's query results in a unique dataset entity with precise upstream/downstream connections. Dataset URN format changed from `{ds_type}.{ds_uid}` to `{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}`. This means all existing Grafana dataset entities will have different URNs. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up old entities and create new ones. Otherwise, we recommend soft deleting all Grafana datasets via the DataHub CLI: `datahub delete --platform grafana --soft` and then re-ingesting with the latest CLI version.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
@@ -64,6 +71,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - In `Dashboard` entitiy and `dashboardInfo` aspect, `charts` property (deprecated) is replaced with `chartEdges`
   - Only emits MCPs
 - #16023: In PowerBI, Container URNs change for users with `platform_instance` configured, as this PR now passes `platform_instance` to dataset containers (affects GUID generation). The `env` parameter addition is harmless as it's excluded from GUID calculation. Stateful ingestion will soft-delete old containers and create new ones on the next run. Dataset entities and their lineage are unaffected.
+- #16067: Oracle stored procedure URN format has been corrected to match table URN format. For most users (using `service_name` or `database` without `add_database_name_to_urn: true`), stored procedure DataJob URNs will change from `database.schema.stored_procedures` to `schema.stored_procedures`. This fixes a URN mismatch that prevented stored procedure lineage from working. Stateful ingestion will soft-delete old stored procedure entities and create new ones with correct lineage on the next run. Users with `database` config parameter and `add_database_name_to_urn: true` are unaffected.
 
 ### Deprecations
 
@@ -81,6 +89,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
 - #14968: Added an ingestion source for IBM Db2 databases.
 - #15824: The Databricks ingestion source now additionally supports authentication via M2M OAuth or Databricks unified authentication. The Azure authentication method now supports profiling as well as ingesting lineage from system tables.
+- #16067: Oracle ingestion source improvements: Added procedure-to-procedure lineage support, improved PL/SQL parsing for control flow keywords (WHILE, LOOP, EXCEPTION, etc.), fixed overloaded procedure handling, and added distinct subtypes for functions vs procedures. Stored procedures and functions now have proper container hierarchy (Database → Schema → Flow) matching tables and views. Both functions and procedures are organized in the same `{schema}.stored_procedures` container (consistent with PostgreSQL, MySQL, and Snowflake), with individual subtypes to distinguish them.
 
 ## 1.3.0
 
