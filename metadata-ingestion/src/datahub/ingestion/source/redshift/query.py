@@ -12,16 +12,11 @@ _QUERY_SEQUENCE_LIMIT = 290
 
 _MAX_COPY_ENTRIES_PER_TABLE = 20
 
-# Fixed-width segment sizes for Redshift system tables that store query text.
-# Redshift pads segments to this width with trailing spaces (character(n) type).
-# Used in boundary-aware LISTAGG stitching to detect word boundaries.
+# character(n) segment sizes for Redshift system tables.
 _PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
 _SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
 
-# CHR(1) (SOH control character) is used as a boundary marker in LISTAGG stitching.
-# Inserted at segment boundaries where content < segment_size (i.e. trailing spaces
-# were stripped). Python-side stitch_query_segments() then decides whether to replace
-# each marker with a space (keyword boundary) or nothing (mid-identifier split).
+# Boundary marker inserted where RTRIM stripped trailing spaces from a segment.
 _SEGMENT_BOUNDARY = chr(1)
 
 # Keywords used to decide whether a segment boundary needs a space.
@@ -212,7 +207,6 @@ def _boundary_aware_listagg(col: str, segment_size: int, order_col: str) -> str:
     """Build a LISTAGG expression with CHR(1) boundary markers.
 
     All 6 LISTAGG locations in this file must use the same boundary logic.
-    This helper ensures they stay in sync.
     """
     return (
         f"LISTAGG(RTRIM({col}) || CASE WHEN LEN(RTRIM({col})) < {segment_size}"

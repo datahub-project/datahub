@@ -78,6 +78,17 @@ class TestStitchQuerySegments:
         raw = f"my$va{_B}r_name"
         assert stitch_query_segments(raw) == "my$var_name"
 
+    def test_case_when_boundary(self):
+        # The actual production bug: Sigma queries with CASE WHEN merged to casewhen
+        raw = f"SELECT CASE{_B}WHEN x > 0 THEN 1 END"
+        assert stitch_query_segments(raw) == "SELECT CASE WHEN x > 0 THEN 1 END"
+
+    def test_non_keyword_identifiers_no_space(self):
+        # Known tradeoff: non-keyword identifiers at boundary don't get a space.
+        # This is accepted to avoid breaking mid-identifier splits like cast_770.
+        raw = f"table_name{_B}alias"
+        assert stitch_query_segments(raw) == "table_namealias"
+
 
 class TestProvisionedScanLineageCTE:
     """The structural change: CTE from STL_QUERYTEXT instead of stl_query.querytxt."""
@@ -133,11 +144,14 @@ class TestSegmentSizeNotCrossed:
             assert "< 200" not in sql
 
 
-class TestChr1MarkerInSQL:
-    """All LISTAGG locations use CHR(1) marker, not unconditional space."""
+class TestListaggPattern:
+    """All 6 LISTAGG locations use CHR(1), no old patterns remain."""
 
-    def test_provisioned_uses_chr1(self):
-        for sql in [
+    ALL_SQLS = None
+
+    @classmethod
+    def _all_sqls(cls):
+        return [
             RedshiftProvisionedQuery.stl_scan_based_lineage_query(
                 db_name="test_db", start_time=START_TIME, end_time=END_TIME
             ),
@@ -147,12 +161,6 @@ class TestChr1MarkerInSQL:
             RedshiftProvisionedQuery.temp_table_ddl_query(
                 start_time=START_TIME, end_time=END_TIME
             ),
-        ]:
-            assert "CHR(1)" in sql
-            assert "THEN ' '" not in sql
-
-    def test_serverless_uses_chr1(self):
-        for sql in [
             RedshiftServerlessQuery.stl_scan_based_lineage_query(
                 db_name="test_db", start_time=START_TIME, end_time=END_TIME
             ),
@@ -162,55 +170,23 @@ class TestChr1MarkerInSQL:
             RedshiftServerlessQuery.temp_table_ddl_query(
                 start_time=START_TIME, end_time=END_TIME
             ),
-        ]:
+        ]
+
+    def test_uses_chr1_marker(self):
+        for sql in self._all_sqls():
             assert "CHR(1)" in sql
+
+    def test_no_unconditional_space(self):
+        for sql in self._all_sqls():
             assert "THEN ' '" not in sql
 
-
-class TestOldPatternRemoved:
-    def test_no_old_unconditional_space_pattern(self):
-        """Old THEN ' ' pattern should be gone from all LISTAGG queries."""
-        all_sqls = [
-            RedshiftProvisionedQuery.list_insert_create_queries_sql(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftProvisionedQuery.temp_table_ddl_query(
-                start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftServerlessQuery.list_insert_create_queries_sql(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftServerlessQuery.temp_table_ddl_query(
-                start_time=START_TIME, end_time=END_TIME
-            ),
-        ]
-        for sql in all_sqls:
+    def test_no_old_aws_rtrim_pattern(self):
+        for sql in self._all_sqls():
             assert "LEN(RTRIM(text)) = 0" not in sql
             assert "LEN(RTRIM(querytxt)) = 0" not in sql
 
     def test_no_rtrim_wrapping_listagg(self):
-        """RTRIM should not wrap the entire LISTAGG result."""
-        all_sqls = [
-            RedshiftProvisionedQuery.stl_scan_based_lineage_query(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftProvisionedQuery.list_insert_create_queries_sql(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftProvisionedQuery.temp_table_ddl_query(
-                start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftServerlessQuery.stl_scan_based_lineage_query(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftServerlessQuery.list_insert_create_queries_sql(
-                db_name="test_db", start_time=START_TIME, end_time=END_TIME
-            ),
-            RedshiftServerlessQuery.temp_table_ddl_query(
-                start_time=START_TIME, end_time=END_TIME
-            ),
-        ]
-        for sql in all_sqls:
+        for sql in self._all_sqls():
             assert "RTRIM(LISTAGG" not in sql
 
 
@@ -229,9 +205,7 @@ class TestKeywordSet:
             "UPDATE",
             "DELETE",
             "SET",
+            "CASE",
+            "WHEN",
         ]:
             assert kw in REDSHIFT_RESERVED_KEYWORDS
-
-    def test_non_keywords_absent(self):
-        for word in ["CAST_770", "MY_TABLE", "FOO", "BAR"]:
-            assert word not in REDSHIFT_RESERVED_KEYWORDS
