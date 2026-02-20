@@ -11,13 +11,7 @@ class MSSQLQuery:
     def _build_exclude_clause(
         exclude_patterns: Optional[List[str]], column_expr: str
     ) -> str:
-        """
-        Build SQL WHERE clause for excluding patterns using parameterized queries.
-
-        SECURITY: column_expr is ALWAYS a hardcoded column name from this module
-        (never user input). Pattern values use bind parameters (:exclude_0, etc.)
-        which are safely bound by SQLAlchemy.
-        """
+        """Build SQL WHERE clause for excluding patterns."""
         if not exclude_patterns:
             return ""
 
@@ -33,11 +27,7 @@ class MSSQLQuery:
         exclude_patterns: Optional[List[str]],
         base_params: Dict[str, Union[int, str]],
     ) -> Dict[str, Union[int, str]]:
-        """
-        Build parameter dict with exclude patterns (exclude_0, exclude_1, etc.).
-
-        These params are bound by SQLAlchemy's parameterization system, preventing SQL injection.
-        """
+        """Build parameter dict with exclude patterns."""
         params = base_params.copy()
         if exclude_patterns:
             for i, pattern in enumerate(exclude_patterns):
@@ -79,27 +69,40 @@ class MSSQLQuery:
         """)
 
     @staticmethod
-    def get_query_history_from_query_store(
-        limit: int,
-        min_calls: int,
-        exclude_patterns: Optional[List[str]],
-    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
-        """
-        Extract query history from Query Store (SQL Server 2016+).
-
-        Query Store provides detailed query performance stats and full query text.
-        This is the preferred method when available.
-        """
+    def _validate_query_params(limit: int, min_calls: int) -> None:
+        """Validate query history parameters."""
         if limit <= 0:
             raise ValueError(f"limit must be positive, got: {limit}")
         if min_calls < 0:
             raise ValueError(f"min_calls must be non-negative, got: {min_calls}")
 
+    @staticmethod
+    def _get_query_history_base(
+        exclude_column_expr: str,
+        query_template_builder: str,
+        limit: int,
+        min_calls: int,
+        exclude_patterns: Optional[List[str]],
+    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
+        """Common logic for Query Store and DMV query history extraction."""
+        MSSQLQuery._validate_query_params(limit, min_calls)
+
         exclude_clause = MSSQLQuery._build_exclude_clause(
-            exclude_patterns, "qt.query_sql_text"
+            exclude_patterns, exclude_column_expr
         )
 
-        query = f"""
+        query = query_template_builder.format(exclude_clause=exclude_clause)
+
+        return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
+
+    @staticmethod
+    def get_query_history_from_query_store(
+        limit: int,
+        min_calls: int,
+        exclude_patterns: Optional[List[str]],
+    ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
+        """Extract query history from Query Store (SQL Server 2016+)."""
+        query_template = """
             SELECT TOP(:limit)
                 CAST(q.query_id AS VARCHAR(50)) AS query_id,
                 qt.query_sql_text AS query_text,
@@ -117,13 +120,19 @@ class MSSQLQuery:
                 rs.count_executions >= :min_calls
                 {exclude_clause}
                 AND qt.query_sql_text IS NOT NULL
-                AND LEN(qt.query_sql_text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
+                AND LEN(qt.query_sql_text) > 0
             GROUP BY q.query_id, qt.query_sql_text
             HAVING SUM(rs.count_executions) >= :min_calls
             ORDER BY SUM(rs.avg_duration * rs.count_executions) DESC
         """
 
-        return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
+        return MSSQLQuery._get_query_history_base(
+            exclude_column_expr="qt.query_sql_text",
+            query_template_builder=query_template,
+            limit=limit,
+            min_calls=min_calls,
+            exclude_patterns=exclude_patterns,
+        )
 
     @staticmethod
     def get_query_history_from_dmv(
@@ -131,24 +140,8 @@ class MSSQLQuery:
         min_calls: int,
         exclude_patterns: Optional[List[str]],
     ) -> Tuple[TextClause, Dict[str, Union[int, str]]]:
-        """
-        Extract query history from Dynamic Management Views (DMVs).
-
-        Uses sys.dm_exec_cached_plans and sys.dm_exec_query_stats for cached queries.
-        This is the fallback method for older versions or when Query Store is disabled.
-
-        Note: DMVs only contain cached queries, so some historical queries may be missing.
-        """
-        if limit <= 0:
-            raise ValueError(f"limit must be positive, got: {limit}")
-        if min_calls < 0:
-            raise ValueError(f"min_calls must be non-negative, got: {min_calls}")
-
-        exclude_clause = MSSQLQuery._build_exclude_clause(
-            exclude_patterns, "CAST(st.text AS NVARCHAR(MAX))"
-        )
-
-        query = f"""
+        """Extract query history from DMVs (fallback for SQL Server 2014 or when Query Store is disabled)."""
+        query_template = """
             SELECT TOP(:limit)
                 CAST(qs.sql_handle AS VARCHAR(50)) AS query_id,
                 CAST(st.text AS NVARCHAR(MAX)) AS query_text,
@@ -161,12 +154,18 @@ class MSSQLQuery:
                 qs.execution_count >= :min_calls
                 {exclude_clause}
                 AND st.text IS NOT NULL
-                AND LEN(st.text) > 0  -- Filters empty strings and whitespace-only queries (LEN ignores trailing spaces)
+                AND LEN(st.text) > 0
                 AND st.dbid = DB_ID()
             ORDER BY qs.total_elapsed_time DESC
         """
 
-        return MSSQLQuery._finalize_query(query, exclude_patterns, limit, min_calls)
+        return MSSQLQuery._get_query_history_base(
+            exclude_column_expr="CAST(st.text AS NVARCHAR(MAX))",
+            query_template_builder=query_template,
+            limit=limit,
+            min_calls=min_calls,
+            exclude_patterns=exclude_patterns,
+        )
 
     @staticmethod
     def get_mssql_version() -> TextClause:
