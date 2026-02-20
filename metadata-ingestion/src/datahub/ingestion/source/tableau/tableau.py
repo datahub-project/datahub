@@ -831,6 +831,7 @@ class TableauSourceReport(
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
     num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_processed_without_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
@@ -1940,18 +1941,21 @@ class TableauSiteSource:
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
-            # skip upstream tables when there is no column info when retrieving datasource
-            # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
+            # Extract column count if available
             num_tbl_cols: Optional[int] = table.get(c.COLUMNS_CONNECTION) and table[
                 c.COLUMNS_CONNECTION
-            ].get("totalCount")
+            ].get(c.TOTAL_COUNT)
+
+            # Tables without column metadata: create table-level lineage only
             if not is_custom_sql and not num_tbl_cols:
-                self.report.num_upstream_table_skipped_no_columns += 1
-                logger.warning(
-                    f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
+                self.report.num_upstream_table_processed_without_columns += 1
+                logger.info(
+                    f"Table {table[c.ID]} has no column metadata from Tableau API. "
+                    f"Creating table-level lineage only (column-level lineage will be skipped). "
+                    f"Table details: {table}"
                 )
-                continue
-            elif table[c.NAME] is None:
+
+            if table[c.NAME] is None:
                 self.report.num_upstream_table_skipped_no_name += 1
                 logger.warning(
                     f"Skipping upstream table {table[c.ID]} from lineage since its name is none: {table}"
@@ -2972,7 +2976,9 @@ class TableauSiteSource:
             c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
         }
 
-        # Emitting tables that came from Tableau metadata
+        emitted_urns: Set[str] = set()
+
+        # Phase 1: Emitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
             query=database_tables_graphql_query,
             connection_type=c.DATABASE_TABLES_CONNECTION,
@@ -2996,23 +3002,15 @@ class TableauSiteSource:
                 continue
 
             yield from self.emit_table(database_table, tableau_columns)
+            emitted_urns.add(database_table.urn)
 
-        # Emitting tables that were purely parsed from SQL queries
-        for database_table in self.database_tables.values():
-            # Only tables purely parsed from SQL queries don't have ID
-            if database_table.id:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
-                )
-                continue
-
-            if not self.config.ingest_tables_external:
-                logger.debug(
-                    f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
-                )
-                continue
-
-            yield from self.emit_table(database_table, None)
+        # Phase 2: Emit remaining tables: SQL-parsed (no Tableau ID) and
+        # tables not returned by Tableau re-query (no column metadata)
+        if self.config.ingest_tables_external:
+            for database_table in self.database_tables.values():
+                if database_table.urn not in emitted_urns:
+                    yield from self.emit_table(database_table, None)
+                    emitted_urns.add(database_table.urn)
 
     def emit_table(
         self,
@@ -3037,8 +3035,10 @@ class TableauSiteSource:
             )
             dataset_snapshot.aspects.append(browse_paths)
         else:
-            logger.debug(f"Browse path not set for table {database_table.urn}")
-            return
+            logger.debug(
+                f"Table {database_table.urn} has no browse path (likely external upstream table)"
+            )
+            # Continue to emit entity with other aspects
 
         schema_metadata = self.get_schema_metadata_for_table(
             tableau_columns, database_table.parsed_columns
@@ -3227,7 +3227,6 @@ class TableauSiteSource:
         if sheet.get(c.DATA_SOURCE_FIELDS):
             self.populate_sheet_upstream_fields(sheet, input_fields)
 
-        # datasource urn
         datasource_urn = []
         data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
