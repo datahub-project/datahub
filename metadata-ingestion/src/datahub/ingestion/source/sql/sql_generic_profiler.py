@@ -2,9 +2,14 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 from sqlalchemy import create_engine, inspect
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
@@ -58,11 +63,12 @@ class GenericProfiler:
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
         # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
-        ge_profile_requests: List[GEProfilerRequest] = [
-            cast(GEProfilerRequest, request)
-            for request in requests
-            if not request.profile_table_level_only or request.table.rows_count == 0
-        ]
+        ge_profile_requests: List[GEProfilerRequest] = []
+        for request in requests:
+            if not request.profile_table_level_only or request.table.rows_count == 0:
+                # Runtime validation instead of cast
+                assert isinstance(request, GEProfilerRequest)
+                ge_profile_requests.append(request)
         table_level_profile_requests: List[TableProfilerRequest] = [
             request for request in requests if request.profile_table_level_only
         ]
@@ -99,7 +105,11 @@ class GenericProfiler:
             if profile is None:
                 continue
 
-            request = cast(TableProfilerRequest, ge_profiler_request)
+            # Runtime validation instead of cast
+            assert isinstance(ge_profiler_request, TableProfilerRequest), (
+                f"Expected TableProfilerRequest, got {type(ge_profiler_request)}"
+            )
+            request = ge_profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
             # If table is partitioned we profile only one partition (if nothing set then the last one)
@@ -203,7 +213,11 @@ class GenericProfiler:
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
 
@@ -213,13 +227,28 @@ class GenericProfiler:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-            env=self.config.env,
-        )
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def is_dataset_eligible_for_profiling(
         self,

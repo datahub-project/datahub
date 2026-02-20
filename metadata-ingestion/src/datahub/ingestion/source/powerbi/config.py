@@ -9,6 +9,7 @@ from pydantic import field_validator, model_validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     AllowDenyPattern,
+    ConfigEnum,
     ConfigModel,
     HiddenFromDocs,
     TransparentSecretStr,
@@ -352,10 +353,20 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+class PowerBiEnvironment(ConfigEnum):
+    COMMERCIAL = "COMMERCIAL"
+    GOVERNMENT = "GOVERNMENT"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
+
+    environment: PowerBiEnvironment = pydantic.Field(
+        default=PowerBiEnvironment.COMMERCIAL,
+        description="PowerBI environment to connect to. Options: 'commercial' (default) for commercial PowerBI, 'government' for PowerBI Government Community Cloud (GCC)",
+    )
 
     platform_urn: HiddenFromDocs[str] = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
