@@ -63,7 +63,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://bank.com/trading/loans/Customer_Name"
+                "rdf:originalIRI": "http://bank.com/trading/loans/Customer_Name",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix trading: <http://bank.com/trading/loans/> .\n\ntrading:Customer_Name a skos:Concept ;\n    skos:definition \"The name of the customer\" ;\n    skos:prefLabel \"Customer Name\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Customer Name. Definition: The name of the customer."
             },
             "name": "Customer Name",
             "definition": "The name of the customer",
@@ -74,7 +77,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406906948,
+        "lastObserved": 1771632452740,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }
@@ -87,7 +90,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://bank.com/trading/loans/Loan_Amount"
+                "rdf:originalIRI": "http://bank.com/trading/loans/Loan_Amount",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n@prefix trading: <http://bank.com/trading/loans/> .\n\ntrading:Loan_Amount a skos:Concept ;\n    skos:definition \"The principal amount of the loan\" ;\n    skos:prefLabel \"Loan Amount\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Loan Amount. Definition: The principal amount of the loan."
             },
             "name": "Loan Amount",
             "definition": "The principal amount of the loan",
@@ -98,7 +104,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406906948,
+        "lastObserved": 1771632452740,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }

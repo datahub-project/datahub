@@ -46,7 +46,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/glossary/AccountIdentifier"
+                "rdf:originalIRI": "http://example.org/glossary/AccountIdentifier",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:AccountIdentifier a skos:Concept ;\n    skos:definition \"A unique identifier for an account\" ;\n    skos:prefLabel \"Account Identifier\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Account Identifier. Definition: A unique identifier for an account."
             },
             "name": "Account Identifier",
             "definition": "A unique identifier for an account",
@@ -57,7 +60,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406908151,
+        "lastObserved": 1771632455230,
         "runId": "rdf-test-stateful",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"
@@ -71,7 +74,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/glossary/CustomerName"
+                "rdf:originalIRI": "http://example.org/glossary/CustomerName",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:CustomerName a skos:Concept ;\n    skos:definition \"The name of the customer\" ;\n    skos:prefLabel \"Customer Name\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Customer Name. Definition: The name of the customer."
             },
             "name": "Customer Name",
             "definition": "The name of the customer",
@@ -82,7 +88,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406908151,
+        "lastObserved": 1771632455231,
         "runId": "rdf-test-stateful",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"

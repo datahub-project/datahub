@@ -62,7 +62,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/glossary/ChildTerm"
+                "rdf:originalIRI": "http://example.org/glossary/ChildTerm",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ChildTerm a skos:Concept ;\n    skos:broader ex:ParentTerm ;\n    skos:definition \"A child term\" ;\n    skos:prefLabel \"Child Term\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "skos:broaderIRIs": "http://example.org/glossary/ParentTerm",
+                "rdf:lexicalSummary": "Preferred label: Child Term. Definition: A child term."
             },
             "name": "Child Term",
             "definition": "A child term",
@@ -73,7 +77,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406906744,
+        "lastObserved": 1771632452547,
         "runId": "rdf-test-relationships",
         "lastRunId": "no-run-id-provided"
     }
@@ -86,7 +90,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/glossary/ParentTerm"
+                "rdf:originalIRI": "http://example.org/glossary/ParentTerm",
+                "rdf:definition": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ParentTerm a skos:Concept ;\n    skos:definition \"A parent term\" ;\n    skos:prefLabel \"Parent Term\" .\n\n",
+                "rdf:definitionIncoming": "@prefix ex: <http://example.org/glossary/> .\n@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\nex:ChildTerm skos:broader ex:ParentTerm .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Parent Term. Definition: A parent term."
             },
             "name": "Parent Term",
             "definition": "A parent term",
@@ -97,7 +105,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406906745,
+        "lastObserved": 1771632452548,
         "runId": "rdf-test-relationships",
         "lastRunId": "no-run-id-provided"
     }

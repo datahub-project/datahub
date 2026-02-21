@@ -44,7 +44,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/glossary/TestTerm"
+                "rdf:originalIRI": "http://example.org/glossary/TestTerm",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\n<http://example.org/glossary/TestTerm> a skos:Concept ;\n    skos:definition \"A test term\" ;\n    skos:prefLabel \"Test Term\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Test Term. Definition: A test term."
             },
             "name": "Test Term",
             "definition": "A test term",
@@ -55,7 +58,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765406907172,
+        "lastObserved": 1771632453011,
         "runId": "rdf-test-xml",
         "lastRunId": "no-run-id-provided"
     }

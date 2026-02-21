@@ -753,3 +753,140 @@ def test_fibo_named_individual_ingestion(
         output_path=str(output_path),
         golden_path=str(golden_path),
     )
+
+
+@pytest.fixture
+def multi_namespace_ttl(tmp_path):
+    """Create an RDF file with multiple namespaces for SPARQL filtering tests."""
+    ttl_content = """@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix module1: <https://example.org/module1/> .
+@prefix module2: <https://example.org/module2/> .
+
+module1:Term1 a skos:Concept ;
+    skos:prefLabel "Module 1 Term 1" ;
+    skos:definition "First term from module 1" .
+
+module1:Term2 a skos:Concept ;
+    skos:prefLabel "Module 1 Term 2" ;
+    skos:definition "Second term from module 1" .
+
+module2:Term1 a skos:Concept ;
+    skos:prefLabel "Module 2 Term 1" ;
+    skos:definition "First term from module 2" .
+
+module2:Term2 a skos:Concept ;
+    skos:prefLabel "Module 2 Term 2" ;
+    skos:definition "Second term from module 2" .
+"""
+    ttl_file = tmp_path / "multi_namespace.ttl"
+    ttl_file.write_text(ttl_content)
+    return str(ttl_file)
+
+
+@pytest.mark.integration
+def test_sparql_filter_single_namespace(
+    multi_namespace_ttl, pytestconfig, tmp_path, mock_datahub_graph_instance
+):
+    """Test SPARQL filter to filter by single namespace."""
+    output_path = tmp_path / "sparql_filter_single_output.json"
+    golden_path = _resources_dir / "sparql_filter_single_golden.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-sparql-filter-single",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": multi_namespace_ttl,
+                    "format": "turtle",
+                    "environment": "PROD",
+                    "sparql_filter": """
+                    CONSTRUCT { ?s ?p ?o }
+                    WHERE {
+                        ?s ?p ?o .
+                        FILTER(STRSTARTS(STR(?s), "https://example.org/module1/"))
+                    }
+                    """,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": str(output_path),
+                },
+            },
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
+
+    # Verify that only module1 terms were extracted
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
+    # Should have filtered to only module1 terms
+    # The exact count depends on the golden file, but we verify via golden file check
+
+
+@pytest.mark.integration
+def test_sparql_filter_multiple_namespaces(
+    multi_namespace_ttl, pytestconfig, tmp_path, mock_datahub_graph_instance
+):
+    """Test SPARQL filter to filter by multiple namespaces."""
+    output_path = tmp_path / "sparql_filter_multiple_output.json"
+    golden_path = _resources_dir / "sparql_filter_multiple_golden.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-sparql-filter-multiple",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": multi_namespace_ttl,
+                    "format": "turtle",
+                    "environment": "PROD",
+                    "sparql_filter": """
+                    CONSTRUCT { ?s ?p ?o }
+                    WHERE {
+                        ?s ?p ?o .
+                        FILTER(
+                            STRSTARTS(STR(?s), "https://example.org/module1/") ||
+                            STRSTARTS(STR(?s), "https://example.org/module2/")
+                        )
+                    }
+                    """,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": str(output_path),
+                },
+            },
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
+
+    # Verify that both module1 and module2 terms were extracted
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
+    # Should have filtered to both module1 and module2 terms
+    # The exact count depends on the golden file, but we verify via golden file check

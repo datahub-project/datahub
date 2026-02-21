@@ -25,7 +25,10 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "rdf:originalIRI": "http://example.org/ClassTerm"
+                "rdf:originalIRI": "http://example.org/ClassTerm",
+                "rdf:definition": "@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\n<http://example.org/ClassTerm> a owl:Class ;\n    rdfs:label \"Class Term\" ;\n    rdfs:comment \"A term that is an OWL Class\" .\n\n",
+                "rdf:types": "http://www.w3.org/2002/07/owl#Class",
+                "rdf:lexicalSummary": "Preferred label: Class Term. Definition: A term that is an OWL Class."
             },
             "name": "Class Term",
             "definition": "A term that is an OWL Class",
@@ -36,7 +39,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1768710537341,
+        "lastObserved": 1771632457305,
         "runId": "rdf-test-fibo-named-individual",
         "lastRunId": "no-run-id-provided"
     }
