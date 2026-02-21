@@ -4,6 +4,7 @@ import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import auth.sso.oidc.OidcCallbackLogic;
+import auth.sso.oidc.RequiredGroupsException;
 import client.AuthServiceClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.utils.BasePathUtils;
@@ -44,6 +45,7 @@ public class SsoCallbackController extends CallbackController {
   private final Config config;
   private final CallbackLogic callbackLogic;
   private final com.typesafe.config.Config configs;
+  private final String accessDeniedMessage;
 
   @Inject
   public SsoCallbackController(
@@ -56,6 +58,10 @@ public class SsoCallbackController extends CallbackController {
     this.ssoManager = ssoManager;
     this.config = config;
     this.configs = configs;
+    this.accessDeniedMessage =
+        configs.hasPath("auth.oidc.accessDeniedMessage")
+            ? configs.getString("auth.oidc.accessDeniedMessage")
+            : null;
 
     // Set default URL with proper base path - redirects to Home Page on log in
     String basePath = BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
@@ -99,19 +105,24 @@ public class SsoCallbackController extends CallbackController {
           .handle(
               (res, e) -> {
                 if (e != null) {
-                  log.error(
-                      "Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.",
-                      e);
                   String basePath =
                       BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
                   String loginUrl = BasePathUtils.addBasePath("/login", basePath);
+                  String message;
+                  if (e.getCause() instanceof RequiredGroupsException) {
+                    log.warn("User missing required groups.");
+                    message =
+                        (accessDeniedMessage != null && !accessDeniedMessage.isEmpty())
+                            ? accessDeniedMessage
+                            : "Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.";
+                  } else {
+                    message =
+                        "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.";
+                  }
                   return Results.redirect(
                           String.format(
                               "%s?error_msg=%s",
-                              loginUrl,
-                              URLEncoder.encode(
-                                  "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
-                                  StandardCharsets.UTF_8)))
+                              loginUrl, URLEncoder.encode(message, StandardCharsets.UTF_8)))
                       .discardingCookie("actor")
                       .withNewSession();
                 }
