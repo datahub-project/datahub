@@ -1,0 +1,93 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632457678,
+        "runId": "rdf-test-sparql-filter-single",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org.module1",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: module1",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "module1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632457678,
+        "runId": "rdf-test-sparql-filter-single",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.module1.Term1",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "https://example.org/module1/Term1",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\n<https://example.org/module1/Term1> a skos:Concept ;\n    skos:definition \"First term from module 1\" ;\n    skos:prefLabel \"Module 1 Term 1\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Module 1 Term 1. Definition: First term from module 1."
+            },
+            "name": "Module 1 Term 1",
+            "definition": "First term from module 1",
+            "parentNode": "urn:li:glossaryNode:example.org.module1",
+            "termSource": "EXTERNAL",
+            "sourceRef": "https://example.org/module1/Term1",
+            "sourceUrl": "https://example.org/module1/Term1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632457678,
+        "runId": "rdf-test-sparql-filter-single",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.module1.Term2",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "https://example.org/module1/Term2",
+                "rdf:definition": "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\n<https://example.org/module1/Term2> a skos:Concept ;\n    skos:definition \"Second term from module 1\" ;\n    skos:prefLabel \"Module 1 Term 2\" .\n\n",
+                "rdf:types": "http://www.w3.org/2004/02/skos/core#Concept",
+                "rdf:lexicalSummary": "Preferred label: Module 1 Term 2. Definition: Second term from module 1."
+            },
+            "name": "Module 1 Term 2",
+            "definition": "Second term from module 1",
+            "parentNode": "urn:li:glossaryNode:example.org.module1",
+            "termSource": "EXTERNAL",
+            "sourceRef": "https://example.org/module1/Term2",
+            "sourceUrl": "https://example.org/module1/Term2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1771632457678,
+        "runId": "rdf-test-sparql-filter-single",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
