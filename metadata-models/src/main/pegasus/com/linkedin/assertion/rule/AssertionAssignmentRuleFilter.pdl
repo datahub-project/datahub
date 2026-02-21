@@ -1,0 +1,20 @@
+namespace com.linkedin.assertion.rule
+
+import com.linkedin.metadata.query.filter.Filter
+
+/**
+ * The filter criteria used to match entities for an Assertion Assignment Rule.
+ */
+record AssertionAssignmentRuleFilter {
+    /**
+     * The structured filter used to match entities for assertion assignment.
+     */
+    filter: Filter
+
+    /**
+     * The serialized JSON representation of the filter, used for UI rendering.
+     * The UI builds a logical predicate tree that is flattened into orFilters for GraphQL.
+     * This string preserves the original tree structure so the UI can restore it.
+     */
+    json: optional string
+}

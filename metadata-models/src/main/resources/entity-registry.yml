@@ -990,10 +990,19 @@ entities:
       - monitorAnomalyEvent
       - status
   - name: monitorSuite
+    doc: "DEPRECATED - DO NOT USE. Never implemented (no service layer, hooks, UI, or customer data). Schema-only placeholder. Use assertionAssignmentRule instead. Safe to remove entirely."
     category: core
     keyAspect: monitorSuiteKey
     aspects:
       - monitorSuiteInfo
+  - name: assertionAssignmentRule
+    doc: A rule that automatically assigns assertions and subscriptions to entities matching a filter.
+    category: core
+    keyAspect: assertionAssignmentRuleKey
+    aspects:
+      - assertionAssignmentRuleInfo
+      - ownership
+      - status
   - name: linkPreview
     category: internal
     keyAspect: linkPreviewKey

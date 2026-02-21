@@ -340,6 +340,14 @@ def get_custom_model_provider_config() -> CustomModelProvider | None:
                     if name and value:
                         custom_headers[name] = value
 
+        # these allow setting the model_custom_header_value to a secret if needed.
+        single_header_name = os.getenv("MODEL_CUSTOM_HEADER_NAME")
+        single_header_value = os.getenv("MODEL_CUSTOM_HEADER_VALUE")
+        if single_header_name and single_header_value:
+            if custom_headers is None:
+                custom_headers = {}
+            custom_headers[single_header_name] = single_header_value
+
         custom_model_provider = CustomModelProvider(
             base_url=custom_base_url,
             api_key=api_key,
