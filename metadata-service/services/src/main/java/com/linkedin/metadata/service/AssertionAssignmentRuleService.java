@@ -63,6 +63,26 @@ public class AssertionAssignmentRuleService extends BaseService {
     }
   }
 
+  /**
+   * Remove the backing metadata test automation for an assertion assignment rule.
+   *
+   * <p>The transactional deletion of the backing test entity is handled by
+   * AssertionAssignmentRuleDeleteSideEffect. This method handles additional async cleanup (e.g.,
+   * removing managed assertions from target entities via SearchBasedAssertionAssignmentRuleRunner)
+   * once that runner is implemented.
+   *
+   * <p>This cleanup is invoked from an MCL hook rather than an MCPSideEffect because it requires
+   * OperationContext and SystemEntityClient to perform search queries and entity mutations (e.g.,
+   * finding all target entities that have managed assertions and removing them). The
+   * MCPSideEffect's RetrieverContext only supports generating additional MCPs within the same
+   * transaction—it does not provide the service-layer access needed for search-based fan-out
+   * operations.
+   */
+  public void removeAssertionAssignmentRuleAutomation(
+      @Nonnull OperationContext opContext, @Nonnull final Urn ruleUrn) {
+    log.info("Assertion assignment rule deleted: {}", ruleUrn);
+  }
+
   /** Get the AssertionAssignmentRuleInfo aspect for a given rule urn. */
   @Nullable
   public AssertionAssignmentRuleInfo getRuleInfo(

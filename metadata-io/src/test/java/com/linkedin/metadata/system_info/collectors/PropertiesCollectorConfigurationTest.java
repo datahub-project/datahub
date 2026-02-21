@@ -703,6 +703,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.rescoreFormula.file",
 
           // Additional DataHub services and features
+          "assertionAssignmentRules.hook.consumerGroupSuffix",
+          "assertionAssignmentRules.hook.enabled",
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",
           "businessAttribute.keepAliveTime",

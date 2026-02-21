@@ -1618,6 +1618,11 @@ forms:
     settingsEnabled: ${FORM_SETTINGS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
+assertionAssignmentRules:
+  hook:
+    enabled: ${ASSERTION_ASSIGNMENT_RULES_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${ASSERTION_ASSIGNMENT_RULES_HOOK_CONSUMER_GROUP_SUFFIX:}
+
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
   fetchRelatedEntitiesBatchSize: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_BATCH_SIZE:1000}

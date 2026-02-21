@@ -361,6 +361,8 @@ public class Constants {
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
   public static final String ASSERTION_ASSIGNMENT_RULE_INFO_ASPECT_NAME =
       "assertionAssignmentRuleInfo";
+  public static final String ASSERTION_ASSIGNMENT_RULE_KEY_ASPECT_NAME =
+      "assertionAssignmentRuleKey";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
