@@ -339,21 +339,22 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 ### Elasticsearch Configuration
 
-| Environment Variable                       | Default         | Description                                  | Components                                     |
-| ------------------------------------------ | --------------- | -------------------------------------------- | ---------------------------------------------- |
-| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `AWS_REGION`                               | `null`          | AWS region                                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch) | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                            | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes           | GMS, MAE Consumer, MCE Consumer, System Update |
+| Environment Variable                       | Default         | Description                                                  | Components                                     |
+| ------------------------------------------ | --------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout (in milliseconds)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SOCKET_TIMEOUT`             | `30000`         | Socket timeout for established connections (in milliseconds) | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                                       | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `AWS_REGION`                               | `null`          | AWS region                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch)                 | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
 
 #### SSL Context Configuration
 

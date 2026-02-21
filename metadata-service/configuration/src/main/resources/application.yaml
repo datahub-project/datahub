@@ -365,6 +365,7 @@ elasticsearch:
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}

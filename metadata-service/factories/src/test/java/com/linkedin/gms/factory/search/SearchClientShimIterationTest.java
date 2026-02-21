@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
       "elasticsearch.port=9200",
       "elasticsearch.threadCount=1",
       "elasticsearch.connectionRequestTimeout=5000",
+      "elasticsearch.socketTimeout=30000",
       "elasticsearch.username=",
       "elasticsearch.password=",
       "elasticsearch.useSSL=false",
@@ -73,6 +74,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     assertNotNull(config);
@@ -82,6 +84,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
     assertFalse(config.isUseSSL());
     assertEquals(config.getThreadCount(), Integer.valueOf(1));
     assertEquals(config.getConnectionRequestTimeout(), Integer.valueOf(5000));
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
 
     log.info("Configuration test passed for engine type: {}", engineType);
   }
@@ -162,6 +165,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withSSL(false)
             .withThreadCount(1)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     try {
@@ -243,6 +247,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
             .withAwsIamAuth(false, "us-west-2")
             .withThreadCount(4)
             .withConnectionRequestTimeout(10000)
+            .withSocketTimeout(300000)
             .build();
 
     assertNotNull(fullConfig);
@@ -257,6 +262,7 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
     assertEquals(fullConfig.getRegion(), "us-west-2");
     assertEquals(fullConfig.getThreadCount(), Integer.valueOf(4));
     assertEquals(fullConfig.getConnectionRequestTimeout(), Integer.valueOf(10000));
+    assertEquals(fullConfig.getSocketTimeout(), Integer.valueOf(300000));
 
     log.info("Configuration builder test passed for engine type: {}", engineType);
   }
