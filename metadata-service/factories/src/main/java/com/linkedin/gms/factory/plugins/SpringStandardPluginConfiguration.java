@@ -29,6 +29,7 @@ import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.assertion.sideeffects.AssertionAssignmentRuleDeleteSideEffect;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
@@ -610,6 +611,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
                             .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect assertionAssignmentRuleDeleteSideEffect() {
+    return new AssertionAssignmentRuleDeleteSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssertionAssignmentRuleDeleteSideEffect.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ASSIGNMENT_RULE_ENTITY_NAME)
+                            .aspectName("assertionAssignmentRuleKey")
                             .build()))
                 .build());
   }

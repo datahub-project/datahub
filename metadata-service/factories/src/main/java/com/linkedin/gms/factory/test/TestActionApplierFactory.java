@@ -8,6 +8,8 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
+import com.linkedin.metadata.test.action.assertion.RemoveAssertionAssignmentRuleAction;
+import com.linkedin.metadata.test.action.assertion.UpsertAssertionAssignmentRuleAction;
 import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
 import com.linkedin.metadata.test.action.cleanup.UnDeprecationAction;
 import com.linkedin.metadata.test.action.dataproduct.SetDataProductAction;
@@ -83,6 +85,8 @@ public class TestActionApplierFactory {
     appliers.add(new SetFormPromptIncompleteAction(formService));
     appliers.add(new SubmitFormPromptAction(formService));
     appliers.add(new VerifyFormAction(formService));
+    appliers.add(new UpsertAssertionAssignmentRuleAction());
+    appliers.add(new RemoveAssertionAssignmentRuleAction());
     return new ActionApplier(appliers);
   }
 }

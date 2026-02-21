@@ -48,7 +48,11 @@ public enum ActionType {
   /** Submits a response to a form prompt */
   SUBMIT_FORM_PROMPT,
   /** Verifies a form for given entities */
-  VERIFY_FORM;
+  VERIFY_FORM,
+  /** Upserts managed assertions for an assertion assignment rule on matching entities */
+  UPSERT_ASSERTION_ASSIGNMENT_RULE,
+  /** Removes managed assertions for an assertion assignment rule from non-matching entities */
+  REMOVE_ASSERTION_ASSIGNMENT_RULE;
 
   private static final Map<String, ActionType> NAME_TO_ACTION_TYPE =
       Arrays.stream(ActionType.values())

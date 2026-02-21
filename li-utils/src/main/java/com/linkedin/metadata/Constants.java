@@ -134,6 +134,7 @@ public class Constants {
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
   public static final String DOCUMENT_ENTITY_NAME = "document";
   public static final String DATA_HUB_AI_CONVERSATION_ENTITY_NAME = "dataHubAiConversation";
+  public static final String ASSERTION_ASSIGNMENT_RULE_ENTITY_NAME = "assertionAssignmentRule";
 
   /** Aspects */
   // Common
@@ -358,6 +359,8 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
+  public static final String ASSERTION_ASSIGNMENT_RULE_INFO_ASPECT_NAME =
+      "assertionAssignmentRuleInfo";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";

@@ -220,6 +220,12 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 ### Language-Specific
 
 - **Java**: Use Spotless formatting, Spring Boot patterns, TestNG/JUnit Jupiter for tests
+  - **`final` keyword conventions**: Match the patterns in neighboring reference files. The general conventions in `metadata-service/` and `metadata-io/`:
+    - **Method parameters**: Use `final` on `@Nonnull`/`@Nullable` reference-type parameters (e.g., `@Nonnull final Urn urn`, `@Nonnull final String name`, `@Nullable final Filter filters`). Exception: `OperationContext opContext` never gets `final`. `ObjectMapper objectMapper` in constructors typically omits `final`.
+    - **Constructor primitive params**: Use `final` (e.g., `final boolean isAsync`).
+    - **Local variables**: Use `final` when assigned from `ImmutableList.of()`, builder methods, or entity client calls (e.g., `final List<MetadataChangeProposal> changes = ImmutableList.of(...)`, `final EntityResponse response = ...`). Mutable variables (e.g., `new ArrayList<>()`) may omit `final`.
+    - **Test files**: Omit `final` on local variables in test methods (matching existing test conventions). Use `static final` on constant fields only.
+    - **When in doubt**: Read the nearest reference file (e.g., `FormService` for services, `FormTestBuilder` for builders, `AssignFormAction` for actions) and match its pattern exactly.
   - **Constants & Final**: If a variable is only set once, prefer declaring it as `final`. If a variable is a constant, add it as a (potentially `static`) `final <type>` at the top of the class. For string constants with dynamic parts, you can have the variable be a template and use `String.format()` to substitute in the dynamic portion.
 - **Python**: Use ruff for linting/formatting, pytest for testing, pydantic for configs
   - **Type Safety**: Everything must have type annotations, avoid `Any` type, use specific types (`Dict[str, int]`, `TypedDict`)
