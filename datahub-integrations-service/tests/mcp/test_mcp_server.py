@@ -143,3 +143,14 @@ async def test_telemetry_middleware_tracks_calls(
         assert call_args.duration_seconds >= 0
         assert call_args.tool_name is None
         assert call_args.datahub_integrations_version == __version__
+
+
+def test_trailing_slash_route_exists() -> None:
+    """Ensure both /mcp and /mcp/ are registered as routes (no 307 redirects)."""
+    from starlette.routing import Route
+
+    from datahub_integrations.mcp.router import mcp_http_app
+
+    route_paths = [r.path for r in mcp_http_app.router.routes if isinstance(r, Route)]
+    assert "/mcp" in route_paths
+    assert "/mcp/" in route_paths

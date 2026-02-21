@@ -5,6 +5,7 @@ from fastapi import Request, Response, status
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 import datahub_integrations as di
 from datahub_integrations.app import DATAHUB_SERVER
@@ -80,6 +81,15 @@ mcp_http_app = datahub_fastmcp.http_app(
     stateless_http=True,
     middleware=[Middleware(cls=BaseHTTPMiddleware, dispatch=_parse_token)],
 )
+# Add duplicate routes with trailing slashes so that both /mcp and /mcp/ work.
+# FastMCP 2.14.0 switched from Mount to Route for the MCP endpoint, which
+# flipped Starlette's default redirect behavior: /mcp/ now 307-redirects to
+# /mcp, breaking clients that were using the trailing-slash URL.
+for _route in list(mcp_http_app.router.routes):
+    if isinstance(_route, Route) and not _route.path.endswith("/"):
+        mcp_http_app.router.routes.append(
+            Route(_route.path + "/", endpoint=_route.endpoint)
+        )
 
 # The SSE transport requires header authentication. As part of the SSE transport,
 # the client makes multiple requests to different endpoints on the server.
@@ -97,3 +107,8 @@ mcp_sse_app = datahub_fastmcp.http_app(
     stateless_http=True,
     middleware=[Middleware(cls=BaseHTTPMiddleware, dispatch=_parse_token)],
 )
+for _route in list(mcp_sse_app.router.routes):
+    if isinstance(_route, Route) and not _route.path.endswith("/"):
+        mcp_sse_app.router.routes.append(
+            Route(_route.path + "/", endpoint=_route.endpoint)
+        )
