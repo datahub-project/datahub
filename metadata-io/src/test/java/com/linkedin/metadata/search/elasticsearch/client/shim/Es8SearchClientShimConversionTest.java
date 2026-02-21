@@ -1,17 +1,25 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -158,6 +166,60 @@ public class Es8SearchClientShimConversionTest {
     Action result = invokeConvertAliasAction(addActionWithRouting);
 
     assertNotNull(result, "Converted Action with routing should not be null");
+  }
+
+  /**
+   * When IndexRequest has opType CREATE (e.g. for data streams), addToProcessor must send a
+   * CreateOperation so Elasticsearch accepts the bulk request.
+   */
+  @Test
+  public void testAddToProcessorWithIndexRequestOpTypeCreateUsesCreateOperation() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    IndexRequest indexRequest =
+        new IndexRequest("datahub_usage_event")
+            .id("event-1")
+            .source(Collections.singletonMap("type", "PageViewEvent"))
+            .opType(DocWriteRequest.OpType.CREATE);
+
+    invokeAddToProcessor(mockProcessor, indexRequest);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture());
+    BulkOperation operation = captor.getValue();
+    assertNotNull(operation, "BulkOperation should be captured");
+    assertTrue(
+        operation.isCreate(),
+        "IndexRequest with OpType.CREATE must produce a CreateOperation for data streams");
+  }
+
+  /** When IndexRequest has default opType INDEX, addToProcessor must send an IndexOperation. */
+  @Test
+  public void testAddToProcessorWithIndexRequestOpTypeIndexUsesIndexOperation() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    IndexRequest indexRequest =
+        new IndexRequest("my_index").id("doc-1").source(Collections.singletonMap("field", "value"));
+
+    invokeAddToProcessor(mockProcessor, indexRequest);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture());
+    BulkOperation operation = captor.getValue();
+    assertNotNull(operation, "BulkOperation should be captured");
+    assertTrue(
+        operation.isIndex(),
+        "IndexRequest with default OpType.INDEX must produce an IndexOperation");
+  }
+
+  /** Helper to invoke protected addToProcessor(BulkIngester, DocWriteRequest) via reflection. */
+  private void invokeAddToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest)
+      throws Exception {
+    Method addToProcessorMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "addToProcessor", BulkIngester.class, DocWriteRequest.class);
+    addToProcessorMethod.setAccessible(true);
+    addToProcessorMethod.invoke(shim, processor, writeRequest);
   }
 
   /**
