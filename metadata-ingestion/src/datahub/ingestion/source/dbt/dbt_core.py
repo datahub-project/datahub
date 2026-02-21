@@ -37,6 +37,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -407,6 +408,88 @@ def extract_dbt_exposures(
     return exposures
 
 
+def extract_semantic_models(
+    manifest_semantic_models: Dict[str, Dict[str, Any]],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTNode]:
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
+    semantic_model_nodes: List[DBTNode] = []
+
+    for key, sm_node in manifest_semantic_models.items():
+        name = sm_node.get("name", "")
+        description = sm_node.get("description", "")
+
+        # node_relation available in dbt 1.8+, fallback to depends_on for older versions
+        node_relation = sm_node.get("node_relation", {})
+        database = node_relation.get("database")
+        schema = node_relation.get("schema")
+        alias = node_relation.get("alias")
+
+        if not database or not schema:
+            depends_on = sm_node.get("depends_on", {})
+            depends_on_nodes = (
+                depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+            )
+            for ref_node_id in depends_on_nodes:
+                if ref_node_id in manifest_nodes:
+                    ref_node = manifest_nodes[ref_node_id]
+                    if not database:
+                        database = ref_node.get("database")
+                    if not schema:
+                        schema = ref_node.get("schema")
+                    break
+
+        entities = sm_node.get("entities", [])
+        dimensions = sm_node.get("dimensions", [])
+        measures = sm_node.get("measures", [])
+
+        columns = convert_semantic_model_fields_to_columns(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+        )
+
+        tags = sm_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        depends_on = sm_node.get("depends_on", {})
+        upstream_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        semantic_model_nodes.append(
+            DBTNode(
+                dbt_name=key,
+                dbt_adapter=None,
+                dbt_package_name=sm_node.get("package_name"),
+                database=database,
+                schema=schema,
+                name=name,
+                alias=alias,
+                dbt_file_path=sm_node.get("original_file_path"),
+                node_type="semantic_model",
+                max_loaded_at=None,
+                comment="",
+                description=description,
+                upstream_nodes=upstream_nodes,
+                materialization=None,
+                catalog_type=None,
+                missing_from_catalog=False,
+                meta=sm_node.get("meta", {}),
+                query_tag={},
+                tags=tags,
+                owner=None,
+                language="yaml",
+                columns=columns,
+                compiled_code=None,
+                raw_code=None,
+            )
+        )
+
+    return semantic_model_nodes
+
+
 class DBTRunTiming(BaseModel):
     name: Optional[str] = None
     started_at: Optional[str] = None
@@ -651,6 +734,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
         manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -679,6 +763,23 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             manifest_exposures=manifest_exposures,
             tag_prefix=self.config.tag_prefix,
         )
+
+        # Extract semantic models from manifest (dbt 1.6+)
+        if (
+            self.config.entities_enabled.can_emit_semantic_models
+            and manifest_semantic_models
+        ):
+            semantic_model_nodes = extract_semantic_models(
+                manifest_semantic_models=manifest_semantic_models,
+                manifest_nodes=manifest_nodes,
+                tag_prefix=self.config.tag_prefix,
+            )
+            nodes.extend(semantic_model_nodes)
+            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            if semantic_model_nodes:
+                logger.info(
+                    f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
+                )
 
         return (
             nodes,

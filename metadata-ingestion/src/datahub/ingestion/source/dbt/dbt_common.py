@@ -13,8 +13,10 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
+    TypedDict,
     Union,
 )
 
@@ -316,6 +318,9 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=lambda: defaultdict(int)
     )
 
+    # Semantic model entity emission statistics
+    num_semantic_models_emitted: int = 0
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -363,6 +368,11 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for dbt exposures when set to Yes or Only. "
         "Exposures represent downstream consumers like dashboards, notebooks, or applications.",
     )
+    semantic_models: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt semantic models when set to Yes or Only. "
+        "Semantic models define entities, dimensions, and measures for the dbt semantic layer (dbt 1.6+).",
+    )
     queries: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit Query entities from meta.queries field when set to Yes or Only.",
@@ -406,6 +416,7 @@ class DBTEntitiesEnabled(ConfigModel):
             "snapshot": self.snapshots,
             "test": self.test_definitions,
             "exposure": self.exposures,
+            "semantic_model": self.semantic_models,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -435,6 +446,10 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_exposures(self) -> bool:
         return self.exposures == EmitDirective.YES
+
+    @property
+    def can_emit_semantic_models(self) -> bool:
+        return self.semantic_models == EmitDirective.YES
 
     @property
     def can_emit_queries(self) -> bool:
@@ -710,6 +725,93 @@ class DBTColumn:
     datahub_data_type: Optional[SchemaFieldDataType] = None
 
 
+# Semantic model constants and types
+SEMANTIC_MODEL_UNKNOWN_DATA_TYPE = "UNKNOWN"
+
+
+class SemanticModelEntity(TypedDict, total=False):
+    """TypedDict for dbt semantic model entity definition."""
+
+    name: str
+    type: str  # e.g., "primary", "foreign", "natural"
+    description: str
+    expr: str
+
+
+class SemanticModelDimension(TypedDict, total=False):
+    """TypedDict for dbt semantic model dimension definition."""
+
+    name: str
+    type: str  # e.g., "categorical", "time"
+    description: str
+    expr: str
+    type_params: Dict[str, Any]  # For time dimensions: time_granularity, etc.
+
+
+class SemanticModelMeasure(TypedDict, total=False):
+    """TypedDict for dbt semantic model measure definition."""
+
+    name: str
+    agg: str  # Aggregation type: sum, count, average, min, max, count_distinct
+    description: str
+    expr: str
+    create_metric: bool
+
+
+def convert_semantic_model_fields_to_columns(
+    entities: Sequence[SemanticModelEntity],
+    dimensions: Sequence[SemanticModelDimension],
+    measures: Sequence[SemanticModelMeasure],
+) -> List[DBTColumn]:
+    """Convert semantic model fields to DBTColumn objects for schema display."""
+    columns: List[DBTColumn] = []
+    index = 0
+
+    for entity in entities:
+        entity_type = entity.get("type", "unknown")
+        description = entity.get("description", "") or f"Entity ({entity_type})"
+        columns.append(
+            DBTColumn(
+                name=entity["name"],
+                comment=f"entity:{entity_type}",
+                description=description,
+                index=index,
+                data_type=f"entity:{entity_type}",
+            )
+        )
+        index += 1
+
+    for dimension in dimensions:
+        dim_type = dimension.get("type", "categorical")
+        description = dimension.get("description", "") or f"Dimension ({dim_type})"
+        columns.append(
+            DBTColumn(
+                name=dimension["name"],
+                comment=f"dimension:{dim_type}",
+                description=description,
+                index=index,
+                data_type=f"dimension:{dim_type}",
+            )
+        )
+        index += 1
+
+    for measure in measures:
+        agg_type = measure.get("agg", "unknown")
+        description = measure.get("description", "") or f"Measure ({agg_type})"
+        columns.append(
+            DBTColumn(
+                name=measure["name"],
+                comment=f"measure:{agg_type}",
+                description=description,
+                index=index,
+                data_type=f"measure:{agg_type}",
+            )
+        )
+        index += 1
+
+    return columns
+
+
 @dataclass(frozen=True)
 class DBTColumnLineageInfo:
     """Column-level lineage info. Frozen to allow use in sets for deduplication.
@@ -869,7 +971,7 @@ class DBTNode:
     language: Optional[str]
     raw_code: Optional[str]
 
-    dbt_adapter: str
+    dbt_adapter: Optional[str]  # None for semantic models
     dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
@@ -2761,7 +2863,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 nativeDataType=column.data_type,
                 type=column.datahub_data_type
                 or get_column_type(
-                    report, node.dbt_name, column.data_type, node.dbt_adapter
+                    report, node.dbt_name, column.data_type, node.dbt_adapter or ""
                 ),
                 description=description,
                 nullable=False,  # TODO: actually autodetect this
@@ -2844,6 +2946,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         if node.materialization == "semantic_view":
             subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
+        elif node.node_type == "semantic_model":
+            subtypes = [DatasetSubTypes.SEMANTIC_MODEL]
         else:
             subtypes = [node.node_type.capitalize()]
 
