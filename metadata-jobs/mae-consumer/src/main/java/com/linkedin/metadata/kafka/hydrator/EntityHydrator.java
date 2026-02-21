@@ -37,7 +37,8 @@ public class EntityHydrator {
     Urn urnObj;
     try {
       urnObj = Urn.createFromString(urn);
-    } catch (URISyntaxException e) {
+      UrnValidationUtil.validateUrn(systemOperationContext.getEntityRegistry(), urnObj, true);
+    } catch (URISyntaxException | IllegalArgumentException e) {
       log.info("Invalid URN: {}", urn);
       return Optional.empty();
     }
