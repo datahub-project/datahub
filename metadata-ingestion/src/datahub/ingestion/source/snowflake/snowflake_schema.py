@@ -7,10 +7,12 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     MutableMapping,
     Optional,
+    Set,
     Tuple,
 )
 
@@ -487,11 +489,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
+    def get_databases(
+        self, db_name: str, database_filter: str = ""
+    ) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.get_databases(db_name),
+            SnowflakeQuery.get_databases(db_name, database_filter),
         )
 
         for database in cur:
@@ -505,11 +509,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
+    def get_schemas_for_database(
+        self, db_name: str, schema_filter: str = ""
+    ) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.connection.query(
-            SnowflakeQuery.schemas_for_database(db_name),
+            SnowflakeQuery.schemas_for_database(db_name, schema_filter),
         )
 
         for schema in cur:
@@ -557,12 +563,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str
+        self,
+        db_name: str,
+        table_types: FrozenSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.tables_for_database(db_name),
+                SnowflakeQuery.tables_for_database(
+                    db_name,
+                    table_types=table_types,
+                    table_filter=table_filter,
+                    exclude_dynamic_tables=exclude_dynamic_tables,
+                ),
             )
         except Exception as e:
             logger.debug(
@@ -595,18 +610,30 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions
-        self.populate_dynamic_table_definitions(tables, db_name)
+        # Populate dynamic table definitions only if dynamic tables are not excluded
+        if not exclude_dynamic_tables:
+            self.populate_dynamic_table_definitions(tables, db_name)
 
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
+        table_types: Set[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.tables_for_schema(schema_name, db_name),
+            SnowflakeQuery.tables_for_schema(
+                schema_name,
+                db_name,
+                table_types=table_types,
+                table_filter=table_filter,
+                exclude_dynamic_tables=exclude_dynamic_tables,
+            ),
         )
 
         for table in cur:
@@ -630,18 +657,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions for just this schema
-        schema_tables = {schema_name: tables}
-        self.populate_dynamic_table_definitions(schema_tables, db_name)
+        # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
+        if not exclude_dynamic_tables:
+            schema_tables = {schema_name: tables}
+            self.populate_dynamic_table_definitions(schema_tables, db_name)
 
         return tables
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         if self._fetch_views_from_information_schema:
-            return self._get_views_for_database_using_information_schema(db_name)
+            return self._get_views_for_database_using_information_schema(
+                db_name, view_filter
+            )
         else:
             return self._get_views_for_database_using_show(db_name)
 
@@ -797,11 +827,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views_with_empty_definition
 
     def _get_views_for_database_using_information_schema(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         try:
             cur = self.connection.query(
-                SnowflakeQuery.get_views_for_database(db_name),
+                SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
             logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
@@ -827,11 +857,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views
 
     def get_views_for_schema_using_information_schema(
-        self, *, schema_name: str, db_name: str
+        self, *, schema_name: str, db_name: str, view_filter: str = ""
     ) -> List[SnowflakeView]:
         cur = self.connection.query(
             SnowflakeQuery.get_views_for_schema(
-                db_name=db_name, schema_name=schema_name
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
             ),
         )
 
