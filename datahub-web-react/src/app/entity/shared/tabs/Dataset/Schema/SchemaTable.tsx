@@ -251,9 +251,11 @@ export default function SchemaTable({
         });
     }, [expandedRowsFromFilter]);
 
+    const rowLimit = 400;
     const [VT, setVT] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
-
     useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
+    const scrollConfig = rows.length > rowLimit ? undefined : { y: tableHeight };
+    const componentsConfig = rows.length > rowLimit ? undefined : VT;
 
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
@@ -272,8 +274,8 @@ export default function SchemaTable({
                         columns={allColumns}
                         dataSource={rows}
                         rowKey="fieldPath"
-                        scroll={{ y: tableHeight }}
-                        components={VT}
+                        scroll={scrollConfig}
+                        components={componentsConfig}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
