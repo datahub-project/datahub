@@ -1,10 +1,17 @@
 import dataclasses
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
-from google.api_core.exceptions import GoogleAPICallError
-from google.cloud import aiplatform
+from google.api_core.exceptions import (
+    FailedPrecondition,
+    GoogleAPICallError,
+    InvalidArgument,
+    NotFound,
+    PermissionDenied,
+    ResourceExhausted,
+)
+from google.cloud import aiplatform, resourcemanager_v3
 from google.cloud.aiplatform import (
     AutoMLForecastingTrainingJob,
     AutoMLImageTrainingJob,
@@ -24,7 +31,6 @@ from google.cloud.aiplatform_v1.types import (
     PipelineJob as PipelineJobType,
     PipelineTaskDetail,
 )
-from google.oauth2 import service_account
 from google.protobuf import timestamp_pb2
 
 import datahub.emitter.mce_builder as builder
@@ -46,6 +52,16 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_credentials_config import (
+    gcp_credentials_context,
+)
+from datahub.ingestion.source.common.gcp_project_utils import (
+    GCPProject,
+    call_with_retry,
+    get_gcp_error_type,
+    get_projects,
+    get_projects_client,
+)
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_result_type_utils import (
@@ -92,11 +108,62 @@ from datahub.metadata.urns import (
     MlModelUrn,
     VersionSetUrn,
 )
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 from datahub.utilities.time import datetime_to_ts_millis
 
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
+
+
+VERTEX_AI_RETRY_TIMEOUT = 600.0
+
+
+@dataclasses.dataclass
+class _ErrorGuidance:
+    """Guidance for a specific error type."""
+
+    action: str
+    debug_cmd: str
+
+
+_ERROR_GUIDANCE: Dict[type, _ErrorGuidance] = {
+    InvalidArgument: _ErrorGuidance(
+        action="Enable Vertex AI API or use project_id_pattern to skip this project",
+        debug_cmd="gcloud services enable aiplatform.googleapis.com --project={project_id}",
+    ),
+    FailedPrecondition: _ErrorGuidance(
+        action="Enable Vertex AI API or use project_id_pattern to skip this project",
+        debug_cmd="gcloud services enable aiplatform.googleapis.com --project={project_id}",
+    ),
+    NotFound: _ErrorGuidance(
+        action="Verify project ID is correct and project exists",
+        debug_cmd="gcloud projects describe {project_id}",
+    ),
+    PermissionDenied: _ErrorGuidance(
+        action="Grant roles/aiplatform.viewer to service account",
+        debug_cmd="gcloud projects get-iam-policy {project_id}",
+    ),
+    ResourceExhausted: _ErrorGuidance(
+        action="Wait and retry, or request quota increase",
+        debug_cmd="gcloud compute project-info describe --project={project_id}",
+    ),
+}
+
+_DEFAULT_GUIDANCE = _ErrorGuidance(
+    action="Check service account permissions and project configuration",
+    debug_cmd="gcloud projects describe {project_id}",
+)
+
+
+def _is_config_error(exc: Exception) -> bool:
+    """Check if exception indicates a configuration error (e.g., API not enabled)."""
+    return isinstance(exc, (InvalidArgument, FailedPrecondition))
+
+
+def _call_with_retry(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    """Execute a Vertex AI API call with retry for rate limits and transient errors."""
+    return call_with_retry(func, *args, timeout=VERTEX_AI_RETRY_TIMEOUT, **kwargs)
 
 
 @dataclasses.dataclass
@@ -158,56 +225,288 @@ class VertexAISource(Source):
         self.config = config
         self.report = SourceReport()
 
-        creds = self.config.get_credentials()
-        credentials = (
-            service_account.Credentials.from_service_account_info(creds)
-            if creds
-            else None
-        )
+        self._projects: Optional[List[GCPProject]] = None
+        self._current_project_id: Optional[str] = None
 
-        aiplatform.init(
-            project=config.project_id, location=config.region, credentials=credentials
-        )
         self.client = aiplatform
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
         self.experiments: Optional[List[Experiment]] = None
 
+    def _get_projects_to_process(self) -> List[GCPProject]:
+        if self._projects is not None:
+            return self._projects
+
+        client: Optional[resourcemanager_v3.ProjectsClient] = None
+        if not self.config.project_ids:
+            client = get_projects_client()
+
+        self._projects = get_projects(
+            project_ids=self.config.project_ids or None,
+            project_labels=self.config.project_labels or None,
+            project_id_pattern=self.config.project_id_pattern,
+            client=client,
+        )
+
+        logger.info("Will process %d projects", len(self._projects))
+        return self._projects
+
+    def _init_for_project(self, project: GCPProject) -> None:
+        self._current_project_id = project.id
+
+        aiplatform.init(
+            project=project.id,
+            location=self.config.region,
+        )
+        self.client = aiplatform
+
+        self.endpoints = None
+        self.datasets = None
+        self.experiments = None
+
     def get_report(self) -> SourceReport:
         return self.report
 
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        with gcp_credentials_context(self.config.get_credentials_dict()):
+            yield from super().get_workunits()
+
+    def _build_no_projects_error(self) -> str:
+        """Build detailed error message for 'no projects to process' scenario."""
+        pattern_info = (
+            f"allow: {self.config.project_id_pattern.allow}, "
+            f"deny: {self.config.project_id_pattern.deny}"
+        )
+
+        if self.config.project_ids:
+            project_list = ", ".join(self.config.project_ids[:3])
+            if len(self.config.project_ids) > 3:
+                project_list += f"... ({len(self.config.project_ids)} total)"
+            first_project = self.config.project_ids[0]
+            return (
+                f"No projects to process from project_ids: [{project_list}]. "
+                f"Pattern: {pattern_info}.\n\n"
+                "Troubleshooting:\n"
+                f"  1. Verify project exists: gcloud projects describe {first_project}\n"
+                "  2. Check if project_id_pattern filtered all projects (try removing it)\n"
+                f"  3. Verify credentials: gcloud projects list --filter='projectId:{first_project}'"
+            )
+
+        if self.config.project_labels:
+            label_preview = ", ".join(self.config.project_labels[:3])
+            first_label = self.config.project_labels[0]
+            label_filter = (
+                f"labels.{first_label}"
+                if ":" in first_label
+                else f"labels.{first_label}:*"
+            )
+            return (
+                f"No projects found with labels: [{label_preview}]. "
+                f"Pattern: {pattern_info}.\n\n"
+                "Troubleshooting:\n"
+                f"  1. Verify labeled projects exist: gcloud projects list --filter='{label_filter}'\n"
+                "  2. Check permissions: service account needs resourcemanager.projects.list\n"
+                "  3. Check if project_id_pattern filtered all matches (try removing it)\n"
+                "  4. Alternative: use explicit project_ids instead of labels"
+            )
+
+        return (
+            f"No projects discovered via auto-discovery. Pattern: {pattern_info}.\n\n"
+            "Troubleshooting:\n"
+            "  1. Verify access: gcloud projects list --filter='lifecycleState:ACTIVE'\n"
+            "  2. Check permissions: service account needs resourcemanager.projects.list\n"
+            "  3. Check if project_id_pattern filtered all projects (try removing it)\n"
+            "  4. Alternative: use explicit project_ids or project_labels"
+        )
+
+    def _build_project_error_context(self, project_id: str, exc: Exception) -> str:
+        """Build consistent error context for project-level errors.
+        Returns a uniformly formatted message:
+        1. What failed (project)
+        2. Error details
+        3. Actionable next step
+        4. Debug command
+        """
+        guidance = _ERROR_GUIDANCE.get(type(exc), _DEFAULT_GUIDANCE)
+        debug_cmd = guidance.debug_cmd.format(project_id=project_id)
+
+        return f"Error: {exc}\nAction: {guidance.action}\nDebug: {debug_cmd}"
+
+    def _handle_resource_error(
+        self,
+        exc: Exception,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+    ) -> None:
+        """
+        Handle resource-level errors with appropriate log level and reporting.
+        """
+        is_api_error = isinstance(exc, GoogleAPICallError)
+        title = f"Failed to process {resource_type}"
+        if resource_id:
+            title = f"{title}: {resource_id}"
+
+        message = f"Project: {self._current_project_id}. Error: {exc}"
+
+        if is_api_error:
+            logger.error(
+                "API error processing %s %s: %s",
+                resource_type,
+                resource_id or "",
+                exc,
+            )
+        else:
+            logger.error(
+                "Unexpected error processing %s %s: %s",
+                resource_type,
+                resource_id or "",
+                exc,
+                exc_info=True,
+            )
+
+        self.report.failure(title=title, message=message, exc=exc)
+
+    def _handle_project_error(
+        self,
+        project_id: str,
+        exc: Exception,
+        failed_projects: List[str],
+        failed_exceptions: Dict[str, Exception],
+    ) -> None:
+        """Handle project-level errors consistently."""
+        failed_projects.append(project_id)
+        failed_exceptions[project_id] = exc
+        error_type = get_gcp_error_type(exc)
+
+        error_context = self._build_project_error_context(project_id, exc)
+
+        self.report.failure(
+            title=f"{error_type}: {project_id}",
+            message=error_context,
+            exc=exc,
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
-        Main Function to fetch and yields mcps for various VertexAI resources.
-        - Models and Model Versions from the Model Registry
-        - Training Jobs
+        Fetch MetadataWorkUnits for Vertex AI models, pipelines, training jobs, and experiments.
+        Projects are processed sequentially, but resources within each project can be fetched in parallel.
         """
+        projects = self._get_projects_to_process()
 
-        # Ingest Project
+        if not projects:
+            raise RuntimeError(self._build_no_projects_error())
+
+        successful_projects = 0
+        failed_projects: List[str] = []
+        failed_exceptions: Dict[str, Exception] = {}
+
+        for project in projects:
+            logger.info("Processing Vertex AI resources for project: %s", project.id)
+            try:
+                self._init_for_project(project)
+                # Use parallelism if configured, otherwise fall back to sequential
+                if self.config.max_threads_resource_parallelism > 1:
+                    yield from self._process_project_with_parallelism(project)
+                else:
+                    yield from self._process_current_project()
+                successful_projects += 1
+            except Exception as exc:
+                self._handle_project_error(
+                    project.id, exc, failed_projects, failed_exceptions
+                )
+
+        if failed_projects:
+            if successful_projects == 0:
+                error_types = {
+                    get_gcp_error_type(e) for e in failed_exceptions.values()
+                }
+                first_exception = next(iter(failed_exceptions.values()))
+                raise RuntimeError(
+                    f"All {len(failed_projects)} projects failed ({', '.join(error_types)}). "
+                    f"Projects: {failed_projects}"
+                ) from first_exception
+            self.report.warning(
+                title=f"Partial ingestion: {len(failed_projects)}/{len(projects)} projects failed",
+                message=f"Failed: {', '.join(failed_projects)}",
+            )
+
+    def _fetch_resource_by_type(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
+        """Fetch resources of a specific type for the current project."""
+        if resource_type == "models":
+            yield from auto_workunit(self._get_ml_models_mcps())
+        elif resource_type == "training_jobs":
+            yield from auto_workunit(self._get_training_jobs_mcps())
+        elif resource_type == "experiments":
+            yield from self._get_experiments_workunits()
+        elif resource_type == "experiment_runs":
+            yield from auto_workunit(self._get_experiment_runs_mcps())
+        elif resource_type == "pipelines":
+            yield from auto_workunit(self._get_pipelines_mcps())
+
+    def _process_project_with_parallelism(
+        self, project: GCPProject
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single project's resources with parallelism."""
         yield from self._gen_project_workunits()
-        # Fetch and Ingest Models, Model Versions a from Model Registry
-        yield from auto_workunit(self._get_ml_models_mcps())
-        # Fetch and Ingest Training Jobs
-        yield from auto_workunit(self._get_training_jobs_mcps())
-        # Fetch and Ingest Experiments
-        yield from self._get_experiments_workunits()
-        # Fetch and Ingest Experiment Runs
-        yield from auto_workunit(self._get_experiment_runs_mcps())
-        # Fetch Pipelines and Tasks
-        yield from auto_workunit(self._get_pipelines_mcps())
+
+        def _fetch_resource_worker(resource_type: str) -> Iterable[MetadataWorkUnit]:
+            """Wrapper for parallel resource fetching with error handling."""
+            try:
+                yield from self._fetch_resource_by_type(resource_type)
+            except GoogleAPICallError as e:
+                self._handle_resource_error(e, resource_type)
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error in {resource_type} fetcher for project {project.id}: {e}",
+                    exc_info=True,
+                )
+                raise
+
+        resource_types = [
+            ("models",),
+            ("training_jobs",),
+            ("experiments",),
+            ("experiment_runs",),
+            ("pipelines",),
+        ]
+
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_fetch_resource_worker,
+            args_list=resource_types,
+            max_workers=self.config.max_threads_resource_parallelism,
+        ):
+            yield wu
+
+    def _process_current_project(self) -> Iterable[MetadataWorkUnit]:
+        """Process a single project's resources sequentially."""
+        yield from self._gen_project_workunits()
+
+        resource_types = [
+            "models",
+            "training_jobs",
+            "experiments",
+            "experiment_runs",
+            "pipelines",
+        ]
+
+        for resource_type in resource_types:
+            try:
+                yield from self._fetch_resource_by_type(resource_type)
+            except GoogleAPICallError as e:
+                self._handle_resource_error(e, resource_type)
 
     def _get_pipelines_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Fetches pipelines from Vertex AI and generates corresponding mcps.
-        """
-
-        pipeline_jobs = self.client.PipelineJob.list()
+        """Fetch Vertex AI Pipeline Jobs and generate DataJob MCPs with lineage to tasks."""
+        pipeline_jobs = _call_with_retry(self.client.PipelineJob.list)
 
         for pipeline in pipeline_jobs:
-            logger.info(f"fetching pipeline ({pipeline.name})")
-            pipeline_meta = self._get_pipeline_metadata(pipeline)
-            yield from self._get_pipeline_mcps(pipeline_meta)
-            yield from self._gen_pipeline_task_mcps(pipeline_meta)
+            try:
+                logger.info("Fetching pipeline: %s", pipeline.name)
+                pipeline_meta = self._get_pipeline_metadata(pipeline)
+                yield from self._get_pipeline_mcps(pipeline_meta)
+                yield from self._gen_pipeline_task_mcps(pipeline_meta)
+            except Exception as e:
+                self._handle_resource_error(e, "pipeline", pipeline.name)
 
     def _get_pipeline_tasks_metadata(
         self, pipeline: PipelineJob, pipeline_urn: DataFlowUrn
@@ -221,7 +520,9 @@ class VertexAISource(Source):
         if isinstance(resource, PipelineJobType):
             for task_name in resource.pipeline_spec["root"]["dag"]["tasks"]:
                 logger.debug(
-                    f"fetching pipeline task ({task_name}) in pipeline ({pipeline.name})"
+                    "fetching pipeline task (%s) in pipeline (%s)",
+                    task_name,
+                    pipeline.name,
                 )
                 task_urn = DataJobUrn.create_from_ids(
                     data_flow_urn=str(pipeline_urn),
@@ -294,7 +595,7 @@ class VertexAISource(Source):
 
     def _gen_pipeline_task_run_mcps(
         self, task: PipelineTaskMetadata, datajob: DataJob, pipeline: PipelineMetadata
-    ) -> (Iterable)[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         dpi_urn = builder.make_data_process_instance_urn(
             self._make_vertexai_pipeline_task_run_id(entity_id=task.name)
         )
@@ -444,21 +745,30 @@ class VertexAISource(Source):
         )
 
     def _get_experiments_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # List all experiments
-        self.experiments = aiplatform.Experiment.list()
+        self.experiments = _call_with_retry(aiplatform.Experiment.list)
 
         logger.info("Fetching experiments from VertexAI server")
         for experiment in self.experiments:
-            yield from self._gen_experiment_workunits(experiment)
+            try:
+                yield from self._gen_experiment_workunits(experiment)
+            except Exception as e:
+                self._handle_resource_error(e, "experiment", experiment.name)
 
     def _get_experiment_runs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.experiments is None:
-            self.experiments = aiplatform.Experiment.list()
+            self.experiments = _call_with_retry(aiplatform.Experiment.list)
         for experiment in self.experiments:
-            logger.info(f"Fetching experiment runs for experiment {experiment.name}")
-            experiment_runs = aiplatform.ExperimentRun.list(experiment=experiment.name)
-            for run in experiment_runs:
-                yield from self._gen_experiment_run_mcps(experiment, run)
+            try:
+                logger.info(
+                    "Fetching experiment runs for experiment: %s", experiment.name
+                )
+                experiment_runs = _call_with_retry(
+                    aiplatform.ExperimentRun.list, experiment=experiment.name
+                )
+                for run in experiment_runs:
+                    yield from self._gen_experiment_run_mcps(experiment, run)
+            except Exception as e:
+                self._handle_resource_error(e, "experiment_runs", experiment.name)
 
     def _gen_experiment_workunits(
         self, experiment: Experiment
@@ -616,13 +926,11 @@ class VertexAISource(Source):
         created_actor = "urn:li:corpuser:datahub"
         run_result_type = self._get_run_result_status(run.get_state())
 
-        # generating mcps for run execution
         for execution in run.get_executions():
             yield from self._gen_run_execution(
                 execution=execution, exp=experiment, run=run
             )
 
-        # generating mcps for run
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=run_urn,
             aspects=[
@@ -667,55 +975,48 @@ class VertexAISource(Source):
     def _gen_project_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from gen_containers(
             container_key=self._get_project_container(),
-            name=self.config.project_id,
+            name=self._get_current_project_id(),
             sub_types=[MLAssetSubTypes.VERTEX_PROJECT],
         )
 
     def _get_ml_models_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Fetch List of Models in Model Registry and generate a corresponding mcp.
-        """
-        registered_models = self.client.Model.list()
+        """Fetch models from Vertex AI Model Registry and generate MLModelGroup + MLModel MCPs."""
+        registered_models = _call_with_retry(self.client.Model.list)
         for model in registered_models:
-            # create mcp for Model Group (= Model in VertexAI)
-            yield from self._gen_ml_group_mcps(model)
-            model_versions = model.versioning_registry.list_versions()
-            for model_version in model_versions:
-                # create mcp for Model (= Model Version in VertexAI)
-                logger.info(
-                    f"Ingesting a model (name: {model.display_name} id:{model.name})"
+            try:
+                yield from self._gen_ml_group_mcps(model)
+                model_versions = _call_with_retry(
+                    model.versioning_registry.list_versions
                 )
-                yield from self._get_ml_model_mcps(
-                    model=model, model_version=model_version
-                )
+                for model_version in model_versions:
+                    logger.info(
+                        "Ingesting a model (name: %s id:%s)",
+                        model.display_name,
+                        model.name,
+                    )
+                    yield from self._get_ml_model_mcps(
+                        model=model, model_version=model_version
+                    )
+            except Exception as e:
+                self._handle_resource_error(e, "model", model.display_name)
 
     def _get_ml_model_mcps(
         self, model: Model, model_version: VersionInfo
     ) -> Iterable[MetadataChangeProposalWrapper]:
         model_meta: ModelMetadata = self._get_ml_model_metadata(model, model_version)
-        # Create ML Model Entity
         yield from self._gen_ml_model_mcps(model_meta)
-        # Create Endpoint Entity
         yield from self._gen_endpoints_mcps(model_meta)
 
     def _get_ml_model_metadata(
         self, model: Model, model_version: VersionInfo
     ) -> ModelMetadata:
         model_meta = ModelMetadata(model=model, model_version=model_version)
-        # Search for endpoints associated with the model
         endpoints = self._search_endpoint(model)
         model_meta.endpoints = endpoints
         return model_meta
 
     def _get_training_jobs_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Fetches training jobs from Vertex AI and generates corresponding mcps.
-        This method retrieves various types of training jobs from Vertex AI, including
-        CustomJob, CustomTrainingJob, CustomContainerTrainingJob, CustomPythonPackageTrainingJob,
-        AutoMLTabularTrainingJob, AutoMLTextTrainingJob, AutoMLImageTrainingJob, AutoMLVideoTrainingJob,
-        and AutoMLForecastingTrainingJob. For each job, it generates mcps containing metadata
-        about the job, its inputs, and its outputs.
-        """
+        """Fetch Vertex AI training jobs (Custom and AutoML) and generate DataJob MCPs with lineage."""
         class_names = [
             "CustomJob",
             "CustomTrainingJob",
@@ -727,21 +1028,21 @@ class VertexAISource(Source):
             "AutoMLVideoTrainingJob",
             "AutoMLForecastingTrainingJob",
         ]
-        # Iterate over class names and call the list() function
         for class_name in class_names:
-            logger.info(f"Fetching a list of {class_name}s from VertexAI server")
-            for job in getattr(self.client, class_name).list():
-                yield from self._get_training_job_mcps(job)
+            try:
+                logger.info("Fetching a list of %ss from VertexAI server", class_name)
+                jobs = _call_with_retry(getattr(self.client, class_name).list)
+                for job in jobs:
+                    yield from self._get_training_job_mcps(job)
+            except Exception as e:
+                self._handle_resource_error(e, class_name)
 
     def _get_training_job_mcps(
         self, job: VertexAiResourceNoun
     ) -> Iterable[MetadataChangeProposalWrapper]:
         job_meta: TrainingJobMetadata = self._get_training_job_metadata(job)
-        # Create DataProcessInstance for the training job
         yield from self._gen_training_job_mcps(job_meta)
-        # Create Dataset entity for Input Dataset of Training job
         yield from self._get_input_dataset_mcps(job_meta)
-        # Create ML Model entity for output ML model of this training job
         yield from self._gen_output_model_mcps(job_meta)
 
     def _gen_output_model_mcps(
@@ -775,9 +1076,7 @@ class VertexAISource(Source):
     def _gen_training_job_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generate a mcp for VertexAI Training Job
-        """
+        """Generate DataJob MCPs with input dataset and output model lineage."""
         job = job_meta.job
         job_id = self._make_vertexai_job_name(entity_id=job.name)
         job_urn = builder.make_data_process_instance_urn(job_id)
@@ -785,7 +1084,6 @@ class VertexAISource(Source):
         created_time = datetime_to_ts_millis(job.create_time) if job.create_time else 0
         duration = self._get_job_duration_millis(job)
 
-        # If Training job has Input Dataset
         dataset_urn = (
             builder.make_dataset_urn(
                 platform=self.platform,
@@ -797,7 +1095,6 @@ class VertexAISource(Source):
             if job_meta.input_dataset
             else None
         )
-        # If Training Job has Output Model
         model_urn = (
             self._make_ml_model_urn(
                 model_version=job_meta.output_model_version,
@@ -871,9 +1168,7 @@ class VertexAISource(Source):
         self,
         model: Model,
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generate an MLModelGroup mcp for a VertexAI  Model.
-        """
+        """Generate MLModelGroup MCP (groups all versions of this model)."""
         ml_model_group_urn = self._make_ml_model_group_urn(model)
 
         yield from MetadataChangeProposalWrapper.construct_many(
@@ -916,7 +1211,9 @@ class VertexAISource(Source):
         return urn
 
     def _get_project_container(self) -> ProjectIdKey:
-        return ProjectIdKey(project_id=self.config.project_id, platform=self.platform)
+        return ProjectIdKey(
+            project_id=self._get_current_project_id(), platform=self.platform
+        )
 
     def _is_automl_job(self, job: VertexAiResourceNoun) -> bool:
         return isinstance(
@@ -933,18 +1230,14 @@ class VertexAISource(Source):
     def _search_model_version(
         self, model: Model, version_id: str
     ) -> Optional[VersionInfo]:
-        for version in model.versioning_registry.list_versions():
+        versions = _call_with_retry(model.versioning_registry.list_versions)
+        for version in versions:
             if version.version_id == version_id:
                 return version
         return None
 
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
-        """
-        Search for a dataset by its ID in Vertex AI.
-        This method iterates through different types of datasets (Text, Tabular, Image,
-        TimeSeries, and Video) to find a dataset that matches the given dataset ID.
-        """
-
+        """Search for a dataset by ID across all Vertex AI dataset types."""
         dataset_types = [
             "TextDataset",
             "TabularDataset",
@@ -958,7 +1251,8 @@ class VertexAISource(Source):
 
             for dtype in dataset_types:
                 dataset_class = getattr(self.client.datasets, dtype)
-                for ds in dataset_class.list():
+                datasets = _call_with_retry(dataset_class.list)
+                for ds in datasets:
                     self.datasets[ds.name] = ds
 
         return self.datasets.get(dataset_id)
@@ -966,13 +1260,10 @@ class VertexAISource(Source):
     def _get_input_dataset_mcps(
         self, job_meta: TrainingJobMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Create a DatasetPropertiesClass aspect for a given Vertex AI dataset.
-        """
+        """Generate Dataset MCP with DatasetProperties."""
         ds = job_meta.input_dataset
 
         if ds:
-            # Create URN of Input Dataset for Training Job
             dataset_name = self._make_vertexai_dataset_name(entity_id=ds.name)
             dataset_urn = builder.make_dataset_urn(
                 platform=self.platform,
@@ -1007,36 +1298,31 @@ class VertexAISource(Source):
     def _get_training_job_metadata(
         self, job: VertexAiResourceNoun
     ) -> TrainingJobMetadata:
-        """
-        Retrieve metadata for a given Vertex AI training job.
-        This method extracts metadata for a Vertex AI training job, including input datasets
-        and output models. It checks if the job is an AutoML job and retrieves the relevant
-        input dataset and output model information.
-        """
+        """Extract input dataset IDs and output model names from training job metadata."""
         job_meta = TrainingJobMetadata(job=job)
-        # Check if the job is an AutoML job
         if self._is_automl_job(job):
             job_conf = job.to_dict()
-            # Check if input dataset is present in the job configuration
             if (
                 "inputDataConfig" in job_conf
                 and "datasetId" in job_conf["inputDataConfig"]
             ):
-                # Create URN of Input Dataset for Training Job
                 dataset_id = job_conf["inputDataConfig"]["datasetId"]
                 logger.info(
-                    f"Found input dataset (id: {dataset_id}) for training job ({job.display_name})"
+                    "Found input dataset (id: %s) for training job (%s)",
+                    dataset_id,
+                    job.display_name,
                 )
 
                 if dataset_id:
                     input_ds = self._search_dataset(dataset_id)
                     if input_ds:
                         logger.info(
-                            f"Found the name of input dataset ({input_ds.display_name}) with dataset id ({dataset_id})"
+                            "Found the name of input dataset (%s) with dataset id (%s)",
+                            input_ds.display_name,
+                            dataset_id,
                         )
                         job_meta.input_dataset = input_ds
 
-            # Check if output model is present in the job configuration
             if (
                 "modelToUpload" in job_conf
                 and "name" in job_conf["modelToUpload"]
@@ -1046,21 +1332,26 @@ class VertexAISource(Source):
                 model_name = job_conf["modelToUpload"]["name"]
                 model_version_str = job_conf["modelToUpload"]["versionId"]
                 try:
-                    model = Model(model_name=model_name)
+                    model = _call_with_retry(Model, model_name=model_name)
                     model_version = self._search_model_version(model, model_version_str)
                     if model and model_version:
                         logger.info(
-                            f"Found output model (name:{model.display_name} id:{model_version_str}) "
-                            f"for training job: {job.display_name}"
+                            "Found output model (name:%s id:%s) for training job: %s",
+                            model.display_name,
+                            model_version_str,
+                            job.display_name,
                         )
                         job_meta.output_model = model
                         job_meta.output_model_version = model_version
-                except GoogleAPICallError as e:
-                    self.report.report_failure(
-                        title="Unable to fetch model and model version",
-                        message="Encountered an error while fetching output model and model version which training job generates",
-                        exc=e,
+                except NotFound:
+                    logger.info(
+                        "Model '%s' or version '%s' not found. "
+                        "This may be expected if the model was deleted.",
+                        model_name,
+                        model_version_str,
                     )
+                except GoogleAPICallError as e:
+                    self._handle_resource_error(e, "model", model_name)
 
         return job_meta
 
@@ -1102,23 +1393,21 @@ class VertexAISource(Source):
     def _gen_ml_model_mcps(
         self, ModelMetadata: ModelMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generate an MLModel and Endpoint mcp for an VertexAI Model Version.
-        """
-
+        """Generate MLModel MCP with deployment endpoint lineage."""
         model: Model = ModelMetadata.model
         model_version: VersionInfo = ModelMetadata.model_version
         training_job_urn: Optional[str] = ModelMetadata.training_job_urn
         endpoints: Optional[List[Endpoint]] = ModelMetadata.endpoints
         endpoint_urns: List[str] = list()
 
-        logging.info(f"generating model mcp for {model.name}")
+        logger.info("generating model mcp for %s", model.name)
 
-        # Generate list of endpoint URL
         if endpoints:
             for endpoint in endpoints:
                 logger.info(
-                    f"found endpoint ({endpoint.display_name}) for model ({model.resource_name})"
+                    "found endpoint (%s) for model (%s)",
+                    endpoint.display_name,
+                    model.resource_name,
                 )
                 endpoint_urns.append(
                     builder.make_ml_model_deployment_urn(
@@ -1130,7 +1419,6 @@ class VertexAISource(Source):
                     )
                 )
 
-        # Create URN for Model and Model Version
         model_group_urn = self._make_ml_model_group_urn(model)
         model_name = self._make_vertexai_model_name(entity_id=model.name)
         model_urn = self._make_ml_model_urn(model_version, model_name=model_name)
@@ -1166,10 +1454,8 @@ class VertexAISource(Source):
                         else None
                     ),
                     version=VersionTagClass(versionTag=str(model_version.version_id)),
-                    groups=[model_group_urn],  # link model version to model group
-                    trainingJobs=(
-                        [training_job_urn] if training_job_urn else None
-                    ),  # link to training job
+                    groups=[model_group_urn],
+                    trainingJobs=[training_job_urn] if training_job_urn else None,
                     deployments=endpoint_urns,
                     externalUrl=self._make_model_version_external_url(model),
                     type="ML Model",
@@ -1209,12 +1495,11 @@ class VertexAISource(Source):
         return version_set_urn
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
-        """
-        Search for an endpoint associated with the model.
-        """
+        """Find the Vertex AI Endpoints where this model is deployed, if any."""
         if self.endpoints is None:
             endpoint_dict: Dict[str, List[Endpoint]] = {}
-            for endpoint in self.client.Endpoint.list():
+            endpoints = _call_with_retry(self.client.Endpoint.list)
+            for endpoint in endpoints:
                 for resource in endpoint.list_models():
                     if resource.model not in endpoint_dict:
                         endpoint_dict[resource.model] = []
@@ -1245,129 +1530,118 @@ class VertexAISource(Source):
         urn = builder.make_data_process_instance_urn(dataProcessInstanceId=job_id)
         return urn
 
-    def _make_vertexai_model_group_name(
-        self,
-        entity_id: str,
-    ) -> str:
-        return f"{self.config.project_id}.model_group.{entity_id}"
+    def _get_current_project_id(self) -> str:
+        assert self._current_project_id is not None, "Bug: project ID not initialized"
+        return self._current_project_id
+
+    def _make_resource_name(self, resource_type: str, entity_id: Optional[str]) -> str:
+        """Generate a namespaced resource name: {project_id}.{resource_type}.{entity_id}"""
+        return f"{self._get_current_project_id()}.{resource_type}.{entity_id}"
+
+    def _make_vertexai_model_group_name(self, entity_id: str) -> str:
+        return self._make_resource_name("model_group", entity_id)
 
     def _make_vertexai_endpoint_name(self, entity_id: str) -> str:
-        return f"{self.config.project_id}.endpoint.{entity_id}"
+        return self._make_resource_name("endpoint", entity_id)
 
     def _make_vertexai_model_name(self, entity_id: str) -> str:
-        return f"{self.config.project_id}.model.{entity_id}"
+        return self._make_resource_name("model", entity_id)
 
     def _make_vertexai_dataset_name(self, entity_id: str) -> str:
-        return f"{self.config.project_id}.dataset.{entity_id}"
+        return self._make_resource_name("dataset", entity_id)
 
-    def _make_vertexai_job_name(
-        self,
-        entity_id: Optional[str],
-    ) -> str:
-        return f"{self.config.project_id}.job.{entity_id}"
+    def _make_vertexai_job_name(self, entity_id: Optional[str]) -> str:
+        return self._make_resource_name("job", entity_id)
 
     def _make_vertexai_experiment_id(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.experiment.{entity_id}"
+        return self._make_resource_name("experiment", entity_id)
 
     def _make_vertexai_experiment_run_name(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.experiment_run.{entity_id}"
+        return self._make_resource_name("experiment_run", entity_id)
 
     def _make_vertexai_run_execution_name(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.execution.{entity_id}"
+        return self._make_resource_name("execution", entity_id)
 
     def _make_vertexai_pipeline_id(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.pipeline.{entity_id}"
+        return self._make_resource_name("pipeline", entity_id)
 
     def _make_vertexai_pipeline_task_id(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.pipeline_task.{entity_id}"
+        return self._make_resource_name("pipeline_task", entity_id)
 
     def _make_vertexai_pipeline_task_run_id(self, entity_id: Optional[str]) -> str:
-        return f"{self.config.project_id}.pipeline_task_run.{entity_id}"
+        return self._make_resource_name("pipeline_task_run", entity_id)
 
     def _make_artifact_external_url(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
         """
-        Model external URL in Vertex AI
-        Sample URL:
-        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/test-experiment-job-metadata/runs/test-experiment-job-metadata-run-3/artifacts?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/test-experiment/runs/test-run-3/artifacts?project=my-project
         """
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}/runs/{experiment.name}-{run.name}/artifacts"
-            f"?project={self.config.project_id}"
+            f"?project={project_id}"
         )
-        return external_url
 
     def _make_job_external_url(self, job: VertexAiResourceNoun) -> str:
         """
-        Model external URL in Vertex AI
-        Sample URLs:
-        https://console.cloud.google.com/vertex-ai/training/training-pipelines?project=acryl-poc&trainingPipelineId=5401695018589093888
+        Example: https://console.cloud.google.com/vertex-ai/training/training-pipelines?project=my-project&trainingPipelineId=5401695018589093888
         """
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/training/training-pipelines?trainingPipelineId={job.name}"
-            f"?project={self.config.project_id}"
+            f"?project={project_id}"
         )
-        return external_url
 
     def _make_model_external_url(self, model: Model) -> str:
         """
-        Model external URL in Vertex AI
-        Sample URL:
-        https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336?project=my-project
         """
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/models/locations/{self.config.region}/models/{model.name}"
-            f"?project={self.config.project_id}"
+            f"?project={project_id}"
         )
-        return external_url
 
     def _make_model_version_external_url(self, model: Model) -> str:
         """
-        Model Version external URL in Vertex AI
-        Sample URL:
-        https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336/versions/1?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/models/locations/us-west2/models/812468724182286336/versions/1?project=my-project
         """
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/models/locations/{self.config.region}/models/{model.name}"
             f"/versions/{model.version_id}"
-            f"?project={self.config.project_id}"
+            f"?project={project_id}"
         )
-        return external_url
 
     def _make_experiment_external_url(self, experiment: Experiment) -> str:
         """
-        Experiment external URL in Vertex AI
-        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/my-experiment/runs?project=my-project
         """
-
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
-            f"/runs?project={self.config.project_id}"
+            f"/runs?project={project_id}"
         )
-        return external_url
 
     def _make_experiment_run_external_url(
         self, experiment: Experiment, run: ExperimentRun
     ) -> str:
         """
-        Experiment Run external URL in Vertex AI
-        https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/experiment-run-with-automljob-1/runs/experiment-run-with-automljob-1-automl-job-with-run-1/charts?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/experiments/locations/us-west2/experiments/my-experiment/runs/my-run-1/charts?project=my-project
         """
-
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/experiments/locations/{self.config.region}/experiments/{experiment.name}"
-            f"/runs/{experiment.name}-{run.name}/charts?project={self.config.project_id}"
+            f"/runs/{experiment.name}-{run.name}/charts?project={project_id}"
         )
-        return external_url
 
     def _make_pipeline_external_url(self, pipeline_name: str) -> str:
         """
-        Pipeline Run external URL in Vertex AI
-        https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/pipeline-example-more-tasks-3-20250320210739?project=acryl-poc
+        Example: https://console.cloud.google.com/vertex-ai/pipelines/locations/us-west2/runs/pipeline-example-tasks-20250320210739?project=my-project
         """
-        external_url: str = (
+        project_id = self._get_current_project_id()
+        return (
             f"{self.config.vertexai_url}/pipelines/locations/{self.config.region}/runs/{pipeline_name}"
-            f"?project={self.config.project_id}"
+            f"?project={project_id}"
         )
-        return external_url
