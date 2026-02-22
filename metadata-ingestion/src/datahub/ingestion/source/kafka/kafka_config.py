@@ -72,6 +72,15 @@ class KafkaSourceConfig(
         default=False,
         description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
     )
+    validate_avro_schema_names: bool = Field(
+        default=True,
+        description="Whether to enforce Avro schema name validation during parsing. "
+        "Set to False to allow schema names/namespaces that are not valid Avro names "
+        "(e.g., namespaces containing hyphens from Debezium CDC subjects like "
+        "'my-topic.public.users'). By default, the Avro specification requires names "
+        "to match [A-Za-z_][A-Za-z0-9_]*, which rejects hyphens. Disabling this "
+        "validation allows such schemas to be ingested successfully.",
+    )
     external_url_base: Optional[str] = Field(
         default=None,
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",

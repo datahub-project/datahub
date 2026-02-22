@@ -1,6 +1,9 @@
+import json
 import unittest
 from unittest.mock import patch
 
+import avro.errors
+import avro.schema
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
@@ -125,6 +128,86 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
                 schema_str_final
+            )
+
+    def test_get_schema_fields_with_hyphenated_namespace(self):
+        """Test that schemas with hyphens in namespace (e.g., from Debezium CDC)
+        can be parsed when validate_avro_schema_names is set to False."""
+        # Debezium-style schema where the topic name (with hyphens) is used as namespace
+        debezium_schema_str = json.dumps(
+            {
+                "type": "record",
+                "name": "Value",
+                "namespace": "my-debezium-topic.public.users",
+                "fields": [
+                    {"name": "id", "type": "int"},
+                    {"name": "name", "type": "string"},
+                ],
+            }
+        )
+
+        # First, verify this schema fails with default validation
+        with self.assertRaises(avro.errors.SchemaParseException):
+            avro.schema.parse(debezium_schema_str)
+
+        # Now test that ConfluentSchemaRegistry can parse it with validation disabled
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+                "validate_avro_schema_names": False,
+            }
+        )
+        confluent_schema_registry = ConfluentSchemaRegistry.create(
+            kafka_source_config, KafkaSourceReport()
+        )
+
+        schema = Schema(schema_str=debezium_schema_str, schema_type="AVRO")
+        fields = confluent_schema_registry._get_schema_fields(
+            topic="my-debezium-topic.public.users",
+            schema=schema,
+            is_key_schema=False,
+        )
+
+        assert len(fields) == 2
+        field_names = [f.fieldPath for f in fields]
+        assert any("id" in name for name in field_names)
+        assert any("name" in name for name in field_names)
+
+    def test_get_schema_fields_default_validation_rejects_hyphens(self):
+        """Test that schemas with hyphens in namespace fail with default validation."""
+        debezium_schema_str = json.dumps(
+            {
+                "type": "record",
+                "name": "Value",
+                "namespace": "my-debezium-topic.public.users",
+                "fields": [
+                    {"name": "id", "type": "int"},
+                    {"name": "name", "type": "string"},
+                ],
+            }
+        )
+
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        confluent_schema_registry = ConfluentSchemaRegistry.create(
+            kafka_source_config, KafkaSourceReport()
+        )
+
+        schema = Schema(schema_str=debezium_schema_str, schema_type="AVRO")
+        with self.assertRaises(avro.errors.SchemaParseException):
+            confluent_schema_registry._get_schema_fields(
+                topic="my-debezium-topic.public.users",
+                schema=schema,
+                is_key_schema=False,
             )
 
 
