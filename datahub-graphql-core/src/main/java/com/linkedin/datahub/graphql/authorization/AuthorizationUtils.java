@@ -64,6 +64,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), MANAGE, List.of(ACCESS_TOKEN_ENTITY_NAME));
   }
 
+  public static boolean canManageServiceAccounts(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_SERVICE_ACCOUNTS_PRIVILEGE);
+  }
+
   /**
    * Returns true if the current used is able to create Domains. This is true if the user has the
    * 'Manage Domains' or 'Create Domains' platform privilege.

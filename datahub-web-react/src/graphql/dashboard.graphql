@@ -1,4 +1,4 @@
-query getDashboard($urn: String!) {
+query getDashboard($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dashboard(urn: $urn) {
         urn
         type
@@ -22,9 +22,6 @@ query getDashboard($urn: String!) {
         }
         activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
             total
-        }
-        forms {
-            ...formsFields
         }
         ...notes
     }

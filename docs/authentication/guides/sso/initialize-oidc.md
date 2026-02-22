@@ -1,6 +1,3 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Prerequisites for OIDC Authentication
 
 This guide will walk you through the following steps with your identity provider:
@@ -10,9 +7,7 @@ This guide will walk you through the following steps with your identity provider
 
 Choose your identity provider to get started:
 
-<Tabs>
-
-<TabItem value="google" label="Google Identity">
+## Google Identity
 
 ### Step 1. Create and Register your App
 
@@ -83,9 +78,7 @@ You will need these values in the next step, in addition to the following **Disc
 https://accounts.google.com/.well-known/openid-configuration`
 ```
 
-</TabItem>
-
-<TabItem value="okta" label="Okta Identity">
+## Okta Identity
 
 ### Step 1. Create and Register your App
 
@@ -135,9 +128,7 @@ You will need these values in the next step, in addition to the following **Disc
 https://your-okta-domain.com/.well-known/openid-configuration
 ```
 
-</TabItem>
-
-<TabItem value="azure" label="Azure AD">
+## Azure AD
 
 ### Step 1. Create and Register your App
 
@@ -218,9 +209,6 @@ You will need the following values in the next step:
 <p align="center">
   <img width="80%"  src="https://learn.microsoft.com/en-us/azure/active-directory-b2c/media/client-credentials-grant-flow/get-application-id.png"/>
 </p>
-
-</TabItem>
-</Tabs>
 
 ### Next Steps
 

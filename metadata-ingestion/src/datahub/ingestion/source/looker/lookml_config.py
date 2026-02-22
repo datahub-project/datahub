@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Annotated, Any, Dict, Literal, Optional, Union
 
 import pydantic
 from pydantic import field_validator, model_validator
@@ -108,12 +108,19 @@ class LookMLSourceConfig(
         "`/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to "
         "`/Users/jdoe/workspace/my-lookml-repo`.",
     )
-    project_dependencies: Dict[str, Union[pydantic.DirectoryPath, GitInfo]] = Field(
+    project_dependencies: Dict[
+        str,
+        Annotated[
+            Union[pydantic.DirectoryPath, GitInfo],
+            Field(union_mode="left_to_right"),
+        ],
+    ] = Field(
         {},
         description="A map of project_name to local directory (accessible to the ingestion system) or Git credentials. "
         "Every local_dependencies or private remote_dependency listed in the main project's manifest.lkml file should "
-        "have a corresponding entry here."
-        "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. ",
+        "have a corresponding entry here. "
+        "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. "
+        "When providing a local directory path (string), the directory must exist at config validation time.",
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,

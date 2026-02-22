@@ -134,7 +134,7 @@ def _materialize_results(result: Any) -> list:
     description = getattr(result, "cursor_description", None)
     if description:
         column_names = [desc[0] for desc in description]
-        return [dict(zip(column_names, row)) for row in rows]
+        return [dict(zip(column_names, row, strict=False)) for row in rows]
 
     # No description - use indices
     return [dict(enumerate(row)) for row in rows]

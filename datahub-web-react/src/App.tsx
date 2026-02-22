@@ -1,7 +1,7 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
 import React from 'react';
@@ -14,6 +14,7 @@ import { Routes } from '@app/Routes';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
@@ -50,9 +51,20 @@ const errorLink = onError((error) => {
     // }
 });
 
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current.showSeparateSiblings,
+        skipLineage: hideLineageInSearchCardsRef.current.hideLineageInSearchCards,
+    };
+
+    return forward(operation);
+});
+
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: errorLink.concat(httpLink),
+    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {

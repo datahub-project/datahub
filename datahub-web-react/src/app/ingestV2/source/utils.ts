@@ -43,7 +43,7 @@ dayjs.extend(advancedFormat);
 dayjs.extend(localizedFormat);
 
 export const CUSTOM_SOURCE_NAME = 'custom';
-export const CUSTOM_SOURCE_DISPLAY_NAME = 'Other';
+export const CUSTOM_SOURCE_DISPLAY_NAME = 'Custom';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);

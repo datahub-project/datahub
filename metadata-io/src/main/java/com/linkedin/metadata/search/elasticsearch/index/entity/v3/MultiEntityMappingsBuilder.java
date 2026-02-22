@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityTypeId;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
@@ -279,21 +280,25 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             urnProperty -> {
               StructuredPropertyDefinition property = urnProperty.getSecond();
               Map<String, Object> mappingForField = new HashMap<>();
-              String valueType = property.getValueType().getId();
+              LogicalValueType logicalType = getLogicalValueType(property.getValueType());
 
-              // Map structured property value types to field types
-              if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())
-                  || valueType.equalsIgnoreCase(LogicalValueType.RICH_TEXT.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.DATE.name())) {
-                mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.URN.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForUrn();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.NUMBER.name())) {
-                mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-              } else {
-                // Default to keyword for unknown types
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
+              switch (logicalType) {
+                case STRING:
+                case RICH_TEXT:
+                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
+                  break;
+                case DATE:
+                  mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                  break;
+                case URN:
+                  mappingForField = FieldTypeMapper.getMappingsForUrn();
+                  break;
+                case NUMBER:
+                  mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                  break;
+                default:
+                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
+                  break;
               }
 
               return Map.entry(

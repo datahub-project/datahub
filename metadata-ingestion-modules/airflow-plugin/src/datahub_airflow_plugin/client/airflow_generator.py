@@ -75,6 +75,35 @@ def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
     return operator._downstream_task_id  # type: ignore[attr-defined,union-attr]
 
 
+def _serialize_iolets_for_properties(iolets: List[Any]) -> List[str]:
+    """Serialize inlets/outlets to a list of URIs for stable custom properties.
+
+    This function extracts the URI from various inlet/outlet object types:
+    - Airflow 2.4+ Dataset objects (have .uri attribute)
+    - Airflow 3.x Asset objects (have .uri attribute)
+    - Airflow 3.x AssetDefinition objects from @asset decorator (have .uri attribute)
+    - DataHub Dataset entities (have __repr__ that returns URN)
+    - Strings (used as-is)
+
+    This avoids using repr() on complex objects which would include memory addresses
+    and other unstable information.
+    """
+    result = []
+    for iolet in iolets:
+        if hasattr(iolet, "uri"):
+            # Airflow Dataset/Asset/AssetDefinition objects
+            result.append(str(iolet.uri))
+        elif hasattr(iolet, "urn"):
+            # DataHub entities with URN
+            result.append(str(iolet.urn))
+        elif isinstance(iolet, str):
+            result.append(iolet)
+        else:
+            # Fallback to string representation for unknown types
+            result.append(str(iolet))
+    return result
+
+
 class AirflowGenerator:
     @staticmethod
     def _get_dependencies(
@@ -362,6 +391,10 @@ class AirflowGenerator:
                     if out_key == "downstream_task_ids":
                         # Generate these in a consistent order.
                         v = list(sorted(v))
+                    if out_key in ("inlets", "outlets"):
+                        # Serialize inlets/outlets as list of URIs for stable representation.
+                        # This avoids including memory addresses from repr() of complex objects.
+                        v = _serialize_iolets_for_properties(v)
                     job_property_bag[out_key] = repr(v)
                     break
 

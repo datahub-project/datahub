@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -98,8 +98,9 @@ class OpenApiConfig(ConfigModel):
     username: str = Field(
         default="", description="Username used for basic HTTP authentication."
     )
-    password: str = Field(
-        default="", description="Password used for basic HTTP authentication."
+    password: TransparentSecretStr = Field(
+        default=SecretStr(""),
+        description="Password used for basic HTTP authentication.",
     )
     proxies: Optional[dict] = Field(
         default=None,
@@ -112,10 +113,10 @@ class OpenApiConfig(ConfigModel):
         default={},
         description="If no example is provided for a route, it is possible to create one using forced_example.",
     )
-    token: Optional[str] = Field(
+    token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
     )
-    bearer_token: Optional[str] = Field(
+    bearer_token: Optional[TransparentSecretStr] = Field(
         default=None, description="Bearer token for endpoint authentication."
     )
     get_token: dict = Field(
@@ -165,7 +166,7 @@ class OpenApiConfig(ConfigModel):
                 # token's value to the properly formatted bearer token.
                 # TODO: We should just create a requests.Session and set all the auth
                 # details there once, and then use that session for all requests.
-                self.token = f"Bearer {self.bearer_token}"
+                self.token = SecretStr(f"Bearer {self.bearer_token.get_secret_value()}")
             else:
                 assert "url_complement" in self.get_token, (
                     "When 'request_type' is set to 'get', an url_complement is needed for the request."
@@ -180,25 +181,29 @@ class OpenApiConfig(ConfigModel):
                     url4req = self.get_token["url_complement"].replace(
                         "{username}", self.username
                     )
-                    url4req = url4req.replace("{password}", self.password)
+                    url4req = url4req.replace(
+                        "{password}", self.password.get_secret_value()
+                    )
                 elif self.get_token["request_type"] == "post":
                     url4req = self.get_token["url_complement"]
                 else:
                     raise KeyError(
                         "This tool accepts only 'get' and 'post' as method for getting tokens"
                     )
-                self.token = get_tok(
-                    url=self.url,
-                    username=self.username,
-                    password=self.password,
-                    tok_url=url4req,
-                    method=self.get_token["request_type"],
-                    proxies=self.proxies,
-                    verify_ssl=self.verify_ssl,
+                self.token = SecretStr(
+                    get_tok(
+                        url=self.url,
+                        username=self.username,
+                        password=self.password.get_secret_value(),
+                        tok_url=url4req,
+                        method=self.get_token["request_type"],
+                        proxies=self.proxies,
+                        verify_ssl=self.verify_ssl,
+                    )
                 )
             sw_dict = get_swag_json(
                 self.url,
-                token=self.token,
+                token=self.token.get_secret_value(),
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
                 verify_ssl=self.verify_ssl,
@@ -208,7 +213,7 @@ class OpenApiConfig(ConfigModel):
             sw_dict = get_swag_json(
                 self.url,
                 username=self.username,
-                password=self.password,
+                password=self.password.get_secret_value(),
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
                 verify_ssl=self.verify_ssl,
@@ -719,7 +724,7 @@ class APISource(Source, ABC):
         if self.config.token:
             return request_call(
                 url,
-                token=self.config.token,
+                token=self.config.token.get_secret_value(),
                 proxies=self.config.proxies,
                 verify_ssl=self.config.verify_ssl,
             )
@@ -727,7 +732,7 @@ class APISource(Source, ABC):
             return request_call(
                 url,
                 username=self.config.username,
-                password=self.config.password,
+                password=self.config.password.get_secret_value(),
                 proxies=self.config.proxies,
                 verify_ssl=self.config.verify_ssl,
             )

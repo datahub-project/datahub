@@ -46,6 +46,8 @@ disallow_untyped_defs = false
 extraPaths = ['tests']
 
 [tool.pytest.ini_options]
+addopts = "-s -v --junit-xml=test-results/junit.integration.xml"
+junit_suite_name = "iceberg-catalog-pytest"
 markers = [
 	"quick: marks limited tests for a quick validation",
 	"serial",

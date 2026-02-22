@@ -100,6 +100,7 @@ def create_dataset_without_lineage_mcp_data() -> Dict[str, Any]:
     stop=tenacity.stop_after_attempt(5),
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     retry=tenacity.retry_if_exception_type(AssertionError),
+    reraise=True,
 )
 def verify_search_index_fields_via_openapi(
     auth_session,

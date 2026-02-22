@@ -108,6 +108,10 @@ export enum EntityCapabilityType {
      * Related context documents for this entity
      */
     RELATED_DOCUMENTS,
+    /**
+     * Forms associated with an entity
+     */
+    FORMS,
 }
 
 /**

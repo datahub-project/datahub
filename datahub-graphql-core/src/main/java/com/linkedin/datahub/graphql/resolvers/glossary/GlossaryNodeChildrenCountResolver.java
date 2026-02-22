@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -34,7 +36,7 @@ public class GlossaryNodeChildrenCountResolver
   @Override
   public CompletableFuture<GlossaryNodeChildrenCount> get(final DataFetchingEnvironment environment)
       throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
 
     final CriterionArray andArray = new CriterionArray();

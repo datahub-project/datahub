@@ -17,6 +17,8 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -73,15 +75,20 @@ public class GlossaryUtils {
       return true;
     }
 
-    // Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege recursively until there is no
-    // parent associated.
+    // Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege up the parent chain (bounded
+    // to avoid cycles or excessive depth).
+    Set<String> visited = new HashSet<>();
     Urn currentParentNodeUrn = parentNodeUrn;
-    while (currentParentNodeUrn != null) {
+    int depth = 0;
+    while (currentParentNodeUrn != null
+        && depth < context.getMaxParentDepth()
+        && visited.add(currentParentNodeUrn.toString())) {
       if (hasManagePrivilege(
           context, currentParentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
         return true;
       }
       currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
+      depth++;
     }
 
     return false;

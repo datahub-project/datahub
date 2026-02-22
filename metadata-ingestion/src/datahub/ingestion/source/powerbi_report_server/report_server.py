@@ -13,7 +13,7 @@ from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -69,7 +69,9 @@ LOGGER = logging.getLogger(__name__)
 
 class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
-    password: str = pydantic.Field(description="Windows account password")
+    password: TransparentSecretStr = pydantic.Field(
+        description="Windows account password"
+    )
     workstation_name: str = pydantic.Field(
         default="localhost", description="Workstation name"
     )
@@ -153,7 +155,7 @@ class PowerBiReportServerAPI:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
             f"{self.__config.workstation_name}\\{self.__config.username}",
-            self.__config.password,
+            self.__config.password.get_secret_value(),
         )
 
     @property

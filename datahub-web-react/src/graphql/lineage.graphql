@@ -460,7 +460,7 @@ fragment lineageFields on EntityWithRelationships {
                 ...lineageNodeProperties
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -586,7 +586,7 @@ fragment entityLineage on Entity {
                 ...lineageNodeProperties
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -669,7 +669,7 @@ fragment entityLineageV2 on Entity {
                 ...lineageSchemaField
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) {
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -815,6 +815,7 @@ query getEntityLineage(
     $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
+    $skipSiblingsSearch: Boolean = false
 ) {
     entity(urn: $urn) {
         ...entityLineage
@@ -830,6 +831,7 @@ query getEntityLineageV2(
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
     $includeGhostEntities: Boolean = false
+    $skipSiblingsSearch: Boolean = false
 ) {
     entity(urn: $urn) {
         ...entityLineageV2
@@ -845,6 +847,7 @@ query getBulkEntityLineageV2(
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
     $includeGhostEntities: Boolean = false
+    $skipSiblingsSearch: Boolean = false
 ) {
     entities(urns: $urns) {
         ...entityLineageV2
