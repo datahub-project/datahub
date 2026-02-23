@@ -189,11 +189,6 @@ public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
   }
 
   @Override
-  public boolean skip(UpgradeContext context) {
-    return PersistentUpgradeStep.super.skip(context); // Use interface default
-  }
-
-  @Override
   public boolean isOptional() {
     // This is optional - don't block other upgrades if this fails
     return true;

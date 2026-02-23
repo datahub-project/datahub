@@ -130,13 +130,5 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
       return true;
     }
 
-    /**
-     * Returns whether the upgrade should be skipped. Uses previous run history from
-     * PersistentUpgradeStep interface.
-     */
-    @Override
-    public boolean skip(UpgradeContext context) {
-      return PersistentUpgradeStep.super.skip(context); // Use interface default
-    }
   }
 }

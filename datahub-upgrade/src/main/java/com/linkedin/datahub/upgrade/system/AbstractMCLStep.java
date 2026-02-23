@@ -202,13 +202,4 @@ public abstract class AbstractMCLStep implements PersistentUpgradeStep {
     };
   }
 
-  @Override
-  /** Returns whether the upgrade should be skipped. */
-  public boolean skip(UpgradeContext context) {
-    boolean shouldSkip = PersistentUpgradeStep.super.skip(context);
-    if (shouldSkip) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return shouldSkip;
-  }
 }
