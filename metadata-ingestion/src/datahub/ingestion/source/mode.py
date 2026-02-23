@@ -934,10 +934,9 @@ class ModeSource(StatefulIngestionSourceBase):
         if not definitions:
             return query
 
-        # Expand all definition references at this level first, then recurse
-        # once. This avoids false "circular" detection when the same definition
-        # is referenced multiple times with different aliases (siblings).
-        expanded_names: Set[str] = set()
+        # Expand each definition's body independently. Only the definition's
+        # own name is added to _seen for its recursive expansion, so sibling
+        # definitions at the same level don't interfere with each other.
         for definition_variable in definitions:
             definition_name, definition_alias = self._parse_definition_name(
                 definition_variable
@@ -947,26 +946,34 @@ class ModeSource(StatefulIngestionSourceBase):
                 logger.warning(
                     f"Circular definition detected for '{definition_name}', skipping"
                 )
-                query = query.replace(
-                    definition_variable, f"{definition_name} as {definition_alias}"
+                fallback = (
+                    f"{definition_name} as {definition_alias}"
+                    if definition_alias
+                    else definition_name
                 )
+                query = query.replace(definition_variable, fallback)
                 continue
 
             definition_query = self._get_definition(definition_name)
             if definition_query is not None:
-                query = query.replace(
-                    definition_variable, f"({definition_query}) as {definition_alias}"
+                # Recursively expand nested definitions within this body,
+                # tracking only this definition's ancestry chain.
+                expanded_body = self._replace_definitions(
+                    definition_query, _depth + 1, _seen | {definition_name}
                 )
-                expanded_names.add(definition_name)
+                replacement = (
+                    f"({expanded_body}) as {definition_alias}"
+                    if definition_alias
+                    else f"({expanded_body})"
+                )
+                query = query.replace(definition_variable, replacement)
             else:
-                query = query.replace(
-                    definition_variable, f"{definition_name} as {definition_alias}"
+                fallback = (
+                    f"{definition_name} as {definition_alias}"
+                    if definition_alias
+                    else definition_name
                 )
-
-        # Recurse to expand nested definitions introduced by expansions.
-        # Names expanded at this level become ancestors to prevent cycles.
-        if expanded_names:
-            query = self._replace_definitions(query, _depth + 1, _seen | expanded_names)
+                query = query.replace(definition_variable, fallback)
 
         query = query.replace("\\n", "\n")
         query = query.replace("\\t", "\t")
@@ -975,7 +982,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
         name, alias = "", ""
         # i.e '{{ @join_on_definition as alias}}'
-        name_match = re.findall("@[a-zA-Z_]+", definition_variable)
+        name_match = re.findall(r"@\w+", definition_variable)
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
