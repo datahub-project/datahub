@@ -1894,6 +1894,11 @@ type FeatureFlagsConfig {
   showAskDataHubModeSelect: Boolean!
 
   """
+  If enabled, shows the Ask DataHub view select feature.
+  """
+  showAskDataHubViewSelect: Boolean!
+
+  """
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!

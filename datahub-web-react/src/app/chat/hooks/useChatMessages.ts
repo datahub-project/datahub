@@ -13,6 +13,7 @@ export interface UseChatMessagesProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
+    viewUrn?: string;
     chatLocation: ChatLocationType;
 }
 
@@ -37,6 +38,7 @@ export const useChatMessages = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
+    viewUrn,
     chatLocation,
 }: UseChatMessagesProps): UseChatMessagesReturn => {
     const [messages, setMessages] = useState<DataHubAiConversationMessage[]>([]);
@@ -45,6 +47,7 @@ export const useChatMessages = ({
 
     const { sendMessage, stopStreaming, isStreaming, currentMessage } = useChatStream({
         conversationUrn,
+        viewUrn,
         onMessageReceived: (message: DataHubAiConversationMessage) => {
             // Skip USER messages since we add them optimistically
             if (message.actor.type === DataHubAiConversationActorType.User) {

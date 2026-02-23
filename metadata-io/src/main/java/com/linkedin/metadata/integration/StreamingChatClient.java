@@ -89,6 +89,7 @@ public class StreamingChatClient {
    * @param conversationUrn The conversation URN
    * @param messageText The message text
    * @param agentName Optional agent name
+   * @param viewUrn Optional view URN to scope the conversation
    * @param messageContext Optional message-level context (will be combined with conversation
    *     context by Python service)
    * @param authentication The user's authentication object containing actor and credentials
@@ -99,6 +100,7 @@ public class StreamingChatClient {
       @Nonnull final String conversationUrn,
       @Nonnull final String messageText,
       @Nullable final String agentName,
+      @Nullable final String viewUrn,
       @Nullable final Map<String, Object> messageContext,
       @Nonnull final Authentication authentication,
       @Nullable final Consumer<SseEvent> progressCallback) {
@@ -135,6 +137,9 @@ public class StreamingChatClient {
             requestBody.put("text", messageText);
             if (agentName != null) {
               requestBody.put("agent_name", agentName);
+            }
+            if (viewUrn != null) {
+              requestBody.put("view_urn", viewUrn);
             }
             if (messageContext != null) {
               requestBody.put("context", messageContext);

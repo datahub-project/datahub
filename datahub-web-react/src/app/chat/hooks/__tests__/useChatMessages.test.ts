@@ -122,6 +122,7 @@ describe('useChatMessages', () => {
                 onMessageReceived: expect.any(Function),
                 onStreamComplete: mockOnStreamComplete,
                 agentName,
+                viewUrn: undefined,
                 chatLocation,
             });
         });

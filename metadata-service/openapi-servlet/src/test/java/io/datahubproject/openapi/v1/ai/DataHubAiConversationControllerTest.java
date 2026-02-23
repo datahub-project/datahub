@@ -113,13 +113,14 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // viewOverride can be null
             any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               // Simulate Python service returning SSE events with event names
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -174,6 +175,7 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // viewOverride can be null
             any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
@@ -203,12 +205,13 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // viewOverride can be null
             any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 // Simulate Python service streaming responses with event names
                 callback.accept(new SseEvent("message", testSseData1));
@@ -236,12 +239,13 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // viewOverride can be null
             any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 // Simulate Python service returning an error event
                 callback.accept(
@@ -312,6 +316,7 @@ public class DataHubAiConversationControllerTest {
             eq(TEST_CONVERSATION_URN.toString()),
             eq(TEST_MESSAGE_TEXT),
             any(String.class), // agentName
+            any(), // viewOverride
             argThat(
                 (Map<String, Object> contextMap) -> {
                   if (contextMap == null) return false;
@@ -327,7 +332,7 @@ public class DataHubAiConversationControllerTest {
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -363,12 +368,13 @@ public class DataHubAiConversationControllerTest {
             eq(TEST_CONVERSATION_URN.toString()),
             eq(TEST_MESSAGE_TEXT),
             any(String.class),
+            any(), // viewOverride
             eq(null), // Context should be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -399,6 +405,7 @@ public class DataHubAiConversationControllerTest {
             eq(TEST_CONVERSATION_URN.toString()),
             eq(TEST_MESSAGE_TEXT),
             any(String.class),
+            any(), // viewOverride
             argThat(
                 (Map<String, Object> contextMap) -> {
                   if (contextMap == null) return false;
@@ -410,7 +417,7 @@ public class DataHubAiConversationControllerTest {
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -478,11 +485,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -523,11 +531,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -572,11 +581,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -617,11 +627,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -677,11 +688,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -726,6 +738,7 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Streaming failed")));
@@ -763,11 +776,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 // Simulate Python service returning messages with keepalive comments
                 callback.accept(new SseEvent("message", "{\"text\":\"First message\"}"));
@@ -798,6 +812,7 @@ public class DataHubAiConversationControllerTest {
             eq(TEST_MESSAGE_TEXT),
             any(),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class));
   }
@@ -810,11 +825,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 // Send only comments
                 callback.accept(new SseEvent("__comment__", "keepalive"));
@@ -846,11 +862,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(),
+            any(),
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(5);
+              Consumer<SseEvent> callback = invocation.getArgument(6);
               if (callback != null) {
                 // Simulate long-running operation with thinking and keepalives
                 callback.accept(
@@ -888,6 +905,7 @@ public class DataHubAiConversationControllerTest {
             eq(TEST_CONVERSATION_URN.toString()),
             eq(TEST_MESSAGE_TEXT),
             any(), // agentName can be null
+            any(), // viewOverride can be null
             any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class));

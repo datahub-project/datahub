@@ -368,6 +368,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setInviteUsersEnabled(_featureFlags.isInviteUsersEnabled())
             .setShowAskDataHub(_featureFlags.isShowAskDataHub())
             .setShowAskDataHubModeSelect(_featureFlags.isShowAskDataHubModeSelect())
+            .setShowAskDataHubViewSelect(_featureFlags.isShowAskDataHubViewSelect())
             .setShowAskDataHubFeedback(_featureFlags.isShowAskDataHubFeedback())
             .setSupportTicketsEnabled(_featureFlags.isSupportTicketsEnabled())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())

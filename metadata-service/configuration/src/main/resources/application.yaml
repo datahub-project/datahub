@@ -1322,6 +1322,8 @@ featureFlags:
   # If enabled, the ask datahub feature will be available in the UI
   showAskDataHubModeSelect: ${SHOW_ASK_DATAHUB_MODE_SELECT:false}
   # If enabled, the ask datahub mode select feature will be available in the UI
+  showAskDataHubViewSelect: ${SHOW_ASK_DATAHUB_VIEW_SELECT:false}
+  # If enabled, the ask datahub view select feature will be available in the UI
   showAskDataHubFeedback: ${SHOW_ASK_DATAHUB_FEEDBACK:true}
   # If enabled, the thumbs up/down feedback buttons will be shown on AI chat responses
   freshnessAssertionTuningEnabled: ${FRESHNESS_ASSERTION_TUNING_ENABLED:true}

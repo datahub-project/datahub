@@ -73,6 +73,11 @@ export function useIsAskDataHubModeSelectEnabled() {
     return appConfig.config.featureFlags.showAskDataHubModeSelect;
 }
 
+export function useIsAskDataHubViewSelectEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showAskDataHubViewSelect;
+}
+
 export function useIsAiChatFeedbackEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showAskDataHubFeedback;

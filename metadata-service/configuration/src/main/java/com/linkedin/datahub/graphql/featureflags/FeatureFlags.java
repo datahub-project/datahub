@@ -93,6 +93,7 @@ public class FeatureFlags {
   private boolean inviteUsersEnabled = false;
   private boolean showAskDataHub = false;
   private boolean showAskDataHubModeSelect = false;
+  private boolean showAskDataHubViewSelect = false;
   private boolean showAskDataHubFeedback = false;
   private boolean supportTicketsEnabled = false;
   private boolean freshnessAssertionTuningEnabled = false;
