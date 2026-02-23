@@ -77,9 +77,9 @@ jobs:
         run: |
           BRANCH="${{ github.event.workflow_run.head_branch }}"
           REPO="${{ github.repository }}"
-          HEAD_REPO="${{ github.event.workflow_run.head_repository.full_name }}"
+          HEAD_OWNER="${{ github.event.workflow_run.head_repository.owner.login }}"
 
-          PR_NUMBER=$(gh api "/repos/${REPO}/pulls?head=${HEAD_REPO}:${BRANCH}&state=open" \
+          PR_NUMBER=$(gh api "/repos/${REPO}/pulls?head=${HEAD_OWNER}:${BRANCH}&state=open" \
             --jq '.[0].number // empty')
 
           if [ -z "$PR_NUMBER" ]; then
