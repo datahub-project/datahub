@@ -29,6 +29,7 @@ from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     KafkaSchemaClass,
     SchemaMetadataClass,
 )
@@ -869,6 +870,7 @@ def test_kafka_source_with_hyphenated_namespace_schema(
     ]
     assert len(dataset_props_mcps) == 1
     dataset_props = dataset_props_mcps[0].aspect
+    assert isinstance(dataset_props, DatasetPropertiesClass)
     assert dataset_props.description == "Debezium CDC event for users table"
 
 
