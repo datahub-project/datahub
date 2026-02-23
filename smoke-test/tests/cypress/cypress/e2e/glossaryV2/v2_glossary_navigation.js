@@ -6,6 +6,7 @@ let myUrl;
 
 const nevigateGlossaryPage = () => {
   cy.visit("/glossary");
+  cy.get('[id="v2-search-bar"]').should("be.visible");
   cy.waitTextVisible("Business Glossary");
   cy.wait(1000);
 };
@@ -21,6 +22,7 @@ const navigateToParentAndCheckTermGroup = (parentGroup, termGroup) => {
     .contains(parentGroup)
     .wait(2000)
     .click();
+  cy.clickOptionWithTestId("Contents-entity-tab-header");
   cy.get('*[class^="GlossaryEntitiesList"]')
     .contains(termGroup)
     .should("be.visible");
@@ -58,7 +60,7 @@ describe("glossary sidebar navigation test", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
   });
 
@@ -78,6 +80,7 @@ describe("glossary sidebar navigation test", () => {
       .contains(glossaryTermGroup)
       .should("be.visible");
     cy.clickOptionWithText(glossaryTermGroup);
+    cy.clickOptionWithTestId("Contents-entity-tab-header");
     cy.clickOptionWithTestId("add-term-button");
     createTerm(glossaryTerm);
     moveGlossaryEntityToGroup(
@@ -90,6 +93,7 @@ describe("glossary sidebar navigation test", () => {
     // Create another term and move it to the same term group
     cy.clickOptionWithText(glossaryTermGroup);
     cy.contains("Moved Glossary Term!").should("not.exist");
+    cy.clickOptionWithTestId("Contents-entity-tab-header");
     cy.clickOptionWithTestId("add-term-button");
     createTerm(glossarySecondTerm);
     moveGlossaryEntityToGroup(

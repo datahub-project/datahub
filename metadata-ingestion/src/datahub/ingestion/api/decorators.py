@@ -7,7 +7,6 @@ from typing import Callable, Dict, List, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
-    Source,
     SourceCapability as SourceCapability,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
@@ -23,10 +22,11 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
     def wrapper(cls: Type) -> Type:
         # add a get_config_class method
         cls.get_config_class = lambda: config_cls
-        if not hasattr(cls, "create") or (
-            cls.create.__func__ == Source.create.__func__  # type: ignore
-        ):
-            # add the create method only if it has not been overridden from the base Source.create method
+        if "create" not in cls.__dict__:
+            # Add create() for this class using its own config_cls.
+            # Uses __dict__ (not hasattr) so that subclasses with their own
+            # @config_class get a create() bound to their config, even when
+            # the parent already has a decorator-generated create().
             cls.create = classmethod(default_create)
 
             # TODO: Once we're on Python 3.10, we should call abc.update_abstractmethods here.

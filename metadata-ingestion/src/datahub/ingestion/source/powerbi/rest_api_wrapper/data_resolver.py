@@ -11,7 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.source.powerbi.config import Constant
+from datahub.ingestion.source.powerbi.config import Constant, PowerBiEnvironment
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
     Column,
@@ -70,11 +70,19 @@ class SessionWithTimeout(requests.Session):
 
 
 class DataResolverBase(ABC):
-    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
-    MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
-    BASE_URL: str = f"{MY_ORG_URL}/groups"
-    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
-    AUTHORITY: str = "https://login.microsoftonline.com/"
+    # PowerBI environment URLs
+    COMMERCIAL_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/",
+    }
+
+    GOVERNMENT_URLS = {
+        "SCOPE": "https://analysis.usgovcloudapi.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/",
+    }
+
     TOP: int = 1000
 
     def __init__(
@@ -83,7 +91,21 @@ class DataResolverBase(ABC):
         client_secret: str,
         tenant_id: str,
         metadata_api_timeout: int,
+        environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
     ):
+        self._environment = environment
+        urls = (
+            self.GOVERNMENT_URLS
+            if environment == PowerBiEnvironment.GOVERNMENT
+            else self.COMMERCIAL_URLS
+        )
+
+        self._scope = urls["SCOPE"]
+        self._my_org_url = urls["MY_ORG_URL"]
+        self._base_url = f"{self._my_org_url}/groups"
+        self._admin_base_url = f"{self._my_org_url}/admin"
+        self._authority = urls["AUTHORITY"]
+
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
 
@@ -94,7 +116,7 @@ class DataResolverBase(ABC):
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
-            authority=DataResolverBase.AUTHORITY + tenant_id,
+            authority=self._authority + tenant_id,
         )
         self.get_access_token()
 
@@ -169,7 +191,7 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self._tenant_id}"
+        return f"{self._authority}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
@@ -180,9 +202,7 @@ class DataResolverBase(ABC):
 
         logger.info("Generating PowerBi access token")
 
-        auth_response = self._msal_client.acquire_token_for_client(
-            scopes=[DataResolverBase.SCOPE]
-        )
+        auth_response = self._msal_client.acquire_token_for_client(scopes=[self._scope])
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
             logger.warning(
@@ -474,7 +494,7 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             DATASET_ID=dataset_id,
         )
@@ -499,7 +519,7 @@ class RegularAPIResolver(DataResolverBase):
             Constant.DATASET_GET
         ]
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
@@ -523,7 +543,7 @@ class RegularAPIResolver(DataResolverBase):
         }
 
     def get_groups_endpoint(self) -> str:
-        return DataResolverBase.BASE_URL
+        return self._base_url
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboards_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
@@ -531,20 +551,20 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         return dashboards_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace.id
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
         reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace.id
         )
 
     def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
         tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         return tiles_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             DASHBOARD_ID=dashboard_id,
         )
@@ -553,7 +573,7 @@ class RegularAPIResolver(DataResolverBase):
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             REPORT_ID=report_id,
         )
@@ -589,7 +609,7 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         dataset_query_endpoint = dataset_query_endpoint.format(
-            POWERBI_BASE_URL=self.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=dataset.workspace_id,
             DATASET_ID=dataset.id,
         )
@@ -744,7 +764,7 @@ class AdminAPIResolver(DataResolverBase):
 
         scan_create_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url
         )
 
         logger.debug(
@@ -833,7 +853,7 @@ class AdminAPIResolver(DataResolverBase):
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url, SCAN_ID=scan_id
         )
 
         return self._is_scan_result_ready(
@@ -853,7 +873,7 @@ class AdminAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             ENTITY=entity,
             ENTITY_ID=entity_id,
         )
@@ -896,7 +916,7 @@ class AdminAPIResolver(DataResolverBase):
             Constant.SCAN_RESULT_GET
         ]
         scan_result_get_endpoint = scan_result_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url, SCAN_ID=scan_id
         )
 
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")
@@ -921,20 +941,20 @@ class AdminAPIResolver(DataResolverBase):
         return res.json()
 
     def get_groups_endpoint(self) -> str:
-        return f"{AdminAPIResolver.ADMIN_BASE_URL}/groups"
+        return f"{self._admin_base_url}/groups"
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         return dashboard_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
         reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
 
@@ -942,7 +962,7 @@ class AdminAPIResolver(DataResolverBase):
         tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         return tiles_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             DASHBOARD_ID=dashboard_id,
         )
 
@@ -950,7 +970,7 @@ class AdminAPIResolver(DataResolverBase):
         self, workspace: Workspace, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
@@ -985,7 +1005,7 @@ class AdminAPIResolver(DataResolverBase):
         modified_workspaces_endpoint = self.API_ENDPOINTS[
             Constant.WORKSPACE_MODIFIED_LIST
         ].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
         )
         parameters: Dict[str, Any] = {
             "excludePersonalWorkspaces": False,
@@ -1039,7 +1059,7 @@ class AdminAPIResolver(DataResolverBase):
         app_id: str,
     ) -> Optional[Dict]:
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             APP_ID=app_id,
         )
         # Hit PowerBi

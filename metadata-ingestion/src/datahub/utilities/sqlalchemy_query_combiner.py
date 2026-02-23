@@ -41,7 +41,12 @@ _sa_execute_underlying_method = sqlalchemy.engine.Connection.execute
 class _RowProxyFake(collections.OrderedDict):
     def __getitem__(self, k):  # type: ignore
         if isinstance(k, int):
-            k = list(self.keys())[k]
+            keys = list(self.keys())
+            if k >= len(keys):
+                raise IndexError(
+                    f"Row has {len(keys)} columns, cannot access index {k}"
+                )
+            k = keys[k]
         return super().__getitem__(k)
 
 
@@ -81,6 +86,9 @@ class _ResultProxyFake:
     def scalar(self) -> Any:
         if len(self._result) == 1:
             row = self._result[0]
+            if len(row) == 0:
+                # Row exists but has no columns (empty result)
+                return None
             return row[0]
         elif self._result:
             raise MultipleResultsFound(

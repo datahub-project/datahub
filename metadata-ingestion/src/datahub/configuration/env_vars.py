@@ -34,6 +34,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
@@ -357,3 +367,26 @@ def get_update_entity_registry() -> str:
 def get_ci() -> Optional[str]:
     """Indicates running in CI environment."""
     return os.getenv("CI")
+
+
+def is_ci() -> bool:
+    """Check if running in a CI environment.
+
+    Returns True if running in a CI environment.
+
+    Checks multiple indicators:
+    - CI environment variable (set by most CI systems like GitHub Actions, GitLab CI, Travis CI, CircleCI, etc.)
+    - GITHUB_ACTIONS (GitHub Actions specific, always set even on custom runners)
+
+    This handles various CI value formats (true, 1, yes) and provides fallback
+    detection for GitHub Actions workflows using custom runners that might not set
+    the standard CI variable.
+    """
+    # Check standard CI variable (set by most CI systems)
+    ci_value = os.getenv("CI", "").lower()
+    if ci_value in ("true", "1", "yes"):
+        return True
+
+    # Fallback: GitHub Actions always sets GITHUB_ACTIONS=true
+    # This handles Depot runners and other custom GitHub Actions runners
+    return os.getenv("GITHUB_ACTIONS") == "true"

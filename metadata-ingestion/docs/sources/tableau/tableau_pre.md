@@ -19,7 +19,7 @@ Either way, the user/token must have at least the **Site Administrator Explorer*
 We need at least the **Site Administrator Explorer** site role in order to get complete metadata from Tableau. Roles with higher privileges, like **Site Administrator Creator** or **Server Admin** also work.
 
 With any lower role, the Tableau Metadata API returns missing/partial metadata.
-This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column lineage. Some table-level lineage is also impacted.
+This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column-level lineage. However, table-level lineage will still be extracted for tables even when column metadata is not available (see [Tables Without Column Metadata](#tables-without-column-metadata) section below).
 Other site roles, like Viewer or Explorer, are insufficient due to these limitations in the current Tableau Metadata API.
 
 :::
@@ -85,6 +85,18 @@ Lineage is emitted as received from Tableau's metadata API for
 - Tables upstream to Embedded or Published Data Source
 - Custom SQL datasources upstream to Embedded or Published Data Source
 - Tables upstream to Custom SQL Data Source
+
+##### Tables Without Column Metadata
+
+In some cases, the Tableau Metadata API may not return column information for upstream tables (i.e., `columnsConnection.totalCount` is null or 0). This can occur due to:
+
+- Permissions limitations
+- Tableau's internal metadata collection issues
+- Specific database connector behaviors
+
+DataHub will still create **table-level lineage** for these tables, even though column-level lineage cannot be generated. This ensures that upstream table relationships remain visible in lineage graphs.
+
+**Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
 #### Caveats
 

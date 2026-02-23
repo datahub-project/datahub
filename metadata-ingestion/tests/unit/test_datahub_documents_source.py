@@ -1789,3 +1789,135 @@ class TestGetCurrentOffset:
             assert "offsetId" not in call_args[1]["params"]
             assert "lookbackWindowDays" not in call_args[1]["params"]
             assert offset == "test-offset-456"
+
+
+class TestDataHubGraphInitialization:
+    """Test DataHub graph initialization logic (ctx.graph vs config-based)."""
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080", "token": "test-token"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    def test_uses_ctx_graph_when_available(self, config):
+        """Test that source uses ctx.graph when provided in pipeline context."""
+        # Create a mock graph
+        mock_graph = Mock()
+        mock_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_graph
+        )
+
+        # Initialize source
+        source = DataHubDocumentsSource(ctx, config)
+
+        # Verify source uses the context graph
+        assert source.graph is mock_graph
+        assert source.graph is ctx.graph
+
+    def test_creates_graph_from_config_when_ctx_graph_none(self, config):
+        """Test that source creates graph from config when ctx.graph is None."""
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock DataHubGraph constructor
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created from config
+            mock_graph_class.assert_called_once()
+            call_args = mock_graph_class.call_args[1]
+            assert "config" in call_args
+            assert call_args["config"].server == "http://test-server:8080"
+            assert call_args["config"].token == "test-token"
+
+            # Verify source uses the created graph
+            assert source.graph is mock_graph_instance
+
+    def test_graph_initialization_with_env_vars(self):
+        """Test graph creation falls back to env vars when config not provided."""
+        # Config with default datahub connection (should read from env vars)
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock env vars
+        with (
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_url"
+            ) as mock_get_url,
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_token"
+            ) as mock_get_token,
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ) as mock_graph_class,
+        ):
+            mock_get_url.return_value = "http://env-server:8080"
+            mock_get_token.return_value = "env-token"
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created (env vars are read in DataHubConnectionConfig)
+            mock_graph_class.assert_called_once()
+            assert source.graph is mock_graph_instance
+
+    def test_ctx_graph_takes_precedence_over_config(self, config):
+        """Test that ctx.graph takes precedence even when config has values."""
+        # Create a mock graph
+        mock_ctx_graph = Mock()
+        mock_ctx_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_ctx_graph
+        )
+
+        # Mock DataHubGraph constructor to ensure it's NOT called
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph constructor was NOT called
+            mock_graph_class.assert_not_called()
+
+            # Verify source uses the context graph
+            assert source.graph is mock_ctx_graph
+            assert source.graph is not mock_graph_class.return_value

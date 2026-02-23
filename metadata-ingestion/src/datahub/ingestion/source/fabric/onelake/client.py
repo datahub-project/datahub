@@ -461,6 +461,9 @@ class OneLakeClient(BaseFabricClient):
 
         Reference: https://learn.microsoft.com/en-us/rest/api/fabric/tables/list
 
+        Some warehouse types (e.g. staging warehouses for Dataflows) may return 404
+        for the tables endpoint; we treat that as empty and log a warning.
+
         Args:
             workspace_id: Workspace GUID
             warehouse_id: Warehouse GUID
@@ -491,6 +494,15 @@ class OneLakeClient(BaseFabricClient):
                     description=table_data.get("description"),
                 )
 
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                logger.warning(
+                    f"Warehouse {warehouse_id} tables endpoint returned 404 (Not Found). "
+                    "Some warehouse types (e.g. staging) do not expose tables via API. "
+                )
+                return
+            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
             raise

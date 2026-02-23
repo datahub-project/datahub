@@ -98,6 +98,7 @@ export const DEFAULT_APP_CONFIG = {
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
+        hideLineageInSearchCards: false,
     },
     chromeExtensionConfig: {
         enabled: false,

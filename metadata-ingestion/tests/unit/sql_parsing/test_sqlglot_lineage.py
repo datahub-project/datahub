@@ -151,6 +151,33 @@ AS
     )
 
 
+def test_snowflake_create_view_with_tag() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_db.my_schema.my_view
+WITH TAG (cost_center = 'engineering', classification = 'internal')
+AS
+SELECT id, name FROM my_db.my_schema.my_table
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_create_view_with_tag.json",
+    )
+
+
+def test_snowflake_create_table_as_select_with_tag() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE TABLE my_db.my_schema.target_table
+WITH TAG (cost_center = 'engineering')
+AS
+SELECT id, name FROM my_db.my_schema.source_table
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_table_as_select_with_tag.json",
+    )
+
+
 def test_insert_as_select() -> None:
     # Note: this also tests lineage with case statements.
     # The join extraction on this is going to be poor quality because
@@ -1617,4 +1644,130 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
 """,
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
+    )
+
+
+def test_clickhouse_dictget_lineage() -> None:
+    """dictGet dictionary references should appear in upstream lineage.
+
+    Expected lineage:
+        db1.events    default.my_dict
+                \\           /
+                 \\         /
+                  v       v
+                  [output]
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(default.my_dict, 'type', col_id) AS dict_type,
+    DICTGET(default.my_dict, 'domain', col_id) AS dict_domain
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
+    )
+
+
+def test_clickhouse_dictget_with_multiple_tables() -> None:
+    """dictGet references are included alongside real table joins.
+
+    Expected lineage:
+        db1.events    db1.users    default.my_dict
+                \\         |          /
+                 \\        |         /
+                  v       v        v
+                      [output]
+    """
+    assert_sql_result(
+        """\
+SELECT
+    e.event_id,
+    u.user_name,
+    DICTGETORDEFAULT(default.my_dict, 'name', e.category_id, 'Unknown') AS dict_name
+FROM db1.events e
+JOIN db1.users u ON e.user_id = u.id
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )
+
+
+def test_clickhouse_dictget_string_literal() -> None:
+    """Test dictGet with string literal dictionary name.
+
+    dictGet('schema.dict_name', ...) is parsed as a Literal node, not a Column.
+    The extraction should handle both forms.
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET('default.my_dict', 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_string_literal.json",
+    )
+
+
+def test_clickhouse_dictget_unqualified() -> None:
+    # dictGet with bare dictionary name (no database prefix).
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(my_dict, 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_unqualified.json",
+    )
+
+
+def test_clickhouse_dictget_in_materialized_view() -> None:
+    # dictGet table in in_tables, TO table in out_tables (not in_tables).
+    # Guards against operator precedence bug where `- modified` doesn't
+    # subtract from the full union including dictGet tables.
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW db1.mv_enriched TO db1.events_enriched
+AS SELECT
+    event_id,
+    DICTGET(default.my_dict, 'name', category_id) AS category_name
+FROM db1.raw_events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dictget_in_materialized_view.json",
+    )
+
+
+def test_clickhouse_materialized_view_to_table() -> None:
+    """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
+
+    The TO table is the storage target (downstream), not a data source (upstream).
+    The MV acts as a trigger that inserts into the target table.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+        analytics.agg_daily_stats  (target table from TO clause)
+
+    The MV name (analytics.mv_daily_stats) is NOT the downstream - the TO table is.
+    """
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats
+(date Date, total_events UInt64)
+AS SELECT
+    toDate(timestamp) AS date,
+    count(*) AS total_events
+FROM analytics.events
+GROUP BY date
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
     )

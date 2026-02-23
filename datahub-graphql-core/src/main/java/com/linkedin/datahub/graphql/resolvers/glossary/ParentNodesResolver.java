@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
@@ -24,7 +25,9 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -36,7 +39,15 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
     _entityClient = entityClient;
   }
 
-  private void aggregateParentNodes(List<GlossaryNode> nodes, String urn, QueryContext context) {
+  private void aggregateParentNodes(
+      List<GlossaryNode> nodes,
+      String urn,
+      QueryContext context,
+      Set<String> visitedUrns,
+      int depth) {
+    if (depth >= context.getMaxParentDepth() || !visitedUrns.add(urn)) {
+      return;
+    }
     try {
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
@@ -53,6 +64,9 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
         GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo(dataMap);
         if (nodeInfo.hasParentNode()) {
           Urn parentNodeUrn = nodeInfo.getParentNode();
+          if (visitedUrns.contains(parentNodeUrn.toString())) {
+            return;
+          }
           EntityResponse response =
               _entityClient.getV2(
                   context.getOperationContext(),
@@ -62,7 +76,7 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           if (response != null) {
             GlossaryNode mappedNode = GlossaryNodeMapper.map(context, response);
             nodes.add(mappedNode);
-            aggregateParentNodes(nodes, mappedNode.getUrn(), context);
+            aggregateParentNodes(nodes, mappedNode.getUrn(), context, visitedUrns, depth + 1);
           }
         }
       }
@@ -108,7 +122,7 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
 
   @Override
   public CompletableFuture<ParentNodesResult> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
     final List<GlossaryNode> nodes = new ArrayList<>();
 
@@ -117,25 +131,25 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           try {
             final String type = Urn.createFromString(urn).getEntityType();
 
+            Set<String> visitedUrns = new HashSet<>();
             if (GLOSSARY_TERM_ENTITY_NAME.equals(type)) {
               final GlossaryNode parentNode = getTermParentNode(urn, context);
               if (parentNode != null) {
                 nodes.add(parentNode);
-                aggregateParentNodes(nodes, parentNode.getUrn(), context);
+                aggregateParentNodes(nodes, parentNode.getUrn(), context, visitedUrns, 0);
               }
             } else {
-              aggregateParentNodes(nodes, urn, context);
+              aggregateParentNodes(nodes, urn, context, visitedUrns, 0);
             }
 
             List<GlossaryNode> viewable =
                 nodes.stream()
                     .filter(
                         e ->
-                            context == null
-                                || canViewRelationship(
-                                    context.getOperationContext(),
-                                    UrnUtils.getUrn(e.getUrn()),
-                                    UrnUtils.getUrn(urn)))
+                            canViewRelationship(
+                                context.getOperationContext(),
+                                UrnUtils.getUrn(e.getUrn()),
+                                UrnUtils.getUrn(urn)))
                     .collect(Collectors.toList());
 
             final ParentNodesResult result = new ParentNodesResult();

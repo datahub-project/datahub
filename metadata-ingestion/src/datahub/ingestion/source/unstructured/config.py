@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 # ===== Unstructured Processing Configs =====
 
@@ -19,7 +19,9 @@ class PartitionConfig(ConfigModel):
     partition_by_api: bool = Field(
         default=False, description="Use Unstructured API for partitioning"
     )
-    api_key: Optional[str] = Field(default=None, description="Unstructured API key")
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None, description="Unstructured API key"
+    )
     split_pdf_page: bool = Field(
         default=False, description="Enable page-level splitting for large PDFs"
     )
@@ -182,10 +184,13 @@ class HierarchyConfig(ConfigModel):
     """Hierarchy configuration."""
 
     enabled: bool = Field(default=True, description="Enable parent-child relationships")
-    parent_strategy: Literal["folder", "none", "custom", "notion"] = Field(
-        default="folder",
-        description="Parent document creation strategy. "
-        "'notion' extracts parent from Notion API metadata",
+    parent_strategy: Literal["folder", "none", "custom", "notion", "confluence"] = (
+        Field(
+            default="folder",
+            description="Parent document creation strategy. "
+            "'notion' extracts parent from Notion API metadata. "
+            "'confluence' extracts parent from Confluence page ancestors.",
+        )
     )
     folder_mapping: FolderMappingConfig = Field(
         default_factory=FolderMappingConfig, description="Folder mapping configuration"

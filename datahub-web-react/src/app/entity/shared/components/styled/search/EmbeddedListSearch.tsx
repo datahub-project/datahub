@@ -168,9 +168,9 @@ export const EmbeddedListSearch = ({
         variables: {
             input: {
                 types: entityTypes || [],
-                query,
+                query: finalQuery,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters: finalFilters,
                 scrollId: null,
             },
         },

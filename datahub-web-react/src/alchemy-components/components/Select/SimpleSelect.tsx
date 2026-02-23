@@ -81,6 +81,7 @@ export const SimpleSelect = ({
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
     dataTestId,
+    visibilityDeps,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -92,7 +93,7 @@ export const SimpleSelect = ({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef);
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
     const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
@@ -216,7 +217,8 @@ export const SimpleSelect = ({
                                         key={option.value}
                                         data-testid={`option-${option.value}`}
                                         onClick={() => {
-                                            if (!isMultiSelect) {
+                                            const isOptionDisabled = !!disabledValues?.includes(option.value);
+                                            if (!isOptionDisabled && !isMultiSelect) {
                                                 if (optionSwitchable && selectedValues.includes(option.value)) {
                                                     handleClearSelection();
                                                 } else {

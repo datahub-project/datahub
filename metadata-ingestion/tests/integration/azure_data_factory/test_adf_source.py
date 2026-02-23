@@ -5,7 +5,7 @@ produces the expected metadata events.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, cast
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -13,7 +13,24 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
+)
 from datahub.testing import mce_helpers
+from tests.integration.azure_data_factory.complex_mocks import (
+    RESOURCE_GROUP as COMPLEX_RESOURCE_GROUP,
+    SUBSCRIPTION_ID as COMPLEX_SUBSCRIPTION_ID,
+    create_branching_scenario,
+    create_complex_datasets,
+    create_complex_factory,
+    create_complex_linked_services,
+    create_dataflow_scenario,
+    create_diverse_activities_scenario,
+    create_foreach_loop_scenario,
+    create_mixed_dependencies_scenario,
+    create_multisource_chain_scenario,
+    create_nested_pipeline_scenario,
+)
 
 FROZEN_TIME = "2024-01-15 12:00:00"
 
@@ -955,3 +972,702 @@ def test_adf_source_factory_listing_failure_reports_failure(tmp_path):
             ), (
                 f"Expected 'Failed to List Data Factories' failure, got: {failure_messages}"
             )
+
+
+# =============================================================================
+# Column-Level Lineage Integration Tests
+# =============================================================================
+
+
+def create_copy_activity_with_column_mappings(
+    name: str,
+    inputs: List[Dict[str, Any]],
+    outputs: List[Dict[str, Any]],
+    translator: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Create a mock Copy activity with column mapping configuration."""
+    return {
+        "name": name,
+        "type": "Copy",
+        "inputs": inputs,
+        "outputs": outputs,
+        "typeProperties": {
+            "source": {"type": "AzureSqlSource"},
+            "sink": {"type": "AzureSqlSink"},
+            "translator": translator,
+        },
+        "dependsOn": [],
+        "policy": {"timeout": "7.00:00:00", "retry": 0},
+    }
+
+
+def get_column_lineage_test_data() -> Dict[str, Any]:
+    """Generate test data for column lineage extraction tests."""
+    factories = [
+        create_mock_factory(
+            name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+        ),
+    ]
+
+    # Copy activity with dictionary format column mappings
+    copy_with_dict_mappings = create_copy_activity_with_column_mappings(
+        name="CopyWithDictMappings",
+        inputs=[{"referenceName": "SourceSqlDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "DestSqlDataset", "type": "DatasetReference"}],
+        translator={
+            "type": "TabularTranslator",
+            "columnMappings": {
+                "source_id": "target_id",
+                "source_name": "target_name",
+                "source_email": "target_email",
+            },
+        },
+    )
+
+    # Copy activity with list format column mappings
+    copy_with_list_mappings = create_copy_activity_with_column_mappings(
+        name="CopyWithListMappings",
+        inputs=[{"referenceName": "SourceBlobDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "DestBlobDataset", "type": "DatasetReference"}],
+        translator={
+            "type": "TabularTranslator",
+            "mappings": [
+                {"source": {"name": "col_a"}, "sink": {"name": "column_x"}},
+                {"source": {"name": "col_b"}, "sink": {"name": "column_y"}},
+            ],
+        },
+    )
+
+    pipelines = [
+        create_mock_pipeline(
+            name="ColumnLineagePipeline",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            activities=[copy_with_dict_mappings, copy_with_list_mappings],
+        ),
+    ]
+
+    datasets = [
+        create_mock_dataset(
+            name="SourceSqlDataset",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            linked_service_name="AzureSqlLS",
+            dataset_type="AzureSqlTable",
+            type_properties={"schema": "dbo", "table": "SourceTable"},
+        ),
+        create_mock_dataset(
+            name="DestSqlDataset",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            linked_service_name="AzureSqlLS",
+            dataset_type="AzureSqlTable",
+            type_properties={"schema": "dbo", "table": "DestTable"},
+        ),
+        create_mock_dataset(
+            name="SourceBlobDataset",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            linked_service_name="BlobStorageLS",
+            dataset_type="DelimitedText",
+            type_properties={
+                "location": {"container": "source", "fileName": "data.csv"}
+            },
+        ),
+        create_mock_dataset(
+            name="DestBlobDataset",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            linked_service_name="BlobStorageLS",
+            dataset_type="DelimitedText",
+            type_properties={
+                "location": {"container": "dest", "fileName": "output.csv"}
+            },
+        ),
+    ]
+
+    linked_services = [
+        create_mock_linked_service(
+            name="AzureSqlLS",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            service_type="AzureSqlDatabase",
+        ),
+        create_mock_linked_service(
+            name="BlobStorageLS",
+            factory_name="cll-test-factory",
+            resource_group=RESOURCE_GROUP,
+            subscription_id=SUBSCRIPTION_ID,
+            service_type="AzureBlobStorage",
+        ),
+    ]
+
+    triggers: List[Dict[str, Any]] = []
+    pipeline_runs: List[Dict[str, Any]] = []
+
+    return {
+        "factories": factories,
+        "pipelines": pipelines,
+        "datasets": datasets,
+        "linked_services": linked_services,
+        "triggers": triggers,
+        "pipeline_runs": pipeline_runs,
+    }
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_with_column_lineage(pytestconfig, tmp_path):
+    """Test ADF metadata extraction with column-level lineage enabled.
+
+    Verifies:
+    - Column mappings are extracted from Copy activities
+    - Both dictionary and list format translators are parsed
+    - FineGrainedLineage aspects are emitted
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_column_lineage_events.json"
+    golden_file = test_resources_dir / "adf_column_lineage_golden.json"
+
+    test_data = get_column_lineage_test_data()
+    mock_client = create_mock_client(test_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-column-lineage",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": RESOURCE_GROUP,
+                            "credential": {
+                                "authentication_method": "default",
+                            },
+                            "include_lineage": True,
+                            "include_column_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": str(output_file),
+                        },
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            # Verify column lineage was extracted
+            source_report = cast(
+                AzureDataFactorySourceReport, pipeline.source.get_report()
+            )
+            assert source_report.column_lineage_extracted > 0, (
+                "Expected column lineage mappings to be extracted"
+            )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_column_lineage_disabled(tmp_path):
+    """Test that column lineage is not extracted when disabled.
+
+    Verifies:
+    - No column lineage when include_column_lineage=False
+    - Table-level lineage still works
+    """
+    output_file = tmp_path / "adf_no_column_lineage_events.json"
+
+    test_data = get_column_lineage_test_data()
+    mock_client = create_mock_client(test_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-no-column-lineage",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": RESOURCE_GROUP,
+                            "credential": {
+                                "authentication_method": "default",
+                            },
+                            "include_lineage": True,
+                            "include_column_lineage": False,  # Disabled
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": str(output_file),
+                        },
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            # Verify no column lineage was extracted
+            source_report = cast(
+                AzureDataFactorySourceReport, pipeline.source.get_report()
+            )
+            assert source_report.column_lineage_extracted == 0, (
+                "Expected no column lineage when disabled"
+            )
+
+            # But table-level lineage should still work
+            assert source_report.dataset_lineage_extracted > 0, (
+                "Expected table-level lineage to still work"
+            )
+
+
+# =============================================================================
+# Complex Scenario Integration Tests
+# =============================================================================
+
+
+def create_complex_scenario_mock_client(
+    scenario_data: Dict[str, Any],
+) -> MagicMock:
+    """Create a mock client for a complex scenario.
+
+    Args:
+        scenario_data: Dictionary with "pipelines" key from scenario functions
+    """
+    mock_client = MagicMock()
+
+    # Mock factory
+    mock_client.factories.list.return_value = MockPagedIterator(
+        [create_complex_factory()]
+    )
+    mock_client.factories.list_by_resource_group.return_value = MockPagedIterator(
+        [create_complex_factory()]
+    )
+
+    # Mock pipelines from scenario
+    mock_client.pipelines.list_by_factory.return_value = MockPagedIterator(
+        scenario_data["pipelines"]
+    )
+
+    # Mock datasets - use shared complex datasets
+    mock_client.datasets.list_by_factory.return_value = MockPagedIterator(
+        create_complex_datasets()
+    )
+
+    # Mock linked services - use shared complex linked services
+    mock_client.linked_services.list_by_factory.return_value = MockPagedIterator(
+        create_complex_linked_services()
+    )
+
+    # Mock data flows - check if scenario has them
+    data_flows = scenario_data.get("data_flows", [])
+    mock_client.data_flows.list_by_factory.return_value = MockPagedIterator(data_flows)
+
+    # Mock triggers (empty for these tests)
+    mock_client.triggers.list_by_factory.return_value = MockPagedIterator([])
+
+    # Mock pipeline runs (empty - no execution history)
+    mock_client.pipeline_runs.query_by_factory.return_value = MockQueryResponse([])
+    mock_client.activity_runs.query_by_pipeline_run.return_value = MockQueryResponse([])
+
+    return mock_client
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_nested_pipelines(pytestconfig, tmp_path):
+    """Test nested pipeline scenario with ExecutePipeline activities.
+
+    Verifies:
+    - Parent and child pipelines are extracted
+    - ExecutePipeline activities create pipeline-to-pipeline lineage
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_nested_events.json"
+    golden_file = test_resources_dir / "adf_nested_golden.json"
+
+    scenario_data = create_nested_pipeline_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-nested",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_foreach_loop(pytestconfig, tmp_path):
+    """Test ForEach loop scenario with iteration activities.
+
+    Verifies:
+    - ForEach activity is extracted
+    - Activities inside ForEach are extracted
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_foreach_events.json"
+    golden_file = test_resources_dir / "adf_foreach_golden.json"
+
+    scenario_data = create_foreach_loop_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-foreach",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_branching(pytestconfig, tmp_path):
+    """Test branching scenario with If-Condition and Switch activities.
+
+    Verifies:
+    - Control flow activities are extracted
+    - Conditional branches are represented
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_branching_events.json"
+    golden_file = test_resources_dir / "adf_branching_golden.json"
+
+    scenario_data = create_branching_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-branching",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_dataflow(pytestconfig, tmp_path):
+    """Test Data Flow scenario with mapping data flows.
+
+    Verifies:
+    - ExecuteDataFlow activities extract sources/sinks
+    - Data Flow transformation script is captured
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_dataflow_events.json"
+    golden_file = test_resources_dir / "adf_dataflow_golden.json"
+
+    scenario_data = create_dataflow_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-dataflow",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_multisource_chain(pytestconfig, tmp_path):
+    """Test multi-source chain scenario with SQL -> Blob -> Synapse.
+
+    Verifies:
+    - Multiple Copy activities create chained lineage
+    - Different platform types are mapped correctly
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_multisource_events.json"
+    golden_file = test_resources_dir / "adf_multisource_golden.json"
+
+    scenario_data = create_multisource_chain_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-multisource",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_diverse_activities(pytestconfig, tmp_path):
+    """Test diverse activity types scenario.
+
+    Verifies:
+    - Various activity types are extracted with correct subtypes
+    - Web, Azure Function, Databricks activities are represented
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_diverse_events.json"
+    golden_file = test_resources_dir / "adf_diverse_golden.json"
+
+    scenario_data = create_diverse_activities_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-diverse",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_mixed_dependencies(pytestconfig, tmp_path):
+    """Test mixed dependencies scenario with complex activity dependencies.
+
+    Verifies:
+    - Activity dependencies are correctly represented
+    - ExecutePipeline combined with Copy activities
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    output_file = tmp_path / "adf_mixed_deps_events.json"
+    golden_file = test_resources_dir / "adf_mixed_deps_golden.json"
+
+    scenario_data = create_mixed_dependencies_scenario()
+    mock_client = create_complex_scenario_mock_client(scenario_data)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-mixed-deps",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": COMPLEX_SUBSCRIPTION_ID,
+                            "resource_group": COMPLEX_RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {"type": "file", "config": {"filename": str(output_file)}},
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
+    )

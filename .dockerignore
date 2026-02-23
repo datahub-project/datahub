@@ -16,11 +16,8 @@ out
 !**/build/libs/*.jar
 !datahub-frontend/build/stage/main/**
 
-# Content in .git is used to get the git version
 # Just ignore the heavy parts that are not used
-.git/logs
-.git/COMMIT_*
-.git/index
+.git
 .gradle
 
 /metadata-ingestion/tests

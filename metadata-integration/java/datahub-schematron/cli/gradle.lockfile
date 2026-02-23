@@ -2,6 +2,7 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.10.1=runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.2.11=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 ch.qos.logback:logback-core:1.2.11=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
@@ -82,7 +83,6 @@ org.jacoco:org.jacoco.ant:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.core:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.13=jacocoAnt
 org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
-org.lz4:lz4-java:1.8.1=runtimeClasspath,testRuntimeClasspath
 org.mockito:mockito-core:4.11.0=testCompileClasspath,testRuntimeClasspath
 org.objenesis:objenesis:3.3=testRuntimeClasspath
 org.ow2.asm:asm-commons:9.8=jacocoAnt

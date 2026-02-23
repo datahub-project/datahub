@@ -506,7 +506,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if self.config.kafka_api_key and self.config.kafka_api_secret:
                 # Use Kafka-specific API credentials with Basic auth
                 headers["Authorization"] = self._create_basic_auth_header(
-                    self.config.kafka_api_key, self.config.kafka_api_secret
+                    self.config.kafka_api_key,
+                    self.config.kafka_api_secret.get_secret_value(),
                 )
                 logger.debug("Using dedicated Kafka API credentials for authentication")
 
@@ -863,11 +864,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     if source_dataset
                     else []
                 )
-                outlets = [
-                    self.make_lineage_dataset_urn(
-                        target_platform, target_dataset, target_platform_instance
-                    )
-                ]
+                outlets = (
+                    [
+                        self.make_lineage_dataset_urn(
+                            target_platform, target_dataset, target_platform_instance
+                        )
+                    ]
+                    if target_dataset
+                    else []
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
