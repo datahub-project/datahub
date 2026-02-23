@@ -17,14 +17,12 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -102,29 +100,38 @@ public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
     return "schema-field-doc-id-v1";
   }
 
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return BootstrapStep.getUpgradeUrn(id());
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
+  }
+
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variable SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID to determine whether to skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     if (Boolean.parseBoolean(System.getenv("SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID"))) {
       log.info("Environment variable SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID is set to true. Skipping.");
       return true;
     }
 
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    return prevResult
-        .filter(
-            result ->
-                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
-        .isPresent();
-  }
-
-  protected Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 
   @Override

@@ -1,7 +1,5 @@
 package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 
-import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -50,6 +48,26 @@ public class BootstrapMCPStep implements PersistentUpgradeStep {
   }
 
   @Override
+  public Urn getUpgradeIdUrn() {
+    return upgradeIdUrn;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
+  }
+
+  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
@@ -77,17 +95,10 @@ public class BootstrapMCPStep implements PersistentUpgradeStep {
   /** Returns whether the upgrade should be skipped. */
   @Override
   public boolean skip(UpgradeContext context) {
-    if (!mcpTemplate.isForce()) {
-      boolean previouslyRun =
-          entityService.exists(
-              context.opContext(), upgradeIdUrn, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-      if (previouslyRun) {
-        log.info("{} was already run. Skipping.", id());
-      }
-      return previouslyRun;
-    } else {
+    if (mcpTemplate.isForce()) {
       log.info("{} forced run.", id());
-      return false;
+      return false; // Force run even if previously completed
     }
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 }

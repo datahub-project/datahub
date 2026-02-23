@@ -94,6 +94,26 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements PersistentUpg
     return "schema-field-from-schema-metadata-v1";
   }
 
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return BootstrapStep.getUpgradeUrn(id());
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
+  }
+
   @VisibleForTesting
   @Nullable
   public String getUrnLike() {
@@ -104,6 +124,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements PersistentUpg
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variable SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA to determine whether to skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     if (Boolean.parseBoolean(System.getenv("SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA"))) {
       log.info(
@@ -111,19 +132,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements PersistentUpg
       return true;
     }
 
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    return prevResult
-        .filter(
-            result ->
-                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
-        .isPresent();
-  }
-
-  protected Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 
   @Override

@@ -185,6 +185,26 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
     return UPGRADE_ID;
   }
 
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return UPGRADE_ID_URN;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return reprocessEnabled;
+  }
+
   /**
    * Returns whether the upgrade should proceed if the step fails after exceeding the maximum
    * retries.
@@ -192,21 +212,5 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
   @Override
   public boolean isOptional() {
     return true;
-  }
-
-  /** Returns whether the upgrade should be skipped. */
-  @Override
-  public boolean skip(UpgradeContext context) {
-    if (reprocessEnabled) {
-      return false;
-    }
-
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return previouslyRun;
   }
 }

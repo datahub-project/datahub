@@ -211,6 +211,26 @@ public class BackfillBrowsePathsV2Step implements PersistentUpgradeStep {
     return UPGRADE_ID;
   }
 
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return UPGRADE_ID_URN;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return reprocessEnabled;
+  }
+
   /**
    * Returns whether the upgrade should proceed if the step fails after exceeding the maximum
    * retries.
@@ -220,25 +240,19 @@ public class BackfillBrowsePathsV2Step implements PersistentUpgradeStep {
     return true;
   }
 
-  @Override
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variables REPROCESS_DEFAULT_BROWSE_PATHS_V2 & BACKFILL_BROWSE_PATHS_V2 to determine whether to
    * skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     boolean envEnabled = Boolean.parseBoolean(System.getenv("BACKFILL_BROWSE_PATHS_V2"));
-
-    if (reprocessEnabled && envEnabled) {
-      return false;
+    if (!envEnabled) {
+      log.info("{} - Environment variable BACKFILL_BROWSE_PATHS_V2 not enabled. Skipping.", id());
+      return true; // Skip if env var not set
     }
 
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return (previouslyRun || !envEnabled);
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 }

@@ -9,7 +9,6 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
@@ -62,6 +61,26 @@ public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
   @Override
   public String id() {
     return upgradeId;
+  }
+
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return upgradeIdUrn;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
   }
 
   private UpgradeStepResult execute(UpgradeContext context) {
@@ -171,19 +190,7 @@ public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    // Check if this upgrade has already completed successfully
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, upgradeIdUrn, entityService);
-
-    boolean previousRunSucceeded =
-        prevResult
-            .filter(result -> DataHubUpgradeState.SUCCEEDED.equals(result.getState()))
-            .isPresent();
-
-    if (previousRunSucceeded) {
-      log.info("{} was already completed successfully. Skipping.", id());
-    }
-    return previousRunSucceeded;
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 
   @Override

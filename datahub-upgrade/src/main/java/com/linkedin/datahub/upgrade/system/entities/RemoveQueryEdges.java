@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.system.entities;
 
-import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE;
 
@@ -80,6 +79,26 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     }
 
     @Override
+    public Urn getUpgradeIdUrn() {
+      return UPGRADE_ID_URN;
+    }
+
+    @Override
+    public EntityService<?> getEntityService() {
+      return entityService;
+    }
+
+    @Override
+    public OperationContext getSystemOpContext() {
+      return opContext;
+    }
+
+    @Override
+    public boolean isReprocessEnabled() {
+      return false;
+    }
+
+    @Override
     public Function<UpgradeContext, UpgradeStepResult> executable() {
       final String indexName =
           opContext
@@ -112,20 +131,12 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     }
 
     /**
-     * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-     * variables REPROCESS_DEFAULT_POLICY_FIELDS & BACKFILL_BROWSE_PATHS_V2 to determine whether to
-     * skip.
+     * Returns whether the upgrade should be skipped. Uses previous run history from
+     * PersistentUpgradeStep interface.
      */
     @Override
     public boolean skip(UpgradeContext context) {
-
-      boolean previouslyRun =
-          entityService.exists(
-              context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-      if (previouslyRun) {
-        log.info("{} was already run. Skipping.", id());
-      }
-      return previouslyRun;
+      return PersistentUpgradeStep.super.skip(context); // Use interface default
     }
   }
 }

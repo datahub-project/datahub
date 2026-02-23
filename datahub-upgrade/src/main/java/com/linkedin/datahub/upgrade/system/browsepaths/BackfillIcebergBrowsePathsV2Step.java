@@ -280,6 +280,26 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
     return UPGRADE_ID;
   }
 
+  @Override
+  public Urn getUpgradeIdUrn() {
+    return UPGRADE_ID_URN;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
+  }
+
   /**
    * Returns whether the upgrade should proceed if the step fails after exceeding the maximum
    * retries.
@@ -287,17 +307,5 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
   @Override
   public boolean isOptional() {
     return true;
-  }
-
-  @Override
-  /** Returns whether the upgrade should be skipped. Uses previous run history */
-  public boolean skip(UpgradeContext context) {
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return previouslyRun;
   }
 }
