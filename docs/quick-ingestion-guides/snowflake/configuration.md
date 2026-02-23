@@ -159,7 +159,7 @@ marketplace:
   enabled: true
   marketplace_mode: "consumer" # This is the default
   # Optional: Configure time window for usage statistics
-  start_time: "-7 days"  # Default: -1 day
+  start_time: "-7 days" # Default: -1 day
   end_time: "now"
 
 # Required: Map your imported databases to their source shares
