@@ -36,6 +36,9 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
 
+    # Document limit
+    num_documents_limit_reached: bool = False
+
     # Performance metrics
     avg_page_processing_time_seconds: float = 0.0
     _total_processing_time: float = field(default=0.0, repr=False)

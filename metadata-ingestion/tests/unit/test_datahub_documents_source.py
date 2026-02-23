@@ -1655,6 +1655,130 @@ class TestConfigFingerprintInHash:
                 assert documents[0]["urn"] == "urn:li:document:notion1"
 
 
+class TestMaxDocumentsLimit:
+    """Test max_documents limit behavior."""
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration with a small max_documents limit."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+            max_documents=2,
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        """Create test context."""
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def test_default_max_documents(self):
+        """Test that max_documents defaults to 10000."""
+        config = DataHubDocumentsSourceConfig()
+        assert config.max_documents == 10000
+
+    def test_max_documents_limit_raises_error(self, ctx, config):
+        """Test that RuntimeError is raised when max_documents limit is hit."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_docs = [
+                {"urn": f"urn:li:document:{i}", "text": f"Document {i} content"}
+                for i in range(5)
+            ]
+
+            call_count = 0
+
+            def mock_process(doc):
+                nonlocal call_count
+                call_count += 1
+                source.report.report_document_processed(1)
+                if source.report.num_documents_processed >= source.config.max_documents:
+                    source.report.num_documents_limit_reached = True
+                    raise RuntimeError(
+                        f"Document limit of {source.config.max_documents} reached."
+                    )
+                return iter([])
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source, "_process_single_document", side_effect=mock_process
+                ),
+                pytest.raises(RuntimeError, match="Document limit of 2 reached"),
+            ):
+                list(source._process_batch_mode())
+
+            assert source.report.num_documents_limit_reached is True
+
+    def test_max_documents_flag_set_on_limit(self, ctx, config):
+        """Test that num_documents_limit_reached is set to True when limit is hit."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Set report counter to one below the limit
+            source.report.num_documents_processed = config.max_documents - 1
+
+            # Simulate processing one more document which should trigger the limit
+            source.report.report_document_processed(1)
+            assert source.report.num_documents_processed == config.max_documents
+
+            if source.report.num_documents_processed >= source.config.max_documents:
+                source.report.num_documents_limit_reached = True
+
+            assert source.report.num_documents_limit_reached is True
+
+    def test_documents_processed_before_limit_are_emitted(self, ctx, config):
+        """Test that documents processed before the limit are emitted."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+
+            processed_urns = []
+
+            def mock_process(doc):
+                processed_urns.append(doc["urn"])
+                source.report.report_document_processed(1)
+                if source.report.num_documents_processed >= source.config.max_documents:
+                    source.report.num_documents_limit_reached = True
+                    raise RuntimeError("Document limit reached.")
+                return iter([])
+
+            mock_docs = [
+                {"urn": f"urn:li:document:{i}", "text": f"Document {i} content"}
+                for i in range(5)
+            ]
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source, "_process_single_document", side_effect=mock_process
+                ),
+                pytest.raises(RuntimeError),
+            ):
+                list(source._process_batch_mode())
+
+            # Should have processed exactly max_documents (2) before stopping
+            assert len(processed_urns) == config.max_documents
+            assert source.report.num_documents_limit_reached is True
+
+
 class TestGetCurrentOffset:
     """Test get_current_offset() method in DocumentEventConsumer."""
 

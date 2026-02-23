@@ -54,6 +54,7 @@ from datahub.metadata.schema_classes import (
     PlatformTypeClass,
 )
 from datahub.sdk.document import Document
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -348,6 +349,16 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             config=chunking_config,
             standalone=False,  # Run as sub-component
             graph=ctx.graph,  # Pass graph for server config loading
+        )
+
+        # Initialize rate limiter for embedding calls
+        self.rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(
+                max_calls=config.documents_per_minute,
+                period=60.0,
+            )
+            if config.rate_limit
+            else None
         )
 
         # Initialize stateful ingestion handler for stale entity removal
@@ -936,9 +947,15 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         document_urn = f"urn:li:document:{doc_id}"
 
         try:
-            yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
-            )
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    yield from self.chunking_source.process_elements_inline(
+                        document_urn=document_urn, elements=elements
+                    )
+            else:
+                yield from self.chunking_source.process_elements_inline(
+                    document_urn=document_urn, elements=elements
+                )
         except Exception as e:
             logger.warning(
                 f"Failed to generate embeddings for {document_urn}: {e}. "
@@ -949,6 +966,15 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Update metrics
         processing_time = time.time() - start_time
         self.report.report_page_processed(page_id, processing_time)
+
+        if self.report.pages_processed >= self.config.max_documents:
+            self.report.num_documents_limit_reached = True
+            raise RuntimeError(
+                f"Document limit of {self.config.max_documents} reached. "
+                f"Processed {self.report.pages_processed} documents. "
+                "Increase max_documents in the source config to process more."
+            )
+
         self.report.report_text_extracted(len(text))
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

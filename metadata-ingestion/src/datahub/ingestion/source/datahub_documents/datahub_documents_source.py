@@ -47,6 +47,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 from datahub.metadata.urns import DocumentUrn
 from datahub.sdk.document import Document
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
     processing_errors: list[str] = []
+    num_documents_limit_reached: bool = False
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -271,6 +273,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             raise ValueError(
                 f"Unsupported embedding provider: {self.config.embedding.provider}"
             )
+
+        # Initialize rate limiter for embedding calls
+        self.rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(
+                max_calls=config.documents_per_minute,
+                period=60.0,
+            )
+            if config.rate_limit
+            else None
+        )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
@@ -1082,6 +1094,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             yield from self._emit_semantic_content(document_urn, chunks, embeddings)
 
             self.report.report_document_processed(len(chunks))
+
+            if self.report.num_documents_processed >= self.config.max_documents:
+                self.report.num_documents_limit_reached = True
+                raise RuntimeError(
+                    f"Document limit of {self.config.max_documents} reached. "
+                    f"Processed {self.report.num_documents_processed} documents. "
+                    "Increase max_documents in the source config to process more."
+                )
+
             self.report.report_embeddings_generated(len(embeddings))
 
             logger.info(
@@ -1148,14 +1169,25 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 batch = texts[i : i + self.config.embedding.batch_size]
 
                 # Use litellm.embedding() which works with both Bedrock and Cohere
-                response = litellm.embedding(
-                    model=self.embedding_model,
-                    input=batch,
-                    api_key=self.config.embedding.api_key.get_secret_value()
-                    if self.config.embedding.api_key
-                    else None,  # Only used for Cohere
-                    aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
-                )
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        response = litellm.embedding(
+                            model=self.embedding_model,
+                            input=batch,
+                            api_key=self.config.embedding.api_key.get_secret_value()
+                            if self.config.embedding.api_key
+                            else None,  # Only used for Cohere
+                            aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
+                        )
+                else:
+                    response = litellm.embedding(
+                        model=self.embedding_model,
+                        input=batch,
+                        api_key=self.config.embedding.api_key.get_secret_value()
+                        if self.config.embedding.api_key
+                        else None,  # Only used for Cohere
+                        aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
+                    )
 
                 # Extract embeddings from response
                 batch_embeddings = [data["embedding"] for data in response.data]

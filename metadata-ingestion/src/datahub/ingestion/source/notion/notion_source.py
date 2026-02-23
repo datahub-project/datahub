@@ -35,6 +35,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +360,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._initialize_state_tracking()
+
+        # Initialize rate limiter for embedding calls
+        self.rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(
+                max_calls=config.documents_per_minute,
+                period=60.0,
+            )
+            if config.rate_limit
+            else None
+        )
 
         # Validate embedding configuration
         if self.config.embedding.provider is not None:
@@ -1959,9 +1970,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         # Generate embeddings inline using ChunkingSource
         try:
-            yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
-            )
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    yield from self.chunking_source.process_elements_inline(
+                        document_urn=document_urn, elements=elements
+                    )
+            else:
+                yield from self.chunking_source.process_elements_inline(
+                    document_urn=document_urn, elements=elements
+                )
         except Exception as e:
             short_error = str(e).split("\n")[0][:150]
             is_credential_error = any(
@@ -1993,6 +2010,14 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_partitioning_strategy(
             self.config.processing.partition.strategy
         )
+
+        # Check document limit after incrementing count
+        if self.report.num_documents_created >= self.config.max_documents:
+            self.report.num_documents_limit_reached = True
+            raise RuntimeError(
+                f"Document limit of {self.config.max_documents} reached. "
+                "Increase max_documents in the source config to process more."
+            )
 
         # Update document state after successful processing
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:

@@ -141,6 +141,21 @@ class DataHubDocumentsSourceConfig(
         default=50,
         description="Minimum text length in characters to process (shorter documents are skipped)",
     )
+    max_documents: int = Field(
+        default=10000,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached.",
+    )
+
+    rate_limit: bool = Field(
+        default=True,
+        description="Enable rate limiting for embedding API calls.",
+    )
+
+    documents_per_minute: int = Field(
+        default=300,
+        description="Maximum number of documents to embed per minute when rate_limit is enabled.",
+    )
 
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:
