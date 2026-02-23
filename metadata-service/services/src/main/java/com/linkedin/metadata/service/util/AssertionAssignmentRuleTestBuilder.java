@@ -111,13 +111,13 @@ public class AssertionAssignmentRuleTestBuilder {
     ObjectNode upsertNode = passingArray.addObject();
     upsertNode.put("type", ActionType.UPSERT_ASSERTION_ASSIGNMENT_RULE.name());
     ObjectNode upsertParamsNode = upsertNode.putObject("params");
-    upsertParamsNode.put("ruleUrn", ruleUrn.toString());
+    upsertParamsNode.put(AssertionAssignmentRuleParams.RULE_URN, ruleUrn.toString());
 
     ArrayNode failingArray = actionsNode.putArray("failing");
     ObjectNode removeNode = failingArray.addObject();
     removeNode.put("type", ActionType.REMOVE_ASSERTION_ASSIGNMENT_RULE.name());
     ObjectNode removeParamsNode = removeNode.putObject("params");
-    removeParamsNode.put("ruleUrn", ruleUrn.toString());
+    removeParamsNode.put(AssertionAssignmentRuleParams.RULE_URN, ruleUrn.toString());
 
     // Convert the def node to a formatted string
     return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(definitionNode);

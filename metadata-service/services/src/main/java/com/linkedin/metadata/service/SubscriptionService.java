@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
+import com.linkedin.subscription.SubscriptionManagedByArray;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
@@ -57,6 +58,25 @@ public class SubscriptionService extends BaseService {
       @Nonnull final SubscriptionTypeArray subscriptionTypes,
       @Nonnull final EntityChangeDetailsArray entityChangeTypes,
       @Nullable final SubscriptionNotificationConfig notificationConfig) {
+    return createSubscription(
+        opContext,
+        actorUrn,
+        entityUrn,
+        subscriptionTypes,
+        entityChangeTypes,
+        notificationConfig,
+        null);
+  }
+
+  @Nonnull
+  public Map.Entry<Urn, SubscriptionInfo> createSubscription(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn actorUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final SubscriptionTypeArray subscriptionTypes,
+      @Nonnull final EntityChangeDetailsArray entityChangeTypes,
+      @Nullable final SubscriptionNotificationConfig notificationConfig,
+      @Nullable final SubscriptionManagedByArray managedBy) {
     try {
       if (isActorSubscribed(opContext, entityUrn, actorUrn)) {
         throw new IllegalArgumentException(
@@ -82,6 +102,9 @@ public class SubscriptionService extends BaseService {
               .setUpdatedOn(auditStamp);
       if (notificationConfig != null) {
         subscriptionInfo.setNotificationConfig(notificationConfig);
+      }
+      if (managedBy != null) {
+        subscriptionInfo.setManagedBy(managedBy);
       }
 
       // Create subscription info proposal
