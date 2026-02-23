@@ -199,6 +199,27 @@ class TestReplaceDefinitions:
         result = source._replace_definitions(query)
         assert "unknown_def as alias_tbl" in result
 
+    def test_multiple_definitions_in_single_query(self):
+        source = _make_source_with_definitions(
+            {
+                "active_users": "SELECT id, name FROM users WHERE active = true",
+                "recent_orders": "SELECT user_id, total FROM orders WHERE dt > '2024-01-01'",
+            }
+        )
+        query = (
+            "SELECT orders.total, buyers.name, sellers.name "
+            "FROM {{ @recent_orders as orders }} "
+            "JOIN {{ @active_users as buyers }} ON orders.user_id = buyers.id "
+            "JOIN {{ @active_users as sellers }} ON orders.seller_id = sellers.id"
+        )
+        result = source._replace_definitions(query)
+        assert (
+            "(SELECT user_id, total FROM orders WHERE dt > '2024-01-01') as orders"
+            in result
+        )
+        assert "(SELECT id, name FROM users WHERE active = true) as buyers" in result
+        assert "(SELECT id, name FROM users WHERE active = true) as sellers" in result
+
 
 # ──────────────────────────────────────────────────────────────────────
 # _get_creator cache semantics
