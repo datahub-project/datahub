@@ -235,6 +235,7 @@ export const NODE_ALLOW: FilterRecipeField = {
     fieldPath: nodeAllowFieldPath,
     rules: null,
     section: 'Nodes',
+    filteringResource: 'Node',
 };
 
 const nodeDenyFieldPath = 'source.config.node_name_pattern.deny';
@@ -251,6 +252,7 @@ export const NODE_DENY: FilterRecipeField = {
     fieldPath: nodeDenyFieldPath,
     rules: null,
     section: 'Nodes',
+    filteringResource: 'Node',
 };
 
 export const METADATA_ENDPOINT: RecipeField = {

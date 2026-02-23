@@ -1,0 +1,13 @@
+# LangChain 1.x dependencies
+langchain>=1.2.7
+langchain-aws>=1.2.1
+langchain-core>=1.2.7
+boto3>=1.42.35
+# Lower bounds on httpcore and h11 due to CVE-2025-43859.
+httpcore>=1.0.9
+h11>=0.16
+
+# DataHub agent context with LangChain support
+# For local development: pip install -e "../../[langchain]"
+# For published package: pip install "datahub-agent-context[langchain]>=0.1.0"
+-e ../../[langchain]

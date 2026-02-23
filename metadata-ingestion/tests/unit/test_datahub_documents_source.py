@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sys
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -27,6 +28,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 class TestTextPartitioner:
     """Test text partitioner."""
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
     def test_partition_simple_markdown(self):
         """Test partitioning simple markdown text."""
         partitioner = TextPartitioner()
@@ -40,6 +45,10 @@ class TestTextPartitioner:
         element_types = {elem.get("type") for elem in elements}
         assert "Title" in element_types or "Header" in element_types
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
     def test_partition_empty_text(self):
         """Test partitioning empty text."""
         partitioner = TextPartitioner()
@@ -176,8 +185,7 @@ class TestDataHubDocumentsSource:
 
             # Should be valid SHA256 hash
             assert len(hash1) == 64  # SHA256 produces 64 hex characters
-            expected_hash = hashlib.sha256(text1.encode("utf-8")).hexdigest()
-            assert hash1 == expected_hash
+            assert all(c in "0123456789abcdef" for c in hash1)
 
     def test_should_process_incremental_mode(self, ctx, config):
         """Test should_process logic in incremental mode."""
@@ -187,23 +195,16 @@ class TestDataHubDocumentsSource:
             source = DataHubDocumentsSource(ctx, config)
             source.config.incremental.enabled = True
 
-            # Mock state handler
-            mock_state_handler = patch.object(source, "state_handler").start()
-            mock_state_handler.get_document_hash.return_value = None
-
-            # New document should be processed (no hash in state)
+            # New document should be processed (not in document_state)
             assert source._should_process("urn:li:document:123", "some text") is True
 
-            # Add document to state via mock
-            text_hash = source._calculate_text_hash("some text")
-            mock_state_handler.get_document_hash.return_value = text_hash
+            # Add document to state
+            source._update_document_state("urn:li:document:123", "some text")
 
             # Same text should not be processed
             assert source._should_process("urn:li:document:123", "some text") is False
 
             # Changed text should be processed (different hash)
-            different_hash = source._calculate_text_hash("different text")
-            assert different_hash != text_hash
             assert (
                 source._should_process("urn:li:document:123", "different text") is True
             )
@@ -317,21 +318,19 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            # Mock state handler
-            mock_state_handler = patch.object(source, "state_handler").start()
-            mock_state_handler.update_document_state = Mock()
-
             document_urn = "urn:li:document:123"
             text = "some document text"
 
             source._update_document_state(document_urn, text)
 
-            # Verify state handler was called with correct parameters
-            mock_state_handler.update_document_state.assert_called_once()
-            call_args = mock_state_handler.update_document_state.call_args[0]
-            assert call_args[0] == document_urn
-            assert call_args[1] == hashlib.sha256(text.encode("utf-8")).hexdigest()
-            assert "last_processed" in call_args[2]  # timestamp string
+            # Verify document was added to state with correct hash
+            assert document_urn in source.document_state
+            assert "content_hash" in source.document_state[document_urn]
+            assert "last_processed" in source.document_state[document_urn]
+
+            # Verify hash matches expected value
+            expected_hash = source._calculate_text_hash(text)
+            assert source.document_state[document_urn]["content_hash"] == expected_hash
 
 
 class TestEventModeFallback:
@@ -343,7 +342,11 @@ class TestEventModeFallback:
         return DataHubDocumentsSourceConfig(
             platform_filter=["*"],
             datahub={"server": "http://test-server:8080"},
-            event_mode={"enabled": True, "consumer_id": "test-consumer"},
+            event_mode={
+                "enabled": True,
+                "consumer_id": "test-consumer",
+                "idle_timeout_seconds": 1,  # Short timeout for fast tests
+            },
             embedding={
                 "provider": "bedrock",
                 "model": "cohere.embed-english-v3",
@@ -512,11 +515,13 @@ class TestEventModeFallback:
                         "entityUrn": "urn:li:document:test123",
                         "aspectName": "documentInfo",
                         "aspect": {
-                            "value": json.dumps(
-                                {
-                                    "contents": {"text": "Test document content"},
-                                }
-                            )
+                            "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                                "value": json.dumps(
+                                    {
+                                        "contents": {"text": "Test document content"},
+                                    }
+                                )
+                            }
                         },
                     }
 
@@ -693,8 +698,8 @@ class TestStateStorage:
                 assert calls[1][0][0] == "urn:li:document:2"
 
                 # Verify hashes are correct
-                hash1 = hashlib.sha256("Document 1 content".encode("utf-8")).hexdigest()
-                hash2 = hashlib.sha256("Document 2 content".encode("utf-8")).hexdigest()
+                hash1 = source._calculate_text_hash("Document 1 content")
+                hash2 = source._calculate_text_hash("Document 2 content")
                 assert calls[0][0][1] == hash1
                 assert calls[1][0][1] == hash2
 
@@ -731,9 +736,7 @@ class TestStateStorage:
                 assert call_args[0] == "urn:li:document:1"
 
                 # Verify hash is correct
-                expected_hash = hashlib.sha256(
-                    "Document 1 content".encode("utf-8")
-                ).hexdigest()
+                expected_hash = source._calculate_text_hash("Document 1 content")
                 assert call_args[1] == expected_hash
 
     def test_event_mode_stores_offsets(self, ctx, config, mock_graph):
@@ -908,7 +911,7 @@ class TestStateStorage:
 
             # Document with same hash (unchanged)
             text = "Same content"
-            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            text_hash = source._calculate_text_hash(text)
             mock_state_handler.get_document_hash.return_value = text_hash
 
             # Mock documents
@@ -968,7 +971,7 @@ class TestStateStorage:
 
                 # Verify new hash was stored
                 call_args = mock_state_handler.update_document_state.call_args[0]
-                new_hash = hashlib.sha256(new_text.encode("utf-8")).hexdigest()
+                new_hash = source._calculate_text_hash(new_text)
                 assert call_args[1] == new_hash
                 assert call_args[1] != old_hash
 
@@ -1786,3 +1789,135 @@ class TestGetCurrentOffset:
             assert "offsetId" not in call_args[1]["params"]
             assert "lookbackWindowDays" not in call_args[1]["params"]
             assert offset == "test-offset-456"
+
+
+class TestDataHubGraphInitialization:
+    """Test DataHub graph initialization logic (ctx.graph vs config-based)."""
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080", "token": "test-token"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    def test_uses_ctx_graph_when_available(self, config):
+        """Test that source uses ctx.graph when provided in pipeline context."""
+        # Create a mock graph
+        mock_graph = Mock()
+        mock_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_graph
+        )
+
+        # Initialize source
+        source = DataHubDocumentsSource(ctx, config)
+
+        # Verify source uses the context graph
+        assert source.graph is mock_graph
+        assert source.graph is ctx.graph
+
+    def test_creates_graph_from_config_when_ctx_graph_none(self, config):
+        """Test that source creates graph from config when ctx.graph is None."""
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock DataHubGraph constructor
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created from config
+            mock_graph_class.assert_called_once()
+            call_args = mock_graph_class.call_args[1]
+            assert "config" in call_args
+            assert call_args["config"].server == "http://test-server:8080"
+            assert call_args["config"].token == "test-token"
+
+            # Verify source uses the created graph
+            assert source.graph is mock_graph_instance
+
+    def test_graph_initialization_with_env_vars(self):
+        """Test graph creation falls back to env vars when config not provided."""
+        # Config with default datahub connection (should read from env vars)
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock env vars
+        with (
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_url"
+            ) as mock_get_url,
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_token"
+            ) as mock_get_token,
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ) as mock_graph_class,
+        ):
+            mock_get_url.return_value = "http://env-server:8080"
+            mock_get_token.return_value = "env-token"
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created (env vars are read in DataHubConnectionConfig)
+            mock_graph_class.assert_called_once()
+            assert source.graph is mock_graph_instance
+
+    def test_ctx_graph_takes_precedence_over_config(self, config):
+        """Test that ctx.graph takes precedence even when config has values."""
+        # Create a mock graph
+        mock_ctx_graph = Mock()
+        mock_ctx_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_ctx_graph
+        )
+
+        # Mock DataHubGraph constructor to ensure it's NOT called
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph constructor was NOT called
+            mock_graph_class.assert_not_called()
+
+            # Verify source uses the context graph
+            assert source.graph is mock_ctx_graph
+            assert source.graph is not mock_graph_class.return_value

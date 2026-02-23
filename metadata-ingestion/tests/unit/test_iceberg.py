@@ -519,6 +519,69 @@ def test_iceberg_profiler_value_render(
     )
 
 
+def test_iceberg_profiler_size_in_bytes() -> None:
+    """Test that sizeInBytes is correctly extracted from snapshot summary."""
+    from unittest.mock import MagicMock
+
+    from datahub.metadata.schema_classes import DatasetProfileClass
+
+    profiler = with_iceberg_profiler()
+
+    # Create mock table with snapshot containing total-files-size
+    mock_table = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_summary = MagicMock()
+    mock_summary.additional_properties = {
+        "total-records": "100",
+        "total-files-size": "1048576",
+    }
+    mock_snapshot.summary = mock_summary
+    mock_snapshot.manifests.return_value = []
+    mock_table.current_snapshot.return_value = mock_snapshot
+    mock_table.schema.return_value.fields = []
+    mock_table.metadata_location = "s3://bucket/table/metadata.json"
+
+    # Call profile_table and get the result
+    results = list(profiler.profile_table("test.table", mock_table))
+
+    assert len(results) == 1
+    profile = results[0]
+    assert isinstance(profile, DatasetProfileClass)
+    assert profile.sizeInBytes == 1048576
+    assert profile.rowCount == 100
+
+
+def test_iceberg_profiler_size_in_bytes_missing() -> None:
+    """Test that sizeInBytes is None when total-files-size is not in snapshot summary."""
+    from unittest.mock import MagicMock
+
+    from datahub.metadata.schema_classes import DatasetProfileClass
+
+    profiler = with_iceberg_profiler()
+
+    # Create mock table with snapshot without total-files-size
+    mock_table = MagicMock()
+    mock_snapshot = MagicMock()
+    mock_summary = MagicMock()
+    mock_summary.additional_properties = {
+        "total-records": "50",
+    }
+    mock_snapshot.summary = mock_summary
+    mock_snapshot.manifests.return_value = []
+    mock_table.current_snapshot.return_value = mock_snapshot
+    mock_table.schema.return_value.fields = []
+    mock_table.metadata_location = "s3://bucket/table/metadata.json"
+
+    # Call profile_table and get the result
+    results = list(profiler.profile_table("test.table", mock_table))
+
+    assert len(results) == 1
+    profile = results[0]
+    assert isinstance(profile, DatasetProfileClass)
+    assert profile.sizeInBytes is None
+    assert profile.rowCount == 50
+
+
 def test_avro_decimal_bytes_nullable() -> None:
     """
     The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.

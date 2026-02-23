@@ -48,7 +48,10 @@ class FivetranAPIClient:
         requests_session.mount("https://", adapter)
 
         # Set up basic authentication
-        requests_session.auth = (self.config.api_key, self.config.api_secret)
+        requests_session.auth = (
+            self.config.api_key.get_secret_value(),
+            self.config.api_secret.get_secret_value(),
+        )
         requests_session.headers.update(
             {
                 "Content-Type": "application/json",

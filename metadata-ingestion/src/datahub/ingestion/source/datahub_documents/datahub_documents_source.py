@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Optional, cast
+from typing import Any, Dict, Iterable, Optional, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -93,20 +93,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
-    This source extracts Document entities from DataHub and generates semantic embeddings.
+    Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
-    It supports:
-    - **Batch mode**: Fetches documents via GraphQL
-    - **Event-driven mode**: Processes documents in real-time from Kafka MCL events (recommended)
-    - **Incremental processing**: Only reprocesses documents when content changes
-    - **Smart defaults**: Auto-configures connection, chunking, and embeddings from server
-
-    The minimal configuration requires just `config: {}` when using environment variables
-    (DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN) and will automatically align with your server's
-    semantic search configuration.
-
-    **Prerequisites:** Before using this source, configure semantic search on your DataHub server.
-    See the [Semantic Search Configuration Guide](../../how-to/semantic-search-configuration) for setup instructions.
+    Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
+    Automatically fetches embedding configuration from server to ensure alignment.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -139,11 +129,23 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
 
         # Initialize DataHub client
-        graph_config = DatahubClientConfig(
-            server=self.config.datahub.server,
-            token=self.config.datahub.token,
-        )
-        self.graph = DataHubGraph(config=graph_config)
+        # Use pipeline context graph if available (automatically configured from sink)
+        # This ensures we connect to the correct GMS in managed ingestion environments
+        if self.ctx.graph:
+            self.graph = self.ctx.graph
+        else:
+            # Fallback: Create graph from config (for standalone usage)
+            # Convert TransparentSecretStr to str for DatahubClientConfig
+            token_str = (
+                self.config.datahub.token.get_secret_value()
+                if self.config.datahub.token
+                else None
+            )
+            graph_config = DatahubClientConfig(
+                server=self.config.datahub.server,
+                token=token_str,
+            )
+            self.graph = DataHubGraph(config=graph_config)
 
         # Load/validate embedding configuration from server
         if not self.config.embedding.allow_local_embedding_config:
@@ -221,7 +223,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         f"  Model: {self.config.embedding.model}\n"
                         f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
                         f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                        f"Consider upgrading to DataHub v0.14.0+ for automatic configuration sync."
+                        f"Consider upgrading to DataHub 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     )
                     # Continue with local config (don't raise)
                 elif is_old_server:
@@ -233,7 +235,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "    provider: bedrock  # or cohere\n"
                         "    model: cohere.embed-english-v3\n"
                         "    aws_region: us-west-2\n\n"
-                        "Or upgrade your DataHub server to v0.14.0+ for automatic configuration sync."
+                        "Or upgrade your DataHub server to 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
                     ) from e
                 else:
                     # Other error (semantic search disabled, validation failed, etc.)
@@ -261,8 +263,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Initialize embedding model name for litellm
         if self.config.embedding.provider == "bedrock":
             self.embedding_model = f"bedrock/{self.config.embedding.model}"
-        else:  # cohere
+        elif self.config.embedding.provider == "cohere":
             self.embedding_model = f"cohere/{self.config.embedding.model}"
+        elif self.config.embedding.provider == "openai":
+            self.embedding_model = f"openai/{self.config.embedding.model}"
+        else:
+            raise ValueError(
+                f"Unsupported embedding provider: {self.config.embedding.provider}"
+            )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
@@ -939,22 +947,94 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         current_hash = self._calculate_text_hash(text)
 
+        # Use state_handler if available (proper stateful ingestion)
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            previous_hash = self.state_handler.get_document_hash(document_urn)
+            return previous_hash != current_hash
+
+        # Fall back to local document_state (simple incremental mode)
         if document_urn not in self.document_state:
             return True
 
         previous_hash = self.document_state[document_urn].get("content_hash")
         return previous_hash != current_hash
 
+    def _get_processing_config_fingerprint(self) -> Dict[str, Any]:
+        """Extract processing configuration that affects output artifacts.
+
+        This fingerprint is included in the document hash to trigger reprocessing
+        when configuration changes (e.g., enabling chunking, changing embedding model).
+
+        Returns:
+            Dictionary of config values that affect processing output.
+        """
+        # Chunking/embedding is enabled when embedding provider is configured
+        embedding_enabled = self.config.embedding.provider is not None
+
+        return {
+            # Chunking affects chunk boundaries and structure
+            "chunking_enabled": embedding_enabled,
+            "chunking_strategy": self.config.chunking.strategy
+            if embedding_enabled
+            else None,
+            "chunking_max_characters": self.config.chunking.max_characters
+            if embedding_enabled
+            else None,
+            "chunking_overlap": self.config.chunking.overlap
+            if embedding_enabled
+            else None,
+            "chunking_combine_under": self.config.chunking.combine_text_under_n_chars
+            if embedding_enabled
+            else None,
+            # Embedding affects vector embeddings on chunks
+            "embedding_enabled": embedding_enabled,
+            "embedding_provider": self.config.embedding.provider
+            if embedding_enabled
+            else None,
+            "embedding_model": self.config.embedding.model
+            if embedding_enabled
+            else None,
+            # Partitioning affects how text is extracted
+            "partition_strategy": self.config.partition_strategy,
+        }
+
     def _calculate_text_hash(self, text: str) -> str:
-        """Calculate SHA256 hash of document text for incremental tracking."""
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+        """Calculate hash of document content AND processing configuration.
+
+        This ensures documents are reprocessed when:
+        1. Content changes (text is different)
+        2. Processing config changes (chunking enabled, embedding model changed, etc.)
+
+        Args:
+            text: Document text content
+
+        Returns:
+            SHA256 hash hex string
+        """
+        hash_input = {
+            "content": text,
+            "config": self._get_processing_config_fingerprint(),
+        }
+        # Deterministic JSON serialization
+        hash_str = json.dumps(hash_input, sort_keys=True)
+        return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
-        self.document_state[document_urn] = {
-            "content_hash": self._calculate_text_hash(text),
-            "last_processed": datetime.utcnow().isoformat(),
-        }
+        content_hash = self._calculate_text_hash(text)
+        last_processed = datetime.utcnow().isoformat()
+
+        # Use state_handler if available (proper stateful ingestion)
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.update_document_state(
+                document_urn, content_hash, last_processed
+            )
+        else:
+            # Fall back to local document_state (simple incremental mode)
+            self.document_state[document_urn] = {
+                "content_hash": content_hash,
+                "last_processed": last_processed,
+            }
 
     def _process_single_document(
         self, doc: dict[str, Any]
@@ -1071,7 +1151,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 response = litellm.embedding(
                     model=self.embedding_model,
                     input=batch,
-                    api_key=self.config.embedding.api_key,  # Only used for Cohere
+                    api_key=self.config.embedding.api_key.get_secret_value()
+                    if self.config.embedding.api_key
+                    else None,  # Only used for Cohere
                     aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
                 )
 

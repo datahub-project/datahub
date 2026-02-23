@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.9+
+# Requires Python 3.10+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -452,27 +452,48 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
-Running `datahub init` will allow you to customize the datahub instance you are communicating with. It has an optional `--use-password` option which allows to initialise the config using username, password. We foresee this mainly being used by admins as majority of organisations will be using SSO and there won't be any passwords to use.
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 
-```
-# locally hosted example
+#### Interactive Mode
+
+```shell
+# Interactive mode - prompts for input
 datahub init
 /Users/user/.datahubenv already exists. Overwrite? [y/N]: y
 Configure which datahub instance to connect to
 Enter your DataHub host [http://localhost:8080]: http://localhost:8080
 Enter your DataHub access token []:
-
-# acryl example
-datahub init
-/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
-Configure which datahub instance to connect to
-Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
-Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
 ```
 
-You can pass `--use-password` flag to use user/password to generate the token automatically.
+#### Non-Interactive Mode with Username/Password
+
+The CLI can automatically generate tokens from your username and password credentials. This is useful for quickstart instances, automation, and CI/CD pipelines.
+
+```shell
+# Quickstart (local instance with default credentials)
+datahub init --username datahub --password datahub
+
+# Custom credentials with longer token duration
+datahub init --username alice --password secret --token-duration ONE_MONTH
+
+# For long-running jobs or CI/CD
+datahub init --username alice --password secret --token-duration ONE_WEEK
+```
+
+#### DataHub Cloud Example
+
+For DataHub Cloud (Acryl-hosted) instances, you can use an existing token:
+
+```shell
+# Interactive
+datahub init
+Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
+Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
+
+# Non-interactive
+datahub init --host https://<your-instance-id>.acryl.io/gms --token <your-token>
+```
 
 #### Environment variables supported
 
@@ -484,6 +505,8 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
+- `DATAHUB_USERNAME` (default `None`) - Username for generating access tokens via `datahub init`. Used with `DATAHUB_PASSWORD` for non-interactive authentication.
+- `DATAHUB_PASSWORD` (default `None`) - Password for generating access tokens via `datahub init`. Used with `DATAHUB_USERNAME` for non-interactive authentication.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
@@ -1084,7 +1107,7 @@ Please see our [Integrations page](https://docs.datahub.com/integrations) if you
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                                | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                    |
 | [ldap](./generated/ingestion/sources/ldap.md)                                                  | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                             |
 | [looker](./generated/ingestion/sources/looker.md)                                              | `pip install 'acryl-datahub[looker]'`                      | Looker source                           |
-| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+     |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                                | `pip install 'acryl-datahub[lookml]'`                      | LookML source                           |
 | [metabase](./generated/ingestion/sources/metabase.md)                                          | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                         |
 | [mode](./generated/ingestion/sources/mode.md)                                                  | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source                   |
 | [mongodb](./generated/ingestion/sources/mongodb.md)                                            | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                          |

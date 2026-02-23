@@ -1036,7 +1036,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     ]
                 lineage = {
                     column_name: future.result()
-                    for column_name, future in zip(column_names, futures)
+                    for column_name, future in zip(column_names, futures, strict=False)
                 }
 
             for column_name in column_names:

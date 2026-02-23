@@ -2,11 +2,9 @@ import dataclasses
 import json
 import logging
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,14 +28,23 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    parse_dbt_timestamp,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
+    DBTTest,
+    DBTTestResult,
+    parse_freshness_criteria,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +185,7 @@ def extract_dbt_entities(
     only_include_if_in_catalog: bool,
     include_database_name: bool,
     report: DBTSourceReport,
+    sources_invocation_id: Optional[str] = None,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
@@ -249,10 +257,32 @@ def extract_dbt_entities(
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
+        source_result = sources_by_id.get(key, {})
+        max_loaded_at_str = source_result.get("max_loaded_at")
         max_loaded_at = None
         if max_loaded_at_str:
             max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
+
+        freshness_info = None
+        if source_result and source_result.get("status"):
+            snapshotted_at_str = source_result.get("snapshotted_at")
+            snapshotted_at = (
+                parse_dbt_timestamp(snapshotted_at_str) if snapshotted_at_str else None
+            )
+            criteria = source_result.get("criteria", {})
+
+            if max_loaded_at and snapshotted_at:
+                freshness_info = DBTFreshnessInfo(
+                    invocation_id=sources_invocation_id or "unknown",
+                    status=source_result.get("status", ""),
+                    max_loaded_at=max_loaded_at,
+                    snapshotted_at=snapshotted_at,
+                    max_loaded_at_time_ago_in_s=source_result.get(
+                        "max_loaded_at_time_ago_in_s", 0.0
+                    ),
+                    warn_after=parse_freshness_criteria(criteria.get("warn_after")),
+                    error_after=parse_freshness_criteria(criteria.get("error_after")),
+                )
 
         test_info = None
         if manifest_node.get("resource_type") == "test":
@@ -306,6 +336,7 @@ def extract_dbt_entities(
                 "compiled_code", manifest_node.get("compiled_sql")
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
+            freshness_info=freshness_info,
         )
 
         # Load columns from catalog, and override some properties from manifest.
@@ -329,8 +360,51 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-def parse_dbt_timestamp(timestamp: str) -> datetime:
-    return dateutil.parser.parse(timestamp)
+def extract_dbt_exposures(
+    manifest_exposures: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTExposure]:
+    """Extract dbt exposures from the manifest.json exposures section."""
+    exposures = []
+    for key, exposure_node in manifest_exposures.items():
+        owner = exposure_node.get("owner", {})
+        depends_on = exposure_node.get("depends_on", {})
+        # depends_on can have "nodes" and "macros" keys
+        depends_on_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        tags = exposure_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        raw_type = exposure_node.get("type", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure_node.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        exposures.append(
+            DBTExposure(
+                name=exposure_node["name"],
+                unique_id=key,
+                type=exposure_type,
+                owner_name=owner.get("name") if isinstance(owner, dict) else None,
+                owner_email=owner.get("email") if isinstance(owner, dict) else None,
+                description=exposure_node.get("description"),
+                url=exposure_node.get("url"),
+                maturity=maturity,
+                depends_on=depends_on_nodes,
+                tags=tags,
+                meta=exposure_node.get("meta", {}),
+                dbt_package_name=exposure_node.get("package_name"),
+                dbt_file_path=exposure_node.get("original_file_path"),
+            )
+        )
+    return exposures
 
 
 class DBTRunTiming(BaseModel):
@@ -552,11 +626,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 message="Some metadata, particularly schema information, will be missing.",
             )
 
+        sources_invocation_id = None
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
                 self.config.sources_path, self.config.aws_connection
             )
             sources_results = dbt_sources_json["results"]
+            sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
+                "invocation_id"
+            )
         else:
             sources_results = {}
 
@@ -572,6 +650,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
+        manifest_exposures = dbt_manifest_json.get("exposures", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -592,6 +671,13 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
+            sources_invocation_id=sources_invocation_id,
+        )
+
+        # Extract exposures from manifest
+        self._exposures = extract_dbt_exposures(
+            manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
         )
 
         return (

@@ -33,7 +33,7 @@ export default function ModalHeader({ subHeading }: Props) {
             <LogoImage src={themeConfig.assets?.logoUrl} preview={false} />
             <HeaderText>
                 <Text size="3xl" color="gray" colorLevel={600} weight="bold" lineHeight="normal">
-                    Welcome to Datahub
+                    Welcome to DataHub
                 </Text>
                 {subHeading && (
                     <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">

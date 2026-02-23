@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const platform_policy_name = `Platform test policy ${test_id}`;
 const number = Math.floor(Math.random() * 100000);
@@ -112,6 +114,17 @@ const deactivateExistingAllUserPolicies = () => {
 
 describe("Manage Ingestion and Secret Privileges", () => {
   let registeredEmail = "";
+
+  beforeEach(() => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+        });
+      }
+    });
+  });
+
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/permissions/policies");

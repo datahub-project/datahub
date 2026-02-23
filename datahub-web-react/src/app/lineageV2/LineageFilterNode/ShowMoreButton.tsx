@@ -99,6 +99,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-more"
                     onClick={() => setPagination(Math.min(limit + LINEAGE_FILTER_PAGINATION, maximum))}
+                    data-testid="show-more"
                 >
                     <Text>{limit + LINEAGE_FILTER_PAGINATION >= maximum ? 'Show All' : 'Show More'}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
@@ -110,6 +111,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                 <Button
                     key="show-less"
                     onClick={() => setPagination(Math.min(maximum, limit) - LINEAGE_FILTER_PAGINATION)}
+                    data-testid="show-less"
                 >
                     <Text>Show Less</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
@@ -118,7 +120,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         }
         if (limit + LINEAGE_FILTER_PAGINATION < maximum && limit + MAX_INCREASE >= maximum) {
             list.push(
-                <Button key="show-all" onClick={() => setPagination(maximum)}>
+                <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
                     <Text>Show All</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
@@ -126,7 +128,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
         }
         if (limit + MAX_INCREASE < maximum) {
             list.push(
-                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)}>
+                <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)} data-testid="show-max">
                     <Text>Show +{MAX_INCREASE}</Text>
                     <KeyboardDoubleArrowDownIcon fontSize="inherit" />
                 </Button>,
@@ -137,7 +139,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
 
     if (!buttons.length) return null;
     return (
-        <Wrapper className="show-more">
+        <Wrapper className="show-more" data-testid="show-max-wrapper">
             {buttons[0]}
             {buttons.length > 1 && <ExtraButtons>{buttons.slice(1)}</ExtraButtons>}
         </Wrapper>

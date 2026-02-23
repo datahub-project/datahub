@@ -271,6 +271,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

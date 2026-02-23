@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
 
@@ -47,7 +48,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 

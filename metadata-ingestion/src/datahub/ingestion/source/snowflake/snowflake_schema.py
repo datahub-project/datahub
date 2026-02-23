@@ -177,6 +177,7 @@ class SnowflakeTable(BaseTable):
     is_dynamic: bool = False
     is_iceberg: bool = False
     is_hybrid: bool = False
+    retention_time: Optional[int] = None  # number of days
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
@@ -236,6 +237,60 @@ class SnowflakeSemanticView(BaseView):
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
+
+
+@dataclass
+class UserQueryCount:
+    """User query count for usage statistics."""
+
+    user_name: str
+    query_count: int
+
+
+@dataclass
+class SemanticViewUsageRecord:
+    """Aggregated usage statistics for a semantic view within a time bucket."""
+
+    semantic_view_name: str
+    bucket_start_time: datetime
+    total_queries: int
+    unique_users: int
+    direct_sql_queries: int
+    cortex_analyst_queries: int
+    avg_execution_time_ms: float
+    total_rows_produced: int
+    user_counts: List[UserQueryCount] = field(default_factory=list)
+    top_sql_queries: List[str] = field(default_factory=list)
+
+
+@dataclass
+class SemanticViewQuery:
+    """Individual query against a semantic view."""
+
+    query_id: str
+    query_text: str
+    semantic_view_name: str
+    user_name: str
+    role_name: str
+    warehouse_name: str
+    start_time: datetime
+    total_elapsed_time: int
+    rows_produced: int
+    query_source: str  # 'DIRECT_SQL' or 'CORTEX_ANALYST'
+
+
+@dataclass
+class SemanticViewProfileCounts:
+    """Profile counts for a semantic view (dimensions, facts, metrics)."""
+
+    semantic_view_catalog: str
+    semantic_view_schema: str
+    semantic_view_name: str
+    dimension_count: int
+    fact_count: int
+    metric_count: int
+    table_count: int
+    total_column_count: int
 
 
 @dataclass
@@ -536,6 +591,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
 
@@ -570,6 +626,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
 

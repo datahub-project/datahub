@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,15 +158,16 @@ public class MLModel extends Entity
   @Override
   @Nonnull
   public List<Class<? extends com.linkedin.data.template.RecordTemplate>> getDefaultAspects() {
-    return List.of(
-        com.linkedin.common.Ownership.class,
-        com.linkedin.common.GlobalTags.class,
-        com.linkedin.common.GlossaryTerms.class,
-        com.linkedin.domain.Domains.class,
-        com.linkedin.common.Status.class,
-        com.linkedin.common.InstitutionalMemory.class,
-        MLModelProperties.class,
-        com.linkedin.ml.metadata.EditableMLModelProperties.class);
+    return Collections.unmodifiableList(
+        Arrays.asList(
+            com.linkedin.common.Ownership.class,
+            com.linkedin.common.GlobalTags.class,
+            com.linkedin.common.GlossaryTerms.class,
+            com.linkedin.domain.Domains.class,
+            com.linkedin.common.Status.class,
+            com.linkedin.common.InstitutionalMemory.class,
+            MLModelProperties.class,
+            com.linkedin.ml.metadata.EditableMLModelProperties.class));
   }
 
   /**

@@ -1621,13 +1621,51 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,myPlatformInstance.dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,myPlatformInstance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:User1@foo.com",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "corpUserInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {},
+            "active": true,
+            "displayName": "user1",
+            "email": "User1@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,myPlatformInstance.charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,myPlatformInstance)"
         }
     },
     "systemMetadata": {
@@ -1640,10 +1678,14 @@
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:User2@foo.com",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "corpUserInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {},
+            "active": true,
+            "displayName": "user2",
+            "email": "User2@foo.com",
+            "system": false
         }
     },
     "systemMetadata": {

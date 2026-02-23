@@ -30,6 +30,9 @@ default_exclude_paths = [
     r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
     r"root\[\d+\].*?\['systemMetadata'\]\['runId'\]",
     r"root\[\d+\].*?\['systemMetadata'\]\['lastRunId'\]",
+    # Nested timestamps in upstreams array (from query usage lineage)
+    r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['created'\]\['time'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['lastModified'\]\['time'\]",
 ]
 
 
