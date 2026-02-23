@@ -63,8 +63,27 @@ public abstract class AbstractMCLStep implements PersistentUpgradeStep {
   @Nonnull
   protected abstract String getAspectName();
 
-  protected Urn getUpgradeIdUrn() {
+  @Nonnull
+  @Override
+  public Urn getUpgradeIdUrn() {
     return BootstrapStep.getUpgradeUrn(id());
+  }
+
+  @Nonnull
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Nonnull
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return false;
   }
 
   /** Optionally apply an urn-like sql filter, otherwise all urns */
@@ -186,23 +205,10 @@ public abstract class AbstractMCLStep implements PersistentUpgradeStep {
   @Override
   /** Returns whether the upgrade should be skipped. */
   public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    boolean previousRunFinal =
-        prevResult
-            .filter(
-                result ->
-                    DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                        || DataHubUpgradeState.ABORTED.equals(result.getState()))
-            .isPresent();
-
-    if (previousRunFinal) {
-      log.info(
-          "{} was already run. State: {} Skipping.",
-          id(),
-          prevResult.map(DataHubUpgradeResult::getState));
+    boolean shouldSkip = PersistentUpgradeStep.super.skip(context);
+    if (shouldSkip) {
+      log.info("{} was already run. Skipping.", id());
     }
-    return previousRunFinal;
+    return shouldSkip;
   }
 }
