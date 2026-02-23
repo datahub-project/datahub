@@ -9,8 +9,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataset.UpstreamLineage;
@@ -42,7 +42,7 @@ import org.jetbrains.annotations.NotNull;
 
 /** This bootstrap step is responsible for backfilling dataset lineage index fields in ES */
 @Slf4j
-public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
+public class BackfillDatasetLineageIndexFieldsStep implements PersistentUpgradeStep {
   private static final String UPGRADE_ID = "BackfillDatasetLineageIndexFieldsStep_V1";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
@@ -71,6 +71,26 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
   }
 
   @Override
+  public Urn getUpgradeIdUrn() {
+    return UPGRADE_ID_URN;
+  }
+
+  @Override
+  public EntityService<?> getEntityService() {
+    return entityService;
+  }
+
+  @Override
+  public OperationContext getSystemOpContext() {
+    return opContext;
+  }
+
+  @Override
+  public boolean isReprocessEnabled() {
+    return reprocessEnabled;
+  }
+
+  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       final AuditStamp auditStamp =
@@ -89,8 +109,6 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
         migratedCount += batchSize;
       } while (scrollId != null);
 
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
-
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
@@ -102,26 +120,6 @@ public class BackfillDatasetLineageIndexFieldsStep implements UpgradeStep {
   @Override
   public boolean isOptional() {
     return true;
-  }
-
-  /**
-   * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-   * variable to determine whether to skip.
-   */
-  @Override
-  public boolean skip(UpgradeContext context) {
-
-    if (reprocessEnabled) {
-      return false;
-    }
-
-    boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-    if (previouslyRun) {
-      log.info("{} was already run. Skipping.", id());
-    }
-    return previouslyRun;
   }
 
   private String backfillDatasetLineageFields(
