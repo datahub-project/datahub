@@ -1,5 +1,6 @@
-import { ChartScatter, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import { ChartScatter, Database, FileText, ListBullets, Table } from '@components/components/Icon/phosphor-icons';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';

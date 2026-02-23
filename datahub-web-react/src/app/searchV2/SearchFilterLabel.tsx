@@ -1,8 +1,9 @@
 import { Tooltip } from '@components';
-import { BookmarkSimple } from '@phosphor-icons/react';
 import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
+
+import { BookmarkSimple } from '@components/components/Icon/phosphor-icons';
 
 import { IconStyleType } from '@app/entity/Entity';
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';

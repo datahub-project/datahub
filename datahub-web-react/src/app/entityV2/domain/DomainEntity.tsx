@@ -1,6 +1,7 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import { ListBullets } from '@components/components/Icon/phosphor-icons';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';

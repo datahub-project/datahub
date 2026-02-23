@@ -1,14 +1,3 @@
-import {
-    Code,
-    CodeBlock,
-    ListBullets,
-    ListNumbers,
-    Table,
-    TextB,
-    TextItalic,
-    TextStrikethrough,
-    TextUnderline,
-} from '@phosphor-icons/react';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
 import React from 'react';
@@ -22,6 +11,17 @@ import { CommandButton } from '@components/components/Editor/toolbar/CommandButt
 import { FileUploadButton } from '@components/components/Editor/toolbar/FileUploadButton';
 import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
+import {
+    Code,
+    CodeBlock,
+    ListBullets,
+    ListNumbers,
+    Table,
+    TextB,
+    TextItalic,
+    TextStrikethrough,
+    TextUnderline,
+} from '@components/components/Icon/phosphor-icons';
 
 import { useAppConfig } from '@app/useAppConfig';
 import colors from '@src/alchemy-components/theme/foundations/colors';

@@ -1,7 +1,8 @@
 import { Button, Card, colors } from '@components';
-import { Globe, Plugs, UserPlus } from '@phosphor-icons/react';
 import React, { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
+
+import { Globe, Plugs, UserPlus } from '@components/components/Icon/phosphor-icons';
 
 import { useUserContext } from '@app/context/useUserContext';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';

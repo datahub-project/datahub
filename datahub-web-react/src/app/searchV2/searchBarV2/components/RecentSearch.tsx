@@ -1,6 +1,7 @@
-import { MagnifyingGlass } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { MagnifyingGlass } from '@components/components/Icon/phosphor-icons';
 
 import { Text } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';

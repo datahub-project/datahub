@@ -1,3 +1,7 @@
+import React from 'react';
+import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
+import styled from 'styled-components';
+
 import {
     Bank,
     Bell,
@@ -9,10 +13,7 @@ import {
     Users,
     UsersThree,
     Wrench,
-} from '@phosphor-icons/react';
-import React from 'react';
-import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
-import styled from 'styled-components';
+} from '@components/components/Icon/phosphor-icons';
 
 import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
 import { useUserContext } from '@app/context/useUserContext';

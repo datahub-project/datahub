@@ -1,8 +1,9 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Check } from '@phosphor-icons/react';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { Check } from '@components/components/Icon/phosphor-icons';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';

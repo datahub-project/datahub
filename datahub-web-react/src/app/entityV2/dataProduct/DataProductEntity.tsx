@@ -5,8 +5,9 @@ import {
     ReadOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import { ListBullets } from '@components/components/Icon/phosphor-icons';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';

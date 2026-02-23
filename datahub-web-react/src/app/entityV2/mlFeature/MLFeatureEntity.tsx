@@ -1,5 +1,13 @@
-import { Infinity, ChartScatter, FileText, ListBullets, TreeStructure, WarningCircle } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import {
+    Infinity,
+    ChartScatter,
+    FileText,
+    ListBullets,
+    TreeStructure,
+    WarningCircle,
+} from '@components/components/Icon/phosphor-icons';
 
 import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
 import { GenericEntityProperties } from '@app/entity/shared/types';

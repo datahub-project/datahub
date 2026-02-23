@@ -1,6 +1,7 @@
 import { colors } from '@components';
-import { X } from '@phosphor-icons/react';
 import styled from 'styled-components';
+
+import { X } from '@components/components/Icon/phosphor-icons';
 
 export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     display: inline-flex;

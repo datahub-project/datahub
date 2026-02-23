@@ -1,4 +1,3 @@
-import { Image } from '@phosphor-icons/react';
 import { useCommands } from '@remirror/react';
 import { Form } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';
@@ -9,6 +8,7 @@ import { Button } from '@components/components/Button';
 import { Dropdown } from '@components/components/Dropdown';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { FileUploadContent } from '@components/components/Editor/toolbar/FileUploadContent';
+import { Image } from '@components/components/Icon/phosphor-icons';
 import { Input } from '@components/components/Input';
 
 import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';

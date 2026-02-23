@@ -1,7 +1,7 @@
-import { Airplane } from '@phosphor-icons/react';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
+import { Airplane } from '@components/components/Icon/phosphor-icons';
 import { IconLabel } from '@components/components/IconLabel/IconLabel';
 import { IconType } from '@components/components/IconLabel/types';
 

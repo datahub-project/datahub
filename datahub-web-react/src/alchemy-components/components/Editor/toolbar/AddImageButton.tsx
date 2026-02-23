@@ -1,9 +1,9 @@
-import { Image } from '@phosphor-icons/react';
 import { useCommands } from '@remirror/react';
 import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { Image } from '@components/components/Icon/phosphor-icons';
 import { Modal } from '@components/components/Modal';
 
 import { colors } from '@src/alchemy-components/theme';

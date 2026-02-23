@@ -1,6 +1,6 @@
 import * as materialIcons from '@mui/icons-material';
-import * as phosphorIcons from '@phosphor-icons/react';
 
+import * as phosphorIcons from '@components/components/Icon/phosphor-icons';
 import { IconSource } from '@components/components/Icon/types';
 
 export const getIconNames = () => {

@@ -1,7 +1,8 @@
-import { BookOpen } from '@phosphor-icons/react';
 import React, { useContext, useState } from 'react';
 import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
+
+import { BookOpen } from '@components/components/Icon/phosphor-icons';
 
 import {
     StyledEntitySidebarContainer,

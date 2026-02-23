@@ -1,6 +1,7 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { CaretDown, CaretRight, FileText, Folder } from '@components/components/Icon/phosphor-icons';
 
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import Loading from '@app/shared/Loading';

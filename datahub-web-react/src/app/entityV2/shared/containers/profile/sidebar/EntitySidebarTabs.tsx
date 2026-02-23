@@ -1,8 +1,9 @@
 import { Tooltip } from '@components';
-import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
+
+import { ArrowLineLeft, ArrowLineRight } from '@components/components/Icon/phosphor-icons';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';

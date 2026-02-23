@@ -1,6 +1,7 @@
-import { CaretDown, CaretRight, FileText, Folder } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { CaretDown, CaretRight, FileText, Folder } from '@components/components/Icon/phosphor-icons';
 
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';

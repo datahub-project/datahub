@@ -1,6 +1,7 @@
 import { colors } from '@components';
-import { FileText } from '@phosphor-icons/react';
 import * as React from 'react';
+
+import { FileText } from '@components/components/Icon/phosphor-icons';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DocumentProfile } from '@app/entityV2/document/DocumentProfile';

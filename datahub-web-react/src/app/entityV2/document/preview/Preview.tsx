@@ -1,5 +1,6 @@
-import { FileText } from '@phosphor-icons/react';
 import React from 'react';
+
+import { FileText } from '@components/components/Icon/phosphor-icons';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';

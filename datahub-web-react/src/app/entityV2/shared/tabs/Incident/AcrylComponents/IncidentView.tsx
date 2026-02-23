@@ -1,7 +1,8 @@
-import { Check, Warning } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
+
+import { Check, Warning } from '@components/components/Icon/phosphor-icons';
 
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
