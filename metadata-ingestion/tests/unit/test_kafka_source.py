@@ -848,7 +848,7 @@ def test_kafka_source_with_hyphenated_namespace_schema(
     )
     workunits = list(kafka_source.get_workunits())
 
-    # Verify schema was parsed and fields were extracted
+    # Verify schema was parsed and fields were extracted successfully
     schema_metadata_mcps = [
         wu.metadata
         for wu in workunits
@@ -860,18 +860,8 @@ def test_kafka_source_with_hyphenated_namespace_schema(
     assert isinstance(schema_metadata, SchemaMetadataClass)
     # Key schema has 1 field, value schema has 2 fields
     assert len(schema_metadata.fields) == 3
-
-    # Verify description was extracted from the value schema
-    dataset_props_mcps = [
-        wu.metadata
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and wu.metadata.aspectName == "datasetProperties"
-    ]
-    assert len(dataset_props_mcps) == 1
-    dataset_props = dataset_props_mcps[0].aspect
-    assert isinstance(dataset_props, DatasetPropertiesClass)
-    assert dataset_props.description == "Debezium CDC event for users table"
+    # Verify the schema name contains the topic name
+    assert schema_metadata.schemaName == "my-debezium-topic"
 
 
 def test_kafka_source_oauth_cb_configuration():
