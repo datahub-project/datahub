@@ -11,6 +11,17 @@ describe("manage views", () => {
     cy.wait(1000);
     cy.clickOptionWithText("Create View");
     cy.get('[data-testid="view-name-input"]').click().type(viewName);
+    // Add a filter condition — Save requires at least one.
+    cy.get('[data-testid="condition-select"]', { timeout: 10000 })
+      .first()
+      .should("be.visible")
+      .click();
+    cy.get('[data-testid="option-hasDescription"]', { timeout: 10000 }).click();
+    cy.get('[data-testid="condition-operator-select"]', { timeout: 10000 })
+      .first()
+      .should("be.visible")
+      .click();
+    cy.get('[data-testid="option-is_true"]', { timeout: 10000 }).click();
     cy.clickOptionWithTestId("view-builder-save");
 
     // Confirm that the test has been created.
@@ -18,7 +29,7 @@ describe("manage views", () => {
 
     // Now edit the View
     cy.clickFirstOptionWithTestId("views-table-dropdown");
-    cy.get('[data-testid="view-dropdown-edit"]').click({ force: true });
+    cy.get('[data-testid="menu-item-edit"]').click({ force: true });
     cy.get('[data-testid="view-name-input"]')
       .click()
       .clear()
@@ -28,19 +39,19 @@ describe("manage views", () => {
 
     // Now make the view the default
     cy.clickFirstOptionWithTestId("views-table-dropdown");
-    cy.get('[data-testid="view-dropdown-set-user-default"]').click({
+    cy.get('[data-testid="menu-item-set-default"]').click({
       force: true,
     });
 
     // Now unset as the default
     cy.clickFirstOptionWithTestId("views-table-dropdown");
-    cy.get('[data-testid="view-dropdown-remove-user-default"]').click({
+    cy.get('[data-testid="menu-item-remove-default"]').click({
       force: true,
     });
 
     // Now delete the View
     cy.clickFirstOptionWithTestId("views-table-dropdown");
-    cy.get('[data-testid="view-dropdown-delete"]').click({ force: true });
+    cy.get('[data-testid="menu-item-delete"]').click({ force: true });
     cy.clickOptionWithText("Yes");
   });
 });
