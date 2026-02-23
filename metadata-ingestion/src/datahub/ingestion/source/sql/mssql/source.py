@@ -412,6 +412,7 @@ class SQLServerSource(SQLAlchemySource):
             )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
+        self.lineage_extractor: Optional[MSSQLLineageExtractor] = None
         if self.config.include_query_lineage:
             if self.config.include_usage_statistics and self.ctx.graph is None:
                 raise ValueError(
@@ -1341,7 +1342,7 @@ class SQLServerSource(SQLAlchemySource):
                 return
 
             with inspector.engine.connect() as connection:
-                lineage_extractor = MSSQLLineageExtractor(
+                self.lineage_extractor = MSSQLLineageExtractor(
                     config=self.config,
                     connection=connection,
                     report=self.report,
@@ -1350,7 +1351,7 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 try:
-                    lineage_extractor.populate_lineage_from_queries()
+                    self.lineage_extractor.populate_lineage_from_queries()
                 except Exception as e:
                     logger.error(
                         "Unexpected error during query lineage extraction: %s. "

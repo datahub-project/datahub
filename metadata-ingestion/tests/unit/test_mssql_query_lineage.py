@@ -9,6 +9,7 @@ from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
+    PrerequisiteResult,
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
@@ -377,7 +378,9 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
     with patch.object(
         extractor,
         "check_prerequisites",
-        return_value=(True, "Query Store is enabled", "query_store"),
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store is enabled", method="query_store"
+        ),
     ):
         queries = extractor.extract_query_history()
 
@@ -423,7 +426,9 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
     with patch.object(
         extractor,
         "check_prerequisites",
-        return_value=(True, "Query Store enabled", "query_store"),
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store enabled", method="query_store"
+        ),
     ):
         queries = extractor.extract_query_history()
 
@@ -472,7 +477,9 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
     with patch.object(
         extractor,
         "check_prerequisites",
-        return_value=(True, "Query Store is enabled", "query_store"),
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store is enabled", method="query_store"
+        ),
     ):
         queries = extractor.extract_query_history()
 
@@ -499,7 +506,9 @@ def test_mssql_lineage_extractor_handles_extraction_failure():
     with patch.object(
         extractor,
         "check_prerequisites",
-        return_value=(True, "Query Store is enabled", "query_store"),
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store is enabled", method="query_store"
+        ),
     ):
         queries = extractor.extract_query_history()
 
@@ -732,7 +741,9 @@ def test_mssql_lineage_extractor_malformed_query_text():
     with patch.object(
         extractor,
         "check_prerequisites",
-        return_value=(True, "Query Store is enabled", "query_store"),
+        return_value=PrerequisiteResult(
+            is_ready=True, message="Query Store is enabled", method="query_store"
+        ),
     ):
         queries = extractor.extract_query_history()
 
