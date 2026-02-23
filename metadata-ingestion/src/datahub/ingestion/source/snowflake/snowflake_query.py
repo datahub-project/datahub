@@ -1272,6 +1272,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
             ORDER BY TABLE_SCHEMA, TABLE_NAME
             """
+
     # ==================== Semantic View Usage Queries ====================
 
     @staticmethod
