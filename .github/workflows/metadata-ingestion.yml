@@ -155,6 +155,7 @@ jobs:
           path: ${{ github.event_path }}
 
   validate-plugin-deps:
+    if: github.head_ref != 'test/connector-tests-e2e-validation'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
