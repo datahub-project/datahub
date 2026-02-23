@@ -29,7 +29,6 @@ from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
-    DatasetPropertiesClass,
     KafkaSchemaClass,
     SchemaMetadataClass,
 )
