@@ -59,6 +59,7 @@ from datahub_integrations.gen_ai.llm.exceptions import LlmInputTooLongException
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.llm.utils import is_verbose_llm_logging_enabled
 from datahub_integrations.mcp.mcp_server import with_datahub_client
+from datahub_integrations.mcp.tool_context import ToolContext
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalToolWrapper,
     PluginConnectionError,
@@ -254,6 +255,7 @@ class AgentRunner:
         config: AgentConfig,
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
+        tool_context: ToolContext | None = None,
     ):
         """
         Initialize agent runner with configuration.
@@ -262,9 +264,11 @@ class AgentRunner:
             config: Agent configuration defining behavior
             client: DataHub client for tool execution
             history: Optional existing chat history to continue from
+            tool_context: Optional context bag for tool execution (e.g. view preferences)
         """
         self.config = config
         self.client = client
+        self.tool_context = tool_context or ToolContext()
         self.session_id = str(uuid.uuid4())
 
         # Use tools from config (already prepared)
@@ -862,7 +866,10 @@ class AgentRunner:
 
         try:
             tool = self.tool_map[tool_name]
-            with timer, with_datahub_client(self.client):
+            with (
+                timer,
+                with_datahub_client(self.client, tool_context=self.tool_context),
+            ):
                 result = tool.run(arguments=tool_request.tool_input)
 
         except PluginConnectionError:
@@ -1016,20 +1023,18 @@ class AgentRunner:
             AgentOutputMaxTokensExceededError: If output is truncated
         """
         if is_mlflow_enabled():
-            # Add session and environment metadata
-            mlflow.update_current_trace(
-                tags={
-                    "session_id": self.session_id,
-                    "agent_name": self.config.agent_name,
-                    "model_id": self.config.model_id,
-                    "machine.hostname": socket.gethostname(),
-                    "machine.user": os.getenv("USER")
-                    or os.getenv("USERNAME")
-                    or "unknown",
-                    "machine.os": f"{platform.system()} {platform.release()}",
-                    "machine.python_version": platform.python_version(),
-                }
-            )
+            tags = {
+                "session_id": self.session_id,
+                "agent_name": self.config.agent_name,
+                "model_id": self.config.model_id,
+                "machine.hostname": socket.gethostname(),
+                "machine.user": os.getenv("USER") or os.getenv("USERNAME") or "unknown",
+                "machine.os": f"{platform.system()} {platform.release()}",
+                "machine.python_version": platform.python_version(),
+            }
+            if self.tool_context._items:
+                tags["tool_context"] = repr(self.tool_context)
+            mlflow.update_current_trace(tags=tags)
 
         logger.info(
             f"Generating next message for {self.config.agent_name} (session={self.session_id}), "

@@ -22,6 +22,12 @@ from datahub_integrations.chat.chat_session_manager import (
     ChatSessionManager,
 )
 from datahub_integrations.chat.config import CHAT_MAX_MESSAGE_LENGTH
+from datahub_integrations.mcp.tool_context import ToolContext
+from datahub_integrations.mcp.view_preference import (
+    CustomView,
+    NoView,
+    ViewPreference,
+)
 from datahub_integrations.observability.cost import get_cost_tracker
 from datahub_integrations.observability.metrics_constants import AIModule
 
@@ -44,6 +50,7 @@ class ChatMessageRequest(BaseModel):
     user_urn: str
     agent_name: str | None = None
     context: ChatContext | None = None
+    view_urn: str | None = None
 
 
 def get_system_client() -> DataHubClient:
@@ -207,6 +214,19 @@ def send_streaming_message(
                 f"Starting message stream for conversation: {request.conversation_urn}"
             )
 
+            # Build tool context from request view_urn:
+            # - field absent → empty bag (search defaults to UseDefaultView)
+            # - field explicitly null → NoView (no filtering)
+            # - field set to URN → CustomView (specific view)
+            tool_context: ToolContext | None = None
+            if "view_urn" in request.model_fields_set:
+                view: ViewPreference
+                if request.view_urn is None:
+                    view = NoView()
+                else:
+                    view = CustomView(urn=request.view_urn)
+                tool_context = ToolContext([view])
+
             # Stream domain events from manager and convert to SSE format
             for event in manager.send_message(
                 text=request.text,
@@ -214,6 +234,7 @@ def send_streaming_message(
                 conversation_urn=request.conversation_urn,
                 agent_name=request.agent_name,
                 message_context=request.context,
+                tool_context=tool_context,
             ):
                 # Handle keepalive events with SSE comment format (ignored by clients)
                 if event.is_keepalive:
