@@ -1,8 +1,10 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 
+import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
+import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
@@ -31,6 +33,11 @@ export default function LineageDisplay({
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
     const { fineGrainedLineage, flowNodes, flowEdges, resetPositions, levelsInfo, levelsMap } = useComputeGraph();
+
+    const addAnnotationNodes = useAddAnnotationNodes();
+
+    const { isModuleView } = useContext(LineageGraphContext);
+
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -45,6 +52,13 @@ export default function LineageDisplay({
         shownUrns,
     );
 
+    const finalNodes = useMemo(() => {
+        if (!isModuleView) {
+            return flowNodes;
+        }
+        return addAnnotationNodes(flowNodes, levelsInfo, levelsMap ?? new Map());
+    }, [isModuleView, addAnnotationNodes, flowNodes, levelsInfo, levelsMap]);
+
     const { rootUrn, rootType, nodes, adjacencyList, nodeVersion } = useContext(LineageNodesContext);
 
     // Track lineage view analytics
@@ -57,11 +71,11 @@ export default function LineageDisplay({
     });
 
     useEffect(() => {
-        const newNodeMap = new Map(flowNodes.map((node) => [node.id, node]));
+        const newNodeMap = new Map(finalNodes.map((node) => [node.id, node]));
         setNodes((oldNodes) => {
             const oldNodeIds = new Set(oldNodes.map((n) => n.id));
-            const nodesToAdd = flowNodes.filter((n) => !oldNodeIds.has(n.id));
-            const nodesToResetPosition = resetPositions ? flowNodes : nodesToAdd;
+            const nodesToAdd = finalNodes.filter((n) => !oldNodeIds.has(n.id));
+            const nodesToResetPosition = resetPositions ? finalNodes : nodesToAdd;
             nodesToResetPosition.forEach((n) => {
                 // eslint-disable-next-line no-param-reassign
                 n.data.dragged = false;
@@ -78,7 +92,7 @@ export default function LineageDisplay({
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
             ].sort((a, b) => getNodePriority(b) - getNodePriority(a));
         });
-    }, [flowNodes, setNodes, resetPositions]);
+    }, [finalNodes, setNodes, resetPositions]);
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
@@ -105,12 +119,7 @@ export default function LineageDisplay({
                 refetchUrn,
             }}
         >
-            <LineageVisualization
-                initialNodes={flowNodes}
-                initialEdges={flowEdges}
-                levelsInfo={levelsInfo}
-                levelsMap={levelsMap ?? new Map()}
-            />
+            <LineageVisualization initialNodes={finalNodes} initialEdges={flowEdges} />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );
