@@ -65,7 +65,8 @@ class TestSnowflakeCursorManagement:
 
         # Verify the SQL was executed
         expected_query = (
-            "ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = 300;"
+            "ALTER SESSION SET TIMEZONE = 'UTC', "
+            "STATEMENT_TIMEOUT_IN_SECONDS = 300, WEEK_START = 1;"
         )
         self.mock_cursor.execute.assert_called_once_with(expected_query)
 

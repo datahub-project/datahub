@@ -16,6 +16,8 @@ from datahub_executor.common.source.error_code_utils import (
     extract_sqlstate,
 )
 from datahub_executor.common.source.redshift.time_utils import (
+    build_tz_bucket_boundary_expression,
+    convert_millis_to_timestamp,
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
@@ -376,3 +378,13 @@ class RedshiftSource(Source):
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
         return int(resp[0]) if resp else None
+
+    def _build_tz_bucket_boundary_expression(
+        self, expression: str, normalized_interval: str, timezone_name: str
+    ) -> str:
+        return build_tz_bucket_boundary_expression(
+            expression, normalized_interval, timezone_name
+        )
+
+    def _convert_millis_to_bucket_timestamp(self, millis: int) -> str:
+        return convert_millis_to_timestamp(millis)

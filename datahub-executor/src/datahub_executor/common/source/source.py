@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -46,6 +46,15 @@ logger = logging.getLogger(__name__)
 
 # Type alias for clarity
 RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
+
+
+class BucketFilterParams(TypedDict):
+    timestamp_field_path: str
+    bucket_interval_unit: str
+    bucket_start_time_ms: int
+    bucket_end_time_ms: int
+    timezone: str
+
 
 # Shared token for all “observe” tagging surfaces (SQL comment tags, BigQuery labels, etc).
 DATAHUB_OBSERVE_SOURCE_VALUE = "datahub_observe"
@@ -205,6 +214,49 @@ class Source:
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
     ) -> Optional[int]:
+        raise NotImplementedError()
+
+    def _build_time_bucket_filter_sql(self, bucket_filter: BucketFilterParams) -> str:
+        timestamp_field_path = bucket_filter["timestamp_field_path"]
+        bucket_start_time_ms = bucket_filter["bucket_start_time_ms"]
+        bucket_end_time_ms = bucket_filter["bucket_end_time_ms"]
+        timezone_name = bucket_filter["timezone"]
+        interval_unit = bucket_filter["bucket_interval_unit"].upper()
+
+        if interval_unit == "DAY":
+            normalized_interval = "DAILY"
+        elif interval_unit == "WEEK":
+            normalized_interval = "WEEKLY"
+        else:
+            raise InvalidParametersException(
+                message=(
+                    "Unsupported bucket interval unit "
+                    f"{bucket_filter['bucket_interval_unit']}. Expected DAY or WEEK."
+                ),
+                parameters=dict(bucket_filter),
+            )
+
+        bucket_expr = self._build_tz_bucket_boundary_expression(
+            timestamp_field_path, normalized_interval, timezone_name
+        )
+        start_expr = self._build_tz_bucket_boundary_expression(
+            self._convert_millis_to_bucket_timestamp(bucket_start_time_ms),
+            normalized_interval,
+            timezone_name,
+        )
+        end_expr = self._build_tz_bucket_boundary_expression(
+            self._convert_millis_to_bucket_timestamp(bucket_end_time_ms),
+            normalized_interval,
+            timezone_name,
+        )
+        return f"{bucket_expr} >= {start_expr} AND {bucket_expr} < {end_expr}"
+
+    def _build_tz_bucket_boundary_expression(
+        self, expression: str, normalized_interval: str, timezone_name: str
+    ) -> str:
+        raise NotImplementedError()
+
+    def _convert_millis_to_bucket_timestamp(self, millis: int) -> str:
         raise NotImplementedError()
 
     def _get_single_value_from_custom_sql(self, custom_sql: str) -> Union[int, float]:
@@ -465,6 +517,14 @@ class Source:
                 filter_params,
                 filter_params.get("runtime_parameters") if filter_params else None,
             )
+            bucket_filter = filter_params.get("bucket") if filter_params else None
+            if bucket_filter:
+                bucket_filter_sql = self._build_time_bucket_filter_sql(bucket_filter)
+                filter_sql = (
+                    f"({filter_sql}) AND ({bucket_filter_sql})"
+                    if filter_sql
+                    else bucket_filter_sql
+                )
             return self._get_num_rows_via_count(database_params, filter_sql)
 
         raise InvalidParametersException(

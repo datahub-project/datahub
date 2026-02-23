@@ -28,6 +28,7 @@ from datahub_executor.common.types import (
     EntityEventType,
     FreshnessFieldKind,
 )
+from datahub_executor.config import DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT
 
 TEST_ENTITY_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_table,PROD)"
@@ -236,6 +237,16 @@ class TestSnowflakeSource:
         self.mock_cursor.execute = Mock()
 
         self.snowflake_source = SnowflakeSource(self.snowflake_connection_mock)
+
+    def test_constructor_sets_session_timezone_timeout_and_week_start(self) -> None:
+        expected_session_query = (
+            "ALTER SESSION SET "
+            "TIMEZONE = 'UTC', "
+            f"STATEMENT_TIMEOUT_IN_SECONDS = {DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT}, "
+            "WEEK_START = 1;"
+        )
+        executed_queries = [c.args[0] for c in self.mock_cursor.execute.call_args_list]
+        assert expected_session_query in executed_queries
 
     @patch.object(SnowflakeSource, "_build_audit_log_results")
     @patch.object(SnowflakeSource, "_execute_fetchall_query")

@@ -13,10 +13,15 @@ from datahub_executor.common.source.error_code_utils import (
     extract_sqlstate,
 )
 from datahub_executor.common.source.snowflake.time_utils import (
+    build_tz_bucket_boundary_expression,
+    convert_millis_to_timestamp,
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
-from datahub_executor.common.source.source import Source, tag_fragments_to_json
+from datahub_executor.common.source.source import (
+    Source,
+    tag_fragments_to_json,
+)
 from datahub_executor.common.source.sql.field_metrics_sql_generator import (
     FieldMetricsSQLGenerator,
 )
@@ -62,7 +67,13 @@ class SnowflakeSource(Source):
         try:
             # Set our default timezone to UTC so that comparisons with
             # timezone columns are always peformed in UTC.
-            query = f"ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = {DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT};"
+            # Set WEEK_START to Monday to keep weekly bucketing deterministic.
+            query = (
+                "ALTER SESSION SET "
+                "TIMEZONE = 'UTC', "
+                f"STATEMENT_TIMEOUT_IN_SECONDS = {DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT}, "
+                "WEEK_START = 1;"
+            )
             with self.connection.get_client().cursor() as cur:
                 cur.execute(query)
         except Exception as e:
@@ -410,3 +421,13 @@ class SnowflakeSource(Source):
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
         return resp[0] if resp else None
+
+    def _build_tz_bucket_boundary_expression(
+        self, expression: str, normalized_interval: str, timezone_name: str
+    ) -> str:
+        return build_tz_bucket_boundary_expression(
+            expression, normalized_interval, timezone_name
+        )
+
+    def _convert_millis_to_bucket_timestamp(self, millis: int) -> str:
+        return convert_millis_to_timestamp(millis)
