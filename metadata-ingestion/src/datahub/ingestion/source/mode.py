@@ -170,10 +170,10 @@ class ModeAPIConfig(ConfigModel):
     # Mode's API rate limit is ~40 requests per 10 seconds (4 req/s, 240 req/min).
     # See https://mode.com/help/articles/api-reference/#rate-limiting
     requests_per_minute: int = Field(
-        default=200,
+        default=180,
         ge=1,
         description="Maximum API requests per minute across all threads. "
-        "Mode's API limit is ~240 req/min (4 req/s). Default of 200 "
+        "Mode's API limit is ~240 req/min (4 req/s). Default of 180 "
         "leaves headroom to avoid 429 errors.",
     )
 
