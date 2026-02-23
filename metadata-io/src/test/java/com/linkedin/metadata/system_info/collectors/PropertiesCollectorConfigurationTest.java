@@ -82,17 +82,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
 
-          // SaaS Only
-          "telemetry.mixpanel.token",
-
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
-
-          // Control plane
-          "controlPlane.apiKey",
-
-          // Billing
-          "datahub.billing.metronome.apiKey");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -105,10 +96,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingKey",
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
-          "authentication.authenticators[*].configs.salt",
-
-          // SaaS Only
-          "notifications.sinks[*].configs.botToken");
+          "authentication.authenticators[*].configs.salt");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -1020,10 +1008,53 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
-          "metadataChangeLog.consumer.batch.size",
+          "metadataChangeLog.consumer.batch.size"
 
-          // SaaS properties
+          // TODO: Add more properties as they are discovered during testing
+          // When this test fails due to unclassified properties, add them to
+          // either SENSITIVE_PROPERTIES or NON_SENSITIVE_PROPERTIES
+          );
+
+  /**
+   * SaaS-specific sensitive properties (acryl-main only). These properties are merged with
+   * SENSITIVE_PROPERTIES during validation.
+   *
+   * <p>NOTE: This set only exists in the acryl-main branch. In oss_master, this would be empty or
+   * not exist at all. This separation ensures clean merges from oss_master → acryl-main.
+   */
+  private static final Set<String> SAAS_SENSITIVE_PROPERTIES =
+      Set.of(
+          // SaaS Only - Authentication/telemetry tokens
+          "telemetry.mixpanel.token",
+
+          // SaaS Only - Control plane
+          "controlPlane.apiKey",
+
+          // SaaS Only - Billing
+          "datahub.billing.metronome.apiKey");
+
+  /**
+   * SaaS-specific sensitive property templates (acryl-main only). These templates are merged with
+   * SENSITIVE_PROPERTY_TEMPLATES during validation.
+   */
+  private static final Set<String> SAAS_SENSITIVE_PROPERTY_TEMPLATES =
+      Set.of(
+          // SaaS Only - Notification bot tokens
+          "notifications.sinks[*].configs.botToken");
+
+  /**
+   * SaaS-specific non-sensitive properties (acryl-main only). These properties are merged with
+   * NON_SENSITIVE_PROPERTIES during validation.
+   *
+   * <p>NOTE: This set only exists in the acryl-main branch. In oss_master, this would be empty or
+   * not exist at all. This separation ensures clean merges from oss_master → acryl-main.
+   */
+  private static final Set<String> SAAS_NON_SENSITIVE_PROPERTIES =
+      Set.of(
+          // SaaS Only - Assertion monitors
           "assertionMonitors.resolveIngestionSourceForAspects",
+
+          // SaaS Only - AWS EventBridge configuration
           "aws.eventBridge.assumeRoleArn",
           "aws.eventBridge.auditEventExport.aspectTypes",
           "aws.eventBridge.auditEventExport.usageEventTypes",
@@ -1034,20 +1065,34 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "aws.eventBridge.maxBatchSize",
           "aws.eventBridge.maxRetries",
           "aws.eventBridge.region",
+
+          // SaaS Only - Cache configuration
           "cache.search.lineage.evictionPolicy",
           "cache.search.lineage.maxSize",
+
+          // SaaS Only - Classification configuration
           "classificationConfig.automations.aiTermClassification",
           "classificationConfig.automations.snowflake",
+
+          // SaaS Only - OpenAPI client
           "datahub.plugin.openApiClient.backOffMillis",
           "datahub.plugin.openApiClient.maxRetries",
+
+          // SaaS Only - Elasticsearch scroll
           "elasticsearch.scroll.timeout",
+
+          // SaaS Only - Entity service
           "entityService.applyMclSyncForSources.reportingExecutor",
           "entityService.applyMclSyncForSources.ui",
+
+          // SaaS Only - Event sinks
           "eventSinks.entityChangeEvent.sinks[0].configs.assumeRoleArn",
           "eventSinks.entityChangeEvent.sinks[0].configs.eventBus",
           "eventSinks.entityChangeEvent.sinks[0].configs.externalId",
           "eventSinks.entityChangeEvent.sinks[0].configs.region",
           "eventSinks.entityChangeEvent.sinks[0].type",
+
+          // SaaS Only - Executors
           "executors.backendRevision",
           "executors.cloudLoggingS3Bucket",
           "executors.cloudLoggingS3Prefix",
@@ -1058,9 +1103,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "executors.executorPoolHook.sqsMaxRetries",
           "executors.executorPoolHook.visibilityTimeout",
           "executors.executorRoleArn",
+
+          // SaaS Only - Integrations service
           "integrationsService.host",
           "integrationsService.port",
           "integrationsService.useSsl",
+
+          // SaaS Only - Metadata tests
           "metadataChangeProposal.validation.extensions.configFile",
           "metadataTests.actions.concurrency",
           "metadataTests.actions.queueSize",
@@ -1075,9 +1124,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataTests.hook.hookExecutionLimit.elasticSearchExecutor",
           "metadataTests.hook.onEntityChange",
           "metadataTests.hook.onTestChange",
+
+          // SaaS Only - Monitor service
           "monitorService.host",
           "monitorService.port",
           "monitorService.useSsl",
+
+          // SaaS Only - Notification sinks
           "notifications.sinks[0].configs.defaultChannel",
           "notifications.sinks[0].configs.maxNumRetries",
           "notifications.sinks[0].configs.proxyUrl",
@@ -1085,13 +1138,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "notifications.sinks[1].type",
           "notifications.sinks[2].type",
           "notifications.sinks[3].type",
+
+          // SaaS Only - Recommendation service
           "recommendationService.mostPopular.offline",
           "recommendationService.topTags.offline",
           "recommendationService.topTerms.offline",
+
+          // SaaS Only - Search service ranker
           "searchService.ranker.type",
+
+          // SaaS Only - Sentry
           "sentry.debug",
           "sentry.dsn",
           "sentry.env",
+
+          // SaaS Only - System updates
           "systemUpdate.assertionInfo.delayMs",
           "systemUpdate.assertionInfo.limit",
           "systemUpdate.monitorInfo.delayMs",
@@ -1104,22 +1165,47 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.postInfo.limit",
           "systemUpdate.sendAdminInviteToken.retryCount",
           "systemUpdate.sendAdminInviteToken.retryIntervalSeconds",
+
+          // SaaS Only - Telemetry
           "telemetry.googleAnalytics.measurementId",
           "telemetry.mixpanel.disableObfuscation",
           "telemetry.mixpanel.useStandardEndpoints",
 
-          // Control plane
+          // SaaS Only - Control plane
           "controlPlane.url",
           "controlPlane.cacheTtlMinutes",
 
-          // Billing
+          // SaaS Only - Billing
           "datahub.billing.provider",
-          "datahub.billing.metronome.baseUrl"
+          "datahub.billing.metronome.baseUrl");
 
-          // TODO: Add more properties as they are discovered during testing
-          // When this test fails due to unclassified properties, add them to
-          // either SENSITIVE_PROPERTIES or NON_SENSITIVE_PROPERTIES
-          );
+  /**
+   * SaaS-specific non-sensitive property templates (acryl-main only). These templates are merged
+   * with NON_SENSITIVE_PROPERTY_TEMPLATES during validation.
+   */
+  private static final Set<String> SAAS_NON_SENSITIVE_PROPERTY_TEMPLATES = Set.of();
+
+  // Combined property sets for validation (merges OSS + SaaS)
+  private static final Set<String> ALL_SENSITIVE_PROPERTIES =
+      java.util.stream.Stream.concat(
+              SENSITIVE_PROPERTIES.stream(), SAAS_SENSITIVE_PROPERTIES.stream())
+          .collect(java.util.stream.Collectors.toSet());
+
+  private static final Set<String> ALL_SENSITIVE_PROPERTY_TEMPLATES =
+      java.util.stream.Stream.concat(
+              SENSITIVE_PROPERTY_TEMPLATES.stream(), SAAS_SENSITIVE_PROPERTY_TEMPLATES.stream())
+          .collect(java.util.stream.Collectors.toSet());
+
+  private static final Set<String> ALL_NON_SENSITIVE_PROPERTIES =
+      java.util.stream.Stream.concat(
+              NON_SENSITIVE_PROPERTIES.stream(), SAAS_NON_SENSITIVE_PROPERTIES.stream())
+          .collect(java.util.stream.Collectors.toSet());
+
+  private static final Set<String> ALL_NON_SENSITIVE_PROPERTY_TEMPLATES =
+      java.util.stream.Stream.concat(
+              NON_SENSITIVE_PROPERTY_TEMPLATES.stream(),
+              SAAS_NON_SENSITIVE_PROPERTY_TEMPLATES.stream())
+          .collect(java.util.stream.Collectors.toSet());
 
   /**
    * Convert a template pattern to a regex pattern. Templates use [*] for numeric indices and * for
@@ -1134,13 +1220,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
   /** Check if a property key matches any of the sensitive templates */
   private boolean matchesSensitiveTemplate(String key) {
-    return SENSITIVE_PROPERTY_TEMPLATES.stream()
+    return ALL_SENSITIVE_PROPERTY_TEMPLATES.stream()
         .anyMatch(template -> key.matches(templateToRegex(template)));
   }
 
   /** Check if a property key matches any of the non-sensitive templates */
   private boolean matchesNonSensitiveTemplate(String key) {
-    return NON_SENSITIVE_PROPERTY_TEMPLATES.stream()
+    return ALL_NON_SENSITIVE_PROPERTY_TEMPLATES.stream()
         .anyMatch(template -> key.matches(templateToRegex(template)));
   }
 
@@ -1197,7 +1283,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
       boolean isRedacted = "***REDACTED***".equals(info.getValue());
 
       // Check if property is in both lists (should never happen)
-      if (SENSITIVE_PROPERTIES.contains(key) && NON_SENSITIVE_PROPERTIES.contains(key)) {
+      if (ALL_SENSITIVE_PROPERTIES.contains(key) && ALL_NON_SENSITIVE_PROPERTIES.contains(key)) {
         fail(
             "Property '"
                 + key
@@ -1207,20 +1293,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
       // Classify the property
       if (isRedacted) {
         sensitiveCount++;
-        if (!SENSITIVE_PROPERTIES.contains(key) && !matchesSensitiveTemplate(key)) {
+        if (!ALL_SENSITIVE_PROPERTIES.contains(key) && !matchesSensitiveTemplate(key)) {
           misclassifiedProperties.add(
               key + " (is redacted but not in SENSITIVE_PROPERTIES or templates)");
         }
       } else {
         nonSensitiveCount++;
-        if (!NON_SENSITIVE_PROPERTIES.contains(key) && !matchesNonSensitiveTemplate(key)) {
+        if (!ALL_NON_SENSITIVE_PROPERTIES.contains(key) && !matchesNonSensitiveTemplate(key)) {
           unclassifiedProperties.add(
               key + " (not redacted, needs to be added to NON_SENSITIVE_PROPERTIES or templates)");
         }
       }
 
       // Also check that properties in SENSITIVE_PROPERTIES are actually redacted
-      if ((SENSITIVE_PROPERTIES.contains(key) || matchesSensitiveTemplate(key)) && !isRedacted) {
+      if ((ALL_SENSITIVE_PROPERTIES.contains(key) || matchesSensitiveTemplate(key))
+          && !isRedacted) {
         misclassifiedProperties.add(
             key
                 + " (in SENSITIVE_PROPERTIES/templates but not redacted, value: "
@@ -1246,8 +1333,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     log.info("✅ All {} configuration properties are properly classified:", configProperties.size());
     log.info("  - {} sensitive properties (redacted)", sensitiveCount);
     log.info("  - {} non-sensitive properties", nonSensitiveCount);
-    log.info("  - {} properties in SENSITIVE_PROPERTIES list", SENSITIVE_PROPERTIES.size());
-    log.info("  - {} properties in NON_SENSITIVE_PROPERTIES list", NON_SENSITIVE_PROPERTIES.size());
+    log.info(
+        "  - {} properties in SENSITIVE_PROPERTIES list (OSS: {}, SaaS: {})",
+        ALL_SENSITIVE_PROPERTIES.size(),
+        SENSITIVE_PROPERTIES.size(),
+        SAAS_SENSITIVE_PROPERTIES.size());
+    log.info(
+        "  - {} properties in NON_SENSITIVE_PROPERTIES list (OSS: {}, SaaS: {})",
+        ALL_NON_SENSITIVE_PROPERTIES.size(),
+        NON_SENSITIVE_PROPERTIES.size(),
+        SAAS_NON_SENSITIVE_PROPERTIES.size());
 
     // Sanity checks
     assertTrue(
