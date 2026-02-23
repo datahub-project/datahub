@@ -457,7 +457,8 @@ class SQLServerSource(SQLAlchemySource):
             conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
         except AttributeError as e:
             logger.debug(
-                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
+                "Failed to mount output converter for MSSQL data type -150 due to %s",
+                e,
             )
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
@@ -1376,7 +1377,8 @@ class SQLServerSource(SQLAlchemySource):
                         mcp_count += 1
                 except Exception as e:
                     logger.error(
-                        f"Failed to generate metadata from SQL aggregator: {e}"
+                        "Failed to generate metadata from SQL aggregator: %s",
+                        e,
                     )
                     self.report.report_failure(
                         message=(
@@ -1387,9 +1389,10 @@ class SQLServerSource(SQLAlchemySource):
                         context="lineage_metadata_generation_failed",
                     )
 
-        logger.info(f"Generated {mcp_count} lineage workunits from queries")
+        logger.info("Generated %d lineage workunits from queries", mcp_count)
         logger.debug(
-            f"Lineage workunit generation completed in {timer.elapsed_seconds():.2f} seconds"
+            "Lineage workunit generation completed in %.2f seconds",
+            timer.elapsed_seconds(),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -1399,7 +1402,8 @@ class SQLServerSource(SQLAlchemySource):
         # from all databases in schema_resolver and discovered_tables
         if self.stored_procedures:
             logger.info(
-                f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+                "Processing %d stored procedure(s) for lineage extraction",
+                len(self.stored_procedures),
             )
 
             for procedure in self.stored_procedures:

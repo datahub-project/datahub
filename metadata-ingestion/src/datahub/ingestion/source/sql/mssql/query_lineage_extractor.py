@@ -89,14 +89,17 @@ class MSSQLLineageExtractor:
         if row:
             major_version = row["major_version"] if row["major_version"] else 0
             logger.info(
-                f"SQL Server version detected: {row['version']} (major: {major_version})"
+                "SQL Server version detected: %s (major: %s)",
+                row["version"],
+                major_version,
             )
 
             if major_version < 13:
                 logger.warning(
-                    f"SQL Server version {major_version} detected. "
+                    "SQL Server version %d detected. "
                     "Query Store requires SQL Server 2016+ (version 13). "
-                    "Falling back to DMV-based extraction."
+                    "Falling back to DMV-based extraction.",
+                    major_version,
                 )
 
             return major_version
@@ -183,8 +186,9 @@ class MSSQLLineageExtractor:
 
         if not is_ready:
             logger.warning(
-                f"Query history extraction not available: {message}. "
-                "Query-based lineage will be skipped."
+                "Query history extraction not available: %s. "
+                "Query-based lineage will be skipped.",
+                message,
             )
             return []
 
@@ -221,9 +225,12 @@ class MSSQLLineageExtractor:
                         )
                     )
 
-                logger.info(f"Extracted {self.queries_extracted} queries from {method}")
+                logger.info(
+                    "Extracted %d queries from %s", self.queries_extracted, method
+                )
                 logger.debug(
-                    f"Query extraction completed in {timer.elapsed_seconds():.2f} seconds"
+                    "Query extraction completed in %.2f seconds",
+                    timer.elapsed_seconds(),
                 )
 
                 self.report.num_queries_extracted = self.queries_extracted
@@ -277,7 +284,8 @@ class MSSQLLineageExtractor:
             return
 
         logger.debug(
-            f"Starting query-based lineage extraction (max_queries={self.config.max_queries_to_extract})"
+            "Starting query-based lineage extraction (max_queries=%d)",
+            self.config.max_queries_to_extract,
         )
 
         queries = self.extract_query_history()
@@ -334,10 +342,13 @@ class MSSQLLineageExtractor:
                     self.queries_failed += 1
 
         logger.info(
-            f"Processed {self.queries_parsed} queries for lineage extraction ({self.queries_failed} failed)"
+            "Processed %d queries for lineage extraction (%d failed)",
+            self.queries_parsed,
+            self.queries_failed,
         )
         logger.debug(
-            f"Query parsing completed in {timer.elapsed_seconds():.2f} seconds"
+            "Query parsing completed in %.2f seconds",
+            timer.elapsed_seconds(),
         )
 
         self.report.num_queries_parsed = self.queries_parsed
