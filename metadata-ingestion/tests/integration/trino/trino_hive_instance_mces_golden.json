@@ -246,7 +246,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1759227091"
+                            "transient_lastddltime": "1771824853"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -461,6 +461,52 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -504,7 +550,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1759227097"
+                            "transient_lastddltime": "1771824858"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -720,6 +766,63 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD),gender)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD),gender)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD),age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD),age)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -763,7 +866,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "map_test",
                         "tags": []
@@ -947,6 +1050,30 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD),keyvalue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD),keyvalue)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD),recordid)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD),recordid)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -990,7 +1117,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1217,6 +1344,74 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
                     "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),service.provider.name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),service.provider.name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD),service.provider.id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD),service.provider.id)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
@@ -1446,6 +1641,41 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD),bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD),bar)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD),baz)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD),baz)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -1489,7 +1719,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227088"
+                            "transient_lastddltime": "1771824850"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1697,6 +1927,52 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -1737,7 +2013,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227093"
+                            "transient_lastddltime": "1771824855"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1945,6 +2221,52 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -1988,7 +2310,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227087"
+                            "transient_lastddltime": "1771824850"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2168,6 +2490,30 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD),bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD),bar)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -2211,7 +2557,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1759227094"
+                            "transient_lastddltime": "1771824856"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2466,6 +2812,96 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
                     "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.tag)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.tag)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field0)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field0)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field2)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field2)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field3)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field3)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field3.a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field3.a)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD),foo.field3.b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD),foo.field3.b)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
@@ -2730,6 +3166,77 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD),property_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),property_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD),service)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD),service.type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service.type)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD),service.provider)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service.provider)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
                         "time": 1615443388097,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
@@ -2819,13 +3326,13 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)"
                 },
                 {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)"
+                },
+                {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),property_id)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),service)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),property_id)"
