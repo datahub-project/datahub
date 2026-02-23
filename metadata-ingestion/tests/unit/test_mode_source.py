@@ -220,6 +220,39 @@ class TestReplaceDefinitions:
         assert "(SELECT id, name FROM users WHERE active = true) as buyers" in result
         assert "(SELECT id, name FROM users WHERE active = true) as sellers" in result
 
+    def test_nested_definitions(self):
+        """A definition whose body references another definition should have
+        both levels expanded, even when the inner one is also used directly."""
+        source = _make_source_with_definitions(
+            {
+                "paid_orders": "SELECT * FROM orders WHERE channel IN ({{ @channels as ch }})",
+                "channels": "SELECT channel_name FROM dim_channels WHERE paid = true",
+            }
+        )
+        query = (
+            "SELECT * FROM {{ @paid_orders as revenue }} "
+            "JOIN {{ @channels as all_ch }} ON 1=1"
+        )
+        result = source._replace_definitions(query)
+        assert (
+            "(SELECT channel_name FROM dim_channels WHERE paid = true) as ch" in result
+        )
+        assert (
+            "(SELECT channel_name FROM dim_channels WHERE paid = true) as all_ch"
+            in result
+        )
+
+    def test_definition_without_alias(self):
+        """Definitions used inline without 'as alias' should expand to
+        just the parenthesized body, without a trailing 'as '."""
+        source = _make_source_with_definitions(
+            {"active_accounts": "SELECT id FROM accounts WHERE active = true"}
+        )
+        query = "SELECT * FROM (SELECT * FROM {{ @active_accounts }}) accts"
+        result = source._replace_definitions(query)
+        assert "(SELECT id FROM accounts WHERE active = true)" in result
+        assert "(SELECT id FROM accounts WHERE active = true) as " not in result
+
 
 # ──────────────────────────────────────────────────────────────────────
 # _get_creator cache semantics
