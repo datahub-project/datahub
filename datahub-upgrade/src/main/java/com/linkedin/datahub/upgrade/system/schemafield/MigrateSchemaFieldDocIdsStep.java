@@ -5,8 +5,8 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSys
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
@@ -55,7 +55,7 @@ import org.opensearch.search.sort.SortOrder;
  * <p>Finally, a DELETE is executed on the legacy document id.
  */
 @Slf4j
-public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
+public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
 
   private final OperationContext opContext;
   private final EntityRegistry entityRegistry;
@@ -160,8 +160,6 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       } finally {
         elasticsearchClient.flushBulkProcessor();
       }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), getUpgradeIdUrn(), entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };

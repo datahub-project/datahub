@@ -1,8 +1,8 @@
 package com.linkedin.datahub.upgrade.system.semanticsearch;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
@@ -29,7 +29,7 @@ import org.opensearch.tasks.TaskInfo;
  * SemanticContent aspect, which is emitted by ingestion connectors.
  */
 @Slf4j
-public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
+public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
 
   private static final String UPGRADE_ID_PREFIX = "CopyDocumentsToSemanticIndex";
   private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
@@ -99,7 +99,6 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       }
 
       log.info("Document copy completed successfully for entity '{}'", entityName);
-      BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     } catch (Exception e) {
       log.error("Failed to copy documents for entity: {}", entityName, e);

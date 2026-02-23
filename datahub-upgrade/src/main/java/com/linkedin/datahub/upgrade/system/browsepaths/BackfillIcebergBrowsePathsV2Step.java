@@ -15,8 +15,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
@@ -40,7 +40,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class BackfillIcebergBrowsePathsV2Step implements UpgradeStep {
+public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillIcebergBrowsePathsV2Step";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
@@ -89,8 +89,6 @@ public class BackfillIcebergBrowsePathsV2Step implements UpgradeStep {
           migratedCount += batchSize;
         } while (scrollId != null);
       }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };

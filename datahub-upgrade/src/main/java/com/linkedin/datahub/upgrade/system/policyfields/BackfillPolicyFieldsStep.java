@@ -9,8 +9,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.EntityResponse;
@@ -45,7 +45,7 @@ import org.jetbrains.annotations.NotNull;
  * fields in ES
  */
 @Slf4j
-public class BackfillPolicyFieldsStep implements UpgradeStep {
+public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
   private static final String UPGRADE_ID = "BackfillPolicyFieldsStep_V2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
@@ -88,8 +88,6 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
         scrollId = backfillPolicies(context, auditStamp, scrollId);
         migratedCount += batchSize;
       } while (scrollId != null);
-
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };

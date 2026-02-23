@@ -6,6 +6,7 @@ import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELA
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -53,7 +54,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     return steps;
   }
 
-  public static class RemoveQueryEdgesStep implements UpgradeStep {
+  public static class RemoveQueryEdgesStep implements PersistentUpgradeStep {
     private static final String UPGRADE_ID = "RemoveQueryEdges_V1";
     private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
@@ -93,7 +94,6 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
 
         try {
           esWriteDAO.deleteByQuerySync(indexName, deleteQuery, deleteConfig);
-          BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } catch (Exception e) {
           log.error("Failed to execute query edge delete.", e);

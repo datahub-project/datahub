@@ -10,8 +10,8 @@ import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
  * generate the other aspects in the future (v2).
  */
 @Slf4j
-public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
+public class GenerateSchemaFieldsFromSchemaMetadataStep implements PersistentUpgradeStep {
   private static final List<String> REQUIRED_ASPECTS =
       List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
 
@@ -225,7 +225,6 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                 });
       }
 
-      BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);

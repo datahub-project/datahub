@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Throwables;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
@@ -39,7 +39,7 @@ import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuil
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
-public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep {
+public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentUpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillDataProcessInstancesHasRunEvents";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
@@ -176,7 +176,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           }
         }
       }
-      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
       return new DefaultUpgradeStepResult(id(), upgradeState);
     };
   }

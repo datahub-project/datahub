@@ -3,8 +3,8 @@ package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.model.BootstrapMCPConfigFile;
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  * fields in ES
  */
 @Slf4j
-public class BootstrapMCPStep implements UpgradeStep {
+public class BootstrapMCPStep implements PersistentUpgradeStep {
   private final String upgradeId;
   private final Urn upgradeIdUrn;
 
@@ -60,8 +60,6 @@ public class BootstrapMCPStep implements UpgradeStep {
         log.error("Error bootstrapping MCPs", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), upgradeIdUrn, entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
