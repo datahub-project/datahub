@@ -475,7 +475,7 @@ elasticsearch:
       # Supports: "integrations-service" (DataHub SaaS), "aws-bedrock", "openai", or "cohere"
       embeddingProvider:
         # Provider type: "integrations-service", "aws-bedrock", "openai", or "cohere"
-        type: ${EMBEDDING_PROVIDER_TYPE:integrations-service}
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
