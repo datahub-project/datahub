@@ -119,11 +119,27 @@ export const TestNotificationButton = ({ hidden, integration, destinationSetting
         }
     }, [resultData, isLoadingResultData, terminatePolling]);
 
+    // Transform destination settings for GraphQL mutation
+    // For Slack: extract slackUserId from user object and use as userHandle (GraphQL input only accepts userHandle)
+    const getTestNotificationSettings = () => {
+        if (integration === 'slack') {
+            const slackSettings = destinationSettings as any;
+            // Prefer user.slackUserId (OAuth-bound) over legacy userHandle
+            const userHandle = slackSettings.user?.slackUserId || slackSettings.userHandle;
+            return {
+                userHandle,
+                channels: slackSettings.channels,
+            };
+        }
+        return destinationSettings;
+    };
+
     // Trigger sending the test notification and poll for results
     const testNotification = () => {
         setIsLoading(true);
+        const testSettings = getTestNotificationSettings();
         createNotificationTestRequest({
-            variables: { input: { urn: connectionUrn, [integration]: destinationSettings } },
+            variables: { input: { urn: connectionUrn, [integration]: testSettings } },
         })
             .then((result) => {
                 const urn = result.data?.createNotificationConnectionTest;

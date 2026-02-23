@@ -8,6 +8,13 @@ export const getDestinationId = (
         const slackSettings = config.destinationSettings as any; // Type assertion needed due to union type
         if (slackSettings.channels?.length) {
             destination = slackSettings.channels.join(', ');
+        } else if (slackSettings.user) {
+            // Use display name if available, otherwise fall back to Slack user ID or legacy userHandle
+            destination =
+                slackSettings.user.displayName ||
+                slackSettings.user.slackUserId ||
+                slackSettings.userHandle ||
+                'Slack user';
         } else if (slackSettings.userHandle) {
             destination = slackSettings.userHandle;
         }

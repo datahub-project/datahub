@@ -7,6 +7,7 @@ import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { isSlackSinkSupported as isSlackSinkSupportedGlobally } from '@app/settings/utils';
+import SlackOAuthUserDisplay from '@app/shared/subscribe/drawer/section/SlackOAuthUserDisplay';
 import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
 import {
     selectIsPersonal,
@@ -86,13 +87,6 @@ const SettingsSlackChannel = styled(Typography.Text)`
     margin-left: 5px;
 `;
 
-// const BorderLessButton = styled(Typography.Text)<{ $isPrimary?: boolean }>`
-//     color: ${(props) => (props.$isPrimary ? REDESIGN_COLORS.BLUE : REDESIGN_COLORS.RED_NORMAL)};
-//     margin-left: 10px;
-//     font-size: 14px;
-//     cursor: pointer;
-// `;
-
 const EditText = styled.span`
     margin-left: 10px;
     color: ${REDESIGN_COLORS.BLUE};
@@ -102,6 +96,7 @@ const EditText = styled.span`
 const StyledAlert = styled(Alert)`
     margin: 8px 0 0 ${LEFT_PADDING}px;
 `;
+
 const TestNotificationButtonWrapper = styled.div`
     margin-left: ${LEFT_PADDING}px;
 `;
@@ -121,6 +116,9 @@ export default function SlackNotificationRecipientSection() {
     const [slackChannelName, setSlackChannelName] = useState('');
     const [slackInputPlaceholder, setSlackInputPlaceholder] = useState('');
     const [isSubscriptionChannelSelected] = [slack.channelSelection === ChannelSelections.SUBSCRIPTION];
+
+    // Feature flag: determines OAuth vs legacy manual input mode
+    const requireOAuthBinding = config?.featureFlags?.requireSlackOAuthBinding || false;
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -151,17 +149,15 @@ export default function SlackNotificationRecipientSection() {
 
     const onChangeSlackSwitch = (checked: boolean) => {
         actions.setSlackEnabled(checked);
-        if (checked && !settingsSlackChannel) {
+        // Only suppress auto-open edit in OAuth mode for personal notifications
+        const isOAuthPersonal = requireOAuthBinding && isPersonal;
+        if (checked && !settingsSlackChannel && !isOAuthPersonal) {
             setIsSlackEditing(true);
         }
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
         const channelName = value;
-        // if (!isPersonal) {
-        //     // trim # from string and add only one # in front
-        //     channelName = '#'.concat(trim(value, '#'));
-        // }
         setSlackChannelName(channelName);
         updateSlackInState(channelName);
     };
@@ -183,13 +179,11 @@ export default function SlackNotificationRecipientSection() {
 
     const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
 
-    // const handleRevertChannelName = () => {
-    //     setSlackChannelName(previousSlackChannelName.text);
-    //     updateSlackInState(previousSlackChannelName.text);
-    //     setIsSlackEditing(false);
-    // };
-
-    const renderSlackSink = () => {
+    /**
+     * Render legacy manual input for Slack Member ID.
+     * Used when requireOAuthBinding = false.
+     */
+    const renderLegacySlackSink = () => {
         let slackSinkHtml = (
             <StyledSlackSection>
                 <Space direction="vertical">
@@ -224,7 +218,6 @@ export default function SlackNotificationRecipientSection() {
                                             onChange={onChangeChannelInput}
                                             status={!slackChannelName ? 'error' : undefined}
                                         />
-                                        {/* <BorderLessButton onClick={handleRevertChannelName}>Revert</BorderLessButton> */}
                                     </UseDefaultText>
                                 </StyledFormItem>
                             </Form>
@@ -250,6 +243,89 @@ export default function SlackNotificationRecipientSection() {
         return slackSinkHtml;
     };
 
+    /**
+     * Render the appropriate Slack sink UI based on mode.
+     */
+    const renderSlackSink = () => {
+        // OAuth mode for personal notifications
+        if (requireOAuthBinding && isPersonal) {
+            return <SlackOAuthUserDisplay slackSinkSupported={isSlackSinkSupported} />;
+        }
+
+        // Legacy manual input mode (or group notifications)
+        return renderLegacySlackSink();
+    };
+
+    /**
+     * Render legacy instructions for finding Member ID.
+     * Only shown in legacy mode when editing.
+     */
+    const renderLegacyInstructions = () => {
+        // Don't show in OAuth mode
+        if (requireOAuthBinding && isPersonal) {
+            return null;
+        }
+
+        if (!isSlackEditing || !isSlackSinkSupported) {
+            return null;
+        }
+
+        return (
+            <MemberIdInstructionText>
+                {isPersonal ? (
+                    <>
+                        Find a member ID from the <MoreOutlined /> menu in your Slack profile.
+                        <a
+                            target="_blank"
+                            rel="noreferrer"
+                            href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
+                        >
+                            {' '}
+                            See instructions.
+                        </a>
+                    </>
+                ) : (
+                    <>Ensure the Slack bot has been added to this channel</>
+                )}
+            </MemberIdInstructionText>
+        );
+    };
+
+    /**
+     * Render test notification button.
+     * In OAuth mode for personal, this is handled by SlackOAuthUserDisplay.
+     * In legacy mode, show the button here.
+     */
+    const renderTestButton = () => {
+        // OAuth mode handles its own test button
+        if (requireOAuthBinding && isPersonal) {
+            return null;
+        }
+
+        if (!isSlackSinkSupported) {
+            return null;
+        }
+
+        return (
+            <TestNotificationButtonWrapper>
+                <TestNotificationButton
+                    integration="slack"
+                    connectionUrn={SLACK_CONNECTION_URN}
+                    hidden={!settingsSlackChannel && !slack.subscription.channel}
+                    destinationSettings={
+                        isPersonal
+                            ? {
+                                  userHandle: slack.subscription.channel || settingsSlackChannel || '',
+                              }
+                            : {
+                                  channels: [slack.subscription.channel || settingsSlackChannel || ''],
+                              }
+                    }
+                />
+            </TestNotificationButtonWrapper>
+        );
+    };
+
     return (
         <NotificationSwitchContainer>
             <SwitchWrapper>
@@ -269,46 +345,9 @@ export default function SlackNotificationRecipientSection() {
                     showIcon
                 />
             )}
-            {renderSlackSink()}
-            {isSlackEditing && isSlackSinkSupported && (
-                <>
-                    <MemberIdInstructionText>
-                        {isPersonal ? (
-                            <>
-                                Find a member ID from the <MoreOutlined /> menu in your Slack profile.
-                                <a
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
-                                >
-                                    {' '}
-                                    See instructions.
-                                </a>
-                            </>
-                        ) : (
-                            <>Ensure the Slack bot has been added to this channel</>
-                        )}
-                    </MemberIdInstructionText>
-                </>
-            )}
-            {isSlackSinkSupported && (
-                <TestNotificationButtonWrapper>
-                    <TestNotificationButton
-                        integration="slack"
-                        connectionUrn={SLACK_CONNECTION_URN}
-                        hidden={!settingsSlackChannel && !slack.subscription.channel}
-                        destinationSettings={
-                            isPersonal
-                                ? {
-                                      userHandle: slack.subscription.channel || settingsSlackChannel || '',
-                                  }
-                                : {
-                                      channels: [slack.subscription.channel || settingsSlackChannel || ''],
-                                  }
-                        }
-                    />
-                </TestNotificationButtonWrapper>
-            )}
+            {slack.enabled && renderSlackSink()}
+            {renderLegacyInstructions()}
+            {slack.enabled && renderTestButton()}
         </NotificationSwitchContainer>
     );
 }

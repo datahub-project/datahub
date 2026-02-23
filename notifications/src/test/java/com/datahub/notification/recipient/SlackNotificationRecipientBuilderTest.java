@@ -772,18 +772,40 @@ public class SlackNotificationRecipientBuilderTest {
     Assert.assertTrue(recipients.isEmpty());
   }
 
-  // Helper method to create slack notification settings
+  // Helper method to create slack notification settings (legacy userHandle only)
   private NotificationSettings createSlackNotificationSettings(
       @Nullable String userHandle,
+      @Nonnull List<String> channels,
+      @Nonnull NotificationScenarioType type,
+      boolean enabled) {
+    return createSlackNotificationSettingsWithOAuthUser(null, userHandle, channels, type, enabled);
+  }
+
+  // Helper method to create slack notification settings with OAuth user support
+  private NotificationSettings createSlackNotificationSettingsWithOAuthUser(
+      @Nullable String oauthSlackUserId,
+      @Nullable String legacyUserHandle,
       @Nonnull List<String> channels,
       @Nonnull NotificationScenarioType type,
       boolean enabled) {
     NotificationSettings settings = mock(NotificationSettings.class);
     SlackNotificationSettings slackSettings = mock(SlackNotificationSettings.class);
 
-    // Set up user handle if provided
-    when(slackSettings.hasUserHandle()).thenReturn(userHandle != null);
-    when(slackSettings.getUserHandle()).thenReturn(userHandle);
+    // Set up OAuth SlackUser if provided
+    if (oauthSlackUserId != null) {
+      com.linkedin.settings.global.SlackUser slackUser =
+          mock(com.linkedin.settings.global.SlackUser.class);
+      when(slackUser.hasSlackUserId()).thenReturn(true);
+      when(slackUser.getSlackUserId()).thenReturn(oauthSlackUserId);
+      when(slackSettings.hasUser()).thenReturn(true);
+      when(slackSettings.getUser()).thenReturn(slackUser);
+    } else {
+      when(slackSettings.hasUser()).thenReturn(false);
+    }
+
+    // Set up legacy user handle if provided
+    when(slackSettings.hasUserHandle()).thenReturn(legacyUserHandle != null);
+    when(slackSettings.getUserHandle()).thenReturn(legacyUserHandle);
 
     // Set up channels
     when(slackSettings.hasChannels()).thenReturn(!channels.isEmpty());
@@ -807,5 +829,78 @@ public class SlackNotificationRecipientBuilderTest {
             new NotificationSettingMap(Collections.singletonMap(type.toString(), scenarioSetting)));
 
     return settings;
+  }
+
+  @Test
+  public void testOAuthSlackUserIdPreferredOverLegacyUserHandle() throws Exception {
+    // Test that OAuth-bound SlackUser.slackUserId is preferred over legacy userHandle
+    String oauthSlackUserId = "UOAUTH123";
+    String legacyUserHandle = "ULEGACY456";
+
+    Urn testUrn = Urn.createFromString("urn:li:corpuser:testUser");
+
+    // Setup notification settings with both OAuth user and legacy handle
+    NotificationSettings notificationSettings =
+        createSlackNotificationSettingsWithOAuthUser(
+            oauthSlackUserId,
+            legacyUserHandle,
+            Collections.emptyList(),
+            NotificationScenarioType.ASSERTION_STATUS_CHANGE,
+            true);
+
+    // Setup mock user settings
+    CorpUserSettings userSettings = mock(CorpUserSettings.class);
+    when(userSettings.hasNotificationSettings()).thenReturn(true);
+    when(userSettings.getNotificationSettings()).thenReturn(notificationSettings);
+
+    when(settingsService.batchGetCorpUserSettings(opContext, Collections.singletonList(testUrn)))
+        .thenReturn(Collections.singletonMap(testUrn, userSettings));
+
+    List<NotificationRecipient> recipients =
+        builder.buildActorRecipients(
+            opContext,
+            Collections.singletonList(testUrn),
+            NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+
+    // Verify OAuth ID is used, not legacy handle
+    Assert.assertEquals(recipients.size(), 1);
+    Assert.assertEquals(recipients.get(0).getId(), oauthSlackUserId);
+    Assert.assertEquals(recipients.get(0).getType(), NotificationRecipientType.SLACK_DM);
+  }
+
+  @Test
+  public void testFallbackToLegacyUserHandleWhenNoOAuthUser() throws Exception {
+    // Test that legacy userHandle is used when no OAuth user is bound
+    String legacyUserHandle = "ULEGACY456";
+
+    Urn testUrn = Urn.createFromString("urn:li:corpuser:testUser");
+
+    // Setup notification settings with only legacy handle (no OAuth)
+    NotificationSettings notificationSettings =
+        createSlackNotificationSettingsWithOAuthUser(
+            null, // No OAuth user
+            legacyUserHandle,
+            Collections.emptyList(),
+            NotificationScenarioType.ASSERTION_STATUS_CHANGE,
+            true);
+
+    // Setup mock user settings
+    CorpUserSettings userSettings = mock(CorpUserSettings.class);
+    when(userSettings.hasNotificationSettings()).thenReturn(true);
+    when(userSettings.getNotificationSettings()).thenReturn(notificationSettings);
+
+    when(settingsService.batchGetCorpUserSettings(opContext, Collections.singletonList(testUrn)))
+        .thenReturn(Collections.singletonMap(testUrn, userSettings));
+
+    List<NotificationRecipient> recipients =
+        builder.buildActorRecipients(
+            opContext,
+            Collections.singletonList(testUrn),
+            NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+
+    // Verify legacy handle is used as fallback
+    Assert.assertEquals(recipients.size(), 1);
+    Assert.assertEquals(recipients.get(0).getId(), legacyUserHandle);
+    Assert.assertEquals(recipients.get(0).getType(), NotificationRecipientType.SLACK_DM);
   }
 }

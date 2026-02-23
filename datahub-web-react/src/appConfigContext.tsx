@@ -149,6 +149,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showAskDataHubFeedback: false,
         supportTicketsEnabled: false,
         teamsNotificationsEnabled: false,
+        requireSlackOAuthBinding: false,
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
         freshnessAssertionTuningEnabled: false,

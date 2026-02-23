@@ -1276,6 +1276,9 @@ featureFlags:
   # Enables the email notifications feature.
   teamsNotificationsEnabled: ${TEAMS_NOTIFICATIONS_ENABLED:false}
   # Enables the Teams notifications feature.
+  requireSlackOAuthBinding: ${REQUIRE_SLACK_OAUTH_BINDING:false}
+  # When true, users must connect Slack via OAuth instead of manual ID input.
+  # When false, both OAuth and manual input are supported (migration mode).
   slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true}
   # Enables the ability to configure slack bot tokens via the integrations settings UI
   slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true}

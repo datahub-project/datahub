@@ -158,6 +158,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -213,6 +214,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private EntityService<?> entityService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
+  private ConnectionService connectionService;
   private UserInvitationService userInvitationService;
   private AssertionService assertionService;
   private DataContractService dataContractService;
@@ -271,6 +273,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.secretService = args.getSecretService();
     this.monitorService = args.getMonitorService();
     this.integrationsService = args.getIntegrationsService();
+    this.connectionService = args.getConnectionService();
     this.entitySearchService = args.getEntitySearchService();
     this.subscriptionService = args.getSubscriptionService();
     this.groupService = args.getGroupService();

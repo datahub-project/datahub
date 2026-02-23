@@ -30,7 +30,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
-/** Initializes a corpUser's aspects with values such as slack member ID when they sign up. */
+/**
+ * Initializes a corpUser's aspects with values such as slack member ID when they sign up.
+ *
+ * <p><b>DISCLAIMER:</b> This hook only supports the legacy flow where users could manually set
+ * their Slack ID in their profile (corpUserEditableInfo.slack), and the system would attempt to
+ * resolve and hydrate additional Slack member details from ingested Platform Resources.
+ *
+ * <p>This hook does NOT populate the new {@code NotificationSettings.slackSettings.user} model
+ * (SlackUser) which is required for the modern Slack notification flow. Users must now bind their
+ * Slack account via OAuth to populate the SlackUser model in their notification settings.
+ *
+ * @see com.linkedin.settings.global.SlackUser
+ */
 @Slf4j
 @Component
 @Import({

@@ -324,6 +324,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
             .setTeamsNotificationsEnabled(_featureFlags.isTeamsNotificationsEnabled())
+            .setRequireSlackOAuthBinding(_featureFlags.isRequireSlackOAuthBinding())
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
             .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())

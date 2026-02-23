@@ -36,6 +36,12 @@ from datahub_integrations.slack.command.mention_helpers import (
 )
 from datahub_integrations.slack.config import slack_config
 from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
+from datahub_integrations.slack.feature_flags import get_require_slack_oauth_binding
+from datahub_integrations.slack.utils.datahub_user import (
+    build_connect_account_blocks,
+    graph_as_user,
+    resolve_slack_user_to_datahub,
+)
 from datahub_integrations.slack.utils.slackify import slackify_markdown
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.telemetry.chat_events import (
@@ -136,6 +142,21 @@ def _build_progress_message(steps: List[str]) -> tuple[str, List[dict]]:
         return f":hourglass_flowing_sand: _*{current_step}*_", blocks
 
 
+def _build_connect_account_message(slack_user_id: str) -> tuple[str, List[dict]]:
+    """
+    Build a message prompting the user to connect their Slack account to DataHub.
+
+    This is shown when require_slack_oauth_binding is TRUE and the user
+    hasn't connected their account yet.
+
+    Returns:
+        tuple[str, List[dict]]: (plain text fallback, rich Slack message blocks)
+    """
+    return build_connect_account_blocks(
+        slack_user_id, action_description="use Ask DataHub"
+    )
+
+
 @otel_instrument(
     metric_prefix="slack_command",
     description="Slack mention handling",
@@ -175,6 +196,29 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         user_info = app.client.users_info(user=event.user_id)["user"]
         user_name = user_info["name"]
 
+        # Resolve the Slack user to a DataHub user (based on feature flag)
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=event.user_id,
+            require_oauth_binding=get_require_slack_oauth_binding(),
+        )
+
+        # If OAuth is required but user hasn't connected, prompt them
+        if resolution.should_prompt_connection:
+            logger.info(f"Sending connect prompt to {user_name} ({event.user_id})")
+            text, blocks = _build_connect_account_message(event.user_id)
+
+            if response_ts is not None:
+                app.client.chat_update(
+                    channel=channel_id,
+                    ts=response_ts,
+                    blocks=blocks,
+                    text=text,
+                    icon_url=DATAHUB_SLACK_ICON_URL,
+                )
+            return  # Short-circuit - don't process the request
+
+        datahub_user_urn = resolution.user_urn
+
         def progress_callback(steps: List[ProgressUpdate]) -> None:
             try:
                 if response_ts is not None and steps:
@@ -191,8 +235,8 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             except Exception as e:
                 logger.warning(f"Failed to update progress message: {str(e)}")
 
-        # Process the actual response
-        agent, is_limited_history = _build_agent(app.client, event)
+        # Process the actual response (with impersonation if OAuth is required and user resolved)
+        agent, is_limited_history = _build_agent(app.client, event, datahub_user_urn)
         is_followup_question = agent.history.is_followup_datahub_ask_question
         message, followup_questions = _generate_mention_response(
             agent, event, progress_callback, response_ts
@@ -333,8 +377,23 @@ def _update_slack_history_cache(
 
 
 def _build_agent(
-    client: WebClient, event: SlackMentionEvent
+    client: WebClient,
+    event: SlackMentionEvent,
+    datahub_user_urn: Optional[str] = None,
 ) -> Tuple[AgentRunner, bool]:
+    """
+    Build the AI agent for handling Ask DataHub mentions.
+
+    Args:
+        client: Slack WebClient for fetching thread history
+        event: The Slack mention event
+        datahub_user_urn: Optional DataHub user URN for impersonation.
+            If provided, the agent will use this user's permissions.
+            If None, the agent uses system credentials.
+
+    Returns:
+        Tuple of (AgentRunner, is_limited_history)
+    """
     message_text = event.message_text
     thread_ts = event.thread_ts
     logger.info(f"App mention message: {message_text} in thread {thread_ts}")
@@ -360,8 +419,16 @@ def _build_agent(
 
     history = thread_history.get_chat_history()
 
+    # Use impersonated graph if user is resolved, otherwise use system graph
+    if datahub_user_urn:
+        logger.info(f"Creating agent with impersonation as {datahub_user_urn}")
+        agent_graph = graph_as_user(datahub_user_urn)
+    else:
+        logger.debug("Creating agent with system credentials (no impersonation)")
+        agent_graph = graph
+
     agent = create_data_catalog_explorer_agent(
-        client=DataHubClient(graph=graph),
+        client=DataHubClient(graph=agent_graph),
         history=history,
         chat_type=ChatType.SLACK,
         platform=BotPlatform.SLACK,

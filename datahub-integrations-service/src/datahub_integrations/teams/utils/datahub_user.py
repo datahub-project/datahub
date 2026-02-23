@@ -294,6 +294,8 @@ def get_user_information_from_azure_user_id(
 
         # Use the existing graph instance to search by azureUserId field
         # This works because we added @Searchable annotation to the azureUserId field
+        # skip_cache=True bypasses GMS's CachingEntitySearchService so that
+        # freshly-bound users are found immediately after OAuth completion.
         users = list(
             graph.get_urns_by_filter(
                 entity_types=[CorpUserUrn.ENTITY_TYPE],
@@ -304,6 +306,7 @@ def get_user_information_from_azure_user_id(
                         "condition": "EQUAL",
                     }
                 ],
+                skip_cache=True,
             )
         )
 

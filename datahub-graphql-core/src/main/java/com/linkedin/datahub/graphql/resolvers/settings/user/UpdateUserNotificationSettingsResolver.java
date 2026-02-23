@@ -74,10 +74,21 @@ public class UpdateUserNotificationSettingsResolver
             final SlackNotificationSettingsInput slackNotificationSettingsInput =
                 notificationSettingsInput.getSlackSettings();
             if (slackNotificationSettingsInput != null) {
+              // This mutation only handles userHandle and channels.
+              // The SlackUser binding (user field) is managed exclusively by the
+              // integrations service OAuth callback and must never be overwritten
+              // here.  We read the existing user and carry it forward.
+              final SlackNotificationSettings existingSlack =
+                  notificationSettings.hasSlackSettings()
+                      ? notificationSettings.getSlackSettings()
+                      : null;
               final SlackNotificationSettings slackNotificationSettings =
                   _settingsService.createSlackNotificationSettings(
                       slackNotificationSettingsInput.getUserHandle(),
                       slackNotificationSettingsInput.getChannels());
+              if (existingSlack != null && existingSlack.hasUser()) {
+                slackNotificationSettings.setUser(existingSlack.getUser());
+              }
               notificationSettings.setSlackSettings(slackNotificationSettings);
             }
 
@@ -90,6 +101,9 @@ public class UpdateUserNotificationSettingsResolver
               notificationSettings.setEmailSettings(emailNotificationSettings);
             }
 
+            // TODO: We should consider removing support for updating this on demand (not via
+            // OAuth),
+            // and require that accounts are linked securely via OAuth.
             final TeamsNotificationSettingsInput teamsNotificationSettingsInput =
                 notificationSettingsInput.getTeamsSettings();
             if (teamsNotificationSettingsInput != null) {

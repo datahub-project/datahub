@@ -1,12 +1,22 @@
 namespace com.linkedin.event.notification.settings
 
+import com.linkedin.settings.global.SlackUser
+
 /**
  * Slack Notification settings for an actor.
  */
 record SlackNotificationSettings {
     /**
-    * Optional user handle
-    */
+     * Optional structured user information with cached metadata.
+     * Supports Slack user ID with cached display name and email.
+     */
+    user: optional SlackUser
+
+    /**
+     * Optional user handle (deprecated - use 'user' field instead).
+     * Kept for backward compatibility with existing implementations.
+     */
+    @deprecated
     userHandle: optional string
 
     /**

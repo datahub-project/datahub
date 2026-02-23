@@ -121,6 +121,7 @@ type NotificationSettings {
 input SlackNotificationSettingsInput {
   """
   The actor's handle. Only filled if the actor is a user.
+  Note: For OAuth-bound users, the SlackUser is set via OAuth callback, not this mutation.
   """
   userHandle: String
 
@@ -137,9 +138,36 @@ input EmailNotificationSettingsInput {
   email: String!
 }
 
+type SlackUser {
+  """
+  The Slack user ID (internal Slack identifier).
+  """
+  slackUserId: String
+
+  """
+  The user's email address (fallback identifier).
+  """
+  email: String
+
+  """
+  The user's display name (cached value, may be stale).
+  """
+  displayName: String
+
+  """
+  The timestamp when the cached display name was last updated.
+  """
+  lastUpdated: Long
+}
+
 type SlackNotificationSettings {
   """
-  The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
+  Optional structured user information with cached metadata.
+  """
+  user: SlackUser
+
+  """
+  The actor's handle (deprecated - use 'user' field instead).
   """
   userHandle: String
 

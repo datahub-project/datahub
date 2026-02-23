@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -222,11 +221,34 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
         return setting.getParams().get("slack.channel");
       }
     }
-    // First check if there is a default slack handle
-    if (settings.hasSlackSettings() && settings.getSlackSettings().hasUserHandle()) {
-      return settings.getSlackSettings().getUserHandle();
+    // Check for OAuth-bound SlackUser.slackUserId first (preferred)
+    if (settings.hasSlackSettings()) {
+      String slackUserId = extractSlackUserIdFromSettings(settings.getSlackSettings());
+      if (slackUserId != null) {
+        return slackUserId;
+      }
     }
     // Else, we were unable to resolve a slack handle
+    return null;
+  }
+
+  /**
+   * Extract Slack user ID from SlackNotificationSettings. Prefers OAuth-bound
+   * SlackUser.slackUserId, falls back to deprecated userHandle.
+   */
+  @Nullable
+  private String extractSlackUserIdFromSettings(
+      @Nonnull final SlackNotificationSettings slackSettings) {
+    // Prefer OAuth-bound SlackUser.slackUserId (new)
+    if (slackSettings.hasUser()
+        && slackSettings.getUser().hasSlackUserId()
+        && !slackSettings.getUser().getSlackUserId().isEmpty()) {
+      return slackSettings.getUser().getSlackUserId();
+    }
+    // Fall back to deprecated userHandle (legacy)
+    if (slackSettings.hasUserHandle() && !slackSettings.getUserHandle().isEmpty()) {
+      return slackSettings.getUserHandle();
+    }
     return null;
   }
 
@@ -273,7 +295,8 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
               .getNotificationConfig()
               .getNotificationSettings()
               .getSlackSettings();
-      return slackSettings.getUserHandle() != null ? slackSettings.getUserHandle() : null;
+      // Use helper method to get OAuth-bound ID or fall back to userHandle
+      return extractSlackUserIdFromSettings(slackSettings);
     }
     return null;
   }
@@ -307,9 +330,16 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
                             entry.getKey()));
                     return;
                   }
+                  // Use helper method to get OAuth-bound ID or fall back to userHandle
                   recipientId =
-                      Objects.requireNonNull(
-                          notificationSettings.getSlackSettings().getUserHandle());
+                      extractSlackUserIdFromSettings(notificationSettings.getSlackSettings());
+                  if (recipientId == null) {
+                    log.warn(
+                        String.format(
+                            "Unable to create NotificationRecipient for user %s - no Slack user ID or handle configured",
+                            entry.getKey()));
+                    return;
+                  }
                 }
                 NotificationRecipient notificationRecipient =
                     buildDMRecipientWithParams(recipientId, entry.getKey());

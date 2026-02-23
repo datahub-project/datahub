@@ -143,7 +143,7 @@ export default function TeamsSearchInterface({
             <PersonalTeamsInfo>
                 <TeamsIcon src={teamsLogo} alt="Teams" />
                 <Typography.Text>
-                    Notifications will be sent to: <strong>{teamsSettings?.user?.displayName || 'You'}</strong>
+                    Notifications will be sent to <strong>{teamsSettings?.user?.displayName || 'You'}</strong>
                 </Typography.Text>
             </PersonalTeamsInfo>
             <ConnectChannelLink

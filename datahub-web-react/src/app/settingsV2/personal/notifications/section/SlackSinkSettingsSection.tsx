@@ -1,10 +1,12 @@
-import { MoreOutlined } from '@ant-design/icons';
 import { Button, ToggleCard, colors } from '@components';
 import { Form } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { useSlackOAuth } from '@app/settingsV2/personal/notifications/hooks/useSlackOAuth';
+import { SlackLegacyManualInput } from '@app/settingsV2/personal/notifications/section/SlackLegacyManualInput';
+import { SlackOAuthConnection } from '@app/settingsV2/personal/notifications/section/SlackOAuthConnection';
 import {
     CancelButton,
     SaveButton,
@@ -13,12 +15,12 @@ import {
     StyledFormItem,
     StyledInput,
 } from '@app/settingsV2/personal/notifications/section/styledComponents';
+import { SLACK_CONNECTION_URN } from '@app/settingsV2/slack/utils';
+import { TestNotificationButton } from '@app/shared/notifications/TestNotificationButton';
 import { getSlackSettingsChannel } from '@app/shared/subscribe/drawer/utils';
+import { useAppConfig } from '@app/useAppConfig';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { SLACK_CONNECTION_URN } from '@src/app/settingsV2/platform/slack/constants';
-import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
-
-import { SlackNotificationSettings, SlackNotificationSettingsInput } from '@types';
+import { SlackNotificationSettings, SlackNotificationSettingsInput } from '@src/types.generated';
 
 const HelperText = styled.div`
     color: ${colors.gray[1700]};
@@ -43,25 +45,64 @@ type Props = {
     toggleSink: (enabled: boolean) => void;
     settings?: SlackNotificationSettings;
     groupName?: string;
+    isSlackPlatformConfigured: boolean;
 };
 
 /**
- * Personal or Group Slack settings section
+ * Personal or Group Slack settings section.
+ *
+ * For personal notifications:
+ * - OAuth mode (requireSlackOAuthBinding=true): Users must connect via OAuth
+ * - Legacy mode (requireSlackOAuthBinding=false): Users manually enter Slack Member ID
+ *
+ * For group notifications: Edit/save Slack channel (original behavior preserved).
  */
 export const SlackSinkSettingsSection = ({
     isPersonal,
-    sinkSupported, // Whether this sink is supported. If not, the user will not be able to enable it.
+    sinkSupported,
     sinkEnabled,
     settings,
     updateSinkSetting,
     toggleSink,
     groupName,
+    isSlackPlatformConfigured,
 }: Props) => {
+    const { config } = useAppConfig();
+    const me = useUserContext();
+
+    const requireOAuthBinding = config?.featureFlags?.requireSlackOAuthBinding || false;
+
+    const {
+        startOAuthFlow,
+        isLoading: isOAuthLoading,
+        shouldAutoConnect,
+    } = useSlackOAuth({
+        isSlackPlatformConfigured,
+        autoConnectEnabled: requireOAuthBinding && isPersonal,
+    });
+
+    // Track if we've handled auto-enable
+    const hasAutoEnabledRef = useRef(false);
+
+    useEffect(() => {
+        if (
+            shouldAutoConnect &&
+            requireOAuthBinding &&
+            isPersonal &&
+            sinkSupported &&
+            !sinkEnabled &&
+            !hasAutoEnabledRef.current
+        ) {
+            hasAutoEnabledRef.current = true;
+            toggleSink(true);
+        }
+    }, [shouldAutoConnect, requireOAuthBinding, isPersonal, sinkSupported, sinkEnabled, toggleSink]);
+
+    // --- Group channel editing state ---
     const channelOrUserId = getSlackSettingsChannel(isPersonal, settings);
     const [editing, setIsEditing] = useState<boolean>(false);
     const [inputValue, setInputValue] = useState(channelOrUserId);
     const [form] = Form.useForm();
-    const me = useUserContext();
 
     form.setFieldsValue({ slackFormValue: inputValue });
 
@@ -76,23 +117,23 @@ export const SlackSinkSettingsSection = ({
             hasComponentMountedRef.current = true;
             return;
         }
-        if (!hasSetEditingRef.current) {
+        if (!hasSetEditingRef.current && !isPersonal) {
             setIsEditing(!channelOrUserId && sinkEnabled);
             hasSetEditingRef.current = true;
         }
-    }, [channelOrUserId, sinkEnabled]);
+    }, [channelOrUserId, sinkEnabled, isPersonal]);
 
-    const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel';
-
+    const slackUser = isPersonal ? settings?.user : null;
+    const legacyUserHandle = settings?.userHandle;
     const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
+    const platformNotConfigured = !isSlackPlatformConfigured;
 
-    const saveSettings = () => {
-        const input = isPersonal ? { userHandle: inputValue } : { channels: inputValue ? [inputValue] : [] };
-        updateSinkSetting(input);
+    const saveGroupSettings = () => {
+        updateSinkSetting({ channels: inputValue ? [inputValue] : [] });
     };
 
     const saveButtonOnClick = () => {
-        saveSettings();
+        saveGroupSettings();
         setIsEditing(false);
     };
 
@@ -104,11 +145,29 @@ export const SlackSinkSettingsSection = ({
     const renderSinkDescription = () => {
         const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
         const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to & important events.`;
-        const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
-        let description = <>{supportedSinkDescription}</>;
+        if (platformNotConfigured) {
+            if (isAdminAccess) {
+                return (
+                    <>
+                        Slack notifications are available, but the platform integration is not configured.&nbsp;
+                        <Link to="/settings/integrations/slack" style={{ color: colors.violet['500'] }}>
+                            Click here to set up Slack integration
+                        </Link>{' '}
+                        in Platform Settings.
+                    </>
+                );
+            }
+            return (
+                <>
+                    Slack notifications are available, but your admin needs to configure the platform integration first.
+                    Ask your DataHub admin to set up Slack integration in Platform Settings.
+                </>
+            );
+        }
+
         if (!sinkSupported && isAdminAccess) {
-            description = (
+            return (
                 <>
                     Slack is currently disabled.&nbsp;
                     <Link to="/settings/integrations/slack" style={{ color: colors.violet['500'] }}>
@@ -118,26 +177,22 @@ export const SlackSinkSettingsSection = ({
                 </>
             );
         }
+
         if (!sinkSupported && !isAdminAccess) {
-            description = <>{unsupportedSinkDescription}</>;
+            return <>In order to enable, ask your DataHub admin to setup the Slack integration.</>;
         }
-        return description;
+
+        return <>{supportedSinkDescription}</>;
     };
 
-    return (
-        <ToggleCard
-            title="Slack Notifications"
-            subTitle={renderSinkDescription()}
-            disabled={!sinkSupported}
-            value={sinkEnabled}
-            onToggle={toggleSink}
-            toggleDataTestId="slack-notifications-enabled-switch"
-        >
-            {sinkEnabled && (
-                <SinkConfigurationContainer>
+    const renderContent = () => {
+        // --- Group notifications: channel edit/save UI (original behavior) ---
+        if (!isPersonal) {
+            return (
+                <>
                     {!editing && (
                         <CurrentValue>
-                            {inputValue ? <strong>{inputValue}</strong> : 'No Slack channel or id set.'}
+                            {inputValue ? <strong>{inputValue}</strong> : 'No Slack channel set.'}
                         </CurrentValue>
                     )}
                     {!editing && (
@@ -155,7 +210,7 @@ export const SlackSinkSettingsSection = ({
                                 <Form form={form}>
                                     <StyledFormItem name="slackFormValue">
                                         <StyledInput
-                                            placeholder={slackInputPlaceholder}
+                                            placeholder="Slack Channel"
                                             value={inputValue}
                                             onChange={(e) => setInputValue(e.target.value)}
                                         />
@@ -177,23 +232,7 @@ export const SlackSinkSettingsSection = ({
                                 </CancelButton>
                             </SinkButtonsContainer>
                             <HelperText>
-                                {isPersonal ? (
-                                    <>
-                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile.
-                                        <a
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
-                                        >
-                                            {' '}
-                                            See instructions.
-                                        </a>
-                                    </>
-                                ) : (
-                                    <>
-                                        If this is a private channel, ensure the DataHub Slack bot has been added to it.
-                                    </>
-                                )}
+                                If this is a private channel, ensure the DataHub Slack bot has been added to it.
                             </HelperText>
                         </>
                     ) : null}
@@ -201,13 +240,40 @@ export const SlackSinkSettingsSection = ({
                         <TestNotificationButton
                             integration="slack"
                             connectionUrn={SLACK_CONNECTION_URN}
-                            destinationSettings={
-                                isPersonal ? { userHandle: inputValue || '' } : { channels: [inputValue || ''] }
-                            }
+                            destinationSettings={{ channels: [inputValue || ''] }}
                         />
                     )}
-                </SinkConfigurationContainer>
-            )}
+                </>
+            );
+        }
+
+        // --- Personal notifications: OAuth mode ---
+        if (requireOAuthBinding) {
+            return (
+                <SlackOAuthConnection slackUser={slackUser} onConnect={startOAuthFlow} isConnecting={isOAuthLoading} />
+            );
+        }
+
+        // --- Personal notifications: Legacy manual input mode ---
+        return (
+            <SlackLegacyManualInput
+                userHandle={legacyUserHandle}
+                sinkEnabled={sinkEnabled}
+                updateSinkSetting={updateSinkSetting}
+            />
+        );
+    };
+
+    return (
+        <ToggleCard
+            title="Slack Notifications"
+            subTitle={renderSinkDescription()}
+            disabled={!sinkSupported || (isPersonal && platformNotConfigured)}
+            value={sinkEnabled}
+            onToggle={toggleSink}
+            toggleDataTestId="slack-notifications-enabled-switch"
+        >
+            {sinkEnabled && <SinkConfigurationContainer>{renderContent()}</SinkConfigurationContainer>}
         </ToggleCard>
     );
 };

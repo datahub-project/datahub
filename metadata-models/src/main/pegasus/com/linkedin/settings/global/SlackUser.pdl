@@ -1,0 +1,37 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Slack user information with cached display name and multiple ID support.
+ * Follows the same caching pattern as TeamsUser for consistency.
+ */
+record SlackUser {
+  /**
+   * The Slack user ID (Slack member UUID).
+   * This is the primary identifier used for Slack messaging via DM.
+   * Searchable to enable lookup of DataHub users by their Slack ID.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  slackUserId: optional string
+
+  /**
+   * The user's email address (fallback identifier).
+   * Used when Slack user ID is not available or for email-based user resolution.
+   */
+  email: optional string
+
+  /**
+   * The user's display name (cached value, may be stale).
+   * Retrieved from Slack API and cached for performance.
+   */
+  displayName: optional string
+
+  /**
+   * The timestamp when the cached display name was last updated.
+   * Used for TTL-based cache invalidation (milliseconds since epoch).
+   */
+  lastUpdated: optional long
+}
+

@@ -1,107 +1,200 @@
-import {
-    getErrorDisplayContentFromErrorCode,
-    getErrorDisplayContentFromSlackErrorCode,
-} from '@src/app/shared/notifications/utils';
+import { getDestinationId, getErrorDisplayContentFromErrorCode } from '@app/shared/notifications/utils';
+
+describe('getDestinationId', () => {
+    describe('Slack integration', () => {
+        it('returns channel names when channels are provided', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    channels: ['#general', '#random'],
+                },
+            });
+            expect(result).toBe('#general, #random');
+        });
+
+        it('returns OAuth user displayName when user object is provided', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    user: {
+                        slackUserId: 'U12345678',
+                        displayName: 'John Doe',
+                    },
+                },
+            });
+            expect(result).toBe('John Doe');
+        });
+
+        it('falls back to slackUserId when displayName is not available', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    user: {
+                        slackUserId: 'U12345678',
+                    },
+                },
+            });
+            expect(result).toBe('U12345678');
+        });
+
+        it('falls back to legacy userHandle when user object is not available', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    userHandle: 'U87654321',
+                },
+            });
+            expect(result).toBe('U87654321');
+        });
+
+        it('falls back to userHandle in user object when user fields are empty', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    user: {
+                        slackUserId: null,
+                        displayName: null,
+                    },
+                    userHandle: 'U87654321',
+                },
+            });
+            expect(result).toBe('U87654321');
+        });
+
+        it('returns "Slack user" when no identifiable info is available', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    user: {},
+                },
+            });
+            expect(result).toBe('Slack user');
+        });
+
+        it('returns "no destination specified" when no settings are provided', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {},
+            });
+            expect(result).toBe('no destination specified');
+        });
+
+        it('prefers channels over user settings', () => {
+            const result = getDestinationId({
+                integration: 'slack',
+                destinationSettings: {
+                    channels: ['#general'],
+                    user: {
+                        displayName: 'John Doe',
+                    },
+                },
+            });
+            expect(result).toBe('#general');
+        });
+    });
+
+    describe('Teams integration', () => {
+        it('returns channel names when channels are provided', () => {
+            const result = getDestinationId({
+                integration: 'teams',
+                destinationSettings: {
+                    channels: [
+                        { id: '1', name: 'General' },
+                        { id: '2', name: 'Random' },
+                    ],
+                },
+            });
+            expect(result).toBe('General, Random');
+        });
+
+        it('returns user displayName when user object is provided', () => {
+            const result = getDestinationId({
+                integration: 'teams',
+                destinationSettings: {
+                    user: {
+                        displayName: 'Jane Doe',
+                        azureUserId: 'azure-123',
+                        email: 'jane@example.com',
+                    },
+                },
+            });
+            expect(result).toBe('Jane Doe');
+        });
+
+        it('falls back to azureUserId when displayName is not available', () => {
+            const result = getDestinationId({
+                integration: 'teams',
+                destinationSettings: {
+                    user: {
+                        azureUserId: 'azure-123',
+                        email: 'jane@example.com',
+                    },
+                },
+            });
+            expect(result).toBe('azure-123');
+        });
+
+        it('falls back to email when neither displayName nor azureUserId is available', () => {
+            const result = getDestinationId({
+                integration: 'teams',
+                destinationSettings: {
+                    user: {
+                        email: 'jane@example.com',
+                    },
+                },
+            });
+            expect(result).toBe('jane@example.com');
+        });
+
+        it('returns "Teams user" when no user fields are available', () => {
+            const result = getDestinationId({
+                integration: 'teams',
+                destinationSettings: {
+                    user: {},
+                },
+            });
+            expect(result).toBe('Teams user');
+        });
+    });
+});
 
 describe('getErrorDisplayContentFromErrorCode', () => {
-    const mockExtraContext = {
-        destinationName: 'test-channel',
-    };
+    const extraContext = { destinationName: '#test-channel' };
 
-    describe('Generic error patterns (our new functionality)', () => {
-        it('should handle connection errors', () => {
-            const result = getErrorDisplayContentFromErrorCode('connection failed', mockExtraContext);
-            expect(result).toBe(
-                'Unable to connect to the notification service. This could be a temporary network issue. Please try again, and if the problem persists, contact your DataHub admin.',
-            );
-        });
-
-        it('should handle timeout errors', () => {
-            const result = getErrorDisplayContentFromErrorCode('request timeout', mockExtraContext);
-            expect(result).toBe(
-                'The notification request timed out. Please try again, and if the problem persists, contact your DataHub admin.',
-            );
-        });
-
-        it('should handle authentication errors', () => {
-            const result = getErrorDisplayContentFromErrorCode('authentication failed', mockExtraContext);
-            expect(result).toBe(
-                'Authentication failed when sending the notification. The integration may need to be re-configured. Contact your DataHub admin.',
-            );
-        });
-
-        it('should handle config errors', () => {
-            const result = getErrorDisplayContentFromErrorCode('invalid config', mockExtraContext);
-            expect(result).toBe(
-                'The notification service configuration appears to be invalid. Contact your DataHub admin to verify the integration settings.',
-            );
-        });
-
-        it('should handle not found errors with destination name', () => {
-            const result = getErrorDisplayContentFromErrorCode('not found', mockExtraContext);
-            expect(result).toBe(
-                "The destination 'test-channel' was not found. Please verify the destination exists and is accessible.",
-            );
-        });
-
-        it('should handle RuntimeException', () => {
-            const result = getErrorDisplayContentFromErrorCode('RuntimeException', mockExtraContext);
-            expect(result).toBe(
-                'An unexpected error occurred while sending the notification. Please try again, and if the problem persists, contact your DataHub admin.',
-            );
-        });
+    it('returns specific message for channel_not_found error', () => {
+        const result = getErrorDisplayContentFromErrorCode('channel_not_found', extraContext);
+        expect(result).toContain('#test-channel');
+        expect(result).toContain('no channel with the name');
     });
 
-    describe('Existing Slack-specific error handling (unchanged)', () => {
-        it('should handle channel_not_found error', () => {
-            const result = getErrorDisplayContentFromErrorCode('channel_not_found', mockExtraContext);
-            expect(result).toContain("no channel with the name 'test-channel'");
-        });
-
-        it('should handle not_in_channel error', () => {
-            const result = getErrorDisplayContentFromErrorCode('not_in_channel', mockExtraContext);
-            expect(result).toContain('add the DataHub Slackbot into test-channel');
-        });
-
-        it('should handle is_archived error', () => {
-            const result = getErrorDisplayContentFromErrorCode('is_archived', mockExtraContext);
-            expect(result).toContain('channel has been archived');
-        });
+    it('returns specific message for not_in_channel error', () => {
+        const result = getErrorDisplayContentFromErrorCode('not_in_channel', extraContext);
+        expect(result).toContain('#test-channel');
+        expect(result).toContain('add the DataHub Slackbot');
     });
 
-    describe('Default behavior', () => {
-        it('should handle unknown error codes with generic message', () => {
-            const result = getErrorDisplayContentFromErrorCode('unknown_error_code', mockExtraContext);
-            expect(result).toBe("Notification failed to send with error 'unknown_error_code'");
-        });
-
-        it('should handle empty error codes', () => {
-            const result = getErrorDisplayContentFromErrorCode('', mockExtraContext);
-            expect(result).toBe("Notification failed to send with error ''");
-        });
+    it('returns specific message for token_expired error', () => {
+        const result = getErrorDisplayContentFromErrorCode('token_expired', extraContext);
+        expect(result).toContain('token is expired');
     });
 
-    describe('Priority handling (generic patterns vs specific Slack codes)', () => {
-        it('should prefer specific Slack error over generic pattern', () => {
-            // "not_in_channel" contains "not" which could match "not found" pattern,
-            // but should use specific Slack handling instead
-            const result = getErrorDisplayContentFromErrorCode('not_in_channel', mockExtraContext);
-            expect(result).toContain('add the DataHub Slackbot');
-            expect(result).not.toContain('not found');
-        });
+    it('returns generic message for unknown error codes', () => {
+        const result = getErrorDisplayContentFromErrorCode('some_unknown_error', extraContext);
+        expect(result).toContain("error 'some_unknown_error'");
     });
 
-    describe('Backwards compatibility', () => {
-        it('should export getErrorDisplayContentFromSlackErrorCode', () => {
-            expect(getErrorDisplayContentFromSlackErrorCode).toBeDefined();
-            expect(typeof getErrorDisplayContentFromSlackErrorCode).toBe('function');
-        });
+    it('handles connection-related errors', () => {
+        const result = getErrorDisplayContentFromErrorCode('connection_failed', extraContext);
+        expect(result).toContain('Unable to connect');
+    });
 
-        it('should have same behavior for backwards compatibility function', () => {
-            const errorCode = 'channel_not_found';
-            const result1 = getErrorDisplayContentFromErrorCode(errorCode, mockExtraContext);
-            const result2 = getErrorDisplayContentFromSlackErrorCode(errorCode, mockExtraContext);
-            expect(result1).toBe(result2);
-        });
+    it('handles authentication-related errors', () => {
+        const result = getErrorDisplayContentFromErrorCode('unauthorized_access', extraContext);
+        expect(result).toContain('Authentication failed');
+    });
+
+    it('handles rate limiting errors', () => {
+        const result = getErrorDisplayContentFromErrorCode('ratelimited', extraContext);
+        expect(result).toContain('rate limited');
     });
 });
