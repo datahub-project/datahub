@@ -13,11 +13,13 @@ from datahub.metadata.schema_classes import (
     AssertionMetricClass,
     AssertionMonitorMetricsCubeBootstrapStateClass,
     AssertionMonitorMetricsCubeBootstrapStatusClass,
+    AssertionTimeBucketingStrategyClass,
     FreshnessFieldSpecClass,
     MonitorAnomalyEventClass,
     MonitorErrorClass,
     MonitorTypeClass,
     TimeStampClass,
+    TimeWindowSizeClass,
 )
 
 from datahub_executor.common.metric.types import (
@@ -161,6 +163,52 @@ class TestMonitorClient:
 
         # Verify graph.emit_mcps was called with the MCPs returned by the patch builder
         mock_graph.emit_mcps.assert_called_once_with(["mock_mcp"])
+
+    @patch("datahub_executor.common.monitor.client.client.MonitorPatchBuilder")
+    def test_patch_volume_monitor_evaluation_context_preserves_time_bucketing(
+        self,
+        mock_patch_builder_class: MagicMock,
+        monitor_client: MonitorClient,
+        test_monitor_urn: str,
+        test_urn: str,
+        test_evaluation_context: AssertionEvaluationContextClass,
+        mock_graph: MagicMock,
+    ) -> None:
+        mock_volume_spec = MagicMock()
+        mock_volume_spec.schedule.cron = "0 0 * * *"
+        mock_volume_spec.schedule.timezone = "UTC"
+        mock_volume_spec.parameters.dataset_volume_parameters.source_type.value = (
+            "QUERY"
+        )
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy = MagicMock()
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy.timestamp_field_path = "event_ts"
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy.bucket_interval.unit.value = "DAY"
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy.bucket_interval.multiple = 1
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy.late_arrival_grace_period = None
+        mock_volume_spec.parameters.dataset_volume_parameters.time_bucketing_strategy.timezone = "UTC"
+
+        mock_patch_builder = MagicMock()
+        mock_patch_builder_class.return_value = mock_patch_builder
+        mock_patch_builder.build.return_value = ["mock_mcp"]
+
+        monitor_client.patch_volume_monitor_evaluation_context(
+            test_monitor_urn,
+            test_urn,
+            test_evaluation_context,
+            mock_volume_spec,
+        )
+
+        assertions = mock_patch_builder.set_assertion_monitor_assertions.call_args[1][
+            "assertions"
+        ]
+        assert len(assertions) == 1
+        params = assertions[0].parameters.datasetVolumeParameters
+        assert params.timeBucketingStrategy == AssertionTimeBucketingStrategyClass(
+            timestampFieldPath="event_ts",
+            bucketInterval=TimeWindowSizeClass(unit="DAY", multiple=1),
+            lateArrivalGracePeriod=None,
+            timezone="UTC",
+        )
 
     def test_patch_volume_monitor_evaluation_context_missing_params(
         self,

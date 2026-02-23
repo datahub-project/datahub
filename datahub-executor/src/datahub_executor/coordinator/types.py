@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from datahub_executor.common.types import (
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
+    AssertionTimeBucketingStrategy,
     AssertionType,
     AuditLogSpec,
+    CalendarInterval,
     DatasetFieldAssertionParameters,
     DatasetFieldSourceType,
     DatasetFreshnessAssertionParameters,
@@ -21,6 +23,7 @@ from datahub_executor.common.types import (
     FreshnessFieldSpec,
     SchemaAssertion,
     SQLAssertion,
+    TimeWindowSize,
     VolumeAssertion,
 )
 
@@ -75,10 +78,49 @@ class FreshnessAssertionParametersSchema(BaseModel):
 
 
 class VolumeAssertionParametersSchema(BaseModel):
+    class TimeWindowSizeSchema(BaseModel):
+        unit: CalendarInterval
+        multiple: int
+
+    class AssertionTimeBucketingStrategySchema(BaseModel):
+        timestamp_field_path: str = Field(alias="timestampFieldPath")
+        bucket_interval: "VolumeAssertionParametersSchema.TimeWindowSizeSchema" = Field(
+            alias="bucketInterval"
+        )
+        late_arrival_grace_period: Optional[
+            "VolumeAssertionParametersSchema.TimeWindowSizeSchema"
+        ] = Field(alias="lateArrivalGracePeriod", default=None)
+        timezone: str
+
     source_type: DatasetVolumeSourceType = Field(alias="sourceType")
+    time_bucketing_strategy: Optional[AssertionTimeBucketingStrategySchema] = Field(
+        alias="timeBucketingStrategy", default=None
+    )
 
     def to_internal_params(self) -> DatasetVolumeAssertionParameters:
-        return DatasetVolumeAssertionParameters(source_type=self.source_type)
+        return DatasetVolumeAssertionParameters(
+            source_type=self.source_type,
+            time_bucketing_strategy=(
+                AssertionTimeBucketingStrategy(
+                    timestamp_field_path=self.time_bucketing_strategy.timestamp_field_path,
+                    bucket_interval=TimeWindowSize(
+                        unit=self.time_bucketing_strategy.bucket_interval.unit,
+                        multiple=self.time_bucketing_strategy.bucket_interval.multiple,
+                    ),
+                    late_arrival_grace_period=(
+                        TimeWindowSize(
+                            unit=self.time_bucketing_strategy.late_arrival_grace_period.unit,
+                            multiple=self.time_bucketing_strategy.late_arrival_grace_period.multiple,
+                        )
+                        if self.time_bucketing_strategy.late_arrival_grace_period
+                        else None
+                    ),
+                    timezone=self.time_bucketing_strategy.timezone,
+                )
+                if self.time_bucketing_strategy
+                else None
+            ),
+        )
 
 
 class FieldAssertionParametersSchema(BaseModel):

@@ -97,7 +97,7 @@ public class MonitorBucketingStrategyValidatorTest {
     AssertionTimeBucketingStrategy oldStrategy = buildStrategy("col1", CalendarInterval.DAY, "UTC");
     AssertionTimeBucketingStrategy newStrategy = buildStrategy("col1", CalendarInterval.DAY, "UTC");
     newStrategy.setLateArrivalGracePeriod(
-        new TimeWindowSize().setUnit(CalendarInterval.HOUR).setMultiple(2));
+        new TimeWindowSize().setUnit(CalendarInterval.DAY).setMultiple(2));
 
     MonitorInfo oldInfo = buildVolumeMonitorInfo(oldStrategy);
     MonitorInfo newInfo = buildVolumeMonitorInfo(newStrategy);
@@ -111,6 +111,41 @@ public class MonitorBucketingStrategyValidatorTest {
             .toList();
 
     assertTrue(result.isEmpty(), "Changing only lateArrivalGracePeriod should be allowed");
+  }
+
+  @Test
+  public void testBucketedVolumeRejectsNonDayGracePeriodUnit() {
+    AssertionTimeBucketingStrategy strategy = buildStrategy("col1", CalendarInterval.DAY, "UTC");
+    strategy.setLateArrivalGracePeriod(
+        new TimeWindowSize().setUnit(CalendarInterval.HOUR).setMultiple(2));
+    MonitorInfo newInfo = buildVolumeMonitorInfo(strategy);
+    ChangeMCP changeMCP = buildChangeMCP(null, newInfo);
+
+    List<AspectValidationException> result =
+        new MonitorBucketingStrategyValidator()
+            .setConfig(TEST_PLUGIN_CONFIG)
+            .validatePreCommitAspects(List.of(changeMCP), mock(RetrieverContext.class))
+            .toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getMessage().contains("DAY only"));
+  }
+
+  @Test
+  public void testBucketedVolumeRejectsBucketIntervalMultipleGreaterThanOne() {
+    AssertionTimeBucketingStrategy strategy = buildStrategy("col1", CalendarInterval.DAY, "UTC");
+    strategy.setBucketInterval(new TimeWindowSize().setUnit(CalendarInterval.DAY).setMultiple(2));
+    MonitorInfo newInfo = buildVolumeMonitorInfo(strategy);
+    ChangeMCP changeMCP = buildChangeMCP(null, newInfo);
+
+    List<AspectValidationException> result =
+        new MonitorBucketingStrategyValidator()
+            .setConfig(TEST_PLUGIN_CONFIG)
+            .validatePreCommitAspects(List.of(changeMCP), mock(RetrieverContext.class))
+            .toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getMessage().contains("multiple currently supports value 1"));
   }
 
   @Test
@@ -289,6 +324,40 @@ public class MonitorBucketingStrategyValidatorTest {
             .setDatasetVolumeParameters(volumeParams));
   }
 
+  @Test
+  public void testBucketedVolumeRequiresQuerySourceType() {
+    MonitorInfo newInfo =
+        buildVolumeMonitorInfoWithSourceType(
+            buildStrategy("col1", CalendarInterval.DAY, "UTC"),
+            DatasetVolumeSourceType.INFORMATION_SCHEMA);
+    ChangeMCP changeMCP = buildChangeMCP(null, newInfo);
+
+    List<AspectValidationException> result =
+        new MonitorBucketingStrategyValidator()
+            .setConfig(TEST_PLUGIN_CONFIG)
+            .validatePreCommitAspects(List.of(changeMCP), mock(RetrieverContext.class))
+            .toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getMessage().contains("sourceType=QUERY"));
+  }
+
+  @Test
+  public void testBucketedVolumeAllowsQuerySourceType() {
+    MonitorInfo newInfo =
+        buildVolumeMonitorInfoWithSourceType(
+            buildStrategy("col1", CalendarInterval.DAY, "UTC"), DatasetVolumeSourceType.QUERY);
+    ChangeMCP changeMCP = buildChangeMCP(null, newInfo);
+
+    List<AspectValidationException> result =
+        new MonitorBucketingStrategyValidator()
+            .setConfig(TEST_PLUGIN_CONFIG)
+            .validatePreCommitAspects(List.of(changeMCP), mock(RetrieverContext.class))
+            .toList();
+
+    assertTrue(result.isEmpty());
+  }
+
   private static MonitorInfo buildFieldMonitorInfo(AssertionTimeBucketingStrategy strategy) {
     DatasetFieldAssertionParameters fieldParams =
         new DatasetFieldAssertionParameters()
@@ -301,6 +370,19 @@ public class MonitorBucketingStrategyValidatorTest {
         new AssertionEvaluationParameters()
             .setType(AssertionEvaluationParametersType.DATASET_FIELD)
             .setDatasetFieldParameters(fieldParams));
+  }
+
+  private static MonitorInfo buildVolumeMonitorInfoWithSourceType(
+      AssertionTimeBucketingStrategy strategy, DatasetVolumeSourceType sourceType) {
+    DatasetVolumeAssertionParameters volumeParams =
+        new DatasetVolumeAssertionParameters().setSourceType(sourceType);
+    if (strategy != null) {
+      volumeParams.setTimeBucketingStrategy(strategy);
+    }
+    return buildMonitorInfo(
+        new AssertionEvaluationParameters()
+            .setType(AssertionEvaluationParametersType.DATASET_VOLUME)
+            .setDatasetVolumeParameters(volumeParams));
   }
 
   private static MonitorInfo buildMonitorInfo(AssertionEvaluationParameters params) {

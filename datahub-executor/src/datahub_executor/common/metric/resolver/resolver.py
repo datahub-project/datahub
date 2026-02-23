@@ -1,6 +1,8 @@
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Union
+from zoneinfo import ZoneInfo
 
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -87,6 +89,7 @@ class MetricResolver:
         )
 
         if metric_name == "row_count":
+            strategy = self._populate_bucketing_window_strategy(strategy)
             return self._fetch_row_count_metric(
                 entity_urn=entity_urn,
                 database_params=database_params,
@@ -100,6 +103,107 @@ class MetricResolver:
             message=f"Unsupported metric_name={metric_name} provided",
             metric_name=metric_name,
         )
+
+    @classmethod
+    def _populate_bucketing_window_strategy(
+        cls, strategy: Optional[MetricResolverStrategy]
+    ) -> Optional[MetricResolverStrategy]:
+        if (
+            strategy is None
+            or strategy.bucketing_interval_unit is None
+            or strategy.bucketing_interval_multiple is None
+            or strategy.bucketing_timezone is None
+        ):
+            return strategy
+        if (
+            strategy.bucket_start_time_ms is not None
+            and strategy.bucket_end_time_ms is not None
+        ):
+            return strategy
+
+        timezone_name = strategy.bucketing_timezone
+        # TODO: We actually should be aligning to the end of the last fully-mature bucket, not the current time.
+        # This will be handles in a later PR that will also reject evaluation if the current bucket is not mature.
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone(ZoneInfo(timezone_name))
+
+        unit = strategy.bucketing_interval_unit.upper()
+        multiple = strategy.bucketing_interval_multiple
+        if multiple != 1:
+            raise InvalidMetricResolverSourceTypeException(
+                message="Bucketing interval multiple must be 1",
+                source_type=str(strategy.source_type),
+            )
+
+        interval_delta: timedelta
+        if unit == "DAY":
+            # Anchor DAY buckets to epoch-day boundaries, then align by `multiple`.
+            # Example: multiple=2 means [Jan01-Jan03), [Jan03-Jan05), ...
+            days_since_epoch = (now_local.date() - datetime(1970, 1, 1).date()).days
+            aligned_start_date = now_local.date() - timedelta(
+                days=days_since_epoch % multiple
+            )
+            bucket_start_local = datetime(
+                aligned_start_date.year,
+                aligned_start_date.month,
+                aligned_start_date.day,
+                tzinfo=now_local.tzinfo,
+            )
+            interval_delta = timedelta(days=multiple)
+        elif unit == "WEEK":
+            # Anchor WEEK buckets to Monday-start weeks, then align by `multiple`.
+            # Example: multiple=2 means alternating bi-weekly windows from epoch Monday.
+            current_week_start = now_local.date() - timedelta(days=now_local.weekday())
+            epoch_week_start = datetime(1970, 1, 5).date()  # Monday
+            weeks_since_epoch = (current_week_start - epoch_week_start).days // 7
+            aligned_week_start = current_week_start - timedelta(
+                weeks=(weeks_since_epoch % multiple)
+            )
+            bucket_start_local = datetime(
+                aligned_week_start.year,
+                aligned_week_start.month,
+                aligned_week_start.day,
+                tzinfo=now_local.tzinfo,
+            )
+            interval_delta = timedelta(weeks=multiple)
+        else:
+            raise InvalidMetricResolverSourceTypeException(
+                message=f"Unsupported bucketing interval unit {unit}",
+                source_type=str(strategy.source_type),
+            )
+
+        bucket_end_local = bucket_start_local + interval_delta
+        grace_delta = timedelta(0)
+        if (
+            strategy.late_arrival_grace_period_unit
+            and strategy.late_arrival_grace_period_multiple
+        ):
+            # Grace period delays bucket maturity; we only query a bucket once
+            # now_local is past (bucket_end + grace).
+            grace_unit = strategy.late_arrival_grace_period_unit.upper()
+            grace_multiple = strategy.late_arrival_grace_period_multiple
+            if grace_unit == "DAY":
+                grace_delta = timedelta(days=grace_multiple)
+            else:
+                raise InvalidMetricResolverSourceTypeException(
+                    message=f"Unsupported late arrival grace period unit {grace_unit}",
+                    source_type=str(strategy.source_type),
+                )
+
+        if now_local < (bucket_end_local + grace_delta):
+            # Current aligned bucket has not matured yet, so evaluate the
+            # previous fully-mature bucket instead.
+            bucket_start_local = bucket_start_local - interval_delta
+            bucket_end_local = bucket_end_local - interval_delta
+
+        strategy.bucket_start_time_ms = int(
+            bucket_start_local.astimezone(timezone.utc).timestamp() * 1000
+        )
+        strategy.bucket_end_time_ms = int(
+            bucket_end_local.astimezone(timezone.utc).timestamp() * 1000
+        )
+        strategy.metric_timestamp_ms = strategy.bucket_start_time_ms
+        return strategy
 
     def get_field_metric(
         self,
@@ -303,8 +407,11 @@ class MetricResolver:
                 entity_urn,
                 database_params,
                 filter_params,
-                DatasetVolumeSourceType.INFORMATION_SCHEMA,
+                DatasetVolumeAssertionParameters(
+                    source_type=DatasetVolumeSourceType.INFORMATION_SCHEMA
+                ),
                 assertion_urn=assertion_urn,
+                strategy=strategy,
             )
 
         elif source_type == MetricSourceType.QUERY:
@@ -313,9 +420,12 @@ class MetricResolver:
                 entity_urn,
                 database_params,
                 filter_params,
-                DatasetVolumeSourceType.QUERY,
+                DatasetVolumeAssertionParameters(
+                    source_type=DatasetVolumeSourceType.QUERY
+                ),
                 assertion_urn=assertion_urn,
                 runtime_parameters=runtime_parameters,
+                strategy=strategy,
             )
 
         # Add more handling if you support other MetricSourceType values
@@ -334,9 +444,10 @@ class MetricResolver:
         entity_urn: str,
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
-        volume_source_type: DatasetVolumeSourceType,  # TODO: Change this to be something else once the source is improved.
+        volume_parameters: DatasetVolumeAssertionParameters,
         assertion_urn: Optional[str],
         runtime_parameters: Optional[RuntimeParameters] = None,
+        strategy: Optional[MetricResolverStrategy] = None,
     ) -> Metric:
         """
         Helper method that uses source.get_row_count(...) to retrieve a row count metric.
@@ -344,7 +455,7 @@ class MetricResolver:
         logger.debug(
             "_fetch_row_count_from_source called with volume_source_type=%s, entity_urn=%s, "
             "database_params=%s, filter_params=%s",
-            volume_source_type,
+            volume_parameters.source_type,
             entity_urn,
             database_params,
             filter_params,
@@ -367,25 +478,43 @@ class MetricResolver:
         filter_dict = filter_params.model_dump() if filter_params is not None else None
         if filter_dict is not None and runtime_parameters:
             filter_dict = {**filter_dict, "runtime_parameters": runtime_parameters}
+        if (
+            strategy is not None
+            and strategy.bucket_start_time_ms is not None
+            and strategy.bucket_end_time_ms is not None
+            and strategy.bucketing_timestamp_field_path is not None
+        ):
+            filter_dict = filter_dict or {}
+            filter_dict["bucket"] = {
+                "timestamp_field_path": strategy.bucketing_timestamp_field_path,
+                "bucket_interval_unit": strategy.bucketing_interval_unit,
+                "bucket_start_time_ms": strategy.bucket_start_time_ms,
+                "bucket_end_time_ms": strategy.bucket_end_time_ms,
+                "timezone": strategy.bucketing_timezone,
+            }
 
         row_count = source.get_row_count(
             entity_urn,
             database_params,
-            DatasetVolumeAssertionParameters(source_type=volume_source_type),
+            volume_parameters,
             filter_dict,
         )
         if row_count is None:
             raise InsufficientDataException(
-                message=f"Unable to fetch a row count for {entity_urn} using volume_source_type={volume_source_type}"
+                message=f"Unable to fetch a row count for {entity_urn} using volume_source_type={volume_parameters.source_type}"
             )
 
         logger.info(
             "Fetched row_count=%d from source (volume_source_type=%s) for entity_urn=%s",
             row_count,
-            volume_source_type,
+            volume_parameters.source_type,
             entity_urn,
         )
-        now_time = int(time.time() * 1000)
+        now_time = (
+            strategy.metric_timestamp_ms
+            if strategy is not None and strategy.metric_timestamp_ms is not None
+            else int(time.time() * 1000)
+        )
         return Metric(value=row_count, timestamp_ms=now_time)
 
     def _fetch_row_count_metric_from_datahub(self, entity_urn: str) -> Metric:

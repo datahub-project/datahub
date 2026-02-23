@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.SystemMonitorType;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.validation.MonitorBucketingValidationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
@@ -249,6 +250,10 @@ public class MonitorUtils {
     if (resolvedStrategy != null) {
       result.setTimeBucketingStrategy(resolvedStrategy);
     }
+    String error = MonitorBucketingValidationUtils.validateBucketedVolumeSourceType(result);
+    if (error != null) {
+      throw new DataHubGraphQLException(error, DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
     return result;
   }
 
@@ -336,7 +341,13 @@ public class MonitorUtils {
     if (strategyInput.getLateArrivalGracePeriod() != null) {
       validateGracePeriod(strategyInput);
     }
-    return MonitorMapper.mapTimeBucketingStrategyInputToBackend(strategyInput, resolvedTimezone);
+    AssertionTimeBucketingStrategy strategy =
+        MonitorMapper.mapTimeBucketingStrategyInputToBackend(strategyInput, resolvedTimezone);
+    String intervalError = MonitorBucketingValidationUtils.validateSingleBucketInterval(strategy);
+    if (intervalError != null) {
+      throw new DataHubGraphQLException(intervalError, DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+    return strategy;
   }
 
   /** Validates that the given timezone string is a valid IANA timezone identifier. */

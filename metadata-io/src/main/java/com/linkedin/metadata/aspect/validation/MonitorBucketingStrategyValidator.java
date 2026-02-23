@@ -53,12 +53,17 @@ public class MonitorBucketingStrategyValidator extends AspectPayloadValidator {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
     for (ChangeMCP changeMCP : changeMCPs) {
+      MonitorInfo newMonitorInfo = changeMCP.getAspect(MonitorInfo.class);
+      if (newMonitorInfo != null) {
+        validateBucketedVolumeSourceType(changeMCP, newMonitorInfo, exceptions);
+        validateSingleBucketInterval(changeMCP, newMonitorInfo, exceptions);
+      }
+
       if (changeMCP.getPreviousSystemAspect() == null) {
         continue;
       }
 
       MonitorInfo oldMonitorInfo = changeMCP.getPreviousAspect(MonitorInfo.class);
-      MonitorInfo newMonitorInfo = changeMCP.getAspect(MonitorInfo.class);
 
       if (oldMonitorInfo == null || newMonitorInfo == null) {
         continue;
@@ -157,6 +162,23 @@ public class MonitorBucketingStrategyValidator extends AspectPayloadValidator {
                   "Changing the timezone of an existing bucketing strategy is not currently supported. "
                       + "(was '%s', attempted '%s').",
                   oldStrategy.getTimezone(), newStrategy.getTimezone())));
+    }
+  }
+
+  private static void validateBucketedVolumeSourceType(
+      ChangeMCP changeMCP, MonitorInfo monitorInfo, ValidationExceptionCollection exceptions) {
+    String errorMessage =
+        MonitorBucketingValidationUtils.validateBucketedVolumeSourceType(monitorInfo);
+    if (errorMessage != null) {
+      exceptions.addException(AspectValidationException.forItem(changeMCP, errorMessage));
+    }
+  }
+
+  private static void validateSingleBucketInterval(
+      ChangeMCP changeMCP, MonitorInfo monitorInfo, ValidationExceptionCollection exceptions) {
+    String errorMessage = MonitorBucketingValidationUtils.validateSingleBucketInterval(monitorInfo);
+    if (errorMessage != null) {
+      exceptions.addException(AspectValidationException.forItem(changeMCP, errorMessage));
     }
   }
 }

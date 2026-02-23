@@ -293,6 +293,73 @@ class TestMetricResolver:
             filter_params.model_dump(),
         )
 
+    def test_get_metric_row_count_from_query_with_bucket_window(
+        self,
+        resolver: MetricResolver,
+        entity_urn: str,
+        database_params: AssertionDatabaseParams,
+        filter_params: DatasetFilter,
+        mock_connection_provider: MagicMock,
+        mock_source_provider: MagicMock,
+        mock_source: MagicMock,
+    ) -> None:
+        mock_connection_provider.get_connection.return_value = MagicMock()
+        mock_source_provider.create_source_from_connection.return_value = mock_source
+
+        strategy = MetricResolverStrategy(
+            source_type=MetricSourceType.QUERY,
+            bucketing_timestamp_field_path="event_ts",
+            bucketing_interval_unit="DAY",
+            bucketing_interval_multiple=1,
+            bucketing_timezone="UTC",
+            bucket_start_time_ms=1704067200000,
+            bucket_end_time_ms=1704153600000,
+            metric_timestamp_ms=1704067200000,
+        )
+        metric = resolver.get_metric(
+            entity_urn=entity_urn,
+            metric_name="row_count",
+            database_params=database_params,
+            filter_params=filter_params,
+            strategy=strategy,
+        )
+
+        assert metric.timestamp_ms == 1704067200000
+        mock_source.get_row_count.assert_called_once()
+        call_args = mock_source.get_row_count.call_args[0]
+        assert call_args[2] == DatasetVolumeAssertionParameters(
+            source_type=DatasetVolumeSourceType.QUERY,
+        )
+        assert call_args[3]["bucket"]["timestamp_field_path"] == "event_ts"
+        assert call_args[3]["bucket"]["bucket_start_time_ms"] == 1704067200000
+        assert call_args[3]["bucket"]["bucket_end_time_ms"] == 1704153600000
+
+    def test_get_metric_row_count_rejects_bucket_interval_multiple_not_one(
+        self,
+        resolver: MetricResolver,
+        entity_urn: str,
+        database_params: AssertionDatabaseParams,
+        filter_params: DatasetFilter,
+    ) -> None:
+        strategy = MetricResolverStrategy(
+            source_type=MetricSourceType.QUERY,
+            bucketing_timestamp_field_path="event_ts",
+            bucketing_interval_unit="DAY",
+            bucketing_interval_multiple=2,
+            bucketing_timezone="UTC",
+        )
+
+        with pytest.raises(InvalidMetricResolverSourceTypeException) as excinfo:
+            resolver.get_metric(
+                entity_urn=entity_urn,
+                metric_name="row_count",
+                database_params=database_params,
+                filter_params=filter_params,
+                strategy=strategy,
+            )
+
+        assert "Bucketing interval multiple must be 1" in str(excinfo.value)
+
     def test_get_metric_row_count_invalid_source_type(
         self,
         resolver: MetricResolver,

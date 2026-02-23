@@ -161,6 +161,7 @@ class CalendarInterval(Enum):
     MINUTE = "MINUTE"
     HOUR = "HOUR"
     DAY = "DAY"
+    WEEK = "WEEK"
 
 
 class PartitionKeyFieldTransform(Enum):
@@ -364,6 +365,28 @@ class FixedIntervalSchedule(PermissiveBaseModel):
     multiple: int
 
 
+class TimeWindowSize(PermissiveBaseModel):
+    """A calendar-based time window size."""
+
+    unit: CalendarInterval
+
+    multiple: int
+
+
+class AssertionTimeBucketingStrategy(PermissiveBaseModel):
+    """Time bucketing strategy for assertion evaluation."""
+
+    timestamp_field_path: str = Field(alias="timestampFieldPath")
+
+    bucket_interval: TimeWindowSize = Field(alias="bucketInterval")
+
+    late_arrival_grace_period: Optional[TimeWindowSize] = Field(
+        alias="lateArrivalGracePeriod", default=None
+    )
+
+    timezone: str
+
+
 class FreshnessAssertionSchedule(PermissiveBaseModel):
     """The type of the schedule"""
 
@@ -435,6 +458,10 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
 class DatasetVolumeAssertionParameters(PermissiveBaseModel):
     source_type: DatasetVolumeSourceType = Field(alias="sourceType")
 
+    time_bucketing_strategy: Optional[AssertionTimeBucketingStrategy] = Field(
+        alias="timeBucketingStrategy", default=None
+    )
+
 
 class DatasetSchemaAssertionParameters(PermissiveBaseModel):
     source_type: DatasetSchemaSourceType = Field(alias="sourceType")
@@ -445,6 +472,10 @@ class DatasetFieldAssertionParameters(PermissiveBaseModel):
 
     changed_rows_field: Optional[FreshnessFieldSpec] = Field(
         alias="changedRowsField", default=None
+    )
+
+    time_bucketing_strategy: Optional[AssertionTimeBucketingStrategy] = Field(
+        alias="timeBucketingStrategy", default=None
     )
 
 
