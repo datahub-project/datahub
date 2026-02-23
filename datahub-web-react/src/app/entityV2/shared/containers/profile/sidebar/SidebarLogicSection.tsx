@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -20,7 +20,7 @@ const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
     max-height: 600px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%);
+    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
     span {
         font-family: 'Roboto Mono', monospace;
     }
@@ -91,13 +91,14 @@ interface HelperProps {
 export function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
+    const theme = useTheme();
 
     const highlightedLineNumbers = new Set(highlightedStrings?.map((s) => findLineNumberToHighlight(statement, s)));
 
     function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
         const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
         if (highlightedLineNumbers.has(lineNumber)) {
-            style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
+            style.backgroundColor = theme.colors.bgSurfaceInfo;
         }
         return { style };
     }
