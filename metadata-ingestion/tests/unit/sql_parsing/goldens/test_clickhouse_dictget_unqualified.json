@@ -1,10 +1,10 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "2e33c6eb6562a8d120f2abcb96e2cedd527d4518d9e2498ae55475bc807332ee",
+    "query_fingerprint": "e1539e36263851b86dc07f89dc0e36015aa3671040f6ebfd32b439e6160add81",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.my_dict,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_dict,PROD)"
     ],
     "out_tables": [],
     "column_lineage": [
@@ -40,40 +40,18 @@
                 },
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
-                    "column": "default.my_dict"
+                    "column": "my_dict"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "DICTGET(\"events\".\"default\".\"my_dict\", 'type', \"events\".\"col_id\") AS \"dict_type\""
-            }
-        },
-        {
-            "downstream": {
-                "table": null,
-                "column": "dict_domain",
-                "column_type": null,
-                "native_column_type": null
-            },
-            "upstreams": [
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
-                    "column": "col_id"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
-                    "column": "default.my_dict"
-                }
-            ],
-            "logic": {
-                "is_direct_copy": false,
-                "column_logic": "DICTGET(\"events\".\"default\".\"my_dict\", 'domain', \"events\".\"col_id\") AS \"dict_domain\""
+                "column_logic": "DICTGET(\"events\".\"my_dict\", 'type', \"events\".\"col_id\") AS \"dict_type\""
             }
         }
     ],
     "joins": [],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "SELECT col_id, DICTGET(default.my_dict, {?: }, col_id) AS dict_type, DICTGET(default.my_dict, {?: }, col_id) AS dict_domain FROM db1.events"
+        "generalized_statement": "SELECT col_id, DICTGET(my_dict, {?: }, col_id) AS dict_type FROM db1.events"
     }
 }

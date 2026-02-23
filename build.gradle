@@ -56,6 +56,7 @@ buildscript {
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   ext.log4jVersion = '2.25.3'
+  ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
@@ -64,7 +65,7 @@ buildscript {
   ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
-  ext.hadoop3Version = '3.3.6'
+  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
@@ -450,19 +451,32 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
-    resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
+    resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
+    resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
-    // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
+    // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
         details.because("CVE-2025-12183, upgrade to 1.10.1")
+      }
+      if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
+        details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
+        details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
+      }
+      // CVE-2023-35116: upgrade jackson-databind only when < 2.16.0 (do not downgrade 2.19.x)
+      if (details.requested.group == 'com.fasterxml.jackson.core' && details.requested.name == 'jackson-databind') {
+        def v = details.requested.version
+        if (v != null && (v.startsWith('2.10.') || v.startsWith('2.11.') || v.startsWith('2.12.') || v.startsWith('2.13.') || v.startsWith('2.14.') || v.startsWith('2.15.'))) {
+          details.useTarget("com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}")
+          details.because("CVE-2023-35116: 2.15.3 => 2.16.0+")
+        }
       }
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
