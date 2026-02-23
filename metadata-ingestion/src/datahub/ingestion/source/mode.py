@@ -129,6 +129,7 @@ from datahub.sql_parsing.sqlglot_utils import parse_statements_and_pick
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -154,10 +155,10 @@ class ModeAPIConfig(ConfigModel):
         description="Multiplier for exponential backoff when waiting to retry",
     )
     max_retry_interval: Union[int, float] = Field(
-        default=10, ge=0, description="Maximum interval to wait when retrying"
+        default=60, ge=0, description="Maximum interval to wait when retrying"
     )
     max_attempts: int = Field(
-        default=5,
+        default=10,
         ge=1,
         description="Maximum number of attempts to retry before failing",
     )
@@ -165,6 +166,15 @@ class ModeAPIConfig(ConfigModel):
         default=40,
         ge=1,
         description="Timeout setting, how long to wait for the Mode rest api to send data before giving up",
+    )
+    # Mode's API rate limit is ~40 requests per 10 seconds (4 req/s, 240 req/min).
+    # See https://mode.com/help/articles/api-reference/#rate-limiting
+    requests_per_minute: int = Field(
+        default=200,
+        ge=1,
+        description="Maximum API requests per minute across all threads. "
+        "Mode's API limit is ~240 req/min (4 req/s). Default of 200 "
+        "leaves headroom to avoid 429 errors.",
     )
 
 
@@ -313,6 +323,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_reports_processed: int = 0
     num_queries_processed: int = 0
     num_charts_processed: int = 0
+    chart_api_calls_skipped: int = 0
     # PerfTimer is NOT thread-safe. These timers must only be used from the
     # main thread (e.g., in _get_space_name_and_tokens, _get_reports,
     # _get_datasets), never from threaded _process_report workers.
@@ -391,6 +402,9 @@ class ModeSource(StatefulIngestionSourceBase):
         self._creator_cache: Dict[str, str] = {}
         self._data_sources_by_id_cache: Optional[Dict[int, dict]] = None
         self._definitions_map_cache: Optional[Dict[str, str]] = None
+        self.rate_limiter = RateLimiter(
+            max_calls=self.config.api_options.requests_per_minute, period=60
+        )
 
         self.session = requests.Session()
         # Handling retry and backoff
@@ -917,6 +931,13 @@ class ModeSource(StatefulIngestionSourceBase):
 
         query = raw_query
         definitions = re.findall(r"({{(?:\s+)?@[^}{]+}})", raw_query)
+        if not definitions:
+            return query
+
+        # Expand all definition references at this level first, then recurse
+        # once. This avoids false "circular" detection when the same definition
+        # is referenced multiple times with different aliases (siblings).
+        expanded_names: Set[str] = set()
         for definition_variable in definitions:
             definition_name, definition_alias = self._parse_definition_name(
                 definition_variable
@@ -931,20 +952,24 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            _seen.add(definition_name)
             definition_query = self._get_definition(definition_name)
             if definition_query is not None:
                 query = query.replace(
                     definition_variable, f"({definition_query}) as {definition_alias}"
                 )
+                expanded_names.add(definition_name)
             else:
                 query = query.replace(
                     definition_variable, f"{definition_name} as {definition_alias}"
                 )
-            query = self._replace_definitions(query, _depth + 1, _seen)
-            query = query.replace("\\n", "\n")
-            query = query.replace("\\t", "\t")
 
+        # Recurse to expand nested definitions introduced by expansions.
+        # Names expanded at this level become ancestors to prevent cycles.
+        if expanded_names:
+            query = self._replace_definitions(query, _depth + 1, _seen | expanded_names)
+
+        query = query.replace("\\n", "\n")
+        query = query.replace("\\t", "\t")
         return query
 
     def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
@@ -954,7 +979,7 @@ class ModeSource(StatefulIngestionSourceBase):
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
-            r"as\s+\S+\w+", definition_variable
+            r"as\s+\w+", definition_variable
         )  # i.e ['as    alias_name']
         if len(alias_match):
             alias_match = alias_match[0].split(" ")
@@ -1714,9 +1739,10 @@ class ModeSource(StatefulIngestionSourceBase):
             logger.debug(f"Issuing request; curl equivalent: {curl_command}")
 
             try:
-                response = self.session.get(
-                    url, timeout=self.config.api_options.timeout
-                )
+                with self.rate_limiter:
+                    response = self.session.get(
+                        url, timeout=self.config.api_options.timeout
+                    )
                 if response.status_code == 204:  # No content, don't parse json
                     return {}
 
@@ -1866,7 +1892,13 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            charts = self._get_charts(report_token, query.get("token", ""))
+            # Skip chart API call when the query has 0 explorations.
+            if query.get("explorations_count", None) == 0:
+                charts: List[dict] = []
+                with self.report._lock:
+                    self.report.chart_api_calls_skipped += 1
+            else:
+                charts = self._get_charts(report_token, query.get("token", ""))
             with self.report._lock:
                 self.report.num_charts_processed += len(charts)
             for chart in charts:
