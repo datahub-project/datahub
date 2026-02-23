@@ -1,8 +1,8 @@
 package com.linkedin.datahub.upgrade.system;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  * Generic upgrade step class for generating MCLs for a given aspect in order to update ES documents
  */
 @Slf4j
-public abstract class AbstractMCLStep implements UpgradeStep {
+public abstract class AbstractMCLStep implements PersistentUpgradeStep {
   public static final String LAST_URN_KEY = "lastUrn";
 
   private final OperationContext opContext;
@@ -177,7 +177,6 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                 });
       }
 
-      BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
