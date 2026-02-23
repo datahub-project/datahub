@@ -65,6 +65,7 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
@@ -153,7 +154,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 ]
 
 
-class SQLServerConfig(BasicSQLAlchemyConfig):
+class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
@@ -427,7 +428,7 @@ class SQLServerSource(SQLAlchemySource):
                 generate_lineage=True,
                 generate_queries=True,
                 generate_usage_statistics=self.config.include_usage_statistics,
-                usage_config=self.config  # type: ignore[arg-type]
+                usage_config=self.config
                 if self.config.include_usage_statistics
                 else None,
             )
