@@ -34,6 +34,7 @@ export interface RecipeField {
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
     placeholder?: string;
+    shouldShow?: (formValues: any) => boolean; // Optional function to determine field visibility based on form state
 }
 
 function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {

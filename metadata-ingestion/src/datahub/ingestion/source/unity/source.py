@@ -72,6 +72,7 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
@@ -396,13 +397,31 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
             with self.report.new_stage("Profiling"):
                 if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
+                    logger.info(
+                        "Using UnityCatalogAnalyzeProfiler (ANALYZE TABLE method)"
+                    )
                     yield from UnityCatalogAnalyzeProfiler(
                         self.config.profiling,
                         self.report,
                         self.unity_catalog_api_proxy,
                         self.gen_dataset_urn,
                     ).get_workunits(self.table_refs)
+                elif isinstance(
+                    self.config.profiling, UnityCatalogSQLAlchemyProfilerConfig
+                ):
+                    logger.info(
+                        "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
+                    )
+                    # Use GenericProfiler which will use SQLAlchemyProfiler internally
+                    yield from UnityCatalogGEProfiler(
+                        config=self.config,
+                        profiling_config=self.config.profiling,
+                        report=self.report,
+                    ).get_workunits(list(self.tables.values()))
                 elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                    logger.info(
+                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
+                    )
                     yield from UnityCatalogGEProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,

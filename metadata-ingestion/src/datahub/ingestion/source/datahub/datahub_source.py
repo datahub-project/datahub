@@ -20,7 +20,10 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.config import (
+    DEFAULT_URN_DENY_PATTERNS,
+    DataHubSourceConfig,
+)
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
@@ -58,6 +61,16 @@ class DataHubSource(StatefulIngestionSourceBase):
             self.urn_pattern = self.config.urn_pattern
 
         self.report: DataHubSourceReport = DataHubSourceReport()
+
+        # Warn if user has explicitly customized urn_pattern
+        if self.config._urn_pattern_was_set:
+            warning_msg = (
+                "You have customized 'urn_pattern' which overrides default behavior. "
+                f"Ensure your configuration excludes these sensitive entity patterns: {', '.join(DEFAULT_URN_DENY_PATTERNS)}. "
+                "These defaults prevent copying credentials and creating invalid entities."
+            )
+            self.report.report_warning("urn_pattern_override", warning_msg)
+
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
     @classmethod

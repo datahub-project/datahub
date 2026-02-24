@@ -42,8 +42,17 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
-    cy.get("#password").click().wait(1000);
-    cy.contains(`secretname${number}`).click({ force: true });
+    // Select Username & Password authentication to make password field visible
+    cy.get("#authentication_type").click({ force: true });
+    cy.get('.ant-select-dropdown [title="Username & Password"]').click({
+      force: true,
+    });
+    // Wait for password field to appear and type to open the secrets dropdown
+    cy.get("#password").should("be.visible").clear().type("{downarrow}");
+    // Wait for dropdown to appear and select the secret
+    cy.get(".rc-virtual-list-holder-inner")
+      .contains(`secretname${number}`)
+      .click({ force: true });
     cy.focused().blur();
     cy.get("#role").type(role);
     cy.get("button").contains("Next").click();
@@ -55,7 +64,9 @@ describe("managing secrets for ingestion creation", () => {
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
     cy.getWithTestId("search-bar-input").type(ingestion_source_name);
     cy.waitTextVisible(ingestion_source_name);
-    cy.get("button").contains("Pending...").should("be.visible");
+    cy.get('[data-testid="ingestion-source-table-status"]')
+      .contains("Pending")
+      .should("be.visible");
 
     // Remove a secret
     cy.openEntityTab("Secrets");
@@ -70,23 +81,31 @@ describe("managing secrets for ingestion creation", () => {
     // Remove ingestion source
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
-    cy.get(
-      `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
-    ).click();
+    cy.contains("tr", ingestion_source_name)
+      .find('[data-icon="delete"]')
+      .first()
+      .click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
-    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click();
+    cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
 
     // Verify secret is not present during ingestion source creation for password dropdown
-    cy.clickOptionWithText("Create new source");
+    cy.get('[data-testid="create-ingestion-source-button"]').click();
+
     cy.get('[placeholder="Search data sources..."]').type("snowflake");
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
-    cy.get("#password").click().wait(1000);
+    // Select Username & Password authentication to make password field visible
+    cy.get("#authentication_type").click({ force: true });
+    cy.get('.ant-select-dropdown [title="Username & Password"]').click({
+      force: true,
+    });
+    // Wait for password field to appear and type to open the secrets dropdown
+    cy.get("#password").should("be.visible").clear().type("{downarrow}");
     cy.ensureTextNotPresent(`secretname${number}`);
 
     // Verify secret can be added during ingestion source creation and used successfully
@@ -109,21 +128,26 @@ describe("managing secrets for ingestion creation", () => {
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000); // prevent issue with missing form data
     cy.getWithTestId("search-bar-input").type(ingestion_source_name);
     cy.waitTextVisible(ingestion_source_name);
-    cy.get("button").contains("Pending...").should("be.visible");
+    cy.get('[data-testid="ingestion-source-table-status"]')
+      .contains("Pending")
+      .should("be.visible");
 
     // Remove ingestion source and secret
     cy.goToIngestionPage();
-    cy.get('[data-node-key="Sources"]').click();
-    cy.get(
-      `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
-    ).click();
+    // delete ingestion source
+    cy.contains("tr", ingestion_source_name)
+      .find('[data-icon="delete"]')
+      .first()
+      .click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
-    cy.clickOptionWithText("Secrets");
+
+    // delete secret
+    cy.openEntityTab("Secrets");
     cy.waitTextVisible(`secretname${number}`);
-    cy.get('[data-icon="delete"]').first().click();
+    cy.get('[data-test-id="delete-secret-action"]').first().click();
     cy.waitTextVisible("Confirm Secret Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed secret.");
