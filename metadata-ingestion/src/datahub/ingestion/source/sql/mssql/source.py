@@ -1390,9 +1390,9 @@ class SQLServerSource(SQLAlchemySource):
                         context="lineage_metadata_generation_failed",
                     )
 
-        logger.info("Generated %d lineage workunits from queries", mcp_count)
-        logger.debug(
-            "Lineage workunit generation completed in %.2f seconds",
+        logger.info(
+            "Generated %d lineage workunits from queries in %.2f seconds",
+            mcp_count,
             timer.elapsed_seconds(),
         )
 

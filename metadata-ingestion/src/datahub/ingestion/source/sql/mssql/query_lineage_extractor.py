@@ -244,12 +244,9 @@ class MSSQLLineageExtractor:
                     )
 
                 logger.info(
-                    "Extracted %d queries from %s",
+                    "Extracted %d queries from %s in %.2f seconds",
                     self.queries_extracted,
                     prereq.method,
-                )
-                logger.debug(
-                    "Query extraction completed in %.2f seconds",
                     timer.elapsed_seconds(),
                 )
 
@@ -362,12 +359,9 @@ class MSSQLLineageExtractor:
                     self.queries_failed += 1
 
         logger.info(
-            "Processed %d queries for lineage extraction (%d failed)",
+            "Processed %d queries for lineage extraction (%d failed) in %.2f seconds",
             self.queries_parsed,
             self.queries_failed,
-        )
-        logger.debug(
-            "Query parsing completed in %.2f seconds",
             timer.elapsed_seconds(),
         )
 
