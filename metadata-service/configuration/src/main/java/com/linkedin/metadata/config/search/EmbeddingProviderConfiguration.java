@@ -27,29 +27,58 @@ public class EmbeddingProviderConfiguration {
   private String type = "openai";
 
   /**
-   * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
-   * aws-bedrock provider.
-   */
-  private String awsRegion = "us-west-2";
-
-  /**
-   * Bedrock model ID for embeddings. Defaults to "cohere.embed-english-v3" (1024 dimensions). Other
-   * options: - "cohere.embed-multilingual-v3" (1024 dimensions) - "amazon.titan-embed-text-v1"
-   * (1536 dimensions) - "amazon.titan-embed-text-v2:0" (1024 dimensions default)
-   */
-  private String modelId = "cohere.embed-english-v3";
-
-  /**
    * Maximum text length in characters before truncation. Cohere Embed v3 enforces a 2048-character
    * limit on the request body separate from the token context window. Defaults to 2048.
    */
   private int maxCharacterLength = 2048;
+
+  /** Configuration for AWS Bedrock embedding provider. */
+  private BedrockConfig bedrock = new BedrockConfig();
 
   /** Configuration for OpenAI embedding provider. */
   private OpenAIConfig openai = new OpenAIConfig();
 
   /** Configuration for Cohere embedding provider. */
   private CohereConfig cohere = new CohereConfig();
+
+  /**
+   * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
+   */
+  public String getModelId() {
+    if (type == null) {
+      return null;
+    }
+    switch (type.toLowerCase()) {
+      case "openai":
+        return openai != null ? openai.getModel() : null;
+      case "cohere":
+        return cohere != null ? cohere.getModel() : null;
+      case "aws-bedrock":
+        return bedrock != null ? bedrock.getModel() : null;
+      default:
+        return null;
+    }
+  }
+
+  /** AWS Bedrock-specific configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class BedrockConfig {
+    /**
+     * AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1"). Required for
+     * aws-bedrock provider.
+     */
+    private String awsRegion = "us-west-2";
+
+    /**
+     * Bedrock model ID for embeddings. Defaults to "cohere.embed-english-v3" (1024 dimensions).
+     * Other options: - "cohere.embed-multilingual-v3" (1024 dimensions) -
+     * "amazon.titan-embed-text-v1" (1536 dimensions) - "amazon.titan-embed-text-v2:0" (1024
+     * dimensions default)
+     */
+    private String model = "cohere.embed-english-v3";
+  }
 
   /** OpenAI-specific configuration. */
   @Data

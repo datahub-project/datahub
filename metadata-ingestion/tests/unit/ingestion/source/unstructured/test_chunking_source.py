@@ -364,3 +364,97 @@ def test_inline_mode_no_embedding_model(pipeline_context, chunking_config):
 
     # Verify document was still processed
     assert source.report.num_documents_processed == 1
+
+
+# --- Env var tests ---
+
+
+def test_cohere_api_key_from_env_var(pipeline_context):
+    """COHERE_API_KEY env var satisfies the API key requirement."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="cohere",
+            model="embed-english-v3.0",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with patch.dict("os.environ", {"COHERE_API_KEY": "test-cohere-key"}):
+        # Should not raise even though api_key is not set in config
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+    assert source.embedding_model == "cohere/embed-english-v3.0"
+
+
+def test_cohere_missing_api_key_raises(pipeline_context):
+    """Missing COHERE_API_KEY env var and no config api_key raises ValueError."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="cohere",
+            model="embed-english-v3.0",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="COHERE_API_KEY"),
+    ):
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+
+
+def test_openai_api_key_from_env_var(pipeline_context):
+    """OPENAI_API_KEY env var satisfies the API key requirement."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="openai",
+            model="text-embedding-3-small",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test-key"}):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+    assert source.embedding_model == "openai/text-embedding-3-small"
+
+
+def test_openai_missing_api_key_raises(pipeline_context):
+    """Missing OPENAI_API_KEY env var and no config api_key raises ValueError."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="openai",
+            model="text-embedding-3-small",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        pytest.raises(ValueError, match="OPENAI_API_KEY"),
+    ):
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+
+
+def test_bedrock_requires_no_api_key(pipeline_context):
+    """Bedrock provider initialises without any API key (uses AWS credential chain)."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-east-1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    # No env vars needed — should not raise
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    assert source.embedding_model == "bedrock/cohere.embed-english-v3"

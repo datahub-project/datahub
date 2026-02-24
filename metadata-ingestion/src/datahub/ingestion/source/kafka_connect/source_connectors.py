@@ -2121,11 +2121,19 @@ class MongoSourceConnector(BaseConnector):
             if found:
                 table_name = get_dataset_name(found.group(1), found.group(2))
 
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=table_name,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                )
+
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
                     source_platform=source_platform,
                     target_dataset=topic,
                     target_platform=KAFKA,
+                    fine_grained_lineages=fine_grained,
                 )
                 lineages.append(lineage)
         return lineages

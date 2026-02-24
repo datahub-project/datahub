@@ -37,7 +37,7 @@ describe("glossary", () => {
     Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
@@ -50,6 +50,7 @@ describe("glossary", () => {
     cy.wait(2000);
     nevigateGlossaryPage();
     cy.clickOptionWithText(glossaryTermGroup);
+    cy.clickOptionWithTestId("Contents-entity-tab-header");
     cy.clickOptionWithTestId("add-term-button");
     cy.addViaModal(
       glossaryTerm,

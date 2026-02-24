@@ -36,9 +36,6 @@ query getGroup($urn: String!, $membersCount: Int!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ownership {
             ...ownershipFields
         }

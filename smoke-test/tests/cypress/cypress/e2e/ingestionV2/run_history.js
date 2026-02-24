@@ -81,8 +81,21 @@ describe("run history tab in manage data sources", () => {
     const sourceName1 = "Source1";
     const sourceName2 = "Source2";
 
+    // Create Source1 with username/password (default)
     createIngestionSource(sourceName1);
-    createIngestionSource(sourceName2);
+
+    // Create Source2 with key pair authentication
+    const keypairSourceDetails = {
+      accound_id: "keypair_account",
+      warehouse_id: "keypair_warehouse",
+      username: "keypair_user",
+      private_key:
+        "-----BEGIN PRIVATE KEY-----\nTEST_KEY_CONTENT\n-----END PRIVATE KEY-----",
+      role: "keypair_role",
+      authentication_type: "Private Key",
+    };
+    createIngestionSource(sourceName2, { sourceDetails: keypairSourceDetails });
+
     runIngestionSource(sourceName1);
     runIngestionSource(sourceName2);
     navigateToTab("RunHistory");
