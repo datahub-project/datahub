@@ -11,4 +11,5 @@ Before you submit your PR, please go through the checklist below:
 - [ ] For any breaking change/potential downtime/deprecation/big changes an entry has been made in [Updating DataHub](https://github.com/datahub-project/datahub/blob/master/docs/how/updating-datahub.md)
 - [ ] For any major SaaS specific change update [Updating DataHub SaaS](https://github.com/datahub-project/datahub/blob/master/docs/how/updating-datahub-saas.md)
 
+Allowed Types in PR Title: _feat_, _fix_, _refactor_, _docs_, _test_, _perf_, _style_, _build_, _ci_
 -->
