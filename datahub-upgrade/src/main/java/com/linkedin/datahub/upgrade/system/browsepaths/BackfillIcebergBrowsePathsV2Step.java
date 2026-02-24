@@ -15,13 +15,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 import com.linkedin.metadata.search.ScrollResult;
@@ -40,10 +39,9 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
+public class BackfillIcebergBrowsePathsV2Step extends AbstractPersistentUpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillIcebergBrowsePathsV2Step";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
   public static final String DEFAULT_BROWSE_PATH_V2 = "␟Default";
 
   private static final String NAMESPACE_CONTAINER_PREFIX = "urn:li:container:iceberg__";
@@ -52,8 +50,6 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
   private static final Set<String> ENTITY_TYPES_TO_MIGRATE =
       ImmutableSet.of(Constants.DATASET_ENTITY_NAME, Constants.CONTAINER_ENTITY_NAME);
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   private final SearchService searchService;
 
   private final Integer batchSize;
@@ -63,9 +59,8 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
       EntityService<?> entityService,
       SearchService searchService,
       Integer batchSize) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.searchService = searchService;
-    this.entityService = entityService;
     this.batchSize = batchSize;
   }
 
@@ -98,13 +93,14 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
   String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId) {
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(true)
-                        .setSkipCache(true)
-                        .setSkipHighlighting(true)
-                        .setSkipAggregates(true)),
+            getSystemOpContext()
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setFulltext(true)
+                            .setSkipCache(true)
+                            .setSkipHighlighting(true)
+                            .setSkipAggregates(true)),
             ImmutableList.of(entityType),
             "dataplatform:iceberg",
             null,
@@ -124,9 +120,10 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
             entityType,
             searchEntity.getEntity());
         if (Constants.CONTAINER_ENTITY_NAME.equals(entityType)) {
-          ingestBrowsePathsV2ForContainer(opContext, searchEntity.getEntity(), auditStamp);
+          ingestBrowsePathsV2ForContainer(
+              getSystemOpContext(), searchEntity.getEntity(), auditStamp);
         } else if (entityType == Constants.DATASET_ENTITY_NAME) {
-          ingestBrowsePathsV2ForDataset(opContext, searchEntity.getEntity(), auditStamp);
+          ingestBrowsePathsV2ForDataset(getSystemOpContext(), searchEntity.getEntity(), auditStamp);
         }
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
@@ -278,26 +275,6 @@ public class BackfillIcebergBrowsePathsV2Step implements PersistentUpgradeStep {
   @Override
   public String id() {
     return UPGRADE_ID;
-  }
-
-  @Override
-  public Urn getUpgradeIdUrn() {
-    return UPGRADE_ID_URN;
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
-  }
-
-  @Override
-  public boolean isReprocessEnabled() {
-    return false;
   }
 
   /**

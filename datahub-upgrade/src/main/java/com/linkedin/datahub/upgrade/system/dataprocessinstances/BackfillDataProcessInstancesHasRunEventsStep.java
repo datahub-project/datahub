@@ -6,11 +6,10 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Throwables;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -39,13 +38,10 @@ import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuil
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
-public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentUpgradeStep {
+public class BackfillDataProcessInstancesHasRunEventsStep extends AbstractPersistentUpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillDataProcessInstancesHasRunEvents";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   private final ElasticSearchService elasticSearchService;
   private final SearchClientShim<?> restHighLevelClient;
 
@@ -66,8 +62,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
       Integer batchDelayMs,
       Integer totalDays,
       Integer windowDays) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this.elasticSearchService = elasticSearchService;
     this.restHighLevelClient = restHighLevelClient;
     this.reprocessEnabled = reprocessEnabled;
@@ -87,7 +82,8 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
       ObjectNode json = JsonNodeFactory.instance.objectNode();
       json.put("hasRunEvents", true);
 
-      IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+      IndexConvention indexConvention =
+          getSystemOpContext().getSearchContext().getIndexConvention();
 
       String runEventsIndexName =
           indexConvention.getTimeseriesAspectIndexName(
@@ -153,11 +149,11 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
             }
           }
           if (!urns.isEmpty()) {
-            urns = entityService.exists(opContext, urns);
+            urns = getEntityService().exists(getSystemOpContext(), urns);
             urns.forEach(
                 urn ->
                     elasticSearchService.upsertDocument(
-                        opContext,
+                        getSystemOpContext(),
                         DATA_PROCESS_INSTANCE_ENTITY_NAME,
                         json.toString(),
                         indexConvention.getEntityDocumentId(urn)));
@@ -183,21 +179,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements PersistentU
   @Override
   public String id() {
     return UPGRADE_ID;
-  }
-
-  @Override
-  public Urn getUpgradeIdUrn() {
-    return UPGRADE_ID_URN;
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
   }
 
   @Override

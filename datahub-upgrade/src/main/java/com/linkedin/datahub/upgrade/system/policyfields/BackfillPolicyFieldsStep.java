@@ -9,14 +9,13 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -45,14 +44,11 @@ import org.jetbrains.annotations.NotNull;
  * fields in ES
  */
 @Slf4j
-public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
+public class BackfillPolicyFieldsStep extends AbstractPersistentUpgradeStep {
   private static final String UPGRADE_ID = "BackfillPolicyFieldsStep_V2";
-  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-  private final OperationContext opContext;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
-  private final EntityService<?> entityService;
   private final SearchService _searchService;
 
   public BackfillPolicyFieldsStep(
@@ -61,8 +57,7 @@ public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this._searchService = searchService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
@@ -71,21 +66,6 @@ public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
   @Override
   public String id() {
     return UPGRADE_ID;
-  }
-
-  @Override
-  public Urn getUpgradeIdUrn() {
-    return UPGRADE_ID_URN;
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
   }
 
   @Override
@@ -127,13 +107,14 @@ public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
     final Filter filter = backfillPolicyFieldFilter();
     final ScrollResult scrollResult =
         _searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(true)
-                        .setSkipCache(true)
-                        .setSkipHighlighting(true)
-                        .setSkipAggregates(true)),
+            getSystemOpContext()
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setFulltext(true)
+                            .setSkipCache(true)
+                            .setSkipHighlighting(true)
+                            .setSkipAggregates(true)),
             ImmutableList.of(Constants.POLICY_ENTITY_NAME),
             "*",
             filter,
@@ -198,11 +179,12 @@ public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
     EntityResponse entityResponse = null;
     try {
       entityResponse =
-          entityService.getEntityV2(
-              context.opContext(),
-              urn.getEntityType(),
-              urn,
-              Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
+          getEntityService()
+              .getEntityV2(
+                  context.opContext(),
+                  urn.getEntityType(),
+                  urn,
+                  Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
     } catch (URISyntaxException e) {
       log.error(
           String.format(
@@ -219,13 +201,13 @@ public class BackfillPolicyFieldsStep implements PersistentUpgradeStep {
 
       log.debug("Restating policy information for urn {} with value {}", urn, infoAspect);
       return Optional.of(
-          entityService
+          getEntityService()
               .alwaysProduceMCLAsync(
                   context.opContext(),
                   urn,
                   urn.getEntityType(),
                   DATAHUB_POLICY_INFO_ASPECT_NAME,
-                  opContext
+                  getSystemOpContext()
                       .getEntityRegistry()
                       .getAspectSpecs()
                       .get(DATAHUB_POLICY_INFO_ASPECT_NAME),

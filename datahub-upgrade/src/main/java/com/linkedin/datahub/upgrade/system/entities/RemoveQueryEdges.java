@@ -4,14 +4,12 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -53,12 +51,9 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     return steps;
   }
 
-  public static class RemoveQueryEdgesStep implements PersistentUpgradeStep {
+  public static class RemoveQueryEdgesStep extends AbstractPersistentUpgradeStep {
     private static final String UPGRADE_ID = "RemoveQueryEdges_V1";
-    private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-    private final OperationContext opContext;
-    private final EntityService<?> entityService;
     private final ESWriteDAO esWriteDAO;
     private final BulkDeleteConfiguration deleteConfig;
 
@@ -67,9 +62,8 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
         ESWriteDAO esWriteDAO,
         EntityService<?> entityService,
         BulkDeleteConfiguration deleteConfig) {
-      this.opContext = opContext;
+      super(opContext, entityService);
       this.esWriteDAO = esWriteDAO;
-      this.entityService = entityService;
       this.deleteConfig = deleteConfig;
     }
 
@@ -79,29 +73,9 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     }
 
     @Override
-    public Urn getUpgradeIdUrn() {
-      return UPGRADE_ID_URN;
-    }
-
-    @Override
-    public EntityService<?> getEntityService() {
-      return entityService;
-    }
-
-    @Override
-    public OperationContext getSystemOpContext() {
-      return opContext;
-    }
-
-    @Override
-    public boolean isReprocessEnabled() {
-      return false;
-    }
-
-    @Override
     public Function<UpgradeContext, UpgradeStepResult> executable() {
       final String indexName =
-          opContext
+          getSystemOpContext()
               .getSearchContext()
               .getIndexConvention()
               .getIndexName(ElasticSearchGraphService.INDEX_NAME);

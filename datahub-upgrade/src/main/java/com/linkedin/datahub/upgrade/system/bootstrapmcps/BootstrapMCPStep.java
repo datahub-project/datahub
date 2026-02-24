@@ -1,13 +1,11 @@
 package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.model.BootstrapMCPConfigFile;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -22,44 +20,24 @@ import lombok.extern.slf4j.Slf4j;
  * fields in ES
  */
 @Slf4j
-public class BootstrapMCPStep implements PersistentUpgradeStep {
+public class BootstrapMCPStep extends AbstractPersistentUpgradeStep {
   private final String upgradeId;
-  private final Urn upgradeIdUrn;
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   @Getter private final BootstrapMCPConfigFile.MCPTemplate mcpTemplate;
 
   public BootstrapMCPStep(
       OperationContext opContext,
       EntityService<?> entityService,
       BootstrapMCPConfigFile.MCPTemplate mcpTemplate) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this.mcpTemplate = mcpTemplate;
     this.upgradeId =
         String.join("-", List.of("bootstrap", mcpTemplate.getName(), mcpTemplate.getVersion()));
-    this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(this.upgradeId);
   }
 
   @Override
   public String id() {
     return upgradeId;
-  }
-
-  @Override
-  public Urn getUpgradeIdUrn() {
-    return upgradeIdUrn;
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
   }
 
   @Override
@@ -71,9 +49,10 @@ public class BootstrapMCPStep implements PersistentUpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(opContext, mcpTemplate, id());
+        AspectsBatch batch =
+            BootstrapMCPUtil.generateAspectBatch(getSystemOpContext(), mcpTemplate, id());
         log.info("Ingesting {} MCPs", batch.getItems().size());
-        entityService.ingestProposal(opContext, batch, mcpTemplate.isAsync());
+        getEntityService().ingestProposal(getSystemOpContext(), batch, mcpTemplate.isAsync());
       } catch (IOException e) {
         log.error("Error bootstrapping MCPs", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

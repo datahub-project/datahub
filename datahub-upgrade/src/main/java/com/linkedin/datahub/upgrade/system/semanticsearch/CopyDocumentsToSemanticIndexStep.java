@@ -1,10 +1,10 @@
 package com.linkedin.datahub.upgrade.system.semanticsearch;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -28,18 +28,16 @@ import org.opensearch.tasks.TaskInfo;
  * SemanticContent aspect, which is emitted by ingestion connectors.
  */
 @Slf4j
-public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
+public class CopyDocumentsToSemanticIndexStep extends AbstractPersistentUpgradeStep {
 
   private static final String UPGRADE_ID_PREFIX = "CopyDocumentsToSemanticIndex";
   private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
   private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
 
-  private final OperationContext opContext;
   private final String entityName;
   private final String upgradeId;
   private final Urn upgradeIdUrn;
   private final SearchClientShim<?> searchClient;
-  private final EntityService<?> entityService;
   private final IndexConvention indexConvention;
 
   public CopyDocumentsToSemanticIndexStep(
@@ -48,10 +46,9 @@ public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
       SearchClientShim<?> searchClient,
       EntityService<?> entityService,
       IndexConvention indexConvention) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.entityName = entityName;
     this.searchClient = searchClient;
-    this.entityService = entityService;
     this.indexConvention = indexConvention;
 
     upgradeId = UPGRADE_ID_PREFIX + "_" + entityName;
@@ -66,21 +63,6 @@ public class CopyDocumentsToSemanticIndexStep implements PersistentUpgradeStep {
   @Override
   public Urn getUpgradeIdUrn() {
     return upgradeIdUrn;
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
-  }
-
-  @Override
-  public boolean isReprocessEnabled() {
-    return false;
   }
 
   private UpgradeStepResult execute(UpgradeContext context) {

@@ -5,14 +5,13 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSys
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -53,13 +52,11 @@ import org.opensearch.search.sort.SortOrder;
  * <p>Finally, a DELETE is executed on the legacy document id.
  */
 @Slf4j
-public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
+public class MigrateSchemaFieldDocIdsStep extends AbstractPersistentUpgradeStep {
 
-  private final OperationContext opContext;
   private final EntityRegistry entityRegistry;
   private final SearchClientShim<?> elasticsearchClient;
   private final String indexName;
-  private final EntityService<?> entityService;
   private final Scroll scroll = new Scroll(TimeValue.timeValueMinutes(5L));
   private final int batchSize;
   private final int batchDelayMs;
@@ -72,10 +69,9 @@ public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
       int batchSize,
       int batchDelayMs,
       int limit) {
-    this.opContext = opContext;
+    super(opContext, entityService);
     this.entityRegistry = opContext.getEntityRegistry();
     this.elasticsearchClient = elasticSearchComponents.getSearchClient();
-    this.entityService = entityService;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
     this.limit = limit;
@@ -98,26 +94,6 @@ public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
   @Override
   public String id() {
     return "schema-field-doc-id-v1";
-  }
-
-  @Override
-  public Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
-  }
-
-  @Override
-  public EntityService<?> getEntityService() {
-    return entityService;
-  }
-
-  @Override
-  public OperationContext getSystemOpContext() {
-    return opContext;
-  }
-
-  @Override
-  public boolean isReprocessEnabled() {
-    return false;
   }
 
   /**
@@ -230,12 +206,13 @@ public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
   private void emitMCLs(Set<Urn> batchUrns) throws URISyntaxException {
     Set<SystemAspect> batchAspects =
         entityResponseToSystemAspectMap(
-                entityService.getEntitiesV2(
-                    opContext,
-                    SCHEMA_FIELD_ENTITY_NAME,
-                    batchUrns,
-                    opContext.getEntityAspectNames(SCHEMA_FIELD_ENTITY_NAME),
-                    false),
+                getEntityService()
+                    .getEntitiesV2(
+                        getSystemOpContext(),
+                        SCHEMA_FIELD_ENTITY_NAME,
+                        batchUrns,
+                        getSystemOpContext().getEntityAspectNames(SCHEMA_FIELD_ENTITY_NAME),
+                        false),
                 entityRegistry)
             .values()
             .stream()
@@ -246,9 +223,9 @@ public class MigrateSchemaFieldDocIdsStep implements PersistentUpgradeStep {
         batchAspects.stream()
             .map(
                 systemAspect ->
-                    entityService
+                    getEntityService()
                         .alwaysProduceMCLAsync(
-                            opContext,
+                            getSystemOpContext(),
                             systemAspect.getUrn(),
                             systemAspect.getUrn().getEntityType(),
                             systemAspect.getAspectName(),
