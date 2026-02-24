@@ -168,11 +168,13 @@ def touch_local_files(pytestconfig):
 
 SHARED_SOURCE_FILES_PATH = "./tests/integration/s3/sources/shared"
 shared_source_files = [
-    (SHARED_SOURCE_FILES_PATH, p) for p in os.listdir(SHARED_SOURCE_FILES_PATH)
+    (SHARED_SOURCE_FILES_PATH, p) for p in sorted(os.listdir(SHARED_SOURCE_FILES_PATH))
 ]
 
 S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
+s3_source_files = [
+    (S3_SOURCE_FILES_PATH, p) for p in sorted(os.listdir(S3_SOURCE_FILES_PATH))
+]
 
 
 @pytest.mark.integration
