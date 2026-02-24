@@ -1637,7 +1637,10 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 logger.error(error_msg, exc_info=True)
                 self.report.report_file_failed(error_msg)
 
-                if not self.config.advanced.continue_on_failure:
+                if (
+                    not self.config.advanced.continue_on_failure
+                    and not self.report.num_documents_limit_reached
+                ):
                     raise
 
     def _should_skip_file(

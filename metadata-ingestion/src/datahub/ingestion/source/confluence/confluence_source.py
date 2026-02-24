@@ -966,6 +966,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Update metrics
         processing_time = time.time() - start_time
         self.report.report_page_processed(page_id, processing_time)
+        self.report.report_text_extracted(len(text))
 
         if self.report.pages_processed >= self.config.max_documents:
             self.report.num_documents_limit_reached = True
@@ -974,8 +975,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 f"Processed {self.report.pages_processed} documents. "
                 "Increase max_documents in the source config to process more."
             )
-
-        self.report.report_text_extracted(len(text))
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -1077,7 +1076,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 logger.error(f"Failed to create entity for page {page_id}: {e}")
                 self.report.report_page_failed(page_id, space_key, str(e))
 
-                if not self.config.advanced.continue_on_failure:
+                if (
+                    not self.config.advanced.continue_on_failure
+                    and not self.report.num_documents_limit_reached
+                ):
                     raise
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

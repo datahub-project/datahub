@@ -1108,11 +1108,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             logger.info(
                 f"Successfully processed document {document_urn}: {len(chunks)} chunks, {len(embeddings)} embeddings"
             )
-
         except Exception as e:
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
             logger.error(error_msg, exc_info=True)
             self.report.report_error(error_msg)
+
+            if self.report.num_documents_limit_reached:
+                raise e
 
     def _chunk_elements(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Chunk elements using Unstructured's chunking strategies."""

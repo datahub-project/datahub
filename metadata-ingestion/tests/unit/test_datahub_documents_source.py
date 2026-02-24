@@ -1692,30 +1692,30 @@ class TestMaxDocumentsLimit:
             source = DataHubDocumentsSource(ctx, config)
 
             mock_docs = [
-                {"urn": f"urn:li:document:{i}", "text": f"Document {i} content"}
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
                 for i in range(5)
             ]
 
-            call_count = 0
-
-            def mock_process(doc):
-                nonlocal call_count
-                call_count += 1
-                source.report.report_document_processed(1)
-                if source.report.num_documents_processed >= source.config.max_documents:
-                    source.report.num_documents_limit_reached = True
-                    raise RuntimeError(
-                        f"Document limit of {source.config.max_documents} reached."
-                    )
-                return iter([])
+            fake_chunk = {"text": "chunk", "metadata": {}}
+            fake_embedding = [0.1, 0.2, 0.3]
 
             with (
                 patch.object(
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
                 patch.object(
-                    source, "_process_single_document", side_effect=mock_process
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
                 ),
+                patch.object(source, "_chunk_elements", return_value=[fake_chunk]),
+                patch.object(
+                    source, "_generate_embeddings", return_value=[fake_embedding]
+                ),
+                patch.object(source, "_emit_semantic_content", return_value=iter([])),
                 pytest.raises(RuntimeError, match="Document limit of 2 reached"),
             ):
                 list(source._process_batch_mode())
