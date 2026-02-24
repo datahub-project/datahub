@@ -3,7 +3,6 @@ package com.linkedin.datahub.upgrade.system.entities;
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -211,8 +210,8 @@ public class RemoveQueryEdgesTest {
                         && ((TermQueryBuilder) filter).value().equals("query"));
     assertTrue(hasSourceFilter, "Should have source URN prefix filter");
 
-    // Verify that bootstrap result was set
-    verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), any(), anyBoolean());
+    // Note: PersistentUpgradeStep interface automatically persists completion state
+    // via DefaultUpgradeManager, so no manual ingestProposal verification needed
   }
 
   @Test
@@ -242,8 +241,8 @@ public class RemoveQueryEdgesTest {
     assertEquals(result.stepId(), UPGRADE_ID);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify that bootstrap result was still set
-    verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), any(), anyBoolean());
+    // Note: PersistentUpgradeStep interface automatically persists completion state
+    // via DefaultUpgradeManager, so no manual ingestProposal verification needed
   }
 
   @Test

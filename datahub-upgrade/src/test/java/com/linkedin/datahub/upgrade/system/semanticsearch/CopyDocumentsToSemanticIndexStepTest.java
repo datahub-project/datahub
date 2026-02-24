@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.system.semanticsearch;
 
+import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,13 +11,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -267,13 +270,12 @@ public class CopyDocumentsToSemanticIndexStepTest {
   @Test
   public void testSkip_PreviousRunSucceeded() {
     String entityName = "dataset";
-    Upgrade mockUpgrade = mock(Upgrade.class);
-    when(upgradeContext.upgrade()).thenReturn(mockUpgrade);
+    Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn("CopyDocumentsToSemanticIndex_" + entityName);
 
-    // Previous run succeeded
-    DataHubUpgradeResult previousResult =
-        new DataHubUpgradeResult().setState(DataHubUpgradeState.SUCCEEDED);
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
+    // Mock that the upgrade was already run (previous run succeeded)
+    when(entityService.exists(
+            eq(opContext), eq(upgradeIdUrn), eq(DATA_HUB_UPGRADE_RESULT_ASPECT_NAME), eq(true)))
+        .thenReturn(true);
 
     step =
         new CopyDocumentsToSemanticIndexStep(
@@ -285,13 +287,12 @@ public class CopyDocumentsToSemanticIndexStepTest {
   @Test
   public void testSkip_PreviousRunFailed() {
     String entityName = "dataset";
-    Upgrade mockUpgrade = mock(Upgrade.class);
-    when(upgradeContext.upgrade()).thenReturn(mockUpgrade);
+    Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn("CopyDocumentsToSemanticIndex_" + entityName);
 
-    // Previous run failed
-    DataHubUpgradeResult previousResult =
-        new DataHubUpgradeResult().setState(DataHubUpgradeState.FAILED);
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
+    // Mock that the upgrade was NOT previously run (failed or never ran)
+    when(entityService.exists(
+            eq(opContext), eq(upgradeIdUrn), eq(DATA_HUB_UPGRADE_RESULT_ASPECT_NAME), eq(true)))
+        .thenReturn(false);
 
     step =
         new CopyDocumentsToSemanticIndexStep(
