@@ -84,6 +84,11 @@ const DEFAULT_SETTINGS: OidcSettings = {
     clientId: '',
     clientSecret: '',
     discoveryUri: '',
+    userNameClaim: 'preferred_username',
+    userNameClaimRegex: '(.*)',
+    groupsClaim: 'groups',
+    scope: 'openid email profile',
+    clientAuthenticationMethod: 'client_secret_basic',
 };
 
 const BASE_URL = `${window.location.origin}${getRuntimeBasePath()}`;
@@ -370,7 +375,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings.userNameClaim || 'preferred_username'}
+                                                value={oidcSettings.userNameClaim || ''}
                                                 placeholder="preferred_username"
                                                 onChange={(e) =>
                                                     setOidcSettings({
@@ -389,7 +394,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings?.userNameClaimRegex || '.*'}
+                                                value={oidcSettings?.userNameClaimRegex || ''}
                                                 placeholder="User Name Claim Regex"
                                                 onChange={(e) =>
                                                     setOidcSettings({
@@ -408,7 +413,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings?.groupsClaim || 'groups'}
+                                                value={oidcSettings?.groupsClaim || ''}
                                                 placeholder="groups"
                                                 onChange={(e) =>
                                                     setOidcSettings({
@@ -427,7 +432,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings.scope || 'openid email profile'}
+                                                value={oidcSettings.scope || ''}
                                                 placeholder="openid email profile"
                                                 onChange={(e) =>
                                                     setOidcSettings({
@@ -448,7 +453,7 @@ export const OidcIntegration = () => {
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <StyledInput
-                                                value={oidcSettings.clientAuthenticationMethod || 'client_secret_basic'}
+                                                value={oidcSettings.clientAuthenticationMethod || ''}
                                                 placeholder="client_secret_basic"
                                                 onChange={(e) =>
                                                     setOidcSettings({
