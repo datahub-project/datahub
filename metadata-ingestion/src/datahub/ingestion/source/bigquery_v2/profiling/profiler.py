@@ -226,7 +226,7 @@ ORDER BY table_name, ordinal_position
                 message=f"Skipping profiling due to invalid identifier: {e}",
                 context=table_ref,
             )
-            raise
+            return None
 
         # STEP 2: Initialize base kwargs for Great Expectations profiler
         base_kwargs = {

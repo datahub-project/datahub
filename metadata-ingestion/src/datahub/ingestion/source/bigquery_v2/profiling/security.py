@@ -22,10 +22,62 @@ ScalarQueryParameter throughout the codebase (see partition_discovery.py).
 """
 
 import logging
-import re
 from typing import List, Optional, Union
 
+from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    FILTER_COLUMN_REF_RE,
+    FILTER_DANGEROUS_PATTERNS,
+    FILTER_OPERATOR_RE,
+    PROJECT_ID_RE,
+    SQL_ALLOWED_START_PATTERNS,
+    SQL_DANGEROUS_PATTERNS,
+    TABLE_IDENTIFIER_RE,
+    VALID_COLUMN_NAME_PATTERN,
+    WHITESPACE_RE,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
+    """Validate identifier format according to BigQuery rules for the given type."""
+    if identifier_type == "project":
+        if not PROJECT_ID_RE.match(clean_identifier):
+            raise ValueError(f"Invalid project ID format: {clean_identifier}")
+        if len(clean_identifier) < 6 or len(clean_identifier) > 30:
+            raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
+        if "--" in clean_identifier:
+            raise ValueError(
+                f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
+            )
+    elif identifier_type == "table":
+        # BigQuery allows hyphens in table names when backtick-escaped.
+        if not TABLE_IDENTIFIER_RE.match(clean_identifier):
+            raise ValueError(
+                f"Invalid {identifier_type} identifier format: {clean_identifier}"
+            )
+        if len(clean_identifier) > 1024:
+            raise ValueError(
+                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
+            )
+        if "--" in clean_identifier:
+            raise ValueError(
+                f"Table identifier cannot contain consecutive hyphens: {clean_identifier}"
+            )
+    else:
+        # Datasets and columns: letters, numbers, underscores only (no hyphens).
+        if not VALID_COLUMN_NAME_PATTERN.match(clean_identifier):
+            raise ValueError(
+                f"Invalid {identifier_type} identifier format: {clean_identifier}"
+            )
+        if len(clean_identifier) > 1024:
+            raise ValueError(
+                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
+            )
+        if clean_identifier.startswith("__"):
+            raise ValueError(
+                f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
+            )
 
 
 def validate_bigquery_identifier(
@@ -122,33 +174,8 @@ def validate_bigquery_identifier(
             f"Invalid {identifier_type} identifier contains non-printable characters: {identifier}"
         )
 
-    # BigQuery identifier rules validation
-    if identifier_type == "project":
-        # Project IDs: letters, numbers, hyphens (6-30 chars, start with letter)
-        if not re.match(r"^[a-z][a-z0-9-]*[a-z0-9]$", clean_identifier):
-            raise ValueError(f"Invalid project ID format: {clean_identifier}")
-        if len(clean_identifier) < 6 or len(clean_identifier) > 30:
-            raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
-        # Additional security: no consecutive hyphens
-        if "--" in clean_identifier:
-            raise ValueError(
-                f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
-            )
-    else:
-        # Datasets, tables, columns: letters, numbers, underscores only
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", clean_identifier):
-            raise ValueError(
-                f"Invalid {identifier_type} identifier format: {clean_identifier}"
-            )
-        if len(clean_identifier) > 1024:
-            raise ValueError(
-                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
-            )
-        # Additional security: no consecutive underscores at the beginning (reserved patterns)
-        if clean_identifier.startswith("__"):
-            raise ValueError(
-                f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
-            )
+    # BigQuery identifier rules validation (project / table / dataset+column)
+    _validate_identifier_format(identifier_type, clean_identifier)
 
     # Check for truly problematic identifiers that could cause issues even when backticked
     truly_problematic = {
@@ -192,7 +219,7 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
         )
         return False
 
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+    if not VALID_COLUMN_NAME_PATTERN.match(col_name):
         logger.warning(
             f"Column name fails validation{' in ' + context if context else ''}: {col_name}"
         )
@@ -216,52 +243,15 @@ def validate_sql_structure(query: str) -> bool:
         return False
 
     # Normalize query for analysis
-    normalized_query = re.sub(r"\s+", " ", query.upper().strip())
+    normalized_query = WHITESPACE_RE.sub(" ", query.upper().strip())
 
     # Check for dangerous SQL patterns that shouldn't appear in profiling queries
-    dangerous_patterns = [
-        # DDL operations
-        r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE)",
-        r"\bDROP\s+(?:TABLE|VIEW|FUNCTION|PROCEDURE|DATABASE|SCHEMA)",
-        r"\bALTER\s+(?:TABLE|VIEW|DATABASE|SCHEMA)",
-        r"\bTRUNCATE\s+TABLE",
-        # DML operations (beyond SELECT)
-        r"\bINSERT\s+INTO",
-        r"\bUPDATE\s+.+\bSET\b",
-        r"\bDELETE\s+FROM",
-        r"\bMERGE\s+INTO",
-        # System/admin operations
-        r"\bGRANT\s+",
-        r"\bREVOKE\s+",
-        r"\bEXEC(?:UTE)?\s+",
-        r"\bCALL\s+",
-        # Suspicious multi-statement patterns
-        r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE)",
-        # Script injection patterns
-        r"<script[^>]*>",
-        r"javascript:",
-        r"vbscript:",
-        r"data:",
-        # Comment-based injections
-        r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
-        r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
-    ]
-
-    for pattern in dangerous_patterns:
-        if re.search(pattern, normalized_query, re.IGNORECASE):
-            raise ValueError(f"Query contains dangerous pattern: {pattern}")
+    for pattern in SQL_DANGEROUS_PATTERNS:
+        if pattern.search(normalized_query):
+            raise ValueError(f"Query contains dangerous pattern: {pattern.pattern}")
 
     # Validate query starts with expected operations for profiling
-    allowed_start_patterns = [
-        r"^\s*SELECT\s+",
-        r"^\s*WITH\s+",
-        r"^\s*\(\s*SELECT\s+",  # Subqueries
-    ]
-
-    if not any(
-        re.match(pattern, normalized_query, re.IGNORECASE)
-        for pattern in allowed_start_patterns
-    ):
+    if not any(p.match(normalized_query) for p in SQL_ALLOWED_START_PATTERNS):
         raise ValueError(f"Query must start with SELECT or WITH: {query[:100]}...")
 
     return True
@@ -281,37 +271,21 @@ def validate_filter_expression(filter_expr: str) -> bool:
         return False
 
     # Check for basic SQL injection patterns that would be dangerous
-    dangerous_patterns = [
-        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE)\s+",
-        r"UNION\s+(?:ALL\s+)?SELECT",
-        r"--",  # SQL comments
-        r"/\*",  # Block comments
-        r"xp_cmdshell",
-        r"sp_executesql",
-        r"<script",  # Script injection
-        r"javascript:",
-        r"eval\s*\(",
-    ]
-
-    for pattern in dangerous_patterns:
-        if re.search(pattern, filter_expr, re.IGNORECASE):
+    for pattern in FILTER_DANGEROUS_PATTERNS:
+        if pattern.search(filter_expr):
             logger.warning(
-                f"Filter contains dangerous pattern {pattern}: {filter_expr}"
+                f"Filter contains dangerous pattern {pattern.pattern}: {filter_expr}"
             )
             return False
 
     # Basic format check: ensure it looks like a reasonable WHERE clause condition
     # This is much simpler - just ensure it has column references and reasonable operators
-    if not re.search(r"`[a-zA-Z_][a-zA-Z0-9_]*`", filter_expr):
+    if not FILTER_COLUMN_REF_RE.search(filter_expr):
         logger.warning(f"Filter doesn't contain valid column reference: {filter_expr}")
         return False
 
     # Ensure it uses reasonable operators (=, !=, <, >, IS NULL, etc.)
-    if not re.search(
-        r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
-        filter_expr,
-        re.IGNORECASE,
-    ):
+    if not FILTER_OPERATOR_RE.search(filter_expr):
         logger.warning(f"Filter doesn't contain recognized operators: {filter_expr}")
         return False
 

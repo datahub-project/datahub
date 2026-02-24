@@ -133,8 +133,83 @@ BIGQUERY_STRING_TYPES: Set[str] = {
 # Compiled Regex Patterns
 # ============================================================================
 
-# Valid BigQuery column name pattern (must start with letter or underscore)
+# Valid BigQuery column name / dataset identifier pattern (letters, numbers, underscores)
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+# BigQuery project ID pattern (lowercase letters, numbers, hyphens; 6-30 chars)
+PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
+
+# BigQuery table name pattern (letters, numbers, underscores, hyphens allowed)
+TABLE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
+
+
+# ============================================================================
+# Security / SQL Injection Validation Patterns
+# ============================================================================
+
+# Collapses runs of whitespace when normalising a query before injection checks
+WHITESPACE_RE = re.compile(r"\s+")
+
+# DDL, DML, admin, and script-injection patterns that must not appear in profiling queries
+SQL_DANGEROUS_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE)",
+        r"\bDROP\s+(?:TABLE|VIEW|FUNCTION|PROCEDURE|DATABASE|SCHEMA)",
+        r"\bALTER\s+(?:TABLE|VIEW|DATABASE|SCHEMA)",
+        r"\bTRUNCATE\s+TABLE",
+        r"\bINSERT\s+INTO",
+        r"\bUPDATE\s+.+\bSET\b",
+        r"\bDELETE\s+FROM",
+        r"\bMERGE\s+INTO",
+        r"\bGRANT\s+",
+        r"\bREVOKE\s+",
+        r"\bEXEC(?:UTE)?\s+",
+        r"\bCALL\s+",
+        r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE)",
+        r"<script[^>]*>",
+        r"javascript:",
+        r"vbscript:",
+        r"data:",
+        r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
+        r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
+    ]
+]
+
+# Patterns that a valid profiling query must start with
+SQL_ALLOWED_START_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r"^\s*SELECT\s+",
+        r"^\s*WITH\s+",
+        r"^\s*\(\s*SELECT\s+",
+    ]
+]
+
+# Injection patterns that must not appear in WHERE-clause filter expressions
+FILTER_DANGEROUS_PATTERNS = [
+    re.compile(p)
+    for p in [
+        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE)\s+",
+        r"UNION\s+(?:ALL\s+)?SELECT",
+        r"--",
+        r"/\*",
+        r"xp_cmdshell",
+        r"sp_executesql",
+        r"<script",
+        r"javascript:",
+        r"eval\s*\(",
+    ]
+]
+
+# A valid backtick-quoted column reference inside a filter expression
+FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
+
+# Recognised SQL comparison / membership operators in filter expressions
+FILTER_OPERATOR_RE = re.compile(
+    r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
+    re.IGNORECASE,
+)
 
 # Pattern to extract required partition columns from BigQuery error messages
 # Example: "Cannot query over table without a filter over column(s) 'year', 'month', 'day'"
