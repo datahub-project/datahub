@@ -43,7 +43,7 @@ from datahub_agent_context.mcp_tools.entities import get_entities
 client = DataHubClient.from_env()
 
 # Search for datasets
-with client.graph as graph:
+with client as client:
     results = search(
         query="user_data",
         filters={"entity_type": ["dataset"]},
@@ -51,7 +51,7 @@ with client.graph as graph:
     )
 
 # Get detailed entity information
-with client.graph as graph:
+with client as client:
     entities = get_entities(
         urns=[result["entity"]["urn"] for result in results["searchResults"]]
     )
@@ -113,6 +113,7 @@ agent = create_agent(model, tools=tools, system_prompt="...")
 - `add_owners()`, `remove_owners()` - Manage owners
 - `add_glossary_terms()`, `remove_glossary_terms()` - Manage glossary terms
 - `add_structured_properties()`, `remove_structured_properties()` - Manage structured properties
+- `save_document()` - Save or update a Document.
 
 #### User Tools
 

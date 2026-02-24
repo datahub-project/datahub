@@ -70,6 +70,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.sslContext.keyStorePassword",
           // Services encryption
           "secretService.encryptionKey",
+          // Embedding provider API keys
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.apiKey",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.apiKey",
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
@@ -534,6 +537,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
+          "elasticsearch.buildIndices.reindexBatchSize",
+          "elasticsearch.buildIndices.reindexMaxSlices",
+          "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
@@ -662,6 +668,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.complexityLimit",
           "graphQL.query.depthLimit",
           "graphQL.query.introspectionEnabled",
+          "graphQL.query.maxParentDepth",
+          "graphQL.query.maxVisitedUrns",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
@@ -916,17 +924,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
           "elasticsearch.entityIndex.semanticSearch.enabledEntities",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.vectorDimension",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.knnEngine",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.spaceType",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.efConstruction",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.m",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.m",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.type",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"

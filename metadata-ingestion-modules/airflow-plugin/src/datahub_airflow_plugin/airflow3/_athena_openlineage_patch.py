@@ -9,8 +9,8 @@ DataHub's SQL parser instead, enabling column-level lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-import datahub.emitter.mce_builder as builder
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 
 if TYPE_CHECKING:
@@ -96,12 +96,14 @@ def patch_athena_operator() -> None:
                             f"default_db={default_database}): {rendered_query[:200] if rendered_query else 'None'}"
                         )
 
+                        env = get_configured_env()
+
                         # Use DataHub's SQL parser
                         sql_parsing_result = create_lineage_sql_parsed_result(
                             query=rendered_query,
                             platform=platform,
                             platform_instance=None,
-                            env=builder.DEFAULT_ENV,
+                            env=env,
                             default_db=default_database,
                             default_schema=None,
                         )

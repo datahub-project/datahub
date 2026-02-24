@@ -106,7 +106,17 @@ function useSearchKeyboardControls(
 ) {
     return useCallback(
         (event: KeyboardEvent) => {
-            if ((event.target as HTMLElement).closest(`.${SEARCH_BAR_CLASS_NAME}`)) return null;
+            // Skip if user is in any editable element (search bar, editor, input, etc.)
+            const target = event.target as HTMLElement;
+            if (
+                target.closest(`.${SEARCH_BAR_CLASS_NAME}`) ||
+                target.closest('.ProseMirror') ||
+                target.tagName === 'INPUT' ||
+                target.tagName === 'TEXTAREA' ||
+                target.isContentEditable
+            ) {
+                return null;
+            }
 
             const prevIndex = highlightedIndex;
             let newIndex: number | null | undefined;

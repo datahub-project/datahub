@@ -4,8 +4,10 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +17,19 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Factory for creating embedding providers used in semantic search.
  *
- * <p>Currently supports AWS Bedrock with Cohere Embed models. The provider is conditionally created
- * only when semantic search is enabled in the configuration.
+ * <p>Supports three embedding providers:
  *
- * <p>AWS credentials are resolved automatically using the default AWS credential provider chain:
+ * <ul>
+ *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
+ *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large models
+ *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
+ * </ul>
+ *
+ * <p>The provider is conditionally created only when semantic search is enabled in the
+ * configuration.
+ *
+ * <p>AWS Bedrock credentials are resolved automatically using the default AWS credential provider
+ * chain:
  *
  * <ul>
  *   <li>Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
@@ -58,20 +69,61 @@ public class EmbeddingProviderFactory {
     String providerType = config.getType();
     log.info("Creating embedding provider with type: {}", providerType);
 
-    if ("aws-bedrock".equalsIgnoreCase(providerType)) {
-      log.info(
-          "Configuring AWS Bedrock embedding provider: region={}, model={}, maxCharLength={}",
-          config.getAwsRegion(),
-          config.getModelId(),
-          config.getMaxCharacterLength());
-
-      return new AwsBedrockEmbeddingProvider(
-          config.getAwsRegion(), config.getModelId(), config.getMaxCharacterLength());
-    } else {
-      throw new IllegalStateException(
+    return switch (providerType.toLowerCase()) {
+      case "aws-bedrock" -> createAwsBedrockProvider(config);
+      case "openai" -> createOpenAIProvider(config);
+      case "cohere" -> createCohereProvider(config);
+      default -> throw new IllegalStateException(
           String.format(
-              "Unsupported embedding provider type: %s. Only 'aws-bedrock' is currently supported.",
+              "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere",
               providerType));
+    };
+  }
+
+  private EmbeddingProvider createAwsBedrockProvider(EmbeddingProviderConfiguration config) {
+    log.info(
+        "Configuring AWS Bedrock embedding provider: region={}, model={}, maxCharLength={}",
+        config.getAwsRegion(),
+        config.getModelId(),
+        config.getMaxCharacterLength());
+
+    return new AwsBedrockEmbeddingProvider(
+        config.getAwsRegion(), config.getModelId(), config.getMaxCharacterLength());
+  }
+
+  private EmbeddingProvider createOpenAIProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.OpenAIConfig openaiConfig = config.getOpenai();
+
+    if (openaiConfig.getApiKey() == null || openaiConfig.getApiKey().isBlank()) {
+      throw new IllegalStateException(
+          "OpenAI API key is required when using 'openai' embedding provider. "
+              + "Set the OPENAI_API_KEY environment variable or configure embeddingProvider.openai.apiKey in application.yaml");
     }
+
+    log.info(
+        "Configuring OpenAI embedding provider: endpoint={}, model={}",
+        openaiConfig.getEndpoint(),
+        openaiConfig.getModel());
+
+    return new OpenAIEmbeddingProvider(
+        openaiConfig.getApiKey(), openaiConfig.getEndpoint(), openaiConfig.getModel());
+  }
+
+  private EmbeddingProvider createCohereProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.CohereConfig cohereConfig = config.getCohere();
+
+    if (cohereConfig.getApiKey() == null || cohereConfig.getApiKey().isBlank()) {
+      throw new IllegalStateException(
+          "Cohere API key is required when using 'cohere' embedding provider. "
+              + "Set the COHERE_API_KEY environment variable or configure embeddingProvider.cohere.apiKey in application.yaml");
+    }
+
+    log.info(
+        "Configuring Cohere embedding provider: endpoint={}, model={}",
+        cohereConfig.getEndpoint(),
+        cohereConfig.getModel());
+
+    return new CohereEmbeddingProvider(
+        cohereConfig.getApiKey(), cohereConfig.getEndpoint(), cohereConfig.getModel());
   }
 }

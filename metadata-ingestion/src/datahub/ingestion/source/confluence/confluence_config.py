@@ -26,6 +26,68 @@ from datahub.ingestion.source.unstructured.config import (
 )
 
 
+class SpaceFilterConfig(ConfigModel):
+    """Configuration for filtering Confluence spaces."""
+
+    allow: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "List of Confluence spaces to include in ingestion. "
+            "By default, all accessible spaces are discovered. "
+            "Specify space keys or URLs to limit ingestion to specific spaces.\n\n"
+            "Examples:\n"
+            "  - Space keys: ['ENGINEERING', 'PRODUCT', 'DESIGN']\n"
+            "  - Space URLs: ['https://domain.atlassian.net/wiki/spaces/TEAM']\n"
+            "  - Mixed: ['ENGINEERING', 'https://domain.atlassian.net/wiki/spaces/PRODUCT']\n\n"
+            "If specified, only these spaces will be ingested. "
+            "Use deny to exclude specific spaces from discovery."
+        ),
+    )
+
+    deny: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "List of Confluence spaces to exclude from ingestion. "
+            "Applies after allow filtering.\n\n"
+            "Examples:\n"
+            "  - Exclude personal spaces: ['~user1', '~user2']\n"
+            "  - Exclude specific spaces: ['ARCHIVE', 'OLD_DOCS']\n"
+            "  - Space URLs: ['https://domain.atlassian.net/wiki/spaces/TEST']\n\n"
+            "Useful for excluding personal spaces or archived content."
+        ),
+    )
+
+
+class PageFilterConfig(ConfigModel):
+    """Configuration for filtering Confluence pages."""
+
+    allow: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "List of specific Confluence pages to include in ingestion. "
+            "By default, all pages in discovered spaces are included. "
+            "Specify page IDs or URLs to limit ingestion to specific pages and their children.\n\n"
+            "Examples:\n"
+            "  - Page IDs: ['123456', '789012']\n"
+            "  - Page URLs: ['https://domain.atlassian.net/wiki/spaces/ENG/pages/123456/API-Docs']\n\n"
+            "When specified, only these page trees will be ingested (if recursive=true). "
+            "This allows focusing on specific documentation sections."
+        ),
+    )
+
+    deny: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "List of specific Confluence pages to exclude from ingestion. "
+            "Applies after allow filtering.\n\n"
+            "Examples:\n"
+            "  - Exclude specific pages: ['123456', '789012']\n"
+            "  - Page URLs: ['https://domain.atlassian.net/wiki/spaces/ENG/pages/999999/Draft']\n\n"
+            "Useful for excluding specific pages within otherwise included spaces."
+        ),
+    )
+
+
 class ConfluenceAuthConfig(ConfigModel):
     """Authentication configuration for Confluence."""
 
@@ -111,60 +173,16 @@ class ConfluenceSourceConfig(
         "Generate from: User Profile > Settings > Personal Access Tokens",
     )
 
-    # Space filtering - allow/deny lists
-    space_allow: Optional[List[str]] = Field(
-        default=None,
-        description=(
-            "List of Confluence spaces to include in ingestion. "
-            "By default, all accessible spaces are discovered. "
-            "Specify space keys or URLs to limit ingestion to specific spaces.\n\n"
-            "Examples:\n"
-            "  - Space keys: ['ENGINEERING', 'PRODUCT', 'DESIGN']\n"
-            "  - Space URLs: ['https://domain.atlassian.net/wiki/spaces/TEAM']\n"
-            "  - Mixed: ['ENGINEERING', 'https://domain.atlassian.net/wiki/spaces/PRODUCT']\n\n"
-            "If specified, only these spaces will be ingested. "
-            "Use space_deny to exclude specific spaces from discovery."
-        ),
+    # Space filtering
+    spaces: SpaceFilterConfig = Field(
+        default_factory=SpaceFilterConfig,
+        description="Configuration for filtering Confluence spaces.",
     )
 
-    space_deny: Optional[List[str]] = Field(
-        default=None,
-        description=(
-            "List of Confluence spaces to exclude from ingestion. "
-            "Applies after space_allow filtering.\n\n"
-            "Examples:\n"
-            "  - Exclude personal spaces: ['~user1', '~user2']\n"
-            "  - Exclude specific spaces: ['ARCHIVE', 'OLD_DOCS']\n"
-            "  - Space URLs: ['https://domain.atlassian.net/wiki/spaces/TEST']\n\n"
-            "Useful for excluding personal spaces or archived content."
-        ),
-    )
-
-    # Page filtering - allow/deny lists
-    page_allow: Optional[List[str]] = Field(
-        default=None,
-        description=(
-            "List of specific Confluence pages to include in ingestion. "
-            "By default, all pages in discovered spaces are included. "
-            "Specify page IDs or URLs to limit ingestion to specific pages and their children.\n\n"
-            "Examples:\n"
-            "  - Page IDs: ['123456', '789012']\n"
-            "  - Page URLs: ['https://domain.atlassian.net/wiki/spaces/ENG/pages/123456/API-Docs']\n\n"
-            "When specified, only these page trees will be ingested (if recursive=true). "
-            "This allows focusing on specific documentation sections."
-        ),
-    )
-
-    page_deny: Optional[List[str]] = Field(
-        default=None,
-        description=(
-            "List of specific Confluence pages to exclude from ingestion. "
-            "Applies after page_allow filtering.\n\n"
-            "Examples:\n"
-            "  - Exclude specific pages: ['123456', '789012']\n"
-            "  - Page URLs: ['https://domain.atlassian.net/wiki/spaces/ENG/pages/999999/Draft']\n\n"
-            "Useful for excluding specific pages within otherwise included spaces."
-        ),
+    # Page filtering
+    pages: PageFilterConfig = Field(
+        default_factory=PageFilterConfig,
+        description="Configuration for filtering Confluence pages.",
     )
 
     # Internal field to store parsed allow/deny lists
@@ -350,7 +368,7 @@ class ConfluenceSourceConfig(
         if not page_input.isdigit():
             raise ValueError(
                 f"Page ID must be numeric: {page_input}. "
-                "Use page_allow for page IDs, space_allow for space keys."
+                "Use pages.allow for page IDs, spaces.allow for space keys."
             )
 
         return page_input
@@ -358,36 +376,36 @@ class ConfluenceSourceConfig(
     @model_validator(mode="after")
     def parse_allow_deny_lists(self) -> "ConfluenceSourceConfig":
         """Parse and normalize all allow/deny lists."""
-        # Parse space_allow
-        if self.space_allow is not None:
-            if not isinstance(self.space_allow, list) or not self.space_allow:
-                raise ValueError("space_allow must be a non-empty list")
+        # Parse spaces.allow
+        if self.spaces.allow is not None:
+            if not isinstance(self.spaces.allow, list) or not self.spaces.allow:
+                raise ValueError("spaces.allow must be a non-empty list")
             self._parsed_space_allow = [
-                self._parse_space_identifier(s) for s in self.space_allow
+                self._parse_space_identifier(s) for s in self.spaces.allow
             ]
 
-        # Parse space_deny
-        if self.space_deny is not None:
-            if not isinstance(self.space_deny, list) or not self.space_deny:
-                raise ValueError("space_deny must be a non-empty list")
+        # Parse spaces.deny
+        if self.spaces.deny is not None:
+            if not isinstance(self.spaces.deny, list) or not self.spaces.deny:
+                raise ValueError("spaces.deny must be a non-empty list")
             self._parsed_space_deny = [
-                self._parse_space_identifier(s) for s in self.space_deny
+                self._parse_space_identifier(s) for s in self.spaces.deny
             ]
 
-        # Parse page_allow
-        if self.page_allow is not None:
-            if not isinstance(self.page_allow, list) or not self.page_allow:
-                raise ValueError("page_allow must be a non-empty list")
+        # Parse pages.allow
+        if self.pages.allow is not None:
+            if not isinstance(self.pages.allow, list) or not self.pages.allow:
+                raise ValueError("pages.allow must be a non-empty list")
             self._parsed_page_allow = [
-                self._parse_page_identifier(p) for p in self.page_allow
+                self._parse_page_identifier(p) for p in self.pages.allow
             ]
 
-        # Parse page_deny
-        if self.page_deny is not None:
-            if not isinstance(self.page_deny, list) or not self.page_deny:
-                raise ValueError("page_deny must be a non-empty list")
+        # Parse pages.deny
+        if self.pages.deny is not None:
+            if not isinstance(self.pages.deny, list) or not self.pages.deny:
+                raise ValueError("pages.deny must be a non-empty list")
             self._parsed_page_deny = [
-                self._parse_page_identifier(p) for p in self.page_deny
+                self._parse_page_identifier(p) for p in self.pages.deny
             ]
 
         return self

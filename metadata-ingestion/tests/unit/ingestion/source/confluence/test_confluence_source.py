@@ -554,3 +554,215 @@ def test_explicit_platform_instance(pipeline_context: PipelineContext) -> None:
         # URN uses explicit value
         urn = source._build_page_urn("123456")
         assert urn == "urn:li:document:confluence-mycompany-prod-123456"
+
+
+def test_browse_path_emitted_for_root_page(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Test that BrowsePathsV2 is emitted for root pages with just space name."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import BrowsePathsV2Class
+    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
+        create_mock_confluence_client,
+    )
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = create_mock_confluence_client("default")
+
+        source = ConfluenceSource(cloud_config, pipeline_context)
+
+        # Mock the chunking source to avoid embedding generation
+        with patch.object(
+            source.chunking_source, "process_elements_inline", return_value=iter([])
+        ):
+            workunits = list(source.get_workunits())
+
+        # Find the BrowsePathsV2 aspect for page 10001 (Team Home - root page)
+        browse_path = None
+        for wu in workunits:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if "10001" in str(wu.metadata.entityUrn) and isinstance(
+                    wu.metadata.aspect, BrowsePathsV2Class
+                ):
+                    browse_path = wu.metadata.aspect
+                    break
+
+        assert browse_path is not None, (
+            "Should find BrowsePathsV2 aspect for Team Home page"
+        )
+        assert len(browse_path.path) == 1, "Root page should have only space in path"
+        assert browse_path.path[0].id == "Team Space"
+        assert browse_path.path[0].urn is None, "Space entry should not have URN"
+
+
+def test_browse_path_emitted_for_nested_page(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Test that BrowsePathsV2 is emitted for nested pages with full hierarchy."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import BrowsePathsV2Class
+    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
+        create_mock_confluence_client,
+    )
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = create_mock_confluence_client("default")
+
+        source = ConfluenceSource(cloud_config, pipeline_context)
+
+        # Mock the chunking source to avoid embedding generation
+        with patch.object(
+            source.chunking_source, "process_elements_inline", return_value=iter([])
+        ):
+            workunits = list(source.get_workunits())
+
+        # Find the BrowsePathsV2 aspect for page 20003 (Authentication - nested under API Documentation -> REST API)
+        browse_path = None
+        for wu in workunits:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if "20003" in str(wu.metadata.entityUrn) and isinstance(
+                    wu.metadata.aspect, BrowsePathsV2Class
+                ):
+                    browse_path = wu.metadata.aspect
+                    break
+
+        assert browse_path is not None, (
+            "Should find BrowsePathsV2 aspect for Authentication page"
+        )
+        assert len(browse_path.path) == 3, "Should have space + 2 ancestors in path"
+
+        # Verify space entry
+        assert browse_path.path[0].id == "Documentation Space"
+        assert browse_path.path[0].urn is None
+
+        # Verify first ancestor (API Documentation - page 20001)
+        assert browse_path.path[1].id == "API Documentation"
+        assert browse_path.path[1].urn is not None
+        assert "20001" in browse_path.path[1].urn
+
+        # Verify second ancestor (REST API - page 20002)
+        assert browse_path.path[2].id == "REST API"
+        assert browse_path.path[2].urn is not None
+        assert "20002" in browse_path.path[2].urn
+
+
+def test_browse_path_deep_hierarchy(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Test that BrowsePathsV2 handles deeply nested pages correctly."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import BrowsePathsV2Class
+    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
+        create_mock_confluence_client,
+    )
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = create_mock_confluence_client("default")
+
+        source = ConfluenceSource(cloud_config, pipeline_context)
+
+        # Mock the chunking source to avoid embedding generation
+        with patch.object(
+            source.chunking_source, "process_elements_inline", return_value=iter([])
+        ):
+            workunits = list(source.get_workunits())
+
+        # Find the BrowsePathsV2 aspect for page 20004 (OAuth 2.0 Guide - 3 levels deep)
+        browse_path = None
+        for wu in workunits:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if "20004" in str(wu.metadata.entityUrn) and isinstance(
+                    wu.metadata.aspect, BrowsePathsV2Class
+                ):
+                    browse_path = wu.metadata.aspect
+                    break
+
+        assert browse_path is not None, (
+            "Should find BrowsePathsV2 aspect for OAuth 2.0 Guide page"
+        )
+        assert len(browse_path.path) == 4, "Should have space + 3 ancestors in path"
+
+        # Verify full hierarchy
+        assert browse_path.path[0].id == "Documentation Space"
+        assert browse_path.path[1].id == "API Documentation"
+        assert browse_path.path[2].id == "REST API"
+        assert browse_path.path[3].id == "Authentication"
+
+        # All ancestors should have URNs (all being ingested)
+        assert all(entry.urn is not None for entry in browse_path.path[1:]), (
+            "All ancestors should have URNs"
+        )
+
+
+def test_browse_path_ancestor_not_ingested(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Test that ancestors not being ingested don't get URNs in browse path."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import BrowsePathsV2Class
+    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
+        create_mock_confluence_client,
+    )
+
+    # Configure to only ingest specific pages (exclude ancestors)
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "cloud": True,
+        "pages": {"allow": ["20004"]},  # Only OAuth 2.0 Guide, not its ancestors
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = create_mock_confluence_client("default")
+
+        source = ConfluenceSource(config, pipeline_context)
+
+        # Mock the chunking source to avoid embedding generation
+        with patch.object(
+            source.chunking_source, "process_elements_inline", return_value=iter([])
+        ):
+            workunits = list(source.get_workunits())
+
+        # Find the BrowsePathsV2 aspect for page 20004
+        browse_path = None
+        for wu in workunits:
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+                if "20004" in str(wu.metadata.entityUrn) and isinstance(
+                    wu.metadata.aspect, BrowsePathsV2Class
+                ):
+                    browse_path = wu.metadata.aspect
+                    break
+
+        assert browse_path is not None, (
+            "Should find BrowsePathsV2 aspect for OAuth 2.0 Guide page"
+        )
+        assert len(browse_path.path) == 4, "Should have space + 3 ancestors in path"
+
+        # Space should not have URN
+        assert browse_path.path[0].urn is None
+
+        # Ancestors should NOT have URNs (not being ingested)
+        assert browse_path.path[1].urn is None, (
+            "API Documentation not ingested, should not have URN"
+        )
+        assert browse_path.path[2].urn is None, (
+            "REST API not ingested, should not have URN"
+        )
+        assert browse_path.path[3].urn is None, (
+            "Authentication not ingested, should not have URN"
+        )
+
+        # But titles should still be present
+        assert browse_path.path[1].id == "API Documentation"
+        assert browse_path.path[2].id == "REST API"
+        assert browse_path.path[3].id == "Authentication"
