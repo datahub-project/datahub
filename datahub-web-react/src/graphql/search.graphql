@@ -54,7 +54,7 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) {
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -393,7 +393,7 @@ fragment autoCompleteFields on Entity {
     }
 }
 
-query getAutoCompleteResults($input: AutoCompleteInput!) {
+query getAutoCompleteResults($input: AutoCompleteInput!, $skipSiblingsSearch: Boolean = false) {
     autoComplete(input: $input) {
         query
         suggestions
@@ -403,7 +403,7 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     }
 }
 
-query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
+query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!, $skipSiblingsSearch: Boolean = false) {
     autoCompleteForMultiple(input: $input) {
         query
         suggestions {
@@ -547,7 +547,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) {
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -1243,13 +1243,13 @@ fragment searchResultFieldsNoLineage on Entity {
 fragment searchResultFields on Entity {
     ...searchResultFieldsNoLineage
     ... on EntityWithRelationships {
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) @skip(if: $skipLineage) {
             total
             filtered
             # avoid fetching data about results, this query is meant to give a count upstream and downstream
             # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
         }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) @skip(if: $skipLineage) {
             total
             filtered
             # avoid fetching data about results, this query is meant to give a count upstream and downstream
@@ -1504,19 +1504,23 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     lineageSearchPath
 }
 
-query getSearchResults($input: SearchInput!) {
+query getSearchResults($input: SearchInput!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     search(input: $input) {
         ...searchResults
     }
 }
 
-query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
+query getSearchResultsForMultiple(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossEntities(input: $input) {
         ...searchResults
     }
 }
 
-query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
+query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
     searchAcrossEntities(input: $input) {
         searchResults {
             entity {
@@ -1539,7 +1543,10 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
 }
 
 # Lightweight search query
-query getEntitySearchResultsAutoCompleteFields($input: SearchAcrossEntitiesInput!) {
+query getEntitySearchResultsAutoCompleteFields(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+) {
     searchAcrossEntities(input: $input) {
         searchResults {
             entity {
@@ -1555,7 +1562,12 @@ query getSearchCount($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
+query searchAcrossLineage(
+    $input: SearchAcrossLineageInput!
+    $includeAssertions: Boolean = false
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }
@@ -1600,7 +1612,7 @@ query aggregateAcrossLineage($input: SearchAcrossLineageInput!) {
     }
 }
 
-query getEntityMentionNode($urn: String!) {
+query getEntityMentionNode($urn: String!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     entity(urn: $urn) {
         urn
         type
@@ -1624,13 +1636,22 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
     }
 }
 
-query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+query listDataProductAssets(
+    $urn: String!
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     listDataProductAssets(urn: $urn, input: $input) {
         ...searchResults
     }
 }
 
-query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
+query scrollAcrossEntities(
+    $input: ScrollAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     scrollAcrossEntities(input: $input) {
         ...scrollResults
     }

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, cast
 from unittest import mock
 from unittest.mock import MagicMock
+from urllib.parse import urlparse
 
 import pytest
 from freezegun import freeze_time
@@ -14,9 +15,12 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
+    PowerBiEnvironment,
     SupportedDataPlatform,
 )
-from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
+from datahub.ingestion.source.powerbi.powerbi import (
+    PowerBiDashboardSource,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     Report,
@@ -85,7 +89,11 @@ def read_mock_data(path: Union[Path, str]) -> dict:
 
 
 def register_mock_api(
-    pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
+    pytestconfig: pytest.Config,
+    request_mock: Any,
+    override_data: Optional[dict] = None,
+    *,
+    replace_hostname: Optional[str] = None,
 ) -> None:
     default_mock_data_path = (
         pytestconfig.rootpath
@@ -105,9 +113,14 @@ def register_mock_api(
     api_vs_response.update(override_data or {})
 
     for url in api_vs_response:
+        if replace_hostname:
+            mock_url = urlparse(url)._replace(netloc=replace_hostname).geturl()
+        else:
+            mock_url = url
+
         request_mock.register_uri(
             api_vs_response[url]["method"],
-            url,
+            mock_url,
             json=api_vs_response[url].get("json"),
             text=api_vs_response[url].get("text"),
             status_code=api_vs_response[url]["status_code"],
@@ -1579,4 +1592,52 @@ def test_powerbi_app_ingest_info_message(
 
     assert is_entry_present, (
         "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_gcc_environment(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        replace_hostname="api.powerbigov.us",
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "environment": PowerBiEnvironment.GOVERNMENT,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_gcc_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_gcc_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )

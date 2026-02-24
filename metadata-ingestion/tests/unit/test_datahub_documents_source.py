@@ -291,7 +291,10 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            assert source.embedding_model == "bedrock/cohere.embed-english-v3"
+            assert (
+                source.chunking_source.embedding_model
+                == "bedrock/cohere.embed-english-v3"
+            )
 
     def test_embedding_model_name_cohere(self, ctx):
         """Test embedding model name for Cohere."""
@@ -299,6 +302,7 @@ class TestDataHubDocumentsSource:
             embedding={
                 "provider": "cohere",
                 "model": "embed-english-v3.0",
+                "api_key": "test-api-key",
                 "allow_local_embedding_config": True,
             },
             stateful_ingestion={"enabled": False},
@@ -309,7 +313,7 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            assert source.embedding_model == "cohere/embed-english-v3.0"
+            assert source.chunking_source.embedding_model == "cohere/embed-english-v3.0"
 
     def test_update_document_state(self, ctx, config):
         """Test document state update."""
@@ -1421,6 +1425,7 @@ class TestConfigFingerprintInHash:
             embedding={
                 "provider": "cohere",  # Different provider
                 "model": "embed-english-v3.0",
+                "api_key": "test-api-key",
                 "model_embedding_key": "cohere_embed_v3",
                 "allow_local_embedding_config": True,
             },
@@ -1655,6 +1660,158 @@ class TestConfigFingerprintInHash:
                 assert documents[0]["urn"] == "urn:li:document:notion1"
 
 
+class TestMaxDocumentsLimit:
+    """Test max_documents limit behavior."""
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        """Create test context."""
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def test_default_max_documents(self, ctx, config):
+        """Test that max_documents defaults to 10000."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.chunking_source.config.max_documents == 10000
+
+    def test_max_documents_limit_raises_error(self, ctx, config):
+        """Test that RuntimeError is raised when max_documents limit is hit."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+
+            mock_docs = [
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
+                for i in range(5)
+            ]
+
+            fake_chunk = {"text": "chunk", "metadata": {}}
+
+            source.chunking_source.embedding_model = None
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
+                ),
+                pytest.raises(RuntimeError, match="Document limit of 2 reached"),
+            ):
+                list(source._process_batch_mode())
+
+            assert source.report.num_documents_limit_reached is True
+
+    def test_max_documents_flag_set_on_limit(self, ctx, config):
+        """Test that num_documents_limit_reached is set on the report when the limit is hit."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+
+            mock_docs = [
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
+                for i in range(5)
+            ]
+
+            fake_chunk = {"text": "chunk", "metadata": {}}
+
+            source.chunking_source.embedding_model = None
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
+                ),
+                pytest.raises(RuntimeError),
+            ):
+                list(source._process_batch_mode())
+
+            assert source.chunking_source.report.num_documents_limit_reached is True
+
+    def test_documents_processed_before_limit_are_emitted(self, ctx, config):
+        """Test that documents up to max_documents are fully processed before the error is raised."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+
+            mock_docs = [
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
+                for i in range(5)
+            ]
+
+            fake_chunk = {"text": "chunk", "metadata": {}}
+
+            source.chunking_source.embedding_model = None
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
+                ),
+                pytest.raises(RuntimeError),
+            ):
+                list(source._process_batch_mode())
+
+            assert source.chunking_source.report.num_documents_processed == 2
+
+
 class TestGetCurrentOffset:
     """Test get_current_offset() method in DocumentEventConsumer."""
 
@@ -1789,3 +1946,135 @@ class TestGetCurrentOffset:
             assert "offsetId" not in call_args[1]["params"]
             assert "lookbackWindowDays" not in call_args[1]["params"]
             assert offset == "test-offset-456"
+
+
+class TestDataHubGraphInitialization:
+    """Test DataHub graph initialization logic (ctx.graph vs config-based)."""
+
+    @pytest.fixture
+    def config(self):
+        """Create test configuration."""
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080", "token": "test-token"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    def test_uses_ctx_graph_when_available(self, config):
+        """Test that source uses ctx.graph when provided in pipeline context."""
+        # Create a mock graph
+        mock_graph = Mock()
+        mock_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_graph
+        )
+
+        # Initialize source
+        source = DataHubDocumentsSource(ctx, config)
+
+        # Verify source uses the context graph
+        assert source.graph is mock_graph
+        assert source.graph is ctx.graph
+
+    def test_creates_graph_from_config_when_ctx_graph_none(self, config):
+        """Test that source creates graph from config when ctx.graph is None."""
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock DataHubGraph constructor
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created from config
+            mock_graph_class.assert_called_once()
+            call_args = mock_graph_class.call_args[1]
+            assert "config" in call_args
+            assert call_args["config"].server == "http://test-server:8080"
+            assert call_args["config"].token == "test-token"
+
+            # Verify source uses the created graph
+            assert source.graph is mock_graph_instance
+
+    def test_graph_initialization_with_env_vars(self):
+        """Test graph creation falls back to env vars when config not provided."""
+        # Config with default datahub connection (should read from env vars)
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+        # Create context without graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=None
+        )
+
+        # Mock env vars
+        with (
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_url"
+            ) as mock_get_url,
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_config.env_vars.get_gms_token"
+            ) as mock_get_token,
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ) as mock_graph_class,
+        ):
+            mock_get_url.return_value = "http://env-server:8080"
+            mock_get_token.return_value = "env-token"
+            mock_graph_instance = Mock()
+            mock_graph_class.return_value = mock_graph_instance
+
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph was created (env vars are read in DataHubConnectionConfig)
+            mock_graph_class.assert_called_once()
+            assert source.graph is mock_graph_instance
+
+    def test_ctx_graph_takes_precedence_over_config(self, config):
+        """Test that ctx.graph takes precedence even when config has values."""
+        # Create a mock graph
+        mock_ctx_graph = Mock()
+        mock_ctx_graph.execute_graphql = Mock(return_value={"data": {}})
+
+        # Create context with graph
+        ctx = PipelineContext(
+            run_id="test-run", pipeline_name="test-pipeline", graph=mock_ctx_graph
+        )
+
+        # Mock DataHubGraph constructor to ensure it's NOT called
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ) as mock_graph_class:
+            # Initialize source
+            source = DataHubDocumentsSource(ctx, config)
+
+            # Verify DataHubGraph constructor was NOT called
+            mock_graph_class.assert_not_called()
+
+            # Verify source uses the context graph
+            assert source.graph is mock_ctx_graph
+            assert source.graph is not mock_graph_class.return_value

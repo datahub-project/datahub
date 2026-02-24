@@ -84,6 +84,8 @@ This will securely store your client secret"
 
     c. **client_secret:** Use the secret POWER_BI_CLIENT_SECRET with the format "${POWER_BI_CLIENT_SECRET}".
 
+    d. **environment:** (Optional) Specify the PowerBI environment to connect to. Use 'commercial' for commercial PowerBI (default) or 'government' for PowerBI Government Community Cloud (GCC).
+
 Optionally, use the `workspace_id_pattern` field to filter for specific workspaces.
 
     config:

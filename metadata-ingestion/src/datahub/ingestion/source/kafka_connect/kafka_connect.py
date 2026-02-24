@@ -864,11 +864,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     if source_dataset
                     else []
                 )
-                outlets = [
-                    self.make_lineage_dataset_urn(
-                        target_platform, target_dataset, target_platform_instance
-                    )
-                ]
+                outlets = (
+                    [
+                        self.make_lineage_dataset_urn(
+                            target_platform, target_dataset, target_platform_instance
+                        )
+                    ]
+                    if target_dataset
+                    else []
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,

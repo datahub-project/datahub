@@ -7,11 +7,14 @@ DataHub's SQL parser, enabling lineage extraction.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub_airflow_plugin._config import get_configured_env
+from datahub_airflow_plugin._config import (
+    get_configured_env,
+    get_enable_multi_statement,
+)
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._sql_parsing_common import parse_sql_with_datahub
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -82,7 +85,7 @@ def _render_teradata_sql_templates(
 
 def _enhance_teradata_lineage_with_sql_parsing(
     operator_lineage: "OperatorLineage",
-    rendered_sql: str,
+    rendered_sql: Union[str, List[str]],
     operator: Any,
 ) -> "OperatorLineage":
     """
@@ -99,21 +102,26 @@ def _enhance_teradata_lineage_with_sql_parsing(
             # Get database/schema from operator if available
             default_database = operator.schema if hasattr(operator, "schema") else None
 
+            # Get multi-statement config flag
+            enable_multi_statement = get_enable_multi_statement()
+
             logger.debug(
                 f"Running DataHub SQL parser for Teradata (platform={platform}, "
-                f"default_db={default_database}): {rendered_sql[:200] if rendered_sql else 'None'}"
+                f"default_db={default_database}, multi_statement={enable_multi_statement}): "
+                f"{str(rendered_sql)[:200] if rendered_sql else 'None'}"
             )
 
             env = get_configured_env()
 
             # Use DataHub's SQL parser
-            sql_parsing_result = create_lineage_sql_parsed_result(
-                query=rendered_sql,
+            sql_parsing_result = parse_sql_with_datahub(
+                sql=rendered_sql,
+                default_database=default_database,
                 platform=platform,
-                platform_instance=None,
                 env=env,
-                default_db=default_database,
                 default_schema=None,
+                graph=None,
+                enable_multi_statement=enable_multi_statement,
             )
 
             # Store the SQL parsing result in run_facets for DataHub listener
@@ -199,15 +207,16 @@ def _create_teradata_openlineage_wrapper(
                 logger.debug("No SQL query found in TeradataOperator")
                 return original_get_openlineage_facets_on_complete(self, task_instance)
 
-            # Handle list of SQL statements (TeradataOperator supports both str and list)
-            if isinstance(sql, list):
-                # Join multiple statements with semicolon
-                sql = ";\n".join(str(s) for s in sql)
-            else:
-                sql = str(sql)
-
+            # Keep SQL as-is (str or list) - parse_sql_with_datahub handles both
+            sql_preview = (
+                str(sql)[:100]
+                if isinstance(sql, str)
+                else str(sql[0])[:100]
+                if sql
+                else ""
+            )
             logger.debug(
-                f"DataHub patched Teradata get_openlineage_facets_on_complete called for query: {sql[:100]}"
+                f"DataHub patched Teradata get_openlineage_facets_on_complete called for query: {sql_preview}"
             )
 
             # Get the original OpenLineage result
@@ -235,7 +244,17 @@ def _create_teradata_openlineage_wrapper(
             )
 
             # Render SQL templates if needed
-            rendered_sql = _render_teradata_sql_templates(sql, self, task_instance)
+            # Handle both string and list of SQL statements
+            rendered_sql: Union[str, list]
+            if isinstance(sql, list):
+                rendered_sql = [
+                    _render_teradata_sql_templates(str(s), self, task_instance)
+                    for s in sql
+                ]
+            else:
+                rendered_sql = _render_teradata_sql_templates(
+                    str(sql), self, task_instance
+                )
 
             # Enhance with SQL parsing
             operator_lineage = _enhance_teradata_lineage_with_sql_parsing(

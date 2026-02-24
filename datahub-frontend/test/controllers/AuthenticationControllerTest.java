@@ -701,4 +701,30 @@ public class AuthenticationControllerTest {
       assertFalse(hasRedirectCookie, "No redirect cookie expected when redirectPath reset to '/'");
     }
   }
+
+  @Test
+  public void testAuthenticateWithProtocolRelativeRedirectUriResetsToRoot() {
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    // Use URL-encoded form so redirect_uri value is unambiguously ///google.com or //google.com
+    for (String redirectUriEncoded : new String[] {"%2F%2F%2Fgoogle.com", "%2F%2Fgoogle.com"}) {
+      Http.Request request =
+          new Http.RequestBuilder()
+              .method("GET")
+              .uri("/authenticate?redirect_uri=" + redirectUriEncoded)
+              .build();
+
+      try (MockedStatic<AuthUtils> authUtilsMock = mockStatic(auth.AuthUtils.class)) {
+        authUtilsMock.when(() -> auth.AuthUtils.hasValidSessionCookie(any())).thenReturn(true);
+
+        Result result = controller.authenticate(request);
+
+        assertEquals(303, result.status());
+        assertEquals("/", result.redirectLocation().orElse(""));
+        assertFalse(
+            result.redirectLocation().orElse("").startsWith("//"),
+            "Must not redirect to protocol-relative URL: " + redirectUriEncoded);
+      }
+    }
+  }
 }
