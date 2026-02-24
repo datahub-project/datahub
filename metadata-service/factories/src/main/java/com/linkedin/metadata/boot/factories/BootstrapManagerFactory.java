@@ -14,7 +14,6 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
@@ -75,10 +74,6 @@ public class BootstrapManagerFactory {
   private AspectMigrationsDao _migrationsDao;
 
   @Autowired
-  @Qualifier("ingestRetentionPoliciesStep")
-  private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
-
-  @Autowired
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
@@ -123,7 +118,6 @@ public class BootstrapManagerFactory {
                 waitForSystemUpdateStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
-                _ingestRetentionPoliciesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,

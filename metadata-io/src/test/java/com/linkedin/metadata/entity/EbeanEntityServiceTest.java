@@ -7,12 +7,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -48,6 +50,10 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.retention.DataHubRetentionConfig;
+import com.linkedin.retention.Retention;
+import com.linkedin.retention.TimeBasedRetention;
+import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -90,6 +96,9 @@ import org.testng.annotations.Test;
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
 
+  /** Real retention service used to test policy resolution without spy stubbing. */
+  private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
+
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
   @DataProvider(name = "cdcModeVariants")
@@ -130,7 +139,11 @@ public class EbeanEntityServiceTest
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
+    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
+    doReturn(20)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
     _entityServiceImpl.setRetentionService(_retentionService);
 
     opContext =
@@ -160,6 +173,59 @@ public class EbeanEntityServiceTest
   }
 
   @Test
+  public void testGetMaxVersionsToKeepForWrite_ResolvesPolicy() {
+    _realRetentionService.setRetention(
+        opContext,
+        null,
+        null,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(20))));
+    _realRetentionService.setRetention(
+        opContext,
+        CORP_USER_ENTITY_NAME,
+        STATUS_ASPECT_NAME,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
+
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, STATUS_ASPECT_NAME),
+        1);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, "corpUserInfo"),
+        20);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(opContext, "dataset", "schemaMetadata"),
+        20);
+  }
+
+  @Test
+  public void testApplyRetentionWithPolicyDefaults_VersionAndTimePolicies() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:retentionApplyTest");
+    List<RetentionService.RetentionContext> contexts =
+        List.of(
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName(STATUS_ASPECT_NAME)
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))
+                .maxVersion(Optional.of(2L))
+                .build(),
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName("corpUserInfo")
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setTime(new TimeBasedRetention().setMaxAgeInSeconds(3600))))
+                .build());
+    _realRetentionService.applyRetentionWithPolicyDefaults(opContext, contexts);
+  }
+
+  @Test
   public void testNoRowsUpdatedErrorHandling() throws Exception {
     // Setup test data
     Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testUser");
@@ -182,7 +248,7 @@ public class EbeanEntityServiceTest
         .thenReturn(new java.util.HashMap<>());
     when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
     // Stub saveLatestAspect to return a Pair with the mocked entity aspects
-    when(aspectDao.saveLatestAspect(any(), any(), any(), any()))
+    when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
         .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
 
     // Create mocked transaction context that throws on commitAndContinue
