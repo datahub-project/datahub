@@ -129,6 +129,5 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     public boolean isOptional() {
       return true;
     }
-
   }
 }

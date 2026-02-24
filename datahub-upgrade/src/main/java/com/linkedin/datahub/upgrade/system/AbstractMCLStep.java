@@ -201,5 +201,4 @@ public abstract class AbstractMCLStep implements PersistentUpgradeStep {
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
-
 }
