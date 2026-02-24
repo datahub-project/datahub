@@ -91,7 +91,12 @@ public class CassandraEntityServiceTest
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
+    CassandraRetentionService realRetentionService =
+        new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
+    _retentionService = (CassandraRetentionService) spy(realRetentionService);
+    doReturn(20)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
     _entityServiceImpl.setRetentionService(_retentionService);
 
     opContext =
