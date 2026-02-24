@@ -271,11 +271,13 @@ class DocumentChunkingSource(Source):
             and self.report.num_documents_processed >= self.config.max_documents
         ):
             self.report.num_documents_limit_reached = True
-            raise RuntimeError(
+            error_msg = (
                 f"Document limit of {self.config.max_documents} reached. "
                 f"Processed {self.report.num_documents_processed} documents. "
                 "Increase max_documents in the source config to process more."
             )
+            self.report.report_error(error_msg)
+            raise RuntimeError(error_msg)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Fetch documents, chunk them, generate embeddings, and emit SemanticContent."""
