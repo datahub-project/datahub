@@ -63,7 +63,7 @@ def mssql_connection(mssql_runner):
     """Create SQLAlchemy connection to test SQL Server instance."""
     # First, create database and enable Query Store using master connection
     master_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@localhost:21433/master?"
+        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -87,7 +87,7 @@ def mssql_connection(mssql_runner):
 
     # Now create engine connected to lineage_test database
     test_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@localhost:21433/lineage_test?"
+        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/lineage_test?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -379,7 +379,7 @@ class TestMSSQLLineageIntegration:
     def test_query_store_disabled_scenario(self, mssql_connection):
         """Test behavior when Query Store is disabled."""
         master_engine = sa.create_engine(
-            "mssql+pyodbc://sa:test!Password@localhost:21433/master?"
+            "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
             "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
@@ -391,7 +391,7 @@ class TestMSSQLLineageIntegration:
             master_conn.execute(text("ALTER DATABASE test_no_qs SET QUERY_STORE = OFF"))
 
         test_engine = sa.create_engine(
-            "mssql+pyodbc://sa:test!Password@localhost:21433/test_no_qs?"
+            "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/test_no_qs?"
             "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
@@ -697,6 +697,7 @@ class TestMSSQLLineageIntegration:
         aggregator.close()
 
 
+@pytest.mark.integration
 def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
     """
     BLOCKER: Verify actual lineage graph is correct, not just mechanics.
@@ -772,6 +773,7 @@ def test_end_to_end_lineage_graph_validation(mssql_connection, aggregator):
     conn.execute(text("DROP TABLE IF EXISTS lineage_target"))
 
 
+@pytest.mark.integration
 def test_column_level_lineage_validation(mssql_connection, aggregator):
     """BLOCKER: Verify column-level lineage is extracted correctly."""
     conn = mssql_connection
@@ -840,6 +842,7 @@ def test_column_level_lineage_validation(mssql_connection, aggregator):
 # =============================================================================
 
 
+@pytest.mark.integration
 def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
     """Test MERGE statement (common in MSSQL) produces correct lineage."""
     conn = mssql_connection
@@ -892,6 +895,7 @@ def test_merge_statement_lineage_extraction(mssql_connection, aggregator):
     assert merge_found, "MERGE statement not captured in query history"
 
 
+@pytest.mark.integration
 def test_select_into_creates_lineage(mssql_connection, aggregator):
     """Test SELECT INTO (MSSQL CTAS) produces lineage."""
     conn = mssql_connection
@@ -936,6 +940,7 @@ def test_select_into_creates_lineage(mssql_connection, aggregator):
     assert select_into_found, "SELECT INTO not captured in query history"
 
 
+@pytest.mark.integration
 def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
     """Test MSSQL-specific UPDATE with JOIN syntax."""
     conn = mssql_connection
@@ -991,6 +996,7 @@ def test_update_with_join_tsql_syntax(mssql_connection, aggregator):
     assert update_join_found, "UPDATE with JOIN not captured"
 
 
+@pytest.mark.integration
 def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
     """Test that bracket-quoted identifiers are handled correctly."""
     conn = mssql_connection
@@ -1047,6 +1053,7 @@ def test_bracket_quoted_identifiers_in_queries(mssql_connection, aggregator):
 # =============================================================================
 
 
+@pytest.mark.integration
 def test_stored_procedure_with_temp_tables_filtered(mssql_connection):
     """
     MAJOR: Document temp table filtering requirement.
@@ -1084,7 +1091,7 @@ def test_stored_procedure_with_temp_tables_filtered(mssql_connection):
 def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
     """End-to-end DMV extraction test simulating SQL Server 2014 (no Query Store)."""
     master_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@localhost:21433/master?"
+        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/master?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
@@ -1095,7 +1102,7 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
         master_conn.execute(text("ALTER DATABASE dmv_test_db SET QUERY_STORE = OFF"))
 
     test_engine = sa.create_engine(
-        "mssql+pyodbc://sa:test!Password@localhost:21433/dmv_test_db?"
+        "mssql+pyodbc://sa:test!Password@127.0.0.1:21433/dmv_test_db?"
         "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
