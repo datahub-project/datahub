@@ -1366,43 +1366,50 @@ class ModeSource(StatefulIngestionSourceBase):
         self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
     ) -> Iterable[MetadataWorkUnit]:
         if parsed_query_object is None:
+            logger.info(f"Failed to extract lineage from datasource {query_urn}")
+            return
+        if parsed_query_object.debug_info.table_error:
             logger.info(
-                f"Failed to extract column level lineage from datasource {query_urn}"
+                f"Failed to extract table lineage from datasource {query_urn}: {parsed_query_object.debug_info.table_error}"
             )
             return
-        if parsed_query_object.debug_info.error:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.error}"
-            )
-            return
-
-        cll: List[ColumnLineageInfo] = (
-            parsed_query_object.column_lineage
-            if parsed_query_object.column_lineage is not None
-            else []
-        )
 
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
-        for cll_info in cll:
-            downstream = (
-                [builder.make_schema_field_urn(query_urn, cll_info.downstream.column)]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+        if parsed_query_object.debug_info.column_error:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.column_error}"
+            )
+        else:
+            cll: List[ColumnLineageInfo] = (
+                parsed_query_object.column_lineage
+                if parsed_query_object.column_lineage is not None
                 else []
             )
-            upstreams = [
-                builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                for column_ref in cll_info.upstreams
-            ]
-            fine_grained_lineages.append(
-                FineGrainedLineageClass(
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=downstream,
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=upstreams,
+
+            for cll_info in cll:
+                downstream = (
+                    [
+                        builder.make_schema_field_urn(
+                            query_urn, cll_info.downstream.column
+                        )
+                    ]
+                    if cll_info.downstream is not None
+                    and cll_info.downstream.column is not None
+                    else []
                 )
-            )
+                upstreams = [
+                    builder.make_schema_field_urn(column_ref.table, column_ref.column)
+                    for column_ref in cll_info.upstreams
+                ]
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=downstream,
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=upstreams,
+                    )
+                )
 
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
@@ -1413,7 +1420,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
                 for input_table_urn in parsed_query_object.in_tables
             ],
-            fineGrainedLineages=fine_grained_lineages,
+            fineGrainedLineages=fine_grained_lineages or None,
         )
 
         yield MetadataChangeProposalWrapper(
