@@ -216,17 +216,10 @@ ORDER BY table_name, ordinal_position
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
 
         # STEP 1: Security validation - prevent SQL injection attacks
-        try:
-            safe_project = validate_bigquery_identifier(db_name, "project")
-            safe_schema = validate_bigquery_identifier(schema_name, "dataset")
-            safe_table = validate_bigquery_identifier(bq_table.name, "table")
-        except ValueError as e:
-            self.report.report_warning(
-                title="Invalid identifier in profiling",
-                message=f"Skipping profiling due to invalid identifier: {e}",
-                context=table_ref,
-            )
-            return None
+        # Raises ValueError for invalid identifiers; callers should catch and skip the table.
+        safe_project = validate_bigquery_identifier(db_name, "project")
+        safe_schema = validate_bigquery_identifier(schema_name, "dataset")
+        safe_table = validate_bigquery_identifier(bq_table.name, "table")
 
         # STEP 2: Initialize base kwargs for Great Expectations profiler
         base_kwargs = {
@@ -377,7 +370,19 @@ WHERE {partition_where}"""
         External tables use deferred partition discovery (STAGE 4) to avoid blocking
         the main profiling pipeline with expensive partition queries.
         """
-        profile_request = super().get_profile_request(table, schema_name, db_name)
+        try:
+            profile_request = super().get_profile_request(table, schema_name, db_name)
+        except ValueError as e:
+            # get_batch_kwargs raises ValueError for identifiers that fail security
+            # validation (e.g. table names with unsupported characters). Skip gracefully
+            # rather than crashing the whole pipeline.
+            table_ref = f"{db_name}.{schema_name}.{table.name}"
+            self.report.report_warning(
+                title="Invalid identifier in profiling",
+                message=f"Skipping profiling due to invalid identifier: {e}",
+                context=table_ref,
+            )
+            return None
 
         if not profile_request:
             return None
