@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useBaseEntity: vi.fn(),
@@ -84,7 +85,11 @@ describe('QueriesTab (v2)', () => {
             },
         });
 
-        render(<QueriesTab />);
+        render(
+            <TestPageContainer>
+                <QueriesTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
         expect(screen.getByTestId('empty-text')).toHaveTextContent(/don't have permission to view queries/);
@@ -101,7 +106,11 @@ describe('QueriesTab (v2)', () => {
             },
         });
 
-        render(<QueriesTab />);
+        render(
+            <TestPageContainer>
+                <QueriesTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
         expect(screen.getByTestId('section-name')).toHaveTextContent('Highlighted Queries');
@@ -114,7 +123,11 @@ describe('QueriesTab (v2)', () => {
             },
         });
 
-        render(<QueriesTab />);
+        render(
+            <TestPageContainer>
+                <QueriesTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
         expect(screen.getByTestId('section-name')).toHaveTextContent('Highlighted Queries');
