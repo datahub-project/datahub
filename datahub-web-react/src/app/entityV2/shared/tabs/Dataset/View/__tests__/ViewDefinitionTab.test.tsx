@@ -24,6 +24,10 @@ vi.mock('@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection', (
     ViewHeader: ({ children }: { children: React.ReactNode }) => <div data-testid="view-header">{children}</div>,
 }));
 
+vi.mock('@graphql/app.generated', () => ({
+    useAppConfigQuery: vi.fn().mockReturnValue({ data: undefined, refetch: vi.fn() }),
+}));
+
 describe('ViewDefinitionTab (v2)', () => {
     beforeEach(() => {
         vi.clearAllMocks();

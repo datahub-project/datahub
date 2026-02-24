@@ -17,6 +17,10 @@ vi.mock('../AddButton', () => ({
     ),
 }));
 
+vi.mock('@graphql/app.generated', () => ({
+    useAppConfigQuery: vi.fn().mockReturnValue({ data: undefined, refetch: vi.fn() }),
+}));
+
 describe('EmptyQueriesSection', () => {
     it('should render default empty text when emptyText is not provided', () => {
         render(
