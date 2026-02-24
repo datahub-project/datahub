@@ -161,7 +161,19 @@ class TestReplaceDefinitions:
         source = _make_source_with_definitions({"my_def": "SELECT id FROM orders"})
         query = "SELECT * FROM {{ @my_def as order_tbl }}"
         result = source._replace_definitions(query)
-        assert "(SELECT id FROM orders) as order_tbl" in result
+        assert "(SELECT id FROM orders\n) as order_tbl" in result
+
+    def test_definition_ending_with_line_comment(self):
+        """Trailing -- comment in a definition body must not swallow the closing paren."""
+        source = _make_source_with_definitions(
+            {"my_def": "SELECT id FROM orders\n-- some comment"}
+        )
+        query = "SELECT * FROM {{ @my_def as tbl }} WHERE 1=1"
+        result = source._replace_definitions(query)
+        # The closing ") as tbl" must NOT be inside the comment
+        assert ") as tbl" in result
+        # Verify the comment is terminated by a newline before the paren
+        assert "-- some comment\n) as tbl" in result
 
     def test_circular_reference_detected(self):
         source = _make_source_with_definitions(
@@ -214,11 +226,11 @@ class TestReplaceDefinitions:
         )
         result = source._replace_definitions(query)
         assert (
-            "(SELECT user_id, total FROM orders WHERE dt > '2024-01-01') as orders"
+            "(SELECT user_id, total FROM orders WHERE dt > '2024-01-01'\n) as orders"
             in result
         )
-        assert "(SELECT id, name FROM users WHERE active = true) as buyers" in result
-        assert "(SELECT id, name FROM users WHERE active = true) as sellers" in result
+        assert "(SELECT id, name FROM users WHERE active = true\n) as buyers" in result
+        assert "(SELECT id, name FROM users WHERE active = true\n) as sellers" in result
 
     def test_nested_definitions(self):
         """A definition whose body references another definition should have
@@ -235,10 +247,11 @@ class TestReplaceDefinitions:
         )
         result = source._replace_definitions(query)
         assert (
-            "(SELECT channel_name FROM dim_channels WHERE paid = true) as ch" in result
+            "(SELECT channel_name FROM dim_channels WHERE paid = true\n) as ch"
+            in result
         )
         assert (
-            "(SELECT channel_name FROM dim_channels WHERE paid = true) as all_ch"
+            "(SELECT channel_name FROM dim_channels WHERE paid = true\n) as all_ch"
             in result
         )
 
@@ -250,8 +263,8 @@ class TestReplaceDefinitions:
         )
         query = "SELECT * FROM (SELECT * FROM {{ @active_accounts }}) accts"
         result = source._replace_definitions(query)
-        assert "(SELECT id FROM accounts WHERE active = true)" in result
-        assert "(SELECT id FROM accounts WHERE active = true) as " not in result
+        assert "(SELECT id FROM accounts WHERE active = true\n)" in result
+        assert "as " not in result.split("active = true\n)")[1][:5]
 
 
 # ──────────────────────────────────────────────────────────────────────
