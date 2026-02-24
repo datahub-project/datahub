@@ -33,8 +33,6 @@ class Constant:
     EMAIL = "email"
     ENTRIES = "entries"
     MEMBERID = "memberId"
-    FIRSTNAME = "firstName"
-    LASTNAME = "lastName"
     EDGES = "edges"
     DEPENDENCIES = "dependencies"
     SOURCE = "source"
