@@ -11,6 +11,7 @@ import {
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Checkbox, Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
@@ -59,7 +60,7 @@ const DisplayPreferences = ({
             <StyledCollapse
                 ghost
                 expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                    <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
                 )}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}

@@ -1,4 +1,6 @@
 import { Card, Icon, Text, colors } from '@components';
+import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -45,7 +47,7 @@ interface Props {
 export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
     return (
         <Card
-            icon={<Icon icon="MegaphoneSimple" source="phosphor" color="violet" weight="fill" size="2xl" />}
+            icon={<Icon icon={MegaphoneSimple} color="violet" weight="fill" size="2xl" />}
             title={
                 <Text color="violet" weight="semiBold" size="md" lineHeight="normal">
                     {announcement.content.title}
@@ -58,8 +60,7 @@ export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
             }
             button={
                 <StyledIcon
-                    icon="X"
-                    source="phosphor"
+                    icon={X}
                     color="violet"
                     size="xl"
                     onClick={() => onDismiss(announcement.urn)}

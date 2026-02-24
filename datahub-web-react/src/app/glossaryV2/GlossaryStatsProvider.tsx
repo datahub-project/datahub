@@ -1,5 +1,5 @@
 import Icon from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';

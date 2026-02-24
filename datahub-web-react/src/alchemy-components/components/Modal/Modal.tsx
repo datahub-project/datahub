@@ -1,4 +1,5 @@
 import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -95,7 +96,7 @@ export function Modal({
             centered
             closable={closable}
             onCancel={onCancel}
-            closeIcon={closable ? <Icon icon="X" source="phosphor" data-testid="modal-close-icon" /> : null}
+            closeIcon={closable ? <Icon icon={X} data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={

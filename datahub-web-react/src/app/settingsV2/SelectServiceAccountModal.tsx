@@ -1,3 +1,4 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Empty } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -165,7 +166,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                 <Input
                     label=""
                     placeholder="Search service accounts..."
-                    icon={{ icon: 'Search', source: 'material' }}
+                    icon={{ icon: MagnifyingGlass }}
                     value={searchText}
                     setValue={setSearchText}
                     inputTestId="search-service-accounts-input"

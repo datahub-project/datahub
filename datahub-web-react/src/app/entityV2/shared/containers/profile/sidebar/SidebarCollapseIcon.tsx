@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
-import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 

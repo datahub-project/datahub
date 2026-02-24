@@ -1,5 +1,7 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
+import { Download } from '@phosphor-icons/react/dist/csr/Download';
 import React from 'react';
 
 import { Icon } from '@components/components/Icon';
@@ -135,8 +137,8 @@ export const withoutSubtitle = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Card title="Title" subTitle="Subtitle" icon={<Icon icon="Cloud" color="gray" />} />
-        <Card title="Title" subTitle="Subtitle" icon={<Icon icon="Cloud" color="gray" />} iconAlignment="vertical" />
+        <Card title="Title" subTitle="Subtitle" icon={<Icon icon={Cloud} color="gray" />} />
+        <Card title="Title" subTitle="Subtitle" icon={<Icon icon={Cloud} color="gray" />} iconAlignment="vertical" />
     </GridList>
 );
 
@@ -144,7 +146,7 @@ export const withButton = () => (
     <Card
         title="Title"
         subTitle="Subtitle"
-        button={<Icon icon="Download" color="gray" size="2xl" />}
+        button={<Icon icon={Download} color="gray" size="2xl" />}
         onClick={() => window.alert('Card clicked')}
     />
 );
@@ -156,8 +158,8 @@ export const withAllTheElements = () => (
         title="Title"
         subTitle="Subtitle"
         percent={2}
-        icon={<Icon icon="Cloud" color="gray" />}
-        button={<Icon icon="Download" color="gray" size="2xl" />}
+        icon={<Icon icon={Cloud} color="gray" />}
+        button={<Icon icon={Download} color="gray" size="2xl" />}
         onClick={() => window.alert('Card clicked')}
     >
         <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>

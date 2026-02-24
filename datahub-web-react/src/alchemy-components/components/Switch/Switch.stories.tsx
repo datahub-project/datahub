@@ -1,9 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { Switch, switchDefaults } from '@components/components/Switch/Switch';
 
 const meta = {
@@ -43,7 +43,7 @@ const meta = {
         icon: {
             description: 'The icon to display in the Switch Slider.',
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -155,7 +155,7 @@ export const states = () => (
     <GridList isVertical>
         <Switch label="Disabled" isDisabled />
         <Switch label="Required" isRequired />
-        <Switch label="with Icon" icon="Add" />
+        <Switch label="with Icon" icon={Plus} />
     </GridList>
 );
 

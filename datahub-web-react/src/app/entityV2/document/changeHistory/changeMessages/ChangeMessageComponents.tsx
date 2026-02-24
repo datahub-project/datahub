@@ -6,6 +6,7 @@ import { useParentDocumentTitle } from '@app/entityV2/document/changeHistory/hoo
 import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/changeUtils';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import { Icon } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
@@ -68,7 +69,7 @@ const ActorDisplay: React.FC<ActorDisplayProps> = ({ actorName, actor }) => {
     if (isSystem) {
         return (
             <ActorName>
-                <Icon icon="Sparkle" color="violet" size="sm" />
+                <Icon icon={Sparkle} color="violet" size="sm" />
                 {actorName}
             </ActorName>
         );

@@ -1,4 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tooltip } from '@components';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -321,7 +323,7 @@ const StructuredPropsDrawer = ({
                     {showAllowedValuesDrawer ? (
                         <TitleContainer>
                             <StyledIcon
-                                icon="ArrowBack"
+                                icon={ArrowLeft}
                                 color="gray"
                                 size="3xl"
                                 onClick={() => setShowAllowedValuesDrawer(false)}
@@ -335,7 +337,7 @@ const StructuredPropsDrawer = ({
                             {`${isEditMode ? 'Edit' : 'Create'} Structured Property`}
                         </Text>
                     )}
-                    <StyledIcon icon="Close" color="gray" onClick={handleClose} />
+                    <StyledIcon icon={X} color="gray" onClick={handleClose} />
                 </DrawerHeader>
             }
             footer={

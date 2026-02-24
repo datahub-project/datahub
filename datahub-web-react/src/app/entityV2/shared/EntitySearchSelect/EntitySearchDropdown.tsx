@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -179,7 +180,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     value={searchQuery}
                     setValue={handleSearchChange}
                     placeholder={placeholder}
-                    icon={{ icon: 'Search' }}
+                    icon={{ icon: MagnifyingGlass }}
                     data-testid="entity-search-select-input"
                 />
             </SearchInputContainer>

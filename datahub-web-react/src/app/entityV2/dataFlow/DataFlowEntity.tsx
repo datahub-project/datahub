@@ -1,12 +1,10 @@
-import {
-    ArrowsClockwise,
-    FileText,
-    ListBullets,
-    Share,
-    ShareNetwork,
-    TreeStructure,
-    WarningCircle,
-} from '@phosphor-icons/react';
+import { ShareAltOutlined } from '@ant-design/icons';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -52,12 +50,20 @@ export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
+        if (styleType === IconStyleType.TAB_VIEW) {
+            return <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+        }
+
+        if (styleType === IconStyleType.HIGHLIGHT) {
+            return (
+                <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />
+            );
+        }
+
         return (
-            <ShareNetwork
+            <ShareAltOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 14}
-                color={color || 'currentColor'}
-                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };

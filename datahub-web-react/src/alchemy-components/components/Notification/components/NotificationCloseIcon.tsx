@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { Icon, IconProps } from '@components/components/Icon';
 import { NotificationType } from '@components/components/Notification/types';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const IconWrapper = styled.div`
     display: flex;
@@ -12,8 +13,7 @@ const IconWrapper = styled.div`
 
 function getIconProps(notificationType: NotificationType): IconProps {
     const defaultProps: IconProps = {
-        source: 'phosphor',
-        icon: 'X',
+        icon: X,
         size: 'lg',
     };
 

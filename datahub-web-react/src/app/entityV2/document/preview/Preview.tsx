@@ -1,7 +1,8 @@
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -53,7 +54,7 @@ export const Preview = ({
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
-            typeIcon={entityRegistry.getIcon(EntityType.Document, 14, IconStyleType.ACCENT)}
+            typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

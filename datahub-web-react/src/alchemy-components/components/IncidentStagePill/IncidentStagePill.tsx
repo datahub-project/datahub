@@ -1,4 +1,8 @@
-import { CheckCircle, Circle, CircleDashed, CircleHalf, Hexagon } from '@phosphor-icons/react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Circle } from '@phosphor-icons/react/dist/csr/Circle';
+import { CircleDashed } from '@phosphor-icons/react/dist/csr/CircleDashed';
+import { CircleHalf } from '@phosphor-icons/react/dist/csr/CircleHalf';
+import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
 
 import { IncidentStageLabel } from '@components/components/IncidentStagePill/constant';

@@ -1,4 +1,4 @@
-import { BookOpen } from '@phosphor-icons/react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
 import styled from 'styled-components';
 

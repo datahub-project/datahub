@@ -17,6 +17,7 @@ import {
     StructuredProp,
     isEntityTypeSelected,
 } from '@app/govern/structuredProperties/utils';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
@@ -80,7 +81,7 @@ const StructuredPropsFormSection = ({
                                 title="Choose the types of entities that are allowed as values for this property"
                                 showArrow={false}
                             >
-                                <Icon icon="Info" color="violet" size="lg" />
+                                <Icon icon={Info} color="violet" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                         {isEditMode && (
@@ -131,7 +132,7 @@ const StructuredPropsFormSection = ({
                             title="Select the types of entities that this property can be added to"
                             showArrow={false}
                         >
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                     {isEditMode && (

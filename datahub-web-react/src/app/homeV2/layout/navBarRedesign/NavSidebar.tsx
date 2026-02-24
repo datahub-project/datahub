@@ -1,19 +1,17 @@
-import {
-    AppWindow,
-    BookBookmark,
-    FileText,
-    Gear,
-    Globe,
-    HardDrives,
-    Plugs,
-    Question,
-    SignOut,
-    SquaresFour,
-    Tag,
-    TextColumns,
-    TrendUp,
-    UserCircle,
-} from '@phosphor-icons/react';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { BookBookmark } from '@phosphor-icons/react/dist/csr/BookBookmark';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';

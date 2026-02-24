@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 

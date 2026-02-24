@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { ItemType } from '@components/components/Menu/types';
+import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import { sortMenuItems } from '@components/components/Menu/utils';
 
 import useBasicAssetProperties from '@app/entityV2/summary/properties/hooks/useBasicAssetProperties';
@@ -20,7 +21,7 @@ export default function useAddPropertyMenuItems(onClick: (property: AssetPropert
                 type: 'item',
                 key: 'structuredProperties',
                 title: 'Properties',
-                icon: 'ListDashes',
+                icon: ListDashes,
                 children: structuredPropertiesMenuItems,
             });
         }

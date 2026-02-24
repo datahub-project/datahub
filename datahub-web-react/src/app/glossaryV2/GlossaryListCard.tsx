@@ -1,4 +1,5 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';

@@ -12,6 +12,7 @@ import {
     IconsContainer,
     SelectContainer,
 } from '@app/sharedV2/queryBuilder/styledComponents';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Icon } from '@src/alchemy-components';
 
 interface Props {
@@ -89,7 +90,7 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
             </SelectContainer>
             <IconsContainer>
                 <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => onDeletePredicate(index)} />
+                    <Icon icon={Trash} size="md" onClick={() => onDeletePredicate(index)} />
                 </CardIcons>
             </IconsContainer>
         </ConditionContainer>

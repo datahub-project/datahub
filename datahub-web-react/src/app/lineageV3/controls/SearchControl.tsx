@@ -1,5 +1,8 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -95,19 +98,19 @@ export default function SearchControl() {
                             </span>
                             <VerticalDivider margin={8} />
                             <Button
-                                icon={{ icon: 'KeyboardArrowUp', source: 'material' }}
+                                icon={{ icon: CaretUp }}
                                 variant="outline"
                                 size="sm"
                                 onClick={prev}
                             />
                             <Button
-                                icon={{ icon: 'KeyboardArrowDown', source: 'material' }}
+                                icon={{ icon: CaretDown }}
                                 variant="outline"
                                 size="sm"
                                 onClick={next}
                             />
                             <Button
-                                icon={{ icon: 'Close', source: 'material' }}
+                                icon={{ icon: X }}
                                 variant="outline"
                                 size="sm"
                                 onClick={close}

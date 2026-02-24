@@ -1,4 +1,5 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import { useDraggable } from '@dnd-kit/core';
 import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
@@ -118,8 +119,7 @@ function LargeModule({
                             {...listeners}
                             size="lg"
                             color="gray"
-                            icon="DotsSixVertical"
-                            source="phosphor"
+                            icon={DotsSixVertical}
                             isDragging={isDragging}
                         />
                     )}

@@ -1,4 +1,4 @@
-import { Image } from '@phosphor-icons/react';
+import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
 import { Form } from 'antd';
 import { FormInstance } from 'antd/es/form/Form';

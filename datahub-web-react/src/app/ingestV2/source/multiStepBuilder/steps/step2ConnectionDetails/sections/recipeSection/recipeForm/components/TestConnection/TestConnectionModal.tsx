@@ -1,4 +1,6 @@
 import { Modal, PageTitle, Pill, Text, spacing } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components/macro';
@@ -75,10 +77,10 @@ function TestConnectionModal({
         if (isLoading) return null;
 
         if (testConnectionFailed) {
-            return <Pill iconSource="phosphor" leftIcon="X" color="red" label="Failed" />;
+            return <Pill leftIcon={X} color="red" label="Failed" />;
         }
 
-        return <Pill iconSource="phosphor" leftIcon="Check" color="green" label="Successful" />;
+        return <Pill leftIcon={Check} color="green" label="Successful" />;
     }, [isLoading, testConnectionFailed]);
 
     return (

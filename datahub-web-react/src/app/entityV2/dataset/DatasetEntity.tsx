@@ -11,7 +11,10 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { Columns, ListBullets, Table, TreeStructure } from '@phosphor-icons/react';
+import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
+import { Columns } from '@phosphor-icons/react/dist/csr/Columns';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -94,15 +97,27 @@ export class DatasetEntity implements Entity<Dataset> {
     type: EntityType = EntityType.Dataset;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.SVG) {
-            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" fill="currentColor" />;
+        if (styleType === IconStyleType.TAB_VIEW) {
+            return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
+
+        if (styleType === IconStyleType.HIGHLIGHT) {
+            return (
+                <ViewComfyOutlinedIcon
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                />
+            );
+        }
+
+        if (styleType === IconStyleType.SVG) {
+            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" />;
+        }
+
         return (
-            <Table
+            <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 14}
-                color={color || 'currentColor'}
-                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };

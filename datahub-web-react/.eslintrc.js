@@ -112,6 +112,19 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
+        '@typescript-eslint/no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: '@phosphor-icons/react',
+                        message:
+                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
+                        allowTypeImports: true,
+                    },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',

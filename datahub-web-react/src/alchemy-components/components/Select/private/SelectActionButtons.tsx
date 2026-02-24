@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { Button } from '@components/components/Button';
 import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 
 import { colors, shadows } from '@src/alchemy-components/theme';
 
@@ -48,14 +50,14 @@ export default function SelectActionButtons({
         <ActionButtonsContainer>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon={{ icon: 'X', source: 'phosphor', size: 'md' }}
+                    icon={{ icon: X, size: 'md' }}
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
                     data-testid="button-clear"
                 />
             )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
+            <StyledIcon icon={CaretDown} rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>
     );
 }

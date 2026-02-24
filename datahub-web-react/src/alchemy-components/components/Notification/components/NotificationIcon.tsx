@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { Icon, IconProps } from '@components/components/Icon';
 import { NotificationType } from '@components/components/Notification/types';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 
 const IconWrapper = styled.div`
     display: flex;
@@ -21,8 +22,7 @@ function getIconProps(notificationType: NotificationType): IconProps | undefined
             color: 'red',
             colorLevel: 1200,
             weight: 'fill',
-            source: 'phosphor',
-            icon: 'ExclamationMark',
+            icon: ExclamationMark,
         };
     }
 
