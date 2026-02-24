@@ -111,11 +111,9 @@ sqlglot_lib = {
     # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
-    # Note: [rs] is deprecated in favor of [c] (https://github.com/tobymao/sqlglot/pull/7120),
-    # but [c] is incompatible with our patchy-based monkeypatching. We continue using [rs] for now;
-    # migration to [c] will require replacing patchy with an alternative approach.
-    "sqlglot[rs]==29.0.1",
-    "patchy==2.8.0",
+    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
+    # Replaced patchy with runtime function replacement for [c] compatibility.
+    "sqlglot[c]==29.0.1",
 }
 
 classification_lib = {

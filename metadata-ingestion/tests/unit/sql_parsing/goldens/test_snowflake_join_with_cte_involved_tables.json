@@ -80,26 +80,6 @@
         {
             "join_type": "JOIN",
             "left_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
-            ],
-            "right_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
-            ],
-            "on_clause": "\"T1\".\"ID\" = \"T2\".\"ID\"",
-            "columns_involved": [
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
-                    "column": "ID"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
-                    "column": "ID"
-                }
-            ]
-        },
-        {
-            "join_type": "JOIN",
-            "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)"
             ],
             "right_tables": [
@@ -113,6 +93,26 @@
                 },
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)",
+                    "column": "ID"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
+            ],
+            "on_clause": "\"T1\".\"ID\" = \"T2\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
                     "column": "ID"
                 }
             ]
