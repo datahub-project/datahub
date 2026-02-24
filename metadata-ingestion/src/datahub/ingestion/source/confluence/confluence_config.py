@@ -246,25 +246,6 @@ class ConfluenceSourceConfig(
         description="Advanced ingestion options.",
     )
 
-    max_documents: int = Field(
-        default=10000,
-        gt=-2,
-        description="Maximum number of documents to process per ingestion run. "
-        "The job will stop and fail with an error once this limit is reached. "
-        "Set to -1 to disable the limit.",
-    )
-
-    rate_limit: bool = Field(
-        default=True,
-        description="Enable rate limiting for embedding API calls.",
-    )
-
-    documents_per_minute: int = Field(
-        default=300,
-        gt=0,
-        description="Maximum number of documents to embed per minute when rate_limit is enabled.",
-    )
-
     @field_validator("platform_instance")
     @classmethod
     def validate_platform_instance(cls, v: Optional[str]) -> Optional[str]:

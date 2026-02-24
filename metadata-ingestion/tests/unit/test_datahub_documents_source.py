@@ -1665,7 +1665,7 @@ class TestMaxDocumentsLimit:
 
     @pytest.fixture
     def config(self):
-        """Create test configuration with a small max_documents limit."""
+        """Create test configuration."""
         return DataHubDocumentsSourceConfig(
             platform_filter=["notion"],
             datahub={"server": "http://test-server:8080"},
@@ -1676,7 +1676,6 @@ class TestMaxDocumentsLimit:
                 "allow_local_embedding_config": True,
             },
             stateful_ingestion={"enabled": False},
-            max_documents=2,
         )
 
     @pytest.fixture
@@ -1684,10 +1683,13 @@ class TestMaxDocumentsLimit:
         """Create test context."""
         return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
 
-    def test_default_max_documents(self):
+    def test_default_max_documents(self, ctx, config):
         """Test that max_documents defaults to 10000."""
-        config = DataHubDocumentsSourceConfig()
-        assert config.max_documents == 10000
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            assert source.chunking_source.config.max_documents == 10000
 
     def test_max_documents_limit_raises_error(self, ctx, config):
         """Test that RuntimeError is raised when max_documents limit is hit."""
@@ -1695,6 +1697,7 @@ class TestMaxDocumentsLimit:
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
 
             mock_docs = [
                 {
@@ -1708,6 +1711,18 @@ class TestMaxDocumentsLimit:
 
             def fake_process_inline(document_urn, elements):
                 source.chunking_source.report.report_document_processed(1)
+                max_docs = source.chunking_source.config.max_documents
+                if (
+                    max_docs > 0
+                    and source.chunking_source.report.num_documents_processed
+                    >= max_docs
+                ):
+                    source.chunking_source.report.num_documents_limit_reached = True
+                    raise RuntimeError(
+                        f"Document limit of {max_docs} reached. "
+                        f"Processed {source.chunking_source.report.num_documents_processed} documents. "
+                        "Increase max_documents in the source config to process more."
+                    )
                 return iter([])
 
             with (
@@ -1736,18 +1751,25 @@ class TestMaxDocumentsLimit:
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+            max_documents = source.chunking_source.config.max_documents
 
             # Set report counter to one below the limit
-            source.report.num_documents_processed = config.max_documents - 1
+            source.chunking_source.report.num_documents_processed = max_documents - 1
 
             # Simulate processing one more document which should trigger the limit
-            source.report.report_document_processed(1)
-            assert source.report.num_documents_processed == config.max_documents
+            source.chunking_source.report.report_document_processed(1)
+            assert (
+                source.chunking_source.report.num_documents_processed == max_documents
+            )
 
-            if source.report.num_documents_processed >= source.config.max_documents:
-                source.report.num_documents_limit_reached = True
+            if (
+                source.chunking_source.report.num_documents_processed
+                >= source.chunking_source.config.max_documents
+            ):
+                source.chunking_source.report.num_documents_limit_reached = True
 
-            assert source.report.num_documents_limit_reached is True
+            assert source.chunking_source.report.num_documents_limit_reached is True
 
     def test_documents_processed_before_limit_are_emitted(self, ctx, config):
         """Test that documents processed before the limit are emitted."""
@@ -1755,14 +1777,19 @@ class TestMaxDocumentsLimit:
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+            max_documents = source.chunking_source.config.max_documents
 
             processed_urns = []
 
             def mock_process(doc):
                 processed_urns.append(doc["urn"])
-                source.report.report_document_processed(1)
-                if source.report.num_documents_processed >= source.config.max_documents:
-                    source.report.num_documents_limit_reached = True
+                source.chunking_source.report.report_document_processed(1)
+                if (
+                    source.chunking_source.report.num_documents_processed
+                    >= source.chunking_source.config.max_documents
+                ):
+                    source.chunking_source.report.num_documents_limit_reached = True
                     raise RuntimeError("Document limit reached.")
                 return iter([])
 
@@ -1783,8 +1810,8 @@ class TestMaxDocumentsLimit:
                 list(source._process_batch_mode())
 
             # Should have processed exactly max_documents (2) before stopping
-            assert len(processed_urns) == config.max_documents
-            assert source.report.num_documents_limit_reached is True
+            assert len(processed_urns) == max_documents
+            assert source.chunking_source.report.num_documents_limit_reached is True
 
 
 class TestGetCurrentOffset:

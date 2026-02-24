@@ -47,7 +47,6 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
-from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -151,16 +150,6 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
         # Initialize text partitioner
         self.text_partitioner = TextPartitioner()
-
-        # Initialize rate limiter for embedding calls
-        self.rate_limiter: Optional[RateLimiter] = (
-            RateLimiter(
-                max_calls=config.documents_per_minute,
-                period=60.0,
-            )
-            if config.rate_limit
-            else None
-        )
 
         # Initialize chunking/embedding sub-component (same pattern as NotionSource)
         chunking_config = DocumentChunkingSourceConfig(
@@ -966,36 +955,23 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 self.report.report_document_skipped()
                 return
 
-            # Delegate chunking + embedding + SemanticContent emission to chunking_source
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    yield from self.chunking_source.process_elements_inline(
-                        document_urn=document_urn, elements=elements
-                    )
-            else:
-                yield from self.chunking_source.process_elements_inline(
-                    document_urn=document_urn, elements=elements
-                )
+            # Delegate chunking + embedding + SemanticContent emission to chunking_source.
+            # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+            yield from self.chunking_source.process_elements_inline(
+                document_urn=document_urn, elements=elements
+            )
 
-            if (
-                self.config.max_documents > 0
-                and self.chunking_source.report.num_documents_processed
-                >= self.config.max_documents
-            ):
+        except RuntimeError as e:
+            if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
-                raise RuntimeError(
-                    f"Document limit of {self.config.max_documents} reached. "
-                    f"Processed {self.chunking_source.report.num_documents_processed} documents. "
-                    "Increase max_documents in the source config to process more."
-                )
-
+                raise
+            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
+            logger.error(error_msg, exc_info=True)
+            self.report.report_error(error_msg)
         except Exception as e:
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
             logger.error(error_msg, exc_info=True)
             self.report.report_error(error_msg)
-
-            if self.report.num_documents_limit_reached:
-                raise e
 
     def get_report(self) -> SourceReport:
         # Forward embedding stats from the chunking sub-component into our report
@@ -1005,6 +981,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         self.report.num_chunks_created = self.chunking_source.report.num_chunks_created
         self.report.num_embeddings_generated = (
             self.chunking_source.report.num_embeddings_generated
+        )
+        self.report.num_documents_limit_reached = (
+            self.chunking_source.report.num_documents_limit_reached
         )
         return self.report
 

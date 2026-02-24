@@ -35,8 +35,6 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
-
-    # Document limit
     num_documents_limit_reached: bool = False
 
     # Performance metrics

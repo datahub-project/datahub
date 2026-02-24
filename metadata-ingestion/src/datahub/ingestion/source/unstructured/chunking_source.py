@@ -35,6 +35,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
     get_semantic_search_config,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
@@ -53,6 +54,9 @@ class DocumentChunkingReport(SourceReport):
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
     processing_errors: list[str] = field(default_factory=list)
+
+    # Document limit
+    num_documents_limit_reached: bool = False
 
     # Embedding statistics
     num_documents_with_embeddings: int = 0
@@ -193,6 +197,16 @@ class DocumentChunkingSource(Source):
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
                 )
 
+        # Initialize rate limiter for embedding calls
+        self.rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(
+                max_calls=config.embedding.documents_per_minute,
+                period=60.0,
+            )
+            if config.embedding.rate_limit
+            else None
+        )
+
         # Initialize state tracking for incremental mode
         self.state_file_path: Optional[Path] = None
         self.document_state: dict[str, dict[str, Any]] = {}
@@ -234,7 +248,11 @@ class DocumentChunkingSource(Source):
         # Failures are raised directly so the caller can decide how to handle them.
         embeddings = []
         if self.embedding_model:
-            embeddings = self._generate_embeddings(chunks)
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    embeddings = self._generate_embeddings(chunks)
+            else:
+                embeddings = self._generate_embeddings(chunks)
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
@@ -246,6 +264,18 @@ class DocumentChunkingSource(Source):
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
+
+        # Check document limit (max_documents > 0 means the limit is active; -1 disables it)
+        if (
+            self.config.max_documents > 0
+            and self.report.num_documents_processed >= self.config.max_documents
+        ):
+            self.report.num_documents_limit_reached = True
+            raise RuntimeError(
+                f"Document limit of {self.config.max_documents} reached. "
+                f"Processed {self.report.num_documents_processed} documents. "
+                "Increase max_documents in the source config to process more."
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Fetch documents, chunk them, generate embeddings, and emit SemanticContent."""

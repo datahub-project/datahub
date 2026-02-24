@@ -756,7 +756,9 @@ def test_max_documents_default():
             "allow_local_embedding_config": True,
         },
     )
-    assert config.max_documents == 10000
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+    assert source.chunking_source.config.max_documents == 10000
 
 
 def test_max_documents_limit_raises_error():
@@ -772,10 +774,10 @@ def test_max_documents_limit_raises_error():
             "aws_region": "us-west-2",
             "allow_local_embedding_config": True,
         },
-        max_documents=2,
     )
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
+    source.chunking_source.config.max_documents = 2
 
     # Build minimal data dict that passes all filters in _create_document_entity
     def make_data(page_id: str) -> dict:
@@ -792,12 +794,29 @@ def test_max_documents_limit_raises_error():
     mock_doc.as_workunits.return_value = iter([])
     mock_doc._set_aspect = MagicMock()
 
+    def fake_process_inline(**_kwargs):
+        source.chunking_source.report.report_document_processed(1)
+        max_docs = source.chunking_source.config.max_documents
+        if (
+            max_docs > 0
+            and source.chunking_source.report.num_documents_processed >= max_docs
+        ):
+            source.chunking_source.report.num_documents_limit_reached = True
+            raise RuntimeError(
+                f"Document limit of {max_docs} reached. "
+                f"Processed {source.chunking_source.report.num_documents_processed} documents. "
+                "Increase max_documents in the source config to process more."
+            )
+        return iter([])
+
     with (
         patch.object(
             source.document_builder, "build_document_entity", return_value=mock_doc
         ),
         patch.object(
-            source.chunking_source, "process_elements_inline", return_value=iter([])
+            source.chunking_source,
+            "process_elements_inline",
+            side_effect=fake_process_inline,
         ),
     ):
         # Process first document - should succeed
@@ -810,7 +829,7 @@ def test_max_documents_limit_raises_error():
             list(source._create_document_entity(make_data("page-2")))
 
     assert source.report.num_documents_limit_reached is True
-    assert source.report.num_documents_created == 2
+    assert source.report.num_documents_created == 1
 
 
 def test_max_documents_limit_reached_flag():
@@ -826,10 +845,10 @@ def test_max_documents_limit_reached_flag():
             "aws_region": "us-west-2",
             "allow_local_embedding_config": True,
         },
-        max_documents=1,
     )
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
+    source.chunking_source.config.max_documents = 1
 
     data = {
         "elements": [{"text": "Some content", "type": "NarrativeText"}],
@@ -844,12 +863,29 @@ def test_max_documents_limit_reached_flag():
     mock_doc.as_workunits.return_value = iter([])
     mock_doc._set_aspect = MagicMock()
 
+    def fake_process_inline(**_kwargs):
+        source.chunking_source.report.report_document_processed(1)
+        max_docs = source.chunking_source.config.max_documents
+        if (
+            max_docs > 0
+            and source.chunking_source.report.num_documents_processed >= max_docs
+        ):
+            source.chunking_source.report.num_documents_limit_reached = True
+            raise RuntimeError(
+                f"Document limit of {max_docs} reached. "
+                f"Processed {source.chunking_source.report.num_documents_processed} documents. "
+                "Increase max_documents in the source config to process more."
+            )
+        return iter([])
+
     with (
         patch.object(
             source.document_builder, "build_document_entity", return_value=mock_doc
         ),
         patch.object(
-            source.chunking_source, "process_elements_inline", return_value=iter([])
+            source.chunking_source,
+            "process_elements_inline",
+            side_effect=fake_process_inline,
         ),
         pytest.raises(RuntimeError),
     ):

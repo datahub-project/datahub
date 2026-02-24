@@ -35,7 +35,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
-from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -360,16 +359,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._initialize_state_tracking()
-
-        # Initialize rate limiter for embedding calls
-        self.rate_limiter: Optional[RateLimiter] = (
-            RateLimiter(
-                max_calls=config.documents_per_minute,
-                period=60.0,
-            )
-            if config.rate_limit
-            else None
-        )
 
         # Validate embedding configuration
         if self.config.embedding.provider is not None:
@@ -1639,7 +1628,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
                 if (
                     not self.config.advanced.continue_on_failure
-                    and not self.report.num_documents_limit_reached
+                    and not self.chunking_source.report.num_documents_limit_reached
                 ):
                     raise
 
@@ -1971,17 +1960,20 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         for wu in doc.as_workunits():
             yield wu
 
-        # Generate embeddings inline using ChunkingSource
+        # Generate embeddings inline using ChunkingSource.
+        # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
         try:
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    yield from self.chunking_source.process_elements_inline(
-                        document_urn=document_urn, elements=elements
-                    )
-            else:
-                yield from self.chunking_source.process_elements_inline(
-                    document_urn=document_urn, elements=elements
-                )
+            yield from self.chunking_source.process_elements_inline(
+                document_urn=document_urn, elements=elements
+            )
+        except RuntimeError as e:
+            if self.chunking_source.report.num_documents_limit_reached:
+                self.report.num_documents_limit_reached = True
+                raise
+            short_error = str(e).split("\n")[0][:150]
+            logger.warning(
+                f"Failed to generate embeddings for {page_id}: {short_error}"
+            )
         except Exception as e:
             short_error = str(e).split("\n")[0][:150]
             is_credential_error = any(
@@ -2014,20 +2006,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             self.config.processing.partition.strategy
         )
 
-        # Check document limit after incrementing count
-        if self.report.num_documents_created >= self.config.max_documents:
-            self.report.num_documents_limit_reached = True
-            raise RuntimeError(
-                f"Document limit of {self.config.max_documents} reached. "
-                "Increase max_documents in the source config to process more."
-            )
-
         # Update document state after successful processing
         if self.config.stateful_ingestion and self.config.stateful_ingestion.enabled:
             self._update_document_state(document_urn, text_content, page_id)
 
     def get_report(self) -> NotionSourceReport:
-        # Copy embedding statistics from chunking source report
+        # Copy statistics from chunking source report
         if self.chunking_source:
             chunking_report = self.chunking_source.report
             self.report.num_documents_with_embeddings = (
@@ -2037,6 +2021,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Extend LossyList with items from the regular list
             for failure in chunking_report.embedding_failures:
                 self.report.embedding_failures.append(failure)
+            self.report.num_documents_limit_reached = (
+                chunking_report.num_documents_limit_reached
+            )
 
         # Log prominent warning if all embeddings failed
         if (

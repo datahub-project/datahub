@@ -777,7 +777,12 @@ def test_max_documents_default(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test that max_documents defaults to 10000."""
-    assert cloud_config.max_documents == 10000
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        assert source.chunking_source.config.max_documents == 10000
 
 
 def test_max_documents_limit_raises_error(
@@ -790,7 +795,6 @@ def test_max_documents_limit_raises_error(
             "username": "test@example.com",
             "api_token": "test-token-123",
             "cloud": True,
-            "max_documents": 2,
         }
     )
 
@@ -816,11 +820,29 @@ def test_max_documents_limit_raises_error(
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(config, pipeline_context)
+        source.chunking_source.config.max_documents = 2
         ingested_ids = {"11111", "22222"}
         parent_ids: set = set()
 
+        def fake_process_inline(document_urn, elements):
+            source.chunking_source.report.report_document_processed(1)
+            max_docs = source.chunking_source.config.max_documents
+            if (
+                max_docs > 0
+                and source.chunking_source.report.num_documents_processed >= max_docs
+            ):
+                source.chunking_source.report.num_documents_limit_reached = True
+                raise RuntimeError(
+                    f"Document limit of {max_docs} reached. "
+                    f"Processed {source.chunking_source.report.num_documents_processed} documents. "
+                    "Increase max_documents in the source config to process more."
+                )
+            return iter([])
+
         with patch.object(
-            source.chunking_source, "process_elements_inline", return_value=iter([])
+            source.chunking_source,
+            "process_elements_inline",
+            side_effect=fake_process_inline,
         ):
             # Process first page - should succeed
             list(
@@ -840,7 +862,7 @@ def test_max_documents_limit_raises_error(
                 )
 
     assert source.report.num_documents_limit_reached is True
-    assert source.report.pages_processed == 2
+    assert source.report.pages_processed == 1
 
 
 def test_max_documents_limit_reached_flag(
@@ -853,7 +875,6 @@ def test_max_documents_limit_reached_flag(
             "username": "test@example.com",
             "api_token": "test-token-123",
             "cloud": True,
-            "max_documents": 1,
         }
     )
 
@@ -877,10 +898,28 @@ def test_max_documents_limit_reached_flag(
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(config, pipeline_context)
+        source.chunking_source.config.max_documents = 1
+
+        def fake_process_inline(document_urn, elements):
+            source.chunking_source.report.report_document_processed(1)
+            max_docs = source.chunking_source.config.max_documents
+            if (
+                max_docs > 0
+                and source.chunking_source.report.num_documents_processed >= max_docs
+            ):
+                source.chunking_source.report.num_documents_limit_reached = True
+                raise RuntimeError(
+                    f"Document limit of {max_docs} reached. "
+                    f"Processed {source.chunking_source.report.num_documents_processed} documents. "
+                    "Increase max_documents in the source config to process more."
+                )
+            return iter([])
 
         with (
             patch.object(
-                source.chunking_source, "process_elements_inline", return_value=iter([])
+                source.chunking_source,
+                "process_elements_inline",
+                side_effect=fake_process_inline,
             ),
             pytest.raises(RuntimeError),
         ):
