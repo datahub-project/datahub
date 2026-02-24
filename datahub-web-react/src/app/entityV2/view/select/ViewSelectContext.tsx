@@ -191,8 +191,8 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
 
     const onSelectView = (newUrn) => {
         const selectedView =
-            highlightedPrivateViewData?.find((view) => view?.urn === selectedUrn) ||
-            highlightedPublicViewData?.find((view) => view?.urn === selectedUrn);
+            highlightedPrivateViewData?.find((view) => view?.urn === newUrn) ||
+            highlightedPublicViewData?.find((view) => view?.urn === newUrn);
         setSelectedView(selectedView?.name ?? '');
         userContext.updateLocalState({
             ...userContext.localState,

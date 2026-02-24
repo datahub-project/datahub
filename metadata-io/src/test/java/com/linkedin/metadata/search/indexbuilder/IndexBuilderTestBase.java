@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
@@ -13,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -1059,6 +1061,82 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             || aspectsProperties.keySet().stream()
                 .noneMatch(key -> "structuredProperties".equals(key)),
         "No aspect in _aspects should be named 'structuredProperties'");
+  }
+
+  /**
+   * Regression test for reindex (BuildIndicesStep): structured properties with valueType
+   * datahub.urn must get a mapping with a "type" so putMapping does not fail with
+   * mapper_parsing_exception.
+   */
+  @Test
+  public void testReindexMappingsWithDatahubUrnStructuredPropertyHaveType() throws Exception {
+    StructuredPropertyDefinition urnStructuredProperty =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataJob")))
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        Collections.singletonList(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                urnStructuredProperty));
+
+    Collection<MappingsBuilder.IndexMapping> allIndexMappings =
+        delegatingMappingsBuilder.getIndexMappings(opContext, structuredProperties);
+
+    String expectedFieldName = "com_example_domain_owner_urn";
+    boolean foundFieldWithType = false;
+    for (MappingsBuilder.IndexMapping indexMapping : allIndexMappings) {
+      Map<String, Object> mappings = indexMapping.getMappings();
+      if (mappings == null) {
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+      if (properties == null) {
+        continue;
+      }
+      // V2: structured property fields live under properties.structuredProperties.properties
+      @SuppressWarnings("unchecked")
+      Map<String, Object> structuredProps =
+          (Map<String, Object>) properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+      if (structuredProps != null) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> structuredPropsFields =
+            (Map<String, Object>) structuredProps.get("properties");
+        if (structuredPropsFields != null && structuredPropsFields.containsKey(expectedFieldName)) {
+          @SuppressWarnings("unchecked")
+          Map<String, Object> fieldMapping =
+              (Map<String, Object>) structuredPropsFields.get(expectedFieldName);
+          assertNotNull(
+              fieldMapping.get("type"),
+              "Reindex mappings must include type for structured property "
+                  + expectedFieldName
+                  + " (index "
+                  + indexMapping.getIndexName()
+                  + ")");
+          foundFieldWithType = true;
+        }
+      }
+      // V3 or flat: field may be directly under properties
+      if (!foundFieldWithType && properties.containsKey(expectedFieldName)) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldMapping = (Map<String, Object>) properties.get(expectedFieldName);
+        assertNotNull(
+            fieldMapping.get("type"),
+            "Reindex mappings must include type for " + expectedFieldName);
+        foundFieldWithType = true;
+      }
+    }
+    assertTrue(
+        foundFieldWithType,
+        "At least one index mapping should include the URN structured property with a type");
   }
 
   @Test
