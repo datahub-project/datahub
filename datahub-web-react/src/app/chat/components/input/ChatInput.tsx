@@ -234,9 +234,9 @@ export const ChatInput: React.FC<Props> = ({
                             onClear={() => onViewChange?.('')}
                             size="sm"
                             width="fit-content"
+                            descriptionMaxWidth={260}
                             showClear={!!resolvedView}
                             showSearch
-                            showDescriptions
                             isDisabled={isStreaming}
                             optionSwitchable={false}
                         />
