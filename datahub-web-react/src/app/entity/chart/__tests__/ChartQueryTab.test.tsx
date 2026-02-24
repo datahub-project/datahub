@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChartQueryTab } from '@app/entity/chart/ChartQueryTab';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useBaseEntity: vi.fn(),
@@ -31,7 +32,11 @@ describe('ChartQueryTab', () => {
             },
         });
 
-        render(<ChartQueryTab />);
+        render(
+            <TestPageContainer>
+                <ChartQueryTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('SELECT * FROM users')).toBeInTheDocument();
         expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
@@ -47,7 +52,11 @@ describe('ChartQueryTab', () => {
             },
         });
 
-        render(<ChartQueryTab />);
+        render(
+            <TestPageContainer>
+                <ChartQueryTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('SELECT * FROM orders')).toBeInTheDocument();
         expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
@@ -66,7 +75,11 @@ describe('ChartQueryTab', () => {
             },
         });
 
-        render(<ChartQueryTab />);
+        render(
+            <TestPageContainer>
+                <ChartQueryTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText(/don't have permission to view the query/)).toBeInTheDocument();
         expect(screen.queryByText('SELECT * FROM secret_data')).not.toBeInTheDocument();
@@ -85,7 +98,11 @@ describe('ChartQueryTab', () => {
             },
         });
 
-        render(<ChartQueryTab />);
+        render(
+            <TestPageContainer>
+                <ChartQueryTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('SQL')).toBeInTheDocument();
     });

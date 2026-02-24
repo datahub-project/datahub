@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import ViewDefinitionTab from '@app/entity/shared/tabs/Dataset/View/ViewDefinitionTab';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useBaseEntity: vi.fn(),
@@ -32,7 +33,11 @@ describe('ViewDefinitionTab', () => {
             },
         });
 
-        render(<ViewDefinitionTab />);
+        render(
+            <TestPageContainer>
+                <ViewDefinitionTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('SELECT * FROM users WHERE active = true')).toBeInTheDocument();
         expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
@@ -49,7 +54,11 @@ describe('ViewDefinitionTab', () => {
             },
         });
 
-        render(<ViewDefinitionTab />);
+        render(
+            <TestPageContainer>
+                <ViewDefinitionTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('SELECT id FROM orders')).toBeInTheDocument();
         expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
@@ -69,7 +78,11 @@ describe('ViewDefinitionTab', () => {
             },
         });
 
-        render(<ViewDefinitionTab />);
+        render(
+            <TestPageContainer>
+                <ViewDefinitionTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText(/don't have permission to view the SQL logic/)).toBeInTheDocument();
         expect(screen.queryByText('SELECT * FROM secret_table')).not.toBeInTheDocument();
@@ -89,7 +102,11 @@ describe('ViewDefinitionTab', () => {
             },
         });
 
-        render(<ViewDefinitionTab />);
+        render(
+            <TestPageContainer>
+                <ViewDefinitionTab />
+            </TestPageContainer>,
+        );
 
         expect(screen.getByText('Details')).toBeInTheDocument();
         expect(screen.getByText('True')).toBeInTheDocument();
