@@ -130,6 +130,7 @@ from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
+from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -399,7 +400,6 @@ class ModeSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = ModeSourceReport()
         self.ctx = ctx
-        self._creator_cache: Dict[str, str] = {}
         self._data_sources_by_id_cache: Optional[Dict[int, dict]] = None
         self._definitions_map_cache: Optional[Dict[str, str]] = None
         self.rate_limiter = RateLimiter(
@@ -641,30 +641,29 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_creator(self, href: str) -> Optional[str]:
         if not href:
             return None
-        # Manual cache that only stores successful lookups, so transient
-        # failures don't permanently suppress ownership for a user.
-        # Thread-safety: dict reads/writes are atomic under CPython's GIL.
-        # Concurrent misses for the same href may cause duplicate API calls
-        # but the result is idempotent.
-        if href in self._creator_cache:
-            return self._creator_cache[href]
-        user = None
         try:
-            user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
-            user = (
-                user_json.get("username")
-                if self.config.owner_username_instead_of_email
-                else user_json.get("email")
-            )
+            return self._fetch_creator(href)
         except ModeRequestError as e:
             self.report.report_warning(
                 title="Failed to retrieve Mode creator",
                 message=f"Unable to retrieve user for {href}",
                 context=f"Reason: {str(e)}",
             )
-        if user is not None:
-            self._creator_cache[href] = user
-        return user
+            return None
+
+    @serialized_lru_cache(maxsize=5000)
+    def _fetch_creator(self, href: str) -> Optional[str]:
+        """Fetch creator from Mode API.
+
+        Raises on API failure so the result is not cached and can be retried.
+        Returns None (cached) when the user simply has no username/email.
+        """
+        user_json = self._get_request_json(f"{self.config.connect_uri}{href}")
+        return (
+            user_json.get("username")
+            if self.config.owner_username_instead_of_email
+            else user_json.get("email")
+        )
 
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
