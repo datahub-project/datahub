@@ -1683,13 +1683,10 @@ def test_snowflake_semantic_view_query() -> None:
     )
 
 
-@pytest.mark.xfail(
-    reason="sqlglot v28.10.0 does not support aliases in semantic view dimensions (e.g., '... as month') https://github.com/tobymao/sqlglot/issues/6993",
-    strict=True,
-)
 def test_snowflake_semantic_view_query_with_metrics() -> None:
     # Reported by user as causing an infinite loop in sqlglot v27.
-    # Fixed in v28, but v28 still cannot parse aliases in dimensions clause.
+    # Fixed in v28, but v28 could not parse aliases in dimensions clause.
+    # Fixed in v29.0.1 (https://github.com/tobymao/sqlglot/issues/6993).
     assert_sql_result(
         """\
 select

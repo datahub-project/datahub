@@ -56,13 +56,13 @@ def _patch_deepcopy() -> None:
     patchy.patch(
         sqlglot.expressions.Expression.__deepcopy__,
         """\
-@@ -1,4 +1,7 @@ def meta(self) -> t.Dict[str, t.Any]:
- def __deepcopy__(self, memo):
+@@ -1,3 +1,6 @@
+ def __deepcopy__(self, memo: t.Any) -> ExpressionCore:
 +    import datahub.utilities.cooperative_timeout
 +    datahub.utilities.cooperative_timeout.cooperate()
 +
      root = self.__class__()
-     stack = [(self, root)]
+     stack: t.List[t.Tuple[ExpressionCore, ExpressionCore]] = [(self, root)]
 """,
     )
 
@@ -74,8 +74,7 @@ def _patch_scope_traverse() -> None:
     patchy.patch(
         sqlglot.optimizer.scope.Scope.traverse,
         """\
-@@ -5,9 +5,16 @@ def traverse(self):
-         Scope: scope instances in depth-first-search post-order
+@@ -7,9 +7,16 @@
      \"""
      stack = [self]
 +    seen_scopes = set()
@@ -99,7 +98,7 @@ def _patch_unnest_subqueries() -> None:
     patchy.patch(
         sqlglot.optimizer.unnest_subqueries.decorrelate,
         """\
-@@ -261,16 +261,19 @@ def remove_aggs(node):
+@@ -142,16 +142,19 @@
          if key in group_by:
              key.replace(nested)
          elif isinstance(predicate, exp.EQ):
@@ -142,9 +141,8 @@ def _patch_lineage() -> None:
     patchy.patch(
         sqlglot.lineage.lineage,
         """\
-@@ -94,7 +94,8 @@
-     \"""
- 
+@@ -95,7 +95,8 @@
+
      expression = maybe_parse(sql, copy=copy, dialect=dialect)
 -    column = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
 +    # column = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
@@ -155,11 +153,11 @@ def _patch_lineage() -> None:
 """,
     )
 
+    # Patch 1: Change set to list for source_columns
     patchy.patch(
         sqlglot.lineage.to_node,
         """\
-@@ -241,11 +242,12 @@
-             )
+@@ -242,11 +242,12 @@
 
      # Find all columns that went into creating this one to list their lineage nodes.
 -    source_columns = set(find_all_in_scope(select, exp.Column))
@@ -173,7 +171,14 @@ def _patch_lineage() -> None:
          derived_tables = [
              source.expression.parent
              for source in scope.sources.values()
-@@ -344,8 +346,21 @@
+""",
+    )
+
+    # Patch 2: Add subfield extraction
+    patchy.patch(
+        sqlglot.lineage.to_node,
+        """\
+@@ -345,8 +346,21 @@
              # is unknown. This can happen if the definition of a source used in a query is not
              # passed into the `sources` map.
              source = source or exp.Placeholder()
