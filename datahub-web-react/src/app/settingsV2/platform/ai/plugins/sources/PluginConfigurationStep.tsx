@@ -65,15 +65,6 @@ const AdvancedToggle = styled.div`
     }
 `;
 
-const SecretStatus = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: ${colors.green[500]};
-    margin-bottom: 4px;
-`;
-
 const CardHeaderRow = styled.div`
     display: flex;
     justify-content: space-between;
@@ -95,7 +86,7 @@ const TestResultMessage = styled.div<{ $success: boolean }>`
     align-items: center;
     gap: 6px;
     font-size: 13px;
-    color: ${(props) => (props.$success ? colors.green[500] : colors.red[500])};
+    color: ${(props) => (props.$success ? props.theme.colors.textSuccess : props.theme.colors.textError)};
 `;
 
 // ---------------------------------------------------------------------------
@@ -457,12 +448,6 @@ export const PluginConfigurationStep: React.FC<PluginConfigurationStepProps> = (
 
                         {isVisible('oauthClientSecret') && (
                             <FormField>
-                                {isEditing && formState.hasOAuthClientSecret && (
-                                    <SecretStatus>
-                                        <CheckCircle size={14} weight="fill" /> Client secret is configured. Enter new
-                                        value to replace.
-                                    </SecretStatus>
-                                )}
                                 <Input
                                     label="Client Secret"
                                     placeholder={
@@ -476,7 +461,7 @@ export const PluginConfigurationStep: React.FC<PluginConfigurationStepProps> = (
                                     isRequired={!isEditing || !formState.hasOAuthClientSecret}
                                     helperText={
                                         isEditing && formState.hasOAuthClientSecret
-                                            ? 'Leave empty to keep existing secret, or enter a new value to replace it.'
+                                            ? 'Secret is configured. Leave empty to keep, or enter a new value to replace.'
                                             : 'Will be securely encrypted'
                                     }
                                 />
@@ -557,7 +542,8 @@ export const PluginConfigurationStep: React.FC<PluginConfigurationStepProps> = (
                                     {testResult.success ? (
                                         <>
                                             <CheckCircle size={16} weight="fill" />
-                                            Discovered {testResult.toolCount} tools
+                                            Success! Discovered {testResult.toolCount}{' '}
+                                            {testResult.toolCount === 1 ? 'tool' : 'tools'}
                                         </>
                                     ) : (
                                         <>

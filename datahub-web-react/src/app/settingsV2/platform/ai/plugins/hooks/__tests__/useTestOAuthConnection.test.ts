@@ -350,7 +350,7 @@ describe('useTestOAuthConnection', () => {
                                 success: true,
                                 toolCount: 5,
                                 toolNames: ['search', 'get', 'list', 'create', 'delete'],
-                                message: 'Discovered 5 tools',
+                                message: 'Success! Discovered 5 tools',
                             },
                         }),
                     ),
@@ -362,7 +362,7 @@ describe('useTestOAuthConnection', () => {
                 success: true,
                 toolCount: 5,
                 toolNames: ['search', 'get', 'list', 'create', 'delete'],
-                message: 'Discovered 5 tools',
+                message: 'Success! Discovered 5 tools',
                 error: undefined,
             });
         });

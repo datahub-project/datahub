@@ -1717,11 +1717,11 @@ async def _handle_test_mcp_discovery_callback(
                 "toolCount": mcp_result.tool_count,
                 "toolNames": mcp_result.tool_names,
                 "durationSeconds": mcp_result.duration_seconds,
-                "message": f"Discovered {mcp_result.tool_count} tools: {tool_list}",
+                "message": f"Success! Discovered {mcp_result.tool_count} {'tool' if mcp_result.tool_count == 1 else 'tools'}: {tool_list}",
             }
             return _create_test_result_popup(
                 success=True,
-                message=f"Discovered {mcp_result.tool_count} tools",
+                message=f"Success! Discovered {mcp_result.tool_count} {'tool' if mcp_result.tool_count == 1 else 'tools'}",
                 details=tool_list,
                 result=test_result,
             )

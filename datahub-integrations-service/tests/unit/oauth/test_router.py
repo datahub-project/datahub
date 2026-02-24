@@ -2374,7 +2374,7 @@ class TestHandleTestMcpDiscoveryCallback:
             )
 
         body = _get_response_body_str(response)
-        assert "Discovered 3 tools" in body
+        assert "Success! Discovered 3 tools" in body
         assert "search" in body
 
     @pytest.mark.asyncio
@@ -2507,13 +2507,13 @@ class TestCreateTestResultPopup:
 
         response = _create_test_result_popup(
             success=True,
-            message="Discovered 3 tools",
+            message="Success! Discovered 3 tools",
             details="search, get, list",
             result={"type": "oauth_test_result", "success": True, "toolCount": 3},
         )
 
         body = _get_response_body_str(response)
-        assert "Discovered 3 tools" in body
+        assert "Success! Discovered 3 tools" in body
         assert "search, get, list" in body
         assert "Test Passed" in body
         assert "postMessage" in body
