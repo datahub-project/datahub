@@ -126,6 +126,14 @@ class DataHubDocumentsSourceConfig(
         description="Embedding generation configuration (LiteLLM with Cohere/Bedrock)",
     )
 
+    max_documents: int = Field(
+        default=10000,
+        gt=-2,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to -1 to disable the limit.",
+    )
+
     # Partitioning configuration
     partition_strategy: Literal["markdown"] = Field(
         default="markdown",

@@ -335,6 +335,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             datahub=DataHubConnectionConfig(),  # Not used in inline mode
             chunking=config.chunking,
             embedding=config.embedding,
+            max_documents=config.max_documents,
         )
 
         # Pass graph to DocumentChunkingSource so it can load server config

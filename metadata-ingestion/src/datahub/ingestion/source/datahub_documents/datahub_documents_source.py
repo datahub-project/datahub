@@ -156,6 +156,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             datahub=DataHubConnectionConfig(),
             chunking=self.config.chunking,
             embedding=self.config.embedding,
+            max_documents=self.config.max_documents,
         )
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
