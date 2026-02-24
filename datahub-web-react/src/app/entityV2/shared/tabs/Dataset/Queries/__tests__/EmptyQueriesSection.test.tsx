@@ -1,8 +1,10 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
+import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@images/no-docs.svg', () => ({
@@ -17,16 +19,14 @@ vi.mock('../AddButton', () => ({
     ),
 }));
 
-vi.mock('@src/AppConfigProvider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 describe('EmptyQueriesSection', () => {
     it('should render default empty text when emptyText is not provided', () => {
         render(
-            <TestPageContainer>
-                <EmptyQueriesSection showButton={false} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EmptyQueriesSection showButton={false} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('No highlighted queries yet')).toBeInTheDocument();
@@ -34,12 +34,14 @@ describe('EmptyQueriesSection', () => {
 
     it('should render custom emptyText when provided', () => {
         render(
-            <TestPageContainer>
-                <EmptyQueriesSection
-                    showButton={false}
-                    emptyText="You don't have permission to view queries for this dataset."
-                />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EmptyQueriesSection
+                        showButton={false}
+                        emptyText="You don't have permission to view queries for this dataset."
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText("You don't have permission to view queries for this dataset.")).toBeInTheDocument();
@@ -48,9 +50,11 @@ describe('EmptyQueriesSection', () => {
 
     it('should render section name when provided', () => {
         render(
-            <TestPageContainer>
-                <EmptyQueriesSection sectionName="Queries" showButton={false} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EmptyQueriesSection sectionName="Queries" showButton={false} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('Queries')).toBeInTheDocument();
@@ -58,9 +62,11 @@ describe('EmptyQueriesSection', () => {
 
     it('should show add button when showButton is true', () => {
         render(
-            <TestPageContainer>
-                <EmptyQueriesSection showButton buttonLabel="Add Query" />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EmptyQueriesSection showButton buttonLabel="Add Query" />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByTestId('add-query-button')).toBeInTheDocument();
@@ -68,9 +74,11 @@ describe('EmptyQueriesSection', () => {
 
     it('should hide add button when showButton is false', () => {
         render(
-            <TestPageContainer>
-                <EmptyQueriesSection showButton={false} />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EmptyQueriesSection showButton={false} />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.queryByTestId('add-query-button')).not.toBeInTheDocument();

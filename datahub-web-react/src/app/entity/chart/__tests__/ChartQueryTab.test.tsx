@@ -1,9 +1,11 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChartQueryTab } from '@app/entity/chart/ChartQueryTab';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
@@ -12,10 +14,6 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
 
 vi.mock('react-syntax-highlighter', () => ({
     Prism: ({ children }: { children: React.ReactNode }) => <pre data-testid="syntax-highlighter">{children}</pre>,
-}));
-
-vi.mock('@src/AppConfigProvider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe('ChartQueryTab', () => {
@@ -37,9 +35,11 @@ describe('ChartQueryTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ChartQueryTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ChartQueryTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('SELECT * FROM users')).toBeInTheDocument();
@@ -57,9 +57,11 @@ describe('ChartQueryTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ChartQueryTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ChartQueryTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('SELECT * FROM orders')).toBeInTheDocument();
@@ -80,9 +82,11 @@ describe('ChartQueryTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ChartQueryTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ChartQueryTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText(/don't have permission to view the query/)).toBeInTheDocument();
@@ -103,9 +107,11 @@ describe('ChartQueryTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ChartQueryTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ChartQueryTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('SQL')).toBeInTheDocument();

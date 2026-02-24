@@ -1,9 +1,11 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
+import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
@@ -69,10 +71,6 @@ vi.mock('@app/shared/Loading', () => ({
     default: () => <div data-testid="loading">Loading...</div>,
 }));
 
-vi.mock('@src/AppConfigProvider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 describe('QueriesTab (v2)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -90,9 +88,11 @@ describe('QueriesTab (v2)', () => {
         });
 
         render(
-            <TestPageContainer>
-                <QueriesTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <QueriesTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
@@ -111,9 +111,11 @@ describe('QueriesTab (v2)', () => {
         });
 
         render(
-            <TestPageContainer>
-                <QueriesTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <QueriesTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
@@ -128,9 +130,11 @@ describe('QueriesTab (v2)', () => {
         });
 
         render(
-            <TestPageContainer>
-                <QueriesTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <QueriesTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();

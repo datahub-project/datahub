@@ -1,9 +1,11 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import ViewDefinitionTab from '@app/entity/shared/tabs/Dataset/View/ViewDefinitionTab';
+import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
@@ -12,10 +14,6 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
 
 vi.mock('react-syntax-highlighter', () => ({
     Prism: ({ children }: { children: React.ReactNode }) => <pre data-testid="syntax-highlighter">{children}</pre>,
-}));
-
-vi.mock('@src/AppConfigProvider', () => ({
-    default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe('ViewDefinitionTab', () => {
@@ -38,9 +36,11 @@ describe('ViewDefinitionTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ViewDefinitionTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ViewDefinitionTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('SELECT * FROM users WHERE active = true')).toBeInTheDocument();
@@ -59,9 +59,11 @@ describe('ViewDefinitionTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ViewDefinitionTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ViewDefinitionTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('SELECT id FROM orders')).toBeInTheDocument();
@@ -83,9 +85,11 @@ describe('ViewDefinitionTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ViewDefinitionTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ViewDefinitionTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText(/don't have permission to view the SQL logic/)).toBeInTheDocument();
@@ -107,9 +111,11 @@ describe('ViewDefinitionTab', () => {
         });
 
         render(
-            <TestPageContainer>
-                <ViewDefinitionTab />
-            </TestPageContainer>,
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <ViewDefinitionTab />
+                </TestPageContainer>
+            </MockedProvider>,
         );
 
         expect(screen.getByText('Details')).toBeInTheDocument();
