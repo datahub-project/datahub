@@ -1,5 +1,7 @@
 package com.linkedin.metadata;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+
 import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 
@@ -91,6 +93,9 @@ public class AcrylConstants {
       "dataHubRemoteExecutorPoolInfo";
   public static final String REMOTE_EXECUTOR_ENTITY_NAME = "dataHubRemoteExecutor";
   public static final String REMOTE_EXECUTOR_STATUS_ASPECT_NAME = "dataHubRemoteExecutorStatus";
+
+  // Entity types that support assertions
+  public static final Set<String> ASSERTABLE_ENTITY_TYPES = ImmutableSet.of(DATASET_ENTITY_NAME);
 
   // For agent conversations
   public static final String AGENT_CONVERSATION_ENTITY_NAME = "dataHubAiConversation";

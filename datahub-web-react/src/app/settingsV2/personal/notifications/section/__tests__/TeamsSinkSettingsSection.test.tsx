@@ -350,7 +350,7 @@ describe('TeamsSinkSettingsSection - Basic Functionality', () => {
             expect(screen.getByText('Not connected to Teams')).toBeInTheDocument();
         });
 
-        it('shows "Connected as:" when user has a user object (personal)', () => {
+        it('shows "Connected as" when user has a user object (personal)', () => {
             const settings = {
                 user: {
                     teamsUserId: 'teams123',
@@ -362,7 +362,7 @@ describe('TeamsSinkSettingsSection - Basic Functionality', () => {
 
             renderComponent({ sinkEnabled: true, isPersonal: true, settings });
 
-            expect(screen.getByText('Connected as:')).toBeInTheDocument();
+            expect(screen.getByText('Connected as')).toBeInTheDocument();
             expect(screen.getByText('Test User')).toBeInTheDocument();
         });
 

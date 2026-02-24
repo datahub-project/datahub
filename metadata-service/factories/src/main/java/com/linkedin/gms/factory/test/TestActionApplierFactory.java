@@ -2,12 +2,15 @@ package com.linkedin.gms.factory.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.assertions.AssertionAssignmentRuleServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
+import com.linkedin.metadata.test.action.assertion.RemoveAssertionAssignmentRuleAction;
+import com.linkedin.metadata.test.action.assertion.UpsertAssertionAssignmentRuleAction;
 import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
 import com.linkedin.metadata.test.action.cleanup.UnDeprecationAction;
 import com.linkedin.metadata.test.action.dataproduct.SetDataProductAction;
@@ -33,14 +36,24 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import(AssertionAssignmentRuleServiceFactory.class)
 public class TestActionApplierFactory {
   @Autowired
   @Qualifier("entityService")
   private EntityService<?> entityService;
+
+  @Autowired
+  @Qualifier("assertionAssignmentRuleService")
+  private AssertionAssignmentRuleService assertionAssignmentRuleService;
+
+  @Value("${metadataChangeProposal.validation.monitorLimit.maxMonitors:1000}")
+  private int maxMonitors;
 
   @Bean(name = "testActionApplier")
   @Nonnull
@@ -83,6 +96,9 @@ public class TestActionApplierFactory {
     appliers.add(new SetFormPromptIncompleteAction(formService));
     appliers.add(new SubmitFormPromptAction(formService));
     appliers.add(new VerifyFormAction(formService));
+    appliers.add(
+        new UpsertAssertionAssignmentRuleAction(assertionAssignmentRuleService, maxMonitors));
+    appliers.add(new RemoveAssertionAssignmentRuleAction(assertionAssignmentRuleService));
     return new ActionApplier(appliers);
   }
 }

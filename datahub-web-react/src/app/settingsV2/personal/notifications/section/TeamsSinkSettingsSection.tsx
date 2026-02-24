@@ -46,7 +46,7 @@ const OAuthButtonContainer = styled.div`
 const TeamsLogo = styled.img`
     height: 16px;
     width: 16px;
-    margin-right: 8px;
+    margin-right: 0px;
 `;
 
 const ConnectionStatus = styled.div`
@@ -277,7 +277,7 @@ export const TeamsSinkSettingsSection = ({
                                 <StatusIndicator connected={isConnected} />
                                 {isConnected ? (
                                     <>
-                                        <Typography.Text>Connected as:</Typography.Text>
+                                        <Typography.Text>Connected as</Typography.Text>
                                         <TeamsLogo src={teamsLogo} alt="Teams" />
                                         <Typography.Text strong>{displayName || userHandle}</Typography.Text>
                                     </>

@@ -63,6 +63,18 @@ def with_test_mcp_server(enabled: bool) -> Iterator[FastMCP]:
 class TestSearchImplementation:
     """Test the core search implementation logic."""
 
+    @pytest.fixture(autouse=True)
+    def _setup_mcp_context(self) -> Iterator[None]:
+        """_search_implementation reads from get_mcp_context(); provide a default."""
+        from datahub_integrations.mcp.mcp_server import MCPContext
+        from datahub_integrations.mcp.tool_context import ToolContext
+
+        ctx = MCPContext(client=mock.Mock(), tool_context=ToolContext())
+        with mock.patch(
+            "datahub_integrations.mcp.mcp_server.get_mcp_context", return_value=ctx
+        ):
+            yield
+
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
     @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_semantic_strategy(

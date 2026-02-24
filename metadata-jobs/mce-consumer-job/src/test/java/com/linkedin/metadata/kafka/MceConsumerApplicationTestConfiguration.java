@@ -15,6 +15,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.service.AssertionAssignmentRuleService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -91,4 +92,8 @@ public class MceConsumerApplicationTestConfiguration {
   @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
   @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+
+  @MockBean
+  @Qualifier("assertionAssignmentRuleService")
+  public AssertionAssignmentRuleService assertionAssignmentRuleService;
 }

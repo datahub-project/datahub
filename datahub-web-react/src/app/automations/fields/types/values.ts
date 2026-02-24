@@ -80,7 +80,7 @@ export const valueTypes = [
     {
         id: ValueTypeId.BOOLEAN,
         displayName: 'Boolean',
-        operators: [OperatorId.IS_TRUE, OperatorId.IS_FALSE, OperatorId.EXISTS],
+        operators: [OperatorId.IS_TRUE, OperatorId.IS_FALSE],
     },
     {
         id: ValueTypeId.NUMBER,

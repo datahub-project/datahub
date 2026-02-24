@@ -5,7 +5,7 @@ token usage locally for display in the Streamlit UI, while delegating to
 a real CostTracker for OTEL metrics.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
 from loguru import logger

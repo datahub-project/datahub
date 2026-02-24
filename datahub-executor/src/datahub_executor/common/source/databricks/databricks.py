@@ -18,6 +18,8 @@ from datahub_executor.common.source.databricks.sql.field_values_sql_generator im
     DatabricksFieldValuesSQLGenerator,
 )
 from datahub_executor.common.source.databricks.time_utils import (
+    build_tz_bucket_boundary_expression,
+    convert_millis_to_timestamp,
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
@@ -122,6 +124,16 @@ class DatabricksSource(Source):
         )
         resp = self._execute_fetchone_query(query)
         return resp[0] if resp else None
+
+    def _build_tz_bucket_boundary_expression(
+        self, expression: str, normalized_interval: str, timezone_name: str
+    ) -> str:
+        return build_tz_bucket_boundary_expression(
+            expression, normalized_interval, timezone_name
+        )
+
+    def _convert_millis_to_bucket_timestamp(self, millis: int) -> str:
+        return convert_millis_to_timestamp(millis)
 
     def _get_operation_types_filter(
         self, operation_types: Optional[List[str]]

@@ -55,6 +55,9 @@ interface Props {
     modeOptions?: SelectOption[];
     selectedMode?: string;
     onModeChange?: (mode: string) => void;
+    viewOptions?: SelectOption[];
+    selectedView?: string;
+    onViewChange?: (view: string) => void;
     /** Auto-focus the input on mount */
     autoFocus?: boolean;
 }
@@ -70,6 +73,9 @@ export const ChatInput: React.FC<Props> = ({
     modeOptions,
     selectedMode,
     onModeChange,
+    viewOptions,
+    selectedView,
+    onViewChange,
     autoFocus = false,
 }) => {
     const { config } = useAppConfig();
@@ -128,6 +134,8 @@ export const ChatInput: React.FC<Props> = ({
     }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
 
     const showModeSelect = Boolean(modeOptions?.length && onModeChange);
+    const showViewSelect = Boolean(viewOptions?.length && onViewChange);
+    const resolvedView = viewOptions?.some((o) => o.value === selectedView) ? selectedView : undefined;
 
     // Handle focus/blur events from the editor wrapper
     const handleFocus = useCallback(() => setIsFocused(true), []);
@@ -208,6 +216,27 @@ export const ChatInput: React.FC<Props> = ({
                             width="fit-content"
                             showClear={false}
                             showSearch={false}
+                            isDisabled={isStreaming}
+                            optionSwitchable={false}
+                        />
+                    )}
+                    {showViewSelect && (
+                        <SimpleSelect
+                            options={viewOptions || []}
+                            values={resolvedView ? [resolvedView] : []}
+                            placeholder="Select View"
+                            onUpdate={(values) => {
+                                const nextView = values[0];
+                                if (nextView) {
+                                    onViewChange?.(nextView);
+                                }
+                            }}
+                            onClear={() => onViewChange?.('')}
+                            size="sm"
+                            width="fit-content"
+                            showClear={!!resolvedView}
+                            showSearch
+                            showDescriptions
                             isDisabled={isStreaming}
                             optionSwitchable={false}
                         />

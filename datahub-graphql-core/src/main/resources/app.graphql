@@ -1633,6 +1633,13 @@ type FeatureFlagsConfig {
   teamsNotificationsEnabled: Boolean!
 
   """
+  Whether Slack OAuth binding is required for personal notifications.
+  When true, users must connect via OAuth instead of manual Slack ID input.
+  When false, both OAuth and manual input are supported (migration mode).
+  """
+  requireSlackOAuthBinding: Boolean!
+
+  """
   Enables the ability to configure slack bot tokens via the integrations settings UI
   """
   slackBotTokensConfigEnabled: Boolean!
@@ -1885,6 +1892,11 @@ type FeatureFlagsConfig {
   If enabled, shows the Ask DataHub mode select feature.
   """
   showAskDataHubModeSelect: Boolean!
+
+  """
+  If enabled, shows the Ask DataHub view select feature.
+  """
+  showAskDataHubViewSelect: Boolean!
 
   """
   If enabled, hides lineage information in search result cards

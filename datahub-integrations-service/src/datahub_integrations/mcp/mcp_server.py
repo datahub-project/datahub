@@ -18,6 +18,7 @@ import pathlib
 import re
 import string
 import threading
+from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import (
     Any,
@@ -52,6 +53,7 @@ from pydantic import BaseModel
 
 # IMPORTANT: Use relative imports to maintain compatibility across repositories
 from ._token_estimator import TokenCountEstimator
+from .tool_context import ToolContext
 from .tools.descriptions import update_description
 from .tools.documents import grep_documents, search_documents
 from .tools.domains import remove_domains, set_domains
@@ -319,25 +321,46 @@ mcp = FastMCP[None](
 )
 
 
-_mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
+@dataclass
+class MCPContext:
+    """Per-request context for MCP tool execution."""
+
+    client: DataHubClient
+    tool_context: ToolContext = dataclass_field(default_factory=ToolContext)
+
+
+_mcp_context = contextvars.ContextVar[MCPContext]("_mcp_context")
+
+
+def get_mcp_context() -> MCPContext:
+    """Get the current MCP context. Raises LookupError if not set."""
+    return _mcp_context.get()
 
 
 def get_datahub_client() -> DataHubClient:
-    # Will raise a LookupError if no client is set.
-    return _mcp_dh_client.get()
+    return get_mcp_context().client
 
 
-def set_datahub_client(client: DataHubClient) -> None:
-    _mcp_dh_client.set(client)
+def set_datahub_client(
+    client: DataHubClient,
+    tool_context: ToolContext | None = None,
+) -> None:
+    _mcp_context.set(
+        MCPContext(client=client, tool_context=tool_context or ToolContext())
+    )
 
 
 @contextlib.contextmanager
-def with_datahub_client(client: DataHubClient) -> Iterator[None]:
-    token = _mcp_dh_client.set(client)
+def with_datahub_client(
+    client: DataHubClient,
+    tool_context: ToolContext | None = None,
+) -> Iterator[None]:
+    ctx = MCPContext(client=client, tool_context=tool_context or ToolContext())
+    token = _mcp_context.set(ctx)
     try:
         yield
     finally:
-        _mcp_dh_client.reset(token)
+        _mcp_context.reset(token)
 
 
 def _enable_newer_gms_fields(query: str) -> str:
@@ -1488,13 +1511,18 @@ def _search_implementation(
 
     types, compiled_filters = compile_filters(filters)
 
-    # Fetch and apply default view (returns None if disabled or not configured)
-    # Note: If view fetching fails, the search will fail to ensure data governance
-    view_urn = fetch_global_default_view(client._graph)
-    if view_urn:
-        logger.debug(f"Applying default view: {view_urn}")
-    else:
-        logger.debug("No default view to apply")
+    # Resolve view from the current MCP context's tool_context bag
+    from .view_preference import UseDefaultView, ViewPreference
+
+    ctx = get_mcp_context()
+    view = ctx.tool_context.get(ViewPreference, UseDefaultView())  # type: ignore[type-abstract]
+    assert view is not None  # default guarantees non-None
+    view_urn = view.get_view(client._graph)
+    logger.debug(
+        "View preference: {} → {}",
+        type(view).__name__,
+        view_urn or "no view",
+    )
 
     variables: Dict[str, Any] = {
         "query": query,

@@ -65,6 +65,10 @@ def execute_two_pass_search(
     """
     Execute two-pass search: Pass A (anchors+phrases), Pass B (synonyms).
 
+    NOTE: This function is not used in production code and is a candidate for deletion.
+    If resurrected, it must propagate ToolContext through with_datahub_client so that
+    caller-provided context (e.g. ViewPreference) reaches _search_implementation.
+
     Args:
         client: DataHub client to use for searches
         anchors: Core keywords for Pass A

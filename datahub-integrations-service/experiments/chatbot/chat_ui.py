@@ -44,9 +44,9 @@ logger.info(f"Chat UI logging initialized - session log: {_LOG_FILE.name}")
 # We need to inject our tracker before any imports that might call get_cost_tracker().
 # This includes agent imports, MCP server imports, etc.
 
-from datahub_integrations.observability import cost
-
 from local_cost_tracker import LocalCostTracker
+
+from datahub_integrations.observability import cost
 
 # Inject BEFORE any other imports that might trigger get_cost_tracker()
 _local_tracker = LocalCostTracker()
@@ -67,6 +67,8 @@ from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.mcp.tool_context import ToolContext
+from datahub_integrations.mcp.view_preference import NoView, UseDefaultView
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalMCPManager,
     ExternalToolWrapper,
@@ -123,7 +125,9 @@ def _make_empty_agent() -> AgentRunner:
     # Get external MCP tools (if any configured)
     external_tools = get_external_tools()
     if external_tools:
-        st.info(f"Loaded {len(external_tools)} external MCP tools: {[t.name for t in external_tools]}")
+        st.info(
+            f"Loaded {len(external_tools)} external MCP tools: {[t.name for t in external_tools]}"
+        )
 
     # Create agent with default MCP + external tools
     # Combine default MCP server with external tools
@@ -165,6 +169,30 @@ with col3:  # Add a download history button
         mime="application/json",
         disabled=not _has_history,
     )
+
+# Global view controls
+_view_col1, _view_col2 = st.columns([1, 3])
+with _view_col1:
+    _disable_view = st.checkbox(
+        "Disable global view",
+        help="When checked, search results are not filtered by the organization's default view.",
+    )
+with _view_col2:
+    if _disable_view:
+        st.caption("Global view: **disabled** — searches return unfiltered results")
+    else:
+        try:
+            _active_view = UseDefaultView().get_view(client()._graph)
+            if _active_view:
+                st.caption(f"Global view: **active** — `{_active_view}`")
+            else:
+                st.caption("Global view: **none configured**")
+        except Exception as e:
+            st.caption(f"Global view: could not fetch ({e})")
+
+# Apply view preference to the current agent via tool context
+_view_pref = NoView() if _disable_view else UseDefaultView()
+_get_agent().tool_context = ToolContext([_view_pref])
 
 st.divider()
 
@@ -212,10 +240,12 @@ if prompt := st.chat_input("Type your message here..."):
         """Update status to show all reasoning messages on separate lines."""
         if messages:
             # Update label with current step count
-            status.update(label=f"💭 Thinking... ({len(messages)} steps)", state="running")
+            status.update(
+                label=f"💭 Thinking... ({len(messages)} steps)", state="running"
+            )
             # Append the latest message (messages accumulate naturally in the status widget)
             status.write(f"{len(messages)}. {messages[-1].text}")
-    
+
     with (
         st.status("Generating response...", expanded=True) as status,
         _get_agent().set_progress_callback(update_progress),
@@ -236,10 +266,18 @@ if prompt := st.chat_input("Type your message here..."):
             }
             # Session totals - aggregate across all models
             st.session_state.session_totals = {
-                "prompt": sum(s.prompt_tokens for s in _local_tracker.total_usage.values()),
-                "completion": sum(s.completion_tokens for s in _local_tracker.total_usage.values()),
-                "cache_read": sum(s.cache_read_tokens for s in _local_tracker.total_usage.values()),
-                "cache_write": sum(s.cache_write_tokens for s in _local_tracker.total_usage.values()),
+                "prompt": sum(
+                    s.prompt_tokens for s in _local_tracker.total_usage.values()
+                ),
+                "completion": sum(
+                    s.completion_tokens for s in _local_tracker.total_usage.values()
+                ),
+                "cache_read": sum(
+                    s.cache_read_tokens for s in _local_tracker.total_usage.values()
+                ),
+                "cache_write": sum(
+                    s.cache_write_tokens for s in _local_tracker.total_usage.values()
+                ),
                 "cost": _local_tracker.total_total_cost,
             }
 

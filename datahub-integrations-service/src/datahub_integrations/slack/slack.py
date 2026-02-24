@@ -1,15 +1,20 @@
+import base64
 import dataclasses
 import functools
 import json
 import re
-from typing import Optional
+import secrets
+import time
+from typing import Annotated, Any, Dict, Optional, Tuple, Union
+from urllib.parse import quote, urlencode
 
 import fastapi
 import slack_bolt
 import slack_sdk.errors
 import slack_sdk.web
+from datahub.configuration.common import GraphError
 from datahub.utilities.time import datetime_to_ts_millis
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -30,6 +35,10 @@ from datahub_integrations.graphql.subscription import (
 from datahub_integrations.notifications.notification_tracking import (
     NotificationChannel,
     NotificationType,
+)
+from datahub_integrations.oauth import (
+    get_authenticated_user,
+    get_state_store,
 )
 from datahub_integrations.observability import BotPlatform, OAuthFlow, otel_duration
 from datahub_integrations.slack.app_manifest import (
@@ -62,6 +71,7 @@ from datahub_integrations.slack.context import (
     IncidentSelectOption,
     SearchContext,
 )
+from datahub_integrations.slack.feature_flags import get_require_slack_oauth_binding
 from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
 from datahub_integrations.slack.render.constants import ACRYL_COLOR
 from datahub_integrations.slack.render.render_entity import (
@@ -76,10 +86,13 @@ from datahub_integrations.slack.render.render_subscription import (
     render_subscription_modal,
 )
 from datahub_integrations.slack.utils.datahub_user import (
+    build_authorization_error_blocks,
+    build_connect_account_blocks,
     get_datahub_user,
     get_user_information,
     graph_as_system,
     graph_as_user,
+    resolve_slack_user_to_datahub,
 )
 from datahub_integrations.slack.utils.entity_extract import (
     ExtractedEntity,
@@ -96,6 +109,10 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 # 7 days because admins may take some time to approve
 _state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
 
+
+# Slack user OAuth flows use the shared InMemoryOAuthStateStore (same as MCP plugins).
+# This ensures all user-facing OAuth flows share a single state management pattern.
+SLACK_USER_OAUTH_FLOW_ID = "slack-user-oauth"
 
 private_router = fastapi.APIRouter()
 public_router = fastapi.APIRouter()
@@ -131,6 +148,69 @@ def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
         scopes=slack_bot_scopes,
         redirect_uri=f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback",
     )
+
+
+class SlackConnectResponse(BaseModel):
+    """Response from the Slack connect endpoint."""
+
+    authorization_url: str
+
+
+@public_router.post("/slack/connect", response_model=SlackConnectResponse)
+async def slack_connect(
+    user_urn: Annotated[str, Depends(get_authenticated_user)],
+) -> SlackConnectResponse:
+    """
+    Initiate a Slack user account-linking (OIDC) flow.
+
+    Follows the same pattern as the MCP plugin OAuth connect endpoint:
+    1. Authenticates the user via JWT / PLAY_SESSION cookie
+    2. Stores state in the shared InMemoryOAuthStateStore (single-use, TTL)
+    3. Returns the full authorization URL for the frontend to redirect to
+
+    The callback (/slack/oauth_callback) consumes the nonce to retrieve
+    the trusted user_urn — preventing tampering and replay attacks.
+    """
+    logger.info(f"Initiating Slack OAuth connect for user: {user_urn}")
+
+    config = slack_config.get_connection()
+    if not config.app_details or not config.app_details.client_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Slack app credentials not configured",
+        )
+
+    redirect_uri = f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback"
+    client_id = config.app_details.client_id
+
+    # Build OIDC authorization URL WITHOUT the state parameter.
+    # The shared state store's create_state() will append &state=<nonce>.
+    oidc_nonce = secrets.token_urlsafe(12)
+    base_auth_url = "https://slack.com/openid/connect/authorize"
+    params = urlencode(
+        {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "nonce": oidc_nonce,
+            "scope": "openid email profile",
+        }
+    )
+    authorization_url_without_state = f"{base_auth_url}?{params}"
+
+    # Store state in the shared OAuth state store (single-use, TTL-limited).
+    # We repurpose redirect_uri for the frontend redirect path, since the
+    # actual OAuth redirect_uri is already baked into the URL above.
+    state_store = get_state_store()
+    result = state_store.create_state(
+        user_urn=user_urn,
+        plugin_id=SLACK_USER_OAUTH_FLOW_ID,
+        redirect_uri="/settings/personal-notifications",
+        authorization_url=authorization_url_without_state,
+        code_verifier="",  # Slack OIDC doesn't use PKCE
+    )
+
+    return SlackConnectResponse(authorization_url=result.authorization_url)
 
 
 @private_router.post("/slack/reload_credentials")
@@ -230,7 +310,32 @@ def refresh_slack_app(request: Request) -> RedirectResponse:
     return RedirectResponse(url=url)
 
 
-@public_router.get("/slack/oauth_callback")
+def _parse_oauth_state(state: str) -> Dict[str, Any]:
+    """
+    Parse the OAuth state parameter to determine flow type.
+
+    State formats:
+    1. **Nonce** in the shared ``InMemoryOAuthStateStore`` with
+       ``plugin_id == SLACK_USER_OAUTH_FLOW_ID`` — user account-linking
+       flow.  The nonce is consumed atomically (single-use) and the stored
+       ``OAuthState`` provides the trusted ``user_urn``.
+    2. **Opaque string** managed by ``_state_store`` — admin install flow.
+    """
+    state_store = get_state_store()
+
+    oauth_state = state_store.get_and_consume_state(state)
+    if oauth_state is not None and oauth_state.plugin_id == SLACK_USER_OAUTH_FLOW_ID:
+        return {
+            "flow": "user",
+            "user_urn": oauth_state.user_urn,
+            "redirect_path": oauth_state.redirect_uri,
+        }
+
+    # ── Opaque string → install flow ──
+    return {"flow": "install", "raw_state": state}
+
+
+@public_router.get("/slack/oauth_callback", response_model=None)
 @otel_duration(
     metric_name="bot_oauth_duration",
     labels={"platform": BotPlatform.SLACK.value, "flow": OAuthFlow.CALLBACK.value},
@@ -240,7 +345,49 @@ def oauth_callback(
     code: Optional[str] = None,
     error: Optional[str] = None,
     error_description: Optional[str] = None,
+) -> Union[RedirectResponse, Dict[str, Any]]:
+    """
+    Unified OAuth callback for all Slack OAuth flows.
+
+    Routes to appropriate handler based on 'flow' in state parameter:
+    - 'install': Admin app installation (OAuth 2.0) - saves bot token
+    - 'user': User account linking (OIDC) - links Slack to DataHub user
+
+    Backward compatible: if state doesn't specify flow, defaults to 'install'.
+    """
+    # Parse state to determine flow type
+    state_data = _parse_oauth_state(state)
+    flow = state_data.get("flow", "install")
+
+    logger.info(f"Slack OAuth callback received: flow={flow}")
+
+    # Route to appropriate handler based on flow
+    if flow == "user":
+        # User account linking flow (OIDC)
+        return _handle_user_oauth_flow(
+            code=code,
+            state=state,
+            state_data=state_data,
+            error=error,
+            error_description=error_description,
+        )
+    else:
+        # Install flow (OAuth 2.0) - default for backward compatibility
+        return _handle_install_flow(
+            code=code,
+            state=state,
+            error=error,
+            error_description=error_description,
+        )
+
+
+def _handle_install_flow(
+    code: Optional[str],
+    state: str,
+    error: Optional[str],
+    error_description: Optional[str],
 ) -> RedirectResponse:
+    """Handle admin app installation flow (OAuth 2.0)."""
     config = slack_config.get_connection()
     assert config.app_details, "App details should be present after provisioning."
     assert config.app_details.client_id, (
@@ -306,6 +453,46 @@ def oauth_callback(
     )
 
     return RedirectResponse(url="/settings/integrations/slack")
+
+
+def _handle_user_oauth_flow(
+    code: Optional[str],
+    state: str,
+    state_data: Dict[str, Any],
+    error: Optional[str],
+    error_description: Optional[str],
+) -> Union[RedirectResponse, Dict[str, Any]]:
+    """Handle user account linking flow (OIDC).
+
+    ``state_data`` has already been validated by ``_parse_oauth_state``
+    (single-use nonce consumed atomically from the state store).
+    ``user_urn`` is extracted from the server-side state and is trustworthy.
+    """
+    redirect_path = state_data.get("redirect_path", "/settings/personal-notifications")
+
+    # Validate redirect_path is a safe relative path (prevent open redirects).
+    # Must start with "/" and not contain protocol markers, encoded slashes,
+    # backslashes, or path-traversal sequences.
+    if not _is_safe_redirect_path(redirect_path):
+        logger.error(f"Rejected unsafe redirect_path: {redirect_path}")
+        redirect_path = "/settings/personal-notifications"
+
+    if error:
+        logger.error(f"OAuth error: {error} - {error_description}")
+        return _build_oauth_error_redirect(redirect_path, error)
+
+    if not code:
+        logger.error("No authorization code in OAuth callback")
+        return _build_oauth_error_redirect(redirect_path, "No authorization code")
+
+    user_urn = state_data.get("user_urn")
+
+    return handle_personal_notifications_oauth(
+        code=code,
+        user_urn=user_urn,
+        redirect_url=redirect_path,
+        state=state,
+    )
 
 
 @functools.lru_cache(maxsize=1)
@@ -482,7 +669,11 @@ def get_slack_app(
         logger.debug(f"body: {body}")
         ack()
 
-        user_urn = get_datahub_user(app, body["user"]["id"])
+        user_urn = get_datahub_user(
+            app,
+            body["user"]["id"],
+            require_oauth_binding=get_require_slack_oauth_binding(),
+        )
         # Parse the JSON value
         return search(
             graph,
@@ -577,11 +768,34 @@ def get_slack_app(
         ack()
 
         variables = {"input": {"subscriptionUrn": action["value"]}}
-        email, user_urn, _ = get_user_information(app, body["user"]["id"])
-        if not user_urn:
-            respond(
-                f"❗ Unsubscribe failed: could not find corresponding DataHub user with email {email}"
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
+
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        if resolution.should_prompt_connection:
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage subscriptions"
             )
+            respond(text=text, blocks=blocks, replace_original=False)
+            return
+
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, _ = get_user_information(
+                app, slack_user_id, require_oauth_binding=False
+            )
+            if not user_urn:
+                respond(
+                    f"❗ Unsubscribe failed: could not find corresponding DataHub user with email {email}"
+                )
+                return
+
+        if not user_urn:
+            respond("❗ Unsubscribe failed: could not resolve your DataHub account.")
             return
 
         impersonation_graph = graph_as_user(user_urn)
@@ -600,25 +814,56 @@ def get_slack_app(
         logger.debug(f"view: {body}")
         private_metadata = json.loads(view["private_metadata"])
         entity_urn = private_metadata["urn"]
+        response_url = private_metadata.get("response_url")
+        if not response_url:
+            logger.warning(
+                f"No response_url in subscribe modal private_metadata for entity {entity_urn}"
+            )
+            ack()
+            return
         respond = Respond(
-            response_url=private_metadata["response_url"],
+            response_url=response_url,
             proxy=app.client.proxy,
             ssl=app.client.ssl,
         )
         ack()
 
-        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
-        logger.debug(f"matched user urns: {user_urns}")
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
+
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        if resolution.should_prompt_connection:
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage subscriptions"
+            )
+            respond(text=text, blocks=blocks, replace_original=False)
+            return
+
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, user_urns = get_user_information(
+                app, slack_user_id, require_oauth_binding=False
+            )
+            logger.debug(f"matched user urns: {user_urns}")
+            if not user_urn:
+                respond(
+                    f"❗ Subscription failed: could not find corresponding DataHub user with email {email}"
+                )
+                return
+            if len(user_urns) > 1:
+                respond(
+                    f"❗ Subscription failed: found multiple corresponding DataHub users with email {email}"
+                )
+                return
+
         if not user_urn:
-            respond(
-                f"❗ Subscription failed: could not find corresponding DataHub user with email {email}"
-            )
+            respond("❗ Subscription failed: could not resolve your DataHub account.")
             return
-        if len(user_urns) > 1:
-            respond(
-                f"❗ Subscription failed: found multiple corresponding DataHub users with email {email}"
-            )
-            return
+
         impersonation_graph = graph_as_user(user_urn)
 
         options = view["state"]["values"]["ect_block"]["ect_action"]["selected_options"]
@@ -671,17 +916,55 @@ def get_slack_app(
 
         private_metadata = json.loads(view["private_metadata"])
         incident_urn = private_metadata["urn"]
+        response_url = private_metadata.get("response_url")
 
-        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
-        logger.debug(f"matched user urns: {user_urns}")
-        if not user_urn:
-            logger.warning(
-                f"Could not find corresponding DataHub user with email {email}. Resolving incident as system."
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
+
+        # Resolve user with shared logic
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        # If OAuth is required but user hasn't connected, prompt them
+        if resolution.should_prompt_connection:
+            logger.info(
+                f"User {slack_user_id} needs to connect their account to resolve incidents"
             )
-        if len(user_urns) > 1:
-            logger.warning(
-                f"Found multiple corresponding DataHub users with email {email}. Resolving incident as system."
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage incidents"
             )
+            if response_url:
+                respond = Respond(
+                    response_url=response_url,
+                    proxy=app.client.proxy,
+                    ssl=app.client.ssl,
+                )
+                respond(text=text, blocks=blocks, replace_original=False)
+            else:
+                logger.warning(
+                    f"No response_url to send connect-account prompt for user {slack_user_id}"
+                )
+            return
+
+        # Fall back to email-based lookup if OAuth not required
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, user_urns = get_user_information(
+                app,
+                slack_user_id,
+                require_oauth_binding=False,
+            )
+            logger.debug(f"matched user urns: {user_urns}")
+            if not user_urn:
+                logger.warning(
+                    f"Could not find corresponding DataHub user with email {email}. Resolving incident as system."
+                )
+            if len(user_urns) > 1:
+                logger.warning(
+                    f"Found multiple corresponding DataHub users with email {email}. Resolving incident as system."
+                )
 
         impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
 
@@ -700,19 +983,43 @@ def get_slack_app(
             stage = selected_option.value
 
         input = {"state": "RESOLVED", "message": note, "stage": stage or None}
-        data = impersonation_graph.execute_graphql(
-            UPDATE_INCIDENT_STATUS_MUTATION,
-            variables={"urn": incident_urn, "input": input},
-        )
 
-        logger.debug(f"resolved incident!: {data}")
-        _track_notification_slack_action(
-            user_urn=user_urn,
-            notification_id=incident_urn,
-            notification_type=NotificationType.INCIDENT,
-            action=NotificationSlackAction.RESOLVE,
-            success=bool(data),
-        )
+        try:
+            data = impersonation_graph.execute_graphql(
+                UPDATE_INCIDENT_STATUS_MUTATION,
+                variables={"urn": incident_urn, "input": input},
+            )
+            logger.debug(f"resolved incident!: {data}")
+            _track_notification_slack_action(
+                user_urn=user_urn,
+                notification_id=incident_urn,
+                notification_type=NotificationType.INCIDENT,
+                action=NotificationSlackAction.RESOLVE,
+                success=bool(data),
+            )
+        except GraphError as e:
+            error_str = str(e)
+            if "UNAUTHORIZED" in error_str or "403" in error_str:
+                logger.warning(
+                    f"User {slack_user_id} (urn={user_urn}) is not authorized to resolve incident {incident_urn}"
+                )
+                text, blocks = build_authorization_error_blocks(
+                    slack_user_id, action_description="resolve this incident"
+                )
+                if response_url:
+                    error_respond = Respond(
+                        response_url=response_url,
+                        proxy=app.client.proxy,
+                        ssl=app.client.ssl,
+                    )
+                    error_respond(text=text, blocks=blocks, replace_original=False)
+                else:
+                    logger.warning(
+                        f"No response_url to send auth error for user {slack_user_id} on incident {incident_urn}"
+                    )
+            else:
+                logger.error(f"Error resolving incident {incident_urn}: {e}")
+                raise
 
     @app.action("reopen_incident")
     def handle_reopen_incident(
@@ -725,36 +1032,77 @@ def get_slack_app(
         context = IncidentContext(**json.loads(action["value"]))
         incident_urn = context.urn
 
-        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
-        logger.debug(f"matched user urns: {user_urns}")
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
 
-        if not user_urn:
-            logger.warning(
-                f"Could not find corresponding DataHub user with email {email}. Reopening incident as system user."
+        # Resolve user with shared logic
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        # If OAuth is required but user hasn't connected, prompt them
+        if resolution.should_prompt_connection:
+            logger.info(
+                f"User {slack_user_id} needs to connect their account to reopen incidents"
             )
-        if len(user_urns) > 1:
-            logger.warning(
-                f"Found multiple corresponding DataHub users with email {email}. Reopening incident as system user."
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage incidents"
             )
+            respond(text=text, blocks=blocks, replace_original=False)
+            return
+
+        # Fall back to email-based lookup if OAuth not required
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, user_urns = get_user_information(
+                app,
+                slack_user_id,
+                require_oauth_binding=False,
+            )
+            logger.debug(f"matched user urns: {user_urns}")
+
+            if not user_urn:
+                logger.warning(
+                    f"Could not find corresponding DataHub user with email {email}. Reopening incident as system user."
+                )
+            if len(user_urns) > 1:
+                logger.warning(
+                    f"Found multiple corresponding DataHub users with email {email}. Reopening incident as system user."
+                )
 
         impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
 
         input = {
             "state": "ACTIVE",
         }
-        data = impersonation_graph.execute_graphql(
-            UPDATE_INCIDENT_STATUS_MUTATION,
-            variables={"urn": incident_urn, "input": input},
-        )
 
-        logger.debug(f"reopened incident!: {data}")
-        _track_notification_slack_action(
-            user_urn=user_urn,
-            notification_id=incident_urn,
-            notification_type=NotificationType.INCIDENT,
-            action=NotificationSlackAction.REOPEN,
-            success=bool(data),
-        )
+        try:
+            data = impersonation_graph.execute_graphql(
+                UPDATE_INCIDENT_STATUS_MUTATION,
+                variables={"urn": incident_urn, "input": input},
+            )
+            logger.debug(f"reopened incident!: {data}")
+            _track_notification_slack_action(
+                user_urn=user_urn,
+                notification_id=incident_urn,
+                notification_type=NotificationType.INCIDENT,
+                action=NotificationSlackAction.REOPEN,
+                success=bool(data),
+            )
+        except GraphError as e:
+            error_str = str(e)
+            if "UNAUTHORIZED" in error_str or "403" in error_str:
+                logger.warning(
+                    f"User {slack_user_id} (urn={user_urn}) is not authorized to reopen incident {incident_urn}"
+                )
+                text, blocks = build_authorization_error_blocks(
+                    slack_user_id, action_description="reopen this incident"
+                )
+                respond(text=text, blocks=blocks, replace_original=False)
+            else:
+                logger.error(f"Error reopening incident {incident_urn}: {e}")
+                raise
 
     @app.action("select_incident_stage")
     def handle_select_incident_stage(
@@ -768,26 +1116,66 @@ def get_slack_app(
         context = option.context
         new_stage = option.value
 
-        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
 
-        if not user_urn:
-            logger.warning(
-                f"Could not find corresponding DataHub user with email {email}. Selecting incident stage as system user."
+        # Resolve user with shared logic
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        # If OAuth is required but user hasn't connected, prompt them
+        if resolution.should_prompt_connection:
+            logger.info(
+                f"User {slack_user_id} needs to connect their account to change incident stage"
             )
-        if len(user_urns) > 1:
-            logger.warning(
-                f"Found multiple corresponding DataHub users with email {email}. Selecting incident stage as system user."
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage incidents"
             )
+            respond(text=text, blocks=blocks, replace_original=False)
+            return
+
+        # Fall back to email-based lookup if OAuth not required
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, user_urns = get_user_information(
+                app,
+                slack_user_id,
+                require_oauth_binding=False,
+            )
+
+            if not user_urn:
+                logger.warning(
+                    f"Could not find corresponding DataHub user with email {email}. Selecting incident stage as system user."
+                )
+            if len(user_urns) > 1:
+                logger.warning(
+                    f"Found multiple corresponding DataHub users with email {email}. Selecting incident stage as system user."
+                )
 
         impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
 
         input = {"stage": new_stage}
-        data = impersonation_graph.execute_graphql(
-            UPDATE_INCIDENT_STATUS_MUTATION,
-            variables={"urn": context.urn, "input": input},
-        )
-
-        logger.debug(f"updated incident stage: {data}")
+        try:
+            data = impersonation_graph.execute_graphql(
+                UPDATE_INCIDENT_STATUS_MUTATION,
+                variables={"urn": context.urn, "input": input},
+            )
+            logger.debug(f"updated incident stage: {data}")
+        except GraphError as e:
+            error_str = str(e)
+            if "UNAUTHORIZED" in error_str or "403" in error_str:
+                logger.warning(
+                    f"User {slack_user_id} (urn={user_urn}) is not authorized to update incident stage for {context.urn}"
+                )
+                text, blocks = build_authorization_error_blocks(
+                    slack_user_id, action_description="update this incident's stage"
+                )
+                respond(text=text, blocks=blocks, replace_original=False)
+            else:
+                logger.error(f"Error updating incident stage for {context.urn}: {e}")
+                raise
 
     @app.action("select_incident_priority")
     def handle_select_incident_priority(
@@ -801,25 +1189,65 @@ def get_slack_app(
         context = option.context
         new_priority = option.value
 
-        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        require_oauth = get_require_slack_oauth_binding()
+        slack_user_id = body["user"]["id"]
 
-        if not user_urn:
-            logger.warning(
-                f"Could not find corresponding DataHub user with email {email}. Updating incident priority as system user."
+        # Resolve user with shared logic
+        resolution = resolve_slack_user_to_datahub(
+            slack_user_id=slack_user_id,
+            require_oauth_binding=require_oauth,
+        )
+
+        # If OAuth is required but user hasn't connected, prompt them
+        if resolution.should_prompt_connection:
+            logger.info(
+                f"User {slack_user_id} needs to connect their account to change incident priority"
             )
-        if len(user_urns) > 1:
-            logger.warning(
-                f"Found multiple corresponding DataHub users with email {email}. Updating incident priority as system user."
+            text, blocks = build_connect_account_blocks(
+                slack_user_id, action_description="manage incidents"
             )
+            respond(text=text, blocks=blocks, replace_original=False)
+            return
+
+        # Fall back to email-based lookup if OAuth not required
+        user_urn = resolution.user_urn
+        if not user_urn and not require_oauth:
+            email, user_urn, user_urns = get_user_information(
+                app,
+                slack_user_id,
+                require_oauth_binding=False,
+            )
+
+            if not user_urn:
+                logger.warning(
+                    f"Could not find corresponding DataHub user with email {email}. Updating incident priority as system user."
+                )
+            if len(user_urns) > 1:
+                logger.warning(
+                    f"Found multiple corresponding DataHub users with email {email}. Updating incident priority as system user."
+                )
 
         impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
 
-        data = impersonation_graph.execute_graphql(
-            UPDATE_INCIDENT_PRIORITY_MUTATION,
-            variables={"urn": context.urn, "priority": new_priority},
-        )
-
-        logger.debug(f"updated incident priority: {data}")
+        try:
+            data = impersonation_graph.execute_graphql(
+                UPDATE_INCIDENT_PRIORITY_MUTATION,
+                variables={"urn": context.urn, "priority": new_priority},
+            )
+            logger.debug(f"updated incident priority: {data}")
+        except GraphError as e:
+            error_str = str(e)
+            if "UNAUTHORIZED" in error_str or "403" in error_str:
+                logger.warning(
+                    f"User {slack_user_id} (urn={user_urn}) is not authorized to update incident priority for {context.urn}"
+                )
+                text, blocks = build_authorization_error_blocks(
+                    slack_user_id, action_description="update this incident's priority"
+                )
+                respond(text=text, blocks=blocks, replace_original=False)
+            else:
+                logger.error(f"Error updating incident priority for {context.urn}: {e}")
+                raise
 
     @app.action("external_redirect")
     def handle_actions(ack: Ack, respond: Respond, _action: dict) -> None:
@@ -999,4 +1427,287 @@ def get_slack_link_preview(raw_url: str) -> SlackLinkPreview:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             f"You do not have permission to view conversation {url.conversation_id} message {url.message_id}: {error_message}",
+        ) from e
+
+
+# ============================================================================
+# Slack Personal Notifications OAuth Endpoints
+# ============================================================================
+
+
+def store_user_slack_settings(
+    user_urn: str,
+    slack_user_id: str,
+    display_name: Optional[str] = None,
+) -> bool:
+    """
+    Store Slack user binding in DataHub user settings.
+
+    This is the essential binding that links a Slack user to a DataHub user.
+    The slack_user_id is the primary identifier used for user resolution.
+
+    Args:
+        user_urn: DataHub user URN to bind
+        slack_user_id: Slack user ID (e.g., "U12345678")
+        display_name: Optional display name for UI purposes
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.debug(f"Storing Slack binding: {user_urn} -> {slack_user_id}")
+
+    try:
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.com.linkedin.pegasus2avro.identity import (
+            CorpUserAppearanceSettingsClass,
+            CorpUserSettingsClass,
+        )
+        from datahub.metadata.schema_classes import (
+            NotificationSettingsClass,
+            SlackNotificationSettingsClass,
+            SlackUserClass,
+        )
+
+        # Get or create user settings
+        existing_settings = graph.get_aspect(
+            entity_urn=user_urn, aspect_type=CorpUserSettingsClass
+        )
+
+        if existing_settings:
+            corp_settings = existing_settings
+            notification_settings = (
+                corp_settings.notificationSettings
+                or NotificationSettingsClass(sinkTypes=[])
+            )
+        else:
+            corp_settings = CorpUserSettingsClass(
+                appearance=CorpUserAppearanceSettingsClass(showSimplifiedHomepage=False)
+            )
+            notification_settings = NotificationSettingsClass(sinkTypes=[])
+
+        # Create the SlackUser binding
+        slack_user = SlackUserClass(
+            slackUserId=slack_user_id,
+            displayName=display_name,
+            lastUpdated=int(time.time() * 1000),
+        )
+
+        # Merge with existing slack settings to preserve channels / userHandle
+        existing_slack = (
+            notification_settings.slackSettings or SlackNotificationSettingsClass()
+        )
+        existing_slack.user = slack_user
+        notification_settings.slackSettings = existing_slack
+        corp_settings.notificationSettings = notification_settings
+
+        # Emit the binding
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=user_urn,
+            aspect=corp_settings,
+        )
+        graph.emit(mcp)
+
+        logger.info(f"✅ Bound Slack user {slack_user_id} to {user_urn}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to store Slack binding: {e}")
+        return False
+
+
+def _is_safe_redirect_path(path: Optional[str]) -> bool:
+    """Return True only if *path* is a safe, relative redirect target."""
+    if not path or not path.startswith("/"):
+        return False
+    # Block protocol-relative, backslash, encoded-slash, and traversal tricks
+    if path.startswith("//") or "://" in path:
+        return False
+    if "\\" in path or "%2f" in path.lower() or "%5c" in path.lower():
+        return False
+    if ".." in path:
+        return False
+    return True
+
+
+def _build_oauth_error_redirect(redirect_url: str, message: str) -> RedirectResponse:
+    """Build a redirect response with a URL-encoded error message."""
+    safe_message = quote(message, safe="")
+    return RedirectResponse(
+        url=f"{redirect_url}?slack_oauth=error&message={safe_message}",
+        status_code=302,
+    )
+
+
+def _exchange_slack_oidc_token(
+    config: SlackConnection, code: str, redirect_uri: str
+) -> Any:
+    """
+    Exchange an authorization code for OIDC tokens via Slack.
+
+    See: https://docs.slack.dev/authentication/sign-in-with-slack/
+
+    Returns:
+        The validated Slack OIDC response.
+
+    Raises:
+        slack_sdk.errors.SlackApiError: If the token exchange fails.
+    """
+    slack_client = slack_sdk.web.WebClient(proxy=SLACK_PROXY)
+    assert config.app_details
+    assert config.app_details.client_id
+    assert config.app_details.client_secret
+    return slack_client.openid_connect_token(
+        client_id=config.app_details.client_id,
+        client_secret=config.app_details.client_secret,
+        code=code,
+        redirect_uri=redirect_uri,
+    ).validate()
+
+
+def _extract_slack_user_from_oidc(
+    oidc_response: Any,
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Extract Slack user ID and display name from an OIDC token response.
+
+    The ``openid.connect.token`` endpoint returns an ``id_token`` JWT whose
+    payload contains user claims (``sub``, ``name``, etc.).  Signature
+    verification is unnecessary here because the token was received directly
+    from Slack's server over HTTPS in a back-channel (server-to-server) call.
+    Per OpenID Connect Core §3.1.3.7, TLS server validation may be used in
+    place of token signature checking when the token is obtained directly
+    from the token endpoint.
+
+    Returns:
+        (slack_user_id, display_name) — either may be None.
+    """
+    id_token: Optional[str] = oidc_response.get("id_token")
+    if not id_token:
+        return None, None
+
+    try:
+        payload_segment = id_token.split(".")[1]
+        # JWT base64url encoding may lack padding
+        padded = payload_segment + "=" * (-len(payload_segment) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded))
+    except Exception:
+        logger.warning("Failed to decode id_token JWT payload", exc_info=True)
+        return None, None
+
+    slack_user_id: Optional[str] = claims.get(
+        "https://slack.com/user_id"
+    ) or claims.get("sub")
+    display_name: Optional[str] = claims.get("name") or claims.get("given_name")
+
+    return slack_user_id, display_name
+
+
+def handle_personal_notifications_oauth(
+    code: str,
+    user_urn: Optional[str],
+    redirect_url: Optional[str],
+    state: Optional[str] = None,
+) -> Union[RedirectResponse, Dict[str, Any]]:
+    """
+    Handle OAuth completion for personal notifications flow.
+
+    Orchestrates: validate → OIDC exchange → extract user → store binding → redirect.
+    """
+    logger.info(f"Handling personal notifications OAuth for user: {user_urn}")
+
+    if not user_urn:
+        if redirect_url:
+            return _build_oauth_error_redirect(
+                redirect_url, "User authentication information is missing"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_urn parameter is required for Slack OAuth flow",
+        )
+
+    try:
+        config = slack_config.get_connection()
+        if (
+            not config.app_details
+            or not config.app_details.client_id
+            or not config.app_details.client_secret
+        ):
+            if redirect_url:
+                return _build_oauth_error_redirect(
+                    redirect_url, "Slack integration not configured"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Slack app credentials not configured",
+            )
+
+        redirect_uri = f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback"
+
+        # Step 1: Exchange authorization code for OIDC tokens
+        try:
+            oidc_response = _exchange_slack_oidc_token(config, code, redirect_uri)
+        except slack_sdk.errors.SlackApiError as e:
+            error_message = e.response.get("error", "Unknown error")
+            logger.exception(f"Slack OIDC token exchange failed: {error_message}")
+            if redirect_url:
+                return _build_oauth_error_redirect(
+                    redirect_url, f"OIDC failed: {error_message}"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to complete Slack OIDC: {error_message}",
+            ) from e
+
+        # Step 2: Extract user info from OIDC response
+        slack_user_id, display_name = _extract_slack_user_from_oidc(oidc_response)
+
+        if not slack_user_id:
+            logger.error("OIDC succeeded but no user ID in response or token")
+            if redirect_url:
+                return _build_oauth_error_redirect(
+                    redirect_url, "Failed to retrieve user information"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="OIDC succeeded but no user ID in response or token",
+            )
+
+        logger.info(f"Slack OAuth completed - User ID: {slack_user_id}")
+
+        # Step 3: Store the binding
+        success = store_user_slack_settings(
+            user_urn,
+            slack_user_id=slack_user_id,
+            display_name=display_name,
+        )
+
+        if not success:
+            if redirect_url:
+                return _build_oauth_error_redirect(
+                    redirect_url, "Failed to save settings"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update notification settings for user {user_urn}",
+            )
+
+        # Step 4: Redirect with success
+        target = redirect_url or "/settings/personal-notifications"
+        success_redirect = (
+            f"{target}?slack_oauth=success"
+            f"&slack_user_id={quote(slack_user_id, safe='')}"
+        )
+        return RedirectResponse(url=success_redirect, status_code=302)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Unexpected error in personal notifications OAuth: {e}", exc_info=True
+        )
+        if redirect_url:
+            return _build_oauth_error_redirect(redirect_url, "Unexpected error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error during OAuth flow: {str(e)}",
         ) from e

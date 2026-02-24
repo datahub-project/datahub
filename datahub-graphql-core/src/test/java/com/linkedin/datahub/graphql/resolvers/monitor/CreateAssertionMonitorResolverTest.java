@@ -677,6 +677,47 @@ public class CreateAssertionMonitorResolverTest {
             Mockito.isNull());
   }
 
+  @Test
+  public void testTimeBucketingStrategyRejectsNonQueryVolumeSource() throws Exception {
+    AssertionTimeBucketingStrategyInput bucketingInput = new AssertionTimeBucketingStrategyInput();
+    bucketingInput.setTimestampFieldPath("created_at");
+    AssertionTimeBucketIntervalWindowInput bucketWindowInput =
+        new AssertionTimeBucketIntervalWindowInput();
+    bucketWindowInput.setUnit(AssertionTimeBucketInterval.DAY);
+    bucketingInput.setBucketInterval(bucketWindowInput);
+    bucketingInput.setTimezone("UTC");
+
+    CreateAssertionMonitorInput input =
+        new CreateAssertionMonitorInput(
+            TEST_ENTITY_URN.toString(),
+            TEST_ASSERTION_URN.toString(),
+            new CronScheduleInput("1 * * * *", "UTC"),
+            new AssertionEvaluationParametersInput(
+                AssertionEvaluationParametersType.DATASET_VOLUME,
+                null,
+                new DatasetVolumeAssertionParametersInput(
+                    DatasetVolumeSourceType.INFORMATION_SCHEMA, bucketingInput),
+                null,
+                null),
+            TEST_EXECUTOR_ID);
+
+    MonitorService mockService = initMockMonitorService(TEST_MONITOR_INFO_VOLUME);
+    AssertionService mockAssertionService =
+        initMockAssertionsService(TEST_ASSERTION_URN, AssertionType.VOLUME);
+    CreateAssertionMonitorResolver resolver =
+        new CreateAssertionMonitorResolver(mockService, mockAssertionService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException ex =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(ex.getCause() instanceof DataHubGraphQLException);
+    assertTrue(ex.getCause().getMessage().contains("sourceType=QUERY"));
+  }
+
   private MonitorService initMockMonitorService(MonitorInfo monitorInfo) throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
     // Mock the 8-arg overload used by the resolver

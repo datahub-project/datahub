@@ -9,7 +9,12 @@ from datahub_integrations.slack.command.get import handle_get_command
 from datahub_integrations.slack.command.help import handle_help_command
 from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.context import SearchContext
-from datahub_integrations.slack.utils.datahub_user import get_datahub_user
+from datahub_integrations.slack.feature_flags import get_require_slack_oauth_binding
+from datahub_integrations.slack.utils.datahub_user import (
+    build_connect_account_blocks,
+    get_datahub_user,
+    resolve_slack_user_to_datahub,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +32,24 @@ def handle_command(
     ack()
     logger.debug(f"command: {command}")
     channel_name = command.get("channel_name") or ""
-    user_urn = get_datahub_user(app, command["user_id"])
+    require_oauth = get_require_slack_oauth_binding()
+    slack_user_id = command["user_id"]
+
+    resolution = resolve_slack_user_to_datahub(
+        slack_user_id=slack_user_id,
+        require_oauth_binding=require_oauth,
+    )
+    if resolution.should_prompt_connection:
+        text, blocks = build_connect_account_blocks(
+            slack_user_id, action_description="use DataHub commands"
+        )
+        respond(text=text, blocks=blocks)
+        return
+
+    user_urn = resolution.user_urn
+    if not user_urn:
+        user_urn = get_datahub_user(app, slack_user_id, require_oauth_binding=False)
+
     text = (command.get(COMMAND_TEXT_FIELD_NAME) or "").strip()
 
     # Command Routing Layer

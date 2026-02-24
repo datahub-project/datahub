@@ -84,6 +84,7 @@ public class DataHubAiConversationController {
     private String conversationUrn;
     private String text;
     private String agentName;
+    private String viewUrn;
     private ChatContext context;
   }
 
@@ -185,6 +186,7 @@ public class DataHubAiConversationController {
                         request.getConversationUrn(),
                         request.getText(),
                         request.getAgentName(),
+                        request.getViewUrn(),
                         contextMap,
                         authentication, // Forward user's authentication to integrations service
                         sseEvent -> {

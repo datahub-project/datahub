@@ -9,11 +9,13 @@ import { MessageList } from '@app/chat/components/MessageList';
 import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
+import { useChatViewOptions } from '@app/chat/hooks/useChatViewOptions';
 import { useSyncChatMode } from '@app/chat/hooks/useSyncChatMode';
 import { ChatFeatureFlags, ChatMessageAction, ChatVariant } from '@app/chat/types';
 import { CHAT_MODE_OPTIONS, ChatMode, getAgentNameForChatMode } from '@app/chat/utils/chatModes';
+import { resolveViewUrn } from '@app/chat/utils/chatViews';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { useAppConfig, useIsAskDataHubModeSelectEnabled } from '@app/useAppConfig';
+import { useAppConfig, useIsAskDataHubModeSelectEnabled, useIsAskDataHubViewSelectEnabled } from '@app/useAppConfig';
 
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
 import { Entity } from '@types';
@@ -174,6 +176,8 @@ interface ChatAreaWithConversationProps extends Omit<ChatAreaProps, 'conversatio
     conversationUrn: string;
     selectedMode: ChatMode;
     onModeChange: (mode: ChatMode) => void;
+    selectedView: string;
+    onViewChange: (view: string) => void;
 }
 
 /**
@@ -201,6 +205,8 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     chatLocation,
     selectedMode,
     onModeChange,
+    selectedView,
+    onViewChange,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const hasAutoSentInitialMessage = useRef(false);
@@ -208,6 +214,8 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
     const isModeSelectEnabled = useIsAskDataHubModeSelectEnabled();
+    const isViewSelectEnabled = useIsAskDataHubViewSelectEnabled();
+    const { viewOptions } = useChatViewOptions();
 
     const updateInputValue = useCallback(
         (value: string) => {
@@ -219,9 +227,6 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         [conversationUrn, onDraftChange],
     );
 
-    // Sync input with draft when switching conversations to avoid leaking previous text.
-    // IMPORTANT: Do not include inputValue in deps - that would cause every keystroke to
-    // reset the input to empty (since draft is undefined in AskDataHubTab).
     // Sync input with draft when switching conversations to avoid leaking previous text.
     // IMPORTANT: Do not include inputValue in deps - that would cause every keystroke to
     // reset the input to empty (since draft is undefined in AskDataHubTab).
@@ -258,6 +263,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
             }
         },
         agentName: getAgentNameForChatMode(selectedMode),
+        viewUrn: resolveViewUrn(selectedView),
         chatLocation,
     });
 
@@ -377,6 +383,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                         modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
                                         selectedMode={selectedMode}
                                         onModeChange={(mode) => onModeChange(mode as ChatMode)}
+                                        viewOptions={isViewSelectEnabled ? viewOptions : undefined}
+                                        selectedView={selectedView}
+                                        onViewChange={onViewChange}
                                         autoFocus
                                     />
                                     <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
@@ -419,6 +428,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                 modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
                                 selectedMode={selectedMode}
                                 onModeChange={(mode) => onModeChange(mode as ChatMode)}
+                                viewOptions={isViewSelectEnabled ? viewOptions : undefined}
+                                selectedView={selectedView}
+                                onViewChange={onViewChange}
                                 autoFocus
                             />
                             <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
@@ -452,6 +464,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
     const isModeSelectEnabled = useIsAskDataHubModeSelectEnabled();
+    const isViewSelectEnabled = useIsAskDataHubViewSelectEnabled();
+    const { viewOptions, defaultViewValue } = useChatViewOptions();
+    const [selectedView, setSelectedView] = useState<string>(defaultViewValue);
+    const hasInitializedViewRef = useRef(false);
+
+    useEffect(() => {
+        if (!hasInitializedViewRef.current && defaultViewValue) {
+            setSelectedView(defaultViewValue);
+            hasInitializedViewRef.current = true;
+        }
+    }, [defaultViewValue]);
 
     // If we have a conversation, render the full chat experience
     if (conversationUrn) {
@@ -464,6 +487,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 onConversationNotFound={rest.onConversationNotFound}
                 selectedMode={selectedMode}
                 onModeChange={setSelectedMode}
+                selectedView={selectedView}
+                onViewChange={setSelectedView}
                 {...rest}
             />
         );
@@ -512,6 +537,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     modeOptions={isModeSelectEnabled ? CHAT_MODE_OPTIONS : undefined}
                                     selectedMode={selectedMode}
                                     onModeChange={(mode) => setSelectedMode(mode as ChatMode)}
+                                    viewOptions={isViewSelectEnabled ? viewOptions : undefined}
+                                    selectedView={selectedView}
+                                    onViewChange={setSelectedView}
                                 />
                                 <AIDisclaimer>Ask DataHub uses AI. Please double-check responses.</AIDisclaimer>
                                 <SuggestedQuestions

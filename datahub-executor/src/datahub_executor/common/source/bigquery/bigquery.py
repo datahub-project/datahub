@@ -25,10 +25,15 @@ from datahub_executor.common.exceptions import (
     SourceQueryFailedException,
 )
 from datahub_executor.common.source.bigquery.time_utils import (
+    build_tz_bucket_boundary_expression,
+    convert_millis_to_timestamp,
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
-from datahub_executor.common.source.source import DATAHUB_OBSERVE_SOURCE_VALUE, Source
+from datahub_executor.common.source.source import (
+    DATAHUB_OBSERVE_SOURCE_VALUE,
+    Source,
+)
 from datahub_executor.common.source.sql.field_metrics_sql_generator import (
     FieldMetricsSQLGenerator,
 )
@@ -510,6 +515,16 @@ class BigQuerySource(Source):
                 query=query,
                 response_code=response_code,
             )
+
+    def _build_tz_bucket_boundary_expression(
+        self, expression: str, normalized_interval: str, timezone_name: str
+    ) -> str:
+        return build_tz_bucket_boundary_expression(
+            expression, normalized_interval, timezone_name
+        )
+
+    def _convert_millis_to_bucket_timestamp(self, millis: int) -> str:
+        return convert_millis_to_timestamp(millis)
 
     @staticmethod
     def _get_response_code_for_exception(error: Exception) -> int:

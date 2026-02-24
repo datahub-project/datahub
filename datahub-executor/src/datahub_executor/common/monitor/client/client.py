@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationSpecClass,
     AssertionInfoClass,
     AssertionMonitorMetricsCubeBootstrapStatusClass,
+    AssertionTimeBucketingStrategyClass,
     AuditLogSpecClass,
     CronScheduleClass,
     DatasetFieldAssertionParametersClass,
@@ -22,6 +23,7 @@ from datahub.metadata.schema_classes import (
     MonitorErrorClass,
     MonitorTypeClass,
     SystemMetadataClass,
+    TimeWindowSizeClass,
 )
 
 from datahub_executor.common.metric.types import Metric
@@ -408,6 +410,32 @@ class MonitorClient:
         assertion_evaluation_context: AssertionEvaluationContextClass,
     ) -> AssertionEvaluationSpecClass:
         """Build an assertion evaluation spec for volume assertions"""
+        time_bucketing_strategy = None
+        volume_parameters = (
+            evaluation_spec.parameters.dataset_volume_parameters
+            if evaluation_spec.parameters
+            else None
+        )
+        strategy = (
+            volume_parameters.time_bucketing_strategy if volume_parameters else None
+        )
+        if strategy:
+            time_bucketing_strategy = AssertionTimeBucketingStrategyClass(
+                timestampFieldPath=strategy.timestamp_field_path,
+                bucketInterval=TimeWindowSizeClass(
+                    unit=strategy.bucket_interval.unit.value,
+                    multiple=strategy.bucket_interval.multiple,
+                ),
+                lateArrivalGracePeriod=(
+                    TimeWindowSizeClass(
+                        unit=strategy.late_arrival_grace_period.unit.value,
+                        multiple=strategy.late_arrival_grace_period.multiple,
+                    )
+                    if strategy.late_arrival_grace_period
+                    else None
+                ),
+                timezone=strategy.timezone,
+            )
         return AssertionEvaluationSpecClass(
             assertion=assertion_urn,
             schedule=CronScheduleClass(
@@ -417,7 +445,8 @@ class MonitorClient:
             parameters=AssertionEvaluationParametersClass(
                 type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
                 datasetVolumeParameters=DatasetVolumeAssertionParametersClass(
-                    sourceType=evaluation_spec.parameters.dataset_volume_parameters.source_type.value  # type: ignore
+                    sourceType=evaluation_spec.parameters.dataset_volume_parameters.source_type.value,  # type: ignore
+                    timeBucketingStrategy=time_bucketing_strategy,
                 ),
             ),
             context=assertion_evaluation_context,

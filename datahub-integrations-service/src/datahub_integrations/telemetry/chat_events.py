@@ -129,6 +129,9 @@ class ChatbotInteractionEvent(BaseEvent):
     ui_user_urn: Optional[str] = None
     ui_conversation_urn: Optional[str] = None
 
+    # Tool context snapshot (captures view preferences and other context items)
+    tool_context: Optional[str] = None
+
 
 class ChatbotInteractionFeedbackEvent(BaseEvent):
     """Event representing feedback on a chatbot interaction."""

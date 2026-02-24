@@ -20,6 +20,7 @@ interface UseChatStreamProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
+    viewUrn?: string;
     chatLocation: ChatLocationType;
 }
 
@@ -256,6 +257,7 @@ export const useChatStream = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
+    viewUrn,
     chatLocation,
 }: UseChatStreamProps) => {
     const [state, setState] = useState<StreamState>({
@@ -319,6 +321,7 @@ export const useChatStream = ({
                     conversationUrn: string;
                     text: string;
                     agentName?: string;
+                    viewUrn?: string;
                     context?: MessageContext;
                 } = {
                     conversationUrn: targetConversationUrn || conversationUrn,
@@ -327,6 +330,10 @@ export const useChatStream = ({
 
                 if (agentName) {
                     requestBody.agentName = agentName;
+                }
+
+                if (viewUrn) {
+                    requestBody.viewUrn = viewUrn;
                 }
 
                 if (messageContext) {
@@ -468,6 +475,7 @@ export const useChatStream = ({
             onMessageReceived,
             onStreamComplete,
             agentName,
+            viewUrn,
             emitResponseCompletionEvent,
             setState,
             chatLocation,

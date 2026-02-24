@@ -114,15 +114,22 @@ def get_slack_app_manifest(is_minimal_permissions: Optional[bool]) -> str:
             ],
         },
         "oauth_config": {
-            "redirect_urls": list(
-                {f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback"}
-            ),
+            "redirect_urls": [
+                # Unified OAuth callback for all flows:
+                # - 'install': Admin app installation (OAuth 2.0, bot token)
+                # - 'connect': Personal user binding (OIDC, user identity)
+                # Flow type is differentiated via state parameter.
+                f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback",
+            ],
             "scopes": {
                 "bot": (
                     slack_bot_scopes
                     if not is_minimal_permissions
                     else minimal_slack_bot_scopes
                 ),
+                # Note: No user scopes needed for personal OAuth binding.
+                # The OAuth response includes authed_user.id which is all we need.
+                # Display name is fetched via bot token (users:read scope).
             },
         },
         "settings": {

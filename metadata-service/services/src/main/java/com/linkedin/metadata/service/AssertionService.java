@@ -41,6 +41,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
@@ -93,7 +94,7 @@ public class AssertionService extends BaseService {
   static final String PASSING_ASSERTIONS_INDEX_FIELD_NAME = "passingAssertions";
 
   static final List<String> ENTITY_TYPES_WITH_ASSERTION_SUMMARIES =
-      ImmutableList.of(Constants.DATASET_ENTITY_NAME);
+      ImmutableList.copyOf(AcrylConstants.ASSERTABLE_ENTITY_TYPES);
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
   private static final String MONITOR_EVALUATES_RELATIONSHIP_NAME = "Evaluates";
 

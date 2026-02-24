@@ -72,6 +72,7 @@ public class FeatureFlags {
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
   private boolean teamsNotificationsEnabled = false;
+  private boolean requireSlackOAuthBinding = false;
   private boolean runAssertionsEnabled = false;
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
@@ -92,6 +93,7 @@ public class FeatureFlags {
   private boolean inviteUsersEnabled = false;
   private boolean showAskDataHub = false;
   private boolean showAskDataHubModeSelect = false;
+  private boolean showAskDataHubViewSelect = false;
   private boolean showAskDataHubFeedback = false;
   private boolean supportTicketsEnabled = false;
   private boolean freshnessAssertionTuningEnabled = false;

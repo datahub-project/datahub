@@ -61,6 +61,17 @@ import org.springframework.stereotype.Component;
  * user or group.
  *
  * <p>This hook is enabled by default and can be disabled in application configurations.
+ *
+ * <p><b>SLACK DISCLAIMER:</b> This hook only populates the legacy {@code
+ * SlackNotificationSettings.userHandle} field from {@code corpUserEditableInfo.slack}. It does NOT
+ * populate the new {@code NotificationSettings.slackSettings.user} (SlackUser) model which is
+ * required for the modern Slack notification flow.
+ *
+ * <p>We now require OAuth binding to securely connect Slack identities instead of depending on the
+ * user-mutable {@code corpUserEditableInfo} aspect. Users must bind their Slack account via OAuth
+ * to populate the SlackUser model in their notification settings.
+ *
+ * @see com.linkedin.settings.global.SlackUser
  */
 @Slf4j
 @Component

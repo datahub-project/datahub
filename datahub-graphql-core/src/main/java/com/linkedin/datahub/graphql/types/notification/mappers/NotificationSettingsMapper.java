@@ -67,6 +67,30 @@ public class NotificationSettingsMapper
       @Nonnull
           final com.linkedin.event.notification.settings.SlackNotificationSettings slackSettings) {
     final SlackNotificationSettings result = new SlackNotificationSettings();
+
+    // Map the new SlackUser field (OAuth-bound user)
+    if (slackSettings.hasUser()) {
+      com.linkedin.datahub.graphql.generated.SlackUser graphqlUser =
+          new com.linkedin.datahub.graphql.generated.SlackUser();
+      com.linkedin.settings.global.SlackUser user = slackSettings.getUser();
+
+      if (user.hasSlackUserId()) {
+        graphqlUser.setSlackUserId(user.getSlackUserId());
+      }
+      if (user.hasEmail()) {
+        graphqlUser.setEmail(user.getEmail());
+      }
+      if (user.hasDisplayName()) {
+        graphqlUser.setDisplayName(user.getDisplayName());
+      }
+      if (user.hasLastUpdated()) {
+        graphqlUser.setLastUpdated(user.getLastUpdated());
+      }
+
+      result.setUser(graphqlUser);
+    }
+
+    // Legacy userHandle field (deprecated but still supported)
     if (slackSettings.hasUserHandle()) {
       result.setUserHandle(slackSettings.getUserHandle());
     }

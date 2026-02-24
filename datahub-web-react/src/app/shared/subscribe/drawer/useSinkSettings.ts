@@ -103,9 +103,20 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         ? (userNotificationSettings?.getUserNotificationSettings?.slackSettings as SlackNotificationSettings)
         : (groupNotificationSettings?.getGroupNotificationSettings?.slackSettings as SlackNotificationSettings);
 
-    // To remove __typename field in result, which gets rejected when updating, we must do this
+    // Strip __typename but preserve all real fields (including user) for display
     const slackSettings = origSlackSettings
-        ? { userHandle: origSlackSettings.userHandle, channels: origSlackSettings.channels }
+        ? {
+              userHandle: origSlackSettings.userHandle,
+              channels: origSlackSettings.channels,
+              user: origSlackSettings.user
+                  ? {
+                        slackUserId: origSlackSettings.user.slackUserId,
+                        email: origSlackSettings.user.email,
+                        displayName: origSlackSettings.user.displayName,
+                        lastUpdated: origSlackSettings.user.lastUpdated,
+                    }
+                  : undefined,
+          }
         : undefined;
 
     const origTeamsSettings = isPersonal

@@ -3,6 +3,12 @@ query getUserNotificationSettings {
         sinkTypes
         slackSettings {
             userHandle
+            user {
+                slackUserId
+                email
+                displayName
+                lastUpdated
+            }
         }
         emailSettings {
             email
@@ -35,6 +41,13 @@ fragment notificationSettingsFields on NotificationSettings {
     sinkTypes
     slackSettings {
         channels
+        userHandle
+        user {
+            slackUserId
+            email
+            displayName
+            lastUpdated
+        }
     }
     emailSettings {
         email
@@ -66,6 +79,12 @@ mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsIn
         sinkTypes
         slackSettings {
             userHandle
+            user {
+                slackUserId
+                email
+                displayName
+                lastUpdated
+            }
         }
         emailSettings {
             email

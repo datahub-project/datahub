@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components/macro';
 
 import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settingsV2/notifications/types';
@@ -7,6 +7,7 @@ import { ActorNotificationScenarioSettings } from '@app/settingsV2/personal/noti
 import { EmailSinkSettingsSection } from '@app/settingsV2/personal/notifications/section/EmailSinkSettingsSection';
 import { SlackSinkSettingsSection } from '@app/settingsV2/personal/notifications/section/SlackSinkSettingsSection';
 import { TeamsSinkSettingsSection } from '@app/settingsV2/personal/notifications/section/TeamsSinkSettingsSection';
+import { useIsSlackIntegrationConfigured } from '@app/settingsV2/slack/utils';
 import { useIsMSFTTeamsIntegrationConfigured } from '@app/settingsV2/teams/utils';
 import { isSinkEnabled } from '@app/settingsV2/utils';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
@@ -56,7 +57,8 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     // Track whether we've already shown the Teams success message
     const hasShownTeamsSuccessMessage = useRef(false);
 
-    // Use centralized Teams platform configuration check - query once here
+    // Use centralized platform configuration checks - query once here
+    const isSlackPlatformConfigured = useIsSlackIntegrationConfigured();
     const isTeamsPlatformConfigured = useIsMSFTTeamsIntegrationConfigured();
     const {
         emailSettings,
@@ -72,6 +74,12 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
         isPersonal,
         groupUrn,
     });
+
+    // Mutation-safe slack settings: strip `user` (OAuth binding, managed by backend).
+    const slackSettingsForMutation = useMemo(
+        () => (slackSettings ? { userHandle: slackSettings.userHandle, channels: slackSettings.channels } : undefined),
+        [slackSettings],
+    );
 
     // Handle OAuth callback results from URL parameters
     useEffect(() => {
@@ -96,7 +104,7 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
                     updateSinkSettings({
                         teamsSettings: teamsSettings || undefined,
                         emailSettings: emailSettings || undefined,
-                        slackSettings: slackSettings || undefined,
+                        slackSettings: slackSettingsForMutation || undefined,
                         sinkTypes: [...(sinkTypes || []), TEAMS_SINK.type],
                     });
                 }
@@ -115,7 +123,7 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
         }
-    }, [isPersonal, updateSinkSettings, emailSettings, slackSettings, sinkTypes, refetch, teamsSettings]); // Run once on component mount
+    }, [isPersonal, updateSinkSettings, emailSettings, slackSettingsForMutation, sinkTypes, refetch, teamsSettings]);
 
     // These are the sinks that are globally allowed to be enabled.
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
@@ -150,7 +158,7 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     const handleUpdateEmailSinkSettings = (newEmailSettings?: EmailNotificationSettingsInput) => {
         updateSinkSettings({
             emailSettings: newEmailSettings || undefined,
-            slackSettings: slackSettings || undefined,
+            slackSettings: slackSettingsForMutation || undefined,
             teamsSettings: teamsSettings || undefined,
             sinkTypes: sinkTypes || [],
         });
@@ -187,18 +195,18 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
         updateSinkSettings({
             teamsSettings: cleanTeamsSettings,
             emailSettings: emailSettings || undefined,
-            slackSettings: slackSettings || undefined,
+            slackSettings: slackSettingsForMutation || undefined,
             sinkTypes: sinkTypes || [],
         });
     };
 
+    // Identical to acryl-main logic
     const handleToggleSink = (sinkType: NotificationSinkType, enabled: boolean) => {
         const baseSinks = sinkTypes?.filter((st) => st !== sinkType) || [];
         const newSinkTypes = enabled ? [...baseSinks, sinkType] : baseSinks;
 
-        // Filter out settings that are null or have null values to avoid backend errors
-        // Also remove __typename fields that GraphQL adds but mutation inputs don't accept
-        const cleanSlackSettings = slackSettings && slackSettings.userHandle ? slackSettings : undefined;
+        const cleanSlackSettings =
+            slackSettingsForMutation && slackSettingsForMutation.userHandle ? slackSettingsForMutation : undefined;
         const cleanEmailSettings = emailSettings && emailSettings.email ? emailSettings : undefined;
 
         // Clean Teams settings by removing __typename fields from nested objects
@@ -272,6 +280,7 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
                         updateSinkSetting={handleUpdateSlackSinkSettings}
                         toggleSink={(enabled: boolean) => handleToggleSink(SLACK_SINK.type, enabled)}
                         groupName={groupName}
+                        isSlackPlatformConfigured={isSlackPlatformConfigured}
                     />
                     {isTeamsFeatureEnabled && (
                         <TeamsSinkSettingsSection

@@ -25,9 +25,25 @@ class MetricResolverStrategy(BaseModel):
     """
 
     source_type: MetricSourceType
+    bucketing_timestamp_field_path: str | None = None
+    bucketing_interval_unit: str | None = None
+    bucketing_interval_multiple: int | None = None
+    bucketing_timezone: str | None = None
+    late_arrival_grace_period_unit: str | None = None
+    late_arrival_grace_period_multiple: int | None = None
+    bucket_start_time_ms: int | None = None
+    bucket_end_time_ms: int | None = None
+    metric_timestamp_ms: int | None = None
 
     def __repr__(self) -> str:
-        return f"MetricResolverStrategy(source_type={self.source_type})"
+        return (
+            "MetricResolverStrategy("
+            f"source_type={self.source_type}, "
+            f"bucketing_interval_unit={self.bucketing_interval_unit}, "
+            f"bucket_start_time_ms={self.bucket_start_time_ms}, "
+            f"bucket_end_time_ms={self.bucket_end_time_ms}"
+            ")"
+        )
 
 
 class Metric(BaseModel):

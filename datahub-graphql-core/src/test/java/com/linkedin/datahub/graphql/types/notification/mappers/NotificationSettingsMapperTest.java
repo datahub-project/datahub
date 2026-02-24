@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
+import com.linkedin.datahub.graphql.generated.SlackUser;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.NotificationSettingMap;
@@ -35,6 +36,16 @@ public class NotificationSettingsMapperTest {
         new com.linkedin.event.notification.settings.SlackNotificationSettings();
     internalSlack.setUserHandle("testUser");
     internalSlack.setChannels(new StringArray(Arrays.asList("channel1", "channel2")));
+
+    // Add SlackUser (OAuth-bound user)
+    com.linkedin.settings.global.SlackUser internalSlackUser =
+        new com.linkedin.settings.global.SlackUser();
+    internalSlackUser.setSlackUserId("U12345678");
+    internalSlackUser.setEmail("slack@example.com");
+    internalSlackUser.setDisplayName("Slack User");
+    internalSlackUser.setLastUpdated(1609459200000L);
+    internalSlack.setUser(internalSlackUser);
+
     input.setSlackSettings(internalSlack);
 
     // --- Email Settings ---
@@ -64,6 +75,14 @@ public class NotificationSettingsMapperTest {
     Assert.assertNotNull(outputSlack);
     Assert.assertEquals(outputSlack.getUserHandle(), "testUser");
     Assert.assertEquals(outputSlack.getChannels(), Arrays.asList("channel1", "channel2"));
+
+    // Validate SlackUser mapping.
+    SlackUser outputSlackUser = outputSlack.getUser();
+    Assert.assertNotNull(outputSlackUser);
+    Assert.assertEquals(outputSlackUser.getSlackUserId(), "U12345678");
+    Assert.assertEquals(outputSlackUser.getEmail(), "slack@example.com");
+    Assert.assertEquals(outputSlackUser.getDisplayName(), "Slack User");
+    Assert.assertEquals(outputSlackUser.getLastUpdated(), Long.valueOf(1609459200000L));
 
     // Validate Email settings mapping.
     EmailNotificationSettings outputEmail = output.getEmailSettings();
@@ -152,5 +171,132 @@ public class NotificationSettingsMapperTest {
     Assert.assertTrue(output.getSinkTypes().isEmpty());
     Assert.assertNull(output.getSlackSettings());
     Assert.assertNull(output.getSettings());
+  }
+
+  @Test
+  public void testMapSlackSettingsWithUserNull() {
+    // Test that when SlackUser is null, only legacy fields are mapped
+    com.linkedin.event.notification.settings.NotificationSettings input =
+        new com.linkedin.event.notification.settings.NotificationSettings();
+
+    com.linkedin.event.notification.settings.SlackNotificationSettings internalSlack =
+        new com.linkedin.event.notification.settings.SlackNotificationSettings();
+    internalSlack.setUserHandle("legacyHandle");
+    internalSlack.setChannels(new StringArray(Arrays.asList("channel1")));
+    // Note: user is NOT set (null)
+    input.setSlackSettings(internalSlack);
+
+    NotificationSettings output = NotificationSettingsMapper.map(null, input);
+
+    Assert.assertNotNull(output.getSlackSettings());
+    Assert.assertEquals(output.getSlackSettings().getUserHandle(), "legacyHandle");
+    Assert.assertEquals(output.getSlackSettings().getChannels(), Arrays.asList("channel1"));
+    // SlackUser should be null when not set
+    Assert.assertNull(output.getSlackSettings().getUser());
+  }
+
+  @Test
+  public void testMapSlackSettingsWithUserAllFields() {
+    // Test that SlackUser with all fields is properly mapped
+    com.linkedin.event.notification.settings.NotificationSettings input =
+        new com.linkedin.event.notification.settings.NotificationSettings();
+
+    com.linkedin.event.notification.settings.SlackNotificationSettings internalSlack =
+        new com.linkedin.event.notification.settings.SlackNotificationSettings();
+
+    // Create SlackUser with all fields
+    com.linkedin.settings.global.SlackUser internalUser =
+        new com.linkedin.settings.global.SlackUser();
+    internalUser.setSlackUserId("U12345678");
+    internalUser.setEmail("user@example.com");
+    internalUser.setDisplayName("John Doe");
+    internalUser.setLastUpdated(1234567890L);
+    internalSlack.setUser(internalUser);
+
+    // Also set legacy field for backward compatibility
+    internalSlack.setUserHandle("U12345678");
+    input.setSlackSettings(internalSlack);
+
+    NotificationSettings output = NotificationSettingsMapper.map(null, input);
+
+    Assert.assertNotNull(output.getSlackSettings());
+
+    // Verify SlackUser is mapped
+    SlackUser outputUser = output.getSlackSettings().getUser();
+    Assert.assertNotNull(outputUser);
+    Assert.assertEquals(outputUser.getSlackUserId(), "U12345678");
+    Assert.assertEquals(outputUser.getEmail(), "user@example.com");
+    Assert.assertEquals(outputUser.getDisplayName(), "John Doe");
+    Assert.assertEquals(outputUser.getLastUpdated(), Long.valueOf(1234567890L));
+
+    // Verify legacy field is also mapped
+    Assert.assertEquals(output.getSlackSettings().getUserHandle(), "U12345678");
+  }
+
+  @Test
+  public void testMapSlackSettingsWithUserPartialFields() {
+    // Test that SlackUser with only required fields is properly mapped
+    com.linkedin.event.notification.settings.NotificationSettings input =
+        new com.linkedin.event.notification.settings.NotificationSettings();
+
+    com.linkedin.event.notification.settings.SlackNotificationSettings internalSlack =
+        new com.linkedin.event.notification.settings.SlackNotificationSettings();
+
+    // Create SlackUser with only slackUserId (minimum required)
+    com.linkedin.settings.global.SlackUser internalUser =
+        new com.linkedin.settings.global.SlackUser();
+    internalUser.setSlackUserId("U87654321");
+    // email, displayName, lastUpdated are NOT set
+    internalSlack.setUser(internalUser);
+    input.setSlackSettings(internalSlack);
+
+    NotificationSettings output = NotificationSettingsMapper.map(null, input);
+
+    Assert.assertNotNull(output.getSlackSettings());
+
+    // Verify SlackUser is mapped with only slackUserId
+    SlackUser outputUser = output.getSlackSettings().getUser();
+    Assert.assertNotNull(outputUser);
+    Assert.assertEquals(outputUser.getSlackUserId(), "U87654321");
+    Assert.assertNull(outputUser.getEmail());
+    Assert.assertNull(outputUser.getDisplayName());
+    Assert.assertNull(outputUser.getLastUpdated());
+
+    // Legacy userHandle should be null since we didn't set it
+    Assert.assertNull(output.getSlackSettings().getUserHandle());
+  }
+
+  @Test
+  public void testMapSlackSettingsWithUserOnlyNoLegacy() {
+    // Test that SlackUser works without legacy userHandle field
+    com.linkedin.event.notification.settings.NotificationSettings input =
+        new com.linkedin.event.notification.settings.NotificationSettings();
+
+    com.linkedin.event.notification.settings.SlackNotificationSettings internalSlack =
+        new com.linkedin.event.notification.settings.SlackNotificationSettings();
+
+    // Create SlackUser (new OAuth-bound user)
+    com.linkedin.settings.global.SlackUser internalUser =
+        new com.linkedin.settings.global.SlackUser();
+    internalUser.setSlackUserId("UOAUTH123");
+    internalUser.setEmail("oauth@example.com");
+    internalUser.setDisplayName("OAuth User");
+    internalSlack.setUser(internalUser);
+    // Note: userHandle is NOT set (modern OAuth flow)
+    input.setSlackSettings(internalSlack);
+
+    NotificationSettings output = NotificationSettingsMapper.map(null, input);
+
+    Assert.assertNotNull(output.getSlackSettings());
+
+    // Verify SlackUser is mapped
+    SlackUser outputUser = output.getSlackSettings().getUser();
+    Assert.assertNotNull(outputUser);
+    Assert.assertEquals(outputUser.getSlackUserId(), "UOAUTH123");
+    Assert.assertEquals(outputUser.getEmail(), "oauth@example.com");
+    Assert.assertEquals(outputUser.getDisplayName(), "OAuth User");
+
+    // Legacy userHandle should be null
+    Assert.assertNull(output.getSlackSettings().getUserHandle());
   }
 }

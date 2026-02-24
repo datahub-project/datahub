@@ -174,8 +174,10 @@ query appConfig {
             inviteUsersEnabled
             showAskDataHub
             showAskDataHubModeSelect
+            showAskDataHubViewSelect
             showAskDataHubFeedback
             teamsNotificationsEnabled
+            requireSlackOAuthBinding
             datasetSummaryPageV1
             ingestionOnboardingRedesignV1
             documentationFileUploadV1

@@ -22,6 +22,8 @@ from datahub_integrations.chat.chat_session_manager import (
     ChatSessionManager,
 )
 from datahub_integrations.chat.config import CHAT_MAX_MESSAGE_LENGTH
+from datahub_integrations.mcp.tool_context import ToolContext
+from datahub_integrations.mcp.view_preference import CustomView, NoView
 from datahub_integrations.observability.cost import get_cost_tracker
 from datahub_integrations.observability.metrics_constants import AIModule
 
@@ -44,6 +46,7 @@ class ChatMessageRequest(BaseModel):
     user_urn: str
     agent_name: str | None = None
     context: ChatContext | None = None
+    view_urn: str | None = None
 
 
 def get_system_client() -> DataHubClient:
@@ -207,6 +210,13 @@ def send_streaming_message(
                 f"Starting message stream for conversation: {request.conversation_urn}"
             )
 
+            # Ask DataHub uses two-state view: specific view or no view.
+            # Slack and other channels get the org default via empty ToolContext.
+            if request.view_urn:
+                tool_context = ToolContext([CustomView(urn=request.view_urn)])
+            else:
+                tool_context = ToolContext([NoView()])
+
             # Stream domain events from manager and convert to SSE format
             for event in manager.send_message(
                 text=request.text,
@@ -214,6 +224,7 @@ def send_streaming_message(
                 conversation_urn=request.conversation_urn,
                 agent_name=request.agent_name,
                 message_context=request.context,
+                tool_context=tool_context,
             ):
                 # Handle keepalive events with SSE comment format (ignored by clients)
                 if event.is_keepalive:

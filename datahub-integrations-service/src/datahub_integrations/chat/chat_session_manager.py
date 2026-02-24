@@ -53,6 +53,7 @@ from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.chat.utils import combine_contexts
 from datahub_integrations.gen_ai.llm.exceptions import LlmDailyLimitExceededException
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.mcp.tool_context import ToolContext
 from datahub_integrations.mcp_integration.external_mcp_manager import (
     ExternalMCPManager,
     ExternalToolWrapper,
@@ -376,6 +377,7 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
         conversation_urn: str,
         agent_name: str | None = None,
         message_context: Optional["ChatContext"] = None,  # type: ignore
+        tool_context: ToolContext | None = None,
     ) -> Iterator[ChatMessageEvent]:
         """
         Send a message and stream progress updates.
@@ -392,6 +394,7 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
             conversation_urn: URN of the conversation
             agent_name: Optional agent name/type to use
             message_context: Optional message-level context that will be combined with conversation context
+            tool_context: Optional context bag for tool execution (e.g. view preferences)
         """
         timer = PerfTimer()
         timer.start()
@@ -476,6 +479,8 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
         agent = self.load_session(
             conversation_urn, agent_type, message_context, user_urn, external_tools
         )
+        if tool_context is not None:
+            agent.tool_context = tool_context
 
         # Queue for progress updates (None signals completion)
         progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
@@ -633,4 +638,8 @@ mutation DisableUserPlugin($input: UpdateUserAiPluginSettingsInput!) {
         )
 
         enrich_event_with_agent_data(event_data, agent)
+
+        if agent and agent.tool_context._items:
+            event_data.tool_context = repr(agent.tool_context)
+
         track_saas_event(event_data)
