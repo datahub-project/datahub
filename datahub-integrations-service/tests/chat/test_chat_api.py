@@ -362,14 +362,18 @@ async def test_send_streaming_message_calls_manager_correctly() -> None:
                 )
 
                 # Verify send_message was called with correct args
-                mock_manager.send_message.assert_called_once_with(
-                    text="Hello AI",
-                    user_urn="urn:li:corpuser:test",
-                    conversation_urn="urn:li:dataHubAiConversation:123",
-                    agent_name=None,
-                    message_context=None,
-                    tool_context=None,
+                mock_manager.send_message.assert_called_once()
+                call_kwargs = mock_manager.send_message.call_args.kwargs
+                assert call_kwargs["text"] == "Hello AI"
+                assert call_kwargs["user_urn"] == "urn:li:corpuser:test"
+                assert (
+                    call_kwargs["conversation_urn"]
+                    == "urn:li:dataHubAiConversation:123"
                 )
+                assert call_kwargs["agent_name"] is None
+                assert call_kwargs["message_context"] is None
+                # Ask DataHub always sends NoView when no view_urn is specified
+                assert repr(call_kwargs["tool_context"]) == "ToolContext([NoView()])"
 
 
 @pytest.mark.asyncio
