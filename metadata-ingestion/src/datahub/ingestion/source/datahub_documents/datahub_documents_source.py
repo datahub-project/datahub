@@ -347,11 +347,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return
 
         # Filter by source type (NATIVE vs EXTERNAL)
-        source = aspect_dict.get("source", {})
-        source_type = source.get("sourceType")
-        # Default to NATIVE if sourceType is not set (backward compatibility with old documents)
-        if source_type is None:
-            source_type = "NATIVE"
+        # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
+        source = aspect_dict.get("source") or {}
+        source_type = source.get("sourceType") or "NATIVE"
 
         # Determine if we should process this document based on source type and platform filter
         should_process = self._should_process_by_source_type_event(
