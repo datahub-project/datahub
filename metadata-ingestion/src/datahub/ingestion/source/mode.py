@@ -121,11 +121,16 @@ from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
+    _sqlglot_lineage_cached,
     create_and_cache_schema_resolver,
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import parse_statements_and_pick
+from datahub.sql_parsing.sqlglot_utils import (
+    _parse_statement,
+    parse_statements_and_pick,
+    try_format_query,
+)
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
@@ -622,7 +627,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return dashboard_snapshot, browse_mcp
 
-    @lru_cache(maxsize=None)
+    @lru_cache(maxsize=5000)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
         if user is not None:
             owner_urn = builder.make_user_urn(user)
@@ -2040,9 +2045,23 @@ class ModeSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
+    @staticmethod
+    def _clear_sql_parsing_caches() -> None:
+        """Release memory held by the global SQL parsing LRU caches.
+
+        These caches store large sqlglot ASTs and parsing results keyed by
+        the full SQL string. For Mode's definition-expanded queries (often
+        64 KB+), the cached ASTs can be 10-100x larger than the source SQL.
+        Clearing between spaces prevents unbounded memory growth.
+        """
+        _parse_statement.cache_clear()
+        _sqlglot_lineage_cached.cache_clear()
+        try_format_query.cache_clear()
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
             yield from self._emit_workunits_for_space(space_token, space_name)
+            self._clear_sql_parsing_caches()
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)
