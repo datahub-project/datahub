@@ -1,19 +1,22 @@
-import { Form, Input, Select, Typography } from 'antd';
-import React, { useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { ViewTypeLabel } from '@app/entityV2/view/ViewTypeLabel';
 import { ViewDefinitionBuilder } from '@app/entityV2/view/builder/ViewDefinitionBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
+import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 
 import { DataHubViewType } from '@types';
 
-const StyledFormItem = styled(Form.Item)`
-    margin-bottom: 8px;
+const FormSection = styled.div`
+    margin-bottom: 12px;
 `;
+
+const VIEW_TYPE_OPTIONS = [
+    { value: DataHubViewType.Personal, label: 'Private', description: 'Only visible to you' },
+    { value: DataHubViewType.Global, label: 'Public', description: 'Visible to everyone' },
+];
 
 type Props = {
     urn?: string;
@@ -24,11 +27,6 @@ type Props = {
 
 export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     const userContext = useUserContext();
-    const [form] = Form.useForm();
-
-    useEffect(() => {
-        form.setFieldsValue(state);
-    }, [state, form]);
 
     const setName = (name: string) => {
         updateState({
@@ -44,73 +42,53 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
         });
     };
 
-    const setViewType = (viewType: DataHubViewType) => {
-        updateState({ ...state, viewType });
+    const setViewType = (selectedValues: string[]) => {
+        if (selectedValues.length > 0) {
+            updateState({ ...state, viewType: selectedValues[0] as DataHubViewType });
+        }
     };
 
     const canManageGlobalViews = userContext?.platformPrivileges?.manageGlobalViews || false;
     const isEditing = urn !== undefined;
+    const isDisabled = mode === ViewBuilderMode.PREVIEW;
 
     return (
-        <span data-testid="view-builder-form">
-            <Form form={form} initialValues={state} layout="vertical">
-                <StyledFormItem label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new View a name. </Typography.Paragraph>
-                    <Form.Item
-                        name="name"
-                        rules={[
-                            {
-                                required: true,
-                                message: 'Please enter a name for your View.',
-                            },
-                            { whitespace: true },
-                            { min: 1, max: 50 },
-                        ]}
-                        hasFeedback
-                    >
-                        <Input
-                            data-testid="view-name-input"
-                            placeholder="Data Analyst"
-                            onChange={(event) => setName(event.target.value)}
-                            disabled={mode === ViewBuilderMode.PREVIEW}
-                        />
-                    </Form.Item>
-                </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>Write a description for your View.</Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                        <Input.TextArea
-                            data-testid="view-description-input"
-                            placeholder="This View is useful for Data Analysts"
-                            onChange={(event) => setDescription(event.target.value)}
-                            disabled={mode === ViewBuilderMode.PREVIEW}
-                        />
-                    </Form.Item>
-                </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Type</Typography.Text>}>
-                    <Typography.Paragraph>Select the type of your new View.</Typography.Paragraph>
-                    <Form.Item name="viewType">
-                        <Select
-                            onSelect={(value) => setViewType(value as DataHubViewType)}
-                            disabled={!canManageGlobalViews || isEditing || mode === ViewBuilderMode.PREVIEW}
-                        >
-                            <Select.Option value={DataHubViewType.Personal}>
-                                <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />
-                            </Select.Option>
-                            <Select.Option value={DataHubViewType.Global}>
-                                <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />
-                            </Select.Option>
-                        </Select>
-                    </Form.Item>
-                </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Filters</Typography.Text>} style={{ marginBottom: 8 }}>
-                    <Typography.Paragraph>
-                        Select the filters that are applied when this View is selected. Assets that match these filters
-                        will be shown when the View is applied.
-                    </Typography.Paragraph>
-                </StyledFormItem>
-            </Form>
+        <div data-testid="view-builder-form">
+            <FormSection>
+                <Input
+                    label="Name"
+                    data-testid="view-name-input"
+                    placeholder="Data Analyst"
+                    value={state.name || ''}
+                    onChange={(e) => setName(e.target.value)}
+                    isDisabled={isDisabled}
+                    isRequired
+                    maxLength={50}
+                />
+            </FormSection>
+            <FormSection>
+                <TextArea
+                    label="Description"
+                    data-testid="view-description-input"
+                    placeholder="This view contains certified datasets, dashboards, and documents for use by data analysts"
+                    value={state.description || ''}
+                    onChange={(e) => setDescription(e.target.value)}
+                    isDisabled={isDisabled}
+                />
+            </FormSection>
+            <FormSection>
+                <SimpleSelect
+                    label="Type"
+                    options={VIEW_TYPE_OPTIONS}
+                    values={state.viewType ? [state.viewType] : []}
+                    onUpdate={setViewType}
+                    isDisabled={!canManageGlobalViews || isEditing || isDisabled}
+                    size="md"
+                    showClear={false}
+                    position="start"
+                />
+            </FormSection>
             <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />
-        </span>
+        </div>
     );
 };

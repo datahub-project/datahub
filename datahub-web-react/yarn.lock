@@ -7935,6 +7935,11 @@ eslint-plugin-react@^7.28.0:
     semver "^6.3.0"
     string.prototype.matchall "^4.0.8"
 
+eslint-plugin-rulesdir@^0.2.2:
+  version "0.2.2"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-rulesdir/-/eslint-plugin-rulesdir-0.2.2.tgz#84756ec39cd8503b1fe8af6a02a5da361e2bd076"
+  integrity sha512-qhBtmrWgehAIQeMDJ+Q+PnOz1DWUZMPeVrI0wE9NZtnpIMFUfh3aPKFYt2saeMSemZRrvUtjWfYwepsC8X+mjQ==
+
 eslint-plugin-vitest@^0.3.17:
   version "0.3.17"
   resolved "https://registry.npmjs.org/eslint-plugin-vitest/-/eslint-plugin-vitest-0.3.17.tgz"

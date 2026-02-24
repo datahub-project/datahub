@@ -54,18 +54,19 @@ interface Props {
     appliedFilters?: FieldToAppliedFieldFiltersMap;
     updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
     facets?: FacetMetadata[];
+    viewUrn?: string | null;
 }
 
-export default function Filters({ query, appliedFilters, updateFieldAppliedFilters, facets }: Props) {
+export default function Filters({ query, appliedFilters, updateFieldAppliedFilters, facets, viewUrn }: Props) {
     const userContext = useUserContext();
-    const viewUrn = userContext.localState?.selectedViewUrn;
+    const resolvedViewUrn = viewUrn === undefined ? userContext.localState?.selectedViewUrn : viewUrn;
     const fieldToFacetStateMap = useMemo(() => convertFacetsToFieldToFacetStateMap(facets), [facets]);
 
     return (
         <SearchFilters
             fields={FILTER_FIELDS}
             query={query}
-            viewUrn={viewUrn}
+            viewUrn={resolvedViewUrn}
             appliedFilters={appliedFilters}
             updateFieldAppliedFilters={updateFieldAppliedFilters}
             filtersRenderer={MemoFiltersRenderer}
