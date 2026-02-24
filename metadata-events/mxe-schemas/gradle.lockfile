@@ -2,10 +2,13 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-annotations:2.10.2=pegasusPlugin,restClient,restClientCompile,testRestClient
-com.fasterxml.jackson.core:jackson-core:2.10.2=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.10.2=pegasusPlugin,restClient,restClientCompile,testRestClient
-com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.10.2=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.18.4=pegasusPlugin,restClient,restClientCompile,testRestClient
+com.fasterxml.jackson.core:jackson-core:2.10.2=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.18.4=pegasusPlugin,restClient,restClientCompile,testRestClient
+com.fasterxml.jackson.core:jackson-databind:2.18.4=pegasusPlugin,restClient,restClientCompile,testRestClient
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.10.2=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRuntimeClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.18.4=pegasusPlugin,restClient,restClientCompile,testRestClient
+com.fasterxml.jackson:jackson-bom:2.18.4=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.github.ben-manes.caffeine:caffeine:2.7.0=compileClasspath,dataModel,dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testRestClient,testRuntimeClasspath
 com.google.android:annotations:4.1.1.4=pegasusPlugin,restClient,restClientCompile,testRestClient
 com.google.api.grpc:proto-google-common-protos:2.41.0=pegasusPlugin,restClient,restClientCompile,testRestClient

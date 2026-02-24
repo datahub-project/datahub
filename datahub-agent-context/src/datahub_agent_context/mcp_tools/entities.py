@@ -12,6 +12,7 @@ from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import execute_graphql
 from datahub_agent_context.mcp_tools.helpers import (
     clean_get_entities_response,
+    clean_related_documents_response,
     inject_urls_for_urns,
     truncate_descriptions,
 )
@@ -23,6 +24,9 @@ entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
 query_entity_gql = (pathlib.Path(__file__).parent / "gql/query_entity.gql").read_text()
+related_documents_gql = (
+    pathlib.Path(__file__).parent / "gql/related_documents.gql"
+).read_text()
 
 
 def get_entities(urns: List[str] | str) -> List[dict] | dict:
@@ -121,6 +125,28 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
 
             inject_urls_for_urns(graph, result, [""])
             truncate_descriptions(result)
+
+            # Fetch related documents for supported entity types
+            try:
+                related_docs_input = {"start": 0, "count": 10}
+                related_docs_result = execute_graphql(
+                    graph,
+                    query=related_documents_gql,
+                    variables={"urn": urn, "input": related_docs_input},
+                    operation_name="getRelatedDocuments",
+                )
+                if (
+                    related_docs_result
+                    and related_docs_result.get("entity")
+                    and related_docs_result["entity"].get("relatedDocuments")
+                ):
+                    result["relatedDocuments"] = clean_related_documents_response(
+                        related_docs_result["entity"]["relatedDocuments"]
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Could not fetch related documents for {urn}: {e}. This entity type may not support related documents."
+                )
 
             results.append(clean_get_entities_response(result))
 

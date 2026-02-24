@@ -47,8 +47,8 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: datahub-actions-test-results
-          test-results-path: "datahub-actions/test-results/**"
-          junit-file-glob: "datahub-actions/test-results/*.xml"
+          test-results-paths: "datahub-actions/test-results/**"
+          junit-file-globs: "datahub-actions/test-results/*.xml"
       - name: Upload datahub-actions coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

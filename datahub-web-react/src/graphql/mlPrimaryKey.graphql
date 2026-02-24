@@ -1,4 +1,4 @@
-query getMLPrimaryKey($urn: String!) {
+query getMLPrimaryKey($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlPrimaryKey(urn: $urn) {
         urn
         type

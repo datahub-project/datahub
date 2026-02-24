@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
-from tableauserverclient import Server
+from tableauserverclient import Server, SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
@@ -956,3 +956,60 @@ def test_custom_sql_datasource_naming_scenarios(
     else:
         assert dataset_properties is not None
         assert dataset_properties.name == expected_name
+
+
+def test_table_lineage_without_columns():
+    """Test that tables without column metadata still create table-level lineage"""
+    config = TableauConfig(
+        connect_uri="http://test",
+        username="test",
+        password="test",
+        site="test",
+    )
+
+    ctx = PipelineContext(run_id="test")
+    site = SiteItem(name="test-site", content_url="test")
+    site._id = "test-site-id"
+    report = TableauSourceReport()
+
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+        source = TableauSiteSource(
+            config=config,
+            ctx=ctx,
+            site=site,
+            report=report,
+            server=mock.MagicMock(),
+            platform="tableau",
+        )
+
+        with mock.patch.object(
+            TableauUpstreamReference,
+            "create",
+            return_value=mock.MagicMock(
+                make_dataset_urn=mock.MagicMock(
+                    return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table,PROD)"
+                )
+            ),
+        ):
+            tables = [
+                {
+                    c.ID: "table-123",
+                    c.NAME: "my_table",
+                    c.COLUMNS_CONNECTION: {"totalCount": 0},  # NO COLUMNS
+                    c.DATABASE: {"name": "test_db"},
+                    c.SCHEMA: "test_schema",
+                    c.CONNECTION_TYPE: "snowflake",
+                }
+            ]
+
+            upstream_tables, table_id_to_urn = source.get_upstream_tables(
+                tables=tables,
+                datasource_name="test_datasource",
+                browse_path="/test",
+                is_custom_sql=False,
+            )
+
+            # Tables without columns should still create table-level lineage
+            assert len(upstream_tables) == 1
+            assert len(table_id_to_urn) == 1
+            assert report.num_upstream_table_processed_without_columns == 1

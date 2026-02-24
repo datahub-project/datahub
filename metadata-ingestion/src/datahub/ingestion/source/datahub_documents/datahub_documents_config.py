@@ -81,7 +81,9 @@ class DataHubDocumentsSourceConfig(
     # DataHub connection
     datahub: DataHubConnectionConfig = Field(
         default_factory=DataHubConnectionConfig,
-        description="DataHub connection configuration",
+        description="DataHub connection configuration. Only used when running standalone "
+        "(e.g., CLI ingestion). In managed ingestion (deployed sources), the connection "
+        "is automatically configured from the sink.",
     )
 
     # Platform filtering (multi-platform support)

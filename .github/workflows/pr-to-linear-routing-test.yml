@@ -1,0 +1,561 @@
+name: PR & Issue Routing (Linear Shadow Mode)
+
+# Shadow mode - logs which team Claude would route PRs/issues to, without creating Linear tickets.
+# Used to validate routing quality before enabling multi-team Linear integration.
+#
+# To go live:
+#   1. Uncomment the "Mark Linear ticket as Done" steps (PR and issue close handlers)
+#   2. Uncomment the "Create Linear Ticket" steps (PR and issue)
+#   3. Delete the pr-to-linear.yml workflow (replaced by this one)
+#
+# Requires secrets:
+#   ANTHROPIC_KEY_FOR_ROUTING - Anthropic API key
+#   INGESTION_LINEAR_KEY      - Linear API key (only needed when ticket creation is enabled)
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, closed]
+  issues:
+    types: [opened, reopened, closed]
+
+env:
+  LINEAR_TEAM_CONFIG: |
+    [
+      {
+        "key": "ING",
+        "team_id": "b1c9a278-522e-47cb-81af-8b860ead0c76",
+        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "description": "Python ingestion framework, connectors, sources, and CLI tools for extracting metadata from external data sources. Any PR touching metadata-ingestion/ or metadata-ingestion-modules/ belongs to this team."
+      },
+      {
+        "key": "CAT",
+        "team_id": "56af88f4-c7c2-40f6-9858-dcba33a5f55e",
+        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "description": "DataHub frontend (React/TypeScript, datahub-web-react), GraphQL API layer (datahub-graphql-core), and application-layer GMS services including auth, search API, entity services, and REST/OpenAPI endpoints"
+      },
+      {
+        "key": "PFP",
+        "team_id": "71e24163-bc3b-4dfb-bba5-3acb822830e3",
+        "assignee_id": "854a61e3-dba9-4293-b527-f953bd742201",
+        "description": "Platform infrastructure — Ebean/database storage layer, Elasticsearch indexing, Kafka consumers (MAE/MCE/PE), GMS infrastructure (factories, wiring), metadata-utils, Docker, and Kubernetes"
+      },
+      {
+        "key": "OBS",
+        "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
+        "assignee_id": "2bd2434a-cf1e-47a4-8243-0e77ed19faf7",
+        "description": "Data Quality and Assertions. Any PR touching the Assertions codebase belongs to this team."
+      }
+    ]
+
+jobs:
+  handle-pr:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      # Uncomment when going live to mark Linear tickets as Done on PR close
+      # - name: Mark Linear ticket as Done if PR closed
+      #   if: github.event.action == 'closed'
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     GH_REPO: ${{ github.repository }}
+      #     LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+      #     PR_NUMBER: ${{ github.event.pull_request.number }}
+      #   run: |
+      #     if ! COMMENTS_JSON=$(gh pr view "$PR_NUMBER" --json comments 2>/dev/null); then
+      #       echo "⚠️  Failed to fetch PR comments for PR #$PR_NUMBER"
+      #       exit 0
+      #     fi
+      #
+      #     COMMENTS=$(echo "$COMMENTS_JSON" | jq -r '.comments[].body' 2>/dev/null || echo "")
+      #     TICKET_ID=$(echo "$COMMENTS" | grep -oP 'Linear: \K([A-Z]+-\d+)' 2>/dev/null | head -n1 || echo "")
+      #
+      #     if [ -z "$TICKET_ID" ]; then
+      #       echo "⚠️  No Linear ticket found for PR #$PR_NUMBER"
+      #       exit 0
+      #     fi
+      #
+      #     TEAM_KEY=$(echo "$TICKET_ID" | grep -oP '^[A-Z]+')
+      #     echo "Found Linear ticket: $TICKET_ID (team: $TEAM_KEY)"
+      #
+      #     TICKET_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"query { issue(id: \\\"$TICKET_ID\\\") { id state { name } } }\"}")
+      #
+      #     TICKET_UUID=$(echo "$TICKET_RESPONSE" | jq -r '.data.issue.id' 2>/dev/null || echo "")
+      #     if [ -z "$TICKET_UUID" ] || [ "$TICKET_UUID" = "null" ]; then
+      #       echo "❌ Could not find Linear ticket $TICKET_ID"
+      #       exit 0
+      #     fi
+      #
+      #     STATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"query { workflowStates(filter: { team: { key: { eq: \\\"$TEAM_KEY\\\" } }, name: { eq: \\\"Done\\\" } }) { nodes { id name } } }\"}")
+      #
+      #     DONE_STATE_ID=$(echo "$STATE_RESPONSE" | jq -r '.data.workflowStates.nodes[0].id' 2>/dev/null || echo "")
+      #     if [ -z "$DONE_STATE_ID" ] || [ "$DONE_STATE_ID" = "null" ]; then
+      #       echo "❌ Could not find 'Done' state for team $TEAM_KEY"
+      #       exit 0
+      #     fi
+      #
+      #     UPDATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"mutation { issueUpdate(id: \\\"$TICKET_UUID\\\", input: { stateId: \\\"$DONE_STATE_ID\\\" }) { success issue { identifier state { name } } } }\"}")
+      #
+      #     SUCCESS=$(echo "$UPDATE_RESPONSE" | jq -r '.data.issueUpdate.success' 2>/dev/null || echo "false")
+      #     if [ "$SUCCESS" = "true" ]; then
+      #       echo "✅ Marked $TICKET_ID as Done"
+      #     else
+      #       echo "❌ Failed to mark ticket as Done"
+      #       echo "$UPDATE_RESPONSE" | jq . 2>/dev/null || echo "$UPDATE_RESPONSE"
+      #     fi
+
+      - name: Check PR status
+        if: github.event.action != 'closed'
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$PR_DRAFT" = "true" ]; then
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - PR is in draft"
+            exit 0
+          fi
+
+          # Deduplication guard - skip if a Linear ticket already exists
+          if COMMENTS_JSON=$(gh pr view "$PR_NUMBER" --json comments 2>/dev/null); then
+            EXISTING=$(echo "$COMMENTS_JSON" | jq -r '.comments[].body' 2>/dev/null | grep -oP 'Linear: [A-Z]+-\d+' | head -n1 || echo "")
+            if [ -n "$EXISTING" ]; then
+              echo "should_skip=true" >> "$GITHUB_OUTPUT"
+              echo "⏭️  Linear ticket already exists ($EXISTING), skipping"
+              exit 0
+            fi
+          fi
+
+          echo "should_skip=false" >> "$GITHUB_OUTPUT"
+
+          if gh api "orgs/datahub-project/members/$PR_AUTHOR" --silent 2>/dev/null; then
+            echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+          else
+            echo "contributor_type=External" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Route PR to team
+        if: github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
+        id: route-team
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if FILES_JSON=$(gh pr view "$PR_NUMBER" --json files 2>/dev/null); then
+            FILES_LIST=$(echo "$FILES_JSON" | jq -r '.files | map(.path) | join("\n")' 2>/dev/null || echo "")
+          else
+            FILES_LIST=""
+          fi
+
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+
+          PROMPT=$(cat <<PROMPT_EOF
+          You are routing a GitHub PR to the correct engineering team for review. Based on the PR details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
+
+          Teams:
+          ${TEAM_DESCRIPTIONS}
+
+          PR Title: ${PR_TITLE}
+          PR Author: ${PR_AUTHOR}
+
+          Files Changed:
+          ${FILES_LIST}
+
+          PR Description:
+          ${PR_BODY}
+
+          Respond with only the team key or NONE.
+          PROMPT_EOF
+          )
+
+          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+
+          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔀 Routing result for PR #$PR_NUMBER"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Title:  $PR_TITLE"
+          echo "Author: $PR_AUTHOR"
+          echo ""
+
+          if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
+            echo "🤷 Would route to: NONE (no matching team)"
+            echo "team_key=" >> "$GITHUB_OUTPUT"
+          else
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+            if [ -z "$TEAM_CONFIG" ]; then
+              echo "⚠️  Claude returned unrecognized key: $TEAM_KEY"
+              echo "team_key=" >> "$GITHUB_OUTPUT"
+            else
+              echo "✅ Would route to: $TEAM_KEY"
+              {
+                echo "team_key=$TEAM_KEY"
+                echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
+                echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+              } >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+          echo ""
+          echo "Files that influenced this decision:"
+          echo "$FILES_LIST" | head -20
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # Uncomment when going live to create Linear tickets for PRs
+      # - name: Create Linear Ticket for PR
+      #   if: github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false' && steps.route-team.outputs.team_key != ''
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     GH_REPO: ${{ github.repository }}
+      #     LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+      #     PR_TITLE: ${{ github.event.pull_request.title }}
+      #     PR_URL: ${{ github.event.pull_request.html_url }}
+      #     PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      #     PR_NUMBER: ${{ github.event.pull_request.number }}
+      #     PR_BODY: ${{ github.event.pull_request.body }}
+      #     FILES_CHANGED: ${{ github.event.pull_request.changed_files }}
+      #     ADDITIONS: ${{ github.event.pull_request.additions }}
+      #     DELETIONS: ${{ github.event.pull_request.deletions }}
+      #     CONTRIBUTOR_TYPE: ${{ steps.check-pr.outputs.contributor_type }}
+      #     TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
+      #     TEAM_ID: ${{ steps.route-team.outputs.team_id }}
+      #     ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+      #   run: |
+      #     if [ -z "$PR_BODY" ]; then
+      #       PR_BODY="No description provided"
+      #     fi
+      #
+      #     if FILES_JSON=$(gh pr view "$PR_NUMBER" --json files 2>/dev/null); then
+      #       FILES_LIST=$(echo "$FILES_JSON" | jq -r '.files[:20] | map("- `" + .path + "`") | join("\n")' 2>/dev/null || echo "- Unable to fetch file list")
+      #       if [ "$FILES_CHANGED" -gt 20 ]; then
+      #         FILES_LIST="${FILES_LIST}\n- ... and $((FILES_CHANGED - 20)) more files"
+      #       fi
+      #     else
+      #       FILES_LIST="- Unable to fetch file list"
+      #     fi
+      #
+      #     if REVIEWERS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null); then
+      #       REVIEWERS=$(echo "$REVIEWERS_JSON" | jq -r '.reviewRequests | map("@" + .login) | join(", ")' 2>/dev/null || echo "None")
+      #       if [ -z "$REVIEWERS" ] || [ "$REVIEWERS" = "" ]; then
+      #         REVIEWERS="None"
+      #       fi
+      #     else
+      #       REVIEWERS="Unable to fetch"
+      #     fi
+      #
+      #     DESCRIPTION=$(cat <<DESCRIPTION_EOF
+      #     Review PR #${PR_NUMBER} from @${PR_AUTHOR} (${CONTRIBUTOR_TYPE})
+      #
+      #     ${PR_URL}
+      #
+      #     ## Description
+      #     ${PR_BODY}
+      #
+      #     ## Changes
+      #     - **Files changed**: ${FILES_CHANGED}
+      #     - **Lines**: +${ADDITIONS} / -${DELETIONS}
+      #     - **Requested reviewers**: ${REVIEWERS}
+      #
+      #     ## Files Changed
+      #     ${FILES_LIST}
+      #     DESCRIPTION_EOF
+      #     )
+      #
+      #     TITLE="[PR Review] $PR_TITLE"
+      #
+      #     if ! TITLE_JSON=$(echo "$TITLE" | jq -Rs . 2>/dev/null) || [ -z "$TITLE_JSON" ]; then
+      #       echo "❌ Failed to JSON-encode title"
+      #       exit 0
+      #     fi
+      #
+      #     if ! DESCRIPTION_JSON=$(echo "$DESCRIPTION" | jq -Rs . 2>/dev/null) || [ -z "$DESCRIPTION_JSON" ]; then
+      #       echo "❌ Failed to JSON-encode description"
+      #       exit 0
+      #     fi
+      #
+      #     MUTATION=$(cat <<EOF
+      #     {
+      #       "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
+      #       "variables": {
+      #         "input": {
+      #           "teamId": "$TEAM_ID",
+      #           "title": $TITLE_JSON,
+      #           "description": $DESCRIPTION_JSON,
+      #           "assigneeId": "$ASSIGNEE_ID"
+      #         }
+      #       }
+      #     }
+      #     EOF
+      #     )
+      #
+      #     RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "$MUTATION")
+      #
+      #     if [ -z "$RESPONSE" ]; then
+      #       echo "❌ Empty response from Linear API"
+      #       exit 0
+      #     fi
+      #
+      #     SUCCESS=$(echo "$RESPONSE" | jq -r '.data.issueCreate.success' 2>/dev/null)
+      #     if [ "$SUCCESS" = "true" ]; then
+      #       ISSUE_ID=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.identifier')
+      #       ISSUE_URL=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.url')
+      #       echo "✅ Created Linear ticket: $ISSUE_ID ($TEAM_KEY)"
+      #       echo "📎 $ISSUE_URL"
+      #
+      #       if ! gh pr comment "$PR_NUMBER" --body "Linear: $ISSUE_ID" 2>/dev/null; then
+      #         echo "⚠️  Created ticket but failed to comment on PR"
+      #       fi
+      #     else
+      #       echo "❌ Failed to create Linear ticket"
+      #       echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
+      #       exit 0
+      #     fi
+
+  handle-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      # Uncomment when going live to mark Linear tickets as Done on issue close
+      # - name: Mark Linear ticket as Done if issue closed
+      #   if: github.event.action == 'closed'
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     GH_REPO: ${{ github.repository }}
+      #     LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+      #     ISSUE_NUMBER: ${{ github.event.issue.number }}
+      #   run: |
+      #     if ! COMMENTS_JSON=$(gh issue view "$ISSUE_NUMBER" --json comments 2>/dev/null); then
+      #       echo "⚠️  Failed to fetch comments for issue #$ISSUE_NUMBER"
+      #       exit 0
+      #     fi
+      #
+      #     COMMENTS=$(echo "$COMMENTS_JSON" | jq -r '.comments[].body' 2>/dev/null || echo "")
+      #     TICKET_ID=$(echo "$COMMENTS" | grep -oP 'Linear: \K([A-Z]+-\d+)' 2>/dev/null | head -n1 || echo "")
+      #
+      #     if [ -z "$TICKET_ID" ]; then
+      #       echo "⚠️  No Linear ticket found for issue #$ISSUE_NUMBER"
+      #       exit 0
+      #     fi
+      #
+      #     TEAM_KEY=$(echo "$TICKET_ID" | grep -oP '^[A-Z]+')
+      #     echo "Found Linear ticket: $TICKET_ID (team: $TEAM_KEY)"
+      #
+      #     TICKET_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"query { issue(id: \\\"$TICKET_ID\\\") { id state { name } } }\"}")
+      #
+      #     TICKET_UUID=$(echo "$TICKET_RESPONSE" | jq -r '.data.issue.id' 2>/dev/null || echo "")
+      #     if [ -z "$TICKET_UUID" ] || [ "$TICKET_UUID" = "null" ]; then
+      #       echo "❌ Could not find Linear ticket $TICKET_ID"
+      #       exit 0
+      #     fi
+      #
+      #     STATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"query { workflowStates(filter: { team: { key: { eq: \\\"$TEAM_KEY\\\" } }, name: { eq: \\\"Done\\\" } }) { nodes { id name } } }\"}")
+      #
+      #     DONE_STATE_ID=$(echo "$STATE_RESPONSE" | jq -r '.data.workflowStates.nodes[0].id' 2>/dev/null || echo "")
+      #     if [ -z "$DONE_STATE_ID" ] || [ "$DONE_STATE_ID" = "null" ]; then
+      #       echo "❌ Could not find 'Done' state for team $TEAM_KEY"
+      #       exit 0
+      #     fi
+      #
+      #     UPDATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"query\": \"mutation { issueUpdate(id: \\\"$TICKET_UUID\\\", input: { stateId: \\\"$DONE_STATE_ID\\\" }) { success issue { identifier state { name } } } }\"}")
+      #
+      #     SUCCESS=$(echo "$UPDATE_RESPONSE" | jq -r '.data.issueUpdate.success' 2>/dev/null || echo "false")
+      #     if [ "$SUCCESS" = "true" ]; then
+      #       echo "✅ Marked $TICKET_ID as Done"
+      #     else
+      #       echo "❌ Failed to mark ticket as Done"
+      #       echo "$UPDATE_RESPONSE" | jq . 2>/dev/null || echo "$UPDATE_RESPONSE"
+      #     fi
+
+      - name: Route issue to team
+        if: github.event.action != 'closed'
+        id: route-team
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+
+          PROMPT=$(cat <<PROMPT_EOF
+          You are routing a GitHub issue to the correct engineering team. Based on the issue details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
+
+          Teams:
+          ${TEAM_DESCRIPTIONS}
+
+          Issue Title: ${ISSUE_TITLE}
+          Issue Author: ${ISSUE_AUTHOR}
+
+          Issue Description:
+          ${ISSUE_BODY}
+
+          Respond with only the team key or NONE.
+          PROMPT_EOF
+          )
+
+          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+
+          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔀 Routing result for issue #$ISSUE_NUMBER"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Title:  $ISSUE_TITLE"
+          echo "Author: $ISSUE_AUTHOR"
+          echo ""
+
+          if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
+            echo "🤷 Would route to: NONE (no matching team)"
+            echo "team_key=" >> "$GITHUB_OUTPUT"
+          else
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+            if [ -z "$TEAM_CONFIG" ]; then
+              echo "⚠️  Claude returned unrecognized key: $TEAM_KEY"
+              echo "team_key=" >> "$GITHUB_OUTPUT"
+            else
+              echo "✅ Would route to: $TEAM_KEY"
+              {
+                echo "team_key=$TEAM_KEY"
+                echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
+                echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+              } >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # Uncomment when going live to create Linear tickets for issues
+      # - name: Create Linear Ticket for Issue
+      #   if: github.event.action != 'closed' && steps.route-team.outputs.team_key != ''
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #     GH_REPO: ${{ github.repository }}
+      #     LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+      #     ISSUE_TITLE: ${{ github.event.issue.title }}
+      #     ISSUE_URL: ${{ github.event.issue.html_url }}
+      #     ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+      #     ISSUE_NUMBER: ${{ github.event.issue.number }}
+      #     ISSUE_BODY: ${{ github.event.issue.body }}
+      #     TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
+      #     TEAM_ID: ${{ steps.route-team.outputs.team_id }}
+      #     ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+      #   run: |
+      #     # Deduplication guard
+      #     if COMMENTS_JSON=$(gh issue view "$ISSUE_NUMBER" --json comments 2>/dev/null); then
+      #       EXISTING=$(echo "$COMMENTS_JSON" | jq -r '.comments[].body' 2>/dev/null | grep -oP 'Linear: [A-Z]+-\d+' | head -n1 || echo "")
+      #       if [ -n "$EXISTING" ]; then
+      #         echo "⏭️  Linear ticket already exists ($EXISTING), skipping"
+      #         exit 0
+      #       fi
+      #     fi
+      #
+      #     if [ -z "$ISSUE_BODY" ]; then
+      #       ISSUE_BODY="No description provided"
+      #     fi
+      #
+      #     DESCRIPTION=$(cat <<DESCRIPTION_EOF
+      #     Issue #${ISSUE_NUMBER} from @${ISSUE_AUTHOR}
+      #
+      #     ${ISSUE_URL}
+      #
+      #     ## Description
+      #     ${ISSUE_BODY}
+      #     DESCRIPTION_EOF
+      #     )
+      #
+      #     TITLE="[Issue] $ISSUE_TITLE"
+      #
+      #     if ! TITLE_JSON=$(echo "$TITLE" | jq -Rs . 2>/dev/null) || [ -z "$TITLE_JSON" ]; then
+      #       echo "❌ Failed to JSON-encode title"
+      #       exit 0
+      #     fi
+      #
+      #     if ! DESCRIPTION_JSON=$(echo "$DESCRIPTION" | jq -Rs . 2>/dev/null) || [ -z "$DESCRIPTION_JSON" ]; then
+      #       echo "❌ Failed to JSON-encode description"
+      #       exit 0
+      #     fi
+      #
+      #     MUTATION=$(cat <<EOF
+      #     {
+      #       "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
+      #       "variables": {
+      #         "input": {
+      #           "teamId": "$TEAM_ID",
+      #           "title": $TITLE_JSON,
+      #           "description": $DESCRIPTION_JSON,
+      #           "assigneeId": "$ASSIGNEE_ID"
+      #         }
+      #       }
+      #     }
+      #     EOF
+      #     )
+      #
+      #     RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+      #       -H "Authorization: $LINEAR_API_KEY" \
+      #       -H "Content-Type: application/json" \
+      #       -d "$MUTATION")
+      #
+      #     if [ -z "$RESPONSE" ]; then
+      #       echo "❌ Empty response from Linear API"
+      #       exit 0
+      #     fi
+      #
+      #     SUCCESS=$(echo "$RESPONSE" | jq -r '.data.issueCreate.success' 2>/dev/null)
+      #     if [ "$SUCCESS" = "true" ]; then
+      #       ISSUE_ID=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.identifier')
+      #       ISSUE_URL=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.url')
+      #       echo "✅ Created Linear ticket: $ISSUE_ID ($TEAM_KEY)"
+      #       echo "📎 $ISSUE_URL"
+      #
+      #       if ! gh issue comment "$ISSUE_NUMBER" --body "Linear: $ISSUE_ID" 2>/dev/null; then
+      #         echo "⚠️  Created ticket but failed to comment on issue"
+      #       fi
+      #     else
+      #       echo "❌ Failed to create Linear ticket"
+      #       echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
+      #       exit 0
+      #     fi

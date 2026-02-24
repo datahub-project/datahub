@@ -414,13 +414,15 @@ elasticsearch:
         # Provider type: "aws-bedrock", "openai", or "cohere"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
-        # AWS Bedrock configuration (used when type is "aws-bedrock")
-        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
-        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
-        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
-        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
+        bedrock:
+          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+          model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 
         # OpenAI configuration (used when type is "openai")
         openai:
@@ -975,6 +977,7 @@ featureFlags:
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
