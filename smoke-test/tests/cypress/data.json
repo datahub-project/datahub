@@ -3480,5 +3480,509 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node1,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node1"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node2,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node2"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node3,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node3"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node4,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node4"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node5,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node5"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node6,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "cypress_lineage_filtering.node6"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node1,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node2,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node3,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node4,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node5,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node6,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node8,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node9,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,cypress_lineage_filtering.node10,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node11,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node12,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node13,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node14,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node15,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node16,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node17,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node18,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node19,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node20,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cypress_lineage_filtering.node7,PROD)",
+                  "type": "TRANSFORMED",
+                  "auditStamp": {
+                    "time": 1704067400000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:cli-cypress-test",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "json": {
+        "name": "[CLI] file (cypress)",
+        "type": "file",
+        "config": {
+          "recipe": "{\"source\": {\"type\": \"file\", \"config\": {\"filename\": \"tests/cypress/query-data.json\"}, \"extractor\": \"generic\", \"extractor_config\": {}}, \"sink\": {\"type\": \"datahub-rest\", \"config\": {\"server\": \"http://localhost:8080\", \"token\": \"********\", \"mode\": \"ASYNC_BATCH\"}}, \"transformers\": null, \"flags\": {\"generate_browse_path_v2\": true, \"generate_browse_path_v2_dry_run\": false, \"generate_memory_profiles\": null, \"set_system_metadata\": true, \"set_system_metadata_pipeline_name\": true}, \"reporting\": [{\"type\": \"datahub\", \"config\": null, \"required\": false}], \"run_id\": \"file-2026_02_19-11_36_20-ioptda\", \"datahub_api\": null, \"pipeline_name\": null, \"failure_log\": {\"enabled\": false, \"log_config\": null}, \"recording\": null}",
+          "executorId": "__datahub_cli_",
+          "version": "unavailable (installed in develop mode)"
+        },
+        "platform": "urn:li:dataPlatform:unknown"
+      }
+    }
   }
 ]

@@ -388,3 +388,66 @@ SELECT * FROM summary"""
     assert len(statements) == 1
     assert "WITH summary AS" in statements[0]
     assert "SELECT * FROM summary" in statements[0]
+
+
+def test_split_oracle_plsql_function():
+    """
+    Test Oracle PL/SQL function with WHILE loop, IF statements, and SELECT INTO.
+
+    Oracle PL/SQL control flow keywords (WHILE, LOOP, END LOOP, ELSIF, RETURN, etc.)
+    should be split out, allowing the SELECT INTO statements inside to be extracted
+    for lineage analysis.
+    """
+    test_sql = """\
+BEGIN
+v_found:='N';
+
+SELECT min(line_num) INTO v_line FROM order_lines WHERE order_id=1;
+
+WHILE v_found='N' LOOP
+  SELECT tax_rate
+  INTO v_tax 
+  FROM order_lines 
+  WHERE order_id=1 and line_num=v_line;
+
+  IF v_tax is null THEN
+     v_line:=v_line -1;
+  ELSE 
+     v_found:='Y';
+  END IF;
+
+END LOOP;
+
+result_out:=v_tax;
+RETURN result_out;
+END;"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+
+    # Verify SELECT statements are properly extracted
+    select_statements = [s for s in statements if s.upper().startswith("SELECT")]
+    assert len(select_statements) == 2, (
+        f"Expected 2 SELECT statements, got {len(select_statements)}"
+    )
+
+    # First SELECT INTO should be complete
+    assert "SELECT min(line_num) INTO v_line FROM order_lines" in select_statements[0]
+    assert "WHERE order_id=1" in select_statements[0]
+
+    # Second SELECT INTO should be complete (not merged with WHILE)
+    assert "SELECT tax_rate" in select_statements[1]
+    assert "INTO v_tax" in select_statements[1]
+    assert "FROM order_lines" in select_statements[1]
+    assert "WHERE order_id=1 and line_num=v_line" in select_statements[1]
+
+    # Verify control flow keywords are separated
+    assert "BEGIN" in statements
+    assert "WHILE" in statements
+    assert "LOOP" in statements
+    assert any("END IF" in s for s in statements) or (
+        "END" in statements and "IF" in statements
+    )
+    assert any("END LOOP" in s for s in statements) or (
+        "END" in statements and "LOOP" in statements
+    )
+    assert "RETURN" in statements

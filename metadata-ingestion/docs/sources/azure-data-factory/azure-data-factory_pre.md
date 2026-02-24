@@ -139,6 +139,23 @@ Without matching `platform_instance` values, lineage will create separate datase
 
 For Data Flow activities, the connector extracts the transformation script and stores it in the `dataTransformLogic` aspect, visible in the DataHub UI under activity details.
 
+### Column-Level Lineage
+
+The connector extracts **column-level lineage** from Copy activities, enabled by default (`include_column_lineage: true`).
+
+#### Supported Mapping Formats
+
+| Format                | Description                                                                 | ADF Configuration                                       |
+| --------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Dictionary Format** | Legacy format with direct source-to-sink column mapping                     | `translator.columnMappings: {"src_col": "sink_col"}`    |
+| **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]` |
+| **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings    |
+
+#### Limitations
+
+- **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
+- **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
+
 ## Execution History
 
 Pipeline runs are extracted as `DataProcessInstance` entities by default:

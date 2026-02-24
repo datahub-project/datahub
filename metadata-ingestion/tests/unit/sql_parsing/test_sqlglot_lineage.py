@@ -1647,28 +1647,23 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
     )
 
 
-def test_clickhouse_dictget_not_treated_as_table() -> None:
-    """Test that ClickHouse DICTGET function arguments are not treated as table references.
-
-    DICTGET(dict_name, attr_name, key) takes a dictionary name as the first argument,
-    which sqlglot parses as a Table node but should NOT appear in lineage.
+def test_clickhouse_dictget_lineage() -> None:
+    """dictGet dictionary references should appear in upstream lineage.
 
     Expected lineage:
-        analytics.events
-              |
-              v
-          [output]
-
-    NOT included (dictionary reference, not a table):
-        default.subscriptions
+        db1.events    default.my_dict
+                \\           /
+                 \\         /
+                  v       v
+                  [output]
     """
     assert_sql_result(
         """\
 SELECT
-    subscription_id,
-    DICTGET(default.subscriptions, 'type', subscription_id) AS subscription_type,
-    DICTGET(default.subscriptions, 'domain', subscription_id) AS subscription_domain
-FROM analytics.events
+    col_id,
+    DICTGET(default.my_dict, 'type', col_id) AS dict_type,
+    DICTGET(default.my_dict, 'domain', col_id) AS dict_domain
+FROM db1.events
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
@@ -1676,31 +1671,76 @@ FROM analytics.events
 
 
 def test_clickhouse_dictget_with_multiple_tables() -> None:
-    """Test DICTGET with actual table joins.
-
-    Dictionary refs should be excluded, but real table refs should be included.
+    """dictGet references are included alongside real table joins.
 
     Expected lineage:
-        analytics.events    analytics.users
-                    \           /
-                     \         /
-                      v       v
+        db1.events    db1.users    default.my_dict
+                \\         |          /
+                 \\        |         /
+                  v       v        v
                       [output]
-
-    NOT included (dictionary reference, not a table):
-        default.categories
     """
     assert_sql_result(
         """\
 SELECT
     e.event_id,
     u.user_name,
-    DICTGETORDEFAULT(default.categories, 'name', e.category_id, 'Unknown') AS category_name
-FROM analytics.events e
-JOIN analytics.users u ON e.user_id = u.id
+    DICTGETORDEFAULT(default.my_dict, 'name', e.category_id, 'Unknown') AS dict_name
+FROM db1.events e
+JOIN db1.users u ON e.user_id = u.id
 """,
         dialect="clickhouse",
         expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )
+
+
+def test_clickhouse_dictget_string_literal() -> None:
+    """Test dictGet with string literal dictionary name.
+
+    dictGet('schema.dict_name', ...) is parsed as a Literal node, not a Column.
+    The extraction should handle both forms.
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET('default.my_dict', 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_string_literal.json",
+    )
+
+
+def test_clickhouse_dictget_unqualified() -> None:
+    # dictGet with bare dictionary name (no database prefix).
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(my_dict, 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_unqualified.json",
+    )
+
+
+def test_clickhouse_dictget_in_materialized_view() -> None:
+    # dictGet table in in_tables, TO table in out_tables (not in_tables).
+    # Guards against operator precedence bug where `- modified` doesn't
+    # subtract from the full union including dictGet tables.
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW db1.mv_enriched TO db1.events_enriched
+AS SELECT
+    event_id,
+    DICTGET(default.my_dict, 'name', category_id) AS category_name
+FROM db1.raw_events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dictget_in_materialized_view.json",
     )
 
 

@@ -147,7 +147,7 @@ cd datahub/datahub-agent-context
 ./gradlew :datahub-agent-context:installDev
 
 # Run tests
-./gradlew :datahub-agent-context:testQuick
+./gradlew :datahub-agent-context:testFull
 
 # Run linting
 ./gradlew :datahub-agent-context:lintFix
@@ -158,9 +158,6 @@ cd datahub/datahub-agent-context
 The package includes comprehensive unit tests for all tools:
 
 ```shell
-# Run quick tests
-./gradlew :datahub-agent-context:testQuick
-
 # Run full test suite
 ./gradlew :datahub-agent-context:testFull
 ```

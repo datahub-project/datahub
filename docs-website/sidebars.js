@@ -1230,6 +1230,7 @@ module.exports = {
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",
         "docs/how/migrating-graph-service-implementation",
+        "docs/how/migrating-elasticsearch-opensearch",
         "docs/advanced/field-path-spec-v2",
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",

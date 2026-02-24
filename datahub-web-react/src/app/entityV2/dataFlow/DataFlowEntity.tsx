@@ -280,6 +280,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }
