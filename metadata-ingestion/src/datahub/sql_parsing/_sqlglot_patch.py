@@ -135,8 +135,8 @@ def _patched_traverse(
 def _patched_decorrelate(
     select: sqlglot.expressions.Select,
     parent_select: sqlglot.expressions.Select,
-    external_columns,
-    next_alias_name,
+    external_columns: Any,
+    next_alias_name: Any,
 ) -> None:
     """Patched decorrelate with null pointer fixes (v29 signature).
 
@@ -440,11 +440,11 @@ def _patched_to_node(  # noqa: C901
             subfield = _extract_subfield(c)
 
             node.downstream.append(
-                sqlglot.lineage.Node(
+                sqlglot.lineage.Node(  # type: ignore[call-arg]
                     name=c.sql(comments=False),
                     source=source,
                     expression=source,
-                    subfield=subfield,  # type: ignore[call-arg] - Our patched Node has this field
+                    subfield=subfield,  # Our patched Node has this field
                 )
             )
             # PATCH END
@@ -455,13 +455,13 @@ def _patched_to_node(  # noqa: C901
 def _patched_lineage(
     column: str | sqlglot.exp.Column,
     sql: str | sqlglot.exp.Expression,
-    schema: dict | sqlglot.schema.Schema | None = None,
-    sources: dict[str, str | sqlglot.exp.Query] | None = None,
-    dialect: str | sqlglot.Dialect | None = None,
+    schema: Any = None,
+    sources: Any = None,
+    dialect: Any = None,
     scope: sqlglot.optimizer.scope.Scope | None = None,
     trim_selects: bool = True,
     copy: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> sqlglot.lineage.Node:
     """Patched lineage function that disables column normalization.
 
