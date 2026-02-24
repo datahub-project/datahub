@@ -106,7 +106,8 @@ def serialize_field_value(field_value: Any) -> str:
             )
             try:
                 return f"[{len(list(field_value))} items]"
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to get length of RepeatedComposite: {e}")
                 return "[unknown items]"
 
     # Handle proto MapComposite (dict-like) objects

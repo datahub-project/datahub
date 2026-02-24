@@ -349,7 +349,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         except exceptions.GoogleAPICallError as e:
             self.report.report_failure(
                 title="Failed to list entry groups",
-                message=f"Error listing entry groups in project {project_id}",
+                message="Error listing entry groups in project",
+                context=project_id,
                 exc=e,
             )
 
@@ -411,7 +412,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 project_id, entry_data
             )
         except Exception as e:
-            logger.warning(f"Failed to extract lineage for project {project_id}: {e}")
+            self.report.report_failure(
+                title="Lineage extraction failed",
+                message="Failed to extract lineage for project",
+                context=project_id,
+                exc=e,
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DataplexSource":

@@ -571,3 +571,153 @@ def test_dataplex_lineage_same_table_name_different_datasets(
     assert "abc.users" in analytics_upstream[0]["dataset"], (
         f"Expected upstream to be test-project.abc.users, got {analytics_upstream[0]['dataset']}"
     )
+
+
+def dataplex_lineage_golden_recipe(mcp_output_path: str) -> Dict[str, Any]:
+    """Create a test recipe for Dataplex ingestion with lineage for golden file test."""
+    return {
+        "source": {
+            "type": "dataplex",
+            "config": {
+                "project_ids": ["test-project"],
+                "entries_location": "us",
+                "include_lineage": True,
+                "include_schema": False,
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": mcp_output_path}},
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch("google.auth.default")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("datahub.ingestion.source.dataplex.dataplex.LineageClient")
+def test_dataplex_lineage_golden(
+    mock_lineage_client_class,
+    mock_catalog_client_class,
+    mock_google_auth,
+    pytestconfig,
+    tmp_path,
+):
+    """Test Dataplex lineage extraction with golden file validation.
+
+    This test verifies that the upstreamLineage aspect is correctly emitted
+    after the refactoring to use dataset_id as the lineage map key.
+    """
+    # Mock Google Application Default Credentials
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
+
+    # Setup mock clients
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+
+    mock_lineage_client = Mock()
+    mock_lineage_client_class.return_value = mock_lineage_client
+
+    # Create mock entry group
+    mock_entry_group = create_mock_entry_group("test-project", "us", "@bigquery")
+
+    # Create mock entries - source and target for lineage
+    mock_source_entry = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="raw_source_data",
+        fqn="bigquery:test-project.raw.source_data",
+        description="Raw source data table",
+    )
+
+    mock_target_entry = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="analytics_customers",
+        fqn="bigquery:test-project.analytics.customers",
+        description="Analytics customers table",
+    )
+
+    # Create entry map for get_entry mock
+    entry_map = {
+        mock_source_entry.name: mock_source_entry,
+        mock_target_entry.name: mock_target_entry,
+    }
+
+    # Configure catalog mock responses
+    mock_catalog_client.list_entry_groups.return_value = [mock_entry_group]
+    mock_catalog_client.list_entries.return_value = [
+        mock_source_entry,
+        mock_target_entry,
+    ]
+
+    def get_entry_side_effect(request):
+        return entry_map.get(request.name, mock_source_entry)
+
+    mock_catalog_client.get_entry.side_effect = get_entry_side_effect
+
+    # Configure lineage mock - raw.source_data -> analytics.customers
+    def search_links_side_effect(request):
+        target_fqn = getattr(
+            getattr(request, "target", None), "fully_qualified_name", ""
+        )
+        source_fqn = getattr(
+            getattr(request, "source", None), "fully_qualified_name", ""
+        )
+
+        # Target search (upstream lineage)
+        if (
+            target_fqn == "bigquery:test-project.analytics.customers"
+            or source_fqn == "bigquery:test-project.raw.source_data"
+        ):
+            return [
+                create_mock_lineage_link(
+                    source_fqn="bigquery:test-project.raw.source_data",
+                    target_fqn="bigquery:test-project.analytics.customers",
+                )
+            ]
+        return []
+
+    mock_lineage_client.search_links.side_effect = search_links_side_effect
+
+    # Setup paths
+    mcp_output_path = tmp_path / "dataplex_lineage_mces.json"
+    golden_file_path = Path(__file__).parent / "golden" / "dataplex_lineage_golden.json"
+
+    # Run pipeline
+    pipeline_config = dataplex_lineage_golden_recipe(str(mcp_output_path))
+    pipeline = run_and_get_pipeline(pipeline_config)
+
+    # Verify pipeline completed without errors
+    assert pipeline.source.get_report().failures == []
+
+    # Validate against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=golden_file_path,
+        ignore_paths=[
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+        ],
+    )
+
+    # Additional verification: ensure upstreamLineage aspect exists
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    lineage_aspects = [
+        mcp for mcp in mcps if mcp.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(lineage_aspects) >= 1, (
+        "Expected at least one upstreamLineage aspect to be emitted"
+    )
+
+    # Verify the lineage points to correct upstream
+    for lineage_aspect in lineage_aspects:
+        upstreams = lineage_aspect["aspect"]["json"]["upstreams"]
+        assert len(upstreams) > 0, "Lineage aspect should have at least one upstream"
+        assert any("raw.source_data" in u["dataset"] for u in upstreams), (
+            "Expected upstream to reference raw.source_data"
+        )
