@@ -961,10 +961,12 @@ class ModeSource(StatefulIngestionSourceBase):
                 expanded_body = self._replace_definitions(
                     definition_query, _depth + 1, _seen | {definition_name}
                 )
+                # Newline before the closing paren ensures any trailing
+                # SQL line comment (--) in the body doesn't swallow it.
                 replacement = (
-                    f"({expanded_body}) as {definition_alias}"
+                    f"({expanded_body}\n) as {definition_alias}"
                     if definition_alias
-                    else f"({expanded_body})"
+                    else f"({expanded_body}\n)"
                 )
                 query = query.replace(definition_variable, replacement)
             else:
