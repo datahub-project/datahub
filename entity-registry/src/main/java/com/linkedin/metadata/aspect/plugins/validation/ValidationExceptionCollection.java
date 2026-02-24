@@ -97,7 +97,11 @@ public class ValidationExceptionCollection
             .map(
                 e ->
                     String.format(
-                        "EntityAspect:%s Exceptions: %s", e.getKey().toString(), e.getValue()))
+                        "EntityAspect:%s: %s",
+                        e.getKey().toString(),
+                        e.getValue().stream()
+                            .map(AspectValidationException::getMsg)
+                            .collect(Collectors.joining("; "))))
             .collect(Collectors.joining("; ")));
   }
 }

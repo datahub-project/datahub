@@ -22,18 +22,33 @@ export default function handleGraphQLError({
     message.destroy();
     const { graphQLErrors } = error;
     if (graphQLErrors && graphQLErrors.length) {
-        const { extensions } = graphQLErrors[0];
+        const { extensions, message: serverMessage } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
+
+        // For permission errors, use the permission message (usually a generic "contact admin" message)
         if (errorCode === ErrorCodes.Forbidden) {
             message.error(permissionMessage);
             return;
         }
-        if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
-            message.error(badRequestMessage);
+
+        // For bad request (validation errors), prefer the server's message as it contains
+        // specific validation details from validator plugins
+        if (errorCode === ErrorCodes.BadRequest) {
+            const errorMessage = serverMessage?.trim() || badRequestMessage || defaultMessage;
+            message.error(errorMessage);
             return;
         }
-        if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {
-            message.error(serverErrorMessage);
+
+        // For server errors, prefer server message if available
+        if (errorCode === ErrorCodes.ServerError) {
+            const errorMessage = serverMessage?.trim() || serverErrorMessage || defaultMessage;
+            message.error(errorMessage);
+            return;
+        }
+
+        // For any other error with a server message, use it
+        if (serverMessage?.trim()) {
+            message.error(serverMessage);
             return;
         }
     }

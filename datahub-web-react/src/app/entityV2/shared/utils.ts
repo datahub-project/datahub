@@ -144,6 +144,18 @@ function getGraphqlErrorCode(e) {
     return undefined;
 }
 
+/**
+ * Extracts the actual error message from GraphQL errors.
+ * This is where validator plugin messages are found.
+ */
+function getGraphqlErrorMessage(e): string | undefined {
+    if (e.graphQLErrors && e.graphQLErrors.length) {
+        const firstError = e.graphQLErrors[0];
+        return firstError.message;
+    }
+    return undefined;
+}
+
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
@@ -152,6 +164,16 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             duration: 3,
         };
     }
+
+    // Extract the actual error message from the GraphQL response (e.g., from validator plugins)
+    const serverMessage = getGraphqlErrorMessage(e);
+    if (serverMessage?.trim()) {
+        return {
+            content: serverMessage,
+            duration: 3,
+        };
+    }
+
     return defaultMessage;
 };
 
