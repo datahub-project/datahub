@@ -13,6 +13,7 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
+from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
@@ -61,6 +62,8 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
+    num_embedding_failures: int = 0
+    embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
     num_documents_limit_reached: bool = False
 
@@ -219,10 +222,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point - route to batch or event mode."""
-        if self.config.event_mode.enabled:
-            yield from self._process_event_mode()
-        else:
-            yield from self._process_batch_mode()
+        try:
+            if self.config.event_mode.enabled:
+                yield from self._process_event_mode()
+            else:
+                yield from self._process_batch_mode()
+        except Exception as e:
+            logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
+            self.report.report_failure(str(e))
 
         # Save state after processing
         if self.config.incremental.enabled:
@@ -960,20 +967,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 document_urn=document_urn, elements=elements
             )
 
-        except RuntimeError as e:
+        except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.error(error_msg, exc_info=True)
-            self.report.report_error(error_msg)
-        except Exception as e:
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.error(error_msg, exc_info=True)
-            self.report.report_error(error_msg)
+            logger.warning(error_msg, exc_info=True)
 
     def get_report(self) -> SourceReport:
-        # Forward embedding stats from the chunking sub-component into our report
+        # Forward stats from the chunking sub-component into our report
         self.report.num_documents_processed = (
             self.chunking_source.report.num_documents_processed
         )
@@ -983,6 +985,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
         self.report.num_documents_limit_reached = (
             self.chunking_source.report.num_documents_limit_reached
+        )
+        self.report.num_embedding_failures = (
+            self.chunking_source.report.num_embedding_failures
+        )
+        self.report.embedding_failures = list(
+            self.chunking_source.report.embedding_failures
+        )
+        self.report.processing_errors = list(
+            self.chunking_source.report.processing_errors
         )
         return self.report
 

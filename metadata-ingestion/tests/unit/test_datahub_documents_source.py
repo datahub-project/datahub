@@ -1709,21 +1709,7 @@ class TestMaxDocumentsLimit:
 
             fake_chunk = {"text": "chunk", "metadata": {}}
 
-            def fake_process_inline(document_urn, elements):
-                source.chunking_source.report.report_document_processed(1)
-                max_docs = source.chunking_source.config.max_documents
-                if (
-                    max_docs > 0
-                    and source.chunking_source.report.num_documents_processed
-                    >= max_docs
-                ):
-                    source.chunking_source.report.num_documents_limit_reached = True
-                    raise RuntimeError(
-                        f"Document limit of {max_docs} reached. "
-                        f"Processed {source.chunking_source.report.num_documents_processed} documents. "
-                        "Increase max_documents in the source config to process more."
-                    )
-                return iter([])
+            source.chunking_source.embedding_model = None
 
             with (
                 patch.object(
@@ -1736,8 +1722,8 @@ class TestMaxDocumentsLimit:
                 ),
                 patch.object(
                     source.chunking_source,
-                    "process_elements_inline",
-                    side_effect=fake_process_inline,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
                 ),
                 pytest.raises(RuntimeError, match="Document limit of 2 reached"),
             ):
@@ -1746,72 +1732,84 @@ class TestMaxDocumentsLimit:
             assert source.report.num_documents_limit_reached is True
 
     def test_max_documents_flag_set_on_limit(self, ctx, config):
-        """Test that num_documents_limit_reached is set to True when limit is hit."""
+        """Test that num_documents_limit_reached is set on the report when the limit is hit."""
         with patch(
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         ):
             source = DataHubDocumentsSource(ctx, config)
             source.chunking_source.config.max_documents = 2
-            max_documents = source.chunking_source.config.max_documents
-
-            # Set report counter to one below the limit
-            source.chunking_source.report.num_documents_processed = max_documents - 1
-
-            # Simulate processing one more document which should trigger the limit
-            source.chunking_source.report.report_document_processed(1)
-            assert (
-                source.chunking_source.report.num_documents_processed == max_documents
-            )
-
-            if (
-                source.chunking_source.report.num_documents_processed
-                >= source.chunking_source.config.max_documents
-            ):
-                source.chunking_source.report.num_documents_limit_reached = True
-
-            assert source.chunking_source.report.num_documents_limit_reached is True
-
-    def test_documents_processed_before_limit_are_emitted(self, ctx, config):
-        """Test that documents processed before the limit are emitted."""
-        with patch(
-            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
-        ):
-            source = DataHubDocumentsSource(ctx, config)
-            source.chunking_source.config.max_documents = 2
-            max_documents = source.chunking_source.config.max_documents
-
-            processed_urns = []
-
-            def mock_process(doc):
-                processed_urns.append(doc["urn"])
-                source.chunking_source.report.report_document_processed(1)
-                if (
-                    source.chunking_source.report.num_documents_processed
-                    >= source.chunking_source.config.max_documents
-                ):
-                    source.chunking_source.report.num_documents_limit_reached = True
-                    raise RuntimeError("Document limit reached.")
-                return iter([])
 
             mock_docs = [
-                {"urn": f"urn:li:document:{i}", "text": f"Document {i} content"}
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
                 for i in range(5)
             ]
+
+            fake_chunk = {"text": "chunk", "metadata": {}}
+
+            source.chunking_source.embedding_model = None
 
             with (
                 patch.object(
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
                 patch.object(
-                    source, "_process_single_document", side_effect=mock_process
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
                 ),
                 pytest.raises(RuntimeError),
             ):
                 list(source._process_batch_mode())
 
-            # Should have processed exactly max_documents (2) before stopping
-            assert len(processed_urns) == max_documents
             assert source.chunking_source.report.num_documents_limit_reached is True
+
+    def test_documents_processed_before_limit_are_emitted(self, ctx, config):
+        """Test that documents up to max_documents are fully processed before the error is raised."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.max_documents = 2
+
+            mock_docs = [
+                {
+                    "urn": f"urn:li:document:{i}",
+                    "text": f"Document {i} content " + "x" * 100,
+                }
+                for i in range(5)
+            ]
+
+            fake_chunk = {"text": "chunk", "metadata": {}}
+
+            source.chunking_source.embedding_model = None
+
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[fake_chunk],
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "_chunk_elements",
+                    return_value=[fake_chunk],
+                ),
+                pytest.raises(RuntimeError),
+            ):
+                list(source._process_batch_mode())
+
+            assert source.chunking_source.report.num_documents_processed == 2
 
 
 class TestGetCurrentOffset:

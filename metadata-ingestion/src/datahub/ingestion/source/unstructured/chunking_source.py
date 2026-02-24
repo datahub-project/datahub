@@ -203,7 +203,7 @@ class DocumentChunkingSource(Source):
                 max_calls=config.embedding.documents_per_minute,
                 period=60.0,
             )
-            if config.embedding.rate_limit
+            if self.embedding_model and config.embedding.rate_limit
             else None
         )
 
@@ -248,11 +248,17 @@ class DocumentChunkingSource(Source):
         # Failures are raised directly so the caller can decide how to handle them.
         embeddings = []
         if self.embedding_model:
-            if self.rate_limiter:
-                with self.rate_limiter:
+            try:
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        embeddings = self._generate_embeddings(chunks)
+                else:
                     embeddings = self._generate_embeddings(chunks)
-            else:
-                embeddings = self._generate_embeddings(chunks)
+                self.report.report_embedding_success()
+            except Exception as e:
+                short_error = str(e).split("\n")[0][:200]
+                self.report.report_embedding_failure(document_urn, short_error)
+                raise
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
@@ -265,7 +271,7 @@ class DocumentChunkingSource(Source):
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
 
-        # Check document limit (max_documents > 0 means the limit is active; -1 disables it)
+        # Check document limit (max_documents > 0 means the limit is active; 0 or -1 disables it)
         if (
             self.config.max_documents > 0
             and self.report.num_documents_processed >= self.config.max_documents

@@ -1063,7 +1063,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
                 if (
                     not self.config.advanced.continue_on_failure
-                    and not self.chunking_source.report.num_documents_limit_reached
+                    or self.chunking_source.report.num_documents_limit_reached
                 ):
                     raise
 

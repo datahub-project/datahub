@@ -824,25 +824,13 @@ def test_max_documents_limit_raises_error(
         ingested_ids = {"11111", "22222"}
         parent_ids: set = set()
 
-        def fake_process_inline(document_urn, elements):
-            source.chunking_source.report.report_document_processed(1)
-            max_docs = source.chunking_source.config.max_documents
-            if (
-                max_docs > 0
-                and source.chunking_source.report.num_documents_processed >= max_docs
-            ):
-                source.chunking_source.report.num_documents_limit_reached = True
-                raise RuntimeError(
-                    f"Document limit of {max_docs} reached. "
-                    f"Processed {source.chunking_source.report.num_documents_processed} documents. "
-                    "Increase max_documents in the source config to process more."
-                )
-            return iter([])
+        source.chunking_source.embedding_model = None
+        dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
 
         with patch.object(
             source.chunking_source,
-            "process_elements_inline",
-            side_effect=fake_process_inline,
+            "_chunk_elements",
+            return_value=dummy_chunk,
         ):
             # Process first page - should succeed
             list(
@@ -900,26 +888,14 @@ def test_max_documents_limit_reached_flag(
         source = ConfluenceSource(config, pipeline_context)
         source.chunking_source.config.max_documents = 1
 
-        def fake_process_inline(document_urn, elements):
-            source.chunking_source.report.report_document_processed(1)
-            max_docs = source.chunking_source.config.max_documents
-            if (
-                max_docs > 0
-                and source.chunking_source.report.num_documents_processed >= max_docs
-            ):
-                source.chunking_source.report.num_documents_limit_reached = True
-                raise RuntimeError(
-                    f"Document limit of {max_docs} reached. "
-                    f"Processed {source.chunking_source.report.num_documents_processed} documents. "
-                    "Increase max_documents in the source config to process more."
-                )
-            return iter([])
+        source.chunking_source.embedding_model = None
+        dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
 
         with (
             patch.object(
                 source.chunking_source,
-                "process_elements_inline",
-                side_effect=fake_process_inline,
+                "_chunk_elements",
+                return_value=dummy_chunk,
             ),
             pytest.raises(RuntimeError),
         ):

@@ -1,6 +1,7 @@
 """Tests for NotionSource."""
 
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
@@ -762,9 +763,7 @@ def test_max_documents_default():
 
 
 def test_max_documents_limit_raises_error():
-    """Test that RuntimeError is raised when max_documents limit is hit."""
-    from unittest.mock import MagicMock, patch
-
+    """Test that RuntimeError propagates from chunking_source when max_documents is hit."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -779,7 +778,6 @@ def test_max_documents_limit_raises_error():
     source = NotionSource(config=config, ctx=ctx)
     source.chunking_source.config.max_documents = 2
 
-    # Build minimal data dict that passes all filters in _create_document_entity
     def make_data(page_id: str) -> dict:
         return {
             "elements": [{"text": "Some content", "type": "NarrativeText"}],
@@ -792,106 +790,30 @@ def test_max_documents_limit_raises_error():
     mock_doc = MagicMock()
     mock_doc.urn = "urn:li:document:notion.page-1"
     mock_doc.as_workunits.return_value = iter([])
-    mock_doc._set_aspect = MagicMock()
 
-    def fake_process_inline(**_kwargs):
-        source.chunking_source.report.report_document_processed(1)
-        max_docs = source.chunking_source.config.max_documents
-        if (
-            max_docs > 0
-            and source.chunking_source.report.num_documents_processed >= max_docs
-        ):
-            source.chunking_source.report.num_documents_limit_reached = True
-            raise RuntimeError(
-                f"Document limit of {max_docs} reached. "
-                f"Processed {source.chunking_source.report.num_documents_processed} documents. "
-                "Increase max_documents in the source config to process more."
-            )
-        return iter([])
+    # Disable embedding and stub chunking to avoid needing `unstructured` installed
+    source.chunking_source.embedding_model = None
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
 
     with (
         patch.object(
             source.document_builder, "build_document_entity", return_value=mock_doc
         ),
         patch.object(
-            source.chunking_source,
-            "process_elements_inline",
-            side_effect=fake_process_inline,
+            source.chunking_source, "_chunk_elements", return_value=dummy_chunk
         ),
     ):
-        # Process first document - should succeed
+        # First document — should succeed
         list(source._create_document_entity(make_data("page-1")))
         assert source.report.num_documents_created == 1
         assert source.report.num_documents_limit_reached is False
 
-        # Process second document - should hit the limit and raise
+        # Second document — hits the limit
         with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
             list(source._create_document_entity(make_data("page-2")))
 
     assert source.report.num_documents_limit_reached is True
     assert source.report.num_documents_created == 1
-
-
-def test_max_documents_limit_reached_flag():
-    """Test that num_documents_limit_reached is set when limit is hit."""
-    from unittest.mock import MagicMock, patch
-
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    ctx = PipelineContext(run_id="test")
-    source = NotionSource(config=config, ctx=ctx)
-    source.chunking_source.config.max_documents = 1
-
-    data = {
-        "elements": [{"text": "Some content", "type": "NarrativeText"}],
-        "metadata": {
-            "data_source": {"record_locator": {"page_id": "test-page"}},
-            "filetype": "text/plain",
-        },
-    }
-
-    mock_doc = MagicMock()
-    mock_doc.urn = "urn:li:document:notion.test-page"
-    mock_doc.as_workunits.return_value = iter([])
-    mock_doc._set_aspect = MagicMock()
-
-    def fake_process_inline(**_kwargs):
-        source.chunking_source.report.report_document_processed(1)
-        max_docs = source.chunking_source.config.max_documents
-        if (
-            max_docs > 0
-            and source.chunking_source.report.num_documents_processed >= max_docs
-        ):
-            source.chunking_source.report.num_documents_limit_reached = True
-            raise RuntimeError(
-                f"Document limit of {max_docs} reached. "
-                f"Processed {source.chunking_source.report.num_documents_processed} documents. "
-                "Increase max_documents in the source config to process more."
-            )
-        return iter([])
-
-    with (
-        patch.object(
-            source.document_builder, "build_document_entity", return_value=mock_doc
-        ),
-        patch.object(
-            source.chunking_source,
-            "process_elements_inline",
-            side_effect=fake_process_inline,
-        ),
-        pytest.raises(RuntimeError),
-    ):
-        list(source._create_document_entity(data))
-
-    assert source.report.num_documents_limit_reached is True
 
 
 def test_embedding_stats_aggregation(notion_source):

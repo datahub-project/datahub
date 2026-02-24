@@ -407,3 +407,59 @@ def test_bedrock_requires_no_api_key(pipeline_context):
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
     assert source.embedding_model == "bedrock/cohere.embed-english-v3"
+
+
+# --- max_documents limit tests ---
+
+
+def test_max_documents_limit_raises_after_nth_document(
+    pipeline_context, chunking_config
+):
+    """RuntimeError is raised after processing max_documents documents."""
+    chunking_config.max_documents = 2
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Disable embedding to keep the test focused on limit logic only
+    source.embedding_model = None
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with patch.object(source, "_chunk_elements", return_value=dummy_chunk):
+        # First document — should succeed
+        list(source.process_elements_inline("urn:li:document:doc1", elements))
+        assert source.report.num_documents_processed == 1
+        assert source.report.num_documents_limit_reached is False
+
+        # Second document — hits the limit
+        with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+            list(source.process_elements_inline("urn:li:document:doc2", elements))
+
+    assert source.report.num_documents_processed == 2
+    assert source.report.num_documents_limit_reached is True
+
+
+def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_config):
+    """Setting max_documents=-1 disables the limit entirely."""
+    chunking_config.max_documents = -1
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    source.embedding_model = None
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with patch.object(source, "_chunk_elements", return_value=dummy_chunk):
+        for i in range(5):
+            list(source.process_elements_inline(f"urn:li:document:doc{i}", elements))
+
+    assert source.report.num_documents_processed == 5
+    assert source.report.num_documents_limit_reached is False
