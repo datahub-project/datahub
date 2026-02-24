@@ -4126,3 +4126,37 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **6f9fd58123** - ci(documentation): Update metadata-ingestion:testScripts to add coverage and standardized test reporting (#16239)
   *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-18*
+
+## Upstream Merge Session - 2026-02-20 04:25:23
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 7
+- **Strategy**: stacked
+- **Started**: 2026-02-20 04:25:23
+
+### Commits Included in This Merge
+
+- **967b253eee** - feat(ingestion/doris): apache doris connector (#15249)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-18*
+
+- **995d78ac72** - ci(java-tests): Update workflows to add Github Summary for Java projects (#16258)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-18*
+
+- **f5e85f0e4f** - feat(ui) Add ability to skip sibling search on graphql queries + skip lineage queries (#16179)
+  *by Chris Collins <chriscollins3456@gmail.com> on 2026-02-18*
+
+- **2c0d890218** - docs: add frontend theming guidance to CLAUDE.md (#16242)
+  *by Anna Everhart <149417426+annadoesdesign@users.noreply.github.com> on 2026-02-18*
+
+- **d0b9db21ae** - ci(fix) Update input parameters that were missed earlier. (#16263)
+  *by Devashish Chandra <devashish2203@users.noreply.github.com> on 2026-02-19*
+
+- **ef27e35ad8** - feat(ingestion/apache-doris): cleaned apache doris docs (#16259)
+  *by Jonny Dixon <45681293+acrylJonny@users.noreply.github.com> on 2026-02-18*
+
+- **cb5768168a** - [semantic-search] semantic search improvements for clarity (#16250)
+  *by Nick Adams <nick.adams@datahub.com> on 2026-02-18*

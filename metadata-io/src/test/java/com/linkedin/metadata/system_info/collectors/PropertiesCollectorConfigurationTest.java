@@ -1009,6 +1009,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.bedrock.awsRegion",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.bedrock.model",
 
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
