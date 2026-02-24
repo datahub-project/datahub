@@ -69,8 +69,8 @@ vi.mock('@app/shared/Loading', () => ({
     default: () => <div data-testid="loading">Loading...</div>,
 }));
 
-vi.mock('@graphql/app.generated', () => ({
-    useAppConfigQuery: vi.fn().mockReturnValue({ data: undefined, refetch: vi.fn() }),
+vi.mock('@src/AppConfigProvider', () => ({
+    default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe('QueriesTab (v2)', () => {

@@ -14,8 +14,8 @@ vi.mock('react-syntax-highlighter', () => ({
     Prism: ({ children }: { children: React.ReactNode }) => <pre data-testid="syntax-highlighter">{children}</pre>,
 }));
 
-vi.mock('@graphql/app.generated', () => ({
-    useAppConfigQuery: vi.fn().mockReturnValue({ data: undefined, refetch: vi.fn() }),
+vi.mock('@src/AppConfigProvider', () => ({
+    default: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 describe('ChartQueryTab', () => {
