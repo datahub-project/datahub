@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
@@ -53,8 +54,8 @@ public class RescoreFormulaConfig {
   /** Path to rescore configuration YAML file */
   @Builder.Default private String file = "rescore_config.yaml";
 
-  /** Number of top results to rescore (default: 100) */
-  @Builder.Default private int windowSize = 100;
+  /** Number of top results to rescore (default: 250) */
+  @Builder.Default private int windowSize = 250;
 
   /** Maximum number of results to fetch from ES for rescoring (default: 500) */
   @Builder.Default private int maxRescoreWindow = 500;
@@ -117,6 +118,20 @@ public class RescoreFormulaConfig {
         }
       }
 
+      // Allow env var to override windowSize from YAML
+      String envWindowSize = System.getenv("DATAHUB_RESCORE_WINDOW_SIZE");
+      if (envWindowSize != null && !envWindowSize.isEmpty()) {
+        try {
+          this.windowSize = Integer.parseInt(envWindowSize);
+          log.info("Rescore windowSize overridden by DATAHUB_RESCORE_WINDOW_SIZE={}", windowSize);
+        } catch (NumberFormatException e) {
+          log.warn(
+              "Invalid DATAHUB_RESCORE_WINDOW_SIZE value: '{}', using YAML value: {}",
+              envWindowSize,
+              e.getMessage());
+        }
+      }
+
       log.info(
           "Rescore formula configuration loaded: enabled={}, windowSize={}, signals={}, formula={}",
           enabled,
@@ -139,6 +154,9 @@ public class RescoreFormulaConfig {
     @Builder.Default private String type = "NUMERIC";
     private NormalizationYaml normalization;
     @Builder.Default private double boost = 1.0;
+
+    /** Entity type boost mapping for INDEX_NAME signals (index name substring → boost value) */
+    @Builder.Default private Map<String, Double> entityTypeBoosts = new LinkedHashMap<>();
 
     @SuppressWarnings("unchecked")
     public static SignalConfig fromMap(Map<String, Object> map) {
@@ -165,6 +183,14 @@ public class RescoreFormulaConfig {
       if (map.containsKey("normalization")) {
         Map<String, Object> normMap = (Map<String, Object>) map.get("normalization");
         config.normalization = NormalizationYaml.fromMap(normMap);
+      }
+
+      if (map.containsKey("entityTypeBoosts")) {
+        Map<String, Object> boostsMap = (Map<String, Object>) map.get("entityTypeBoosts");
+        config.entityTypeBoosts = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : boostsMap.entrySet()) {
+          config.entityTypeBoosts.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+        }
       }
 
       return config;
@@ -236,7 +262,7 @@ public class RescoreFormulaConfig {
     @Data
     public static class RescoreDetails {
       private boolean enabled = true;
-      private int windowSize = 100;
+      private int windowSize = 250;
       private int maxRescoreWindow = 500;
       private String formula;
       private boolean includeExplain = false;

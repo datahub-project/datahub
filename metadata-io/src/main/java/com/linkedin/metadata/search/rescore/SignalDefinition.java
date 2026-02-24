@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.rescore;
 
+import java.util.Collections;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Value;
 
@@ -29,4 +31,11 @@ public class SignalDefinition {
 
   /** Exponent/boost to apply in power-law formula */
   @Builder.Default double boost = 1.0;
+
+  /**
+   * Entity type boost mapping for INDEX_NAME signals. Maps index name substrings (e.g.,
+   * "glossaryTermIndex") to boost multipliers. Matching is case-insensitive. Default boost (1.0) is
+   * used when no match is found.
+   */
+  @Builder.Default Map<String, Double> entityTypeBoosts = Collections.emptyMap();
 }

@@ -122,7 +122,7 @@ rescore:
   enabled: true
 
   # Number of top results to rescore (higher = more accurate but slower)
-  windowSize: 100
+  windowSize: 250
 
   # Maximum number of results to fetch from ES for rescoring (cap for memory safety)
   maxRescoreWindow: 500
@@ -297,16 +297,20 @@ rescore:
       boost: 1.0
 
     # ===== SIGNAL 12: Entity Type Boost =====
-    # Boost logical entity types (glossary terms, tags, domains, data products)
+    # Boost logical entity types (glossary terms, data products, containers, domains, tags)
     # Ensures these organizational/definitional entities rank higher
     - name: entityType
       normalizedName: entityTypeBoost
       fieldPath: _index       # Index name contains entity type
       type: INDEX_NAME
       normalization:
-        type: NONE           # Return boost values directly (1.0, 1.3, 1.4)
+        type: NONE           # Return boost values directly
       boost: 1.0
-      # Values returned by INDEX_NAME extraction:
-      #   1.4 = Glossary Term, Glossary Node, or Tag (40% boost)
-      #   1.3 = Domain or Data Product (30% boost)
-      #   1.0 = All other entity types (no boost)
+      # Maps index name substrings to boost multipliers.
+      # Unmatched entity types default to 1.0 (no boost).
+      entityTypeBoosts:
+        glossaryTermIndex: 1.4
+        glossaryNodeIndex: 1.4
+        dataProductIndex: 1.3
+        domainIndex: 1.3
+        tagIndex: 1.4

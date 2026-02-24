@@ -53,7 +53,7 @@ public class SignalExtractor {
       SignalDefinition signal, Map<String, Object> source, double esScore, String indexName) {
     // Extract raw value
     Object rawValue = extractRawValue(signal, source, esScore, indexName);
-    double numericValue = toNumericValue(rawValue, signal.getType());
+    double numericValue = toNumericValue(rawValue, signal);
 
     // Apply normalization
     double normalizedValue = normalize(numericValue, signal);
@@ -162,12 +162,12 @@ public class SignalExtractor {
     return current;
   }
 
-  private double toNumericValue(Object rawValue, SignalType type) {
+  private double toNumericValue(Object rawValue, SignalDefinition signal) {
     if (rawValue == null) {
       return 0.0;
     }
 
-    switch (type) {
+    switch (signal.getType()) {
       case SCORE:
       case NUMERIC:
         if (rawValue instanceof Number) {
@@ -198,17 +198,16 @@ public class SignalExtractor {
         return 0.0;
 
       case INDEX_NAME:
-        // For index names, detect entity type and return boost multiplier directly
-        // These values will be used as-is (identity normalization)
+        // Look up boost from entityTypeBoosts map (configured in rescore_config.yaml)
+        // Case-insensitive: both index name and keys are lowercased before matching
         String indexName = rawValue.toString().toLowerCase();
-        if (indexName.contains("glossarytermindex") || indexName.contains("glossarynodeindex")) {
-          return 1.4; // 40% boost for glossary terms/nodes
-        } else if (indexName.contains("domainindex") || indexName.contains("dataproductindex")) {
-          return 1.3; // 30% boost for domains/data products
-        } else if (indexName.contains("tagindex")) {
-          return 1.4; // 40% boost for tags (organizational/definitional entities)
+        Map<String, Double> boosts = signal.getEntityTypeBoosts();
+        for (Map.Entry<String, Double> entry : boosts.entrySet()) {
+          if (indexName.contains(entry.getKey().toLowerCase())) {
+            return entry.getValue();
+          }
         }
-        return 1.0; // No boost for other entity types
+        return 1.0; // Default: no boost
 
       default:
         return 0.0;

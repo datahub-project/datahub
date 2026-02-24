@@ -1597,6 +1597,16 @@ public class ESSearchDAO {
                 .build();
       }
 
+      Map<String, Double> entityTypeBoosts = Collections.emptyMap();
+      @SuppressWarnings("unchecked")
+      Map<String, Object> boostsMap = (Map<String, Object>) signalMap.get("entityTypeBoosts");
+      if (boostsMap != null) {
+        entityTypeBoosts = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : boostsMap.entrySet()) {
+          entityTypeBoosts.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+        }
+      }
+
       signals.add(
           SignalDefinition.builder()
               .name(name)
@@ -1605,6 +1615,7 @@ public class ESSearchDAO {
               .type(signalType)
               .normalization(normConfig)
               .boost(getDoubleValue(signalMap, "boost", 1.0))
+              .entityTypeBoosts(entityTypeBoosts)
               .build());
     }
     return signals;
@@ -1681,6 +1692,7 @@ public class ESSearchDAO {
               .type(signalType)
               .normalization(normConfig)
               .boost(signalConfig.getBoost())
+              .entityTypeBoosts(signalConfig.getEntityTypeBoosts())
               .build());
     }
     return defs;

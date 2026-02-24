@@ -198,7 +198,7 @@ public class RescoreConfigurationTest {
 
     // Verify configuration was loaded successfully
     assertTrue(resolved.isEnabled(), "Should be enabled");
-    assertEquals(resolved.getWindowSize(), 100, "Window size should match YAML");
+    assertEquals(resolved.getWindowSize(), 250, "Window size should match YAML");
     assertEquals(resolved.getMaxRescoreWindow(), 500, "Max rescore window should match YAML");
     assertFalse(
         resolved.isIncludeExplain(), "Include explain should be false (production default)");
@@ -241,5 +241,33 @@ public class RescoreConfigurationTest {
     assertNotNull(yaml.getRescore().getSignals(), "Signals should not be null");
     assertFalse(yaml.getRescore().getSignals().isEmpty(), "Signals should not be empty");
     assertEquals(yaml.getRescore().getSignals().size(), 1, "Should have one signal");
+  }
+
+  @Test
+  public void testEntityTypeBoostsParsedFromYaml() throws IOException {
+    // Test that entityTypeBoosts in rescore_config.yaml are parsed correctly via
+    // RescoreFormulaConfig
+    RescoreFormulaConfig config =
+        RescoreFormulaConfig.builder().enabled(true).file("rescore_config.yaml").build();
+
+    ObjectMapper mapper = new YAMLMapper();
+    RescoreFormulaConfig resolved = config.resolve(mapper);
+
+    // Find the entityType signal
+    RescoreFormulaConfig.SignalConfig entityTypeSignal =
+        resolved.getSignals().stream()
+            .filter(s -> "entityType".equals(s.getName()))
+            .findFirst()
+            .orElse(null);
+    assertNotNull(entityTypeSignal, "entityType signal should be present");
+
+    Map<String, Double> boosts = entityTypeSignal.getEntityTypeBoosts();
+    assertFalse(boosts.isEmpty(), "entityTypeBoosts should not be empty");
+    assertEquals(boosts.size(), 5, "Should have 5 entity type boost entries");
+    assertEquals(boosts.get("glossaryTermIndex"), 1.4, 0.001);
+    assertEquals(boosts.get("glossaryNodeIndex"), 1.4, 0.001);
+    assertEquals(boosts.get("dataProductIndex"), 1.3, 0.001);
+    assertEquals(boosts.get("domainIndex"), 1.3, 0.001);
+    assertEquals(boosts.get("tagIndex"), 1.4, 0.001);
   }
 }
