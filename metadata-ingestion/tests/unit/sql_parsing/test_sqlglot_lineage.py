@@ -2,6 +2,8 @@ import pathlib
 
 import pytest
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -187,6 +189,75 @@ SELECT id, name FROM my_db.my_schema.my_table
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_create_view_with_tag.json",
     )
+
+
+def test_create_view_as_block_statement() -> None:
+    """Test Block with multiple statements where only 1 is not None.
+
+    Sqlglot v29 parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    Block([Create, None]), where None represents the empty statement between semicolons.
+
+    This pattern was observed in Redshift integration tests where view definitions had
+    double semicolons, causing column lineage extraction to fail.
+
+    This test ensures we correctly filter out None expressions and extract column lineage.
+    Regression test for sqlglot v29 upgrade.
+    """
+    # Double semicolon pattern that creates Block([Create, None])
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS (SELECT id, name, age FROM base_table);
+        ;
+""",
+        dialect="redshift",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.base_table,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+                "age": "INTEGER",
+            }
+        },
+        default_db="dev",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_create_view_as_block_statement.json",
+    )
+
+
+def test_block_with_all_none_expressions() -> None:
+    """Test Block with all None expressions returns error in SqlParsingResult.
+
+    Sqlglot raises ParseError when parsing SQL with only semicolons
+    since there's no valid SQL statement.
+    """
+    result = sqlglot_lineage(
+        ";\n;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "No expression was parsed" in str(result.debug_info.table_error)
+
+
+def test_block_with_multiple_statements() -> None:
+    """Test Block with multiple non-None statements returns error.
+
+    parse_statement expects a single statement. Multiple statements should use
+    parse_statements_and_pick() instead.
+    """
+    result = sqlglot_lineage(
+        "CREATE VIEW v1 AS SELECT * FROM t1; CREATE VIEW v2 AS SELECT * FROM t2;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "Block contains 2 statements" in str(result.debug_info.table_error)
+    assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
 
 
 def test_snowflake_create_table_as_select_with_tag() -> None:
