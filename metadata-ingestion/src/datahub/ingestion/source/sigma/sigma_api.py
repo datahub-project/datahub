@@ -1,10 +1,11 @@
 import functools
 import logging
 import sys
-import time
 from typing import Any, Dict, List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.sigma.config import (
     Constant,
@@ -23,10 +24,6 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# Retry constants for 429/503 errors
-RETRY_MAX_ATTEMPTS = 3
-RETRY_BASE_DELAY_SECONDS = 2.0  # Exponential backoff: 2s, 4s, 8s
-
 
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
@@ -35,6 +32,18 @@ class SigmaAPI:
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
+
+        # Configure retry strategy for 429/503 with exponential backoff
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 503],
+            backoff_factor=2,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
         self.refresh_token: Optional[str] = None
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
@@ -92,34 +101,14 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with retry on 429/503 errors."""
-        get_response: requests.Response
-        for attempt in range(RETRY_MAX_ATTEMPTS):
+        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
+        get_response = self.session.get(url)
+
+        # Handle token refresh on 401
+        if get_response.status_code == 401 and self.refresh_token:
+            logger.debug("Access token might expired. Refreshing access token.")
+            self._refresh_access_token()
             get_response = self.session.get(url)
-
-            # Handle token refresh on 401
-            if get_response.status_code == 401 and self.refresh_token:
-                logger.debug("Access token might expired. Refreshing access token.")
-                self._refresh_access_token()
-                get_response = self.session.get(url)
-
-            # Success or non-retryable error
-            if get_response.status_code not in (429, 503):
-                break
-
-            # Retry with exponential backoff, or give up on last attempt
-            if attempt < RETRY_MAX_ATTEMPTS - 1:
-                delay = RETRY_BASE_DELAY_SECONDS * (2**attempt)
-                logger.debug(
-                    f"Retryable error ({get_response.status_code}) on {url}, "
-                    f"retrying in {delay}s (attempt {attempt + 1}/{RETRY_MAX_ATTEMPTS})"
-                )
-                time.sleep(delay)
-            else:
-                logger.warning(
-                    f"Retryable error ({get_response.status_code}) on {url}, "
-                    f"max retries exceeded"
-                )
 
         return get_response
 
