@@ -30,11 +30,9 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return search_documents(
             query=search_query,
             num_results=int(num_results) if num_results else 10

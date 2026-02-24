@@ -16,7 +16,7 @@ const logError = (error: Error, info: { componentStack: string }) => {
     console.error('Component Info:', info);
     console.error('URL:', window.location.href);
 
-    console.warn('🔧 ACTION REQUIRED: Please report this error to your Datahub Administrator');
+    console.warn('🔧 ACTION REQUIRED: Please report this error to your DataHub Administrator');
     console.warn('📧 Include the above error details in your report');
     console.groupEnd();
 };
@@ -28,7 +28,7 @@ export const ErrorBoundary = ({ children, variant = 'route', fallback, resetKeys
             <ErrorFallback
                 variant={variant}
                 // Custom message for on-prem customers
-                actionMessage="Please report the error messages from your browser to your Datahub Administrator"
+                actionMessage="Please report the error messages from your browser to your DataHub Administrator"
             />
         ));
 
