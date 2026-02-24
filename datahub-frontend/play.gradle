@@ -46,9 +46,7 @@ dependencies {
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
     }
-    implementation('commons-beanutils:commons-beanutils:1.11.0') {
-      because("CVE-2025-48734")
-    }
+    // commons-beanutils: forced in root build.gradle (CVE-2025-48734)
   }
 
   implementation project(":metadata-service:restli-client")

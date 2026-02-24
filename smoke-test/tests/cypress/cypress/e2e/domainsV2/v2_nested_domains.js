@@ -1,3 +1,5 @@
+import DatasetHelper from "../manage_tagsV2/helpers/dataset_helper";
+
 const domainName = "CypressNestedDomain";
 const chartUrn = "urn:li:chart:(looker,cypress_baz2)";
 
@@ -328,5 +330,8 @@ describe("Verify nested domains test functionalities", () => {
     cy.reload();
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
+
+    // Reassign Cypress tag to Baz Chart 2 as some test could rely on it (e.g. v2_glossaryTerm)
+    DatasetHelper.assignTag("Cypress");
   });
 });

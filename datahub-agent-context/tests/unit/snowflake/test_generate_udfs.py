@@ -138,7 +138,7 @@ class TestGenerateAllUdfs:
             assert "RETURNS VARIANT" in udf_sql
             assert "LANGUAGE PYTHON" in udf_sql
             assert "RUNTIME_VERSION = '3.10'" in udf_sql
-            assert "PACKAGES = ('datahub-agent-context>=1.3.1.8')" in udf_sql
+            assert "PACKAGES = ('datahub-agent-context==1.4.0.3')" in udf_sql
             assert (
                 "SECRETS = ('datahub_url_secret' = datahub_url, 'datahub_token_secret' = datahub_token)"
                 in udf_sql

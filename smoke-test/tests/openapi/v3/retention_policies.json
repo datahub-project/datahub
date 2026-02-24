@@ -1,0 +1,69 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest/urn%3Ali%3AdataHubExecutionRequest%3Aretention-smoke-exec-1",
+      "method": "delete",
+      "description": "Clean up dataHubExecutionRequest from previous run"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest",
+      "method": "post",
+      "params": {"async": "false"},
+      "description": "Create dataHubExecutionRequest with dataHubExecutionRequestResult",
+      "json": [
+        {
+          "urn": "urn:li:dataHubExecutionRequest:retention-smoke-exec-1",
+          "dataHubExecutionRequestKey": {"value": {"id": "retention-smoke-exec-1"}},
+          "dataHubExecutionRequestResult": {"value": {"status": "PENDING"}}
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest",
+      "method": "post",
+      "params": {"async": "false"},
+      "description": "Mutate dataHubExecutionRequestResult first time",
+      "json": [
+        {
+          "urn": "urn:li:dataHubExecutionRequest:retention-smoke-exec-1",
+          "dataHubExecutionRequestResult": {"value": {"status": "RUNNING"}}
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest",
+      "method": "post",
+      "params": {"async": "false"},
+      "description": "Mutate dataHubExecutionRequestResult second time",
+      "json": [
+        {
+          "urn": "urn:li:dataHubExecutionRequest:retention-smoke-exec-1",
+          "dataHubExecutionRequestResult": {"value": {"status": "COMPLETED"}}
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest/urn%3Ali%3AdataHubExecutionRequest%3Aretention-smoke-exec-1/datahubexecutionrequestresult",
+      "method": "get",
+      "params": {"version": "0"},
+      "description": "Fetch dataHubExecutionRequestResult version=0 (latest), retention maxVersions=1"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datahubexecutionrequest/urn%3Ali%3AdataHubExecutionRequest%3Aretention-smoke-exec-1/datahubexecutionrequestresult",
+      "method": "get",
+      "params": {"version": "2"},
+      "description": "Assert version=2 does not exist (retention enforced)"
+    },
+    "response": {"status_codes": [404]}
+  }
+]
