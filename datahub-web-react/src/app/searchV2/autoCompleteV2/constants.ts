@@ -11,8 +11,6 @@ export const DEFAULT_STYLES: VariantProps = {
     subtitleColorLevel: 1800,
     matchColor: 'gray',
     matchColorLevel: 1700,
-    typeColor: 'gray',
-    typeColorLevel: 1800,
 };
 
 export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
@@ -28,7 +26,6 @@ export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
                 nameWeight: 'normal',
                 subtitleColorLevel: 600,
                 matchColorLevel: 1700,
-                typeColorLevel: 600,
             },
         },
     ],
