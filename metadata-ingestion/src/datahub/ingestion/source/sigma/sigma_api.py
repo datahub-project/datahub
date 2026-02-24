@@ -148,7 +148,7 @@ class SigmaAPI:
                 response_dict = response.json()
                 for user_dict in response_dict[Constant.ENTRIES]:
                     users[user_dict[Constant.MEMBERID]] = (
-                        f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+                        f"{user_dict[Constant.EMAIL]}"
                     )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{members_url}&page={response_dict[Constant.NEXTPAGE]}"
