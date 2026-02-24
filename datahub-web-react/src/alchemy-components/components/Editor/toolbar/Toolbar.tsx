@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
@@ -78,8 +78,12 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+    }, []);
+
     return (
-        <Container style={styles} $fixedBottom={fixedBottom}>
+        <Container style={styles} $fixedBottom={fixedBottom} onMouseDown={handleMouseDown}>
             <InnerContainer>
                 <FontSizeSelect />
                 <HeadingMenu />

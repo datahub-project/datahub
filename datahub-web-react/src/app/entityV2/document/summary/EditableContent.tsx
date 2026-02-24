@@ -306,11 +306,21 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 data-testid="document-editor-section"
                 onFocus={() => setIsEditorFocused(true)}
                 onBlur={(e) => {
-                    // Only blur if we're actually leaving the editor section
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                        setIsEditorFocused(false);
-                        handleBlur();
-                    }
+                    const currentTarget = e.currentTarget;
+                    // Delay the check to let focus settle — dropdown overlays
+                    // render in portals outside this DOM subtree, so relatedTarget
+                    // can be null or outside the editor section even when the user
+                    // is still interacting with toolbar dropdowns.
+                    requestAnimationFrame(() => {
+                        const stillInsideEditor = currentTarget.contains(document.activeElement);
+                        const hasOpenToolbarDropdown = !!document.querySelector(
+                            '.ant-dropdown:not(.ant-dropdown-hidden)',
+                        );
+                        if (!stillInsideEditor && !hasOpenToolbarDropdown) {
+                            setIsEditorFocused(false);
+                            handleBlur();
+                        }
+                    });
                 }}
             >
                 {canEditContents ? (
