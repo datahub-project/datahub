@@ -199,7 +199,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
