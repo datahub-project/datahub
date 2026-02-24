@@ -291,7 +291,10 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            assert source.embedding_model == "bedrock/cohere.embed-english-v3"
+            assert (
+                source.chunking_source.embedding_model
+                == "bedrock/cohere.embed-english-v3"
+            )
 
     def test_embedding_model_name_cohere(self, ctx):
         """Test embedding model name for Cohere."""
@@ -299,6 +302,7 @@ class TestDataHubDocumentsSource:
             embedding={
                 "provider": "cohere",
                 "model": "embed-english-v3.0",
+                "api_key": "test-api-key",
                 "allow_local_embedding_config": True,
             },
             stateful_ingestion={"enabled": False},
@@ -309,7 +313,7 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            assert source.embedding_model == "cohere/embed-english-v3.0"
+            assert source.chunking_source.embedding_model == "cohere/embed-english-v3.0"
 
     def test_update_document_state(self, ctx, config):
         """Test document state update."""
@@ -1421,6 +1425,7 @@ class TestConfigFingerprintInHash:
             embedding={
                 "provider": "cohere",  # Different provider
                 "model": "embed-english-v3.0",
+                "api_key": "test-api-key",
                 "model_embedding_key": "cohere_embed_v3",
                 "allow_local_embedding_config": True,
             },
@@ -1700,7 +1705,10 @@ class TestMaxDocumentsLimit:
             ]
 
             fake_chunk = {"text": "chunk", "metadata": {}}
-            fake_embedding = [0.1, 0.2, 0.3]
+
+            def fake_process_inline(document_urn, elements):
+                source.chunking_source.report.report_document_processed(1)
+                return iter([])
 
             with (
                 patch.object(
@@ -1711,11 +1719,11 @@ class TestMaxDocumentsLimit:
                     "partition_text",
                     return_value=[fake_chunk],
                 ),
-                patch.object(source, "_chunk_elements", return_value=[fake_chunk]),
                 patch.object(
-                    source, "_generate_embeddings", return_value=[fake_embedding]
+                    source.chunking_source,
+                    "process_elements_inline",
+                    side_effect=fake_process_inline,
                 ),
-                patch.object(source, "_emit_semantic_content", return_value=iter([])),
                 pytest.raises(RuntimeError, match="Document limit of 2 reached"),
             ):
                 list(source._process_batch_mode())

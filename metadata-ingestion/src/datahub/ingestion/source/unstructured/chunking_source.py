@@ -230,26 +230,11 @@ class DocumentChunkingSource(Source):
             logger.warning(f"No chunks created for document {document_urn}")
             return
 
-        # Generate embeddings (only if configured)
+        # Generate embeddings (only if configured).
+        # Failures are raised directly so the caller can decide how to handle them.
         embeddings = []
         if self.embedding_model:
-            try:
-                embeddings = self._generate_embeddings(chunks)
-                self.report.report_embedding_success()
-            except Exception as e:
-                # Embedding generation failed - document still ingested but no search capability
-                short_error = str(e).split("\n")[0][:200]  # First line, max 200 chars
-
-                self.report.report_embedding_failure(document_urn, short_error)
-
-                # Report as warning so it appears in pipeline summary
-                self.report.report_warning(
-                    title="Embedding generation failed",
-                    message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
-                    context=f"{document_urn}: {short_error}",
-                    exc=e,
-                )
-                # Don't re-raise - allow document to be processed without embeddings
+            embeddings = self._generate_embeddings(chunks)
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
@@ -534,21 +519,14 @@ class DocumentChunkingSource(Source):
                     embeddings = self._generate_embeddings(chunks)
                     self.report.report_embedding_success()
                 except Exception as e:
-                    # Embedding generation failed - document still processed but no search capability
-                    short_error = str(e).split("\n")[0][
-                        :200
-                    ]  # First line, max 200 chars
-
+                    short_error = str(e).split("\n")[0][:200]
                     self.report.report_embedding_failure(doc["urn"], short_error)
-
-                    # Report as warning so it appears in pipeline summary
                     self.report.report_warning(
                         title="Embedding generation failed",
                         message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
                         context=f"{doc['urn']}: {short_error}",
                         exc=e,
                     )
-                    # Don't re-raise - allow document to be processed without embeddings
             else:
                 logger.debug(
                     f"Skipping embedding generation for {doc['urn']} - no embedding provider configured"
