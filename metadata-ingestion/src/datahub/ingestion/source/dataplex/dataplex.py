@@ -333,18 +333,27 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                             self.report.report_entry_scanned(entry_id, filtered=True)
                         continue
 
-                    entry_details_request = dataplex_v1.GetEntryRequest(
-                        name=entry.name, view=dataplex_v1.EntryView.ALL
-                    )
-                    entry_details = self.catalog_client.get_entry(
-                        request=entry_details_request
-                    )
+                    try:
+                        entry_details_request = dataplex_v1.GetEntryRequest(
+                            name=entry.name, view=dataplex_v1.EntryView.ALL
+                        )
+                        entry_details = self.catalog_client.get_entry(
+                            request=entry_details_request
+                        )
 
-                    with self._report_lock:
-                        self.report.report_entry_scanned(entry_id)
-                    yield from self._process_entry(
-                        project_id, entry_details, entry_group_id
-                    )
+                        with self._report_lock:
+                            self.report.report_entry_scanned(entry_id)
+                        yield from self._process_entry(
+                            project_id, entry_details, entry_group_id
+                        )
+                    except Exception as e:
+                        self.report.report_failure(
+                            title="Failed to process entry",
+                            message="Error processing entry in entry group",
+                            context=f"{entry_group_id}/{entry_id}",
+                            exc=e,
+                        )
+                        continue
 
         except exceptions.GoogleAPICallError as e:
             self.report.report_failure(
