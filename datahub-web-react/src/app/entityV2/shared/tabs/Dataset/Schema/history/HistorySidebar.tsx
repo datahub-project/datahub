@@ -26,7 +26,7 @@ const CATEGORY_OPTIONS = [
 
 const ALL_CATEGORY_VALUES = CATEGORY_OPTIONS.map((o) => o.value);
 
-const MAX_CHANGE_TRANSACTIONS = 50;
+const MAX_CHANGE_TRANSACTIONS = 100;
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {

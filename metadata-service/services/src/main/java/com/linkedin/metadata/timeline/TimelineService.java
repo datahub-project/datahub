@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 
 public interface TimelineService {
 
-  int DEFAULT_MAX_CHANGE_TRANSACTIONS = 50;
+  int DEFAULT_MAX_CHANGE_TRANSACTIONS = 100;
 
   List<ChangeTransaction> getTimeline(
       @Nonnull final Urn urn,
