@@ -1,0 +1,6 @@
+# Override Airflow constraint file pins for CVE fixes.
+# uv pip install --override uses this file to force minimum versions
+# regardless of what Airflow's constraint files pin.
+#
+# CVE-2025-30304, CVE-2025-32442: aiohttp <3.11.18 has request smuggling vulnerabilities
+aiohttp>=3.13.3
