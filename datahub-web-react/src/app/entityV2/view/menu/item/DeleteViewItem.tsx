@@ -11,6 +11,7 @@ type Props = {
 
 const DeleteOutlineOutlinedIconStyle = styled(DeleteOutlineOutlinedIcon)`
     font-size: 14px !important;
+    color: ${(props) => props.theme.colors.iconError};
 `;
 
 /**
