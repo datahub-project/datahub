@@ -57,7 +57,9 @@ framework_common = {
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
     # CVE-2025-30304, CVE-2025-32442: aiohttp <3.11.18 has request smuggling vulnerabilities
-    "aiohttp>=3.13.3,<4",
+    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
+    # (not enforced here due to Airflow constraint file conflicts in CI)
+    "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
     "click-spinner<0.2.0",
