@@ -1,7 +1,8 @@
 import { message } from 'antd';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { ErrorCodes } from '@app/shared/constants';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
 
 // Mock antd message
 vi.mock('antd', () => ({
