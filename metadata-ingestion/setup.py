@@ -112,8 +112,9 @@ sqlglot_lib = {
     # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
     # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    # Replaced patchy with runtime function replacement for [c] compatibility.
+    # Note: patchy works with [c] except for expression_core.__deepcopy__ (mypyc-compiled).
     "sqlglot[c]==29.0.1",
+    "patchy==2.8.0",
 }
 
 classification_lib = {
