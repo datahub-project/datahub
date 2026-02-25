@@ -233,10 +233,72 @@ public class TimelineServiceImpl implements TimelineService {
                 new GlossaryTermInfoChangeEventGenerator());
           }
           break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
       glossaryTermElementAspectRegistry.put(elementName, aspects);
+    }
+
+    // Domain registry
+    HashMap<ChangeCategory, Set<String>> domainElementAspectRegistry = new HashMap<>();
+    String entityTypeDomain = DOMAIN_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNER:
+          {
+            aspects.add(OWNERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                OWNERSHIP_ASPECT_NAME,
+                new OwnershipChangeEventGenerator());
+          }
+          break;
+        case DOCUMENTATION:
+          {
+            aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                INSTITUTIONAL_MEMORY_ASPECT_NAME,
+                new InstitutionalMemoryChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      domainElementAspectRegistry.put(elementName, aspects);
     }
 
     // Document registry
@@ -268,6 +330,7 @@ public class TimelineServiceImpl implements TimelineService {
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DOMAIN_ENTITY_NAME, domainElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
   }
 

@@ -1,6 +1,6 @@
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
@@ -12,19 +12,9 @@ import ChangeTransactionView, {
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
-import { ChangeCategoryType, ChangeTransaction, DataPlatform, SemanticVersionStruct } from '@types';
+import { ChangeTransaction, DataPlatform, EntityType, SemanticVersionStruct } from '@types';
 
-const CATEGORY_OPTIONS = [
-    { value: ChangeCategoryType.TechnicalSchema, label: 'Schema' },
-    { value: ChangeCategoryType.Documentation, label: 'Documentation' },
-    { value: ChangeCategoryType.Tag, label: 'Tags' },
-    { value: ChangeCategoryType.GlossaryTerm, label: 'Terms' },
-    { value: ChangeCategoryType.Ownership, label: 'Owners' },
-    { value: ChangeCategoryType.Domain, label: 'Domains' },
-    { value: ChangeCategoryType.StructuredProperty, label: 'Properties' },
-];
-
-const ALL_CATEGORY_VALUES = CATEGORY_OPTIONS.map((o) => o.value);
+import { getCategoryOptions } from './HistorySidebar.utils';
 
 const MAX_CHANGE_TRANSACTIONS = 100;
 
@@ -87,17 +77,23 @@ interface Props {
     siblingUrn?: string;
     versionList: SemanticVersionStruct[];
     hideSemanticVersions: boolean;
+    entityType?: EntityType;
 }
 
-const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions }: Props) => {
-    const [selectedCategories, setSelectedCategories] = useState<string[]>(ALL_CATEGORY_VALUES);
+const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSemanticVersions, entityType }: Props) => {
+    const categoryOptions = useMemo(() => getCategoryOptions(entityType), [entityType]);
+    const allCategoryValues = useMemo(() => categoryOptions.map((o) => o.value), [categoryOptions]);
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(allCategoryValues);
+
+    // Reset selection when the available categories change (e.g. navigating between entity types)
+    useEffect(() => setSelectedCategories(allCategoryValues), [allCategoryValues]);
 
     const { data: entityTimelineData } = useGetTimelineQuery({
         skip: !open,
         variables: {
             input: {
                 urn,
-                changeCategories: ALL_CATEGORY_VALUES,
+                changeCategories: allCategoryValues,
             },
         },
     });
@@ -106,7 +102,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         variables: {
             input: {
                 urn: siblingUrn || '',
-                changeCategories: ALL_CATEGORY_VALUES,
+                changeCategories: allCategoryValues,
             },
         },
     });
@@ -131,12 +127,12 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
     );
 
     const filteredEntries = useMemo(() => {
-        if (selectedCategories.length === ALL_CATEGORY_VALUES.length) return allEntries;
+        if (selectedCategories.length === allCategoryValues.length) return allEntries;
         const selected = new Set(selectedCategories);
         return allEntries.filter((entry) =>
             entry.transaction.changes?.some((c) => c?.category && selected.has(c.category)),
         );
-    }, [allEntries, selectedCategories]);
+    }, [allEntries, selectedCategories, allCategoryValues.length]);
 
     const entityCount = entityTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
     const siblingCount = siblingTimelineData?.getTimeline?.changeTransactions?.length ?? 0;
@@ -160,7 +156,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
                     <SimpleSelect
                         placeholder="Filter"
                         selectLabelProps={{ variant: 'labeled', label: 'Types' }}
-                        options={CATEGORY_OPTIONS}
+                        options={categoryOptions}
                         values={selectedCategories}
                         onUpdate={(values) => setSelectedCategories(values)}
                         width="fit-content"

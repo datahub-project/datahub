@@ -35,7 +35,12 @@ export function stripDotSlashFromAssets() {
     return {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {
-            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+            // Replace @basePath (Play framework placeholder) with "/" in dev mode
+            // so that <base href="@basePath" /> doesn't break asset resolution
+            return html
+                .replace(/src="\.\//g, 'src="')
+                .replace(/href="\.\//g, 'href="')
+                .replace(/@basePath/g, '/');
         },
     };
 }
