@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
@@ -67,70 +67,73 @@ interface Props {
 export const Toolbar = ({ styles, fixedBottom }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
+    const theme = useTheme();
     const { config } = useAppConfig();
     const { documentationFileUploadV1 } = config.featureFlags;
     const remirrorContext = useRemirrorContext();
     const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
-    const themeConfig = useTheme();
-    const iconColor = themeConfig.colors.icon;
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+    }, []);
+
     return (
-        <Container style={styles} $fixedBottom={fixedBottom}>
+        <Container style={styles} $fixedBottom={fixedBottom} onMouseDown={handleMouseDown}>
             <InnerContainer>
                 <FontSizeSelect />
                 <HeadingMenu />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<TextB size={20} color={iconColor} />}
+                    icon={<TextB size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleBold"
                     active={active.bold()}
                     onClick={() => commands.toggleBold()}
                 />
                 <CommandButton
-                    icon={<TextItalic size={20} color={iconColor} />}
+                    icon={<TextItalic size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleItalic"
                     active={active.italic()}
                     onClick={() => commands.toggleItalic()}
                 />
                 <CommandButton
-                    icon={<TextUnderline size={20} color={iconColor} />}
+                    icon={<TextUnderline size={20} color={theme.colors.icon} />}
                     style={{ marginRight: 2 }}
                     commandName="toggleUnderline"
                     active={active.underline()}
                     onClick={() => commands.toggleUnderline()}
                 />
                 <CommandButton
-                    icon={<TextStrikethrough size={20} color={iconColor} />}
+                    icon={<TextStrikethrough size={20} color={theme.colors.icon} />}
                     commandName="toggleStrike"
                     active={active.strike()}
                     onClick={() => commands.toggleStrike()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<ListBullets size={20} color={iconColor} />}
+                    icon={<ListBullets size={20} color={theme.colors.icon} />}
                     commandName="toggleBulletList"
                     active={active.bulletList()}
                     onClick={() => commands.toggleBulletList()}
                 />
                 <CommandButton
-                    icon={<ListNumbers size={20} color={iconColor} />}
+                    icon={<ListNumbers size={20} color={theme.colors.icon} />}
                     commandName="toggleOrderedList"
                     active={active.orderedList()}
                     onClick={() => commands.toggleOrderedList()}
                 />
                 <CustomDivider type="vertical" />
                 <CommandButton
-                    icon={<Code size={20} color={iconColor} />}
+                    icon={<Code size={20} color={theme.colors.icon} />}
                     commandName="toggleCode"
                     active={active.code()}
                     onClick={() => commands.toggleCode()}
                 />
                 <CommandButton
-                    icon={<CodeBlock size={20} color={iconColor} />}
+                    icon={<CodeBlock size={20} color={theme.colors.icon} />}
                     commandName="toggleCodeBlock"
                     active={active.codeBlock()}
                     onClick={() => commands.toggleCodeBlock()}
@@ -139,10 +142,10 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 {shouldShowImageButtonV2 ? <AddImageButtonV2 /> : <AddImageButton />}
                 <AddLinkButton />
                 <CommandButton
-                    icon={<Table size={20} color={iconColor} />}
+                    icon={<Table size={20} color={theme.colors.icon} />}
                     commandName="createTable"
                     onClick={() => commands.createTable()}
-                    disabled={active.table()}
+                    disabled={active.table()} /* Disables nested tables */
                 />
                 <FileUploadButton />
             </InnerContainer>

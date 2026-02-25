@@ -2,7 +2,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EntityCapabilityType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
@@ -14,7 +13,6 @@ import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shar
 import Freshness from '@app/previewV2/Freshness';
 import LineageBadge from '@app/previewV2/LineageBadge';
 import QueryStat from '@app/previewV2/QueryStat';
-import { entityHasCapability } from '@app/previewV2/utils';
 
 import { DatasetStatsSummary, EntityType } from '@types';
 
@@ -35,7 +33,7 @@ interface Props {
     entityType: EntityType;
     urn: string;
     entityRegistry: EntityRegistry;
-    entityCapabilities: Set<EntityCapabilityType>;
+    showLineageBadge: boolean;
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     tier?: PopularityTier;
     statsSummary?: DatasetStatsSummary | null;
@@ -45,7 +43,7 @@ const PreviewCardFooterRightSection = ({
     entityType,
     urn,
     entityRegistry,
-    entityCapabilities,
+    showLineageBadge,
     lastUpdatedMs,
     tier,
     statsSummary,
@@ -53,7 +51,6 @@ const PreviewCardFooterRightSection = ({
     const previewData = usePreviewData();
 
     const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
-    const showLineageBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 
     return (
         <>

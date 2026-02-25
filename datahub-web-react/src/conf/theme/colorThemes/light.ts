@@ -3,13 +3,13 @@ import ColorTheme from '@conf/theme/colorThemes/types';
 
 const lightTheme: ColorTheme = {
     bg: colors.gray0,
-    bgSurface: colors.gray100,
+    bgSurface: colors.gray400,
     bgSurfaceNewNav: colors.gray200,
-    bgSurfaceDarker: colors.gray300,
+    bgSurfaceDarker: colors.gray100,
     bgSurfaceBrand: colors.violet0,
     bgSurfaceBrandHover: colors.violet200,
     buttonSurfaceBrandHover: colors.violet800,
-    bgDisabled: colors.gray300,
+    bgDisabled: colors.gray400,
     bgSurfaceError: colors.red0,
     bgSurfaceErrorHover: colors.wine100,
     bgSurfaceInfo: colors.blue0,
@@ -18,8 +18,8 @@ const lightTheme: ColorTheme = {
     bgSurfaceSuccessHover: colors.green100,
     bgSurfaceWarning: colors.yellow0,
     bgSurfaceWarningHover: colors.yellow200,
-    bgHover: colors.gray100,
-    text: colors.gray900,
+    bgHover: colors.gray400,
+    text: colors.gray800,
     textSecondary: colors.gray700,
     textTertiary: colors.gray600,
     textBrand: colors.violet600,
@@ -55,7 +55,7 @@ const lightTheme: ColorTheme = {
     radioButtonDotDisabled: colors.gray500,
     avatarBorderBrand: colors.violet100,
     avatarBorderInformation: colors.blue200,
-    border: colors.gray300,
+    border: colors.gray100,
     borderBrand: colors.violet600,
     borderBrandFocused: colors.violet400,
     borderBrandInverse: colors.violet0,
@@ -83,7 +83,7 @@ const lightTheme: ColorTheme = {
     borderFocused: colors.gray500,
     // Interactive states: Disabled
     iconDisabled: colors.gray500,
-    bgSurfaceDisabled: colors.gray300,
+    bgSurfaceDisabled: colors.gray400,
     // Shadows
     shadowXs: '0 1px 2px 0 rgba(33, 23, 95, 0.04)',
     shadowSm: '0 2px 4px 0 rgba(33, 23, 95, 0.06)',
@@ -101,13 +101,13 @@ const lightTheme: ColorTheme = {
     overlayOnBrand: 'rgba(255, 255, 255, 0.2)',
     // Inputs / Forms
     bgInput: colors.gray0,
-    bgInputDisabled: colors.gray300,
-    borderInput: colors.gray300,
+    bgInputDisabled: colors.gray400,
+    borderInput: colors.gray100,
     borderInputFocus: colors.violet400,
     textPlaceholder: colors.gray500,
     // Scrollbar
     scrollbarTrack: 'transparent',
-    scrollbarThumb: colors.gray300,
+    scrollbarThumb: colors.gray100,
     scrollbarThumbHover: colors.gray500,
     // Code blocks
     bgCode: colors.gray200,
@@ -120,7 +120,7 @@ const lightTheme: ColorTheme = {
     brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #705EE4 38.97%, #533FD1 100%)',
     brandGradientSelected: 'linear-gradient(180deg, #7565d6 20%, #5340cc 80%)',
     // Skeleton / Loading
-    bgSkeleton: colors.gray300,
+    bgSkeleton: colors.gray100,
     bgSkeletonShimmer: colors.gray200,
     chartsWineHigh: colors.wine600,
     chartsWineMedium: colors.wine400,

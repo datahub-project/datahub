@@ -1,6 +1,8 @@
 import { Editor } from '@components';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+
+import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -36,7 +38,7 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
         .remirror-editor.ProseMirror {
             font-size: 15px;
             line-height: 1.7;
-            color: ${(props) => props.theme.colors.textSecondary};
+            color: ${(props) => props.theme.colors.text};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -92,6 +94,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     const [isEditorFocused, setIsEditorFocused] = useState(false);
     const [editorVersion, setEditorVersion] = useState(0);
     const lastSavedContentRef = React.useRef<string>(initialContent || '');
+    const editorSectionRef = useRef<HTMLDivElement>(null);
     const { canEditContents } = useDocumentPermissions(documentUrn);
     const { updateContents, updateRelatedEntities } = useUpdateDocument();
     const refetch = useRefetch();
@@ -236,6 +239,21 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         }
     }, [content, initialContent, saveDocument]);
 
+    const handleClickOutside = useCallback(() => {
+        setIsEditorFocused(false);
+        handleBlur();
+    }, [handleBlur]);
+
+    const clickOutsideOptions = useMemo(
+        () => ({
+            wrappers: [editorSectionRef],
+            ignoreSelector: '.ant-dropdown',
+        }),
+        [],
+    );
+
+    useClickOutside(handleClickOutside, clickOutsideOptions);
+
     // Save before navigating away
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -302,15 +320,9 @@ export const EditableContent: React.FC<EditableContentProps> = ({
     return (
         <ContentWrapper>
             <EditorSection
+                ref={editorSectionRef}
                 data-testid="document-editor-section"
                 onFocus={() => setIsEditorFocused(true)}
-                onBlur={(e) => {
-                    // Only blur if we're actually leaving the editor section
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                        setIsEditorFocused(false);
-                        handleBlur();
-                    }
-                }}
             >
                 {canEditContents ? (
                     <StyledEditor
