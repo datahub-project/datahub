@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import {
     buildEntityCache,
@@ -20,8 +19,8 @@ import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 const Container = styled.div`
     border-radius: 4px;
     padding: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    border: 1px solid ${ANTD_GRAY[4]};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     margin-bottom: 20px;
 `;
 

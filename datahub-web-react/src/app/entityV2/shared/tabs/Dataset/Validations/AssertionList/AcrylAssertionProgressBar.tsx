@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 export interface AssertionProgressSummary {
     passing: number;
@@ -18,7 +18,7 @@ const StyledProgressContainer = styled.div`
     width: 100%;
     border-radius: 20px,
     overflow: hidden;
-    background-color: #e0e0e0;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledSegment = styled.div<{ width: number; color: string }>`
@@ -29,6 +29,7 @@ const StyledSegment = styled.div<{ width: number; color: string }>`
 `;
 
 export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
+    const theme = useTheme();
     const total = summary.passing + summary.failing + summary.erroring;
     const passingPercent = (summary.passing / total) * 100;
     const failingPercent = (summary.failing / total) * 100;
@@ -36,9 +37,9 @@ export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
 
     return (
         <StyledProgressContainer>
-            <StyledSegment width={passingPercent} color="#548239" />
-            <StyledSegment width={failingPercent} color="#D23939" />
-            <StyledSegment width={erroringPercent} color="#EEAE09" />
+            <StyledSegment width={passingPercent} color={theme.colors.iconSuccess} />
+            <StyledSegment width={failingPercent} color={theme.colors.iconError} />
+            <StyledSegment width={erroringPercent} color={theme.colors.iconWarning} />
         </StyledProgressContainer>
     );
 };

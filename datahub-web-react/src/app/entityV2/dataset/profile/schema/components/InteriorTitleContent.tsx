@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import NullableLabel, {
     ForeignKeyLabel,
     PartitioningKeyLabel,
@@ -36,14 +35,14 @@ const FieldPathContainer = styled.div`
 `;
 
 const DeprecatedContainer = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     font-size: 12px;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
     font-weight: 600;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     display: flex;
     align-items: center;

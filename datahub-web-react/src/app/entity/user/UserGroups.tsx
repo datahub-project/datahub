@@ -38,7 +38,7 @@ const GroupItemColumn = styled(Col)`
 `;
 
 const GroupItem = styled.div`
-    border: 1px solid #eaeaea;
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 10px;
     min-height: 107px;
     max-height: 107px;
@@ -56,14 +56,14 @@ const GroupTitle = styled.span`
     font-size: 14px;
     line-height: 22px;
     font-weight: bold;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const GroupMember = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 23px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-left: 7px;
 `;
 
@@ -71,7 +71,7 @@ const GroupDescription = styled.span`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;

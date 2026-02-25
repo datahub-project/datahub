@@ -5,7 +5,6 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import LineageLoadingSection from '@app/lineage/LineageLoadingSection';
 import LineageViz from '@app/lineage/LineageViz';
@@ -34,7 +33,7 @@ const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
     z-index: 1;
     height: calc(100vh - ${(props) => props.distanceFromTop}px);
     .ant-drawer-content-wrapper {
-        border-right: 1px solid ${ANTD_GRAY[4.5]};
+        border-right: 1px solid ${(props) => props.theme.colors.border};
         box-shadow: none !important;
     }
 `;

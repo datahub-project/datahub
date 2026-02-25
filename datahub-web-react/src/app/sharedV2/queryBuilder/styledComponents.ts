@@ -1,8 +1,7 @@
 import { Collapse, Select } from 'antd';
 import styled from 'styled-components/macro';
 
-import { Button, colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { Button } from '@src/alchemy-components';
 
 export const ConditionContainer = styled.div<{ depth: number }>`
     display: flex;
@@ -33,12 +32,12 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? colors.violet : colors.gray[600])};
-    background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textSelected : props.theme.colors.text)};
+    background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurfaceBrand : 'transparent')};
     padding: 10px 12px;
 
     &:focus {
-        background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurfaceBrand : 'transparent')};
         box-shadow: none;
     }
 `;
@@ -54,7 +53,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         padding: 0 0 0 ${(props) => props.depth * 20 + (props.hasChildren ? 20 : 48)}px !important;
         align-items: center !important;
         margin: 8px 0;
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     .ant-collapse-item {
@@ -68,7 +67,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: 52px;
         width: 2px;
         height: calc(100% - 78px);
-        background-color: ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 
@@ -79,7 +78,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: calc(100% - 28px);
         width: 5px;
         height: 2px;
-        background-color: ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 
@@ -98,12 +97,12 @@ export const CardIcons = styled.div`
     gap: 12px;
 
     div {
-        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: ${REDESIGN_COLORS.GREY_300};
+        color: ${(props) => props.theme.colors.textTertiary};
         :hover {
             cursor: pointer;
         }

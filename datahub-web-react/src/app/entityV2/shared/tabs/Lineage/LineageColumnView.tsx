@@ -12,13 +12,12 @@ import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ColumnsLineageSelect from '@app/entityV2/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -62,7 +61,7 @@ const StyledCaretDown = styled(CaretDownFilled)`
 
 const StyledSelect = styled(Select)`
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -83,6 +82,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const { urn, entityType, entityData } = useEntityData();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -153,7 +153,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        suffixIcon={<CaretDownOutlined style={{ color: theme.colors.text }} />}
                         data-testid="lineage-tab-direction-select"
                     />
                 </LeftButtonsWrapper>

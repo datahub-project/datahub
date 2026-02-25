@@ -1,9 +1,7 @@
-import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import FailingAssertions from '@app/entity/shared/embed/UpstreamHealth/FailingAssertions';
 import { UpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
 
@@ -14,17 +12,17 @@ const TextWrapper = styled.span`
 `;
 
 const StyledWarning = styled(WarningFilled)`
-    color: ${orange[5]};
+    color: ${(props) => props.theme.colors.textWarning};
     font-size: 14px;
 `;
 
 const FailingDetailsWrapper = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-left: 8px;
     &:hover {
         cursor: pointer;
-        color: $ ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

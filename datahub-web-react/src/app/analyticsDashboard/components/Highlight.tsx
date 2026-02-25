@@ -20,7 +20,7 @@ const HighlightCard = styled(Card)`
     text-align: center;
     line-height: 0;
     margin: 10px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const TitleText = styled(Typography.Text)`

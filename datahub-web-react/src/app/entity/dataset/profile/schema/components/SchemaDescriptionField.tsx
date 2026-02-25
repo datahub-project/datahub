@@ -8,7 +8,6 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
@@ -19,6 +18,7 @@ import { StringMapEntry } from '@types';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const AddNewDescription = styled(Button)`
@@ -51,17 +51,17 @@ const DescriptionContainer = styled.div`
         display: block;
     }
     & ins.diff {
-        background-color: #b7eb8f99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         text-decoration: none;
         &:hover {
-            background-color: #b7eb8faa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceSuccess};
         }
     }
     & del.diff {
-        background-color: #ffa39e99;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError};
         text-decoration: line-through;
         &: hover {
-            background-color: #ffa39eaa;
+            background-color: ${(props) => props.theme.colors.bgSurfaceError};
         }
     }
 `;
@@ -69,7 +69,7 @@ const EditedLabel = styled(Typography.Text)`
     position: absolute;
     right: -10px;
     top: -15px;
-    color: rgba(150, 150, 150, 0.5);
+    color: ${(props) => props.theme.colors.textDisabled};
     font-style: italic;
 `;
 
@@ -88,7 +88,7 @@ const StyledViewer = styled(Editor)`
 
 const AttributeDescription = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledAttributeViewer = styled(Editor)`
@@ -96,7 +96,7 @@ const StyledAttributeViewer = styled(Editor)`
     display: block;
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -166,10 +166,7 @@ export default function DescriptionField({
     };
 
     const EditButton =
-        (isSchemaEditable && description && (
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
-        )) ||
-        undefined;
+        (isSchemaEditable && description && <EditIcon onClick={() => setShowAddModal(true)} />) || undefined;
 
     const showAddDescription = isSchemaEditable && !description;
 

@@ -35,14 +35,14 @@ export class DataFlowEntity implements Entity<DataFlow> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ShareAltOutlined style={{ fontSize, color: color || '#d6246c' }} />;
+            return <ShareAltOutlined style={{ fontSize, color: color || 'var(--theme-icon, #d6246c)' }} />;
         }
 
         return (
             <ShareAltOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

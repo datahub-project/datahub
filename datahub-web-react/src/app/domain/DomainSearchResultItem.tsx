@@ -2,13 +2,12 @@
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import { getParentDomains } from '@app/domain/utils';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ParentEntities from '@app/search/filters/ParentEntities';
 
 import { Entity, EntityType } from '@types';
@@ -21,7 +20,7 @@ type Props = {
 };
 
 const SearchResult = styled(Link)`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -29,8 +28,8 @@ const SearchResult = styled(Link)`
     padding: 6px 8px;
     width: 100%;
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: #262626;
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -43,6 +42,7 @@ const highlightMatchStyle = {
 };
 
 function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }: Props) {
+    const theme = useTheme();
     return (
         <SearchResult to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={onResultClick}>
             <IconWrapper>
@@ -50,7 +50,7 @@ function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }
                     <DomainIcon
                         style={{
                             fontSize: 16,
-                            color: '#BFBFBF',
+                            color: theme.colors.textDisabled,
                         }}
                     />
                 ) : (

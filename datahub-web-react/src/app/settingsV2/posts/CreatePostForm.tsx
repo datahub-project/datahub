@@ -11,7 +11,6 @@ import {
     TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '@app/settingsV2/posts/constants';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 
 import { PostContentType } from '@types';
 
@@ -24,7 +23,7 @@ const SubFormItem = styled(Form.Item)`
 `;
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 type Props = {

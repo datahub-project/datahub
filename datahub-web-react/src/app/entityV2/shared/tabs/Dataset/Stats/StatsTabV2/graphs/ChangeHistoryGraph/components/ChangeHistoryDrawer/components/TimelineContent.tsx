@@ -44,15 +44,12 @@ export default function TimelineContent({ operation, user }: TimelineContentProp
             <ContentRow>
                 <ChangeTypePill operation={operation} />
                 <Text>
-                    <Text color="gray" type="span">
-                        by
-                    </Text>{' '}
-                    {getUserName(user)}
+                    <Text type="span">by</Text> {getUserName(user)}
                 </Text>
             </ContentRow>
             <Popover content={timestamp.format('ll LTS')} placement="right">
                 <TimeRow>
-                    <Text color="gray" type="span" size="sm">
+                    <Text type="span" size="sm">
                         {timestamp.fromNow()}
                     </Text>
                 </TimeRow>

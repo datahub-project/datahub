@@ -2,7 +2,6 @@ import { Badge, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { truncate } from '@app/entity/shared/utils';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
@@ -16,9 +15,9 @@ type Props = {
 const TypeBadge = styled(Badge)`
     margin-left: 4px;
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY[7]};
-        border: 1px solid ${ANTD_GRAY[5]};
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textTertiary};
+        border: 1px solid ${(props) => props.theme.colors.border};
         font-size: 12px;
         font-weight: 400;
         height: 22px;

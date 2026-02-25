@@ -1,17 +1,15 @@
 import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import { Tooltip } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { colors } from '@src/alchemy-components';
 
 import { EntityType, Maybe } from '@types';
 
 const SmallDescription = styled.div`
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${(props) => props.theme.colors.textTertiary};
     overflow: hidden;
 `;
 
@@ -46,7 +44,7 @@ const EntityDetails = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid ${REDESIGN_COLORS.LIGHT_GREY};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 20px 0 20px 0;
     margin: 0 23px 0 19px;
 `;
@@ -56,7 +54,7 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
     align-items: center;
     justify-content: space-between;
     padding: 16px 16px;
-    border: 1px solid #ebecf0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin: 0px 12px;
     border-radius: 16px;
     position: relative;
@@ -64,7 +62,7 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
 
     &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
-        fill: rgba(216, 160, 75, 1);
+        fill: ${(props) => props.theme.colors.iconWarning};
     }
 
     &:hover > ${EntityDetails} > ${EntityDetailsRightColumn} > svg {
@@ -74,12 +72,12 @@ const EntityDetailsWrapper = styled.div<{ type: EntityType }>`
 
     &:hover {
         transition: 0.15s;
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const EntityName = styled.div`
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 400;
     font-weight: bold;
@@ -105,7 +103,7 @@ const BookmarkRibbon = styled.span`
     transform: rotate(-45deg);
     padding: 4px;
     opacity: 1;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: ${(props) => props.theme.colors.overlayMedium};
 `;
 
 const GlossaryItemCount = styled.span<{ count: number }>`
@@ -113,20 +111,20 @@ const GlossaryItemCount = styled.span<{ count: number }>`
     align-items: center;
     gap: 5px;
     border-radius: 20px;
-    background: ${ANTD_GRAY_V2[14]};
-    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : colors.gray[400])};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : props.theme.colors.textTertiary)};
     padding: 5px 10px;
     width: max-content;
     svg {
         height: 14px;
         width: 14px;
         path {
-            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : colors.gray[400])};
+            fill: ${(props) => (props.count > 0 ? props.theme.colors.textTertiary : props.theme.colors.textTertiary)};
         }
     }
     border: 1px solid transparent;
     :hover {
-        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
+        border: 1px solid ${(props) => (props.count > 0 ? props.theme.colors.border : 'transparent')};
     }
 `;
 
@@ -157,6 +155,7 @@ interface Props {
 }
 
 const GlossaryListCard = (props: Props) => {
+    const theme = useTheme();
     const { name, description, type, entityData } = props;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
@@ -169,7 +168,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
                         <BookmarkRibbon />
-                        <BookmarksSimple color="white" size="16px" weight="bold" />
+                        <BookmarksSimple color={theme.colors.textOnFillBrand} size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>
@@ -187,7 +186,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper $background={generateColor(entityData?.urn || '')}>
                         <BookmarkRibbon />
-                        <BookmarkSimple color="white" size="16px" weight="bold" />
+                        <BookmarkSimple color={theme.colors.textOnFillBrand} size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>

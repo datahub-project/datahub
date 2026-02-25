@@ -6,7 +6,6 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { TestResults } from '@app/entityV2/shared/tabs/Dataset/Governance/TestResults';
 import { Assertions } from '@app/entityV2/shared/tabs/Dataset/Validations/Assertions';
 import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
@@ -16,7 +15,7 @@ const TabTitle = styled.span`
 `;
 
 const TabButton = styled(Button)<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
+    background-color: ${(props) => (props.selected && props.theme.colors.bgSurface) || 'none'};
     margin-left: 4px;
 `;
 

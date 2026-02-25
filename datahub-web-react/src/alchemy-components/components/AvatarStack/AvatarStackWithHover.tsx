@@ -32,7 +32,7 @@ const AvatarStackWithHover = ({
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
-            <Text size="sm" color="gray" weight="bold">
+            <Text size="sm" weight="bold">
                 {headerText}
             </Text>
             <Badge count={count} size="xs" />

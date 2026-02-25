@@ -22,17 +22,17 @@ const EmptySources = ({ sourceType, isEmptySearchResult }: Props) => {
         <EmptyContainer>
             {isEmptySearchResult ? (
                 <TextContainer>
-                    <Text size="lg" color="gray" weight="bold">
+                    <Text size="lg" weight="bold">
                         No search results!
                     </Text>
-                    <Text size="sm" color="gray" weight="normal">
+                    <Text size="sm" weight="normal">
                         Try another search query with at least 3 characters...
                     </Text>
                 </TextContainer>
             ) : (
                 <>
                     <EmptyFormsImage />
-                    <Text size="md" color="gray" weight="bold">
+                    <Text size="md" weight="bold">
                         {`No ${sourceType || 'sources'} yet!`}
                     </Text>
                 </>

@@ -3,7 +3,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageSelector } from '@app/entity/shared/containers/profile/nav/LineageSelector';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
@@ -12,15 +11,15 @@ import { EntityType } from '@types';
 
 export const BrowseRow = styled(Row)`
     padding: 10px 20px;
-    background-color: ${(props) => props.theme.styles['body-background']};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     justify-content: space-between;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 export const BreadcrumbItem = styled(Breadcrumb.Item)<{ disabled?: boolean }>`
     &&& :hover {
-        color: ${(props) => (props.disabled ? ANTD_GRAY[7] : props.theme.styles['primary-color'])};
+        color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : props.theme.colors.textHover)};
         cursor: pointer;
     }
 `;

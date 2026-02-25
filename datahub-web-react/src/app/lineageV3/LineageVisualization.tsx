@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import LineageAnnotationNode, {
     LINEAGE_ANNOTATION_NODE,
@@ -82,6 +82,7 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
     const [isDraggingBoundingBox, setIsDraggingBoundingBox] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const theme = useTheme();
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
     const { isModuleView } = useContext(LineageGraphContext);
@@ -144,7 +145,15 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
                         <ZoomControls />
                         <SearchControl />
                         <LineageControls />
-                        <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                        <MiniMap
+                            position="bottom-right"
+                            ariaLabel={null}
+                            pannable
+                            zoomable
+                            style={{ backgroundColor: theme.colors.bgSurface }}
+                            maskColor={`${theme.colors.bg}cc`}
+                            nodeColor={theme.colors.border}
+                        />
                     </>
                 )}
             </StyledReactFlow>

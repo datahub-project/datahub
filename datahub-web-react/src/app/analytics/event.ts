@@ -77,6 +77,8 @@ export enum EventType {
     ShowStandardHomepageEvent,
     ShowV2ThemeEvent,
     RevertV2ThemeEvent,
+    EnableDarkModeEvent,
+    DisableDarkModeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -615,6 +617,14 @@ export interface ShowV2ThemeEvent extends BaseEvent {
 
 export interface RevertV2ThemeEvent extends BaseEvent {
     type: EventType.RevertV2ThemeEvent;
+}
+
+export interface EnableDarkModeEvent extends BaseEvent {
+    type: EventType.EnableDarkModeEvent;
+}
+
+export interface DisableDarkModeEvent extends BaseEvent {
+    type: EventType.DisableDarkModeEvent;
 }
 
 export interface HomePageExploreAllClickEvent extends BaseEvent {
@@ -1424,6 +1434,8 @@ export type Event =
     | ShowStandardHomepageEvent
     | ShowV2ThemeEvent
     | RevertV2ThemeEvent
+    | EnableDarkModeEvent
+    | DisableDarkModeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent

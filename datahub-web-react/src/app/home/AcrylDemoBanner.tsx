@@ -9,8 +9,8 @@ const BannerWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #262626;
-    background-color: #e6f4ff;
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     width: 100%;
     margin-bottom: 24px;
 `;
@@ -29,7 +29,7 @@ const Title = styled.div`
 `;
 
 const StyledLink = styled(Link)`
-    color: #1890ff;
+    color: ${(props) => props.theme.colors.hyperlinks};
     font-weight: 700;
 `;
 

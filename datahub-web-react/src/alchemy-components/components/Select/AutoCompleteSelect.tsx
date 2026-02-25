@@ -154,7 +154,7 @@ export default function AutoCompleteSelect<T>({
                             <OptionList data-testid={optionListTestId}>
                                 {!displayedSuggestions.length && (
                                     <NoSuggestions>
-                                        <Text type="span" color="gray" weight="semiBold">
+                                        <Text type="span" weight="semiBold">
                                             No results found
                                         </Text>
                                     </NoSuggestions>

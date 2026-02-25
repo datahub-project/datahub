@@ -2,8 +2,6 @@ import { Carousel as AntCarousel, CarouselProps as AntCarouselProps } from 'antd
 import React, { ReactNode, forwardRef } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
-
 const scaleProgress = keyframes`
     0% {
         transform: scale(0);
@@ -38,7 +36,7 @@ const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration
                 margin: 0 !important;
                 padding: 0 !important;
                 border-radius: 50%;
-                background: ${colors.gray[300]};
+                background: ${({ theme }) => theme.colors.textDisabled};
                 border: none;
                 opacity: 0.6;
                 transition:
@@ -47,13 +45,14 @@ const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration
                 transform-origin: center;
 
                 &:hover {
-                    background: ${colors.gray[500]};
+                    background: ${({ theme }) => theme.colors.textSecondary};
                     opacity: 1;
                 }
             }
 
             &.slick-active button {
-                background: ${({ $animateDot }) => ($animateDot ? colors.gray[300] : colors.primary[600])};
+                background: ${({ $animateDot, theme }) =>
+                    $animateDot ? theme.colors.textDisabled : theme.colors.textBrand};
                 opacity: 1;
                 position: relative;
 
@@ -68,7 +67,7 @@ const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration
                                   width: 100%;
                                   height: 100%;
                                   border-radius: 50%;
-                                  background: ${colors.primary[600]};
+                                  background: ${(props) => props.theme.colors.textBrand};
                                   transform: scale(0);
                                   animation: ${scaleProgress} ${$dotDuration}ms ease-out forwards;
                               }
@@ -86,12 +85,12 @@ const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration
 
         &:before {
             font-size: 20px;
-            color: ${colors.gray[600]};
+            color: ${({ theme }) => theme.colors.text};
             transition: color 0.2s ease;
         }
 
         &:hover:before {
-            color: ${colors.primary[600]};
+            color: ${(props) => props.theme.colors.textBrand};
         }
         margin: 0 10px;
     }

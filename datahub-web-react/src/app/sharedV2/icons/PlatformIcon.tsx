@@ -1,9 +1,8 @@
 import ColorThief from 'colorthief';
 import React, { useCallback, useRef, useState } from 'react';
-import styled, { CSSObject, css } from 'styled-components/macro';
+import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -57,16 +56,17 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const logoUrl = platform?.properties?.logoUrl;
 
     const handleError = useCallback(() => {
         const img = imgRef.current;
         if (img) {
             img.removeAttribute('crossOrigin');
-            setBackground(REDESIGN_COLORS.BACKGROUND_GREY);
+            setBackground(theme.colors.bgSurface);
         }
         onError?.();
-    }, [onError, setBackground]);
+    }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
         <IconContainer background={background} styles={styles} title={title} className={className}>

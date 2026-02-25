@@ -12,7 +12,7 @@ import { Dataset } from '@types';
 export const FailingSectionWrapper = styled.div`
     margin: 8px 0 0 34px;
     font-size: 14px;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const FailingDataWrapper = styled.div`

@@ -22,7 +22,6 @@ import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
@@ -41,13 +40,13 @@ const SectionHeader = styled.div`
 const SectionTitle = styled.h3`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     margin: 0;
 `;
 
 const EmptyState = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 8px 0;
 `;
 

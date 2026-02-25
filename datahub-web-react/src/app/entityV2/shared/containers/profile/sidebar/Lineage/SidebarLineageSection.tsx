@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import {
     getDirectDownstreamSummary,
@@ -27,7 +26,7 @@ const Section = styled.div`
     align-items: start;
     justify-content: start;
     margin-bottom: 6px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const DirectionText = styled.div`
@@ -35,7 +34,7 @@ const DirectionText = styled.div`
     font-weight: 700;
     line-height: 20px;
     letter-spacing: 0.48px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const SummaryText = styled.div`
@@ -61,15 +60,15 @@ const DirectionHeader = styled.div`
     font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     min-width: 100px;
     margin-right: 6px;
 `;
 
 const StyledPartitionOutlined = styled(PartitionOutlined)`
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.iconBrand};
     &:hover {
-        color: white;
+        color: ${(p) => p.theme.colors.textBrand};
     }
 `;
 

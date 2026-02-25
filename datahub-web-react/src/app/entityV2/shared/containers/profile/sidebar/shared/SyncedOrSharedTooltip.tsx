@@ -1,12 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 
 const HeaderText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
+    color: ${(props) => props.theme.colors.bgSurfaceBrand};
     font-size: 14px;
     font-weight: 500;
 `;
@@ -41,22 +40,20 @@ interface Props {
 
 const SyncedOrSharedTooltip = ({ type }: Props) => {
     const action = type === ActionType.SYNC ? 'Synced' : 'Shared';
+    const theme = useTheme();
     return (
         <Container>
             <HeaderText>
                 This represents the time that the entity was last {type === ActionType.SYNC ? 'synchronized' : 'shared'}
             </HeaderText>
             <Wrapper>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.GREEN_LIGHT} textColor={REDESIGN_COLORS.GREEN_800}>
+                <ColoredContainer backgroundColor={theme.colors.bgSurfaceSuccess} textColor={theme.colors.textSuccess}>
                     {action} within the <BoldText>past week </BoldText>
                 </ColoredContainer>
-                <ColoredContainer
-                    backgroundColor={REDESIGN_COLORS.YELLOW_BACKGROUND}
-                    textColor={REDESIGN_COLORS.RED_800}
-                >
+                <ColoredContainer backgroundColor={theme.colors.bgSurfaceWarning} textColor={theme.colors.textError}>
                     {action} within the <BoldText>past month</BoldText>
                 </ColoredContainer>
-                <ColoredContainer backgroundColor={REDESIGN_COLORS.RED_LIGHT} textColor={REDESIGN_COLORS.RED_800}>
+                <ColoredContainer backgroundColor={theme.colors.bgSurfaceError} textColor={theme.colors.textError}>
                     {action} <BoldText>more than a month ago</BoldText>
                 </ColoredContainer>
             </Wrapper>

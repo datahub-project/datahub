@@ -2,8 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 import RowIcon from '@images/row-icon.svg?react';
 
 const RowIconContainer = styled.div`
@@ -15,7 +13,7 @@ const DepthContainer = styled.div`
     height: 13px;
     width: 13px;
     border-radius: 50%;
-    background: ${REDESIGN_COLORS.WHITE};
+    background: ${(props) => props.theme.colors.bg};
     margin-left: -7px;
     margin-top: -12px;
     display: flex;
@@ -25,7 +23,7 @@ const DepthContainer = styled.div`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 10px;
     font-weight: 400;
 `;

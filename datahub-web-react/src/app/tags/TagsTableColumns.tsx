@@ -1,8 +1,8 @@
-import { Icon, Menu, Text, colors } from '@components';
+import { Icon, Menu, Text } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { getTagColor } from '@app/tags/utils';
@@ -18,7 +18,7 @@ import { Entity, EntityType } from '@src/types.generated';
 const TagName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -27,7 +27,7 @@ const TagName = styled.div`
 const TagDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
 `;
@@ -125,6 +125,7 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
 
 export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
     const history = useHistory();
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityFilters = [{ field: 'tags', values: [tagUrn] }];
 
@@ -196,7 +197,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text style={{ color: colors.violet[500] }}>
+                <Text style={{ color: theme.colors.iconBrand }}>
                     {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
                 </Text>
             </div>
@@ -216,7 +217,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text style={{ color: colors.violet[500] }}>
+                        <Text style={{ color: theme.colors.iconBrand }}>
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>

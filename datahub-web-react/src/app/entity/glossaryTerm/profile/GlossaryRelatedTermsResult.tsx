@@ -6,7 +6,6 @@ import styled from 'styled-components/macro';
 import AddRelatedTermsModal from '@app/entity/glossaryTerm/profile/AddRelatedTermsModal';
 import RelatedTerm from '@app/entity/glossaryTerm/profile/RelatedTerm';
 import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Message } from '@app/shared/Message';
 import { Button } from '@src/alchemy-components';
 
@@ -30,7 +29,7 @@ const ListContainer = styled.div`
 
 const TitleContainer = styled.div`
     align-items: center;
-    border-bottom: solid 1px ${ANTD_GRAY[4]};
+    border-bottom: solid 1px ${(props) => props.theme.colors.bgSurface};
     display: flex;
     justify-content: space-between;
     padding: 15px 20px;

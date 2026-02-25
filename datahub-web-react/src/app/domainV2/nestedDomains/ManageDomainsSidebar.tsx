@@ -26,7 +26,7 @@ const StyledEntitySidebarContainer = styled.div<{
     margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
@@ -35,7 +35,7 @@ const StyledEntitySidebarContainer = styled.div<{
         props.$isShowNavBarRedesign &&
         `
         margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
 `;
 

@@ -2,9 +2,8 @@ import { UpCircleOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import { VscTriangleRight } from 'react-icons/vsc';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
@@ -39,18 +38,19 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 2px;
-    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
+    border-bottom: 1px solid
+        ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgSurface)};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
-        background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
+        border: 1px solid ${(props) => (props.isSelected ? props.theme.colors.borderBrand : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurfaceBrand : 'transparent')};
         border-radius: 8px;
     }
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color-light']};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 `;
 
@@ -67,7 +67,7 @@ ExpandableNode.StaticButton = ({ icon, onClick }: { icon: JSX.Element; onClick?:
     return <BaseButton ghost size="small" type="ghost" icon={icon} onClick={onClickButton} />;
 };
 
-ExpandableNode.TriangleButton = ({
+const TriangleButton = ({
     isOpen,
     isVisible,
     onClick,
@@ -78,6 +78,7 @@ ExpandableNode.TriangleButton = ({
     onClick?: () => void;
     dataTestId?: string;
 }) => {
+    const theme = useTheme();
     const onClickButton: MouseEventHandler = (e) => {
         e.stopPropagation();
         onClick?.();
@@ -88,12 +89,15 @@ ExpandableNode.TriangleButton = ({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<VscTriangleRight style={{ color: '#000', visibility: isVisible ? 'visible' : 'hidden' }} />}
+            icon={
+                <VscTriangleRight style={{ color: theme.colors.text, visibility: isVisible ? 'visible' : 'hidden' }} />
+            }
             onClick={onClickButton}
             data-testid={dataTestId}
         />
     );
 };
+ExpandableNode.TriangleButton = TriangleButton;
 
 ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: string }) => {
     return (

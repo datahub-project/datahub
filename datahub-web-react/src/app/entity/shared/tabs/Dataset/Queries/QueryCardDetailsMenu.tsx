@@ -58,6 +58,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
     const items = [
         {
             key: 0,
+            danger: true,
             label: (
                 <MenuItemStyle onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
                     <DeleteOutlined /> &nbsp; Delete

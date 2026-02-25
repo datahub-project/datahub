@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageTitle } from '@components';
 import { Alert, Button, Divider, Dropdown, Empty, Pagination, Select, Typography, message } from 'antd';
@@ -29,6 +28,7 @@ const SourceContainer = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const TokensContainer = styled.div`
@@ -36,9 +36,17 @@ const TokensContainer = styled.div`
 `;
 
 const StyledAlert = styled(Alert)`
-    padding-top: 12px;
-    padding-bottom: 12px;
-    margin-bottom: 20px;
+    &&& {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+        background-color: ${(props) => props.theme.colors.bgSurfaceError} !important;
+        border-color: ${(props) => props.theme.colors.borderError} !important;
+        color: ${(props) => props.theme.colors.text} !important;
+    }
+    &&& .ant-alert-message {
+        color: ${(props) => props.theme.colors.text} !important;
+    }
 `;
 
 const StyledSelectOwner = styled(Select)`
@@ -74,7 +82,7 @@ const PaginationContainer = styled.div`
 `;
 
 const NeverExpireText = styled.span`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 const SelectContainer = styled.div`

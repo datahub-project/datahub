@@ -46,7 +46,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
                 trigger={['click']}
                 overlay={
                     <Menu>
-                        <Menu.Item onClick={() => setShowConfirmDelete(true)} key="delete">
+                        <Menu.Item onClick={() => setShowConfirmDelete(true)} key="delete" danger>
                             <DeleteOutlined /> &nbsp;Delete
                         </Menu.Item>
                         <Menu.Item onClick={onEdit} key="edit">

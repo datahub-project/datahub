@@ -4,7 +4,6 @@ import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '@app/glossaryV2/GlossarySearch';
 import { SidebarWrapper } from '@app/sharedV2/sidebar/components';
@@ -28,7 +27,7 @@ const SidebarTitleWrapper = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     height: 50px;
     font-size: 20px;
 `;
@@ -36,7 +35,7 @@ const SidebarTitleWrapper = styled.div`
 const GlossaryTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledButton = styled(Button)`

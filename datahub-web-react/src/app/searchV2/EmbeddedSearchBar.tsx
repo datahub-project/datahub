@@ -9,12 +9,12 @@ import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 
 const SearchIcon = styled(SearchOutlined)`
-    color: #8088a3;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const SearchInput = styled(Input)`
     width: 400px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border-radius: 70px;
 `;
 

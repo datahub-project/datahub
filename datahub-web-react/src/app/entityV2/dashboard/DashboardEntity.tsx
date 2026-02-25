@@ -92,7 +92,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             );
         }
 
-        return <DashboardOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return <DashboardOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }} />;
     };
 
     isSearchEnabled = () => true;

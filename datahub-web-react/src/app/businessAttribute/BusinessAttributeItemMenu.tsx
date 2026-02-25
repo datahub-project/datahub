@@ -54,6 +54,7 @@ export default function BusinessAttributeItemMenu({ title, urn, onDelete }: Prop
     const items = [
         {
             key: 'delete',
+            danger: true,
             label: (
                 <MenuItemStyle onClick={onConfirmDelete}>
                     <DeleteOutlined /> &nbsp;Delete

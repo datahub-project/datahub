@@ -1,5 +1,5 @@
 import { SelectStyleProps } from '@components/components/Select/types';
-import { colors, radius, spacing, typography } from '@components/theme';
+import { radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
 
 export const getOptionLabelStyle = (
@@ -7,9 +7,10 @@ export const getOptionLabelStyle = (
     isMultiSelect?: boolean,
     isDisabled?: boolean,
     applyHoverWidth?: boolean,
+    themeColors?: { text: string; textSecondary: string; bgSurfaceBrand: string; bgHover: string },
 ) => {
-    const color = isSelected ? colors.gray[600] : colors.gray[500];
-    const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? colors.gray[1000] : 'transparent';
+    const color = isSelected ? themeColors?.text : themeColors?.textSecondary;
+    const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? themeColors?.bgSurfaceBrand : 'transparent';
 
     return {
         cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -24,7 +25,7 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? colors.violet[0] : colors.gray[1500],
+            backgroundColor: isSelected ? themeColors?.bgSurfaceBrand : themeColors?.bgHover,
         },
     };
 };
@@ -104,37 +105,49 @@ export const getMinHeight = (size) => {
     return minHeightStyles[size];
 };
 
-export const getSelectStyle = (props: SelectStyleProps) => {
+export const getSelectStyle = (
+    props: SelectStyleProps,
+    themeColors?: {
+        border: string;
+        bg: string;
+        bgInputDisabled: string;
+        text: string;
+        textDisabled: string;
+        textPlaceholder: string;
+        borderBrandFocused: string;
+        borderInputFocus: string;
+        shadowXs: string;
+        shadowSm: string;
+    },
+) => {
     const { isDisabled, isReadOnly, fontSize, isOpen } = props;
 
     const baseStyle = {
         borderRadius: radius.md,
-        border: `1px solid ${colors.gray[100]}`,
+        border: `1px solid ${themeColors?.border}`,
         fontFamily: typography.fonts.body,
-        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
-        color: isDisabled ? colors.gray[300] : colors.gray[600],
+        backgroundColor: isDisabled ? themeColors?.bgInputDisabled : themeColors?.bg,
+        color: isDisabled ? themeColors?.textDisabled : themeColors?.text,
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
-        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        boxShadow: themeColors?.shadowXs,
         textWrap: 'nowrap',
 
         '&::placeholder': {
-            color: colors.gray[1900],
+            color: themeColors?.textPlaceholder,
         },
 
-        // Open Styles
         ...(isOpen
             ? {
-                  borderColor: colors.gray[1800],
-                  outline: `1px solid ${colors.violet[200]}`,
+                  borderColor: themeColors?.borderInputFocus,
+                  outline: `1px solid ${themeColors?.borderBrandFocused}`,
               }
             : {}),
 
-        // Hover Styles
         ...(isDisabled || isReadOnly || isOpen
             ? {}
             : {
                   '&:hover': {
-                      boxShadow: '0px 1px 2px 1px rgba(33, 23, 95, 0.07)',
+                      boxShadow: themeColors?.shadowSm,
                   },
               }),
     };

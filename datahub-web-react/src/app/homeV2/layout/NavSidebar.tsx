@@ -25,7 +25,7 @@ const Content = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    background-color: #3b2d94;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 32px;
     height: 100%;
     width: 52px;
@@ -39,9 +39,9 @@ const Icon = styled.div`
     width: 44px;
     height: 44px;
     border-radius: 38px;
-    border: 1px solid #32267d;
-    background: #4c39be;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     margin-bottom: 10px;
 
     & svg {
@@ -70,7 +70,7 @@ const UserIcon = styled.div`
     border-radius: 38px;
     overflow: hidden;
     margin-bottom: 3px;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     .ant-avatar {
         margin: 0;

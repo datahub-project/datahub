@@ -28,7 +28,7 @@ export class GroupEntity implements Entity<CorpGroup> {
             <TeamOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

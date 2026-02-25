@@ -5,7 +5,6 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
 import { operatorRequiresValues } from '@app/searchV2/filters/operator/operator';
 import { FilterOperatorType, FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
@@ -20,9 +19,9 @@ const Values = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
-        background-color: ${(p) => p.theme.styles['primary-color']};
-        color: #fff;
+        border: 1.5px solid ${(p) => p.theme.colors.borderBrand};
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
+        color: ${(p) => p.theme.colors.textOnFillBrand};
     }
 `;
 
@@ -36,7 +35,7 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     justify-content: center;
     font-size: 14px;
     margin-right: 8px;
-    background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+    background-color: ${(props) => props.theme.colors.bgSelected};
 
     ${(props) =>
         props.$isCompact &&
@@ -54,7 +53,7 @@ const Icon = styled.div`
 
 const FilterName = styled.div`
     margin-right: 2px;
-    color: ${SEARCH_COLORS.LINK_BLUE};
+    color: ${(props) => props.theme.colors.hyperlinks};
     display: flex;
     align-items: center;
 `;

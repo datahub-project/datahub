@@ -51,7 +51,7 @@ const SelectInput = styled(Select)`
     .ant-select-selection-item-remove {
         margin-left: 8px;
         margin-right: 8px;
-        color: rgba(0, 0, 0, 0.45);
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 

@@ -2,8 +2,6 @@ import { Button, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 /**
  * Tooltip message for when user already has access
  */
@@ -14,8 +12,8 @@ export const ACCESS_GRANTED_TOOLTIP = 'You already have access to this role';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    background-color: ${REDESIGN_COLORS.BLUE};
-    color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bgSurfaceInfo};
+    color: ${(props) => props.theme.colors.bg};
     width: 80px;
     height: 30px;
     border-radius: 3.5px;
@@ -23,22 +21,22 @@ export const AccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color'] || '#18baff'};
-        color: ${REDESIGN_COLORS.WHITE};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        color: ${(props) => props.theme.colors.bg};
         border: none;
     }
 
     /* Disabled state when user already has access */
     &:disabled {
-        background-color: ${REDESIGN_COLORS.BACKGROUND_GREY};
-        color: ${ANTD_GRAY[6]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.textDisabled};
         cursor: not-allowed;
-        border: 1px solid ${ANTD_GRAY[5]};
+        border: 1px solid ${(props) => props.theme.colors.border};
 
         &:hover {
-            background-color: ${REDESIGN_COLORS.BACKGROUND_GREY};
-            color: ${ANTD_GRAY[6]};
-            border: 1px solid ${ANTD_GRAY[5]};
+            background-color: ${(props) => props.theme.colors.bgSurface};
+            color: ${(props) => props.theme.colors.textDisabled};
+            border: 1px solid ${(props) => props.theme.colors.border};
         }
     }
 `;

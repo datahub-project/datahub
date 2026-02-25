@@ -4,7 +4,6 @@ import Button from 'antd/lib/button';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import DictField, {
     ErrorWrapper,
     Label,
@@ -17,7 +16,7 @@ import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/co
 import { Secret } from '@types';
 
 const StyledButton = styled(Button)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 80%;
 `;
 

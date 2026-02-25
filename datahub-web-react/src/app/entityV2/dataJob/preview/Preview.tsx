@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -25,7 +24,7 @@ import {
 } from '@types';
 
 const StatText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const Preview = ({

@@ -78,7 +78,7 @@ const PlatformNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
 
     const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
-    const color = '#000';
+    const color = 'inherit';
 
     const sortedGroups = useSort(groups, sortBy as SortBy);
     console.log({ groups, sortedGroups });

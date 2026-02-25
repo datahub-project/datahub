@@ -1,6 +1,6 @@
 import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
@@ -23,8 +23,9 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
+import { useTheme } from 'styled-components';
 
-import { EditorContainer, EditorTheme } from '@app/entity/shared/tabs/Documentation/components/editor/EditorTheme';
+import { EditorContainer, getEditorTheme } from '@app/entity/shared/tabs/Documentation/components/editor/EditorTheme';
 import { OnChangeMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/OnChangeMarkdown';
 import { htmlToMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/markdownToHtml';
@@ -48,6 +49,8 @@ type EditorProps = {
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const { content, readOnly, onChange, className, dataTestId, onKeyDown, editorStyle } = props;
+    const styledTheme = useTheme();
+    const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -103,7 +106,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
 
     return (
         <EditorContainer className={className} onKeyDown={onKeyDown} data-testid={dataTestId} editorStyle={editorStyle}>
-            <ThemeProvider theme={EditorTheme}>
+            <ThemeProvider theme={editorTheme}>
                 <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
                     {!readOnly && (
                         <>

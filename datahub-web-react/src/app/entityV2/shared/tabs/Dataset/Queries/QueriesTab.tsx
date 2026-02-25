@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
@@ -32,6 +32,7 @@ const Content = styled.div<{ $backgroundColor: string }>`
 `;
 
 export default function QueriesTab() {
+    const theme = useTheme();
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
@@ -115,7 +116,7 @@ export default function QueriesTab() {
 
     return (
         <>
-            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
+            <Content $backgroundColor={showLoading || showEmptyView ? theme.colors.bg : theme.colors.bgSurface}>
                 {showLoading && <Loading />}
                 {!showLoading && (
                     <>

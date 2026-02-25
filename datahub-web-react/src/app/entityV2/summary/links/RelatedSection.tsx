@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
@@ -23,7 +23,6 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
@@ -36,7 +35,7 @@ const SectionHeader = styled.div`
 
 const SectionTitle = styled(Text)`
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
 `;
 
@@ -49,7 +48,7 @@ const ListContainer = styled.div`
 
 const EmptyState = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 8px 0;
 `;
 
@@ -58,6 +57,7 @@ interface RelatedSectionProps {
 }
 
 export default function RelatedSection({ hideLinksButton }: RelatedSectionProps) {
+    const theme = useTheme();
     const { urn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isAddLinkModalVisible, setIsAddLinkModalVisible] = useState(false);
@@ -170,7 +170,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
     return (
         <>
             <SectionHeader>
-                <SectionTitle weight="bold" color="gray" colorLevel={600} size="sm">
+                <SectionTitle weight="bold" size="sm" style={{ color: theme.colors.text }}>
                     Resources
                 </SectionTitle>
                 {supportsRelatedDocuments && !hideLinksButton && menuItems.length > 0 && (

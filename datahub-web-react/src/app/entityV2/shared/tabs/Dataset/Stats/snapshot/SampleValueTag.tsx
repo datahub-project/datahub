@@ -10,8 +10,8 @@ const StyledTag = styled(Tag)`
     text-overflow: ellipsis;
 
     &&:hover {
-        color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
 `;
 

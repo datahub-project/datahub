@@ -5,7 +5,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@src/app/entityV2/Entity';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
@@ -15,7 +14,7 @@ const { Text } = Typography;
 const InvalidEntityText = styled(Text)`
     display: inline-block;
     font-weight: 500;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ValidEntityText = styled(Text)`
@@ -23,13 +22,12 @@ const ValidEntityText = styled(Text)`
     font-weight: 500;
     margin-left: 4px !important;
     word-break: break-all;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 
-// !important is needed to override inline styles
 const Container = styled.span`
     & > .anticon {
-        color: ${(props) => props.theme.styles['primary-color']} !important;
+        color: ${(props) => props.theme.colors.icon} !important;
     }
 `;
 

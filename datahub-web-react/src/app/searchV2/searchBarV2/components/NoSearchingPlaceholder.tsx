@@ -13,12 +13,8 @@ const Container = styled.div`
 export default function NoSearchingPlaceholder() {
     return (
         <Container>
-            <Text color="gray" colorLevel={600} size="md">
-                Start searching
-            </Text>
-            <Text color="gray" size="sm">
-                Search through your data catalog to find datasets, schemas, and metadata
-            </Text>
+            <Text size="md">Start searching</Text>
+            <Text size="sm">Search through your data catalog to find datasets, schemas, and metadata</Text>
         </Container>
     );
 }

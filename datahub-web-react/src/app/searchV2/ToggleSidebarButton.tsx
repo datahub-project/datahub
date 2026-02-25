@@ -8,7 +8,7 @@ import CollapseIcon from '@images/collapse.svg?react';
 import ExpandIcon from '@images/expand.svg?react';
 
 const ToggleIcon = styled(Icon)`
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
     &&& {
         font-size: 16px;
     }

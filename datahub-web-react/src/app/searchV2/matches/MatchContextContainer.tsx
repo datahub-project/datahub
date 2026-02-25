@@ -15,7 +15,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     margin: 0 auto 12px auto;
     padding: 4px;
     :hover {
-        ${(props) => !props.selected && `outline: 1px solid ${props.theme.styles['primary-color']};}`};
+        ${(props) => !props.selected && `outline: 1px solid ${props.theme.colors.borderBrand};}`};
     }
 
     position: absolute;
@@ -25,14 +25,14 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
 
     // height: 100%;
     width: 100%;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     display: flex;
     flex-direction: column;
 
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${props.theme.styles['primary-color']};
+        outline: 1px solid ${props.theme.colors.borderBrand};
         left: -5px;
         width: calc(100% + 5px);
     `}

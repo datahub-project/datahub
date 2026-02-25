@@ -8,15 +8,12 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
-    HOVER_COLOR,
     LineageDisplayContext,
     LineageNodesContext,
-    SELECT_COLOR,
     createColumnRef,
     onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
@@ -43,20 +40,20 @@ const ColumnWrapper = styled.div<{
 }>`
     border: 1px solid transparent;
 
-    ${({ selected, highlighted, fromSelect }) => {
+    ${({ selected, highlighted, fromSelect, theme }) => {
         if (selected) {
-            return `border: ${SELECT_COLOR} 1px solid; background-color: ${SELECT_COLOR}20;`;
+            return `border: ${theme.colors.borderBrand} 1px solid; background-color: ${theme.colors.bgSurfaceBrand};`;
         }
         if (highlighted) {
             if (fromSelect) {
-                return `background-color: ${SELECT_COLOR}20;`;
+                return `background-color: ${theme.colors.bgSurfaceBrand};`;
             }
-            return `background-color: ${HOVER_COLOR}20;`;
+            return `background-color: ${theme.colors.bgSurfaceBrand};`;
         }
-        return 'background-color: white;';
+        return `background-color: ${theme.colors.bgSurface};`;
     }}
     border-radius: 4px;
-    color: ${({ disabled }) => (disabled ? ANTD_GRAY[11] : ANTD_GRAY[7])};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.textTertiary)};
     display: flex;
     font-size: 10px;
     gap: 4px;
@@ -87,7 +84,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const TypeWrapper = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     width: 11px;
 `;
 
@@ -98,7 +95,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

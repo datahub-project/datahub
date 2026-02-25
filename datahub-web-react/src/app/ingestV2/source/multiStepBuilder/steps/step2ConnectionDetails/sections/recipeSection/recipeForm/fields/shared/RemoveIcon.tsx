@@ -16,5 +16,14 @@ interface Props {
 }
 
 export function RemoveIcon({ onClick, className }: Props) {
-    return <StyledIcon source="phosphor" icon="Trash" onClick={onClick} size="lg" color="red" className={className} />;
+    return (
+        <StyledIcon
+            source="phosphor"
+            icon="Trash"
+            onClick={onClick}
+            size="lg"
+            color="iconError"
+            className={className}
+        />
+    );
 }

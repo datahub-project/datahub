@@ -35,14 +35,14 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DotChartOutlined style={{ fontSize, color: color || '#9633b9' }} />;
+            return <DotChartOutlined style={{ fontSize, color: color || 'var(--theme-icon, #9633b9)' }} />;
         }
 
         return (
             <DotChartOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

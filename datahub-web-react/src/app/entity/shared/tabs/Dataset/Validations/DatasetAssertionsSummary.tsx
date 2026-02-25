@@ -1,9 +1,7 @@
 import { CheckCircleFilled, CloseCircleFilled, StopOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import styled, { useTheme } from 'styled-components';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -12,7 +10,7 @@ const SummaryHeader = styled.div`
     padding-bottom: 20px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SummaryContainer = styled.div``;
@@ -40,17 +38,19 @@ type Props = {
     summary: AssertionsSummary;
 };
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-
-const getSummaryIcon = (summary: AssertionsSummary) => {
+const getSummaryIcon = (
+    summary: AssertionsSummary,
+    disabledColor: string,
+    successColor: string,
+    errorColor: string,
+) => {
     if (summary.totalRuns === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: disabledColor, fontSize: 28 }} />;
     }
     if (summary.succeededRuns === summary.totalRuns) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: successColor, fontSize: 28 }} />;
     }
-    return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <CloseCircleFilled style={{ color: errorColor, fontSize: 28 }} />;
 };
 
 const getSummaryMessage = (summary: AssertionsSummary) => {
@@ -67,7 +67,13 @@ const getSummaryMessage = (summary: AssertionsSummary) => {
 };
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(
+        summary,
+        theme.colors.textDisabled,
+        theme.colors.textSuccess,
+        theme.colors.textError,
+    );
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.succeededRuns} successful assertions, ${summary.failedRuns} failed assertions`;
     return (

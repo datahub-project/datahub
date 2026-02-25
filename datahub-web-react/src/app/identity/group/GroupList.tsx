@@ -38,7 +38,7 @@ const GroupStyledList = styled(List)`
     min-height: 0;
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 

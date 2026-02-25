@@ -37,11 +37,11 @@ const FormItemNoMargin = styled(FormItem)`
 
 const FormItemLabel = styled(Typography.Text)`
     font-weight: 600;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const AdvancedLabel = styled(Typography.Text)`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {

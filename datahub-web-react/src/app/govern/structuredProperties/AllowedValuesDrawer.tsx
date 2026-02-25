@@ -59,7 +59,7 @@ const AllowedValuesDrawer = ({
                                         <FieldGroupContainer key={field.name}>
                                             <InputLabel>
                                                 Value
-                                                <Text color="red" weight="bold">
+                                                <Text color="textError" weight="bold">
                                                     *
                                                 </Text>
                                             </InputLabel>
@@ -107,7 +107,6 @@ const AllowedValuesDrawer = ({
                                                         <Icon
                                                             icon="Delete"
                                                             onClick={() => remove(field.name)}
-                                                            color="gray"
                                                             size="xl"
                                                         />
                                                     </Tooltip>

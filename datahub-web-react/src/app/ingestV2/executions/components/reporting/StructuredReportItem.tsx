@@ -1,4 +1,4 @@
-import { Card, Icon, Text, colors } from '@components';
+import { Card, Icon, Text } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -13,7 +13,7 @@ const StyledCard = styled(Card)`
 const Content = styled.div`
     border-radius: 8px;
     margin-top: 8px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 8px;
 `;
 
@@ -25,7 +25,7 @@ const HeaderContainer = styled.div`
 `;
 
 const ChevronIcon = styled(Icon)`
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
 `;
 

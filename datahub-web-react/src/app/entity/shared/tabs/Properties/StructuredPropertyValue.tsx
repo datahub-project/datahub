@@ -5,7 +5,6 @@ import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import CompactMarkdownViewer from '@app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entity/shared/tabs/Properties/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -16,7 +15,7 @@ const ValueText = styled(Typography.Text)`
     font-family: 'Manrope';
     font-weight: 400;
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     display: block;
     width: 100%;
     margin-bottom: 2px;

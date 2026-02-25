@@ -8,7 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 const FailingSectionWrapper = styled.div`
     margin: 5px 0 0 34px;
     font-size: 14px;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FailingDataWrapper = styled.div`

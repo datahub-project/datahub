@@ -1,11 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import { getParentDomains } from '@app/domain/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
 import { handleBatchError } from '@app/entity/shared/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
@@ -43,7 +42,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -54,6 +53,7 @@ const SearchResultContainer = styled.div`
 `;
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -239,7 +239,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                 <Empty
                                     description="No Domains Found"
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: ANTD_GRAY[7] }}
+                                    style={{ color: theme.colors.textTertiary }}
                                 />
                             }
                         >

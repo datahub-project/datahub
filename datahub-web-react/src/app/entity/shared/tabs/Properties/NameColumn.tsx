@@ -1,7 +1,7 @@
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import ChildCountLabel from '@app/entity/shared/tabs/Dataset/Schema/components/ChildCountLabel';
 import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
@@ -10,7 +10,7 @@ import StructuredPropertyTooltip from '@app/entity/shared/tabs/Properties/Struct
 import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
 
 const ParentNameText = styled(Typography.Text)`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 16px;
     font-family: Manrope;
     font-weight: 600;
@@ -23,7 +23,7 @@ const ParentNameText = styled(Typography.Text)`
 
 const ChildNameText = styled(Typography.Text)`
     align-self: stretch;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
     font-weight: 500;
@@ -46,6 +46,7 @@ interface Props {
 }
 
 export default function NameColumn({ propertyRow, filterText }: Props) {
+    const theme = useTheme();
     const { structuredProperty } = propertyRow;
     return (
         <>
@@ -59,7 +60,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             ) : (
                 <NameLabelWrapper>
                     <Tooltip
-                        color="#373D44"
+                        color={theme.colors.bgTooltip}
                         placement="topRight"
                         title={
                             structuredProperty ? (

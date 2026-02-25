@@ -32,11 +32,7 @@ export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper, disa
                 justifyContent="flex-start"
                 isDisabled={disabled}
             />
-            {helper && (
-                <Text size="sm" color="gray" colorLevel={600}>
-                    {helper}
-                </Text>
-            )}
+            {helper && <Text size="sm">{helper}</Text>}
         </CheckboxWithHelper>
     );
 }

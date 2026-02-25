@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import UsageFacepile from '@app/entity/dataset/profile/UsageFacepile';
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
@@ -14,7 +13,7 @@ import { DatasetProfile, Operation, UsageQueryResult } from '@types';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const HeaderContainer = styled.div`

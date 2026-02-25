@@ -1,6 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     BrowseProvider,
@@ -24,6 +24,7 @@ const Count = styled(Typography.Text)`
 `;
 
 const EnvironmentNode = () => {
+    const theme = useTheme();
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
@@ -44,7 +45,7 @@ const EnvironmentNode = () => {
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = '#000';
+    const color = theme.colors.text;
 
     return (
         <ExpandableNode

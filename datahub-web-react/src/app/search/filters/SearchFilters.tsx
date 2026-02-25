@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '@app/onboarding/config/SearchOnboardingConfig';
 import AdvancedFilters from '@app/search/filters/AdvancedFilters';
 import BasicFilters from '@app/search/filters/BasicFilters';
@@ -10,7 +9,7 @@ import { FilterMode, FilterModes, UnionType } from '@app/search/utils/constants'
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const SearchFiltersWrapper = styled.div<{ removePadding: boolean }>`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: ${(props) => (props.removePadding ? '8px 24px 4px 24px' : '8px 24px')};
 `;
 

@@ -1,7 +1,7 @@
 import { Check, Warning } from '@phosphor-icons/react';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -31,7 +31,6 @@ import { IconType } from '@src/alchemy-components/components/IconLabel/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
@@ -47,22 +46,23 @@ import {
 
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
-const IncidentStates = {
-    [IncidentState.Active]: {
-        label: IncidentState.Active,
-        icon: <Warning color={colors.red[1200]} width={20} height={20} />,
-    },
-    [IncidentState.Resolved]: {
-        label: IncidentState.Resolved,
-        icon: <Check color={colors.green[1200]} width={20} height={20} />,
-    },
-};
-
 export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
+
+    const IncidentStates = {
+        [IncidentState.Active]: {
+            label: IncidentState.Active,
+            icon: <Warning color={theme.colors.iconError} width={20} height={20} />,
+        },
+        [IncidentState.Resolved]: {
+            label: IncidentState.Resolved,
+            icon: <Check color={theme.colors.iconSuccess} width={20} height={20} />,
+        },
+    };
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
 

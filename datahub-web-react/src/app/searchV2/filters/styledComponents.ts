@@ -1,11 +1,6 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
@@ -14,13 +9,13 @@ export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     display: flex;
     align-items: center;
     box-shadow: none;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     ${(props) =>
         props.$isActive &&
         `
-        background-color: ${props.theme.styles['primary-color']};
-        border: 1px solid ${getColor('primary', 0, props.theme)};
-        color: white;
+        background-color: ${props.theme.colors.buttonFillBrand};
+        border: 1px solid ${props.theme.colors.borderBrand};
+        color: ${props.theme.colors.textOnFillBrand};
     `}
 `;
 
@@ -34,21 +29,21 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
 
     max-width: 100%;
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 
-    ${(props) => props.$isActive && `color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
+    ${(props) => props.$isActive && `color: ${props.theme.colors.textSelected};`}
+    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgHover};`}
 `;
 
 export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.textBrand};
     padding: 0px 6px;
     margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
     ${(props) => props.height !== undefined && `height: ${props.height}px;`}
 
     &:hover {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bg};
     }
 `;
 

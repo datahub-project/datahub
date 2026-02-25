@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 import useIsUserAssigned from '@app/entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
 import {
@@ -30,13 +29,13 @@ const FormName = styled.div`
 
 const FormAssigner = styled.div`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     margin-top: -4px;
     margin-bottom: 4px;
 `;
 
 const OptionalText = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: normal;
 `;
 
@@ -47,7 +46,7 @@ const CompleteWrapper = styled.div`
 
 const FormInfoWrapper = styled.div`
     font-size: 12px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 

@@ -46,7 +46,7 @@ export const DocumentHistoryTimeline: React.FC<DocumentHistoryTimelineProps> = (
     if (changes.length === 0) {
         return (
             <LoadingWrapper>
-                <Text color="gray">No change history yet!</Text>
+                <Text>No change history yet!</Text>
             </LoadingWrapper>
         );
     }

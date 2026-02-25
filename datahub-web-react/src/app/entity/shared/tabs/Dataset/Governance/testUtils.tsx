@@ -1,11 +1,10 @@
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
+import ColorTheme from '@src/conf/theme/colorThemes/types';
+
 import { TestResultType } from '@types';
 
-/**
- * Returns the display text assoociated with an Test Result Type
- */
 export const getResultText = (result: TestResultType) => {
     switch (result) {
         case TestResultType.Success:
@@ -17,28 +16,19 @@ export const getResultText = (result: TestResultType) => {
     }
 };
 
-/**
- * Returns the display color assoociated with an TestResultType
- */
-const SUCCESS_COLOR_HEX = '#4db31b';
-const FAILURE_COLOR_HEX = '#F5222D';
-
-export const getResultColor = (result: TestResultType) => {
+export const getResultColor = (result: TestResultType, colors?: Partial<ColorTheme>) => {
     switch (result) {
         case TestResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return colors?.iconSuccess ?? '#4db31b';
         case TestResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return colors?.iconError ?? '#F5222D';
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }
 };
 
-/**
- * Returns the display icon assoociated with an TestResultType
- */
-export const getResultIcon = (result: TestResultType) => {
-    const resultColor = getResultColor(result);
+export const getResultIcon = (result: TestResultType, colors?: Partial<ColorTheme>) => {
+    const resultColor = getResultColor(result, colors);
     switch (result) {
         case TestResultType.Success:
             return <CheckCircleOutlined style={{ color: resultColor }} />;

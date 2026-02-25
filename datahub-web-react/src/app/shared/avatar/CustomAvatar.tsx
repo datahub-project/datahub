@@ -9,7 +9,7 @@ import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import defaultAvatar from '@images/default_avatar.png';
 
 const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor?: string }>`
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     background-color: ${(props) => (props.$backgroundColor ? `${props.$backgroundColor}` : 'transparent')};
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 12)}px` : '14px')} !important;
     margin-right: 4px;

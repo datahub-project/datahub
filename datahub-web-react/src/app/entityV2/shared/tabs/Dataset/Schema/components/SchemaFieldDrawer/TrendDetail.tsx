@@ -2,9 +2,8 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 
 interface TrendDetailProps {
@@ -37,7 +36,7 @@ const StatSummarySubtitle = styled.div`
 `;
 
 const Headline = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-weight: 700;
@@ -45,7 +44,7 @@ const Headline = styled.div`
 `;
 
 const SubtitleText = styled(Typography.Text)<{ color?: string }>`
-    color: ${(props) => (props.color ? props.color : REDESIGN_COLORS.DARK_GREY)};
+    color: ${(props) => (props.color ? props.color : props.theme.colors.textSecondary)};
     font-family: Mulish;
     font-size: 13px;
     line-height: 14px;
@@ -53,6 +52,7 @@ const SubtitleText = styled(Typography.Text)<{ color?: string }>`
 `;
 
 const TrendDetail = ({ tooltipTitle, headline, proportion, showCount = false, count = 0 }: TrendDetailProps) => {
+    const theme = useTheme();
     let displayText;
     if (showCount && count > 0) {
         if (headline === 'Numerical stats') {
@@ -71,7 +71,7 @@ const TrendDetail = ({ tooltipTitle, headline, proportion, showCount = false, co
                 <TitleContainer>
                     <Headline>{headline}</Headline>
                     <StatSummarySubtitle>
-                        <SubtitleText color={showCount && count < 1 ? REDESIGN_COLORS.SECONDARY_LIGHT_GREY : undefined}>
+                        <SubtitleText color={showCount && count < 1 ? theme.colors.textTertiary : undefined}>
                             {displayText}
                         </SubtitleText>
                     </StatSummarySubtitle>

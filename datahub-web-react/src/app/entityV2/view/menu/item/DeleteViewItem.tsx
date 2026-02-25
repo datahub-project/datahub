@@ -11,6 +11,7 @@ type Props = {
 
 const DeleteOutlineOutlinedIconStyle = styled(DeleteOutlineOutlinedIcon)`
     font-size: 14px !important;
+    color: ${(props) => props.theme.colors.iconError};
 `;
 
 /**
@@ -25,6 +26,7 @@ export const DeleteViewItem = ({ key, onClick }: Props) => {
             tip="Delete this View"
             title="Delete"
             icon={<DeleteOutlineOutlinedIconStyle />}
+            danger
         />
     );
 };

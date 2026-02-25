@@ -1,7 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
-
-const DEFAULT_BADGE_COLOR = '#3CB47A';
+import styled, { useTheme } from 'styled-components';
 
 const Badge = styled.div<{ color: string }>`
     height: 16px;
@@ -12,10 +10,10 @@ const Badge = styled.div<{ color: string }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-left: -4px;
     margin-top: -12px;
-    border: 1px solid #ffffff;
+    border: 1px solid ${(props) => props.theme.colors.bg};
 `;
 
 type Props = {
@@ -23,9 +21,10 @@ type Props = {
     color?: string;
 };
 
-export const CountBadge = ({ count, color = DEFAULT_BADGE_COLOR }: Props) => {
+export const CountBadge = ({ count, color }: Props) => {
+    const theme = useTheme();
     if (!count) {
         return null;
     }
-    return <Badge color={color}>{count}</Badge>;
+    return <Badge color={color || theme.colors.iconSuccess}>{count}</Badge>;
 };

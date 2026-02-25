@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
@@ -15,7 +14,6 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
-import { colors } from '@src/alchemy-components';
 
 import {
     GetAutoCompleteMultipleResultsQuery,
@@ -29,7 +27,8 @@ const Body = styled.div`
 `;
 
 const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.BACKGROUND)};
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bgSurfaceNewNav : props.theme.colors.bgSurface};
     position: fixed;
     height: 100%;
     width: 100%;

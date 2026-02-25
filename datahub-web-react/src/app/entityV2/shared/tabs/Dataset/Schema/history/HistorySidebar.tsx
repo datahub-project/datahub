@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ChangeTransactionView, {
     ChangeTransactionEntry,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
@@ -23,7 +22,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px rgba(0, 0, 0, 0.15);
+        box-shadow: ${(props) => props.theme.colors.shadowXl};
     }
 `;
 
@@ -36,8 +35,8 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${(p) => p.theme.styles['primary-color']};
-    color: #fff;
+    background: ${(p) => p.theme.colors.buttonFillBrand};
+    color: ${(p) => p.theme.colors.bg};
     font-size: 14px;
     font-weight: 700;
 `;
@@ -52,7 +51,7 @@ const CloseIcon = styled.div`
     display: flex;
     &&:hover {
         cursor: pointer;
-        stroke: ${REDESIGN_COLORS.WHITE};
+        stroke: ${(props) => props.theme.colors.bg};
     }
 `;
 

@@ -1,9 +1,8 @@
 import { Button, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { ViewTypeLabel } from '@app/entity/view/ViewTypeLabel';
 import { ViewDropdownMenu } from '@app/entity/view/menu/ViewDropdownMenu';
 import { GlobalDefaultViewIcon } from '@app/entity/view/shared/GlobalDefaultViewIcon';
@@ -78,7 +77,8 @@ type ViewTypeColumnProps = {
 };
 
 export function ViewTypeColumn({ viewType }: ViewTypeColumnProps) {
-    return <ViewTypeLabel color={ANTD_GRAY[8]} type={viewType} />;
+    const theme = useTheme();
+    return <ViewTypeLabel color={theme.colors.textSecondary} type={viewType} />;
 }
 
 type ActionColumnProps = {

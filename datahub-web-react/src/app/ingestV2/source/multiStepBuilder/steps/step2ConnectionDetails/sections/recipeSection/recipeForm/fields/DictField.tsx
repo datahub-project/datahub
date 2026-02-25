@@ -1,4 +1,4 @@
-import { Input, colors } from '@components';
+import { Input } from '@components';
 import { Form } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -21,7 +21,7 @@ const SectionWrapper = styled.div`
     display: flex;
     padding: 8px 0 8px 12px;
     &:hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -34,7 +34,7 @@ const StyledRemoveIcon = styled(RemoveIcon)`
 `;
 
 const ErrorWrapper = styled.div`
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
     margin-top: 5px;
 `;
 

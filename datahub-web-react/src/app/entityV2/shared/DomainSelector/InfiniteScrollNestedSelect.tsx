@@ -17,8 +17,8 @@ const LoadingContainer = styled.div`
     justify-content: center;
     align-items: center;
     padding: 12px;
-    border-top: 1px solid #f0f0f0;
-    background: white;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption = NestedSelectOption>

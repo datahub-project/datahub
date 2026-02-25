@@ -44,7 +44,7 @@ export class ChartEntity implements Entity<Chart> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <LineChartOutlined style={{ fontSize, color: color || 'rgb(144 163 236)' }} />;
+            return <LineChartOutlined style={{ fontSize, color: color || 'var(--theme-icon, rgb(144 163 236))' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -57,7 +57,7 @@ export class ChartEntity implements Entity<Chart> {
             <LineChartOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

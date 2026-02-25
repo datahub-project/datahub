@@ -29,7 +29,7 @@ export default function SourceLogo({ sourceName }: Props) {
 
     let logoComponent;
     if (sourceName === CUSTOM) {
-        logoComponent = <StyledIcon icon="NotePencil" source="phosphor" color="gray" />;
+        logoComponent = <StyledIcon icon="NotePencil" source="phosphor" />;
     }
 
     return logoUrl ? <PlatformLogo preview={false} src={logoUrl} alt={sourceName} /> : logoComponent || null;

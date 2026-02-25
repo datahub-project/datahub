@@ -2,7 +2,6 @@ import { Table, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DatasetAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { FieldAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import { SqlAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/SqlAssertionDescription';
@@ -13,13 +12,13 @@ import { DataContractSummaryFooter } from '@app/entity/shared/tabs/Dataset/Valid
 import { Assertion, AssertionType, DataQualityContract, DatasetAssertionInfo } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;
 
 const ColumnHeader = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Container = styled.div`
@@ -35,7 +34,7 @@ const SummaryContainer = styled.div`
 const StyledTable = styled(Table)`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 type Props = {

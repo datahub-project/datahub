@@ -10,16 +10,17 @@ type Props = {
     tip: string;
     title: string;
     icon: React.ReactNode;
+    danger?: boolean;
 };
 
-export const ViewItem = ({ key, onClick, dataTestId, tip, title, icon }: Props) => {
+export const ViewItem = ({ key, onClick, dataTestId, tip, title, icon, danger }: Props) => {
     const onClickHandler = (menuEvent) => {
         menuEvent?.domEvent?.stopPropagation?.();
         return onClick();
     };
 
     return (
-        <Menu.Item key={key} onClick={onClickHandler} data-testid={dataTestId}>
+        <Menu.Item key={key} onClick={onClickHandler} data-testid={dataTestId} danger={danger}>
             <IconItemTitle tip={tip} title={title} icon={icon} />
         </Menu.Item>
     );

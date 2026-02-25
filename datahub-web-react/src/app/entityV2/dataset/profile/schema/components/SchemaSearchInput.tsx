@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import SchemaFilterSelectContent from '@app/entityV2/dataset/profile/schema/components/SchemaFilterSelectContent';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import { pluralize } from '@app/shared/textUtil';
 
@@ -11,7 +10,7 @@ const MatchLabelText = styled.span`
     font-size: 12px;
     font-style: normal;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding-left: 10px;
     margin-top: 5px;
 `;

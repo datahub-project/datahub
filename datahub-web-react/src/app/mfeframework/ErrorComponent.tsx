@@ -6,10 +6,10 @@ const ErrorContainer = styled.div<{ isV2: boolean }>`
     align-items: center;
     justify-content: center;
     min-height: 480px;
-    background-color: ${(props) => (props.isV2 ? '#f5f5f5' : '#fafafa')};
-    border: 2px dashed ${(props) => (props.isV2 ? '#d9d9d9' : '#e8e8e8')};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 2px dashed ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    color: ${(props) => (props.isV2 ? '#595959' : '#666')};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     text-align: center;
     padding: 20px;

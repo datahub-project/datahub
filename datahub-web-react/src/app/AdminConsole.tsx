@@ -3,14 +3,13 @@ import { Menu } from 'antd';
 import Sider from 'antd/lib/layout/Sider';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useAppConfig } from '@app/useAppConfig';
 
 const ToggleContainer = styled.div`
-    background-color: ${ANTD_GRAY[4]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-top-right-radius: 2px;
     border-bottom-right-radius: 2px;
 `;
@@ -34,6 +33,7 @@ const ControlSlideOut = styled(Sider)`
  */
 export const AdminConsole = (): JSX.Element => {
     const me = useUserContext();
+    const theme = useTheme();
 
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
@@ -59,7 +59,7 @@ export const AdminConsole = (): JSX.Element => {
 
     const toggleView = (
         <ToggleContainer style={{}}>
-            <MenuOutlined style={{ color: ANTD_GRAY[9] }} />
+            <MenuOutlined style={{ color: theme.colors.text }} />
         </ToggleContainer>
     );
 

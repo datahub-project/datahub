@@ -35,15 +35,7 @@ export function LinkIcon({ url, className, usePrimaryColor = true, style }: Prop
             return <FileIcon extension={extension} />;
         }
 
-        return (
-            <Icon
-                icon="LinkSimple"
-                source="phosphor"
-                color={usePrimaryColor ? 'primary' : 'gray'}
-                colorLevel={usePrimaryColor ? undefined : 600}
-                size="lg"
-            />
-        );
+        return <Icon icon="LinkSimple" source="phosphor" color={usePrimaryColor ? 'iconBrand' : undefined} size="lg" />;
     }, [isDocumentationFileUploadV1Enabled, url, usePrimaryColor]);
 
     return (

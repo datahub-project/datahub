@@ -3,10 +3,9 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Popover } from '@components';
 import { Dropdown, Menu } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { FieldType, FilterField, FilterPredicate } from '@app/searchV2/filters/types';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
@@ -42,7 +41,7 @@ const Icon = styled.div`
     margin-right: 8px;
 
     && {
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -114,12 +113,13 @@ interface PopoverProps {
 function FilterPopover({ field, onAddFilter, setDropdownOpen, includeCount }: PopoverProps) {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const icon =
         field.icon ||
         (field.type === FieldType.ENTITY &&
             field.entityTypes?.length &&
-            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, ANTD_GRAY[7]));
+            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, theme.colors.textTertiary));
 
     return (
         <Popover

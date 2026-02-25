@@ -1,4 +1,3 @@
-import { geekblue } from '@ant-design/colors';
 import { Tooltip } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
@@ -12,7 +11,7 @@ const USAGE_BAR_MAX_WIDTH = 50;
 export const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     height: 4px;
-    background-color: ${geekblue[3]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 2px;
 `;
 

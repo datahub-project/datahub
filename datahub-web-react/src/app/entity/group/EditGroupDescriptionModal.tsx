@@ -2,7 +2,6 @@ import { Button, Form, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 type Props = {
@@ -12,7 +11,7 @@ type Props = {
     stagedDescription: string | undefined;
 };
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 export default function EditGroupDescriptionModal({

@@ -87,7 +87,7 @@ export default function ChangeHistoryPopover({
 
     const renderTotalRow = (value: number) => {
         return (
-            <Text size="sm" color="gray" weight="bold" type="div" data-testid="total-changes">
+            <Text size="sm" weight="bold" type="div" data-testid="total-changes">
                 {abbreviateNumber(value)} {pluralize(value, 'Change')}
             </Text>
         );
@@ -95,7 +95,7 @@ export default function ChangeHistoryPopover({
 
     const renderNoData = () => {
         return (
-            <Text size="sm" color="gray" weight="bold" data-testid="no-data-reported">
+            <Text size="sm" weight="bold" data-testid="no-data-reported">
                 No data reported
             </Text>
         );
@@ -103,7 +103,7 @@ export default function ChangeHistoryPopover({
 
     const renderNoDataThisDay = () => {
         return (
-            <Text size="sm" color="gray" weight="bold" data-testid="no-changes-this-day">
+            <Text size="sm" weight="bold" data-testid="no-changes-this-day">
                 No changes this day
             </Text>
         );
@@ -116,10 +116,10 @@ export default function ChangeHistoryPopover({
         return (
             <ValueContainer key={operation.key} data-testid={`operation-${operation.key}`}>
                 <Square $color={color} />
-                <Text size="sm" color="gray" data-testid="operation-name">
+                <Text size="sm" data-testid="operation-name">
                     {name}
                 </Text>
-                <Text size="sm" color="gray" weight="bold" data-testid="operation-value">
+                <Text size="sm" weight="bold" data-testid="operation-value">
                     {formatNumberWithoutAbbreviation(operation.value)}
                 </Text>
             </ValueContainer>
@@ -148,7 +148,7 @@ export default function ChangeHistoryPopover({
 
     return (
         <Container data-testid={`day-popover-${datum.key}`}>
-            <Text size="sm" color="gray" type="div">
+            <Text size="sm" type="div">
                 {dayjs(datum.day).format('dddd, MMM DD ’YY')}
             </Text>
             {renderChanges()}

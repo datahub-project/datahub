@@ -3,18 +3,17 @@ import { Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { QueryBuilderState } from '@app/entity/shared/tabs/Dataset/Queries/types';
 import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 
 const EditorWrapper = styled.div`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 1px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledEditor = styled(MarkdownEditor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const QUERY_EDITOR_HEIGHT = '240px';

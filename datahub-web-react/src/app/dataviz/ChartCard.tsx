@@ -2,18 +2,16 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Card = styled.div`
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    background-color: white;
-    box-shadow: 0px 3px 6px 0px ${ANTD_GRAY[5]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    box-shadow: 0px 3px 6px 0px ${(props) => props.theme.colors.border};
     border-radius: 8px;
 
     text {
-        fill: ${ANTD_GRAY[8]};
+        fill: ${(props) => props.theme.colors.textSecondary};
         font-weight: 400 !important;
     }
 `;
@@ -35,7 +33,7 @@ const Heading = styled(Typography.Text)`
 	display: block;
 	font-size: 14px;s
 	font-weight: 600;
-	color: ${ANTD_GRAY[8]};
+	color: ${(props) => props.theme.colors.textSecondary};
 	min-width: 300px;
 `;
 

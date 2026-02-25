@@ -32,7 +32,7 @@ const StyledCheckbox = styled(Checkbox)`
 
 const StyledButton = styled(Button)`
     margin-left: 8px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 
 type Props = {

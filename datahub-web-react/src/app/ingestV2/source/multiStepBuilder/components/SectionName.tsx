@@ -41,7 +41,7 @@ export function SectionName({ name, description, topRowRightItems, onClick }: Pr
                 <Spacer />
                 {topRowRightItems}
             </TopRow>
-            {description && <Text color="gray">{description}</Text>}
+            {description && <Text>{description}</Text>}
         </Wrapper>
     );
 }

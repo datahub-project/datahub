@@ -113,10 +113,10 @@ export function ScheduleStep() {
     return (
         <StepContainer>
             <SwitchLabel>
-                <Text size="sm" weight="bold" color="gray" colorLevel={600}>
+                <Text size="sm" weight="bold">
                     Run on a schedule
                 </Text>
-                <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
+                <Text size="sm" weight="bold" color="textSecondary">
                     (recommended)
                 </Text>
             </SwitchLabel>
@@ -128,8 +128,8 @@ export function ScheduleStep() {
             />
             {!scheduleEnabled && (
                 <WarningContainer>
-                    <Icon icon="Warning" source="phosphor" color="yellow" colorLevel={1000} size="md" />
-                    <Text color="yellow" colorLevel={1000} size="sm">
+                    <Icon icon="Warning" source="phosphor" color="iconWarning" size="md" />
+                    <Text color="textWarning" size="sm">
                         Running ingestion without a schedule may result in out-of-date information.
                     </Text>
                 </WarningContainer>
@@ -140,7 +140,7 @@ export function ScheduleStep() {
                 cronAsText={cronAsText}
             />
             <TimezoneContainer>
-                <Text color="gray">Choose a timezone for the schedule.</Text>
+                <Text>Choose a timezone for the schedule.</Text>
                 <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
             </TimezoneContainer>
         </StepContainer>

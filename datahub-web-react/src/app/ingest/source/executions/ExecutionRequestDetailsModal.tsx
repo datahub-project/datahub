@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import IngestedAssets from '@app/ingest/source/IngestedAssets';
 import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
 import {
@@ -56,7 +55,7 @@ const SubHeaderParagraph = styled(Typography.Paragraph)`
 const HeaderSection = styled.div``;
 
 const StatusSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
@@ -67,14 +66,14 @@ const ResultText = styled.div`
 `;
 
 const IngestedAssetsSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
 const RecipeSection = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;

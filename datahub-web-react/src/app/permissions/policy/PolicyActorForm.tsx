@@ -220,9 +220,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             <SearchResultContainer>
                 <SearchResultContent>
                     <CustomAvatar size={20} name={displayName} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm">
-                        {displayName}
-                    </Text>
+                    <Text size="sm">{displayName}</Text>
                 </SearchResultContent>
             </SearchResultContainer>
         );

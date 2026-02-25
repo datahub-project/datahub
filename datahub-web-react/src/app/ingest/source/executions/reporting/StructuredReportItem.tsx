@@ -2,7 +2,6 @@ import { Collapse } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportItemContext } from '@app/ingest/source/executions/reporting/StructuredReportItemContext';
 import { StructuredReportLogEntry } from '@app/ingest/source/types';
 import { applyOpacity } from '@app/shared/styleUtils';
@@ -48,7 +47,7 @@ const Type = styled.div`
 `;
 
 const Message = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

@@ -2,9 +2,8 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Modal } from '@components';
 import { Empty, Select, Tag, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
@@ -40,11 +39,12 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
 export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
     const [inputValue, setInputValue] = useState('');
@@ -201,7 +201,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                         <Empty
                             description="No Users Found"
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            style={{ color: ANTD_GRAY[7] }}
+                            style={{ color: theme.colors.textTertiary }}
                         />
                     ) : null
                 }

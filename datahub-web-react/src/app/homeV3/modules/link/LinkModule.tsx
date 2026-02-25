@@ -1,6 +1,6 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import SmallModule from '@app/homeV3/module/components/SmallModule';
@@ -33,6 +33,7 @@ const TextSection = styled.div`
 `;
 
 export default function LinkModule(props: ModuleProps) {
+    const theme = useTheme();
     const { name } = props.module.properties;
     const { linkParams } = props.module.properties.params;
 
@@ -56,8 +57,7 @@ export default function LinkModule(props: ModuleProps) {
                         <NameContainer
                             ellipsis={{
                                 tooltip: {
-                                    color: 'white',
-                                    overlayInnerStyle: { color: colors.gray[1700] },
+                                    overlayInnerStyle: { color: theme.colors.textSecondary },
                                     showArrow: false,
                                 },
                             }}
@@ -68,8 +68,7 @@ export default function LinkModule(props: ModuleProps) {
                             <DescriptionContainer
                                 ellipsis={{
                                     tooltip: {
-                                        color: 'white',
-                                        overlayInnerStyle: { color: colors.gray[1700] },
+                                        overlayInnerStyle: { color: theme.colors.textSecondary },
                                         showArrow: false,
                                     },
                                 }}
@@ -81,7 +80,7 @@ export default function LinkModule(props: ModuleProps) {
                 </LeftSection>
                 <RightSection>
                     <a href={linkParams?.linkUrl} target="_blank" rel="noopener noreferrer">
-                        <Icon icon="ArrowUpRight" source="phosphor" size="lg" color="gray" />
+                        <Icon icon="ArrowUpRight" source="phosphor" size="lg" />
                     </a>
                 </RightSection>
             </Container>

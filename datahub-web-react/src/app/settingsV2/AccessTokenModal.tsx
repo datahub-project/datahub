@@ -1,11 +1,10 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { Button, Modal, Text } from '@src/alchemy-components';
 import { IconNames } from '@src/alchemy-components/components/Icon/types';
-import { colors } from '@src/alchemy-components/theme';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ModalContent = styled.div`
@@ -19,15 +18,15 @@ const InfoAlert = styled.div`
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    background: ${colors.blue[100]};
-    border: 1px solid ${colors.blue[300]};
+    background: ${(props) => props.theme.colors.bgSurfaceInfo};
+    border: 1px solid ${(props) => props.theme.colors.bgSurfaceInformationHover};
     border-radius: 8px;
-    color: ${colors.blue[600]};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
 const InfoIcon = styled(InfoCircleOutlined)`
     font-size: 16px;
-    color: ${colors.blue[500]};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
 const Section = styled.div`
@@ -38,8 +37,8 @@ const Section = styled.div`
 
 const CodeBlock = styled.div`
     position: relative;
-    background: ${colors.gray[100]};
-    border: 1px solid ${colors.gray[200]};
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 6px;
     padding: 12px;
     overflow-x: auto;
@@ -52,36 +51,36 @@ const CodeContent = styled.pre`
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     line-height: 1.5;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const CopyButton = styled(Button)`
     position: absolute;
     top: 8px;
     right: 8px;
-    background: ${colors.white};
+    background: ${(props) => props.theme.colors.bg};
 
     &:hover {
-        background: ${colors.gray[50]};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
 const Kbd = styled.code`
     display: inline;
     padding: 2px 6px;
-    background: ${colors.gray[100]};
-    border: 1px solid ${colors.gray[200]};
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
 `;
 
 const ExpirationText = styled(Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Link = styled.a`
-    color: ${colors.blue[500]};
+    color: ${(props) => props.theme.colors.textInformation};
     text-decoration: none;
 
     &:hover {
@@ -102,6 +101,7 @@ type Props = {
 };
 
 export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
+    const theme = useTheme();
     const baseUrl = window.location.origin;
     const accessTokenCurl = `curl -X POST '${baseUrl}${resolveRuntimePath('/api/graphql')}' \\
 --header 'Authorization: Bearer ${accessToken}' \\
@@ -162,7 +162,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <Text size="md" weight="semiBold">
                         Usage
                     </Text>
-                    <Text size="sm" color="gray">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         To use the token, provide it as a <Kbd>Bearer</Kbd> token in the <Kbd>Authorization</Kbd> header
                         when making API requests:
                     </Text>
@@ -184,7 +184,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <Text size="md" weight="semiBold">
                         Learn More
                     </Text>
-                    <Text size="sm" color="gray">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                         To learn more about the DataHub APIs, check out the{' '}
                         <Link href="https://www.datahubproject.io/docs/" target="_blank" rel="noopener noreferrer">
                             DataHub Docs

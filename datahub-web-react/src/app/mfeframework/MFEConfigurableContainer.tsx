@@ -13,7 +13,7 @@ import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const MFEConfigurableContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    background-color: ${(props) => (props.isV2 ? props.theme.colors.bg : 'inherit')};
     padding: 16px;
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -21,7 +21,7 @@ const MFEConfigurableContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesi
         height: 100%;
         margin: 5px;
         overflow: auto;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
     ${(props) =>
         !props.$isShowNavBarRedesign &&

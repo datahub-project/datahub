@@ -45,14 +45,14 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ApiOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <ApiOutlined style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         return (
             <ApiOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
+import { useTheme } from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
@@ -33,6 +34,7 @@ export default function useColumnHighlighting(
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
 } {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
     const {
@@ -54,16 +56,21 @@ export default function useColumnHighlighting(
                 .map((edge) => edge.via)
                 .filter((via): via is string => !!via),
         );
-        return processColumnHighlights(selectedColumn, hoveredColumn, {
-            fineGrainedLineage,
-            nodes,
-            adjacencyList,
-            displayedNodeIds,
-            validQueryIds,
-            entityRegistry,
-            rootUrn,
-            rootType,
-        });
+        return processColumnHighlights(
+            selectedColumn,
+            hoveredColumn,
+            {
+                fineGrainedLineage,
+                nodes,
+                adjacencyList,
+                displayedNodeIds,
+                validQueryIds,
+                entityRegistry,
+                rootUrn,
+                rootType,
+            },
+            theme,
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
 
@@ -104,11 +111,12 @@ function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     argumentBundle: ArgumentBundle,
+    theme?: { colors?: { textBrand?: string } },
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, argumentBundle, SELECT_COLOR);
+        return computeSingleColumnHighlights(selectedColumn, argumentBundle, theme?.colors?.textBrand || SELECT_COLOR);
     }
-    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, HOVER_COLOR);
+    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, theme?.colors?.textBrand || HOVER_COLOR);
 }
 
 function computeSingleColumnHighlights(

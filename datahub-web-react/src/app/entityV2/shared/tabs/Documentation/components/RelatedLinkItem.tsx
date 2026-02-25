@@ -7,7 +7,6 @@ import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
@@ -28,7 +27,7 @@ const LinkListItem = styled(List.Item)`
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${LinkButtonsContainer} {
             ${StyledButton} {
                 opacity: 1;
@@ -72,7 +71,7 @@ const TitleLink = styled.a`
 
 const Description = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
     line-height: 20px;
 `;
 

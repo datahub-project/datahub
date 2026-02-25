@@ -1,13 +1,12 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 export const LINEAGE_ANNOTATION_NODE = 'lineage-annotation-node';
 
 const Container = styled.div`
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 200px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 4px 6px;
 `;
 

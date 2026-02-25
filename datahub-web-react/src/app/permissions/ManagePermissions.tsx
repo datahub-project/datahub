@@ -30,7 +30,7 @@ const Content = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     flex-direction: column;
     overflow: auto;

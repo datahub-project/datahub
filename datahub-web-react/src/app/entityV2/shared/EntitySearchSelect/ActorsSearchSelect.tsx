@@ -175,7 +175,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
                     <TitleContainer>
                         <Text type="div">{displayName}</Text>
                         {subtitle && (
-                            <Text type="div" size="sm" color="gray">
+                            <Text type="div" size="sm">
                                 {subtitle}
                             </Text>
                         )}

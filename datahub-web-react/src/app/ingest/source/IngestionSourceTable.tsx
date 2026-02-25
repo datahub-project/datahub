@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     ActionsColumn,
     LastStatusColumn,
@@ -22,7 +21,7 @@ const PAGE_HEADER_HEIGHT = 395;
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
         td {
-            background-color: ${ANTD_GRAY[2]} !important;
+            background-color: ${(props) => props.theme.colors.bgSurface} !important;
         }
     }
 ` as typeof StyledTable;

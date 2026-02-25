@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -12,7 +11,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;

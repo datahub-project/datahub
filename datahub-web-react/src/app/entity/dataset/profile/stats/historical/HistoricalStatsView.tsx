@@ -14,7 +14,7 @@ import { DatasetProfile, DateInterval } from '@types';
 const HeaderRow = styled(Row)`
     padding-top: 24px;
     padding-bottom: 28px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const SubHeaderText = styled(Typography.Text)`

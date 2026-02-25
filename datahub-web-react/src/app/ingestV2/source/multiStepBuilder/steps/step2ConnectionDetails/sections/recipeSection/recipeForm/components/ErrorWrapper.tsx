@@ -1,9 +1,8 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 export const Wrapper = styled.div`
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
     margin-top: 5px;
 `;
 

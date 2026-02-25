@@ -45,7 +45,7 @@ export default function EntityProfileSidebarSearchHeader({ showViewDetails = tru
                 <Button
                     size="small"
                     type="primary"
-                    color={theme?.styles['primary-color']}
+                    color={theme?.colors?.textBrand}
                     href={entityRegistry.getEntityUrl(entityType, urn)}
                 >
                     View more

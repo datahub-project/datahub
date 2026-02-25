@@ -1,10 +1,8 @@
-import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ConnectionCapabilityView from '@app/ingest/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
 import {
     CapabilityReport,
@@ -26,7 +24,7 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -36,7 +34,7 @@ const LoadingHeader = styled(Typography.Title)`
 
 const ResultsHeader = styled.div<{ success: boolean }>`
     align-items: center;
-    color: ${(props) => (props.success ? `${green[6]}` : `${red[5]}`)};
+    color: ${(props) => (props.success ? props.theme.colors.textSuccess : props.theme.colors.textError)};
     display: flex;
     margin-bottom: 5px;
     font-size: 20px;
@@ -48,7 +46,7 @@ const ResultsHeader = styled.div<{ success: boolean }>`
 `;
 
 const ResultsSubHeader = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ResultsWrapper = styled.div`
@@ -79,12 +77,12 @@ const CapabilitiesTitle = styled.div`
 `;
 
 const StyledCheck = styled(CheckOutlined)`
-    color: ${green[6]};
+    color: ${(props) => props.theme.colors.textSuccess};
     margin-right: 5px;
 `;
 
 const StyledClose = styled(CloseOutlined)`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
     margin-right: 5px;
 `;
 

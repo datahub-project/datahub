@@ -4,7 +4,7 @@ import * as QueryString from 'query-string';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import DomainIcon from '@app/domainV2/DomainIcon';
@@ -44,6 +44,7 @@ const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -95,7 +96,7 @@ export const DomainsList = () => {
                 <DomainIcon
                     style={{
                         fontSize: 12,
-                        color: '#BFBFBF',
+                        color: theme.colors.textDisabled,
                     }}
                 />,
             ),

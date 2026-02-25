@@ -3,7 +3,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getPropertyDisplayName } from '@app/sharedV2/queryBuilder/builder/property/select/structured/utils';
 
 import { StructuredPropertyEntity } from '@types';
@@ -15,7 +14,7 @@ const Container = styled.div`
 `;
 
 const Type = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

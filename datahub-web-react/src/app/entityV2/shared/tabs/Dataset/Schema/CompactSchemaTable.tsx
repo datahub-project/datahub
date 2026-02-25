@@ -8,7 +8,6 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTitleRenderer';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
@@ -39,19 +38,25 @@ export type Props = {
 const TableContainer = styled.div<{ fullHeight?: boolean }>`
     margin-top: ${(props) => (props.fullHeight ? '0px' : '5px')};
     margin-left: ${(props) => (props.fullHeight ? '12px' : '0px')};
+    .ant-table {
+        background: transparent;
+    }
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
+    }
+    .ant-table-tbody > tr > td {
+        background: transparent;
     }
     &&& .ant-table-cell:first-of-type {
         ${(props) => !props.fullHeight && 'padding: 8px 8px 8px 0px'};
     }
 
     &&& .selected-row * {
-        color: white;
-        background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 
     &&& .field-column {
@@ -67,10 +72,10 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: #b0a2c2;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 500;
     :hover {
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 

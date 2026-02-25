@@ -109,15 +109,24 @@ export const Input = ({
                 />
                 {!isPassword && (
                     <Tooltip title={errorOnHover ? error : ''} showArrow={false}>
-                        {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
-                        {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
-                        {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
+                        {invalid && <Icon icon="WarningAmber" color="iconError" size="lg" />}
+                        {isSuccess && <Icon icon="CheckCircle" color="iconSuccess" size="lg" />}
+                        {warning && <Icon icon="ErrorOutline" color="iconWarning" size="lg" />}
                     </Tooltip>
                 )}
                 {!!onClear && value && (
-                    <ClearIcon className="clear-search" source="phosphor" icon="X" size="lg" onClick={onClear} />
+                    <ClearIcon
+                        className="clear-search"
+                        source="phosphor"
+                        icon="X"
+                        size="lg"
+                        color="icon"
+                        onClick={onClear}
+                    />
                 )}
-                {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
+                {isPassword && (
+                    <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" color="icon" />
+                )}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

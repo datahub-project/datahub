@@ -1,7 +1,7 @@
 import { countries } from 'country-data-list';
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
 
@@ -23,13 +23,14 @@ export function RotatingTriangle({
     onClick?: () => void;
     testId?: string;
 }) {
+    const theme = useTheme();
     return (
         <RotatingButton
             ghost
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<CaretRight style={{ color: 'black' }} />}
+            icon={<CaretRight style={{ color: theme.colors.text }} />}
             onClick={onClick}
             data-testid={testId}
         />

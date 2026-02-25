@@ -14,14 +14,14 @@ import { useListDomainsQuery } from '@graphql/domain.generated';
 import { useGetHighlightsQuery } from '@graphql/highlights.generated';
 
 const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    background-color: ${(props) => (props.isV2 ? props.theme.colors.bg : 'inherit')};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         height: 100%;
         margin: 5px;
         overflow: auto;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
     ${(props) =>
         !props.$isShowNavBarRedesign &&
@@ -199,7 +199,7 @@ export const AnalyticsPage = () => {
                     {!metadataAnalyticsLoading &&
                         (!metadataAnalyticsData?.getMetadataAnalyticsCharts?.length ||
                             !metadataAnalyticsData?.getMetadataAnalyticsCharts[0]?.charts?.length) && (
-                            <EmptyDomainText size="md" weight="bold" color="gray" colorLevel={600}>
+                            <EmptyDomainText size="md" weight="bold">
                                 No analytics data for this domain
                             </EmptyDomainText>
                         )}

@@ -2,7 +2,6 @@ import { Editor } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 import { Post } from '@types';
@@ -36,7 +35,7 @@ const Title = styled.div`
 
 const Time = styled.div`
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

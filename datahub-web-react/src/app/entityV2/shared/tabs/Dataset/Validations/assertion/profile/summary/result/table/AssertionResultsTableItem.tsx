@@ -2,7 +2,6 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import {
@@ -23,7 +22,7 @@ const Container = styled.div<{ highlightColor?: string }>`
     padding: 4px 8px;
     border-radius: 4px;
     :hover {
-        background-color: ${(props) => props.highlightColor || ANTD_GRAY[2]};
+        background-color: ${(props) => props.highlightColor || props.theme.colors.bgSurface};
     }
 `;
 
@@ -45,7 +44,7 @@ const ResultColumn = styled.div`
 
 const PreHeaderText = styled.div<{ color?: string }>`
     font-size: 12px;
-    color: ${(props) => props.color || ANTD_GRAY[7]};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
 `;
 
 const HeaderText = styled.div`

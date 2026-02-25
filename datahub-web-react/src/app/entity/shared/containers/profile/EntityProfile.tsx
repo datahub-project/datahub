@@ -9,7 +9,6 @@ import { useUpdateDomainEntityDataOnChange } from '@app/domain/utils';
 import { EntityCapabilityType } from '@app/entity/Entity';
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHeader } from '@app/entity/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entity/shared/containers/profile/header/EntityTabs';
 import { EntityProfileNavBar } from '@app/entity/shared/containers/profile/nav/EntityProfileNavBar';
@@ -109,17 +108,17 @@ const HeaderAndTabsFlex = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 2px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
 const Header = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 20px 20px 0 20px;
     flex-shrink: 0;
 `;

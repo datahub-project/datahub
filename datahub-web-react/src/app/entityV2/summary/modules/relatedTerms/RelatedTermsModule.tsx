@@ -65,9 +65,7 @@ export default function RelatedTermsModule(props: ModuleProps) {
                                     key={relationship.entity?.urn}
                                     moduleType={DataHubPageModuleType.RelatedTerms}
                                     customDetailsRenderer={() => (
-                                        <Text size="sm" color="gray">
-                                            {RelatedTermTypes[relationshipType]}
-                                        </Text>
+                                        <Text size="sm">{RelatedTermTypes[relationshipType]}</Text>
                                     )}
                                 />
                             ));

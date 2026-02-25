@@ -1,10 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SearchBar from '@app/entityV2/view/select/components/SearchBar';
 import ViewTypeSelect from '@app/entityV2/view/select/components/viewTypeSelect/ViewTypeSelect';
-import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -17,10 +15,11 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .select-view-icon {
-            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : REDESIGN_COLORS.BLACK)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textTertiary : props.theme.colors.text};
             display: flex;
             gap: 0.5rem;
-            background: ${(props) => (props.$isShowNavBarRedesign ? colors.white : ANTD_GRAY[1])};
+            background: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bg)};
             border-radius: 30px;
             padding: ${(props) => (props.$isShowNavBarRedesign ? '4px' : '2px')};
             > div {
@@ -30,8 +29,8 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
                 border-radius: 100px;
                 cursor: pointer;
                 &.active {
-                    background: ${(props) => props.theme.styles['primary-color']};
-                    color: ${ANTD_GRAY[1]};
+                    background: ${(props) => props.theme.colors.buttonFillBrand};
+                    color: ${(props) => props.theme.colors.bg};
                 }
             }
         }
@@ -45,7 +44,8 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.VIEW_PURPLE)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;

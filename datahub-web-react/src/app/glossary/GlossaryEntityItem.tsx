@@ -4,7 +4,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -13,14 +12,14 @@ const ItemWrapper = styled.div`
     transition: 0.15s;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
 const GlossaryItem = styled.div`
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
-    color: #262626;
+    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     font-size: 14px;
     font-weight: 700;
@@ -35,13 +34,13 @@ const GlossaryItem = styled.div`
 `;
 
 const StyledRightOutline = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
     margin-right: 20px;
 `;
 
 const CountWrapper = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
     font-weight: normal;
     margin-left: 7px;

@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -24,7 +23,7 @@ import {
 } from '@types';
 
 const StatText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const Preview = ({

@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import DomainIcon from '@app/domain/DomainIcon';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -44,7 +43,7 @@ function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize }: 
                 <DomainIcon
                     style={{
                         fontSize: 10,
-                        color: ANTD_GRAY[9],
+                        color: undefined,
                     }}
                 />
             </span>

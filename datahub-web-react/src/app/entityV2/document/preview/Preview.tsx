@@ -1,5 +1,6 @@
 import { FileText } from '@phosphor-icons/react';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
@@ -38,6 +39,7 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType: PreviewType;
 }): JSX.Element => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const externalUrl = data?.externalUrl || null;
     const truncatedDescription =
@@ -54,7 +56,7 @@ export const Preview = ({
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
-            typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
+            typeIcon={<FileText size={14} color={theme.colors.iconDisabled} weight="duotone" />}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

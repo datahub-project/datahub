@@ -4,7 +4,6 @@ import React from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
 import { useIsShowColumnsMode } from '@app/lineage/utils/useIsShowColumnsMode';
@@ -25,7 +24,7 @@ const ControlLabel = styled.span`
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding-left: 4px;
 `;
 

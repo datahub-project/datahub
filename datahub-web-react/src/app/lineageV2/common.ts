@@ -3,7 +3,6 @@ import React, { Dispatch, SetStateAction } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from '@app/lineageV2/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV2/types';
@@ -16,8 +15,8 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
-export const HOVER_COLOR = LINEAGE_COLORS.BLUE_2;
-export const SELECT_COLOR = LINEAGE_COLORS.PURPLE_3;
+export const HOVER_COLOR = '#1890FF';
+export const SELECT_COLOR = '#533FD1';
 
 type Urn = string;
 

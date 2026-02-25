@@ -1,12 +1,10 @@
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { colors } from '@src/alchemy-components/theme';
-
 import { EntityType } from '@types';
 
 export const getNameInitials = (userName: string) => {
     if (!userName) return '';
-    const names = userName.trim().split(/[\s']+/); // Split by spaces or apostrophes
+    const names = userName.trim().split(/[\s']+/);
     if (names.length === 1) {
         const firstName = names[0];
         return firstName.length > 1 ? firstName[0]?.toUpperCase() + firstName[1]?.toUpperCase() : firstName[0];
@@ -24,28 +22,46 @@ export function hashString(str: string) {
         // eslint-disable-next-line
         hash = (hash << 5) - hash + char;
         // eslint-disable-next-line
-        hash = hash & hash; // Convert to 32bit integer
+        hash = hash & hash;
     }
     return Math.abs(hash);
 }
 
-const colorMap = {
-    [colors.violet[500]]: { backgroundColor: colors.gray[1000], border: `1px solid ${colors.violet[1000]}` },
-    [colors.blue[1000]]: { backgroundColor: colors.gray[1100], border: `1px solid ${colors.blue[200]}` },
-    [colors.gray[600]]: { backgroundColor: colors.gray[1500], border: `1px solid ${colors.gray[100]}` },
-};
+export type AvatarColorVariant = 'violet' | 'blue' | 'gray';
 
-const avatarColors = Object.keys(colorMap);
+const AVATAR_VARIANTS: AvatarColorVariant[] = ['violet', 'blue', 'gray'];
 
-export const getAvatarColorStyles = (color) => {
-    return {
-        ...colorMap[color],
-    };
-};
-
-export default function getAvatarColor(name: string) {
-    return avatarColors[hashString(name) % avatarColors.length];
+export function getAvatarVariant(name: string): AvatarColorVariant {
+    return AVATAR_VARIANTS[hashString(name) % AVATAR_VARIANTS.length];
 }
+
+export const getAvatarColorStyles = (
+    variant: AvatarColorVariant,
+    themeColors: {
+        bgSurfaceBrand: string;
+        avatarBorderBrand: string;
+        bgSurfaceInfo: string;
+        avatarBorderInformation: string;
+        bgSurface: string;
+        border: string;
+    },
+) => {
+    switch (variant) {
+        case 'violet':
+            return {
+                backgroundColor: themeColors.bgSurfaceBrand,
+                border: `1px solid ${themeColors.avatarBorderBrand}`,
+            };
+        case 'blue':
+            return {
+                backgroundColor: themeColors.bgSurfaceInfo,
+                border: `1px solid ${themeColors.avatarBorderInformation}`,
+            };
+        case 'gray':
+        default:
+            return { backgroundColor: themeColors.bgSurface, border: `1px solid ${themeColors.border}` };
+    }
+};
 
 export const getAvatarSizes = (size) => {
     const sizeMap = {

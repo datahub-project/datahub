@@ -5,11 +5,11 @@ import AppLogoLink from '@app/shared/AppLogoLink';
 
 const Header = styled.div`
     padding: 12px 24px;
-    background-color: black;
+    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
     font-size: 24px;
     display: flex;
     align-items: center;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     justify-content: space-between;
 `;
 

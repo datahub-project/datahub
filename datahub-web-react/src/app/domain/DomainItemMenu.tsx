@@ -53,6 +53,7 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
     const items = [
         {
             key: 0,
+            danger: true,
             label: (
                 <Menu.Item onClick={onConfirmDelete} key="delete">
                     <DeleteOutlined /> &nbsp;Delete

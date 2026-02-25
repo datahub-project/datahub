@@ -31,13 +31,13 @@ import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
     type: EntityType = EntityType.ErModelRelationship;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <DatabaseOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <DatabaseFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {

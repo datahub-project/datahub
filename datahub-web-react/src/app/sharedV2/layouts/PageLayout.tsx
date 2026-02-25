@@ -3,12 +3,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 const Card = styled.div`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     overflow: hidden;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
-    box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const PageWrapper = styled(Card)<{ $hasBottomPanel?: boolean }>`

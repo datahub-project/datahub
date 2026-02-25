@@ -6,7 +6,6 @@ import { Col, Row, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { PersonaType } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -22,7 +21,7 @@ const Header = styled.div`
 const Title = styled.div`
     font-weight: 600;
     font-size: 14px;
-    color: #434863;
+    color: ${(props) => props.theme.colors.text};
     word-break: break-word;
     display: flex;
     align-items: center;
@@ -30,7 +29,7 @@ const Title = styled.div`
 
 const Icon = styled(BookmarkSimple)`
     margin-right: 8px;
-    color: #9884d4;
+    color: ${(props) => props.theme.colors.textBrand};
     font-size: 16px;
 `;
 
@@ -42,15 +41,15 @@ const Section = styled.div`
 `;
 
 const Card = styled.div`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: hidden;
     padding: 12px 20px 20px 20px;
 `;
 
 const ResourceLink = styled.a`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     padding: 0px 16px;
     font-size: 14px;
     display: flex;
@@ -65,19 +64,19 @@ const ResourceLink = styled.a`
     :hover {
         transform: scale(1.05); // Slightly scale up the link on hover
         opacity: 1;
-        color: #9884d4;
+        color: ${(props) => props.theme.colors.textBrand};
         text-decoration: underline;
     }
 `;
 
 const ResourceTitle = styled.div`
     margin-top: 8px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-align: center;
     opacity: 0.9;
     :hover {
         opacity: 1;
-        color: #9884d4;
+        color: ${(props) => props.theme.colors.textBrand};
         text-decoration: underline;
     }
 `;

@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Button, Divider, Empty, Modal, Pagination, Select, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -85,7 +84,7 @@ const PaginationContainer = styled.div`
 `;
 
 const NeverExpireText = styled.span`
-    color: ${red[5]};
+    color: ${(props) => props.theme.colors.textError};
 `;
 
 const SelectContainer = styled.div`

@@ -4,7 +4,6 @@ import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
@@ -17,7 +16,7 @@ const TimeLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const Schedule = styled.span`
@@ -27,7 +26,7 @@ const Schedule = styled.span`
 `;
 
 const StyledTruncatedText = styled(TruncatedTextWithTooltip)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`

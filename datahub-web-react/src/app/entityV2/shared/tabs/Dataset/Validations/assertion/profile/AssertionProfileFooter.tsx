@@ -2,8 +2,6 @@ import { BellTwoTone } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Container = styled.div`
     display: flex;
     justify-content: space-between;
@@ -13,10 +11,10 @@ const Container = styled.div`
 `;
 
 const Tip = styled.div`
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 20px;
     border-radius: 4px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Title = styled.div`

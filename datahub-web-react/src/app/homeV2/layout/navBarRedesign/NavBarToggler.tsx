@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
-import { colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 const Toggler = styled.button<{ $isCollapsed?: boolean }>`
@@ -15,16 +14,16 @@ const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     display: flex;
     transition: left 250ms ease-in-out;
     transition: background 300ms ease-in;
-    background: ${colors.gray[1600]};
+    background: ${(props) => props.theme.colors.bgSurfaceNewNav};
 
     &: hover {
-        background: #ebecf080;
+        background: ${(props) => props.theme.colors.bgHover}80;
     }
 
     & svg {
         height: 20px;
         width: 20px;
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

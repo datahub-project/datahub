@@ -5,15 +5,13 @@ import MenuItem from 'antd/lib/menu/MenuItem';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const DownArrow = styled(CaretDownOutlined)`
     && {
         padding-top: 4px;
         font-size: 8px;
         margin-left: 2px;
         margin-top: 2px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -31,7 +29,7 @@ const DropdownWrapper = styled.div<{
     disabled: boolean;
 }>`
     cursor: ${(props) => (props.disabled ? 'normal' : 'pointer')};
-    color: ${(props) => (props.disabled ? ANTD_GRAY[7] : 'none')};
+    color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : 'none')};
     display: flex;
     margin-left: 12px;
     margin-right: 12px;

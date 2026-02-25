@@ -1,8 +1,6 @@
 import { Typography } from 'antd';
 import styled from 'styled-components';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
-
 export const SectionBase = styled.div`
     padding: 16px 20px 16px 0;
 `;
@@ -18,12 +16,12 @@ export const DetailsContainer = styled.div`
     margin-top: 12px;
 
     pre {
-        background-color: ${colors.gray[1500]};
-        border: 1px solid ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 8px;
         padding: 16px;
         margin: 0;
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
         overflow-y: auto;
     }
 `;
@@ -42,7 +40,7 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
 
     pre:hover {
         scrollbar-width: thin;
-        scrollbar-color: rgba(193, 196, 208, 0.8) transparent;
+        scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
     }
 
     pre:hover::-webkit-scrollbar {
@@ -50,12 +48,12 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
     }
 
     pre::-webkit-scrollbar-track {
-        background: rgba(193, 196, 208, 0.3) !important;
+        background: ${(props) => props.theme.colors.scrollbarTrack} !important;
         border-radius: 10px;
     }
 
     pre::-webkit-scrollbar-thumb {
-        background: rgba(193, 196, 208, 0.8) !important;
+        background: ${(props) => props.theme.colors.scrollbarThumb} !important;
         border-radius: 10px;
     }
 `;

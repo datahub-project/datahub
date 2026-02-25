@@ -11,7 +11,7 @@ import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
 
 export const Breadcrumb = ({ items }: BreadcrumbProps) => {
-    const defaultSeparator = <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />;
+    const defaultSeparator = <Icon icon="CaretRight" source="phosphor" size="sm" />;
 
     return (
         <Wrapper>
@@ -30,8 +30,7 @@ export const Breadcrumb = ({ items }: BreadcrumbProps) => {
                     content = (
                         <BreadcrumbButton
                             size="sm"
-                            color="gray"
-                            colorLevel={1800}
+                            color="textTertiary"
                             onClick={item.onClick}
                             $isCurrent={item.isCurrent}
                         >
@@ -40,7 +39,7 @@ export const Breadcrumb = ({ items }: BreadcrumbProps) => {
                     );
                 } else {
                     content = (
-                        <Text size="sm" weight="medium" color="gray" colorLevel={item.isCurrent ? 600 : 1800}>
+                        <Text size="sm" weight="medium" color={item.isCurrent ? undefined : 'textTertiary'}>
                             {item.label}
                         </Text>
                     );

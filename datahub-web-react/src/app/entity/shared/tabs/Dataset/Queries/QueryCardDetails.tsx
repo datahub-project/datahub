@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import QueryCardDetailsMenu from '@app/entity/shared/tabs/Dataset/Queries/QueryCardDetailsMenu';
 import QueryCardEditButton from '@app/entity/shared/tabs/Dataset/Queries/QueryCardEditButton';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
@@ -12,7 +11,7 @@ const Title = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || ANTD_GRAY[9]};
+        color: ${(props) => (props.secondary && props.theme.colors.textDisabled) || props.theme.colors.text};
     }
     max-height: 40px;
     overflow: hidden;
@@ -64,7 +63,7 @@ const Date = styled.div`
 
 const EmptyText = styled.div`
     && {
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.textDisabled};
     }
 `;
 

@@ -7,7 +7,7 @@ const StyledValue = styled.div`
     font-style: normal;
     font-weight: 400;
     line-height: 22px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledDescription = styled.div`
@@ -16,7 +16,7 @@ const StyledDescription = styled.div`
     font-style: normal;
     font-weight: 500;
     line-height: 16px;
-    color: #5e666e;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

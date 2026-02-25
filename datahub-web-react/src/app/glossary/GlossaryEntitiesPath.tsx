@@ -4,7 +4,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { BreadcrumbItem } from '@app/entity/shared/containers/profile/nav/ProfileNavBrowsePath';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -13,7 +12,7 @@ import { PageRoutes } from '@conf/Global';
 import { GlossaryNode, GlossaryTerm, ParentNodesResult } from '@types';
 
 const PathWrapper = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     padding: 10px 24px;
 `;

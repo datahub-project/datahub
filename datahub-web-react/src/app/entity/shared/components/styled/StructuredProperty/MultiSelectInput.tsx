@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
@@ -13,7 +12,7 @@ const StyledCheckbox = styled(Checkbox)`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY_V2[8]};
+        border-color: ${(props) => props.theme.colors.border};
     }
     &&& {
         margin-left: 0;

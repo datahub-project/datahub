@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Text, colors } from '@src/alchemy-components';
+import { Icon, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -18,12 +18,12 @@ export const MoreOptionsContainer = styled.div`
     justify-content: end;
 
     div {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border-radius: 20px;
         width: 24px;
         height: 24px;
         padding: 3px;
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
         :hover {
             cursor: pointer;
         }
@@ -111,7 +111,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                         setShowConfirmRemove(true);
                     }}
                 >
-                    <Text color="red"> Remove </Text>
+                    <Text color="textError"> Remove </Text>
                 </MenuItem>
             ),
         });

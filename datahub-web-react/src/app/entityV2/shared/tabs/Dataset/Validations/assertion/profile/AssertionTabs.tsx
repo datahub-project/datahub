@@ -3,15 +3,13 @@ import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const Tabs = styled.div`
     margin: 12px 24px;
     padding: 0px;
     display: flex;
     gap: 8px;
     border-radius: 4px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
@@ -22,8 +20,9 @@ const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
     justify-content: center;
     padding: 0px 24px;
     border: none;
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'transparent')};
-    color: ${(props) => (props.selected ? '#fff' : ANTD_GRAY[9] || ANTD_GRAY[3])};
+    background-color: ${(props) => (props.selected ? props.theme.colors.buttonFillBrand : 'transparent')};
+    color: ${(props) =>
+        props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text || props.theme.colors.bgSurface};
     font-size: 12px;
     cursor: pointer;
     ${(props) => props.disabled && 'opacity: 0.5;'}

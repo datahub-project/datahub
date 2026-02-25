@@ -3,7 +3,6 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
 import { IconSpacer, Label } from '@app/search/filters/styledComponents';
 import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
@@ -13,7 +12,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const ActiveFilterWrapper = styled.div`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
     padding: 2px 8px;
     display: flex;

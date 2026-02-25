@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { pathMatchesNewPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
 import { SectionHeader } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { UsageBar } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -19,7 +18,7 @@ const UsageBarWrapper = styled.div`
 `;
 
 const UsageBarBackground = styled.div`
-    background-color: ${ANTD_GRAY_V2[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 2px;
     height: 4px;
     width: ${USAGE_BAR_MAX_WIDTH}px;

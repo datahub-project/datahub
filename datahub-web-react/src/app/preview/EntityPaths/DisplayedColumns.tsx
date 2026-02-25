@@ -11,7 +11,7 @@ import { Entity, EntityType, SchemaFieldEntity } from '@types';
 const ColumnNameWrapper = styled.span<{ isBlack?: boolean }>`
     font-family: 'Roboto Mono', monospace;
     font-weight: bold;
-    ${(props) => props.isBlack && 'color: black;'}
+    ${(props) => props.isBlack && `color: ${props.theme.colors.text};`}
 `;
 
 interface Props {

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, useReactFlow } from 'reactflow';
+import { useTheme } from 'styled-components';
 
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
 import {
@@ -7,11 +8,9 @@ import {
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
-    HOVER_COLOR,
     HighlightedColumns,
     LineageNodesContext,
     NodeContext,
-    SELECT_COLOR,
     createLineageFilterNodeId,
     isTransformational,
     isUrnQuery,
@@ -33,6 +32,7 @@ export default function useColumnHighlighting(
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
 } {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
     const {
@@ -54,17 +54,35 @@ export default function useColumnHighlighting(
                 .map((edge) => edge.via)
                 .filter((via): via is string => !!via),
         );
-        return processColumnHighlights(selectedColumn, hoveredColumn, {
-            fineGrainedLineage,
-            nodes,
-            adjacencyList,
-            displayedNodeIds,
-            validQueryIds,
-            rootUrn,
-            rootType,
-        });
+        return processColumnHighlights(
+            selectedColumn,
+            hoveredColumn,
+            {
+                fineGrainedLineage,
+                nodes,
+                adjacencyList,
+                displayedNodeIds,
+                validQueryIds,
+                rootUrn,
+                rootType,
+            },
+            {
+                selectColor: theme.colors.textBrand,
+                hoverColor: theme.colors.borderBrandFocused,
+            },
+        );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
+    }, [
+        columnEdgeVersion,
+        selectedColumn,
+        hoveredColumn,
+        nodes,
+        edges,
+        fineGrainedLineage,
+        shownUrns,
+        entityRegistry,
+        theme,
+    ]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered? For now, just use timeout
@@ -102,11 +120,12 @@ function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     argumentBundle: ArgumentBundle,
+    colors: { selectColor: string; hoverColor: string },
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, argumentBundle, SELECT_COLOR);
+        return computeSingleColumnHighlights(selectedColumn, argumentBundle, colors.selectColor);
     }
-    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, HOVER_COLOR);
+    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, colors.hoverColor);
 }
 
 function computeSingleColumnHighlights(

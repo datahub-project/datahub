@@ -1,8 +1,7 @@
 import { CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { StructuredReportItemList } from '@app/ingest/source/executions/reporting/StructuredReportItemList';
 import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '@app/ingest/source/types';
 
@@ -12,15 +11,16 @@ const Container = styled.div`
     gap: 12px;
 `;
 
-const ERROR_COLOR = '#F5222D';
-const WARNING_COLOR = '#FA8C16';
-const INFO_COLOR = REDESIGN_COLORS.BLUE;
-
 interface Props {
     report: StructuredReportType;
 }
 
 export function StructuredReport({ report }: Props) {
+    const theme = useTheme();
+    const ERROR_COLOR = theme.colors.iconError;
+    const WARNING_COLOR = theme.colors.iconWarning;
+    const INFO_COLOR = theme.colors.iconInformation;
+
     if (!report.items.length) {
         return null;
     }

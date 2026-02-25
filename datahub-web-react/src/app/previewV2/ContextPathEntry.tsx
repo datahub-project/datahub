@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { colors } from '@src/alchemy-components';
 
 const Path = styled.div<{ isLast: boolean }>`
     flex: ${({ isLast }) => (isLast ? '1 0 1' : '1 1 0')};
@@ -33,18 +32,18 @@ const Contents = styled.div<{ $disabled?: boolean }>`
     gap: 4px;
     align-items: center;
     line-height: 22px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     && svg {
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     :hover {
-        color: ${({ $disabled }) => ($disabled ? colors.gray[1700] : colors.violet[500])};
+        color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
 
         && svg {
-            color: ${({ $disabled }) => ($disabled ? colors.gray[1700] : colors.violet[500])};
+            color: ${({ $disabled, theme }) => ($disabled ? theme.colors.textDisabled : theme.colors.iconBrand)};
         }
     }
 `;

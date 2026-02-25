@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { Text } from '@components/components/Text';
-import { colors } from '@components/theme';
 
 export const Wrapper = styled.nav`
     display: flex;
@@ -18,7 +17,7 @@ export const BreadcrumbItemContainer = styled.span`
 `;
 
 export const BreadcrumbLink = styled(Link)<{ $isCurrent?: boolean }>`
-    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
+    color: ${(props) => (props.$isCurrent ? props.theme.colors.text : props.theme.colors.textTertiary)};
     font-size: 12px;
     text-decoration: none;
     cursor: pointer;
@@ -26,15 +25,15 @@ export const BreadcrumbLink = styled(Link)<{ $isCurrent?: boolean }>`
 
 export const BreadcrumbButton = styled(Text)<{ $isCurrent?: boolean }>`
     cursor: pointer;
-    color: ${(props) => (props.$isCurrent ? colors.gray[600] : colors.gray[1800])};
+    color: ${(props) => (props.$isCurrent ? props.theme.colors.text : props.theme.colors.textTertiary)};
 
     :hover {
-        color: ${colors.primary[500]};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
 export const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[100]};
+    color: ${(props) => props.theme.colors.border};
     height: 16px;
     width: 2px;
     margin: 0 4px;

@@ -26,7 +26,7 @@ const MatchContainer = styled.div`
     padding: 0px 2px;
     align-items: center;
     border-radius: 30px;
-    background: #ebe9f4;
+    background: ${(props) => props.theme.colors.bgSurface};
     margin-right: 4px;
     white-space: nowrap;
 `;
@@ -36,7 +36,7 @@ const MatchHeader = styled(Typography.Text)`
     padding: 4px 2px 4px 10px;
     align-items: center;
     gap: 4px;
-    color: #6c6b88;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;
@@ -48,8 +48,8 @@ const MatchText = styled(Typography.Text)`
     justify-content: center;
     align-items: center;
     border-radius: 50px;
-    background: #ebe9f4;
-    color: #374066;
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.text};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;

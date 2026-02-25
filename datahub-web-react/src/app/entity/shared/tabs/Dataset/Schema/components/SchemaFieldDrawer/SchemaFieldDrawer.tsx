@@ -24,7 +24,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        border-left: 3px solid ${(props) => props.theme.styles['primary-color']};
+        border-left: 3px solid ${(props) => props.theme.colors.borderBrand};
     }
 `;
 

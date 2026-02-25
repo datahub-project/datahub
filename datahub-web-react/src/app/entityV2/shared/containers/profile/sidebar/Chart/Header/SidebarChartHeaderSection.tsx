@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
 import { getChartPopularityTier, userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
@@ -11,7 +10,7 @@ import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/co
 import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const StatContent = styled.div`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
     font-weight: 600;
 `;

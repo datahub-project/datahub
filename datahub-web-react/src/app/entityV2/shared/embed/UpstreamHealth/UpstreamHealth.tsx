@@ -1,7 +1,7 @@
 import { ErrorRounded } from '@mui/icons-material';
 import { Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
@@ -53,6 +53,7 @@ const Container = styled.div`
 `;
 
 export default function UpstreamHealth() {
+    const themeConfig = useTheme();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -231,10 +232,14 @@ export default function UpstreamHealth() {
 
     return (
         <Container>
-            <CTAWrapper backgroundColor="#FBF3EF" borderColor="#FBF3EF" padding="10px 0 0 0">
+            <CTAWrapper
+                backgroundColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.bgSurfaceError}
+                padding="10px 0 0 0"
+            >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: '#E54D1F', fontSize: '18' }} />
+                        <ErrorRounded style={{ color: themeConfig.colors.textError, fontSize: '18' }} />
                         <Title>Some upstreams are unhealthy</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />

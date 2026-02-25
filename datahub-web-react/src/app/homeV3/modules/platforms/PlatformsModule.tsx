@@ -32,15 +32,7 @@ const PlatformsModule = (props: ModuleProps) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         const assetCount = platformEntity?.count || 0;
 
-        return (
-            <>
-                {assetCount > 0 && (
-                    <Text size="sm" color="gray">
-                        {formatNumber(assetCount)}
-                    </Text>
-                )}
-            </>
-        );
+        return <>{assetCount > 0 && <Text size="sm">{formatNumber(assetCount)}</Text>}</>;
     };
 
     const renderCustomTooltip = (entity: Entity, children: React.ReactNode) => {

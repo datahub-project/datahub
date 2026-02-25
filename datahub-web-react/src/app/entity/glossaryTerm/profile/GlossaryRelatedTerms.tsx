@@ -14,7 +14,7 @@ const DetailWrapper = styled.div`
 `;
 
 const MenuWrapper = styled.div`
-    border-right: 2px solid #f5f5f5;
+    border-right: 2px solid ${(props) => props.theme.colors.border};
 `;
 
 const Content = styled.div`

@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -8,7 +7,6 @@ import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button, Input, Modal, SimpleSelect, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -45,11 +43,11 @@ const FormGroup = styled.div`
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ExpirationContainer = styled.div`
@@ -60,7 +58,7 @@ const ExpirationContainer = styled.div`
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    ${(props) => props.$isWarning && `color: ${red[5]};`}
+    color: ${(props) => (props.$isWarning ? props.theme.colors.textError : props.theme.colors.textSecondary)};
 `;
 
 const ModalFooter = styled.div`
@@ -229,9 +227,7 @@ export default function CreateTokenModal({
                             <FormLabel size="md" weight="semiBold">
                                 Token Name
                             </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                Give this token a name to identify it.
-                            </FormDescription>
+                            <FormDescription size="sm">Give this token a name to identify it.</FormDescription>
                             <Input
                                 value={tokenName}
                                 setValue={setTokenName}
@@ -245,9 +241,7 @@ export default function CreateTokenModal({
                             <FormLabel size="md" weight="semiBold">
                                 Description
                             </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                An optional description for this token.
-                            </FormDescription>
+                            <FormDescription size="sm">An optional description for this token.</FormDescription>
                             <Input
                                 value={tokenDescription}
                                 setValue={setTokenDescription}
@@ -273,7 +267,7 @@ export default function CreateTokenModal({
                                 isDisabled={forRemoteExecutor}
                                 dataTestId="create-token-duration"
                             />
-                            <ExpirationText size="sm" color="gray" $isWarning={hasSelectedNoExpiration}>
+                            <ExpirationText size="sm" $isWarning={hasSelectedNoExpiration}>
                                 {getTokenExpireDate(selectedDuration)}
                             </ExpirationText>
                         </ExpirationContainer>

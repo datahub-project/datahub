@@ -1,11 +1,10 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domainV2/nestedDomains/domainNavigator/DomainNode';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import Loading from '@app/shared/Loading';
 
 import { Domain } from '@types';
@@ -36,6 +35,7 @@ export default function DomainNavigator({
     variant = 'select',
 }: Props) {
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
+    const theme = useTheme();
 
     return (
         <NavigatorWrapper>
@@ -44,7 +44,7 @@ export default function DomainNavigator({
                 <Empty
                     description="No Domains Found"
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ color: ANTD_GRAY[7] }}
+                    style={{ color: theme.colors.textTertiary }}
                 />
             )}
             {domains?.map((domain) => (

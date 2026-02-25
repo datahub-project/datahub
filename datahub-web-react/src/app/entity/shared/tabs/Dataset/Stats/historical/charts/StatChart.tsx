@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
 import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { DateInterval, DateRange } from '@types';
 
@@ -12,12 +11,12 @@ const ChartTitle = styled(Typography.Text)`
     && {
         text-align: left;
         font-size: 14px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
 const ChartCard = styled(Card)<{ visible: boolean }>`
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 

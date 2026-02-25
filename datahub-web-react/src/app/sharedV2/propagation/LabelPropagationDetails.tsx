@@ -1,6 +1,6 @@
 import { Popover } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import PropagationEntityLink from '@app/sharedV2/propagation/PropagationEntityLink';
 import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/sharedV2/propagation/PropagationIcon';
@@ -17,13 +17,13 @@ const PopoverTitle = styled.div`
     font-weight: bold;
     font-size: 14px;
     padding: 6px 0px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 const PopoverDescription = styled.div`
     max-width: 340px;
     font-size: 14px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     display: inline;
     padding: 0px 0px 8px 0px;
 `;
@@ -39,7 +39,7 @@ const PopoverAttribute = styled.div`
 
 const PopoverAttributeTitle = styled.div`
     font-size: 14px;
-    color: #eeecfa;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font-weight: bold;
     margin: 8px 0px;
     overflow: hidden;
@@ -52,6 +52,7 @@ interface Props {
 }
 
 export default function LabelPropagationDetails({ entityType, context }: Props) {
+    const themeConfig = useTheme();
     const contextObj = context ? (JSON.parse(context) as PropagationContext) : null;
     const isPropagated = contextObj?.propagated;
     const { originEntity } = usePropagationContextEntities(contextObj);
@@ -79,7 +80,7 @@ export default function LabelPropagationDetails({ entityType, context }: Props) 
 
     return (
         <Popover
-            overlayInnerStyle={{ backgroundColor: '#272D48' }}
+            overlayInnerStyle={{ backgroundColor: themeConfig.colors.bgSurfaceDarker }}
             showArrow={false}
             title={
                 <PopoverTitle>

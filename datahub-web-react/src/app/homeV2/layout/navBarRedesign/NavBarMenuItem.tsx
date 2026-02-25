@@ -3,10 +3,8 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
-import { Badge, Text, colors } from '@src/alchemy-components';
+import { Badge, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
@@ -31,14 +29,14 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     }
 
     && svg {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
         width: 20px;
         height: 20px;
     }
 
     && .ant-menu-title-content {
         width: 100%;
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
         font-family: Mulish;
         font-size: 14px;
         font-style: normal;
@@ -53,23 +51,13 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
 
     &:hover,
     &.ant-menu-item-active {
-        background: linear-gradient(
-            180deg,
-            rgba(243, 244, 246, 0.5) -3.99%,
-            rgba(235, 236, 240, 0.5) 53.04%,
-            rgba(235, 236, 240, 0.5) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        background: ${(props) => props.theme.colors.bgHover};
+        box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
 
     &&.ant-menu-item-selected {
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${(props) => props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
     }
 `;
 
@@ -80,8 +68,8 @@ const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles['primary-color']};`
-                : 'color: #8088a3;'}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};`
+                : `color: ${props.theme.colors.icon};`}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
     }
@@ -91,11 +79,7 @@ const StyledText = styled(Text)<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor(
-            'primary',
-            500,
-            props.theme,
-        )} 99%);
+        background: ${props.theme.colors.brandGradientSelected};
         background-clip: text;
         -webkit-text-fill-color: transparent;
     `}
@@ -111,9 +95,9 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     position: absolute;
     width: 10px;
     height: 10px;
-    background: ${(props) => props.theme.styles['primary-color']};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 6px;
-    border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
+    border: 2px solid ${(props) => props.theme.colors.bgSurfaceNewNav};
     top: 6px;
     left: 22px;
 `;

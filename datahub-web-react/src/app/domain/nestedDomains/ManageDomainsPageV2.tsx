@@ -9,12 +9,11 @@ import { useDomainsContext } from '@app/domain/DomainsContext';
 import DomainsTitle from '@app/domain/nestedDomains/DomainsTitle';
 import RootDomains from '@app/domain/nestedDomains/RootDomains';
 import { updateListDomainsCache } from '@app/domain/utils';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
 
 const PageWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     flex: 1;
     display: flex;
     flex-direction: column;

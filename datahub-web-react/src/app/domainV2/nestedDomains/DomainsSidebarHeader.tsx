@@ -15,7 +15,7 @@ const Wrapper = styled.div`
 const DomainTitle = styled.div`
     font-size: 16px;
     font-weight: bold;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledButton = styled(Button)`

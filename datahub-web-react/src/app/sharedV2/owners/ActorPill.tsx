@@ -1,7 +1,7 @@
-import { Icon, Text, colors } from '@components';
+import { Icon, Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@app/shared/avatar';
@@ -16,7 +16,7 @@ const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
     align-items: center;
     padding: 2px 6px 2px 4px;
     border-radius: 20px;
-    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[1400]};
+    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${(props) => props.theme.colors.border};
 
     :hover {
         cursor: pointer;
@@ -36,6 +36,7 @@ interface Props {
 }
 
 export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
@@ -52,7 +53,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
             >
                 <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
                     <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm" data-testid="owner-name">
+                    <Text size="sm" style={{ color: theme.colors.textSecondary }} data-testid="owner-name">
                         {name}
                     </Text>
                     {!isProposed && onClose && (
@@ -61,7 +62,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                             icon="X"
                             source="phosphor"
                             size="sm"
-                            color="gray"
+                            color="icon"
                             data-testid={`remove-owner-${actor.urn}`}
                         />
                     )}

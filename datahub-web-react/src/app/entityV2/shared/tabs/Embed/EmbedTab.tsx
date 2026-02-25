@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const EmbedContainer = styled.div`
     width: 100%;
@@ -18,7 +17,7 @@ const StyledIframe = styled.iframe`
 const StyledEmpty = styled(Empty)`
     margin-top: 28px;
     font-size: 16px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const EmbedTab = () => {

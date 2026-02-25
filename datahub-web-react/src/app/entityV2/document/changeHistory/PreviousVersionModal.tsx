@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Editor } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { useUpdateDocumentContentsMutation } from '@graphql/document.generated';
 
@@ -33,7 +32,7 @@ const StyledEditor = styled(Editor)`
         .remirror-editor.ProseMirror {
             font-size: 15px;
             line-height: 1.7;
-            color: ${colors.gray[1700]};
+            color: ${(props) => props.theme.colors.textSecondary};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -42,7 +41,7 @@ const StyledEditor = styled(Editor)`
 `;
 
 const EmptyContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-style: italic;
     padding: 20px;
 `;
@@ -52,7 +51,7 @@ const ModalFooter = styled.div`
     justify-content: flex-end;
     gap: 8px;
     padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface PreviousVersionModalProps {

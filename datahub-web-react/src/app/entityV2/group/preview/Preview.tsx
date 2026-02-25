@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -51,7 +50,7 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const DescriptionContainer = styled.div`

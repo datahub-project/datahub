@@ -1,8 +1,7 @@
 import { Divider, Popover } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHealthStatus } from '@app/entity/shared/containers/profile/header/EntityHealthStatus';
 import { HealthSummaryIconType, getHealthSummaryIcon, getHealthSummaryMessage } from '@app/shared/health/healthUtils';
 
@@ -22,7 +21,7 @@ const Icon = styled.span`
 
 const Title = styled.span`
     font-weight: bold;
-    color: ${ANTD_GRAY[1]};
+    color: ${(props) => props.theme.colors.bg};
     padding-top: 4px;
     padding-bottom: 4px;
     font-size: 14px;
@@ -40,7 +39,7 @@ const StyledDivider = styled(Divider)`
         padding-left: 8px;
         margin-top: 8px;
         margin-bottom: 8px;
-        border-color: ${ANTD_GRAY[5]};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -53,6 +52,7 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
+    const theme = useTheme();
     return (
         <Popover
             content={
@@ -69,7 +69,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
                     ))}
                 </>
             }
-            color="#262626"
+            color={theme.colors.bgSurfaceDarker}
             placement={placement}
             zIndex={10000000}
         >

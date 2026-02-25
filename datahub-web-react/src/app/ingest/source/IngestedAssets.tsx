@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
@@ -33,7 +32,7 @@ const TotalContainer = styled.div`
 
 const TotalText = styled(Typography.Text)`
     font-size: 16px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const EntityCountsContainer = styled.div`
@@ -132,7 +131,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                 {!loading && (
                     <TotalContainer>
                         <Typography.Text type="secondary">Total</Typography.Text>
-                        <TotalText style={{ fontSize: 16, color: ANTD_GRAY[8] }}>
+                        <TotalText style={{ fontSize: 16 }}>
                             <b>{formatNumber(total)}</b> assets
                         </TotalText>
                     </TotalContainer>
@@ -141,7 +140,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             <EntityCountsContainer>
                 {countsByEntityType.map((entityCount) => (
                     <EntityCount>
-                        <Typography.Text style={{ paddingLeft: 2, fontSize: 18, color: ANTD_GRAY[8] }}>
+                        <Typography.Text style={{ paddingLeft: 2, fontSize: 18 }}>
                             <b>{formatNumber(entityCount.count)}</b>
                         </Typography.Text>
                         <Typography.Text type="secondary">{entityCount.displayName}</Typography.Text>

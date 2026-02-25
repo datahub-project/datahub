@@ -3,7 +3,6 @@ import { SelectValue } from 'antd/lib/select';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import PrefixedSelect from '@app/entity/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
 import { BooleanTimeline } from '@app/entity/shared/tabs/Dataset/Validations/BooleanTimeline';
@@ -26,7 +25,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const AssertionResultIcon = styled.span`

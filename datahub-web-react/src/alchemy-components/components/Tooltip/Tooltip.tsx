@@ -1,14 +1,17 @@
 import { Tooltip, TooltipProps } from 'antd';
 import * as React from 'react';
-
-import colors from '@components/theme/foundations/colors';
+import { useTheme } from 'styled-components';
 
 export default function DataHubTooltip(props: TooltipProps & React.RefAttributes<unknown>) {
+    const themeConfig = useTheme();
+    const bgColor = themeConfig.colors.bg;
+    const textColor = themeConfig.colors.textSecondary;
+
     return (
         <Tooltip
             showArrow={false}
-            color="white"
-            overlayInnerStyle={{ color: colors.gray[1700] }}
+            color={bgColor}
+            overlayInnerStyle={{ color: textColor }}
             overlayStyle={{ borderRadius: '12px' }}
             {...props}
         />

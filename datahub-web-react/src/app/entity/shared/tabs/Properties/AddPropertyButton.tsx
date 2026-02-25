@@ -7,9 +7,8 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
+import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
@@ -20,7 +19,8 @@ import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/type
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
     background-color: ${(props) =>
-        props.isThemeV2 ? props.theme.styles['primary-color'] : REDESIGN_COLORS.LINK_HOVER_BLUE};
+        props.isThemeV2 ? props.theme.colors.buttonFillBrand : props.theme.colors.hyperlinks};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;
@@ -34,8 +34,8 @@ const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
-    box-shadow: 0px 0px 14px 0px rgba(0, 0, 0, 0.15);
-    background-color: ${colors.white};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    background-color: ${(props) => props.theme.colors.bg};
     padding-bottom: 8px;
     width: 300px;
 `;
@@ -124,9 +124,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                     return {
                         label: (
                             <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
-                                <Text weight="semiBold" color="gray">
-                                    {name}
-                                </Text>
+                                <Text weight="semiBold">{name}</Text>
                             </Option>
                         ),
                         key: entity.urn,
@@ -179,12 +177,8 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                             <>
                                 {properties?.length === 0 && (
                                     <EmptyContainer>
-                                        <Text color="gray" weight="medium">
-                                            No results found
-                                        </Text>
-                                        <Text size="sm" color="gray">
-                                            {noDataText}
-                                        </Text>
+                                        <Text weight="medium">No results found</Text>
+                                        <Text size="sm">{noDataText}</Text>
                                     </EmptyContainer>
                                 )}
                                 <OptionsContainer data-testid="options-container">{menuNode}</OptionsContainer>
@@ -195,7 +189,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
                     <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
+                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="inherit" />
                     </AddButton>
                 </Tooltip>
             </Dropdown>

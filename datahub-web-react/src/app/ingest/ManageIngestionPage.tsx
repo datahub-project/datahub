@@ -18,7 +18,7 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 16px;
     padding-right: 16px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -28,7 +28,7 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
         margin: 5px;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
     `}
 `;
 

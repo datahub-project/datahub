@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 
 import { useAppConfig } from '@app/useAppConfig';
+import { useIsDarkMode } from '@app/useIsDarkMode';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
+import light from '@conf/theme/colorThemes/light';
 import themes from '@conf/theme/themes';
+import { Theme } from '@conf/theme/types';
 import { useCustomTheme } from '@src/customThemeContext';
 
 export function useCustomThemeId(): string | null {
@@ -21,6 +24,7 @@ export function useCustomThemeId(): string | null {
 
 export function useSetAppTheme() {
     const isThemeV2 = useIsThemeV2();
+    const [isDarkMode] = useIsDarkMode();
     const { updateTheme } = useCustomTheme();
     const customThemeId = useCustomThemeId();
 
@@ -33,7 +37,7 @@ export function useSetAppTheme() {
             if (import.meta.env.DEV) {
                 import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
                     .then((theme) => {
-                        updateTheme(theme);
+                        updateTheme(ensureThemeColors(theme));
                     })
                     .catch((error) => {
                         console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
@@ -42,7 +46,7 @@ export function useSetAppTheme() {
                 fetch(`assets/conf/theme/${customThemeId}`)
                     .then((response) => response.json())
                     .then((theme) => {
-                        updateTheme(theme);
+                        updateTheme(ensureThemeColors(theme));
                     })
                     .catch((error) => {
                         console.error(`Failed to load theme from 'assets/conf/theme/${customThemeId}':`, error);
@@ -50,10 +54,12 @@ export function useSetAppTheme() {
             }
         } else if (customThemeId && themes[customThemeId]) {
             updateTheme(themes[customThemeId]);
+        } else if (isThemeV2 && isDarkMode) {
+            updateTheme(themes.themeV2Dark);
         } else {
             updateTheme(isThemeV2 ? themes.themeV2 : themes.themeV1);
         }
-    }, [customThemeId, isThemeV2, updateTheme]);
+    }, [customThemeId, isDarkMode, isThemeV2, updateTheme]);
 }
 
 function setThemeIdLocalStorage(customThemeId: string | null) {
@@ -76,4 +82,16 @@ function removeThemeIdFromLocalStorage() {
 
 function saveToLocalStorage(customThemeId: string) {
     localStorage.setItem(CUSTOM_THEME_ID_KEY, customThemeId);
+}
+
+/**
+ * Ensures a theme loaded from JSON always has the `colors` property.
+ * Customer-provided JSON themes may not include semantic color tokens,
+ * so we fall back to the light theme colors to prevent runtime errors.
+ */
+function ensureThemeColors(theme: Partial<Theme> & Omit<Theme, 'colors'>): Theme {
+    return {
+        ...theme,
+        colors: theme.colors ?? light,
+    } as Theme;
 }

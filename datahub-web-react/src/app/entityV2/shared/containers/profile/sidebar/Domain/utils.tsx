@@ -2,7 +2,6 @@ import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
 import { pluralize } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -12,7 +11,7 @@ import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export type ContentTypeSummary = {

@@ -1,10 +1,6 @@
 import { Bar } from '@visx/shape';
 import React from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
-const ACTIVE_COLOR = '#3F54D1';
-const INACTIVE_COLOR = ANTD_GRAY[5];
+import { useTheme } from 'styled-components';
 
 type Props = {
     index: number;
@@ -13,6 +9,10 @@ type Props = {
 };
 
 const PopularityIconBar = ({ index, active, opacity }: Props) => {
+    const theme = useTheme();
+    const activeColor = theme.colors.textBrand;
+    const inactiveColor = theme.colors.textDisabled;
+
     return (
         <Bar
             rx={2}
@@ -23,8 +23,8 @@ const PopularityIconBar = ({ index, active, opacity }: Props) => {
             width={6}
             height={12 + index * 6}
             opacity={active ? opacity : 1}
-            stroke={active ? ACTIVE_COLOR : INACTIVE_COLOR}
-            fill={active ? ACTIVE_COLOR : INACTIVE_COLOR}
+            stroke={active ? activeColor : inactiveColor}
+            fill={active ? activeColor : inactiveColor}
         />
     );
 };

@@ -5,13 +5,12 @@ import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const InfoSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
 `;
 
@@ -32,7 +31,7 @@ const FormattingSelector = styled.div`
 
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 15px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
 `;
 

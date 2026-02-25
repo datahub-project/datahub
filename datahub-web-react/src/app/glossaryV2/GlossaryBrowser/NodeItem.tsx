@@ -1,5 +1,4 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -7,7 +6,6 @@ import styled from 'styled-components/macro';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossaryV2/GlossaryBrowser/TermItem';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -45,31 +43,30 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     display: flex;
     font-size: 16px;
     padding: 13px 0;
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
+    background-color: ${(props) => props.$isSelected && props.theme.colors.bgSurfaceBrand};
     padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 12)}px);
 `;
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
-    color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+    color: ${(props) => (props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.textTertiary}`)};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+            props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.textTertiary}`};
     }
 `;
 
 const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
     color: ${(props) =>
-        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+        props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.borderBrandFocused}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+            props.isSelected ? `${props.theme.colors.iconBrand}` : `${props.theme.colors.borderBrandFocused}`};
     }
 `;
 
@@ -92,8 +89,8 @@ const ChildrenCount = styled.div`
     align-items: center;
     justify-content: center;
     border-radius: 20px;
-    background-color: ${colors.gray[100]};
-    color: ${colors.gray[1700]};
+    background-color: ${(props) => props.theme.colors.bgHover};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     height: 22px;
     min-width: 28px;
@@ -104,7 +101,7 @@ const ChildrenCount = styled.div`
 const StyledDivider = styled.div<{ depth: number }>`
     width: calc(100% + 26px + ${(props) => props.depth * 18}px);
     margin-left: calc(-13px - ${(props) => props.depth * 18}px);
-    border-bottom: 1px solid #eae8fb;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface Props {

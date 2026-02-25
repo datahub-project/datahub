@@ -1,7 +1,6 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
@@ -65,7 +64,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                     <p>Let&apos;s get started! 🚀</p>
                     <div
                         style={{
-                            backgroundColor: ANTD_GRAY[4],
+                            backgroundColor: 'var(--theme-bgSurface, #F0F0F0)',
                             opacity: '0.7',
                             borderRadius: '4px',
                             height: '40px',

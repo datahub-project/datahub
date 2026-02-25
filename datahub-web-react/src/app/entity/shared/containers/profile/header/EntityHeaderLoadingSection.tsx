@@ -2,13 +2,11 @@ import { Skeleton, Space } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const ContextSkeleton = styled(Skeleton.Input)`
     && {
         width: 320px;
         border-radius: 4px;
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -16,7 +14,7 @@ const NameSkeleton = styled(Skeleton.Input)`
     && {
         width: 240px;
         border-radius: 4px;
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

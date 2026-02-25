@@ -1,16 +1,16 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const AttributeWrapper = styled.div`
     font-weight: normal;
     margin-bottom: 4px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const nameStyles = `
-    color: #262626;
+    color: inherit;
     display: inline-block;
     height: 100%;
     padding: 3px 4px;
@@ -24,7 +24,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
         ${(props) =>
             props.showSelectStyles &&
             `
-                background-color: ${ANTD_GRAY[3]};
+                background-color: ${props.theme.colors.bgSurface};
                 cursor: pointer;
         `}
     }

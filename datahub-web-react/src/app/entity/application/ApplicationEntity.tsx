@@ -53,7 +53,10 @@ export class ApplicationEntity implements Entity<Application> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
+                <FileDoneOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
             );
         }
 
@@ -68,7 +71,7 @@ export class ApplicationEntity implements Entity<Application> {
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

@@ -1,4 +1,4 @@
-import { Checkbox, Loader, SearchBar, Text, colors } from '@components';
+import { Checkbox, Loader, SearchBar, Text } from '@components';
 import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -49,7 +49,7 @@ const RightSection = styled.div`
 `;
 
 const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[100]};
+    color: ${(props) => props.theme.colors.border};
     height: auto;
 `;
 
@@ -82,9 +82,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
 
         return (
             <ItemDetailsContainer>
-                <Text color="gray" size="sm">
-                    {displayType}
-                </Text>
+                <Text size="sm">{displayType}</Text>
                 <Checkbox
                     size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
@@ -120,9 +118,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <Container>
             <LeftSection>
-                <SearchHeader color="gray" weight="bold">
-                    Search and Select Assets
-                </SearchHeader>
+                <SearchHeader weight="bold">Search and Select Assets</SearchHeader>
                 <SearchBar value={searchQuery} onChange={handleSearchChange} />
                 <AssetFilters
                     searchQuery={searchQuery}

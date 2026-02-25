@@ -1,11 +1,11 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
-import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text, colors } from '@src/alchemy-components';
+import { Avatar, Button, Icon, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -32,13 +32,13 @@ export const TableContainer = styled.div`
         position: sticky;
         top: 0;
         z-index: 1;
-        background: white;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     /* Ensure header cells have proper background */
     .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -77,7 +77,7 @@ const ServiceAccountInfo = styled.div`
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ActionsButtonStyle = {
@@ -120,8 +120,9 @@ type ServiceAccountDescriptionCellProps = {
 };
 
 export const ServiceAccountDescriptionCell = ({ serviceAccount }: ServiceAccountDescriptionCellProps) => {
+    const theme = useTheme();
     return (
-        <Text color="gray" size="md">
+        <Text size="md" style={{ color: theme.colors.textSecondary }}>
             {serviceAccount.description || '-'}
         </Text>
     );
@@ -313,6 +314,7 @@ export const ServiceAccountTable = ({
     onRoleChange,
     refetch,
 }: ServiceAccountTableProps) => {
+    const theme = useTheme();
     const columns = [
         {
             title: 'Name',
@@ -371,7 +373,7 @@ export const ServiceAccountTable = ({
                             allowClear
                         />
                         {query.length > 0 && query.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                            <Text size="xs" style={{ marginTop: '4px', color: theme.colors.textSecondary }}>
                                 Enter at least 3 characters to search
                             </Text>
                         )}
@@ -395,16 +397,16 @@ export const ServiceAccountTable = ({
                 ) : (
                     <EmptyStateContainer>
                         {loading ? (
-                            <Text size="md" color="gray">
+                            <Text size="md" style={{ color: theme.colors.textSecondary }}>
                                 Loading service accounts...
                             </Text>
                         ) : (
                             <>
-                                <Icon icon="Robot" source="phosphor" size="4xl" color="gray" />
-                                <Text size="md" color="gray">
+                                <Icon icon="Robot" source="phosphor" size="4xl" />
+                                <Text size="md" style={{ color: theme.colors.textSecondary }}>
                                     No service accounts found
                                 </Text>
-                                <Text size="sm" color="gray">
+                                <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                                     Create a service account to enable programmatic access to DataHub APIs
                                 </Text>
                             </>

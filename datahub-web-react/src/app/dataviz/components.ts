@@ -12,7 +12,7 @@ export const ChartWrapper = styled.div`
     }
 
     .horizontalBarChartInlineLabel {
-        fill: #fff;
+        fill: ${(props) => props.theme.colors.bg};
         font-weight: 600;
         font-family: 'Manrope', sans-serif;
     }

@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 type Props = {
     setSidePanelWidth: (width: number) => void;
     initialSize: number;
@@ -11,7 +9,7 @@ type Props = {
 
 const ResizerBar = styled.div`
     min-height: 100%;
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     cursor: col-resize;
 `;
 export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize, isSidebarOnLeft }: Props) => {

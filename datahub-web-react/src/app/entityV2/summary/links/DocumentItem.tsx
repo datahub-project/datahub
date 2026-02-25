@@ -1,6 +1,6 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
@@ -14,7 +14,7 @@ const DocumentContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
     cursor: pointer;
@@ -43,6 +43,7 @@ type Props = {
 };
 
 export default function DocumentItem({ document, onClick }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const title = document.info?.title || 'Untitled Document';
     const lastModified = document.info?.lastModified;
@@ -56,7 +57,7 @@ export default function DocumentItem({ document, onClick }: Props) {
     return (
         <DocumentContainer onClick={handleClick} data-testid={`${document.urn}-${title}`}>
             <LeftSection>
-                <Icon icon="FileText" source="phosphor" color="primary" size="lg" />
+                <Icon icon="FileText" source="phosphor" color="iconBrand" size="lg" />
                 <Text
                     style={{
                         overflow: 'hidden',
@@ -65,7 +66,7 @@ export default function DocumentItem({ document, onClick }: Props) {
                         flex: 1,
                         minWidth: 0 /* Critical for truncation in flex containers */,
                     }}
-                    color="primary"
+                    color="textBrand"
                     lineHeight="normal"
                     data-testid="document-label"
                 >
@@ -75,7 +76,7 @@ export default function DocumentItem({ document, onClick }: Props) {
             <RightSection>
                 {lastModified?.time && (
                     <>
-                        <Text color="gray" size="sm">
+                        <Text size="sm" style={{ color: theme.colors.textSecondary }}>
                             Edited{' '}
                             <Tooltip title={formatDateString(lastModified.time)}>
                                 <span>{toRelativeTimeString(lastModified.time) || 'recently'}</span>

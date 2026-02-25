@@ -1,4 +1,3 @@
-import { red } from '@ant-design/colors';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
@@ -18,8 +17,8 @@ const AssertionsSummaryWrapper = styled.span`
     font-size: 10px;
     font-weight: 700;
     line-height: 13px;
-    color: ${red[7]};
-    background-color: ${red[0]};
+    color: ${(props) => props.theme.colors.textError};
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
     border-radius: 8px;
     margin-left: 5px;
     padding: 2px 4px;

@@ -3,7 +3,6 @@ import { Pagination, Tooltip, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import QueriesList from '@app/entity/shared/tabs/Dataset/Queries/QueriesList';
 import { Query } from '@app/entity/shared/tabs/Dataset/Queries/types';
 import { DEFAULT_PAGE_SIZE } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
@@ -32,7 +31,7 @@ const StyledPagination = styled(Pagination)`
 const StyledInfoOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

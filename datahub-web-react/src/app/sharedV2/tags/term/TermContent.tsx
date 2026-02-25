@@ -1,12 +1,10 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { Tag, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { StopPropagation } from '@app/shared/StopPropagation';
@@ -21,15 +19,13 @@ import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from 
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
 const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
     max-width: 200px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
 
     ${(props) =>
@@ -37,7 +33,7 @@ const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
         `
         :hover {
             .ant-tag.ant-tag {
-                border: 1px solid ${props.theme.styles['primary-color']};
+                border: 1px solid ${props.theme.colors.borderBrand};
             }
         }
     `}
@@ -45,15 +41,16 @@ const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
     &&& {
+        background-color: ${(props) => props.theme.colors.bgSurface};
         ${(props) =>
             props.highlightTerm &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 400;
     padding: 3px 8px;
     margin-right: 0;
@@ -74,7 +71,7 @@ const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; sho
 `;
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
-    color: rgba(0, 143, 100, 0.95);
+    color: ${(props) => props.theme.colors.textSuccess};
     margin-right: -4px;
     font-weight: bold;
 `;
@@ -84,7 +81,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -10px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     align-items: center;
     border-radius: 100%;
     padding: 5px;
@@ -96,7 +93,7 @@ const CloseButtonContainer = styled.div`
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 10px !important;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 `;
 
 export const TermRibbon = styled.span<{ color: string; opacity?: number }>`
@@ -143,8 +140,10 @@ export default function TermContent({
     refetch,
     showOneAndCount,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();

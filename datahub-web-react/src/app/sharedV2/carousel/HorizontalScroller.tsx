@@ -3,8 +3,6 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const ScrollButton = styled.button<{
     alwaysVisible: boolean;
     size: number;
@@ -28,16 +26,16 @@ const ScrollButton = styled.button<{
     width: ${({ size }) => size + 6}px;
     height: ${({ size }) => size + 6}px;
     border-radius: 50%;
-    color: ${REDESIGN_COLORS.BLACK};
-    background-color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bg};
     transition:
         background-color 0.3s ease-in-out,
         color 0.3s ease-in-out;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     &:hover {
-        color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 

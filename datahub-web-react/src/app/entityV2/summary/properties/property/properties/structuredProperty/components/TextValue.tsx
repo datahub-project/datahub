@@ -15,7 +15,7 @@ interface Props {
 
 export default function TextValue({ text, maxWidth, disableWrapping }: Props) {
     return (
-        <TextWithMaxWidth color="gray" $maxWidth={maxWidth} $disableWrapping={disableWrapping}>
+        <TextWithMaxWidth $maxWidth={maxWidth} $disableWrapping={disableWrapping}>
             <OverflowText text={text} />
         </TextWithMaxWidth>
     );

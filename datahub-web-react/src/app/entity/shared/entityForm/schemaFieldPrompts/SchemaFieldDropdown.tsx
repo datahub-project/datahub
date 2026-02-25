@@ -16,7 +16,7 @@ const StyledCollapse = styled(Collapse)`
         padding: 12px 0;
     }
     &&& .ant-collapse-item {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border-radius: 5px;
     }
     .ant-collapse-content-box {

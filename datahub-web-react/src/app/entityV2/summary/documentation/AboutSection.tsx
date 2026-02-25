@@ -81,7 +81,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
     return (
         <div data-testid="about-section">
             <SectionHeaderWrapper>
-                <Text weight="bold" color="gray" colorLevel={600} size="sm">
+                <Text weight="bold" size="sm">
                     About
                 </Text>
                 <ButtonsWrapper>

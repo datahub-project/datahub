@@ -1,12 +1,12 @@
 import { ClockCircleOutlined, ConsoleSqlOutlined, HddOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import { Popover } from 'antd';
 import React from 'react';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
@@ -46,8 +46,9 @@ export const DatasetStatsSummary = ({
     mode = 'normal',
     shouldWrap,
 }: Props) => {
+    const theme = useTheme();
     const isTooltipMode = mode === 'tooltip-content';
-    const displayedColor = isTooltipMode ? '' : (color ?? ANTD_GRAY[7]);
+    const displayedColor = isTooltipMode ? '' : (color ?? theme.colors.textTertiary);
 
     const statsViews = [
         !!rowCount && (
@@ -101,7 +102,7 @@ export const DatasetStatsSummary = ({
                 }
             >
                 <StatText color={displayedColor}>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                    <ClockCircleOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                     Updated {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>

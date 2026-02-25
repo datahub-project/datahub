@@ -2,7 +2,6 @@ import { Divider, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ProfilingRunsChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
 import StatChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/StatChart';
 import PrefixedSelect from '@app/entity/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
@@ -16,7 +15,7 @@ import { DatasetProfile, DateInterval } from '@types';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
     margin-top: 12px;
 `;
@@ -33,7 +32,7 @@ const ChartRow = styled.div`
 `;
 
 const ChartDivider = styled(Divider)<{ height: number; width: number }>`
-    background-color: ${ANTD_GRAY[0]};
+    background-color: ${(props) => props.theme.colors.bg};
     height: ${(props) => props.height}px;
     width: ${(props) => props.width}px;
     margin: 20px;

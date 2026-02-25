@@ -7,10 +7,8 @@ import styled from 'styled-components/macro';
 import { getParentDomains } from '@app/domainV2/utils';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Domain, Entity, EntityType } from '@types';
 
@@ -22,7 +20,7 @@ type Props = {
 };
 
 const SearchResult = styled(Link)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -30,8 +28,8 @@ const SearchResult = styled(Link)`
     padding: 6px 8px;
     width: 100%;
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
-        color: #262626;
+        background-color: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -45,14 +43,12 @@ const ContentWrapper = styled.div`
 
 const IconWrapper = styled.span``;
 
-const highlightMatchStyle = {
-    fontWeight: 'bold',
-    background: 'none',
-    padding: 0,
-    color: colors.gray[600],
-};
-
 function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }: Props) {
+    const highlightMatchStyle = {
+        fontWeight: 'bold',
+        background: 'none',
+        padding: 0,
+    };
     return (
         <SearchResult to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={onResultClick}>
             <IconWrapper>

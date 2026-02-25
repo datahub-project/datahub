@@ -34,14 +34,14 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookFilled style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }} />;
         }
 
         return (
             <BookOutlined
                 style={{
                     fontSize,
-                    color: color || '#BFBFBF',
+                    color: color || 'var(--theme-icon, #BFBFBF)',
                 }}
             />
         );

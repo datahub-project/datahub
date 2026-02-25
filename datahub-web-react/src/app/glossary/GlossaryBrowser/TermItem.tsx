@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entity/shared/containers/profile/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -12,10 +11,11 @@ import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 const TermWrapper = styled.div`
     font-weight: normal;
     margin-bottom: 4px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const nameStyles = `
-    color: #262626;
+    color: inherit;
     display: inline-flex;
     height: 100%;
     padding: 3px 4px;
@@ -26,11 +26,11 @@ const nameStyles = `
 export const TermLink = styled(Link)<{ $isSelected }>`
     ${nameStyles}
 
-    ${(props) => props.$isSelected && `background-color: #F0FFFB;`}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurface};`}
 
     &:hover {
-        ${(props) => !props.$isSelected && `background-color: ${ANTD_GRAY[3]};`}
-        color: #262626;
+        ${(props) => !props.$isSelected && `background-color: ${props.theme.colors.bgSurface};`}
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -41,7 +41,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
         ${(props) =>
             props.showSelectStyles &&
             `
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${props.theme.colors.bgSurface};
         cursor: pointer;
         `}
     }

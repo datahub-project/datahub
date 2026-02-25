@@ -12,7 +12,7 @@ import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -20,7 +20,7 @@ const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-left: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 const Header = styled.div`

@@ -95,6 +95,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         },
         {
             key: 'delete',
+            danger: true,
             icon: (
                 <Popconfirm
                     title={<Typography.Text>Are you sure you want to delete this ownership type?</Typography.Text>}

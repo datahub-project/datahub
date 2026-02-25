@@ -27,10 +27,10 @@ export default function EmptyState({ reason }: Props) {
             case EmptyReasons.FILTERS_APPLIED:
                 return (
                     <TextContainer>
-                        <Text size="lg" color="gray" weight="bold">
+                        <Text size="lg" weight="bold">
                             No results!
                         </Text>
-                        <Text size="sm" color="gray" weight="normal">
+                        <Text size="sm" weight="normal">
                             Try clearing filters...
                         </Text>
                     </TextContainer>
@@ -39,7 +39,7 @@ export default function EmptyState({ reason }: Props) {
                 return (
                     <>
                         <EmptyFormsImage />
-                        <Text size="md" color="gray" weight="bold">
+                        <Text size="md" weight="bold">
                             No executions yet!
                         </Text>
                     </>

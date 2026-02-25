@@ -1,10 +1,9 @@
 import { Card, Typography } from 'antd';
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
 import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 import { DateInterval, DateRange } from '@types';
 
@@ -12,7 +11,7 @@ const ChartTitle = styled(Typography.Text)`
     && {
         text-align: left;
         font-size: 12px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -21,7 +20,7 @@ const ChartTitle = styled(Typography.Text)`
  * This approach allows style updates without the need for unnecessary props.
  */
 export const ChartCard = styled(Card)<{ visible: boolean }>`
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 
@@ -46,12 +45,6 @@ export type Props = {
     lineColor?: string;
 };
 
-/**
- * Change these to change the chart axis & line colors
- * TODO: Add this to the theme config.
- */
-const DEFAULT_LINE_COLOR = '#20d3bd';
-const DEFAULT_AXIS_COLOR = '#D8D8D8';
 const DEFAULT_AXIS_WIDTH = 2;
 
 /**
@@ -66,8 +59,10 @@ export default function StatChart({
     visible = true,
     width = 360,
     height = 300,
-    lineColor = DEFAULT_LINE_COLOR,
+    lineColor,
 }: Props) {
+    const theme = useTheme();
+    const resolvedLineColor = lineColor || theme.colors.chartsSeafoamHigh;
     const timeSeriesData = useMemo(
         () =>
             values
@@ -88,8 +83,8 @@ export default function StatChart({
                 <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
                     style={{
-                        lineColor,
-                        axisColor: DEFAULT_AXIS_COLOR,
+                        lineColor: resolvedLineColor,
+                        axisColor: theme.colors.border,
                         axisWidth: DEFAULT_AXIS_WIDTH,
                     }}
                     hideLegend

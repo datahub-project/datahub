@@ -59,7 +59,10 @@ export class DataProductEntity implements Entity<DataProduct> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
+                <FileDoneOutlined
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
             );
         }
 
@@ -72,7 +75,7 @@ export class DataProductEntity implements Entity<DataProduct> {
         return (
             <FileDoneOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

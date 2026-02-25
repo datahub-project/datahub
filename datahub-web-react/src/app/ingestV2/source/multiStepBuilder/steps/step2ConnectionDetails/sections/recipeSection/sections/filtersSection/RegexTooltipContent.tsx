@@ -12,12 +12,9 @@ const ContentContainer = styled.div`
 export default function RegexTooltipContent() {
     return (
         <ContentContainer>
-            <Text color="gray">Use fully qualified names based on your filter type.</Text>
-            <Text color="gray" weight="semiBold">
-                {' '}
-                Examples:
-            </Text>
-            <Text color="gray">
+            <Text>Use fully qualified names based on your filter type.</Text>
+            <Text weight="semiBold"> Examples:</Text>
+            <Text>
                 <ul>
                     <li>Exact: public.customers</li>
                     <li>Pattern: public.sales_.*</li>

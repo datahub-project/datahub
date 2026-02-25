@@ -1,11 +1,9 @@
-import { green } from '@ant-design/colors';
 import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import FailingInputs from '@app/entity/shared/embed/UpstreamHealth/FailingInputs';
 import { extractUpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
 
@@ -34,11 +32,11 @@ const UnknownText = styled.span`
 `;
 
 const StyledIcon = styled(Icon)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledCheck = styled(CheckCircleFilled)`
-    color: ${green[6]};
+    color: ${(props) => props.theme.colors.textSuccess};
     font-size: 14px;
 `;
 

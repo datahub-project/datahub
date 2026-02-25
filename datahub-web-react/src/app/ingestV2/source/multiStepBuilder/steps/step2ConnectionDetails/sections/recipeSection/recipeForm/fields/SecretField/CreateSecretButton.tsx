@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import { message } from 'antd';
@@ -19,7 +18,7 @@ const CreateButton = styled(Button)`
     /* width: calc(100% - 24px); */
     /* 
     &:hover {
-        color: ${blue[5]};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 
     .anticon-plus {

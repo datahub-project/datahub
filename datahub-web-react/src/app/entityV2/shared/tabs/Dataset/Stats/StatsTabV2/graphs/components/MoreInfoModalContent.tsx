@@ -22,10 +22,8 @@ const MoreInfoModalContent = () => {
 
     return (
         <div>
-            <Text color="gray" size="md">
-                Turn on profiling for the {platformName} source in order to see stats here.
-            </Text>
-            <Text color="gray" size="md">
+            <Text size="md">Turn on profiling for the {platformName} source in order to see stats here.</Text>
+            <Text size="md">
                 You can{' '}
                 <a href={VIEW_DOCUMENTATION_LINK} onClick={sendAnalytics} target="_blank" rel="noreferrer noopener">
                     view documentation

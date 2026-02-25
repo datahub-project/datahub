@@ -97,7 +97,7 @@ export default function SimpleSelectRole({
             return (
                 <LoadMoreContainer ref={observerRef}>
                     <LoadingOutlined />
-                    <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
+                    <Text size="sm" style={{ marginLeft: 8 }}>
                         Loading more roles...
                     </Text>
                 </LoadMoreContainer>
@@ -109,7 +109,7 @@ export default function SimpleSelectRole({
             <Tooltip title={option.value || 'No URN'} placement="right">
                 <OptionContainer>
                     {option.icon}
-                    <Text weight="semiBold" size="md" color="gray">
+                    <Text weight="semiBold" size="md">
                         {option.label}
                     </Text>
                 </OptionContainer>

@@ -3,7 +3,6 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
 import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
 import {
@@ -42,7 +41,7 @@ export const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     white-space: nowrap;
 `;
 
@@ -50,7 +49,7 @@ const PlatformDivider = styled.div`
     display: inline-block;
     padding-left: 8px;
     margin-right: 8px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
+    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
     height: 18px;
     vertical-align: text-top;
 `;

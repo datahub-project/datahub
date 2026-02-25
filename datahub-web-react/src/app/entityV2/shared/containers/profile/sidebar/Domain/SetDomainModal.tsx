@@ -1,10 +1,10 @@
 import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
@@ -37,6 +37,7 @@ type SelectedDomain = {
 };
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const themeConfig = useTheme();
     const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityContext();
@@ -248,7 +249,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                 <Empty
                                     description="No Domains Found"
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: ANTD_GRAY[7] }}
+                                    style={{ color: themeConfig.colors.textTertiary }}
                                 />
                             }
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}

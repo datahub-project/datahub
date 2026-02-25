@@ -1,6 +1,6 @@
-import { Card, Icon, Text, colors } from '@components';
+import { Card, Icon, Text } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledIcon } from '@app/homeV3/styledComponents';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
@@ -13,7 +13,7 @@ const StyledEditor = styled(Editor)`
     &&& {
         .remirror-editor {
             padding: 0;
-            color: ${colors.violet[500]};
+            color: ${(props) => props.theme.colors.iconBrand};
 
             p {
                 margin-bottom: 0;
@@ -31,23 +31,24 @@ const StyledEditor = styled(Editor)`
     }
 `;
 
-const cardStyles = {
-    backgroundColor: colors.violet[0],
-    padding: '8px',
-    border: 'none',
-};
-
 interface Props {
     announcement: Post;
     onDismiss: (urn: string) => void;
 }
 
 export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
+    const theme = useTheme();
+
+    const cardStyles = {
+        backgroundColor: theme.colors.bgSurfaceBrand,
+        padding: '8px',
+        border: 'none',
+    };
     return (
         <Card
-            icon={<Icon icon="MegaphoneSimple" source="phosphor" color="violet" weight="fill" size="2xl" />}
+            icon={<Icon icon="MegaphoneSimple" source="phosphor" color="iconBrand" weight="fill" size="2xl" />}
             title={
-                <Text color="violet" weight="semiBold" size="md" lineHeight="normal">
+                <Text color="textBrand" weight="semiBold" size="md" lineHeight="normal">
                     {announcement.content.title}
                 </Text>
             }
@@ -60,7 +61,7 @@ export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
                 <StyledIcon
                     icon="X"
                     source="phosphor"
-                    color="violet"
+                    color="iconBrand"
                     size="xl"
                     onClick={() => onDismiss(announcement.urn)}
                 />

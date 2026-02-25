@@ -2,7 +2,6 @@ import React, { useContext } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
@@ -45,7 +44,7 @@ const Section = styled.div`
 const SectionHeader = styled.div`
     display: flex;
     height: 20px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
     line-height: 20px;
@@ -57,7 +56,7 @@ const HeaderColumn = styled.th`
     text-align: left;
     vertical-align: top;
     font-weight: normal;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TextColumn = styled.td`

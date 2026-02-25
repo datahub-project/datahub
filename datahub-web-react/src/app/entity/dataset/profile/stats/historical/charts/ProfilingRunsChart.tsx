@@ -8,7 +8,7 @@ import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 export type Props = {

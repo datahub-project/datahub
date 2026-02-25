@@ -2,7 +2,6 @@ import { Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import { Button } from '@src/alchemy-components';
 
@@ -20,7 +19,7 @@ const StyledCheckbox = styled(Checkbox)`
     margin-left: -16px;
     padding-left: 16px;
     :hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
     width: 232px;
 `;

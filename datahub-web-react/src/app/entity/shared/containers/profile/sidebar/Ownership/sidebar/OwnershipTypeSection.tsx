@@ -19,7 +19,7 @@ const OwnershipTypeNameText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 10px;
     line-height: 14px;
-    color: #434343;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const OwnersContainer = styled.div`

@@ -48,7 +48,7 @@ const EnvironmentNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = '#000';
+    const color = 'inherit';
 
     return (
         <ExpandableNode

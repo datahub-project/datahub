@@ -24,10 +24,11 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     border-radius: 8px;
     cursor: pointer;
     width: ${(props) => props.entity.type === EntityType.GlossaryTerm && 'fit-content'};
-    border: ${(props) => (props.entity.type === EntityType.GlossaryTerm ? '1px solid #C1C4D0' : 'none')};
+    border: ${(props) =>
+        props.entity.type === EntityType.GlossaryTerm ? `1px solid ${props.theme.colors.border}` : 'none'};
 
     :hover {
-        ${(props) => props.showHover && 'background-color: #f5f7fa;'}
+        ${(props) => props.showHover && `background-color: ${props.theme.colors.bgSurface};`}
     }
 
     > a {
@@ -58,7 +59,7 @@ const LinkButton = styled(Link)<{ $includePadding: boolean }>`
 `;
 
 const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
-    color: #52596c;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;

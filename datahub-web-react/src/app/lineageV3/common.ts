@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 
@@ -25,8 +24,8 @@ export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handle
 
 export const VERTICAL_HANDLE = 'vertical';
 
-export const HOVER_COLOR = colors.violet[300];
-export const SELECT_COLOR = colors.violet[500];
+export const HOVER_COLOR = '#8C7EE0';
+export const SELECT_COLOR = '#533FD1';
 
 type Urn = string;
 

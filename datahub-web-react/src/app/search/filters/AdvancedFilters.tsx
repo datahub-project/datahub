@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
 import { AdvancedSearchAddFilterSelect } from '@app/search/AdvancedSearchAddFilterSelect';
 import { AdvancedSearchFilter } from '@app/search/AdvancedSearchFilter';
@@ -23,7 +22,7 @@ const AnyAllToggle = styled.div`
 
 const EmptyStateSection = styled.div`
     padding: 6px 20px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
 `;
 

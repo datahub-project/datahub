@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     ArrowCounterClockwise,
     ArrowsCounterClockwise,
@@ -118,19 +117,36 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (status?: string) => {
+export const getExecutionRequestStatusDisplayColor = (
+    status?: string,
+    themeColors?: {
+        textInformation?: string;
+        textSuccess?: string;
+        textWarning?: string;
+        textError?: string;
+        iconBrand?: string;
+        textSecondary?: string;
+    },
+) => {
+    const info = themeColors?.textInformation ?? '#09739A';
+    const success = themeColors?.textSuccess ?? '#77B750';
+    const warning = themeColors?.textWarning ?? '#EEAE09';
+    const error = themeColors?.textError ?? '#CD0D24';
+    const brand = themeColors?.iconBrand ?? '#4C39BE';
+    const neutral = themeColors?.textSecondary ?? '#5F6685';
+
     return (
-        (status === RUNNING && colors.blue[1000]) ||
-        (status === SUCCESS && colors.green[500]) ||
-        (status === SUCCEEDED_WITH_WARNINGS && colors.yellow[500]) ||
-        (status === FAILURE && colors.red[500]) ||
-        (status === UP_FOR_RETRY && colors.violet[600]) ||
-        (status === CANCELLED && colors.gray[1700]) ||
-        (status === ROLLED_BACK && colors.yellow[500]) ||
-        (status === ROLLING_BACK && colors.yellow[500]) ||
-        (status === ROLLBACK_FAILED && colors.red[500]) ||
-        (status === ABORTED && colors.red[500]) ||
-        colors.gray[1700]
+        (status === RUNNING && info) ||
+        (status === SUCCESS && success) ||
+        (status === SUCCEEDED_WITH_WARNINGS && warning) ||
+        (status === FAILURE && error) ||
+        (status === UP_FOR_RETRY && brand) ||
+        (status === CANCELLED && neutral) ||
+        (status === ROLLED_BACK && warning) ||
+        (status === ROLLING_BACK && warning) ||
+        (status === ROLLBACK_FAILED && error) ||
+        (status === ABORTED && error) ||
+        neutral
     );
 };
 

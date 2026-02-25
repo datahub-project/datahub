@@ -4,13 +4,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import DomainIcon from '@app/domain/DomainIcon';
-import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
 import { pluralize } from '@app/shared/textUtil';
 
 import { SearchResultFields_Domain_Fragment } from '@graphql/search.generated';
 
 const Wrapper = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     display: flex;
     align-items: center;

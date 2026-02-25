@@ -27,13 +27,18 @@ export class TagEntity implements Entity<Tag> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <TagFilled
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || 'var(--theme-icon, #B37FEB)' }}
+                />
+            );
         }
 
         return (
             <TagOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'var(--theme-icon)' }}
             />
         );
     };

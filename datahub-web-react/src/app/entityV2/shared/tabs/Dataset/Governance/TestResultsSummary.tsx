@@ -2,11 +2,9 @@ import { CheckCircleFilled, CloseCircleFilled, StopOutlined } from '@ant-design/
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -15,7 +13,7 @@ const SummaryHeader = styled.div`
     padding-bottom: 20px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SummaryContainer = styled.div``;
@@ -42,14 +40,14 @@ type Props = {
     summary: TestsSummary;
 };
 
-const getSummaryIcon = (summary: TestsSummary) => {
+const getSummaryIcon = (summary: TestsSummary, colors: ColorTheme) => {
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
-    return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <CloseCircleFilled style={{ color: colors.iconError, fontSize: 28 }} />;
 };
 
 const getSummaryMessage = (summary: TestsSummary) => {
@@ -66,7 +64,8 @@ const getSummaryMessage = (summary: TestsSummary) => {
 };
 
 export const TestResultsSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(summary, theme.colors);
     const summaryMessage = getSummaryMessage(summary);
     const subtitleMessage = `${summary.passing} passing tests, ${summary.failing} failing tests`;
     return (

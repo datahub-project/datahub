@@ -154,7 +154,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                 <FilterHeaderCell>
                     <FieldLabel label="Name or Pattern" />
                     <Popover content={<RegexTooltipContent />}>
-                        <Icon icon="Info" source="phosphor" color="gray" size="lg" />
+                        <Icon icon="Info" source="phosphor" size="lg" />
                     </Popover>
                 </FilterHeaderCell>
                 <div /> {/* Empty cell for the remove button column */}

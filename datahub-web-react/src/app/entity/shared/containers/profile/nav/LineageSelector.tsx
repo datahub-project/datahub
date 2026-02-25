@@ -1,11 +1,10 @@
-import { blue, grey } from '@ant-design/colors';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { Badge } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
@@ -37,12 +36,12 @@ const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
     font-size: 14px;
     color: ${(props) => {
         if (props.disabled) {
-            return grey[2];
+            return props.theme.colors.textDisabled;
         }
-        return !props.isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
+        return !props.isSelected ? props.theme.colors.text : props.theme.colors.textSelected;
     }};
     &:hover {
-        color: ${(props) => (props.disabled ? grey[2] : props.theme.styles['primary-color'] || blue[4])};
+        color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : props.theme.colors.textHover)};
         cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
     }
 `;
@@ -59,9 +58,9 @@ const LineageSummary = styled.div`
 
 const LineageBadge = styled(Badge)`
     &&& .ant-badge-count {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${ANTD_GRAY[9]};
-        border: 1px solid ${ANTD_GRAY[5]};
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.text};
+        border: 1px solid ${(props) => props.theme.colors.border};
         font-size: 12px;
         font-weight: 600;
         height: 22px;

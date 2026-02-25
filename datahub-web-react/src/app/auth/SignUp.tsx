@@ -28,19 +28,19 @@ const FormInput = styled(Input)`
     &&& {
         height: 32px;
         font-size: 12px;
-        border: 1px solid #555555;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 5px;
         background-color: transparent;
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         line-height: 1.5715;
     }
     > .ant-input {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
     > .ant-input:hover {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 14px;
         background-color: transparent;
     }
@@ -48,12 +48,12 @@ const FormInput = styled(Input)`
 
 const TitleSelector = styled(Select)`
     .ant-select-selector {
-        color: white;
-        border: 1px solid #555555 !important;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
+        border: 1px solid ${(props) => props.theme.colors.border} !important;
         background-color: transparent !important;
     }
     .ant-select-arrow {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
     }
 `;
 
@@ -156,16 +156,14 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your email' }]}
                             name="email"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Email</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Email</span>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your name' }]}
                             name="fullName"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Full Name</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Full Name</span>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="name" />
                         </StyledFormItem>
@@ -184,8 +182,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                 }),
                             ]}
                             name="password"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Password</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Password</span>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </StyledFormItem>
@@ -202,16 +199,16 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                 }),
                             ]}
                             name="confirmPassword"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Confirm Password</label>}
+                            label={
+                                <span style={{ color: themeConfig.colors.textOnFillDefault }}>Confirm Password</span>
+                            }
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="confirmPassword" />
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[{ required: true, message: 'Please fill in your title!' }]}
                             name="title"
-                            // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Title</label>}
+                            label={<span style={{ color: themeConfig.colors.textOnFillDefault }}>Title</span>}
                         >
                             <TitleSelector placeholder="Title">
                                 <Select.Option value="Data Analyst">Data Analyst</Select.Option>

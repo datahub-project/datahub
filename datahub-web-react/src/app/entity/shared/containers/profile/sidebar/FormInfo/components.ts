@@ -34,7 +34,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ addLineHeight?: boolean
     margin-right: 8px;
     height: 13.72px;
     width: 17.5px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
 
@@ -42,19 +42,19 @@ export const StyledReadFilled = styled(ReadFilled)<{ addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 13.72px;
     width: 17.5px;
-    color: #7532a4;
+    color: ${(props) => props.theme.colors.textBrand};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
 
 export const CTAWrapper = styled.div<{ shouldDisplayBackground?: boolean }>`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     ${(props) =>
         props.shouldDisplayBackground &&
         `
         border-radius: 8px;
         padding: 16px;
-        background-color: #f9f0ff;
-        border: 1px solid #8338b8;
+        background-color: ${props.theme.colors.bgSurface};
+        border: 1px solid ${props.theme.colors.borderBrand};
         `}
 `;

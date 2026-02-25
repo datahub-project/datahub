@@ -9,7 +9,7 @@ import { pointerClosestCollisionDetector } from '@app/homeV3/template/components
 // Styled wrapper for drag overlay to make it look like it's floating
 const DragOverlayWrapper = styled.div`
     transform: rotate(5deg) scale(1.05);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: ${(props) => props.theme.colors.shadowXl};
     border-radius: 8px;
     opacity: 0.95;
     /* Performance optimizations */

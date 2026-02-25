@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Form, Select, Tag, Typography, message } from 'antd';
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -16,7 +16,6 @@ import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/type
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
@@ -79,6 +78,7 @@ export const EditOwnersModal = ({
     title,
     defaultValues,
 }: Props) => {
+    const themeConfig = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
@@ -411,7 +411,7 @@ export const EditOwnersModal = ({
                                     <Empty
                                         description="No Users or Groups Found"
                                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
+                                        style={{ color: themeConfig.colors.textTertiary }}
                                     />
                                 ) : null
                             }

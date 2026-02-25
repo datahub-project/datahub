@@ -2,7 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Check } from '@phosphor-icons/react';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';
@@ -10,7 +10,7 @@ import { ResolvedSection } from '@app/entityV2/shared/tabs/Incident/ResolvedSect
 import { noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
 import { ResolverNameContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
-import { Button, Pill, Popover, colors } from '@src/alchemy-components';
+import { Button, Pill, Popover } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { CorpUser, EntityPrivileges, IncidentState } from '@src/types.generated';
@@ -37,6 +37,7 @@ export const IncidentResolveButton = ({
     refetch: () => void;
     privileges?: EntityPrivileges;
 }) => {
+    const theme = useTheme();
     const canEditIncidents = privileges?.canEditIncidents || false;
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
@@ -69,7 +70,7 @@ export const IncidentResolveButton = ({
     };
 
     const checkIconRenderer = () => {
-        return <Check color="#248F5B" height={9} width={12} />;
+        return <Check color={theme.colors.iconSuccess} height={9} width={12} />;
     };
 
     const showPopoverWithResolver = loading ? (
@@ -102,8 +103,8 @@ export const IncidentResolveButton = ({
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            backgroundColor: colors.gray[1300],
-                            color: colors.green[1000],
+                            backgroundColor: theme.colors.bgSurfaceSuccess,
+                            color: theme.colors.textSuccess,
                         }}
                     />
                 </div>

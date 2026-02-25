@@ -6,7 +6,7 @@ import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/Sid
 import { ErModelRelationship } from '@src/types.generated';
 
 const CardinalitySidebar = styled.div`
-    color: #000000;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 400;
     display: flex;
     flex-flow: column nowrap;

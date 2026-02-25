@@ -3,14 +3,13 @@ import { Button, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 
 const Container = styled.div`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     padding: 12px 12px 16px 24px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin-bottom: 20px;
 `;
 
@@ -32,7 +31,7 @@ const Description = styled.div`
 `;
 
 const StyledCloseOutlined = styled(CloseOutlined)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
 `;
 
 interface Props {

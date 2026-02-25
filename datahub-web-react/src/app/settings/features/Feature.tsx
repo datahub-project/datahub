@@ -3,8 +3,6 @@ import { Button, Card, Divider, Switch, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 const Title = styled(Typography.Title)`
     && {
         margin-bottom: 8px;
@@ -38,7 +36,7 @@ const SettingsOptionRow = styled.div`
 `;
 
 const DescriptionText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 11px;
 `;
 
@@ -57,23 +55,23 @@ const OptionTitle = styled(Typography.Text)`
     font-size: 12px;
 `;
 
-const learnMoreLinkStyle = {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    color: '#1890FF',
-    fontSize: '12px',
-    cursor: 'pointer',
-};
+const LearnMoreLink = styled.a`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: ${(props) => props.theme.colors.hyperlinks};
+    font-size: 12px;
+    cursor: pointer;
+`;
 
 const NewTag = styled.div`
     padding: 4px 8px;
 
     border-radius: 24px;
-    background: #f1fbfe;
+    background: ${(props) => props.theme.colors.bgSurface};
 
-    color: #09739a;
+    color: ${(props) => props.theme.colors.textInformation};
     font-size: 12px;
 `;
 
@@ -81,9 +79,9 @@ const DataHubOnlyTag = styled.div`
     padding: 2px 8px;
 
     border-radius: 24px;
-    background: #c9fff2;
+    background: ${(props) => props.theme.colors.bgSurface};
 
-    color: #50a494;
+    color: ${(props) => props.theme.colors.textSuccess};
     font-size: 12px;
 `;
 
@@ -128,9 +126,9 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
             </div>
             <div>
                 {learnMoreLink && (
-                    <a href={learnMoreLink} target="_blank" style={learnMoreLinkStyle} rel="noreferrer">
+                    <LearnMoreLink href={learnMoreLink} target="_blank" rel="noreferrer">
                         Learn more <ArrowRightOutlined />
-                    </a>
+                    </LearnMoreLink>
                 )}
             </div>
         </FeatureRow>

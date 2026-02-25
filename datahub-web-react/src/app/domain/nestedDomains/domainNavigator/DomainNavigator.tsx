@@ -1,10 +1,9 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
 import useListDomains from '@app/domain/useListDomains';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { Domain } from '@types';
 
@@ -23,6 +22,7 @@ interface Props {
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
     const { sortedDomains, error } = useListDomains({});
+    const theme = useTheme();
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
     return (
@@ -32,7 +32,7 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride,
                 <Empty
                     description="No Domains Found"
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ color: ANTD_GRAY[7] }}
+                    style={{ color: theme.colors.textTertiary }}
                 />
             )}
             {!noDomainsFound &&

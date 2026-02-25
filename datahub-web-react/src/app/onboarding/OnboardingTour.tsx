@@ -2,13 +2,12 @@ import { Button } from 'antd';
 import React, { useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Tour from 'reactour';
+import { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
@@ -21,10 +20,10 @@ type Props = {
 export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
-    const isThemeV2 = useIsThemeV2();
+    const theme = useTheme();
     const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
     const location = useLocation();
-    const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
+    const accentColor = theme.colors.bgSurfaceBrand;
 
     useEffect(() => {
         function handleKeyDown(e) {

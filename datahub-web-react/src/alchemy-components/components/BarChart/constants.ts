@@ -1,42 +1,40 @@
 import { ColorScheme, ColorSchemeParams } from '@components/components/BarChart/types';
 
-import { colors } from '@src/alchemy-components/theme';
+import ColorTheme from '@conf/theme/colorThemes/types';
 
-export const VIOLET_COLOR_SCHEME_PRARAMS: ColorSchemeParams = {
-    mainColor: colors.violet[500],
-    alternativeColor: '#917FFF',
-};
-
-export const BLUE_COLOR_SCHEME_PARAMS: ColorSchemeParams = {
-    mainColor: colors.blue[400],
-    alternativeColor: '#CCEBF6',
-};
-
-export const RED_COLOR_SCHEME_PARAMS: ColorSchemeParams = {
-    mainColor: colors.red[400],
-    alternativeColor: colors.red[200],
-};
-
-export const ORANGE_COLOR_SCHEME_PARAMS: ColorSchemeParams = {
-    mainColor: '#FFD8B1',
-    alternativeColor: '#FFF3E0',
-};
-
-export const GREEN_COLOR_SCHEME_PARAMS: ColorSchemeParams = {
-    mainColor: colors.green[400],
-    alternativeColor: colors.green[200],
-};
+export const getColorSchemeParams = (themeColors: ColorTheme): Record<ColorScheme, ColorSchemeParams> => ({
+    [ColorScheme.Violet]: {
+        mainColor: themeColors.chartsBrandMedium,
+        alternativeColor: themeColors.chartsBrandMediumAlpha,
+    },
+    [ColorScheme.Blue]: {
+        mainColor: themeColors.chartsInformationMedium,
+        alternativeColor: themeColors.chartsInformationBase,
+    },
+    [ColorScheme.Pink]: {
+        mainColor: themeColors.chartsWineMedium,
+        alternativeColor: themeColors.chartsWineLow,
+    },
+    [ColorScheme.Orange]: {
+        mainColor: themeColors.chartsTangerineMedium,
+        alternativeColor: themeColors.chartsTangerineBase,
+    },
+    [ColorScheme.Green]: {
+        mainColor: themeColors.chartsGreenMedium,
+        alternativeColor: themeColors.chartsGreenLow,
+    },
+});
 
 export const COLOR_SCHEMES: ColorScheme[] = Object.values(ColorScheme);
 
 export const DEFAULT_COLOR_SCHEME = ColorScheme.Violet;
 
-export const COLOR_SCHEME_TO_PARAMS = {
-    [ColorScheme.Violet]: VIOLET_COLOR_SCHEME_PRARAMS,
-    [ColorScheme.Blue]: BLUE_COLOR_SCHEME_PARAMS,
-    [ColorScheme.Pink]: RED_COLOR_SCHEME_PARAMS,
-    [ColorScheme.Orange]: ORANGE_COLOR_SCHEME_PARAMS,
-    [ColorScheme.Green]: GREEN_COLOR_SCHEME_PARAMS,
+export const COLOR_SCHEME_TO_PARAMS: Record<ColorScheme, ColorSchemeParams> = {
+    [ColorScheme.Violet]: { mainColor: '#705EE4', alternativeColor: '#917FFF99' },
+    [ColorScheme.Blue]: { mainColor: '#4897B4', alternativeColor: '#CCEBF6' },
+    [ColorScheme.Pink]: { mainColor: '#E99393', alternativeColor: '#F2C1C1' },
+    [ColorScheme.Orange]: { mainColor: '#FFD8B1', alternativeColor: '#FFF3E0' },
+    [ColorScheme.Green]: { mainColor: '#92C573', alternativeColor: '#C0DEAF' },
 };
 
 export const DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL = 7;

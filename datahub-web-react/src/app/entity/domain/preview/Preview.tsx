@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import DomainIcon from '@app/domain/DomainIcon';
 import DomainEntitiesSnippet from '@app/entity/domain/preview/DomainEntitiesSnippet';
@@ -25,6 +26,7 @@ export const Preview = ({
     logoComponent?: JSX.Element;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
@@ -36,7 +38,7 @@ export const Preview = ({
                 <DomainIcon
                     style={{
                         fontSize: 14,
-                        color: '#BFBFBF',
+                        color: theme.colors.textDisabled,
                     }}
                 />
             }

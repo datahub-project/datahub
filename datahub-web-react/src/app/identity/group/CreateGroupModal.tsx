@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Editor, Modal } from '@src/alchemy-components';
@@ -19,7 +18,7 @@ type Props = {
 };
 
 const StyledEditor = styled(Editor)`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
 `;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {

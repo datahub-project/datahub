@@ -3,8 +3,6 @@ import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 const StyledInput = styled(Input)`
     border-radius: 70px;
     max-width: 300px;
@@ -12,7 +10,7 @@ const StyledInput = styled(Input)`
 
 const TableHeader = styled.div`
     padding: 8px 16px;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface Props {

@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     ResultStatusType,
     getResultStatusText,
@@ -17,8 +16,8 @@ const Pill = styled.div<{ color: string; highlightColor: string }>`
     align-items: center;
     border-radius: 20px;
     padding: 4px 12px;
-    background-color: ${(props) => props.highlightColor || ANTD_GRAY[3]};
-    color: ${(props) => props.color || ANTD_GRAY[3]};
+    background-color: ${(props) => props.highlightColor || props.theme.colors.bgSurface};
+    color: ${(props) => props.color || props.theme.colors.bgSurface};
     :hover {
         opacity: 0.8;
     }

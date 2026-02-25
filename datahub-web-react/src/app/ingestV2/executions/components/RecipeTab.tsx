@@ -40,9 +40,7 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
                 Recipe
             </Heading>
             <SectionSubHeader>
-                <SubHeaderParagraph color="gray" colorLevel={600}>
-                    The configurations used for this sync with the data source.
-                </SubHeaderParagraph>
+                <SubHeaderParagraph>The configurations used for this sync with the data source.</SubHeaderParagraph>
                 <Tooltip title="Download Recipe">
                     <Button variant="text" onClick={downloadRecipe}>
                         <DownloadOutlined />

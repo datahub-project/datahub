@@ -10,7 +10,6 @@ import styled from 'styled-components';
 import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
 import { calculateMentionsPlacement } from '@components/components/Editor/extensions/mentions/utils';
-import { colors } from '@components/theme';
 
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
@@ -20,9 +19,9 @@ import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.
  * Used by both FloatingWrapper (document editor) and portal (chat sidebar).
  */
 const DropdownWrapper = styled.div`
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     overflow: hidden;
 
     .ant-spin-container {
@@ -43,7 +42,7 @@ const PortalPositioner = styled.div<{ $bottom: string; $left: number }>`
 
 const StyledEmpty = styled(Empty)`
     margin: 16px;
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface MentionsComponentProps {

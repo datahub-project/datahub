@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Image, Typography } from 'antd';
@@ -6,7 +5,6 @@ import cronstrue from 'cronstrue';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import {
     RUNNING,
@@ -53,15 +51,15 @@ const TypeWrapper = styled.div`
 const CliBadge = styled.span`
     margin-left: 20px;
     border-radius: 15px;
-    border: 1px solid ${ANTD_GRAY[8]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 1px 4px;
     font-size: 10px;
 
     font-size: 8px;
     font-weight: bold;
     letter-spacing: 0.5px;
-    border: 1px solid ${blue[6]};
-    color: ${blue[6]};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
 
     svg {
         display: none;

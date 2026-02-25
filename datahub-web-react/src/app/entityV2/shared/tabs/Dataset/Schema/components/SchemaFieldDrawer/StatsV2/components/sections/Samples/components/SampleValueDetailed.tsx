@@ -2,14 +2,14 @@ import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { Button, Text, borders, colors, radius, spacing } from '@src/alchemy-components';
+import { Button, Text, borders, radius, spacing } from '@src/alchemy-components';
 
 interface SampleValueDetailedProps {
     sample: string;
 }
 
 const Container = styled.div`
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     padding: ${spacing.md};
     border-radius: ${radius.lg};
     display: flex;
@@ -31,9 +31,7 @@ export default function SampleValueDetailed({ sample }: SampleValueDetailedProps
 
     return (
         <Container>
-            <Sample type="pre" color="gray">
-                {sample}
-            </Sample>
+            <Sample type="pre">{sample}</Sample>
 
             <Button
                 icon={{ icon: 'ContentCopy' }}

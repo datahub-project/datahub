@@ -15,7 +15,6 @@ import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ManageOwnership } from '@app/entity/ownership/ManageOwnership';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { ManageViews } from '@app/entity/view/ManageViews';
 import { ManageIdentities } from '@app/identity/ManageIdentities';
 import { ManagePermissions } from '@app/permissions/ManagePermissions';
@@ -38,7 +37,7 @@ const PageContainer = styled.div`
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    border-right: 1px solid ${ANTD_GRAY[5]};
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
 `;
@@ -72,9 +71,9 @@ const NewTag = styled.span`
     margin-left: 8px;
 
     border-radius: 24px;
-    background: #f1fbfe;
+    background: ${(props) => props.theme.colors.bgSurface};
 
-    color: #09739a;
+    color: ${(props) => props.theme.colors.textInformation};
     font-size: 12px;
 `;
 
