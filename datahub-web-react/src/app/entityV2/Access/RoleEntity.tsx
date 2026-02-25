@@ -1,5 +1,4 @@
-import { TagOutlined } from '@ant-design/icons';
-import { Tag } from '@phosphor-icons/react';
+import { IdentificationBadge } from '@phosphor-icons/react';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +11,7 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 
 import { EntityType, Role, SearchResult } from '@types';
 
-const PreviewTagIcon = styled(TagOutlined)`
+const PreviewRoleIcon = styled(IdentificationBadge).attrs({ weight: 'regular' })`
     font-size: 20px;
 `;
 // /**
@@ -23,9 +22,9 @@ export class RoleEntity implements Entity<Role> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <Tag
+            <IdentificationBadge
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
@@ -57,7 +56,7 @@ export class RoleEntity implements Entity<Role> {
                 name={this.displayName(data)}
                 urn={data.urn}
                 url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-                logoComponent={<PreviewTagIcon />}
+                logoComponent={<PreviewRoleIcon />}
                 entityType={EntityType.Role}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}

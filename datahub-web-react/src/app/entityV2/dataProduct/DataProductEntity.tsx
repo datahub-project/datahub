@@ -1,5 +1,5 @@
 import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets, Package } from '@phosphor-icons/react';
+import { ListBullets, Storefront } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -54,9 +54,9 @@ export class DataProductEntity implements Entity<DataProduct> {
         }
 
         return (
-            <Package
+            <Storefront
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />

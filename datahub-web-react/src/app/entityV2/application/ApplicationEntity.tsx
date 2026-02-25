@@ -45,7 +45,7 @@ export class ApplicationEntity implements Entity<Application> {
         return (
             <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />

@@ -19,7 +19,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
         return (
             <ListDashes
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />

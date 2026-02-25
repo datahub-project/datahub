@@ -1,5 +1,5 @@
 import { FileOutlined } from '@ant-design/icons';
-import { Terminal } from '@phosphor-icons/react';
+import { FileSql } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -26,9 +26,9 @@ export class QueryEntity implements Entity<Query> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <Terminal
+            <FileSql
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />

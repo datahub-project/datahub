@@ -3,7 +3,7 @@ import {
     FileText,
     ListBullets,
     Share,
-    Terminal,
+    Swap,
     TreeStructure,
     WarningCircle,
 } from '@phosphor-icons/react';
@@ -67,9 +67,9 @@ export class DataJobEntity implements Entity<DataJob> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <Terminal
+            <Swap
                 className={TYPE_ICON_CLASS_NAME}
-                size={fontSize || 20}
+                size={fontSize || 14}
                 color={color || 'currentColor'}
                 weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
