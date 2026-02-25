@@ -8,7 +8,6 @@ import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IconStyleType } from '@app/entityV2/Entity';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -33,7 +32,7 @@ const EntityContent = styled.div`
 
 const EntityTypeWrapper = styled.div`
     font-size: 12px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const TypeIcon = styled.span`
@@ -72,7 +71,7 @@ export default function EmbeddedHeader() {
         });
     }
 
-    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
+    const typeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
     const entityTypePathName = entityRegistry.getPathName(entityType);
