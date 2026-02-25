@@ -1873,6 +1873,11 @@ type FeatureFlagsConfig {
   documentationFileUploadV1: Boolean!
 
   """
+  If enabled, allows assets to belong to multiple data products simultaneously.
+  """
+  multipleDataProductsPerAsset: Boolean!
+
+  """
   If enabled, allows tuning of freshness assertions.
   """
   freshnessAssertionTuningEnabled: Boolean!

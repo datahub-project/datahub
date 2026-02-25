@@ -9,6 +9,7 @@ import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormCo
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
+import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -20,7 +21,7 @@ import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
 import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
-import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useBatchAddToDataProductsMutation, useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, DataProduct, Entity, EntityType } from '@types';
 
@@ -32,27 +33,30 @@ const LoadingWrapper = styled.div`
 
 interface Props {
     urns: string[];
-    currentDataProduct: DataProduct | null;
+    currentDataProducts: DataProduct[];
     onModalClose: () => void;
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
-    setDataProduct?: (dataProduct: DataProduct | null) => void;
+    setDataProducts?: (dataProducts: DataProduct[]) => void;
     refetch?: () => void;
 }
 
 export default function SetDataProductModal({
     urns,
-    currentDataProduct,
+    currentDataProducts,
     onModalClose,
     titleOverride,
     onOkOverride,
-    setDataProduct,
+    setDataProducts,
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
+    const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
-    const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
+    const [batchAddToDataProductsMutation] = useBatchAddToDataProductsMutation();
+
+    const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(currentDataProducts);
     const inputEl = useRef(null);
     useAutoFocusInModal(inputEl);
     const { isInFormContext } = useEntityFormContext();
@@ -105,47 +109,60 @@ export default function SetDataProductModal({
         }
     };
 
+    const handleMutationSuccess = (successMessage: string) => {
+        message.success({ content: successMessage, duration: 3 });
+        setDataProducts?.(selectedDataProducts);
+        sendAnalytics();
+        onModalClose();
+        setSelectedDataProducts([]);
+        setTimeout(() => {
+            refetch?.();
+            reloadByKeyType([getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)]);
+        }, 2000);
+    };
+
+    const handleMutationError = (e: any, errorMessage: string) => {
+        message.destroy();
+        message.error(
+            handleBatchError(urns, e, {
+                content: `${errorMessage} \n ${e.message || ''}`,
+                duration: 3,
+            }),
+        );
+    };
+
     function onOk() {
-        if (!selectedDataProduct) return;
+        if (selectedDataProducts.length === 0) return;
 
         if (onOkOverride) {
-            onOkOverride(selectedDataProduct?.urn);
+            onOkOverride(selectedDataProducts[0]?.urn);
             return;
         }
 
-        batchSetDataProductMutation({
-            variables: {
-                input: {
-                    resourceUrns: urns,
-                    dataProductUrn: selectedDataProduct.urn,
+        if (isMultipleDataProductsEnabled) {
+            const dataProductUrns = selectedDataProducts.map((dp) => dp.urn);
+            batchAddToDataProductsMutation({
+                variables: {
+                    input: {
+                        resourceUrns: urns,
+                        dataProductUrns,
+                    },
                 },
-            },
-        })
-            .then(() => {
-                message.success({ content: 'Updated Data Product!', duration: 3 });
-                setDataProduct?.(selectedDataProduct);
-                sendAnalytics();
-                onModalClose();
-                setSelectedDataProduct(null);
-                // refetch is for search results, need to set a timeout
-                setTimeout(() => {
-                    refetch?.();
-                    // Reload modules
-                    // Assets - as assets module on data product summary tab could be updated
-                    reloadByKeyType([
-                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
-                    ]);
-                }, 2000);
             })
-            .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: `Failed to add assets to Data Product: \n ${e.message || ''}`,
-                        duration: 3,
-                    }),
-                );
-            });
+                .then(() => handleMutationSuccess('Updated Data Products!'))
+                .catch((e) => handleMutationError(e, 'Failed to add assets to Data Products:'));
+        } else {
+            batchSetDataProductMutation({
+                variables: {
+                    input: {
+                        resourceUrns: urns,
+                        dataProductUrn: selectedDataProducts[0].urn,
+                    },
+                },
+            })
+                .then(() => handleMutationSuccess('Updated Data Product!'))
+                .catch((e) => handleMutationError(e, 'Failed to add assets to Data Product:'));
+        }
     }
 
     function onSelectDataProduct(urn: string) {
@@ -153,11 +170,17 @@ export default function SetDataProductModal({
             (inputEl.current as any).blur();
         }
         const dataProduct = displayedDataProducts?.find((entity) => entity.urn === urn);
-        setSelectedDataProduct((dataProduct as DataProduct) || null);
+        if (dataProduct) {
+            if (isMultipleDataProductsEnabled) {
+                setSelectedDataProducts((prev) => [...prev, dataProduct as DataProduct]);
+            } else {
+                setSelectedDataProducts([dataProduct as DataProduct]);
+            }
+        }
     }
 
-    function onDeselect() {
-        setSelectedDataProduct(null);
+    function onDeselect(urn: string) {
+        setSelectedDataProducts((prev) => prev.filter((dp) => dp.urn !== urn));
     }
 
     // Handle the Enter press
@@ -165,9 +188,7 @@ export default function SetDataProductModal({
         querySelectorToExecuteClick: '#setDataProductButton',
     });
 
-    const selectValue =
-        (selectedDataProduct && [entityRegistry.getDisplayName(EntityType.DataProduct, selectedDataProduct)]) ||
-        undefined;
+    const selectValue = selectedDataProducts.map((dp) => entityRegistry.getDisplayName(EntityType.DataProduct, dp));
 
     const loadingOption = {
         label: (
@@ -198,7 +219,7 @@ export default function SetDataProductModal({
 
     return (
         <Modal
-            title={titleOverride || 'Set Data Product'}
+            title={titleOverride || (isMultipleDataProductsEnabled ? 'Set Data Products' : 'Set Data Product')}
             open
             onCancel={onModalClose}
             getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
@@ -211,7 +232,7 @@ export default function SetDataProductModal({
                 {
                     text: 'Save',
                     variant: 'filled',
-                    disabled: !selectedDataProduct,
+                    disabled: selectedDataProducts.length === 0,
                     onClick: onOk,
                     id: 'setDataProductButton',
                 },
@@ -222,10 +243,11 @@ export default function SetDataProductModal({
                 showSearch
                 defaultOpen
                 filterOption={false}
+                mode={isMultipleDataProductsEnabled ? 'multiple' : undefined}
                 defaultActiveFirstOption={false}
                 placeholder="Search for Data Products..."
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
-                onDeselect={onDeselect}
+                onDeselect={(urn: string) => onDeselect(urn)}
                 onSearch={handleSearch}
                 style={{ width: '100%' }}
                 ref={inputEl}

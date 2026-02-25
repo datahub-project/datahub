@@ -185,6 +185,7 @@ query appConfig {
             contextDocumentsEnabled
             aiPluginsEnabled
             hideLineageInSearchCards
+            multipleDataProductsPerAsset
         }
         chromeExtensionConfig {
             enabled

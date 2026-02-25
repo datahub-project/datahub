@@ -1248,6 +1248,7 @@ featureFlags:
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   # SaaS-only features
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
   # If turned on, the bulk form by question view will be shown by default from the task center

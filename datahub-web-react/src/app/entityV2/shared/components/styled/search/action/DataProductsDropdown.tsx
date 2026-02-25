@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -18,6 +19,7 @@ type Props = {
 export default function DataProductsDropdown({ urns, disabled = false, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isUnsetModalVisible, setIsUnsetModalVisible] = useState(false);
+    const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
     const batchUnsetDataProducts = () => {
@@ -52,16 +54,16 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
     return (
         <>
             <ActionDropdown
-                name="Data Product"
+                name={isMultipleDataProductsEnabled ? 'Data Products' : 'Data Product'}
                 actions={[
                     {
-                        title: 'Set Data Product',
+                        title: isMultipleDataProductsEnabled ? 'Add to Data Products' : 'Set Data Product',
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Data Product',
+                        title: isMultipleDataProductsEnabled ? 'Unset All Data Products' : 'Unset Data Product',
                         onClick: () => {
                             setIsUnsetModalVisible(true);
                         },
@@ -72,7 +74,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
             {isEditModalVisible && (
                 <SetDataProductModal
                     urns={urns}
-                    currentDataProduct={null}
+                    currentDataProducts={[]}
                     onModalClose={() => {
                         setIsEditModalVisible(false);
                     }}
@@ -83,8 +85,8 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 isOpen={isUnsetModalVisible}
                 handleClose={() => setIsUnsetModalVisible(false)}
                 handleConfirm={batchUnsetDataProducts}
-                modalTitle="Data Product will be removed for the selected assets"
-                modalText="Are you sure you want to unset Data Product for these assets?"
+                modalTitle={`Data Product${isMultipleDataProductsEnabled ? 's' : ''} will be removed for the selected assets`}
+                modalText={`Are you sure you want to unset Data Product${isMultipleDataProductsEnabled ? 's' : ''} for these assets?`}
             />
         </>
     );

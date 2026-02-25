@@ -111,3 +111,11 @@ mutation deleteDataProduct($urn: String!) {
 mutation batchSetDataProduct($input: BatchSetDataProductInput!) {
     batchSetDataProduct(input: $input)
 }
+
+mutation batchAddToDataProducts($input: BatchSetDataProductsInput!) {
+    batchAddToDataProducts(input: $input)
+}
+
+mutation batchRemoveFromDataProducts($input: BatchSetDataProductsInput!) {
+    batchRemoveFromDataProducts(input: $input)
+}

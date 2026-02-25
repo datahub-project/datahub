@@ -418,6 +418,86 @@ public class DataProductService {
   }
 
   /**
+   * Adds multiple assets to a single data product without removing them from other data products.
+   * This is an additive operation that preserves existing data product memberships.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param opContext the operation context
+   * @param dataProductUrn the urn of the data product to add assets to
+   * @param resources the list of entities to add to the data product
+   * @param appSource optional indication of the origin for this request
+   */
+  public void batchAddToDataProduct(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn dataProductUrn,
+      @Nonnull final List<ResourceReference> resources,
+      @Nullable final String appSource) {
+    // Delegate to existing batchSetDataProduct which already does additive operations
+    batchSetDataProduct(opContext, dataProductUrn, resources, appSource);
+  }
+
+  /**
+   * Removes multiple assets from a single data product without affecting their membership in other
+   * data products.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param opContext the operation context
+   * @param dataProductUrn the urn of the data product to remove assets from
+   * @param resources the list of entities to remove from the data product
+   * @param appSource optional indication of the origin for this request
+   */
+  public void batchRemoveFromDataProduct(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn dataProductUrn,
+      @Nonnull final List<ResourceReference> resources,
+      @Nullable final String appSource) {
+    try {
+      final DataProductProperties dataProductProperties =
+          getDataProductProperties(opContext, dataProductUrn);
+      if (dataProductProperties == null) {
+        throw new RuntimeException(
+            "Failed to batch remove from data product as data product does not exist");
+      }
+
+      DataProductAssociationArray dataProductAssociations = new DataProductAssociationArray();
+      if (dataProductProperties.hasAssets()) {
+        dataProductAssociations = dataProductProperties.getAssets();
+      }
+
+      // Create a set of URNs to remove for efficient lookup
+      final Set<Urn> urnsToRemove =
+          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet());
+
+      // Filter out associations for the resources being removed
+      final DataProductAssociationArray finalAssociations =
+          dataProductAssociations.stream()
+              .filter(association -> !urnsToRemove.contains(association.getDestinationUrn()))
+              .collect(Collectors.toCollection(DataProductAssociationArray::new));
+
+      dataProductProperties.setAssets(finalAssociations);
+
+      // Create metadata change proposal
+      final MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      // Apply appSource if provided
+      if (appSource != null) {
+        applyAppSource(List.of(mcp), appSource);
+      }
+
+      _entityClient.ingestProposal(opContext, mcp, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to batch remove assets from %s", dataProductUrn), e);
+    }
+  }
+
+  /**
    * Unsets a Data Product for a given entity. Remove this entity from its data product(s).
    *
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
