@@ -1,4 +1,4 @@
-"""BigQuery partition discovery and filter generation with enhanced security."""
+"""BigQuery partition discovery and filter generation."""
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -54,44 +54,17 @@ logger = logging.getLogger(__name__)
 
 
 class PartitionDiscovery:
-    """
-    Handles partition discovery and filter generation for BigQuery tables.
-
-    This class encapsulates all the logic needed to:
-    1. Discover partition columns from table metadata
-    2. Find valid partition values that contain data
-    3. Generate secure partition filters for profiling queries
-    """
+    """Handles partition discovery and filter generation for BigQuery tables."""
 
     def __init__(self, config: BigQueryV2Config):
         self.config = config
-
-        # Thread-local storage for cached partition metadata during a single discovery operation
         self._current_cached_metadata: Optional[Dict] = None
 
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime]
     ) -> Tuple[datetime, datetime]:
-        """
-        Get partition date range from partition ID.
-
-        This method handles the standard BigQuery partition ID formats:
-        - YYYY (yearly)
-        - YYYYMM (monthly)
-        - YYYYMMDD (daily)
-        - YYYYMMDDHH (hourly)
-
-        Args:
-            partition_id: Partition identifier string
-            partition_datetime: Optional datetime to use as base
-
-        Returns:
-            Tuple of (start_datetime, end_datetime) for the partition
-
-        Raises:
-            ValueError: If partition_id format is not recognized
-        """
+        """Get the (start, end) datetime range for a BigQuery partition ID (YYYY/YYYYMM/YYYYMMDD/YYYYMMDDHH)."""
         partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
             4: (relativedelta(years=1), "%Y"),
             6: (relativedelta(months=1), "%Y%m"),
@@ -134,21 +107,7 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
-        """
-        Extract partition columns from table DDL using sqlglot parsing.
-
-        This method uses sqlglot to parse BigQuery CREATE TABLE DDL
-        and extract partition column information from the PARTITION BY clause.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: BigQuery dataset name
-            execute_query_func: Function to execute queries safely
-
-        Returns:
-            Dictionary mapping column names to data types
-        """
+        """Extract partition columns from table DDL using sqlglot parsing."""
         partition_cols_with_types: Dict[str, str] = {}
 
         if not table.ddl:
@@ -189,8 +148,7 @@ class PartitionDiscovery:
 
         except Exception as e:
             logger.warning(
-                f"Error parsing DDL with sqlglot for table {table.name}: {e}. "
-                f"This may indicate a complex or non-standard DDL format."
+                f"Error parsing DDL with sqlglot for table {table.name}: {e}"
             )
 
         return partition_cols_with_types
@@ -208,21 +166,18 @@ class PartitionDiscovery:
         if not partition_columns:
             return PartitionResult(partition_values={}, row_count=None)
 
-        # External tables require direct table queries
         if table.external:
-            logger.debug(f"Using table query approach for external table {table.name}")
-            return self._get_partition_info_from_table_query(
-                table,
-                project,
-                schema,
-                partition_columns,
-                execute_query_func,
-                max_results,
+            return PartitionResult(
+                partition_values=self._get_partition_info_from_table_query(
+                    table,
+                    project,
+                    schema,
+                    partition_columns,
+                    execute_query_func,
+                    max_results,
+                )
             )
         else:
-            logger.debug(
-                f"Using INFORMATION_SCHEMA approach for regular table {table.name}"
-            )
             result = self._get_partition_info_from_information_schema(
                 table,
                 project,
@@ -233,16 +188,15 @@ class PartitionDiscovery:
             )
 
             if not result:
-                logger.debug(
-                    f"INFORMATION_SCHEMA approach failed, falling back to table query for {table.name}"
-                )
-                result = self._get_partition_info_from_table_query(
-                    table,
-                    project,
-                    schema,
-                    partition_columns,
-                    execute_query_func,
-                    max_results,
+                result = PartitionResult(
+                    partition_values=self._get_partition_info_from_table_query(
+                        table,
+                        project,
+                        schema,
+                        partition_columns,
+                        execute_query_func,
+                        max_results,
+                    )
                 )
 
             return result
@@ -255,16 +209,30 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         cached_partition_metadata: Optional[Dict] = None,
     ) -> Optional[List[str]]:
+        """Return partition filter expressions needed to query this table.
+
+        Returns [] for unpartitioned tables, a list of filter strings for partitioned
+        tables, or None if filters are required but could not be determined (caller
+        should skip the table to avoid full scans).
+
+        Discovery strategy (in priority order):
+        1. table.partition_info / table.schema fields (zero-cost, already fetched)
+        2. Caller-supplied cached INFORMATION_SCHEMA.COLUMNS metadata
+        3. Direct INFORMATION_SCHEMA.COLUMNS query
+        4. Probe with a test query and parse the resulting partition-filter error
+        5. max_partition_id from table metadata (zero-scan)
+        6. INFORMATION_SCHEMA.PARTITIONS (internal tables only)
+        7. Direct table query for latest date values (_find_real_partition_values)
+        8. Sampling fallback (_get_partitions_with_sampling)
+        """
         current_time = datetime.now(timezone.utc)
 
         self._current_cached_metadata = cached_partition_metadata
 
         try:
             logger.info(
-                f"Starting partition discovery for table {table.name} (may try multiple date formats to find data)"
-            )
-            logger.debug(
-                "Attempting comprehensive partition discovery before falling back to sampling"
+                f"Starting partition discovery for table {table.name} "
+                f"(project={project}, dataset={schema})"
             )
 
             required_partition_columns = self._get_partition_columns_from_table_info(
@@ -272,7 +240,6 @@ class PartitionDiscovery:
             )
 
             if not required_partition_columns and cached_partition_metadata:
-                logger.debug(f"Using cached partition metadata for {table.name}")
                 required_partition_columns = set(
                     cached_partition_metadata.get("partition_columns", [])
                 )
@@ -283,6 +250,10 @@ class PartitionDiscovery:
                 )
 
             if not required_partition_columns:
+                # Last resort: probe with a cheap query. BigQuery returns a specific
+                # error ("filter over column(s) ...") when a partitioned table is queried
+                # without a partition filter. If the query succeeds the table is not
+                # partitioned; if it fails we parse the required columns from the error.
                 try:
                     safe_table_ref = build_safe_table_reference(
                         project, schema, table.name
@@ -323,7 +294,6 @@ class PartitionDiscovery:
                     table, project, schema, current_time, execute_query_func
                 )
 
-            # Get column types once for all optimization paths
             column_types = self._get_partition_column_types(
                 table,
                 project,
@@ -332,12 +302,8 @@ class PartitionDiscovery:
                 execute_query_func,
             )
 
-            # OPTIMIZATION: Try using table.max_partition_id first (zero-cost metadata)
             filters_from_metadata = None
             if table.max_partition_id:
-                logger.debug(
-                    f"Attempting to use pre-extracted max_partition_id: {table.max_partition_id}"
-                )
                 filters_from_metadata = (
                     self._get_partition_filters_from_max_partition_id(
                         table, list(required_partition_columns), column_types
@@ -345,7 +311,7 @@ class PartitionDiscovery:
                 )
             if filters_from_metadata:
                 logger.info(
-                    f"Zero-scan optimization: Using max_partition_id from schema metadata for {table.name}"
+                    f"Zero-scan optimization: using max_partition_id from schema metadata for {table.name}"
                 )
                 return filters_from_metadata
 
@@ -359,13 +325,10 @@ class PartitionDiscovery:
                     column_types,
                 )
                 if partition_filters:
-                    logger.info(
-                        f"Successfully obtained partition filters from INFORMATION_SCHEMA for internal table {table.name}: {len(partition_filters)} filters"
-                    )
                     return partition_filters
                 else:
                     logger.debug(
-                        f"INFORMATION_SCHEMA approach failed for internal table {table.name}, falling back to strategic dates"
+                        f"INFORMATION_SCHEMA approach failed for {table.name}, falling back to strategic dates"
                     )
 
             partition_filters = self._find_real_partition_values(
@@ -377,20 +340,12 @@ class PartitionDiscovery:
             )
 
             if partition_filters:
-                logger.debug(f"Found valid partition filters: {partition_filters}")
                 return partition_filters
             else:
-                logger.info(
-                    f"Comprehensive partition discovery failed for table {table.name}. "
-                    f"Attempting sampling-based approach as fallback."
-                )
                 sample_filters = self._get_partitions_with_sampling(
                     table, project, schema, execute_query_func
                 )
                 if sample_filters:
-                    logger.info(
-                        f"Found partition values via sampling for {table.name}: {len(sample_filters)} filters"
-                    )
                     return sample_filters
                 else:
                     logger.warning(
@@ -414,7 +369,6 @@ class PartitionDiscovery:
         if self._current_cached_metadata:
             cached_types = self._current_cached_metadata.get("column_types", {})
             if all(col in cached_types for col in partition_columns):
-                logger.debug(f"Using cached column types for {partition_columns}")
                 return {col: cached_types[col] for col in partition_columns}
 
         return InfoSchemaQueries.get_partition_column_types(
@@ -437,22 +391,14 @@ class PartitionDiscovery:
 
     def _get_partition_info_from_table_query(
         self,
-        table,
-        project,
-        schema,
-        partition_columns,
-        execute_query_func,
-        max_results=5,
-    ):
-        """
-        Get partition information by querying the actual table using parameterized queries.
-
-        For tables with date/timestamp columns, uses a hierarchical approach:
-        1. Find the latest date first
-        2. Find most populated values for other columns within that latest date
-
-        This ensures we get a valid combination that actually exists in the data.
-        """
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_columns: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        max_results: int = 5,
+    ) -> Dict[str, Any]:
+        """Get partition information by querying the actual table."""
         if not partition_columns:
             return {}
 
@@ -480,7 +426,6 @@ class PartitionDiscovery:
             )
         )
 
-        # Process year/month/day components hierarchically
         latest_date_filters.extend(
             self._process_date_components_hierarchically(
                 date_component_columns,
@@ -504,10 +449,18 @@ class PartitionDiscovery:
 
         return result_values
 
-    def _categorize_partition_columns(self, partition_columns, column_types):
+    def _categorize_partition_columns(
+        self,
+        partition_columns: List[str],
+        column_types: Dict[str, str],
+    ) -> Tuple[List[str], Dict[str, Optional[str]], List[str]]:
         """Categorize partition columns into date, date components, and non-date columns."""
         date_columns = []
-        date_component_columns = {"year": None, "month": None, "day": None}
+        date_component_columns: Dict[str, Optional[str]] = {
+            "year": None,
+            "month": None,
+            "day": None,
+        }
         non_date_columns = []
 
         for col_name in partition_columns:
@@ -518,14 +471,9 @@ class PartitionDiscovery:
                 date_component_columns[col_name.lower()] = col_name
             elif self._is_date_like_column(col_name):
                 date_columns.append(col_name)
-                if col_data_type:
-                    logger.debug(
-                        f"Column {col_name} detected as date-like based on name (data type: {col_data_type})"
-                    )
-                else:
-                    logger.debug(
-                        f"Column {col_name} detected as date-like based on name (no data type available)"
-                    )
+                logger.debug(
+                    f"Column {col_name} detected as date-like based on name (data type: {col_data_type or 'unknown'})"
+                )
             else:
                 non_date_columns.append(col_name)
 
@@ -533,14 +481,14 @@ class PartitionDiscovery:
 
     def _process_regular_date_columns(
         self,
-        date_columns,
-        safe_table_ref,
-        column_types,
-        max_results,
-        execute_query_func,
-        table,
-        result_values,
-    ):
+        date_columns: List[str],
+        safe_table_ref: str,
+        column_types: Dict[str, str],
+        max_results: int,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        table: BigqueryTable,
+        result_values: Dict[str, Any],
+    ) -> List[str]:
         """Process regular date columns (DATE, DATETIME, TIMESTAMP types)."""
         latest_date_filters = []
 
@@ -569,10 +517,10 @@ class PartitionDiscovery:
                     )
                     continue
 
-                # For date columns, always take the latest (first result, ordered by date DESC)
                 chosen_result = partition_values_results[0]
                 logger.info(
-                    f"Found latest date for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for maximum date)"
+                    f"Found latest date for {col_name}: {chosen_result.val} "
+                    f"({chosen_result.record_count} records, queried table directly)"
                 )
 
                 result_values[col_name] = chosen_result.val
@@ -593,13 +541,13 @@ class PartitionDiscovery:
 
     def _process_date_components_hierarchically(
         self,
-        date_component_columns,
-        safe_table_ref,
-        execute_query_func,
-        result_values,
-        column_types,
-    ):
-        """Process year/month/day components hierarchically to avoid invalid future dates."""
+        date_component_columns: Dict[str, Optional[str]],
+        safe_table_ref: str,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        result_values: Dict[str, Any],
+        column_types: Dict[str, str],
+    ) -> List[str]:
+        """Process year/month/day component columns hierarchically."""
         active_date_components = {
             k: v for k, v in date_component_columns.items() if v is not None
         }
@@ -607,9 +555,12 @@ class PartitionDiscovery:
             return []
 
         logger.info(
-            f"Found date components: {list(active_date_components.keys())}. Using hierarchical approach to find valid latest date combination."
+            f"Found date components: {list(active_date_components.keys())} - using hierarchical approach"
         )
 
+        # Process hierarchically: find max year first, then constrain month to that
+        # year, then constrain day to that year+month. This avoids selecting e.g.
+        # month=12 from a previous year when the current year only has months 1-3.
         component_filters = []
 
         if "year" in active_date_components:
@@ -651,20 +602,17 @@ class PartitionDiscovery:
 
     def _find_max_year(
         self,
-        year_col,
-        safe_table_ref,
-        execute_query_func,
-        result_values,
-        column_types=None,
-    ):
+        year_col: str,
+        safe_table_ref: str,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        result_values: Dict[str, Any],
+        column_types: Optional[Dict[str, str]] = None,
+    ) -> List[str]:
         """Find the maximum year value."""
         try:
             col_type = column_types.get(year_col, "INT64") if column_types else "INT64"
             query, job_config = self._create_partition_stats_query(
-                safe_table_ref,
-                year_col,
-                1,
-                col_type,  # Get top 1 year
+                safe_table_ref, year_col, 1, col_type
             )
             partition_values_results = execute_query_func(
                 query, job_config, f"partition component {year_col}"
@@ -681,13 +629,13 @@ class PartitionDiscovery:
 
     def _find_max_month_within_year(
         self,
-        month_col,
-        safe_table_ref,
-        year_filters,
-        execute_query_func,
-        result_values,
-        column_types=None,
-    ):
+        month_col: str,
+        safe_table_ref: str,
+        year_filters: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        result_values: Dict[str, Any],
+        column_types: Optional[Dict[str, str]] = None,
+    ) -> List[str]:
         """Find the maximum month value within the maximum year."""
         try:
             col_type = column_types.get(month_col, "INT64") if column_types else "INT64"
@@ -719,13 +667,13 @@ SELECT val, record_count FROM PartitionStats"""
 
     def _find_max_day_within_year_month(
         self,
-        day_col,
-        safe_table_ref,
-        year_month_filters,
-        execute_query_func,
-        result_values,
-        column_types=None,
-    ):
+        day_col: str,
+        safe_table_ref: str,
+        year_month_filters: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        result_values: Dict[str, Any],
+        column_types: Optional[Dict[str, str]] = None,
+    ) -> List[str]:
         """Find the maximum day value within the maximum year/month."""
         try:
             col_type = column_types.get(day_col, "INT64") if column_types else "INT64"
@@ -757,16 +705,22 @@ SELECT val, record_count FROM PartitionStats"""
 
     def _process_non_date_columns(
         self,
-        non_date_columns,
-        safe_table_ref,
-        latest_date_filters,
-        column_types,
-        max_results,
-        execute_query_func,
-        table,
-        result_values,
-    ):
-        """Process non-date columns within the latest date constraints."""
+        non_date_columns: List[str],
+        safe_table_ref: str,
+        latest_date_filters: List[str],
+        column_types: Dict[str, str],
+        max_results: int,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        table: BigqueryTable,
+        result_values: Dict[str, Any],
+    ) -> None:
+        """Find the most-populated value for each non-date partition column.
+
+        When date filters are already established (e.g. from processing a companion
+        date column), the query is constrained to that date partition so we get the
+        most common non-date value *within the latest date*, not globally. Without
+        this constraint we might pick a stale value from a historical partition.
+        """
         for col_name in non_date_columns:
             try:
                 if not VALID_COLUMN_NAME_PATTERN.match(col_name):
@@ -813,10 +767,11 @@ SELECT val, record_count FROM PartitionStats"""
                     )
                     continue
 
-                # For non-date columns, take the most populated (first result, ordered by record_count DESC)
                 chosen_result = partition_values_results[0]
+                context = " within latest date partition" if latest_date_filters else ""
                 logger.info(
-                    f"Found most populated partition for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (within latest date, queried table directly for partition statistics)"
+                    f"Found most populated partition for {col_name}: {chosen_result.val} "
+                    f"({chosen_result.record_count} records{context}, queried table directly)"
                 )
 
                 result_values[col_name] = chosen_result.val
@@ -837,9 +792,6 @@ SELECT val, record_count FROM PartitionStats"""
         max_results: int = DEFAULT_PARTITION_STATS_LIMIT,
         data_type: str = "",
     ) -> Tuple[str, QueryJobConfig]:
-        """
-        Create a standardized partition statistics query with parameterized limit.
-        """
         order_by = self._get_column_ordering_strategy(col_name, data_type)
         safe_max_results = max(1, min(int(max_results), MAX_PARTITION_VALUES))
 
@@ -863,29 +815,12 @@ SELECT val, record_count FROM PartitionStats"""
         return query, job_config
 
     def _get_column_ordering_strategy(self, col_name: str, data_type: str = "") -> str:
-        """
-        Get the appropriate ORDER BY strategy for a column based on its data type and name.
-        Prioritizes data type over column name for reliable detection.
-        """
         return DateUtils.get_column_ordering_strategy(col_name, data_type)
 
     def _is_date_like_column(self, col_name: str) -> bool:
-        """
-        Check if a column name suggests it contains date/time data.
-
-        This is used as a fallback when column type information is unavailable or when
-        date columns are stored as STRING/INT64 in external tables.
-
-        See DATE_LIKE_COLUMN_NAMES in constants.py for the full list of patterns.
-        """
         return DateUtils.is_date_like_column(col_name)
 
     def _is_date_type_column(self, data_type: str) -> bool:
-        """
-        Check if a column's data type is a date/time type in BigQuery.
-
-        See DATE_TIME_TYPES in constants.py for the full list of recognized types.
-        """
         return DateUtils.is_date_type_column(data_type)
 
     def _log_partition_attempt(
@@ -895,9 +830,7 @@ SELECT val, record_count FROM PartitionStats"""
         columns: Optional[List[str]] = None,
         success: Optional[bool] = None,
     ) -> None:
-        """
-        Standardized logging for partition discovery attempts.
-        """
+        """Log a partition discovery attempt at debug level."""
         col_info = f" for columns {columns}" if columns else ""
         if success is None:
             logger.debug(f"Attempting {method} for table {table_name}{col_info}")
@@ -909,23 +842,7 @@ SELECT val, record_count FROM PartitionStats"""
     def _extract_column_names_from_sqlglot_partition(
         self, partition_expr: Any
     ) -> List[str]:
-        """
-        Extract column names from a sqlglot PARTITION BY expression.
-
-        This method handles various BigQuery partitioning patterns:
-        - DATE(column_name)
-        - DATETIME_TRUNC(column_name, DAY)
-        - TIMESTAMP_TRUNC(column_name, DAY)
-        - RANGE_BUCKET(column_name, GENERATE_ARRAY(...))
-        - column1, column2, column3 (simple columns)
-        - Complex expressions with nested functions
-
-        Args:
-            partition_expr: sqlglot expression from PARTITION BY clause
-
-        Returns:
-            List of column names used in partitioning
-        """
+        """Extract column names from a sqlglot PARTITION BY expression."""
         column_names = []
 
         try:
@@ -973,11 +890,6 @@ SELECT val, record_count FROM PartitionStats"""
             )
 
         return column_names
-
-    # Note: Regex-based partition parsing methods have been replaced with sqlglot-based parsing
-    # in _extract_column_names_from_sqlglot_partition() for improved reliability and maintainability.
-    # The old regex methods (_extract_column_names_from_partition_clause, _get_function_patterns, etc.)
-    # have been removed as they are no longer needed.
 
     def _remove_duplicate_columns(self, column_names: List[str]) -> List[str]:
         """Remove duplicate column names while preserving order."""
@@ -1037,7 +949,6 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 ]
             )
 
-            # Use the configured timeout for partition operations
             query_results = execute_query_func(
                 query, job_config, "partition columns from schema"
             )
@@ -1047,7 +958,6 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             )
         except Exception as e:
             logger.warning(f"Error querying partition columns: {e}")
-            # If we can't determine the partition columns due to timeout, try to extract from an error
             try:
                 safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
@@ -1075,11 +985,13 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """
-        Get partition filters using sampling to avoid full table scans.
+        """Get partition filters by sampling the table.
+
+        Used as a last resort when INFORMATION_SCHEMA and direct date queries both fail.
+        For date-partitioned tables uses ORDER BY date DESC (cheap, returns latest data);
+        for non-date tables falls back to TABLESAMPLE SYSTEM (random sample).
         """
         try:
-            # First get partition columns
             partition_cols_with_types = self.get_partition_columns_from_info_schema(
                 table, project, schema, execute_query_func
             )
@@ -1092,7 +1004,6 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             if not partition_cols_with_types:
                 return None
 
-            # For date-type columns, prioritize recent data instead of random sampling
             date_columns = [
                 col
                 for col, data_type in partition_cols_with_types.items()
@@ -1100,21 +1011,10 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 or self._is_date_type_column(data_type)
             ]
 
-            if date_columns:
-                logger.debug(
-                    f"Using recent-data sampling (ORDER BY {date_columns[0]} DESC) to find partition values for {len(partition_cols_with_types)} columns"
-                )
-            else:
-                logger.debug(
-                    f"Using random sampling (TABLESAMPLE) to find partition values for {len(partition_cols_with_types)} columns"
-                )
-
-            # Build safe table reference
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
             if date_columns:
-                # Use ORDER BY to get the most recent date only (1 row for efficiency)
-                primary_date_col = date_columns[0]  # Use first date column for ordering
+                primary_date_col = date_columns[0]
                 sample_query = f"""SELECT *
 FROM {safe_table_ref}
 WHERE `{primary_date_col}` IS NOT NULL
@@ -1129,7 +1029,6 @@ LIMIT @limit_rows"""
                     ]
                 )
             else:
-                # Fall back to random sampling for non-date partitioned tables
                 sample_query = f"""SELECT *
 FROM {safe_table_ref} TABLESAMPLE SYSTEM (@sample_percent PERCENT)
 LIMIT @limit_rows"""
@@ -1153,7 +1052,6 @@ LIMIT @limit_rows"""
                 logger.debug("Sample query returned no results")
                 return None
 
-            # Extract values for partition columns
             filters = []
             for col_name, data_type in partition_cols_with_types.items():
                 for row in partition_sample_rows:
@@ -1168,11 +1066,9 @@ LIMIT @limit_rows"""
                         )
                         break
 
-            # Verify the filters return data
             if filters and self._verify_partition_has_data(
                 table, project, schema, filters, execute_query_func
             ):
-                # Extract partition values for logging
                 partition_values_for_log = {}
                 for col_name, _data_type in partition_cols_with_types.items():
                     for row in partition_sample_rows:
@@ -1184,9 +1080,8 @@ LIMIT @limit_rows"""
                             break
 
                 logger.info(
-                    f"Successfully obtained partition values from sampling for table {table.name}: {partition_values_for_log}"
+                    f"Found partition values via sampling for {table.name}: {partition_values_for_log}"
                 )
-                logger.debug(f"Generated partition filters from sample: {filters}")
                 return filters
 
             return None
@@ -1198,18 +1093,11 @@ LIMIT @limit_rows"""
     def _create_partition_filter_from_value(
         self, col_name: str, val: Union[str, int, float], data_type: str
     ) -> str:
-        """
-        Create a safe partition filter string for a column value with upstream validation.
-        """
         return self._create_safe_filter(col_name, val, data_type)
 
     def _create_safe_filter(
         self, col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
     ) -> str:
-        """
-        Create a safe partition filter with upstream validation of inputs.
-        Uses appropriate quoting based on column type to avoid type mismatch errors.
-        """
         return FilterBuilder.create_safe_filter(col_name, val, col_type)
 
     def _verify_partition_has_data(
@@ -1220,15 +1108,11 @@ LIMIT @limit_rows"""
         filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> bool:
-        """Verify that the partition filters actually return data."""
+        """Verify that the partition filters return at least one row."""
         if not filters:
             return False
 
-        # Use utility for filter validation
-        validated_filters = []
-        for filter_str in filters:
-            if validate_filter_expression(filter_str):
-                validated_filters.append(filter_str)
+        validated_filters = [f for f in filters if validate_filter_expression(f)]
 
         if not validated_filters:
             return False
@@ -1237,31 +1121,18 @@ LIMIT @limit_rows"""
         where_clause = " AND ".join(validated_filters)
 
         try:
-            # Use existence check for maximum efficiency - just check if ANY row exists
             query = f"""SELECT 1 as exists_check
 FROM {safe_table_ref}
 WHERE {where_clause}
 LIMIT 1"""
 
-            job_config = QueryJobConfig()
-
-            count_verification_results = execute_query_func(
-                query, job_config, "partition verification"
+            results = execute_query_func(
+                query, QueryJobConfig(), "partition verification"
             )
-
-            if count_verification_results and len(count_verification_results) > 0:
-                logger.debug(
-                    f"Partition verification successful for table {project}.{schema}.{table.name}: {where_clause}"
-                )
-                return True
-            else:
-                logger.debug(
-                    f"Partition verification found no data for table {project}.{schema}.{table.name}: {where_clause} (trying other partition values...)"
-                )
-                return False
+            return bool(results)
         except Exception as e:
             logger.warning(
-                f"Error verifying partition data for table {project}.{schema}.{table.name}: {e}"
+                f"Error verifying partition data for {project}.{schema}.{table.name}: {e}"
             )
             return False
 
@@ -1273,9 +1144,7 @@ LIMIT 1"""
         current_time: datetime,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """Handle partitioning for external tables."""
         if table.external:
-            logger.debug(f"Processing external table partitioning for {table.name}")
             return self._get_external_table_partition_filters(
                 table, project, schema, current_time, execute_query_func
             )
@@ -1289,38 +1158,29 @@ LIMIT 1"""
         current_time: datetime,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """Get partition filters specifically for external tables."""
+        """Get partition filters for external tables."""
         try:
-            # Try sampling approach first - most efficient
             sample_filters = self._get_partitions_with_sampling(
                 table, project, schema, execute_query_func
             )
             if sample_filters:
                 return sample_filters
 
-            # Step 1: Get partition columns from INFORMATION_SCHEMA
             partition_cols_with_types = self.get_partition_columns_from_info_schema(
                 table, project, schema, execute_query_func
             )
 
-            # Step 2: If no columns found, try extracting from DDL
             if not partition_cols_with_types:
                 partition_cols_with_types = self.get_partition_columns_from_ddl(
                     table, project, schema, execute_query_func
                 )
 
-            # Step 3: If still no columns found, return empty list
             if not partition_cols_with_types:
                 logger.debug(
                     f"No partition columns found for external table {table.name}"
                 )
                 return []
 
-            logger.debug(
-                f"Found {len(partition_cols_with_types)} partition columns: {list(partition_cols_with_types.keys())}"
-            )
-
-            # Step 4: Find a valid combination of partition filters that returns data
             return self._find_valid_partition_combination(
                 table, project, schema, partition_cols_with_types, execute_query_func
             )
@@ -1338,12 +1198,6 @@ LIMIT 1"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
         """Find a valid combination of partition filters that returns data."""
-        logger.debug(
-            f"Searching for valid partition combination for {table.name} with columns: {list(partition_cols_with_types.keys())}"
-        )
-
-        # For now, return a simple fallback - in practice you'd implement the full logic
-        # This would include trying different date combinations, sampling, etc.
         return self._get_fallback_partition_filters(
             table,
             project,
@@ -1363,11 +1217,7 @@ LIMIT 1"""
         column_types: Dict[str, str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """
-        Test a single date candidate in parallel.
-
-        Returns the partition filters if data is found, None otherwise.
-        """
+        """Test a single date candidate, returning partition filters if data found."""
         filters = []
         for col in required_columns:
             try:
@@ -1399,7 +1249,6 @@ LIMIT 1"""
                         )
                     )
                 else:
-                    # For other non-date columns, use fallback values from config
                     if col in self.config.profiling.fallback_partition_values:
                         fallback_val = self.config.profiling.fallback_partition_values[
                             col
@@ -1408,23 +1257,15 @@ LIMIT 1"""
                             self._create_safe_filter(col, fallback_val, col_data_type)
                         )
                     else:
-                        # IS NOT NULL is safe and doesn't need the helper
                         filters.append(f"`{col}` IS NOT NULL")
             except ValueError as e:
                 logger.warning(f"Skipping invalid filter for column {col}: {e}")
-                # Use IS NOT NULL as fallback for problematic columns
                 filters.append(f"`{col}` IS NOT NULL")
 
-        # Verify these filters work
         try:
             if self._verify_partition_has_data(
                 table, project, schema, filters, execute_query_func
             ):
-                logger.debug(
-                    f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
-                )
-
-                # Now discover actual values for other partition columns using the valid date
                 enhanced_filters = self._enhance_partition_filters_with_actual_values(
                     table,
                     project,
@@ -1435,19 +1276,10 @@ LIMIT 1"""
                 )
 
                 if enhanced_filters:
-                    logger.info(
-                        f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
-                    )
                     return enhanced_filters
                 else:
-                    logger.debug(
-                        "Failed to enhance filters, using original date-based filters"
-                    )
                     return filters
             else:
-                logger.debug(
-                    f"No data found for {description} ({test_date.strftime('%Y-%m-%d')})"
-                )
                 return None
         except Exception as e:
             logger.warning(
@@ -1463,32 +1295,49 @@ LIMIT 1"""
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """
-        Find real partition values that exist in the table.
+        """Find real partition values by querying the table directly.
 
-        This method uses parallel execution to test multiple date candidates simultaneously,
-        dramatically reducing partition discovery time. Instead of testing dates sequentially
-        (today, then yesterday, then 2 days ago, etc.), all candidates are tested concurrently.
-
-        Performance impact:
-        - Sequential: 5 dates × 500ms each = 2.5 seconds
-        - Parallel: max(5 dates) = 500ms (5x faster)
-
-        The parallelization is I/O-bound (BigQuery API calls), so Python's GIL does not
-        impact performance - threads achieve genuine concurrency while waiting for queries.
+        For date/timestamp columns queries for the actual latest value (MAX query).
+        For other columns falls back to testing strategic date candidates (today,
+        yesterday) in parallel threads - parallel because each candidate requires a
+        round-trip to BigQuery and sequential testing would be slow.
         """
         if not required_columns:
             return []
 
-        logger.debug(f"Determining partition values for columns: {required_columns}")
-
-        # Get column data types to better identify date columns
         column_types = self._get_partition_column_types(
             table, project, schema, required_columns, execute_query_func
         )
 
-        # Strategy 1: For tables with date/timestamp columns, use direct table query
-        # Prioritize data types over column names for reliable detection
+        # Always try direct table query first - it handles date, date-component, AND
+        # non-date columns correctly via _process_non_date_columns. Falling through
+        # directly to strategic date candidates for non-date columns (INT64, STRING, etc.)
+        # only produces unhelpful IS NOT NULL filters that don't prune partitions.
+        actual_partition_values = self._get_partition_info_from_table_query(
+            table, project, schema, required_columns, execute_query_func
+        )
+
+        if actual_partition_values:
+            actual_filters = []
+            for col, val in actual_partition_values.items():
+                try:
+                    col_type = column_types.get(col, "")
+                    filter_expr = self._create_safe_filter(col, val, col_type)
+                    actual_filters.append(filter_expr)
+                except ValueError as e:
+                    logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
+                    continue
+
+            logger.info(
+                f"Successfully found partition values for {table.name}: {dict(actual_partition_values)}"
+            )
+            logger.info(
+                f"Generated partition filters from direct table query for {table.name}: {actual_filters}"
+            )
+            return actual_filters
+
+        # Direct table query failed. For date/timestamp columns try strategic date
+        # candidates (today, yesterday) in parallel as a last resort.
         has_date_types = any(
             self._is_date_type_column(column_types.get(col, ""))
             for col in required_columns
@@ -1496,61 +1345,28 @@ LIMIT 1"""
         has_date_components = any(
             col.lower() in ["year", "month", "day"] for col in required_columns
         )
-        # Only use column name patterns as fallback when data type is unknown
         has_date_like_names = any(
             not column_types.get(col, "") and self._is_date_like_column(col)
             for col in required_columns
         )
 
-        if has_date_types or has_date_components or has_date_like_names:
-            # For date/timestamp partitioned tables, use direct table query like external tables
-            # This finds the actual latest dates instead of just checking today/yesterday
-            logger.info(
-                f"Table {table.name} has date/timestamp partition columns. Using direct table query to find actual latest dates (same as external tables)"
+        if not (has_date_types or has_date_components or has_date_like_names):
+            logger.debug(
+                f"No date-type columns in {table.name} and direct query returned nothing; "
+                f"skipping strategic date candidates"
             )
-            actual_partition_values = self._get_partition_info_from_table_query(
-                table, project, schema, required_columns, execute_query_func
-            )
+            return None
 
-            if actual_partition_values:
-                # Convert the result values to filter strings using safe filter creation
-                actual_filters = []
-                for col, val in actual_partition_values.items():
-                    try:
-                        col_type = column_types.get(col, "")
-                        filter_expr = self._create_safe_filter(col, val, col_type)
-                        actual_filters.append(filter_expr)
-                    except ValueError as e:
-                        logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
-                        continue
-
-                logger.info(
-                    f"Successfully found actual partition values for table {table.name}: {dict(actual_partition_values)}"
-                )
-                logger.info(
-                    f"Generated partition filters from direct table analysis: {actual_filters}"
-                )
-                return actual_filters
-            else:
-                logger.debug(
-                    f"Direct table query failed for {table.name}, falling back to strategic dates"
-                )
-
-        # Fallback: Try strategic dates for non-date columns or when direct query fails
-        # This is mainly for backward compatibility with tables that don't have date/timestamp columns
         logger.debug(
-            "Falling back to strategic date candidates for non-date columns or when direct query failed"
+            f"Direct table query failed for {table.name}, falling back to strategic dates"
         )
+
         candidate_dates = self._get_strategic_candidate_dates()
 
-        # OPTIMIZATION: Test all date candidates in parallel instead of sequentially
-        # This dramatically reduces partition discovery time by running all queries concurrently
         logger.info(
             f"Testing {len(candidate_dates)} date candidates in parallel for table {table.name}"
         )
-
         with ThreadPoolExecutor(max_workers=min(len(candidate_dates), 5)) as executor:
-            # Submit all date tests concurrently
             future_to_date = {
                 executor.submit(
                     self._test_date_candidate,
@@ -1566,16 +1382,11 @@ LIMIT 1"""
                 for test_date, description in candidate_dates
             }
 
-            # Process results as they complete - return the first successful one
             for future in as_completed(future_to_date):
                 test_date, description = future_to_date[future]
                 try:
                     result = future.result()
                     if result:
-                        logger.info(
-                            f"Successfully found partition data for {description} in table {table.name}"
-                        )
-                        # Cancel remaining futures since we found a valid result
                         for remaining_future in future_to_date:
                             if remaining_future != future:
                                 remaining_future.cancel()
@@ -1585,21 +1396,14 @@ LIMIT 1"""
                         f"Exception testing date {description} for table {table.name}: {e}"
                     )
 
-        logger.debug(
-            f"No data found in any strategic date candidates for table {table.name}"
-        )
-
-        # Final fallback: Query the table directly to find actual partition values
-        # This is for tables that don't have date/timestamp columns or when all other methods failed
         logger.info(
-            f"All strategic approaches failed for table {table.name}. Querying table directly as final fallback"
+            f"All strategic date candidates exhausted for {table.name}; querying table directly as final fallback"
         )
         actual_partition_values = self._get_partition_info_from_table_query(
             table, project, schema, required_columns, execute_query_func
         )
 
         if actual_partition_values:
-            # Convert the result values to filter strings using safe filter creation
             actual_filters = []
             for col, val in actual_partition_values.items():
                 try:
@@ -1611,14 +1415,13 @@ LIMIT 1"""
                     continue
 
             logger.info(
-                f"Successfully found actual partition values for table {table.name}: {dict(actual_partition_values)}"
+                f"Successfully found partition values for {table.name}: {dict(actual_partition_values)}"
             )
             logger.info(
-                f"Generated partition filters from direct table analysis: {actual_filters}"
+                f"Generated partition filters from direct table query for {table.name}: {actual_filters}"
             )
             return actual_filters
 
-        # Last resort: Use configured fallback values if direct table query also failed
         return self._get_fallback_partition_filters(
             table, project, schema, required_columns
         )
@@ -1631,19 +1434,12 @@ LIMIT 1"""
         required_columns: List[str],
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
-        """
-        Generate fallback partition filters based on configuration when regular methods time out.
-        """
+        """Generate fallback partition filters based on configuration."""
         logger.debug(f"Using fallback partition values for {table.name}")
 
         fallback_date = datetime.now(timezone.utc) - timedelta(days=1)
-        logger.debug(
-            f"Configured fallback values: {self.config.profiling.fallback_partition_values}"
-        )
-
         column_types = column_types or {}
 
-        # Generate filters for each required column
         fallback_filters = []
         for col_name in required_columns:
             col_type = column_types.get(col_name, "")
@@ -1659,8 +1455,12 @@ LIMIT 1"""
     def _create_fallback_filter_for_column(
         self, col_name: str, fallback_date: datetime, col_type: str = ""
     ) -> str:
-        """Create a fallback filter for a specific column using safe filter creation."""
-        # Check for explicit fallback value in config
+        """Build a last-resort filter for one partition column.
+
+        Checks for a user-configured override value first. Falls back to a
+        date-derived value for known date-like column types, then to IS NOT NULL
+        so profiling can still proceed (at the cost of a less targeted scan).
+        """
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
@@ -1669,14 +1469,12 @@ LIMIT 1"""
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
                 return f"`{col_name}` IS NOT NULL"
 
-        # Use date-based fallbacks for date-like columns
         try:
             if self._is_date_like_column(col_name) or self._is_date_type_column(
                 col_type
             ):
-                # For date columns, if specific dates don't work, use IS NOT NULL as last resort
                 logger.warning(
-                    f"Specific date values failed for column {col_name}, using IS NOT NULL for broader partition coverage"
+                    f"Specific date values failed for column {col_name}, using IS NOT NULL"
                 )
                 return f"`{col_name}` IS NOT NULL"
             elif col_name.lower() == "year":
@@ -1692,7 +1490,6 @@ LIMIT 1"""
                     col_name, f"{fallback_date.day:02d}", col_type
                 )
             else:
-                # Last resort - use IS NOT NULL
                 logger.warning(
                     f"No fallback value for partition column {col_name}, using IS NOT NULL"
                 )
@@ -1739,26 +1536,7 @@ LIMIT 1"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
-        """
-        Get comprehensive partition filters using INFORMATION_SCHEMA.PARTITIONS.
-
-        This is the optimal approach for internal BigQuery tables as it:
-        - Uses pure metadata queries (no data scanning)
-        - Gets comprehensive partition coverage
-        - Applies date windowing efficiently
-        - Returns multiple recent partitions for better profiling coverage
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-            required_columns: Partition columns that need values
-            execute_query_func: Function to execute queries safely
-            column_types: Mapping of column names to BigQuery types
-
-        Returns:
-            List of partition filter strings, or None if method fails
-        """
+        """Get partition filters from INFORMATION_SCHEMA.PARTITIONS (metadata-only, no data scanning)."""
         return InfoSchemaQueries.get_partition_filters_from_information_schema(
             table,
             project,
@@ -1772,14 +1550,7 @@ LIMIT 1"""
     def _convert_partition_id_to_filters(
         self, partition_id: str, required_columns: List[str]
     ) -> Optional[List[str]]:
-        """
-        Convert a partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions.
-
-        Handles various BigQuery partition formats:
-        - Single column: "20231225" -> date_col = "2023-12-25"
-        - Multi-column: "col1=val1$col2=val2" -> col1 = "val1" AND col2 = "val2"
-        - Date formats: YYYYMMDD, YYYYMMDDHH, etc.
-        """
+        """Convert a partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions."""
         return FilterBuilder.convert_partition_id_to_filters(
             partition_id, required_columns
         )
@@ -1793,32 +1564,20 @@ LIMIT 1"""
         initial_filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        """
-        Enhance partition filters by discovering actual values for non-date columns.
+        """Discover actual values for non-date partition columns given working date filters.
 
-        After finding a valid date partition, query the table to find actual values
-        for other partition columns instead of using fallback values.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-            required_columns: All partition columns that need values
-            initial_filters: Working filters with date values and fallbacks
-            execute_query_func: Function to execute queries safely
-
-        Returns:
-            Enhanced filters with actual partition values, or None if enhancement fails
+        When a table has compound partitioning (e.g. date + region), the date candidate
+        test in _test_date_candidate uses IS NOT NULL as a placeholder for non-date
+        columns. This method replaces those placeholders with the real most-common value
+        for each non-date column so the final WHERE clause is specific and efficient.
         """
         try:
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
-            # Extract date filters from initial filters to use as WHERE conditions
             where_conditions = []
             date_filters = []
 
             for filter_expr in initial_filters:
-                # Look for date-like filters (not IS NOT NULL fallbacks)
                 if "IS NOT NULL" not in filter_expr and (
                     "=" in filter_expr or "BETWEEN" in filter_expr
                 ):
@@ -1826,35 +1585,27 @@ LIMIT 1"""
                     where_conditions.append(filter_expr)
 
             if not where_conditions:
-                logger.debug(
-                    "No date conditions found to enhance other partition values"
-                )
                 return None
 
             where_clause = " AND ".join(where_conditions)
-            enhanced_filters = list(date_filters)  # Start with working date filters
+            enhanced_filters = list(date_filters)
 
-            # Get column types to identify non-date columns that need actual values
             column_types = self._get_partition_column_types(
                 table, project, schema, required_columns, execute_query_func
             )
 
-            # For each non-date column, discover actual values
             for col_name in required_columns:
                 col_data_type = column_types.get(col_name, "")
 
-                # Skip if this is a date column (already handled)
                 if self._is_date_like_column(col_name) or self._is_date_type_column(
                     col_data_type
                 ):
                     continue
 
-                # Skip if we already have a good filter for this column
                 if any(f"`{col_name}` =" in f for f in date_filters):
                     continue
 
                 try:
-                    # Query for actual values of this column using the date filters
                     discover_query = f"""
 SELECT DISTINCT `{col_name}` as col_value, COUNT(*) as row_count
 FROM {safe_table_ref}
@@ -1876,28 +1627,21 @@ LIMIT @max_values"""
                     )
 
                     if results and results[0].col_value is not None:
-                        # Use the most common value
                         actual_value = results[0].col_value
                         enhanced_filter = self._create_safe_filter(
                             col_name, actual_value, col_data_type
                         )
                         enhanced_filters.append(enhanced_filter)
-
                         logger.debug(
                             f"Found actual value for {col_name}: {actual_value} ({results[0].row_count} rows)"
                         )
                     else:
-                        # Fall back to IS NOT NULL for this column
                         enhanced_filters.append(f"`{col_name}` IS NOT NULL")
-                        logger.debug(
-                            f"No actual values found for {col_name}, using IS NOT NULL"
-                        )
 
                 except Exception as e:
                     logger.warning(
                         f"Error discovering values for column {col_name}: {e}"
                     )
-                    # Fall back to IS NOT NULL
                     enhanced_filters.append(f"`{col_name}` IS NOT NULL")
 
             return enhanced_filters
@@ -1907,25 +1651,17 @@ LIMIT @max_values"""
             return None
 
     def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:
-        """
-        Get strategic candidate dates that are most likely to contain data in real-world BigQuery tables.
-        Optimized to only check today and yesterday for cost efficiency.
-
-        Returns:
-            List of (datetime, description) tuples in priority order
-        """
         return DateUtils.get_strategic_candidate_dates()
 
     def _extract_partition_info_from_error(self, error_message: str) -> PartitionInfo:
-        """Extract partition information from error messages."""
+        """Extract required partition columns and values from BigQuery partition error messages."""
         result = PartitionInfo(required_columns=[], partition_values={})
 
-        # Look for "filter over column(s)" pattern which lists required partition columns
         column_match = PARTITION_FILTER_PATTERN.search(error_message)
 
         if column_match:
             required_columns = []
-            for i in range(1, 5):  # Check up to 4 matched groups
+            for i in range(1, 5):
                 if column_match.group(i):
                     required_columns.append(column_match.group(i))
 
@@ -1935,15 +1671,12 @@ LIMIT @max_values"""
                     f"Extracted required partition columns: {required_columns}"
                 )
 
-        # Look for partition path patterns like feed=value/year=value/month=value/day=value
         path_matches = PARTITION_PATH_PATTERN.findall(error_message)
 
         if path_matches:
             partition_values = {}
             for key, value in path_matches:
-                # Clean up the value (remove any trailing punctuation)
                 clean_value = value.rstrip(".,;'\"")
-                # Handle numeric values
                 if clean_value.isdigit():
                     clean_value = int(clean_value)
                 partition_values[key] = clean_value

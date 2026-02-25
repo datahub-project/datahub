@@ -239,6 +239,10 @@ STRFTIME_FORMATS = {
     DATE_FORMAT_YYYYMMDDHH: "%Y%m%d%H",  # 2025011523
 }
 
+# Matches an ISO 8601 date string (e.g. '2026-02-25'). Used in filter construction
+# to detect and convert YYYY-MM-DD strings destined for integer partition columns.
+ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 # Regex patterns to detect date formats in partition filter expressions
 # These are used to maintain consistent formatting when adding date windowing
 DATE_FORMAT_PATTERNS = {
