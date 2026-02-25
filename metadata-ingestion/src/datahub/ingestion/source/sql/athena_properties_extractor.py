@@ -19,6 +19,7 @@ from sqlglot.expressions import (
     Day,
     Expression,
     FileFormatProperty,
+    Hour,
     Identifier,
     LocationProperty,
     Month,
@@ -404,9 +405,9 @@ class AthenaPropertiesExtractor:
 
     @staticmethod
     def _handle_time_function(
-        expr: Union[Year, Month, Day], column_types: Dict[str, str]
+        expr: Union[Year, Month, Day, Hour], column_types: Dict[str, str]
     ) -> Tuple[ColumnInfo, TransformInfo]:
-        """Handle time-based functions like year, month, day.
+        """Handle time-based functions like year, month, day, hour.
 
         Args:
             expr: The time function expression to handle
@@ -579,7 +580,7 @@ class AthenaPropertiesExtractor:
                         )
                         simple_columns.append(column_info)
                         transforms.append(transform_info)
-                    elif isinstance(expr, (Year, Month, Day)):
+                    elif isinstance(expr, (Year, Month, Day, Hour)):
                         column_info, transform_info = self._handle_time_function(
                             expr, column_types
                         )
@@ -588,7 +589,7 @@ class AthenaPropertiesExtractor:
                     elif (
                         isinstance(expr, Anonymous)
                         and expr.this
-                        and str(expr.this).lower() in ["bucket", "hour", "truncate"]
+                        and str(expr.this).lower() in ["bucket", "truncate"]
                     ):
                         column_info, transform_info = self._handle_transform_function(
                             expr, column_types

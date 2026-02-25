@@ -45,6 +45,7 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
+    num_documents_limit_reached: bool = False
 
     # Synced blocks (unsupported in unstructured-ingest v0.7.2)
     num_synced_blocks_skipped: int = 0
