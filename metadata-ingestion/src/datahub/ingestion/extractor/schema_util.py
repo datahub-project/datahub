@@ -627,6 +627,7 @@ def avro_schema_to_mce_fields(
     schema_tags_field: Optional[str] = None,
     tag_prefix: Optional[str] = None,
     swallow_exceptions: bool = True,
+    validate_names: bool = False,
 ) -> List[SchemaField]:
     """
     Converts an avro schema into schema fields compatible with MCE.
@@ -639,7 +640,7 @@ def avro_schema_to_mce_fields(
 
     try:
         if isinstance(avro_schema, str):
-            avro_schema = avro.schema.parse(avro_schema)
+            avro_schema = avro.schema.parse(avro_schema, validate_names=validate_names)
 
         return list(
             AvroToMceSchemaConverter.to_mce_fields(

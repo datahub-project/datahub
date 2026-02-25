@@ -1,15 +1,20 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
-from pydantic import ValidationInfo, field_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.exc import (
+    DatabaseError,
+    OperationalError,
+    ProgrammingError,
+    ResourceClosedError,
+)
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
@@ -17,7 +22,6 @@ from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
-    dataset_urn_to_key,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -34,6 +38,7 @@ from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -44,6 +49,9 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
+    MSSQLLineageExtractor,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -57,15 +65,78 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
-from datahub.metadata.schema_classes import DataJobInputOutputClass
-from datahub.metadata.urns import DatasetUrn
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
-from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 # MSSQL uses 3-part naming: database.schema.table
 MSSQL_QUALIFIED_NAME_PARTS = 3
+
+
+def _validate_int_range(
+    value: int, field_name: str, min_val: int, max_val: Optional[int] = None
+) -> int:
+    """
+    Helper to validate integer is within acceptable range.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value < min_val:
+        min_desc = (
+            "positive"
+            if min_val == 1
+            else "non-negative"
+            if min_val == 0
+            else f">= {min_val}"
+        )
+        raise ValueError(
+            f"{field_name} must be {min_desc}. Please set it to a value >= {min_val}."
+        )
+
+    if max_val is not None and value > max_val:
+        raise ValueError(
+            f"{field_name} must be <= {max_val} to avoid memory issues. "
+            f"Please reduce the value to {max_val} or less."
+        )
+
+    return value
+
+
+def _validate_string_list_limits(
+    value: Optional[List[str]],
+    field_name: str,
+    max_count: int,
+    max_item_length: int,
+) -> Optional[List[str]]:
+    """
+    Helper to validate list of strings has reasonable limits.
+
+    Raises ValueError with descriptive message if validation fails.
+    """
+    if value is None:
+        return value
+
+    if len(value) > max_count:
+        raise ValueError(
+            f"{field_name} cannot exceed {max_count} patterns (got {len(value)})"
+        )
+
+    for i, item in enumerate(value):
+        if not item or not item.strip():
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} is empty or whitespace-only"
+            )
+
+        if len(item) > max_item_length:
+            raise ValueError(
+                f"{field_name}: Pattern at index {i} exceeds {max_item_length} characters (got {len(item)})"
+            )
+
+    return value
+
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -76,15 +147,14 @@ register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTy
 # Patterns copied from Snowflake source
 DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
-    r".*__DBT_TMP$",  # dbt
+    r".*__DBT_TMP$",  # dbt (for databases without native temp tables; MSSQL uses #temp instead)
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
 ]
 
 
-class SQLServerConfig(BasicSQLAlchemyConfig):
-    # defaults
+class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
@@ -108,7 +178,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    # Soft deprecation: use_odbc is removed, source type determines ODBC mode
     _use_odbc_removed = pydantic_removed_field("use_odbc")
     uri_args: Dict[str, str] = Field(
         default={},
@@ -149,12 +218,54 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
     )
 
+    include_query_lineage: bool = Field(
+        default=False,
+        description=(
+            "Enable query-based lineage extraction from Query Store or DMVs. "
+            "Query Store is preferred (SQL Server 2016+) and must be enabled on the database. "
+            "Falls back to DMV-based extraction (sys.dm_exec_cached_plans) for older versions. "
+            "Requires VIEW SERVER STATE permission. See documentation for setup instructions."
+        ),
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description=(
+            "Maximum number of queries to extract for lineage analysis. "
+            "Queries are prioritized by execution time and frequency."
+        ),
+    )
+
+    min_query_calls: int = Field(
+        default=1,
+        description=(
+            "Minimum number of executions required for a query to be included. "
+            "Set higher to focus on frequently-used queries."
+        ),
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "SQL LIKE patterns to exclude from query extraction. "
+            "Example: ['%sys.%', '%temp_%'] to exclude system and temp tables."
+        ),
+    )
+
+    include_usage_statistics: bool = Field(
+        default=False,
+        description=(
+            "Generate usage statistics from query history. Requires include_query_lineage to be enabled. "
+            "Collects metrics like unique user counts, query frequencies, and column access patterns. "
+            "Statistics appear in DataHub UI under the Dataset Profile > Usage tab."
+        ),
+    )
+
     @field_validator("uri_args", mode="after")
     @classmethod
     def validate_uri_args(
         cls, v: Dict[str, Any], info: ValidationInfo, **kwargs: Any
     ) -> Dict[str, Any]:
-        # Use Pydantic validation context to get is_odbc flag
         is_odbc = info.context.get("is_odbc", False) if info.context else False
         if is_odbc and not info.data["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError(
@@ -166,6 +277,40 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             )
         return v
 
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        return _validate_int_range(
+            value, "max_queries_to_extract", min_val=1, max_val=10000
+        )
+
+    @field_validator("min_query_calls")
+    @classmethod
+    def validate_min_query_calls(cls, value: int) -> int:
+        """Validate min_query_calls is non-negative."""
+        return _validate_int_range(value, "min_query_calls", min_val=0)
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        return _validate_string_list_limits(
+            value, "query_exclude_patterns", max_count=100, max_item_length=500
+        )
+
+    @model_validator(mode="after")
+    def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
+        """Validate that include_usage_statistics requires include_query_lineage."""
+        if self.include_usage_statistics and not self.include_query_lineage:
+            raise ValueError(
+                "include_usage_statistics requires include_query_lineage to be enabled. "
+                "Please add 'include_query_lineage: true' to your configuration."
+            )
+        return self
+
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
@@ -176,9 +321,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
         scheme = self.scheme
         if is_odbc:
-            # Ensure that the import is available.
-            import pyodbc  # noqa: F401
-
             scheme = "mssql+pyodbc"
 
             # ODBC requires a database name, otherwise it will interpret host_port
@@ -253,13 +395,14 @@ class SQLServerSource(SQLAlchemySource):
         self, config: SQLServerConfig, ctx: PipelineContext, is_odbc: bool = False
     ):
         super().__init__(config, ctx, "mssql")
-        # Cache the table and column descriptions
         self.config: SQLServerConfig = config
         self._is_odbc = is_odbc
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
+        self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
+        self._discovered_table_cache: Dict[str, bool] = {}
 
         self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
@@ -267,6 +410,30 @@ class SQLServerSource(SQLAlchemySource):
                 title="Potential issue with lineage",
                 message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
             )
+
+        self.sql_aggregator: Optional[SqlParsingAggregator] = None
+        self.lineage_extractor: Optional[MSSQLLineageExtractor] = None
+        if self.config.include_query_lineage:
+            if self.config.include_usage_statistics and self.ctx.graph is None:
+                raise ValueError(
+                    "Usage statistics generation requires a DataHub graph connection (ctx.graph). "
+                    "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
+                    "Please provide a graph connection in your pipeline configuration or disable usage statistics."
+                )
+
+            self.sql_aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                generate_lineage=True,
+                generate_queries=True,
+                generate_usage_statistics=self.config.include_usage_statistics,
+                usage_config=self.config
+                if self.config.include_usage_statistics
+                else None,
+            )
+            logger.info("SQL parsing aggregator initialized for query-based lineage")
 
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
@@ -291,7 +458,8 @@ class SQLServerSource(SQLAlchemySource):
             conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
         except AttributeError as e:
             logger.debug(
-                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
+                "Failed to mount output converter for MSSQL data type -150 due to %s",
+                e,
             )
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
@@ -348,34 +516,29 @@ class SQLServerSource(SQLAlchemySource):
         )
         is_odbc = source_type == "mssql-odbc"
 
-        # Pass is_odbc via Pydantic validation context for use in validators
         config = SQLServerConfig.model_validate(
             config_dict, context={"is_odbc": is_odbc}
         )
         return cls(config, ctx, is_odbc=is_odbc)
 
-    # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
         )
-        # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
             f"{db_name}.{schema}.{table}", description
         )
         return description, properties, location_urn
 
-    # override to get column descriptions
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
         columns: List[Dict] = super()._get_columns(
             dataset_name, inspector, schema, table
         )
-        # Update column description if available.
         db_name: str = self.get_db_name(inspector)
         for column in columns:
             description: Optional[str] = self.column_descriptions.get(
@@ -407,13 +570,17 @@ class SQLServerSource(SQLAlchemySource):
 
     def _detect_rds_environment(self, conn: Connection) -> bool:
         """
-        Detect if we're running in an RDS/managed environment vs on-premises.
-        Uses explicit configuration if provided, otherwise attempts automatic detection.
-        Returns True if RDS/managed, False if on-premises.
+        Detect if running on AWS RDS vs on-premises SQL Server.
+
+        RDS restricts msdb table access; on-prem allows faster direct queries.
+        Detection errors fall back to on-prem mode with automatic retry logic.
+
+        IMPORTANT: For production use, set is_aws_rds explicitly in config to avoid
+        heuristic detection failures. This method uses best-effort pattern matching.
         """
         if self.config.is_aws_rds is not None:
             logger.info(
-                f"Using explicit is_aws_rds configuration: {self.config.is_aws_rds}"
+                "Using explicit is_aws_rds configuration: %s", self.config.is_aws_rds
             )
             return self.config.is_aws_rds
 
@@ -423,25 +590,65 @@ class SQLServerSource(SQLAlchemySource):
             if server_name_row:
                 server_name = server_name_row["server_name"].lower()
 
-                aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
-                is_rds = any(indicator in server_name for indicator in aws_indicators)
+                # Primary patterns: Official RDS/AWS domain suffixes (high confidence)
+                high_confidence_patterns = [
+                    ".rds.amazonaws.com",  # Official RDS endpoint: mydb.abc123.us-east-1.rds.amazonaws.com
+                    ".rds.amazonaws.com.cn",  # China region RDS
+                ]
+
+                # Secondary patterns: Common AWS naming (medium confidence)
+                medium_confidence_patterns = [
+                    "-rds-",  # Custom names with RDS marker: mycompany-rds-prod
+                    ".ec2-",  # EC2 instance pattern: ip-10-0-0-1.ec2-internal
+                ]
+
+                # Tertiary patterns: Prefix-based (low confidence, only match at start)
+                # Uses startswith() to avoid false positives like "amazing_server"
+                prefix_patterns = [
+                    "amazon-",  # Amazon-prefixed: amazon-rds-prod (NOT "amazing")
+                    "amzn-",  # AWS standard prefix: amzn-sqlserver-001
+                    "aws-",  # AWS-prefixed: aws-rds-db
+                ]
+
+                # Check in order of confidence
+                is_rds = any(
+                    pattern in server_name for pattern in high_confidence_patterns
+                )
+
+                if not is_rds:
+                    is_rds = any(
+                        pattern in server_name for pattern in medium_confidence_patterns
+                    )
+
+                if not is_rds:
+                    is_rds = any(
+                        server_name.startswith(pattern) for pattern in prefix_patterns
+                    )
+
                 if is_rds:
-                    logger.info(f"AWS RDS detected based on server name: {server_name}")
+                    logger.info(
+                        "AWS RDS detected based on server name pattern: %s", server_name
+                    )
                 else:
                     logger.info(
-                        f"Non-RDS environment detected based on server name: {server_name}"
+                        "Non-RDS environment detected (server name: %s). "
+                        "If this is incorrect, set 'is_aws_rds: true' in config.",
+                        server_name,
                     )
 
                 return is_rds
             else:
                 logger.warning(
-                    "Could not retrieve server name, assuming non-RDS environment"
+                    "Could not retrieve server name, assuming non-RDS. "
+                    "Set 'is_aws_rds' explicitly in config if needed."
                 )
                 return False
 
         except Exception as e:
             logger.warning(
-                f"Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment ({e})"
+                "Failed to detect RDS environment (error: %s), assuming non-RDS. "
+                "Set 'is_aws_rds' explicitly in config to avoid detection issues.",
+                e,
             )
             return False
 
@@ -449,78 +656,90 @@ class SQLServerSource(SQLAlchemySource):
         """
         Get job information with environment detection to choose optimal method first.
         """
-        jobs: Dict[str, Dict[str, Any]] = {}
-
-        # Detect environment to choose optimal method first
         is_rds = self._detect_rds_environment(conn)
+        methods = (
+            [self._get_jobs_via_stored_procedures, self._get_jobs_via_direct_query]
+            if is_rds
+            else [self._get_jobs_via_direct_query, self._get_jobs_via_stored_procedures]
+        )
+
+        return self._get_jobs_with_fallback(conn, db_name, methods, is_rds)
+
+    def _get_jobs_with_fallback(
+        self,
+        conn: Connection,
+        db_name: str,
+        methods: List[Callable],
+        is_rds: bool,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Try each method in order, handle all exception types once."""
+        context_suffix = "managed" if is_rds else "on_prem"
+        env_desc = "managed environment" if is_rds else "on-premises environment"
+        last_exception: Optional[Exception] = None
+
+        for method in methods:
+            method_name = getattr(
+                method, "__name__", getattr(method, "_mock_name", str(method))
+            )
+            try:
+                jobs = method(conn, db_name)
+                logger.info("Retrieved jobs using %s (%s)", method_name, env_desc)
+                return jobs
+            except (DatabaseError, OperationalError, ProgrammingError) as e:
+                logger.warning("%s failed: %s", method_name, e)
+                last_exception = e
+            except (KeyError, TypeError) as e:
+                logger.error("Job structure error %s: %s", method_name, e)
+                last_exception = e
+                self.report.failure(
+                    message=f"Job structure error: {e}",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_structure_error_{context_suffix}",
+                    exc=e,
+                )
+            except Exception as e:
+                logger.error("Unexpected error %s: %s", method_name, e, exc_info=True)
+                last_exception = e
+                self.report.failure(
+                    message=f"Unexpected error: {e}",
+                    title="SQL Server Jobs Extraction",
+                    context=f"job_extraction_error_{context_suffix}",
+                    exc=e,
+                )
 
         if is_rds:
-            # Managed environment - try stored procedures first
-            try:
-                jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using stored procedures (managed environment)"
-                )
-                return jobs
-            except Exception as sp_error:
-                logger.warning(
-                    f"Failed to retrieve jobs via stored procedures in managed environment: {sp_error}"
-                )
-                # Try direct query as fallback (might work in some managed environments)
-                try:
-                    jobs = self._get_jobs_via_direct_query(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using direct query fallback in managed environment"
-                    )
-                    return jobs
-                except Exception as direct_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in managed environment",
-                        title="SQL Server Jobs Extraction",
-                        context="Both stored procedures and direct query methods failed",
-                        exc=direct_error,
-                    )
+            self.report.failure(
+                message="Failed to retrieve jobs in managed environment (both stored procedures and direct query). "
+                "This is expected on AWS RDS and some managed SQL instances that restrict msdb access. "
+                "Jobs extraction will be skipped.",
+                title="SQL Server Jobs Extraction",
+                context="managed_environment_msdb_restricted",
+                exc=last_exception,
+            )
         else:
-            # On-premises environment - try direct query first (usually faster)
-            try:
-                jobs = self._get_jobs_via_direct_query(conn, db_name)
-                logger.info(
-                    "Successfully retrieved jobs using direct query (on-premises environment)"
-                )
-                return jobs
-            except Exception as direct_error:
-                logger.warning(
-                    f"Failed to retrieve jobs via direct query in on-premises environment: {direct_error}"
-                )
-                # Try stored procedures as fallback
-                try:
-                    jobs = self._get_jobs_via_stored_procedures(conn, db_name)
-                    logger.info(
-                        "Successfully retrieved jobs using stored procedures fallback in on-premises environment"
-                    )
-                    return jobs
-                except Exception as sp_error:
-                    self.report.failure(
-                        message="Failed to retrieve jobs in on-premises environment",
-                        title="SQL Server Jobs Extraction",
-                        context="Both direct query and stored procedures methods failed",
-                        exc=sp_error,
-                    )
+            self.report.failure(
+                message="Failed to retrieve jobs in on-premises environment (both direct query and stored procedures). "
+                "Verify the DataHub user has SELECT permissions on msdb.dbo.sysjobs and msdb.dbo.sysjobsteps, "
+                "or EXECUTE permissions on sp_help_job and sp_help_jobstep.",
+                title="SQL Server Jobs Extraction",
+                context="on_prem_msdb_permission_denied",
+                exc=last_exception,
+            )
 
-        return jobs
+        logger.error(
+            "All job retrieval methods failed for %s",
+            "RDS/managed" if is_rds else "on-premises",
+        )
+        return {}
 
     def _get_jobs_via_stored_procedures(
         self, conn: Connection, db_name: str
     ) -> Dict[str, Dict[str, Any]]:
         jobs: Dict[str, Dict[str, Any]] = {}
 
-        # First, get all jobs
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
-        # SQLAlchemy 1.3 support was dropped in Sept 2023 (PR #8810)
-        # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
-        # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
         for row in jobs_result.mappings():
             job_id = str(row["job_id"])
             jobs_data[job_id] = {
@@ -532,18 +751,16 @@ class SQLServerSource(SQLAlchemySource):
                 "enabled": row.get("enabled", 1),
             }
 
-        # Now get job steps for each job, filtering by database
         for job_id, job_info in jobs_data.items():
             try:
-                # Get steps for this specific job
+                # job_id from sp_help_job output (database metadata)
                 steps_result = conn.execute(
-                    f"EXEC msdb.dbo.sp_help_jobstep @job_id = '{job_id}'"
+                    text("EXEC msdb.dbo.sp_help_jobstep @job_id = :job_id"),
+                    {"job_id": job_id},
                 )
 
                 job_steps = {}
-                # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
                 for step_row in steps_result.mappings():
-                    # Only include steps that run against our target database
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
                         step_data = {
@@ -560,13 +777,30 @@ class SQLServerSource(SQLAlchemySource):
                         }
                         job_steps[step_row["step_id"]] = step_data
 
-                # Only add job if it has relevant steps
                 if job_steps:
                     jobs[job_info["name"]] = job_steps
 
-            except Exception as step_error:
+            except (DatabaseError, OperationalError, ProgrammingError) as step_error:
                 logger.warning(
-                    f"Failed to get steps for job {job_info['name']}: {step_error}"
+                    "Database error retrieving steps for job %s (job may be inaccessible or deleted): %s",
+                    job_info["name"],
+                    step_error,
+                )
+                continue
+            except (KeyError, TypeError, AttributeError) as struct_error:
+                logger.warning(
+                    "Data structure error processing steps for job %s: %s. Job will be skipped.",
+                    job_info["name"],
+                    struct_error,
+                )
+                continue
+            except Exception as unexpected_error:
+                logger.error(
+                    "Unexpected error retrieving steps for job %s: %s (%s). Job will be skipped.",
+                    job_info["name"],
+                    unexpected_error,
+                    type(unexpected_error).__name__,
+                    exc_info=True,
                 )
                 continue
 
@@ -638,10 +872,10 @@ class SQLServerSource(SQLAlchemySource):
                 jobs = self._get_jobs(conn, db_name)
 
                 if not jobs:
-                    logger.info(f"No jobs found for database: {db_name}")
+                    logger.info("No jobs found for database: %s", db_name)
                     return
 
-                logger.info(f"Found {len(jobs)} jobs for database: {db_name}")
+                logger.info("Found %d jobs for database: %s", len(jobs), db_name)
 
                 for job_name, job_steps in jobs.items():
                     try:
@@ -656,7 +890,9 @@ class SQLServerSource(SQLAlchemySource):
                         yield from self.loop_job_steps(job, job_steps)
 
                     except Exception as job_error:
-                        logger.warning(f"Failed to process job {job_name}: {job_error}")
+                        logger.warning(
+                            "Failed to process job %s: %s", job_name, job_error
+                        )
                         self.report.warning(
                             message=f"Failed to process job {job_name}",
                             title="SQL Server Jobs Extraction",
@@ -761,11 +997,9 @@ class SQLServerSource(SQLAlchemySource):
         for property_name, property_value in properties.items():
             data_job.add_property(property_name, str(property_value))
         if self.config.include_lineage:
-            # These will be used to construct lineage
             self.stored_procedures.append(procedure)
         yield from self.construct_job_workunits(
             data_job,
-            # For stored procedure lineage is ingested later
             include_lineage=False,
         )
 
@@ -854,7 +1088,14 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
+        # procedure.db and escape_full_name from sys.procedures (database metadata)
+        query = (
+            "EXEC ["
+            + procedure.db
+            + "].dbo.sp_helptext '"
+            + procedure.escape_full_name
+            + "'"
+        )
         try:
             code_data = conn.execute(query)
         except ProgrammingError:
@@ -1009,7 +1250,7 @@ class SQLServerSource(SQLAlchemySource):
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
         url = self.config.get_sql_alchemy_url(is_odbc=self._is_odbc)
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
         if (
@@ -1052,405 +1293,108 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
-    def _is_qualified_table_urn(
-        self, urn: str, platform_instance: Optional[str] = None
-    ) -> bool:
-        """Check if a table URN represents a fully qualified table name.
-
-        MSSQL uses 3-part naming: database.schema.table.
-        This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
-
-        Args:
-            urn: Dataset URN
-            platform_instance: Platform instance to strip from the name if present
-
-        Returns:
-            True if the table name is fully qualified (>= 3 parts), False otherwise
-        """
-        try:
-            dataset_urn = DatasetUrn.from_string(urn)
-            name = dataset_urn.name
-
-            # Strip platform_instance prefix if present
-            if platform_instance and name.startswith(f"{platform_instance}."):
-                name = name[len(platform_instance) + 1 :]
-
-            # Check if name has at least 3 parts (database.schema.table)
-            return len(name.split(".")) >= MSSQL_QUALIFIED_NAME_PARTS
-        except Exception:
-            return False
-
-    def _filter_upstream_aliases(
-        self, upstream_urns: List[str], platform_instance: Optional[str] = None
-    ) -> List[str]:
-        """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
-
-        TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
-        both 'dst' (alias) and 'table' (real table). These aliases appear as upstream
-        references but aren't real tables.
-
-        Uses the existing is_temp_table() method to identify aliases:
-        - Tables in schema_resolver: Real tables (keep)
-        - Tables in discovered_datasets: Real tables (keep)
-        - Undiscovered tables: Likely aliases (filter)
-
-        Args:
-            upstream_urns: List of upstream dataset URNs
-            platform_instance: Platform instance for prefix stripping (consistency with _filter_procedure_lineage)
-
-        Returns:
-            Filtered list with only real tables
-        """
-        if not upstream_urns:
-            return []
-
-        filtered = []
-
-        for urn in upstream_urns:
-            try:
-                dataset_urn = DatasetUrn.from_string(urn)
-                table_name = dataset_urn.name
-
-                # Strip platform_instance prefix if present
-                # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
-                if platform_instance and table_name.startswith(f"{platform_instance}."):
-                    table_name = table_name[len(platform_instance) + 1 :]
-
-                # Reuse existing is_temp_table() logic to filter aliases
-                if not self.is_temp_table(table_name):
-                    filtered.append(urn)
-            except (InvalidUrnError, ValueError) as e:
-                # Keep URNs we can't parse to preserve data integrity.
-                # If truly malformed, downstream systems will reject with clear errors.
-                # If our parser has a bug, we don't silently lose valid data.
-                logger.warning(f"Error parsing URN {urn}: {e}")
-                filtered.append(urn)
-
-        return filtered
-
-    def _remap_column_lineage_for_alias(
-        self,
-        table_urn: str,
-        column_name: str,
-        aspect: DataJobInputOutputClass,
-        procedure_name: Optional[str],
-    ) -> List[str]:
-        """Remap a column lineage entry from a filtered alias to real table(s).
-
-        Root Cause: TSQL allows table aliases in UPDATE/DELETE statements:
-            UPDATE dst SET col=val FROM real_table dst
-        sqlglot extracts both 'dst' (alias) and 'real_table' as separate tables.
-        When we filter 'dst' from outputDatasets (it's not a real table), column
-        lineages still reference it. We must remap those references to real tables.
-
-        Why matching by name: sqlglot often parses aliases with incorrect
-        database/schema qualifiers (e.g., "staging.dbo.dst" when dst actually
-        refers to "timeseries.dbo.european_priips_kid_information").
-
-        Remapping Strategy:
-        1. Try to match by table name only (last component: "dst" matches "xxx.dst")
-        2. Exactly one match → remap to that table (common case)
-        3. Multiple matches → remap to all, log warning (ambiguous)
-        4. No name match → remap to all real downstreams, log warning (fallback)
-
-        This preserves column lineage after alias filtering.
-
-        Args:
-            table_urn: The filtered alias table URN
-            column_name: The column name
-            aspect: DataJobInputOutputClass with outputDatasets
-            procedure_name: Procedure name for logging
-
-        Returns:
-            List of remapped field URNs pointing to real tables
-        """
-        remapped_urns: List[str] = []
-
-        try:
-            alias_key = dataset_urn_to_key(table_urn)
-            if not alias_key:
-                logger.warning(
-                    f"Could not parse alias URN {table_urn} for column remapping in {procedure_name}"
-                )
-                return remapped_urns
-
-            alias_table_name = alias_key.name.split(".")[-1]
-
-            # Find real tables with matching table name
-            matching_tables = []
-            if aspect.outputDatasets:
-                for real_table_urn in aspect.outputDatasets:
-                    real_key = dataset_urn_to_key(real_table_urn)
-                    if real_key:
-                        real_table_name = real_key.name.split(".")[-1]
-                        if real_table_name == alias_table_name:
-                            matching_tables.append(real_table_urn)
-
-            # Remap based on number of matches
-            if len(matching_tables) == 1:
-                remapped_urn = (
-                    f"urn:li:schemaField:({matching_tables[0]},{column_name})"
-                )
-                remapped_urns.append(remapped_urn)
-            elif len(matching_tables) > 1:
-                # Multiple matches - remap to all
-                for real_table_urn in matching_tables:
-                    remapped_urn = (
-                        f"urn:li:schemaField:({real_table_urn},{column_name})"
-                    )
-                    remapped_urns.append(remapped_urn)
-                logger.warning(
-                    f"Multiple tables match alias {alias_table_name} in {procedure_name}, "
-                    f"remapped column {column_name} to all {len(matching_tables)} matches"
-                )
-            else:
-                # No table name match - fallback to all real tables
-                if aspect.outputDatasets:
-                    for real_table_urn in aspect.outputDatasets:
-                        remapped_urn = (
-                            f"urn:li:schemaField:({real_table_urn},{column_name})"
-                        )
-                        remapped_urns.append(remapped_urn)
-                    logger.warning(
-                        f"No table name match for alias {alias_table_name} in {procedure_name}, "
-                        f"remapped column {column_name} to all {len(aspect.outputDatasets)} real tables"
-                    )
-        except Exception as e:
-            logger.warning(
-                f"Error parsing alias URN {table_urn} for column remapping in {procedure_name}: {e}"
-            )
-
-        if not remapped_urns:
-            logger.warning(
-                f"Could not remap column lineage for filtered alias {table_urn}.{column_name} in {procedure_name} - "
-                f"no real downstream tables available"
-            )
-
-        return remapped_urns
-
-    def _filter_downstream_fields(
-        self,
-        cll_index: int,
-        downstream_fields: List[str],
-        filtered_downstream_aliases: Optional[set],
-        field_urn_pattern: re.Pattern,
-        platform_instance: Optional[str],
-        aspect: DataJobInputOutputClass,
-        procedure_name: Optional[str],
-    ) -> List[str]:
-        """Filter and remap downstream fields in a column lineage entry.
-
-        Args:
-            cll_index: Index of the column lineage entry (for logging)
-            downstream_fields: List of downstream field URNs to filter
-            filtered_downstream_aliases: Set of table URNs that were filtered as aliases
-            field_urn_pattern: Regex pattern to extract table URN and column name
-            platform_instance: Platform instance for URN checking
-            aspect: DataJobInputOutputClass with outputDatasets
-            procedure_name: Procedure name for logging
-
-        Returns:
-            List of filtered downstream field URNs
-        """
-        filtered_downstreams = []
-        for field_urn in downstream_fields:
-            match = field_urn_pattern.search(field_urn)
-            if match:
-                table_urn = match.group(1)
-                column_name = match.group(2)
-
-                # Check if this downstream points to a filtered alias
-                if (
-                    filtered_downstream_aliases
-                    and table_urn in filtered_downstream_aliases
-                ):
-                    # Remap to real table(s)
-                    remapped_urns = self._remap_column_lineage_for_alias(
-                        table_urn, column_name, aspect, procedure_name
-                    )
-                    filtered_downstreams.extend(remapped_urns)
-                elif self._is_qualified_table_urn(table_urn, platform_instance):
-                    filtered_downstreams.append(field_urn)
-                else:
-                    logger.debug(
-                        f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
-                    )
-            else:
-                filtered_downstreams.append(field_urn)
-        return filtered_downstreams
-
-    def _filter_column_lineage(
-        self,
-        aspect: DataJobInputOutputClass,
-        platform_instance: Optional[str],
-        procedure_name: Optional[str],
-        filtered_downstream_aliases: Optional[set] = None,
-    ) -> None:
-        """Filter column lineage (fineGrainedLineages) to remove aliases.
-
-        Applies same 2-step filtering as table-level lineage:
-        1. Check if table has 3+ parts (_is_qualified_table_urn)
-        2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
-        3. Remap column lineages from filtered downstream aliases to real tables
-
-        Args:
-            aspect: DataJobInputOutputClass with lineage to filter
-            platform_instance: Platform instance for URN parsing
-            procedure_name: Procedure name for logging
-            filtered_downstream_aliases: Set of downstream table URNs that were
-                filtered as aliases. Column lineages pointing to these will be
-                remapped to real downstream tables.
-
-        Modifies aspect.fineGrainedLineages in place.
-        """
-        if not aspect.fineGrainedLineages:
-            return
-
-        filtered_column_lineage = []
-        field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
-
-        for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
-            # Filter upstreams: same logic as inputDatasets
-            if cll.upstreams:
-                # Step 1: Filter by qualification (3+ parts)
-                qualified_upstream_fields = []
-                for field_urn in cll.upstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            qualified_upstream_fields.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        qualified_upstream_fields.append(field_urn)
-
-                # Step 2: Filter aliases (extract table URNs and check)
-                upstream_table_urns = []
-                field_to_table_map = {}
-                for field_urn in qualified_upstream_fields:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        upstream_table_urns.append(table_urn)
-                        field_to_table_map[field_urn] = table_urn
-
-                # Apply alias filtering to table URNs
-                real_table_urns = set(
-                    self._filter_upstream_aliases(
-                        upstream_table_urns, platform_instance
-                    )
-                )
-
-                # Keep only field URNs whose tables passed the filter
-                filtered_upstreams = [
-                    field_urn
-                    for field_urn in qualified_upstream_fields
-                    if field_to_table_map.get(field_urn) in real_table_urns
-                    or field_urn not in field_to_table_map
-                ]
-
-                # Log filtered aliases
-                for field_urn in qualified_upstream_fields:
-                    if field_urn not in filtered_upstreams:
-                        table_urn = field_to_table_map.get(field_urn, "unknown")
-                        logger.debug(
-                            f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
-                        )
-
-                cll.upstreams = filtered_upstreams
-
-            # Filter downstreams: check qualification and remap aliases
-            if cll.downstreams:
-                cll.downstreams = self._filter_downstream_fields(
-                    cll_index,
-                    cll.downstreams,
-                    filtered_downstream_aliases,
-                    field_urn_pattern,
-                    platform_instance,
-                    aspect,
-                    procedure_name,
-                )
-
-            # Only keep column lineage if it has both upstreams and downstreams
-            if cll.upstreams and cll.downstreams:
-                filtered_column_lineage.append(cll)
-
-        aspect.fineGrainedLineages = (
-            filtered_column_lineage if filtered_column_lineage else None
-        )
-
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
         procedure_name: Optional[str] = None,
     ) -> Iterator[MetadataChangeProposalWrapper]:
-        """Filter out unqualified table URNs from stored procedure lineage.
-
-        TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
-        both 'dst' (alias) and 'table' (real table). Unqualified aliases create
-        invalid URNs that cause DataHub sink to reject the entire aspect.
-
-        This filter removes URNs with < 3 parts (database.schema.table).
-
-        Args:
-            mcps: MCPs from generate_procedure_lineage()
-            procedure_name: Procedure name for logging
-
-        Yields:
-            Filtered MCPs with only qualified table URNs
         """
-        platform_instance = self.get_schema_resolver().platform_instance
+        Filter out unqualified table URNs from stored procedure lineage.
 
-        for mcp in mcps:
-            # Only filter dataJobInputOutput aspects
-            if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
-                aspect: DataJobInputOutputClass = mcp.aspect
+        Delegates to MSSQLAliasFilter to handle TSQL-specific alias quirks.
+        See alias_filter.py module docstring for detailed explanation.
+        """
+        if self.tsql_alias_cleaner is None:
+            platform_instance = self.get_schema_resolver().platform_instance
+            self.tsql_alias_cleaner = MSSQLAliasFilter(
+                is_discovered_table=self.is_discovered_table,
+                platform_instance=platform_instance,
+            )
 
-                # Filter inputs: first unqualified tables, then aliases
-                if aspect.inputDatasets:
-                    qualified_inputs = [
-                        urn
-                        for urn in aspect.inputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
-                    aspect.inputDatasets = self._filter_upstream_aliases(
-                        qualified_inputs, platform_instance
-                    )
+        yield from self.tsql_alias_cleaner.filter_procedure_lineage(
+            mcps, procedure_name
+        )
 
-                # Filter outputs: only unqualified tables
-                # Track filtered downstream aliases for column lineage remapping
-                filtered_downstream_aliases = set()
-                if aspect.outputDatasets:
-                    original_outputs = aspect.outputDatasets.copy()
-                    aspect.outputDatasets = [
-                        urn
-                        for urn in aspect.outputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
-                    # Identify which outputs were filtered (these are aliases)
-                    filtered_downstream_aliases = set(original_outputs) - set(
-                        aspect.outputDatasets
-                    )
+    def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Extract and emit query-based lineage from Query Store or DMVs.
 
-                # Filter column lineage (with remapping for filtered downstream aliases)
-                self._filter_column_lineage(
-                    aspect,
-                    platform_instance,
-                    procedure_name,
-                    filtered_downstream_aliases,
+        This supplements view and stored procedure lineage with lineage extracted
+        from executed queries (INSERT INTO SELECT, CTAS, etc.).
+        """
+        logger.info(
+            "Starting query-based lineage extraction from SQL Server query history"
+        )
+
+        for inspector in self.get_inspectors():
+            if self.sql_aggregator is None:
+                logger.warning(
+                    "SQL aggregator not initialized, skipping query-based lineage extraction. "
+                    "Check initialization errors above."
+                )
+                self.report.report_warning(
+                    message=(
+                        "Query-based lineage was enabled but SQL aggregator failed to initialize. "
+                        "No query-based lineage will be extracted. Check earlier error messages."
+                    ),
+                    context="query_lineage_skipped",
+                )
+                return
+
+            with inspector.engine.connect() as connection:
+                self.lineage_extractor = MSSQLLineageExtractor(
+                    config=self.config,
+                    connection=connection,
+                    report=self.report,
+                    sql_aggregator=self.sql_aggregator,
+                    default_schema="dbo",
                 )
 
-                # Skip aspect only if BOTH inputs and outputs are empty
-                if not aspect.inputDatasets and not aspect.outputDatasets:
-                    logger.warning(
-                        f"Skipping lineage for {procedure_name}: all tables were filtered"
+                try:
+                    self.lineage_extractor.populate_lineage_from_queries()
+                except Exception as e:
+                    logger.error(
+                        "Unexpected error during query lineage extraction: %s. "
+                        "Continuing with other lineage sources.",
+                        e,
                     )
-                    continue
+                    self.report.report_failure(
+                        message=(
+                            f"Query lineage extraction failed with unexpected error: {e}. "
+                            "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
+                            "See documentation for setup instructions: "
+                            "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
+                        ),
+                        context="query_lineage_extraction_failed",
+                    )
 
-            yield mcp
+        with PerfTimer() as timer:
+            mcp_count = 0
+            if self.sql_aggregator:
+                try:
+                    mcp: MetadataChangeProposalWrapper
+                    for mcp in self.sql_aggregator.gen_metadata():
+                        yield mcp.as_workunit()
+                        mcp_count += 1
+                except Exception as e:
+                    logger.error(
+                        "Failed to generate metadata from SQL aggregator: %s",
+                        e,
+                    )
+                    self.report.report_failure(
+                        message=(
+                            f"Lineage metadata generation failed: {e}. "
+                            "This may indicate issues with the DataHub graph connection or schema resolution. "
+                            "Check your graph configuration and ensure all required schemas are accessible."
+                        ),
+                        context="lineage_metadata_generation_failed",
+                    )
+
+        logger.info(
+            "Generated %d lineage workunits from queries in %.2f seconds",
+            mcp_count,
+            timer.elapsed_seconds(),
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
@@ -1459,7 +1403,8 @@ class SQLServerSource(SQLAlchemySource):
         # from all databases in schema_resolver and discovered_tables
         if self.stored_procedures:
             logger.info(
-                f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+                "Processing %d stored procedure(s) for lineage extraction",
+                len(self.stored_procedures),
             )
 
             for procedure in self.stored_procedures:
@@ -1474,7 +1419,9 @@ class SQLServerSource(SQLAlchemySource):
                                 schema_resolver=self.get_schema_resolver(),
                                 procedure=procedure.to_base_procedure(),
                                 procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                                is_temp_table=self.is_temp_table,
+                                is_temp_table=lambda name: not self.is_discovered_table(
+                                    name
+                                ),
                                 default_db=procedure.db,
                                 default_schema=procedure.schema,
                                 report_failure=lambda name: self._report_procedure_failure(
@@ -1486,44 +1433,49 @@ class SQLServerSource(SQLAlchemySource):
                     ):
                         yield workunit
 
+        if self.config.include_query_lineage and self.sql_aggregator:
+            yield from self._get_query_based_lineage_workunits()
+
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
         if hasattr(self, "aggregator") and self.aggregator is not None:
             self.aggregator.report.num_procedures_failed += 1
             self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
-    def is_temp_table(self, name: str) -> bool:
-        """Check if a table name refers to a temp table or unresolved alias.
-
-        Note: This method is called for each upstream table during lineage filtering.
-        If profiling shows this as a bottleneck, consider caching parsed URNs or
-        standardized names to reduce redundant processing.
+    def is_discovered_table(self, name: str) -> bool:
         """
+        Check if a table name refers to a discovered/real table in the schema.
+
+        Returns True if the table exists in discovered schemas, False if it's
+        a temp table, alias, or undiscovered table that should be filtered out.
+
+        Note: Uses instance-level caching to improve performance for repeated calls.
+        """
+        if name in self._discovered_table_cache:
+            return self._discovered_table_cache[name]
+
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            return True
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
 
-            # TSQL temp tables start with #
             if table_name.startswith("#"):
-                return True
+                result = False
+                self._discovered_table_cache[name] = result
+                return result
 
-            # Standardize case early to ensure consistent lookups
-            # This must match how get_identifier() stores names in discovered_datasets
             standardized_name = self.standardize_identifier_case(name)
 
-            # Check if the table exists in schema_resolver
-            # If we have schema information for it, it's a real table (not an alias)
-            # Only check schema_resolver if aggregator is initialized (not in unit tests)
             if hasattr(self, "aggregator") and self.aggregator is not None:
                 schema_resolver = self.get_schema_resolver()
 
-                # Use standardized name for URN to match how tables are registered
                 urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=standardized_name,
@@ -1532,10 +1484,10 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 if schema_resolver.has_urn(urn):
-                    return False
+                    result = True
+                    self._discovered_table_cache[name] = result
+                    return result
 
-            # If not in schema_resolver, check against discovered_datasets
-            # For qualified names (>=3 parts), also validate against patterns
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
                 db_name = parts[-3]
@@ -1545,28 +1497,28 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.schema_pattern.allowed(schema_name)
                     and self.config.table_pattern.allowed(name)
                 ):
-                    # Table matches our ingestion patterns but wasn't discovered
-                    # This is likely an alias or undiscovered table - treat as temp
                     if standardized_name not in self.discovered_datasets:
-                        return True
+                        result = False
                     else:
-                        return False
+                        result = True
+                    self._discovered_table_cache[name] = result
+                    return result
                 else:
-                    # Qualified name outside our patterns and not in schema_resolver
-                    # No evidence it's a real table - filter it out
-                    return True
+                    result = False
+                    self._discovered_table_cache[name] = result
+                    return result
 
-            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
-            # treat as alias/temp table since we can't verify they're real tables
-            # without full qualification. This handles common TSQL aliases like "dst", "src".
-            # Consistent with _is_qualified_table_urn which requires 3+ parts.
-            return True
+            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
+            # treat as undiscovered since we can't verify
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
         except Exception as e:
-            # If parsing fails, safer to exclude (return True = treat as temp/alias)
-            # than to include potentially spurious aliases in lineage
-            logger.warning(f"Error parsing table name {name}: {e}")
-            return True
+            logger.warning("Error parsing table name %s: %s", name, e)
+            result = False
+            self._discovered_table_cache[name] = result
+            return result
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (
@@ -1616,3 +1568,8 @@ class SQLServerSource(SQLAlchemySource):
             raise RuntimeError(
                 "Unable to get database name from Sqlalchemy inspector"
             ) from e
+
+    def close(self) -> None:
+        if self.sql_aggregator:
+            self.sql_aggregator.close()
+        super().close()
