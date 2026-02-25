@@ -1862,7 +1862,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29"
+                    "query": "urn:li:query:view_52b431f5c8e37bccbd5763cdb82d5d871cd1f67ff646d72966d230e4af9fb510"
                 }
             ]
         }
@@ -1900,7 +1900,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_52b431f5c8e37bccbd5763cdb82d5d871cd1f67ff646d72966d230e4af9fb510",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1929,7 +1929,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_52b431f5c8e37bccbd5763cdb82d5d871cd1f67ff646d72966d230e4af9fb510",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1952,7 +1952,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_52b431f5c8e37bccbd5763cdb82d5d871cd1f67ff646d72966d230e4af9fb510",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1968,7 +1968,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_52b431f5c8e37bccbd5763cdb82d5d871cd1f67ff646d72966d230e4af9fb510",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

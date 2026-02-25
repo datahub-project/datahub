@@ -16104,7 +16104,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.dual,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29"
+                    "query": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2"
                 }
             ]
         }
@@ -16117,7 +16117,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+    "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -16146,7 +16146,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+    "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -16178,7 +16178,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+    "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -16211,7 +16211,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.sqlplus_product_profile,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 }
             ],
             "fineGrainedLineages": [
@@ -16226,7 +16226,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"PRODUCT\" AS \"PRODUCT\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16239,7 +16239,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"USERID\" AS \"USERID\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16252,7 +16252,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"ATTRIBUTE\" AS \"ATTRIBUTE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16265,7 +16265,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"SCOPE\" AS \"SCOPE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16278,7 +16278,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"NUMERIC_VALUE\" AS \"NUMERIC_VALUE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16291,7 +16291,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"CHAR_VALUE\" AS \"CHAR_VALUE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16304,7 +16304,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"DATE_VALUE\" AS \"DATE_VALUE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -16317,7 +16317,7 @@
                     ],
                     "transformOperation": "COPY: \"SQLPLUS_PRODUCT_PROFILE\".\"LONG_VALUE\" AS \"LONG_VALUE\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29"
+                    "query": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38"
                 }
             ]
         }
@@ -16330,7 +16330,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29",
+    "entityUrn": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -16359,7 +16359,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29",
+    "entityUrn": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -16430,7 +16430,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29",
+    "entityUrn": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -16446,7 +16446,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+    "entityUrn": "urn:li:query:view_843debbfebfcff86ffa5ec18c0c7a64d970e2ca250bace890cc4aa63b6f27dd2",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -16462,7 +16462,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csystem.product_privs%2CPROD%29",
+    "entityUrn": "urn:li:query:view_cfe5e421bdb41752aac9c39a9bc0d4896a4d3a45c0b093fa0398198550634b38",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

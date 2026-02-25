@@ -1100,7 +1100,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.mock_table,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29"
+                    "query": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7"
                 }
             ],
             "fineGrainedLineages": [
@@ -1115,7 +1115,7 @@
                     ],
                     "transformOperation": "COPY: \"MOCK_TABLE\".\"MOCK_COLUMN1\" AS \"MOCK_COLUMN1\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29"
+                    "query": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1128,7 +1128,7 @@
                     ],
                     "transformOperation": "COPY: \"MOCK_TABLE\".\"MOCK_COLUMN2\" AS \"MOCK_COLUMN2\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29"
+                    "query": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7"
                 }
             ]
         }
@@ -1141,7 +1141,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1170,7 +1170,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1205,7 +1205,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1238,7 +1238,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.mock_table,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29"
+                    "query": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73"
                 }
             ],
             "fineGrainedLineages": [
@@ -1253,7 +1253,7 @@
                     ],
                     "transformOperation": "COPY: \"MOCK_TABLE\".\"MOCK_COLUMN1\" AS \"MOCK_COLUMN1\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29"
+                    "query": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -1266,7 +1266,7 @@
                     ],
                     "transformOperation": "COPY: \"MOCK_TABLE\".\"MOCK_COLUMN2\" AS \"MOCK_COLUMN2\"",
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29"
+                    "query": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73"
                 }
             ]
         }
@@ -1279,7 +1279,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -1308,7 +1308,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -1343,7 +1343,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1359,7 +1359,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema1.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_a3ad39c856744e2251cd4342223d08eb34d60c05ef9e968f89419b7cb67de6b7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1375,7 +1375,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Cschema2.view1%2CPROD%29",
+    "entityUrn": "urn:li:query:view_e8e03e8c61ca2775cc040d923282f6a178838ea9784cd4fa49363115de9f8a73",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

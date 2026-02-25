@@ -788,7 +788,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 }
             ],
             "fineGrainedLineages": [
@@ -803,7 +803,7 @@
                     ],
                     "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -816,7 +816,7 @@
                     ],
                     "transformOperation": "SQL: AVG(\"EMPLOYEES\".\"SALARY\") AS \"AVG_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -829,7 +829,7 @@
                     ],
                     "transformOperation": "SQL: MAX(\"EMPLOYEES\".\"SALARY\") AS \"MAX_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -842,7 +842,7 @@
                     ],
                     "transformOperation": "SQL: MIN(\"EMPLOYEES\".\"SALARY\") AS \"MIN_SALARY\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    "query": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d"
                 }
             ]
         }
@@ -880,7 +880,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -909,7 +909,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -953,7 +953,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -969,7 +969,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+    "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
