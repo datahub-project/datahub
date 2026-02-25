@@ -46,6 +46,17 @@ function formatPropertyValues(rawJson: string): string {
     }
 }
 
+function formatOwnerTypeUrn(urn: string): string {
+    // Extract display name from URNs like "urn:li:ownershipType:__system__business_owner"
+    const lastSegment = urn.split(':').pop() || '';
+    // Strip the __system__ prefix if present, then humanize
+    const cleaned = lastSegment.replace(/^__system__/, '');
+    return cleaned
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
 function formatOwnerType(rawType: string): string {
     // Convert "TECHNICAL_OWNER" -> "Technical Owner"
     return rawType
@@ -53,6 +64,8 @@ function formatOwnerType(rawType: string): string {
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
 }
+
+const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
 
 export function getChangeEventString(changeEvent: ChangeEvent) {
     let displayString = changeEvent.description;
@@ -107,7 +120,13 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         const ownerUrn = getParameter(changeEvent.parameters, 'ownerUrn', '');
         const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn) : 'Unknown';
         const rawOwnerType = getParameter(changeEvent.parameters, 'ownerType');
-        const ownerTypeSuffix = rawOwnerType ? ` (${formatOwnerType(rawOwnerType)})` : '';
+        const ownerTypeUrn = getParameter(changeEvent.parameters, 'ownerTypeUrn');
+        let ownerTypeSuffix = '';
+        if (ownerTypeUrn) {
+            ownerTypeSuffix = ` (${formatOwnerTypeUrn(ownerTypeUrn)})`;
+        } else if (rawOwnerType && !UNINFORMATIVE_OWNER_TYPES.has(rawOwnerType)) {
+            ownerTypeSuffix = ` (${formatOwnerType(rawOwnerType)})`;
+        }
 
         if (changeEvent.operation === OPERATION_ADD) {
             displayString = `Added owner "${ownerName}"${ownerTypeSuffix}.`;

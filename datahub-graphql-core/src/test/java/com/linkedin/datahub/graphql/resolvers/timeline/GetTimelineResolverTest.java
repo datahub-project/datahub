@@ -9,6 +9,8 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 public class GetTimelineResolverTest {
@@ -55,5 +57,25 @@ public class GetTimelineResolverTest {
         9,
         "CATEGORY_INPUT_MAP size changed — update this test and verify "
             + "ChangeEventMapper.CATEGORY_MAP is also updated");
+  }
+
+  @Test
+  public void testOwnershipCategoryMapsToOwnerBackend() {
+    // The OWNERSHIP -> OWNER mapping is critical because the enum names differ
+    ChangeCategory result =
+        GetTimelineResolver.CATEGORY_INPUT_MAP.get(ChangeCategoryType.OWNERSHIP);
+    assertEquals(result, ChangeCategory.OWNER);
+  }
+
+  @Test
+  public void testCategoryInputMapValuesAreDistinct() {
+    // Verify no two GraphQL types map to the same backend category —
+    // duplicate values would silently drop timeline events.
+    Set<ChangeCategory> distinctValues =
+        GetTimelineResolver.CATEGORY_INPUT_MAP.values().stream().collect(Collectors.toSet());
+    assertEquals(
+        distinctValues.size(),
+        GetTimelineResolver.CATEGORY_INPUT_MAP.size(),
+        "CATEGORY_INPUT_MAP has duplicate backend values");
   }
 }

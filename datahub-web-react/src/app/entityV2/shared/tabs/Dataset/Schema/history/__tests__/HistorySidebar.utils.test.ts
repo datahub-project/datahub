@@ -1,4 +1,7 @@
-import { getCategoryOptions, ALL_CATEGORY_OPTIONS } from '../HistorySidebar.utils';
+import {
+    ALL_CATEGORY_OPTIONS,
+    getCategoryOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
 
 describe('getCategoryOptions', () => {

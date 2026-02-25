@@ -255,6 +255,55 @@ describe('getChangeEventString', () => {
             expect(result).toBe('Removed owner "bob_smith" (Data Steward).');
         });
 
+        it('should prefer ownerTypeUrn over ownerType enum', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:jane_doe' },
+                    { key: 'ownerType', value: 'CUSTOM' },
+                    { key: 'ownerTypeUrn', value: 'urn:li:ownershipType:__system__business_owner' },
+                ],
+                description: "'jane_doe' added as owner.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added owner "jane_doe" (Business Owner).');
+        });
+
+        it('should suppress NONE owner type', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:admin' },
+                    { key: 'ownerType', value: 'NONE' },
+                ],
+                description: "'admin' added as owner.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added owner "admin".');
+        });
+
+        it('should suppress CUSTOM owner type when no typeUrn present', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:admin' },
+                    { key: 'ownerType', value: 'CUSTOM' },
+                ],
+                description: "'admin' added as owner.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added owner "admin".');
+        });
+
         it('should handle owner without type parameter', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
