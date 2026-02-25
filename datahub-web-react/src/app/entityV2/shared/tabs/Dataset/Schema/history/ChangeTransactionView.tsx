@@ -22,6 +22,13 @@ const ChangeTransactionTimestamp = styled(TitleText)`
     padding: 5px 15px;
 `;
 
+const ActorText = styled.span`
+    color: #8f94b2;
+    font-size: 12px;
+    font-style: italic;
+    font-weight: 400;
+`;
+
 const ChangeTransactionContainer = styled.div`
     display: flex;
     flex-direction: row;
@@ -89,7 +96,15 @@ export interface ChangeTransactionEntry {
     platform?: DataPlatform;
 }
 
+function extractActorName(actorUrn?: string | null): string | null {
+    if (!actorUrn) return null;
+    const parts = actorUrn.split(':');
+    return parts[parts.length - 1] || null;
+}
+
 export default function ChangeTransactionView({ transaction, platform, semanticVersion }: ChangeTransactionEntry) {
+    const actorName = extractActorName(transaction.actor);
+
     return (
         <ChangeTransactionContainer>
             <ChangeTransactionSidebar>
@@ -106,6 +121,7 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                             {formatTimestamp(transaction.timestampMillis)}
                         </ChangeTransactionTimestamp>
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
+                        {actorName && <ActorText>by {actorName}</ActorText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
                 <div>{transaction?.changes?.map((change) => <ChangeEventComponent changeEvent={change} />)}</div>

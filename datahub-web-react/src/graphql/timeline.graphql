@@ -5,6 +5,7 @@ query getTimeline($input: GetTimelineInput!) {
             lastSemanticVersion
             versionStamp
             changeType
+            actor
             changes {
                 urn
                 category

@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { getDocumentationString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
+import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 
 import { ChangeEvent } from '@types';
@@ -22,7 +22,7 @@ const ChangeEventText = styled.div`
     font-size: 13px;
     font-style: normal;
     font-weight: 400;
-    line-height: 20px; /* 200% */
+    line-height: 20px;
     letter-spacing: -0.12px;
     margin-left: 22px;
     width: calc(100% - 22px);
@@ -41,11 +41,12 @@ interface ChangeTransactionProps {
 }
 
 const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent }) => {
-    const documentationString = getDocumentationString(changeEvent);
+    const displayString = getChangeEventString(changeEvent);
 
     return (
         <ChangeEventContainer>
-            <ChangeEventCircle /> <ChangeEventText>{processDocumentationString(documentationString)}</ChangeEventText>
+            <ChangeEventCircle />
+            <ChangeEventText>{processDocumentationString(displayString)}</ChangeEventText>
         </ChangeEventContainer>
     );
 };
