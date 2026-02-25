@@ -145,6 +145,21 @@ def get_sentry_environment() -> str:
 
 
 # ============================================================================
+# Report Configuration
+# ============================================================================
+
+
+def get_report_failure_sample_size() -> int:
+    """Maximum number of failure entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
+
+
+def get_report_warning_sample_size() -> int:
+    """Maximum number of warning entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+# ============================================================================
 # Logging & Debug Configuration
 # ============================================================================
 

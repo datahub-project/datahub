@@ -24,6 +24,10 @@ from pydantic import BaseModel
 from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_vars import (
+    get_report_failure_sample_size,
+    get_report_warning_sample_size,
+)
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
@@ -115,8 +119,8 @@ class StructuredLogs(Report):
     # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
     _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
         default_factory=lambda: {
-            StructuredLogLevel.ERROR: LossyDict(10),
-            StructuredLogLevel.WARN: LossyDict(10),
+            StructuredLogLevel.ERROR: LossyDict(get_report_failure_sample_size()),
+            StructuredLogLevel.WARN: LossyDict(get_report_warning_sample_size()),
             StructuredLogLevel.INFO: LossyDict(10),
         }
     )

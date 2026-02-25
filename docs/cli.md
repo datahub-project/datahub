@@ -515,6 +515,8 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
 - `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
+- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
+- `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
@@ -523,6 +525,8 @@ DATAHUB_GMS_TOKEN=
 DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10
 DATAHUB_DEBUG=false
+DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=10
+DATAHUB_REPORT_WARNING_SAMPLE_SIZE=10
 ```
 
 ### container
