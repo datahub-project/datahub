@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react';
 import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
@@ -33,7 +33,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
             ? 'left: 50%; transform: translateX(-50%); max-width: 800px; width: fit-content;'
             : 'width: 100%;'}
     z-index: ${(props) => (props.$fixedBottom ? '1000' : '99')};
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) =>
         props.$fixedBottom
             ? `border-radius: 12px; border: 1px solid ${props.theme.colors.border};`
@@ -45,7 +45,7 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
     display: flex;
     justify-content: start;
     align-items: center;
-    box-shadow: ${(props) => props.theme.colors.shadowXs};
+    box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
 `;
 
 const InnerContainer = styled.div`
@@ -75,8 +75,12 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
 
     const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.uploadFileProps?.onFileUpload;
 
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+    }, []);
+
     return (
-        <Container style={styles} $fixedBottom={fixedBottom}>
+        <Container style={styles} $fixedBottom={fixedBottom} onMouseDown={handleMouseDown}>
             <InnerContainer>
                 <FontSizeSelect />
                 <HeadingMenu />

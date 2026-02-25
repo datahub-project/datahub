@@ -2,6 +2,8 @@ import pathlib
 
 import pytest
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -41,6 +43,14 @@ FROM mytable
 
 def test_select_max_with_schema() -> None:
     # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
+
+    # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
+    # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
+    # Sqlglot confirmed this is intentional - v28 is more conservative with type inference when any argument is UNKNOWN.
+    # See https://github.com/tobymao/sqlglot/issues/6983
+    # The impact is that we miss type information for the max_col column when queries reference unresolved columns.
+    # That doesn't happen with the test_select_max_with_schema_all_resolved test because all columns are resolved.
+
     assert_sql_result(
         """
 SELECT max(`col1`, COL2, `this_will_not_resolve`) as max_col
@@ -54,6 +64,23 @@ FROM mytable
             },
         },
         expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
+    )
+
+
+def test_select_max_with_schema_all_resolved() -> None:
+    assert_sql_result(
+        """
+SELECT max(`col1`, COL2) as max_col
+FROM mytable
+""",
+        dialect="mysql",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)": {
+                "col1": "NUMBER",
+                "col2": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema_all_resolved.json",
     )
 
 
@@ -162,6 +189,75 @@ SELECT id, name FROM my_db.my_schema.my_table
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_create_view_with_tag.json",
     )
+
+
+def test_create_view_as_block_statement() -> None:
+    """Test Block with multiple statements where only 1 is not None.
+
+    Sqlglot v29 parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    Block([Create, None]), where None represents the empty statement between semicolons.
+
+    This pattern was observed in Redshift integration tests where view definitions had
+    double semicolons, causing column lineage extraction to fail.
+
+    This test ensures we correctly filter out None expressions and extract column lineage.
+    Regression test for sqlglot v29 upgrade.
+    """
+    # Double semicolon pattern that creates Block([Create, None])
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS (SELECT id, name, age FROM base_table);
+        ;
+""",
+        dialect="redshift",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.base_table,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+                "age": "INTEGER",
+            }
+        },
+        default_db="dev",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_create_view_as_block_statement.json",
+    )
+
+
+def test_block_with_all_none_expressions() -> None:
+    """Test Block with all None expressions returns error in SqlParsingResult.
+
+    Sqlglot raises ParseError when parsing SQL with only semicolons
+    since there's no valid SQL statement.
+    """
+    result = sqlglot_lineage(
+        ";\n;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "No expression was parsed" in str(result.debug_info.table_error)
+
+
+def test_block_with_multiple_statements() -> None:
+    """Test Block with multiple non-None statements returns error.
+
+    parse_statement expects a single statement. Multiple statements should use
+    parse_statements_and_pick() instead.
+    """
+    result = sqlglot_lineage(
+        "CREATE VIEW v1 AS SELECT * FROM t1; CREATE VIEW v2 AS SELECT * FROM t2;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "Block contains 2 statements" in str(result.debug_info.table_error)
+    assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
 
 
 def test_snowflake_create_table_as_select_with_tag() -> None:
@@ -1644,6 +1740,79 @@ JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers".
 """,
         dialect="dremio",
         expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
+    )
+
+
+def test_snowflake_semantic_view_query() -> None:
+    # Regression test: a dbt model that queries a Snowflake semantic view using
+    # semantic_view(...) table function. Sqlglot has an infinite loop parsing this
+    # (https://github.com/tobymao/sqlglot/issues/6287).
+    assert_sql_result(
+        """SELECT a FROM SEMANTIC_VIEW(b FACTS c)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_query.json",
+    )
+
+
+def test_snowflake_semantic_view_query_with_metrics() -> None:
+    # Reported by user as causing an infinite loop in sqlglot v27.
+    # Fixed in v28, but v28 could not parse aliases in dimensions clause.
+    # Fixed in v29.0.1 (https://github.com/tobymao/sqlglot/issues/6993).
+    assert_sql_result(
+        """\
+select
+    organization_id,
+    month,
+    active_users
+from semantic_view(
+    product_metrics.semantic.sv_board_opens
+    metrics active_users
+    dimensions organization_id, date_trunc('month', time) as month
+)
+order by organization_id, month desc
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_query_with_metrics.json",
+    )
+
+
+def test_snowflake_semantic_view_qualified_table() -> None:
+    # Test semantic view with fully qualified table name (db.schema.table)
+    assert_sql_result(
+        """SELECT col1, col2 FROM SEMANTIC_VIEW(mydb.myschema.mytable FACTS fact_col)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_qualified_table.json",
+    )
+
+
+def test_snowflake_semantic_view_with_metrics_only() -> None:
+    # Test semantic view with metrics clause only (no dimensions)
+    assert_sql_result(
+        """SELECT total_revenue FROM SEMANTIC_VIEW(sales_data METRICS total_revenue)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_metrics_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_dimensions_only() -> None:
+    # Test semantic view with dimensions clause only (no metrics)
+    assert_sql_result(
+        """SELECT region, product FROM SEMANTIC_VIEW(sales_data DIMENSIONS region, product)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_dimensions_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_where() -> None:
+    # Test semantic view with WHERE clause in the outer query
+    assert_sql_result(
+        """SELECT user_id, activity FROM SEMANTIC_VIEW(events FACTS activity) WHERE user_id > 100""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_with_where.json",
     )
 
 
