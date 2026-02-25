@@ -1065,14 +1065,20 @@ def test_avro_schema_to_mce_fields_with_hyphenated_namespace():
         }
     )
 
-    # Default behavior: swallow_exceptions=True returns empty list
+    # Default behavior (validate_names=False): parsing succeeds
     fields = avro_schema_to_mce_fields(schema_str)
-    assert fields == []
+    assert len(fields) == 2
 
-    # With validate_names=False, parsing succeeds
+    # Explicitly with validate_names=False, parsing succeeds
     fields = avro_schema_to_mce_fields(schema_str, validate_names=False)
     assert len(fields) == 2
 
-    # With swallow_exceptions=False and default validation, raises error
+    # With validate_names=True and swallow_exceptions=True, returns empty list
+    fields = avro_schema_to_mce_fields(schema_str, validate_names=True)
+    assert fields == []
+
+    # With validate_names=True and swallow_exceptions=False, raises error
     with pytest.raises(avro.errors.SchemaParseException):
-        avro_schema_to_mce_fields(schema_str, swallow_exceptions=False)
+        avro_schema_to_mce_fields(
+            schema_str, validate_names=True, swallow_exceptions=False
+        )
