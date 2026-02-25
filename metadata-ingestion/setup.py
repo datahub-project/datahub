@@ -56,7 +56,8 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
-    "aiohttp<4",
+    # CVE-2025-30304, CVE-2025-32442: aiohttp <3.11.18 has request smuggling vulnerabilities
+    "aiohttp>=3.13.3,<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
     "click-spinner<0.2.0",
@@ -382,7 +383,9 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core>=1.31.0,<2.0.0",
+    # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
+    # redirect handling in the pipeline transport layer
+    "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
