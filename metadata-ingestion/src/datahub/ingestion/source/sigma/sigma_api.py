@@ -4,6 +4,8 @@ import sys
 from typing import Any, Dict, List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.sigma.config import (
     Constant,
@@ -30,6 +32,18 @@ class SigmaAPI:
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
+
+        # Configure retry strategy for 429/503 with exponential backoff
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 503],
+            backoff_factor=2,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
         self.refresh_token: Optional[str] = None
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self.config.api_url}")
@@ -87,11 +101,15 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
+        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
         get_response = self.session.get(url)
+
+        # Handle token refresh on 401
         if get_response.status_code == 401 and self.refresh_token:
             logger.debug("Access token might expired. Refreshing access token.")
             self._refresh_access_token()
             get_response = self.session.get(url)
+
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
@@ -299,6 +317,11 @@ class SigmaAPI:
                     f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'"
                 )
                 return upstream_sources
+            if response.status_code == 400:
+                logger.debug(
+                    f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
+                )
+                return upstream_sources
 
             response.raise_for_status()
             response_dict = response.json()
@@ -347,6 +370,13 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
+                # only element of table and visualization type have lineage and sql query supported
+                if element_dict.get("type") not in ["table", "visualization"]:
+                    logger.debug(
+                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                    )
+                    continue
+
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
                         f"Element {i + 1} of Page '{page.name}'"
