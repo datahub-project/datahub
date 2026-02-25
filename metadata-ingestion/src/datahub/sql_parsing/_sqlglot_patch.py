@@ -12,8 +12,9 @@ approach in Python when source-level patching tools don't work and you need to m
 internal function behavior.
 
 This module replaces entire functions with modified versions where 95% of the code is
-unchanged from sqlglot v29.0.1. Our modifications are marked with "# PATCH" comments.
-This is a standard Python pattern for monkey-patching when source-level tools fail.
+unchanged from sqlglot v29.0.1. Lines modified from the original are marked with
+"##! PATCH" at the end. This is a standard Python pattern for monkey-patching when
+source-level tools fail.
 """
 
 import dataclasses
@@ -45,11 +46,9 @@ def _patched_deepcopy(
     This is a full replacement of sqlglot v29's ExpressionCore.__deepcopy__.
     Only modification: Added 3 lines at the start to check for timeouts.
     """
-    # PATCH START: Add cooperative timeout check
-    import datahub.utilities.cooperative_timeout
+    import datahub.utilities.cooperative_timeout  ##! PATCH
 
-    datahub.utilities.cooperative_timeout.cooperate()
-    # PATCH END
+    datahub.utilities.cooperative_timeout.cooperate()  ##! PATCH
 
     # Original implementation from sqlglot v29 (unchanged below this point)
     root = self.__class__()
@@ -103,20 +102,18 @@ def _patched_traverse(
     from sqlglot.errors import OptimizeError
 
     stack = [self]
-    # PATCH START: Track seen scopes to detect circular dependencies
-    seen_scopes = set()
-    # PATCH END
+    seen_scopes = set()  ##! PATCH
     result = []
 
     while stack:
         scope = stack.pop()
 
-        # PATCH START: Check for circular dependencies
         # Scopes aren't hashable, so we use id(scope) instead.
-        if id(scope) in seen_scopes:
-            raise OptimizeError(f"Scope {scope} has a circular scope dependency")
-        seen_scopes.add(id(scope))
-        # PATCH END
+        if id(scope) in seen_scopes:  ##! PATCH
+            raise OptimizeError(
+                f"Scope {scope} has a circular scope dependency"
+            )  ##! PATCH
+        seen_scopes.add(id(scope))  ##! PATCH
 
         result.append(scope)
         stack.extend(
@@ -296,22 +293,18 @@ def _patched_decorrelate(  # noqa: C901
         if key in group_by:
             key.replace(nested)
         elif isinstance(predicate, exp.EQ):
-            # PATCH START: Add null check before calling _replace
-            if parent_predicate:
+            if parent_predicate:  ##! PATCH
                 parent_predicate = _replace(
                     parent_predicate,
                     f"({parent_predicate} AND ARRAY_CONTAINS({nested}, {column}))",
                 )
-            # PATCH END
         else:
             key.replace(exp.to_identifier("_x"))
-            # PATCH START: Add null check before calling _replace
-            if parent_predicate:
+            if parent_predicate:  ##! PATCH
                 parent_predicate = _replace(
                     parent_predicate,
                     f"({parent_predicate} AND ARRAY_ANY({nested}, _x -> {predicate}))",
                 )
-            # PATCH END
 
     parent_select.join(
         select.group_by(*group_by, copy=False),
@@ -516,8 +509,7 @@ def _patched_to_node(  # noqa: C901
             )
 
     # Find all columns that went into creating this one to list their lineage nodes.
-    # PATCH: Changed from set to list for consistent ordering during subfield extraction
-    source_columns = list(find_all_in_scope(select, exp.Column))
+    source_columns = list(find_all_in_scope(select, exp.Column))  ##! PATCH (was: set)
 
     # If the source is a UDTF find columns used in the UDTF to generate the table
     source_expr = scope.expression
@@ -630,20 +622,16 @@ def _patched_to_node(  # noqa: C901
             # passed into the `sources` map.
             source = source or exp.Placeholder()
 
-            # PATCH START: Extract subfield information for struct field access
-            # Original code: node.downstream.append(Node(name=c.sql(), source=source, expression=source))
-            # Modified to: extract subfield and pass it to Node constructor
-            subfield = _extract_subfield(c)
+            subfield = _extract_subfield(c)  ##! PATCH
 
             node.downstream.append(
                 sqlglot.lineage.Node(  # type: ignore[call-arg]
                     name=c.sql(comments=False),
                     source=source,
                     expression=source,
-                    subfield=subfield,  # Our patched Node has this field
+                    subfield=subfield,  ##! PATCH
                 )
             )
-            # PATCH END
 
     return node
 
@@ -669,9 +657,8 @@ def _patched_lineage(
 
     expression = maybe_parse(sql, copy=copy, dialect=dialect)
 
-    # PATCH: Disable column normalization - it was causing issues
-    # Original: column = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name
-    assert isinstance(column, str)
+    # Original: column = normalize_identifiers.normalize_identifiers(column, dialect=dialect).name  ##! PATCH
+    assert isinstance(column, str)  ##! PATCH
 
     if sources:
         expression = sqlglot.exp.expand(
