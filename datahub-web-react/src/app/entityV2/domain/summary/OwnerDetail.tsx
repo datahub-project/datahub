@@ -1,4 +1,4 @@
-import { Avatar, Tooltip, colors } from '@components';
+import { Avatar, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +12,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;

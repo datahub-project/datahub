@@ -3,14 +3,13 @@ import { Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entity/Entity';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
@@ -61,6 +60,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 // TODO: Cleanup the styling.
 export const ManageRoles = () => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -158,7 +158,7 @@ export const ManageRoles = () => {
                     <>
                         <RoleName
                             onClick={() => onViewRole(record.role)}
-                            style={{ color: record?.editable ? '#000000' : ANTD_GRAY[8] }}
+                            style={{ color: record?.editable ? theme.colors.text : theme.colors.textDisabled }}
                         >
                             {record?.name}
                         </RoleName>

@@ -1,8 +1,7 @@
-// import { UserOutlined } from '@ant-design/icons';
 import { Avatar } from '@components';
 import { Badge, Divider, Space, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
@@ -52,6 +51,8 @@ const NameContainer = styled.div`
 `;
 
 export default function UserHeader({ profileSrc, name, title, skills, teams, email }: Props) {
+    const theme = useTheme();
+
     return (
         <Row>
             <div>
@@ -87,7 +88,11 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                             <Typography.Title level={5}>Ask me about</Typography.Title>
                             <Space>
                                 {skills?.map((skill) => (
-                                    <Badge style={{ backgroundColor: '#108ee9' }} count={skill} key={skill} />
+                                    <Badge
+                                        style={{ backgroundColor: theme.colors.bgSurfaceBrand }}
+                                        count={skill}
+                                        key={skill}
+                                    />
                                 ))}
                             </Space>
                         </Skills>
@@ -95,7 +100,11 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                             <Typography.Title level={5}>Teams</Typography.Title>
                             <Space>
                                 {teams?.map((team) => (
-                                    <Badge style={{ backgroundColor: '#87d068' }} count={team} key={team} />
+                                    <Badge
+                                        style={{ backgroundColor: theme.colors.bgSurfaceSuccess }}
+                                        count={team}
+                                        key={team}
+                                    />
                                 ))}
                             </Space>
                         </div>

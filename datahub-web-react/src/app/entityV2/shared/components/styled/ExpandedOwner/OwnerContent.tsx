@@ -1,4 +1,4 @@
-import { Avatar, Popover, colors } from '@components';
+import { Avatar, Popover } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -15,7 +15,7 @@ import { EntityType, Owner } from '@types';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
 
     max-width: 150px;
     text-overflow: ellipsis;

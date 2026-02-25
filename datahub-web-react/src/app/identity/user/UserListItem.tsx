@@ -3,12 +3,12 @@ import { Avatar } from '@components';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
@@ -71,6 +71,7 @@ export default function UserListItem({
     onDelete,
     refetch,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
@@ -95,9 +96,9 @@ export default function UserListItem({
     const getUserStatusColor = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return REDESIGN_COLORS.BLUE;
+                return theme.colors.textBrand;
             default:
-                return ANTD_GRAY[6];
+                return theme.colors.textDisabled;
         }
     };
 
@@ -149,7 +150,7 @@ export default function UserListItem({
                         </div>
                         {userStatus && (
                             <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || ANTD_GRAY[6]}>{userStatus}</Tag>
+                                <Tag color={userStatusColor || theme.colors.textDisabled}>{userStatus}</Tag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>

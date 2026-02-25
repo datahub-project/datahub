@@ -15,7 +15,6 @@ import {
     GroupInfo,
     WhiteEditOutlinedIconStyle,
 } from '@app/entityV2/shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
@@ -40,7 +39,7 @@ export type SidebarData = {
 const AvatarWithTitleContainer = styled.div`
     display: flex;
     padding: 10px;
-    background: ${REDESIGN_COLORS.GROUP_AVATAR_STYLE_GRADIENT}};
+    background: ${(props) => props.theme.colors.brandGradient};
     gap: 0.5rem;
 `;
 

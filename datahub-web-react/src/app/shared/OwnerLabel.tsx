@@ -1,4 +1,4 @@
-import { Avatar, colors } from '@components';
+import { Avatar } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -21,7 +21,7 @@ const OwnerContentWrapper = styled.div`
 `;
 
 const SubHeader = styled.div`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
 `;
 

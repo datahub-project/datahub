@@ -1,4 +1,4 @@
-import { Avatar, Icon, colors } from '@components';
+import { Avatar, Icon } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -18,7 +18,7 @@ const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
     gap: 4px;
     padding: 3px 6px 3px 4px;
     border-radius: 20px;
-    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[100]};
+    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${(props) => props.theme.colors.border};
 
     :hover {
         cursor: pointer;
@@ -26,7 +26,7 @@ const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
 `;
 
 const NameText = styled.span`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
     font-size: 12px;
 `;

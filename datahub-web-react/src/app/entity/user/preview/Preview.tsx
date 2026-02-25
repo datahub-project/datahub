@@ -7,7 +7,6 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -52,7 +51,7 @@ const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const AvatarContainer = styled.div`

@@ -55,7 +55,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     { delay: 0 },
   );
   cy.get("[data-testid='sign-in']").click();
-  cy.get(".ant-avatar-circle").should("be.visible");
+  cy.get("[data-testid='search-input']").should("be.visible");
   notFirstTimeVisit();
 });
 

@@ -1,4 +1,4 @@
-import { Avatar, colors } from '@components';
+import { Avatar } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +12,7 @@ import { CorpGroup, CorpUser, EntityType } from '@types';
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
@@ -20,7 +20,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;
