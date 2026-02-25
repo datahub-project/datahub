@@ -113,7 +113,7 @@ source:
 
 ### AWS Glue Schema Registry
 
-If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](/docs/deploy/aws#aws-glue-schema-registry) for details.
+If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](../../deploy/aws.md/#aws-glue-schema-registry) for details.
 
 ## FAQ
 

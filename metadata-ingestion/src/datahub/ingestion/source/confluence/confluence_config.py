@@ -240,6 +240,14 @@ class ConfluenceSourceConfig(
         description="Configuration for generating vector embeddings for semantic search.",
     )
 
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
+    )
+
     # Advanced options
     advanced: AdvancedConfig = Field(
         default_factory=AdvancedConfig,
