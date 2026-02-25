@@ -24,9 +24,19 @@ interface Props {
     depth: number;
     index: number;
     clearFilters?: () => void;
+    /** When true, hides the "Add Group" button at every level. */
+    hideAddGroup?: boolean;
 }
 
-const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth, index, clearFilters }: Props) => {
+const QueryBuilder = ({
+    selectedPredicate,
+    onChangePredicate,
+    properties,
+    depth,
+    index,
+    clearFilters,
+    hideAddGroup,
+}: Props) => {
     const [isExpanded, setIsExpanded] = useState(true);
 
     const logicalPredicate = convertToLogicalPredicate(selectedPredicate);
@@ -108,6 +118,7 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
                         index={index}
                         operator={logicalPredicate.operator}
                         showDeleteButton={operands.length > 0 || depth > 0}
+                        hideAddGroup={hideAddGroup}
                     />
                 }
                 showArrow={operands.length > 0}
@@ -118,6 +129,7 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
                     properties={properties}
                     onDeletePredicate={onDeleteCondition}
                     depth={depth}
+                    hideAddGroup={hideAddGroup}
                 />
             </Collapse.Panel>
         </StyledCollapse>
