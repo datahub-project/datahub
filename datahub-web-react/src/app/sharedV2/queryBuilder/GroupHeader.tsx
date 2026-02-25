@@ -19,6 +19,8 @@ interface Props {
     index: number;
     operator?: LogicalOperatorType;
     showDeleteButton?: boolean;
+    /** When true, hides the "Add Group" button (e.g., when the backend model is flat). */
+    hideAddGroup?: boolean;
 }
 
 const GroupHeader = ({
@@ -29,6 +31,7 @@ const GroupHeader = ({
     index,
     operator,
     showDeleteButton,
+    hideAddGroup,
 }: Props) => {
     const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
         operator ?? LogicalOperatorType.AND,
@@ -99,13 +102,15 @@ const GroupHeader = ({
                 >
                     Add Condition
                 </ButtonComponent>
-                <ButtonComponent
-                    variant="text"
-                    onClick={handleAddLogicalPredicate}
-                    data-testid="query-builder-add-group-button"
-                >
-                    Add Group
-                </ButtonComponent>
+                {!hideAddGroup && (
+                    <ButtonComponent
+                        variant="text"
+                        onClick={handleAddLogicalPredicate}
+                        data-testid="query-builder-add-group-button"
+                    >
+                        Add Group
+                    </ButtonComponent>
+                )}
                 <CardIcons>
                     {showDeleteButton && (
                         <Icon

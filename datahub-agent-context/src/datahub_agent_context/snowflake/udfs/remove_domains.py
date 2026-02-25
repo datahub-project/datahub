@@ -22,13 +22,11 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
     entity_urn_list = json.loads(entity_urns) if isinstance(entity_urns, str) else entity_urns
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return remove_domains(entity_urns=entity_urn_list)
 
 except Exception as e:
