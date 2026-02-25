@@ -1,7 +1,10 @@
-import { getDocumentationString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
+import {
+    getChangeEventString,
+    getDocumentationString,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { ChangeCategoryType, ChangeEvent, ChangeOperationType } from '@src/types.generated';
 
-describe('getDocumentationString', () => {
+describe('getChangeEventString', () => {
     describe('Technical Schema Changes', () => {
         it('should handle adding a column with specified field path', () => {
             const changeEvent: ChangeEvent = {
@@ -12,7 +15,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Added column test.field.path.');
         });
 
@@ -30,7 +33,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Removed column addresses.zip.');
         });
 
@@ -43,7 +46,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Removed column test.field.path.');
         });
     });
@@ -57,7 +60,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Asset documentation is empty.');
         });
 
@@ -69,7 +72,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Set asset documentation to New asset description');
         });
 
@@ -82,7 +85,7 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Set field documentation for test.field to New field description');
         });
 
@@ -95,8 +98,315 @@ describe('getDocumentationString', () => {
                 description: 'Original description',
             };
 
-            const result = getDocumentationString(changeEvent);
+            const result = getChangeEventString(changeEvent);
             expect(result).toBe('Set field documentation for addresses.zip to New field description');
+        });
+    });
+
+    describe('Tag Changes', () => {
+        it('should handle adding an entity-level tag', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Tag,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:tag:PII',
+                parameters: [
+                    { key: 'tagUrn', value: 'urn:li:tag:PII' },
+                    { key: 'context', value: '{}' },
+                ],
+                description: "Tag 'PII' added to entity.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added tag "PII".');
+        });
+
+        it('should handle removing an entity-level tag', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Tag,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:tag:PII',
+                parameters: [
+                    { key: 'tagUrn', value: 'urn:li:tag:PII' },
+                    { key: 'context', value: '{}' },
+                ],
+                description: "Tag 'PII' removed from entity.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed tag "PII".');
+        });
+
+        it('should handle adding a field-level tag', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Tag,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'tagUrn', value: 'urn:li:tag:Sensitive' },
+                    { key: 'fieldPath', value: 'email_address' },
+                ],
+                description: "Tag 'Sensitive' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added tag "Sensitive" to field email_address.');
+        });
+
+        it('should fall back to description for unknown operations', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Tag,
+                operation: ChangeOperationType.Modify,
+                parameters: [{ key: 'tagUrn', value: 'urn:li:tag:Updated' }],
+                description: 'Tag was modified.',
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Tag was modified.');
+        });
+    });
+
+    describe('Glossary Term Changes', () => {
+        it('should handle adding an entity-level glossary term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:glossaryTerm:customer_id',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:customer_id' },
+                    { key: 'context', value: '{}' },
+                ],
+                description: "Term 'customer_id' added to entity.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added term "customer_id".');
+        });
+
+        it('should handle removing an entity-level glossary term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:glossaryTerm:revenue',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:revenue' },
+                    { key: 'context', value: '{}' },
+                ],
+                description: "Term 'revenue' removed from entity.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed term "revenue".');
+        });
+
+        it('should handle adding a field-level glossary term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:email' },
+                    { key: 'fieldPath', value: 'user.email' },
+                ],
+                description: "Term 'email' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added term "email" to field user.email.');
+        });
+    });
+
+    describe('Ownership Changes', () => {
+        it('should handle adding an owner with type', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:corpuser:jane_doe',
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:jane_doe' },
+                    { key: 'ownerType', value: 'TECHNICAL_OWNER' },
+                ],
+                description: "'jane_doe' added as a `TECHNICAL_OWNER` of 'urn:test'.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added owner "jane_doe" (Technical Owner).');
+        });
+
+        it('should handle removing an owner with type', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:corpuser:bob_smith',
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:bob_smith' },
+                    { key: 'ownerType', value: 'DATA_STEWARD' },
+                ],
+                description: "'bob_smith' removed as a `DATA_STEWARD` of 'urn:test'.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed owner "bob_smith" (Data Steward).');
+        });
+
+        it('should handle owner without type parameter', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                parameters: [{ key: 'ownerUrn', value: 'urn:li:corpuser:admin' }],
+                description: "'admin' added as owner.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added owner "admin".');
+        });
+
+        it('should fall back to description for unknown operations', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Modify,
+                parameters: [{ key: 'ownerUrn', value: 'urn:li:corpuser:admin' }],
+                description: 'Ownership was modified.',
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Ownership was modified.');
+        });
+    });
+
+    describe('Domain Changes', () => {
+        it('should handle adding a domain', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Domain,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:domain:engineering',
+                parameters: [{ key: 'domainUrn', value: 'urn:li:domain:engineering' }],
+                description: "Domain 'engineering' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added to domain "engineering".');
+        });
+
+        it('should handle removing a domain', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Domain,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:domain:marketing',
+                parameters: [{ key: 'domainUrn', value: 'urn:li:domain:marketing' }],
+                description: "Domain 'marketing' removed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed from domain "marketing".');
+        });
+
+        it('should fall back to description for unknown operations', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Domain,
+                operation: ChangeOperationType.Modify,
+                parameters: [{ key: 'domainUrn', value: 'urn:li:domain:test' }],
+                description: 'Domain was modified.',
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Domain was modified.');
+        });
+    });
+
+    describe('Structured Property Changes', () => {
+        it('should handle adding a structured property', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.StructuredProperty,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:structuredProperty:data_governance.retention_period',
+                parameters: [
+                    { key: 'propertyUrn', value: 'urn:li:structuredProperty:data_governance.retention_period' },
+                    { key: 'propertyValues', value: '["90 days"]' },
+                ],
+                description: "Structured property 'retention_period' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Set structured property "data_governance.retention_period" to "90 days".');
+        });
+
+        it('should handle removing a structured property', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.StructuredProperty,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:structuredProperty:classification',
+                parameters: [
+                    { key: 'propertyUrn', value: 'urn:li:structuredProperty:classification' },
+                    { key: 'propertyValues', value: '["internal"]' },
+                ],
+                description: "Structured property 'classification' removed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed structured property "classification".');
+        });
+
+        it('should handle modifying a structured property', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.StructuredProperty,
+                operation: ChangeOperationType.Modify,
+                modifier: 'urn:li:structuredProperty:priority',
+                parameters: [
+                    { key: 'propertyUrn', value: 'urn:li:structuredProperty:priority' },
+                    { key: 'propertyValues', value: '["high"]' },
+                ],
+                description: "Structured property 'priority' modified.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Updated structured property "priority" to "high".');
+        });
+
+        it('should handle multiple values', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.StructuredProperty,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:structuredProperty:tags',
+                parameters: [
+                    { key: 'propertyUrn', value: 'urn:li:structuredProperty:tags' },
+                    { key: 'propertyValues', value: '["alpha","beta"]' },
+                ],
+                description: "Structured property 'tags' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Set structured property "tags" to "alpha", "beta".');
+        });
+    });
+
+    describe('Backward compatibility', () => {
+        it('getDocumentationString should still work as an alias', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.TechnicalSchema,
+                operation: ChangeOperationType.Add,
+                parameters: [{ key: 'fieldPath', value: 'test_column' }],
+                description: 'Original description',
+            };
+
+            const result = getDocumentationString(changeEvent);
+            expect(result).toBe('Added column test_column.');
         });
     });
 });
