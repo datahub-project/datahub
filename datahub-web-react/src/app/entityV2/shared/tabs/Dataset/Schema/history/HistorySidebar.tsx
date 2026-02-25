@@ -6,15 +6,13 @@ import styled from 'styled-components';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
 import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ChangeTransactionView, {
     ChangeTransactionEntry,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
+import { getCategoryOptions } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeTransaction, DataPlatform, EntityType, SemanticVersionStruct } from '@types';
-
-import { getCategoryOptions } from './HistorySidebar.utils';
 
 const MAX_CHANGE_TRANSACTIONS = 100;
 
@@ -29,7 +27,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px rgba(0, 0, 0, 0.15);
+        box-shadow: -20px 0px 44px 0px ${(props) => props.theme.colors.overlayMedium};
     }
 `;
 
@@ -43,7 +41,7 @@ const FieldHeaderWrapper = styled.div`
     justify-content: space-between;
     align-items: center;
     background: ${(p) => p.theme.styles['primary-color']};
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 14px;
     font-weight: 700;
 `;
@@ -58,7 +56,7 @@ const CloseIcon = styled.div`
     display: flex;
     &&:hover {
         cursor: pointer;
-        stroke: ${REDESIGN_COLORS.WHITE};
+        stroke: ${(props) => props.theme.colors.textOnFillBrand};
     }
 `;
 
@@ -66,8 +64,8 @@ const HistoryFooter = styled.div`
     padding: 12px 26px;
     text-align: center;
     font-size: 12px;
-    color: #8c8c8c;
-    border-top: 1px solid #f0f0f0;
+    color: ${(props) => props.theme.colors.textTertiary};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface Props {

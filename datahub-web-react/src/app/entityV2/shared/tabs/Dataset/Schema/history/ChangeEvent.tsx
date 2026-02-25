@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 
@@ -14,13 +13,13 @@ const ChangeEventCircle = styled.div`
     min-width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1px solid ${REDESIGN_COLORS.DARK_GREY};
+    border: 1px solid ${(props) => props.theme.colors.textTertiary};
     margin-top: 8px;
 `;
 
 const ChangeEventText = styled.div`
     display: inline-block;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 13px;
     font-style: normal;
     font-weight: 400;
@@ -39,7 +38,7 @@ const ChangeEventContainer = styled.div`
 `;
 
 const ToggleLink = styled.span`
-    color: #5280e2;
+    color: ${(props) => props.theme.colors.hyperlinks};
     cursor: pointer;
     font-size: 12px;
     margin-left: 4px;
