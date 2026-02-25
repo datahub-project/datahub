@@ -54,6 +54,7 @@ input UpsertCustomAssertionInput {
   Deprecated: Use fieldPaths instead for multi-column support.
   """
   fieldPath: String
+    @deprecated(reason: "Use fields instead for multi-column support.")
 
   """
   The dataset fields targeted by this assertion, if any.
@@ -1057,6 +1058,13 @@ type CustomAssertionInfo {
   The entity targeted by this custom assertion.
   """
   entityUrn: String!
+
+  """
+  The field serving as input to the assertion, if any.
+  Deprecated: Use fields instead for multi-column support.
+  """
+  field: SchemaFieldRef
+    @deprecated(reason: "Use fields instead for multi-column support.")
 
   """
   The fields serving as input to the assertion, if any.

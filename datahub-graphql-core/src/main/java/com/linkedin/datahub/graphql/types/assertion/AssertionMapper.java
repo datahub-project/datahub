@@ -361,10 +361,15 @@ public class AssertionMapper {
     if (gmsCustomAssertionInfo.hasField()) {
       SchemaFieldRef legacyField = mapDatasetSchemaField(gmsCustomAssertionInfo.getField());
       if (allFields.stream().noneMatch(f -> f.getUrn().equals(legacyField.getUrn()))) {
-        allFields.add(legacyField);
+        allFields.add(0, legacyField);
       }
     }
     result.setFields(allFields);
+
+    // Backward compatibility: Keep the deprecated field and populate with the first field
+    if (!allFields.isEmpty()) {
+      result.setField(allFields.get(0));
+    }
 
     if (gmsCustomAssertionInfo.hasLogic()) {
       result.setLogic(gmsCustomAssertionInfo.getLogic());

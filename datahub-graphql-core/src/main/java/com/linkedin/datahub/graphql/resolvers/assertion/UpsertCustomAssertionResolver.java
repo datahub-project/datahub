@@ -110,11 +110,22 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
         fieldUrns.add(SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath));
       }
       customAssertionInfo.setFields(fieldUrns);
-    } else if (input.getFieldPath() != null) {
-      // Backward compatibility: support deprecated fieldPath
-      customAssertionInfo.setField(
-          SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()));
     }
+
+    // Backward compatibility: support deprecated fieldPath
+    if (input.getFieldPath() != null) {
+      Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath());
+      UrnArray fieldUrns = customAssertionInfo.getFields();
+      if (fieldUrns == null) {
+        fieldUrns = new UrnArray();
+      }
+
+      if (!fieldUrns.contains(fieldUrn)) {
+        fieldUrns.add(fieldUrn);
+        customAssertionInfo.setFields(fieldUrns);
+      }
+    }
+
     return customAssertionInfo;
   }
 }

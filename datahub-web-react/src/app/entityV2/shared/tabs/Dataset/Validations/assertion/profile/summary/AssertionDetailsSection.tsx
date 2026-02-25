@@ -3,20 +3,18 @@ import { Collapse } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 import { Assertion, AssertionType } from '@types';
 
 const { Panel } = Collapse;
 
 const StyledCollapse = styled(Collapse)`
-    background: #fafafa;
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
     margin-bottom: 16px;
 
     .ant-collapse-header {
         font-weight: 600;
-        color: ${ANTD_GRAY[9]};
+        color: ${(props) => props.theme.colors.text};
     }
 
     .ant-collapse-content-box {
@@ -31,7 +29,7 @@ const SectionTitle = styled.div`
 `;
 
 const LogicContainer = styled.div`
-    background: ${ANTD_GRAY[2]};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 6px;
     padding: 16px;
     overflow-x: auto;
@@ -45,7 +43,7 @@ const LogicContainer = styled.div`
     }
 
     code {
-        color: ${ANTD_GRAY[9]};
+        color: ${(props) => props.theme.colors.text};
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 12px;
         line-height: 1.5;
@@ -53,7 +51,7 @@ const LogicContainer = styled.div`
 `;
 
 const PropertiesContainer = styled.div`
-    background: ${ANTD_GRAY[2]};
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 6px;
     padding: 16px;
     overflow-x: auto;
@@ -67,7 +65,7 @@ const PropertiesContainer = styled.div`
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 12px;
         line-height: 1.5;
-        color: ${ANTD_GRAY[9]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -76,19 +74,38 @@ type Props = {
 };
 
 /**
+ * Extract logic/SQL from the assertion based on its type.
+ */
+function getLogicFromAssertion(assertion: Assertion): string | null {
+    const info = assertion?.info;
+    if (!info) return null;
+
+    switch (info.type) {
+        case AssertionType.Custom:
+            return info.customAssertion?.logic || null;
+        case AssertionType.Dataset:
+            return info.datasetAssertion?.logic || null;
+        case AssertionType.Sql:
+            return info.sqlAssertion?.statement || null;
+        default:
+            return null;
+    }
+}
+
+export function hasAssertionDetails(assertion: Assertion): boolean {
+    return !!getLogicFromAssertion(assertion) || !!assertion?.info?.customProperties?.length;
+}
+
+/**
  * Renders a collapsible section showing assertion logic (SQL) and custom properties.
  */
 export const AssertionDetailsSection = ({ assertion }: Props) => {
     const info = assertion?.info;
-
-    // Get logic from the appropriate assertion type
     const logic = getLogicFromAssertion(assertion);
 
-    // Get custom properties
     const customProperties = info?.customProperties;
     const hasCustomProperties = customProperties && customProperties.length > 0;
 
-    // Convert custom properties array to object for JSON display
     const customPropertiesObject = hasCustomProperties
         ? customProperties.reduce(
               (acc, prop) => {
@@ -99,7 +116,6 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
           )
         : null;
 
-    // Don't render if there's nothing to show
     if (!logic && !hasCustomProperties) {
         return null;
     }
@@ -144,22 +160,3 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
         </StyledCollapse>
     );
 };
-
-/**
- * Extract logic/SQL from the assertion based on its type.
- */
-function getLogicFromAssertion(assertion: Assertion): string | null {
-    const info = assertion?.info;
-    if (!info) return null;
-
-    switch (info.type) {
-        case AssertionType.Custom:
-            return info.customAssertion?.logic || null;
-        case AssertionType.Dataset:
-            return info.datasetAssertion?.logic || null;
-        case AssertionType.Sql:
-            return info.sqlAssertion?.statement || null;
-        default:
-            return null;
-    }
-}

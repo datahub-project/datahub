@@ -140,13 +140,27 @@ public class AssertionMapperTest {
     verifyAssertionInfo(input, output);
     // Verify legacy field is converted to fields array
     Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 1);
+    // Verify deprecated field output is populated
+    Assert.assertNotNull(output.getInfo().getCustomAssertion().getField());
+    Assert.assertEquals(
+        output.getInfo().getCustomAssertion().getField().getUrn(),
+        output.getInfo().getCustomAssertion().getFields().get(0).getUrn());
 
     // Case 4: Both field and fields present - deduplication
     input = createCustomAssertionInfoWithBothFieldAndFields();
     EntityResponse bothFieldsEntityResponse = createAssertionInfoEntityResponse(input);
     output = AssertionMapper.map(null, bothFieldsEntityResponse);
-    // Should have 2 fields (field2 from fields array + field1 from legacy field)
+    // Should have 2 fields (legacy field1 prepended + field2 from fields array)
     Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 2);
+    // Verify legacy field is at index 0
+    Assert.assertEquals(
+        output.getInfo().getCustomAssertion().getFields().get(0).getUrn(),
+        input.getCustomAssertion().getField().toString());
+    // Verify deprecated field output is populated with first field
+    Assert.assertNotNull(output.getInfo().getCustomAssertion().getField());
+    Assert.assertEquals(
+        output.getInfo().getCustomAssertion().getField().getUrn(),
+        output.getInfo().getCustomAssertion().getFields().get(0).getUrn());
 
     // Case 5: Both field and fields present with duplicate - should deduplicate
     input = createCustomAssertionInfoWithDuplicateField();
@@ -154,6 +168,8 @@ public class AssertionMapperTest {
     output = AssertionMapper.map(null, duplicateFieldEntityResponse);
     // Should have 1 field (deduplicated)
     Assert.assertEquals(output.getInfo().getCustomAssertion().getFields().size(), 1);
+    // Verify deprecated field output is still populated
+    Assert.assertNotNull(output.getInfo().getCustomAssertion().getField());
   }
 
   private void verifyAssertionInfo(AssertionInfo input, Assertion output) {
@@ -256,6 +272,13 @@ public class AssertionMapperTest {
       Assert.assertEquals(output.getFields().size(), 1);
       Assert.assertEquals(
           output.getFields().get(0).getPath(), input.getField().getEntityKey().get(1));
+    }
+    // Verify deprecated field output is populated when there are any fields
+    if (input.hasField() || input.hasFields()) {
+      Assert.assertNotNull(output.getField());
+      Assert.assertEquals(output.getField().getUrn(), output.getFields().get(0).getUrn());
+    } else {
+      Assert.assertNull(output.getField());
     }
   }
 
