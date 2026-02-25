@@ -42,6 +42,10 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
   }
 }"""
 
+    # Parsed GraphQL documents for type-safe execution.
+    _REPORT_OPERATION_MUTATION_DOC = gql(REPORT_OPERATION_MUTATION)
+    _QUERY_OPERATIONS_DOC = gql(QUERY_OPERATIONS)
+
     def report_operation(
         self,
         urn: str,
@@ -80,7 +84,7 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
             variable_values["customProperties"] = custom_properties
 
         result = self.client.execute(
-            gql(Operation.REPORT_OPERATION_MUTATION), variable_values
+            Operation._REPORT_OPERATION_MUTATION_DOC, variable_values=variable_values
         )
 
         return result["reportOperation"]
@@ -110,11 +114,11 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         """
 
         result = self.client.execute(
-            gql(Operation.QUERY_OPERATIONS),
+            Operation._QUERY_OPERATIONS_DOC,
             variable_values={
                 "urn": urn,
                 "startTimeMillis": start_time_millis,
-                "end_time_millis": end_time_millis,
+                "endTimeMillis": end_time_millis,
                 "limit": limit,
                 "filter": self.gen_filter(
                     {

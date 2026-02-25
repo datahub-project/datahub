@@ -161,7 +161,7 @@ task lint {
 }
 
 task lintFix {
-    dependsOn pythonLintFix
+    dependsOn pythonLintFix, cypressLintFix
 }
 
 task cleanPythonCache(type: Exec) {

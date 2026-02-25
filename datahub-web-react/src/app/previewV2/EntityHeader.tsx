@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Tooltip, zIndices } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -96,15 +96,15 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
 
     return (
         <EntityTitleContainer>
-            <StyledLink to={`${url}/`} {...linkProps}>
+            <StyledLink to={`${url}/`} {...linkProps} onClick={() => onClick?.()}>
                 {previewType === PreviewType.HOVER_CARD ? (
-                    <Tooltip title={name}>
-                        <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <Tooltip title={name} zIndex={zIndices.tooltip}>
+                        <CardEntityTitle $titleSizePx={titleSizePx} data-testid="entity-title">
                             {name || urn}
                         </CardEntityTitle>
                     </Tooltip>
                 ) : (
-                    <EntityTitle title={name} onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
                         <SearchTextHighlighter field="name" text={name || urn} />
                     </EntityTitle>
                 )}

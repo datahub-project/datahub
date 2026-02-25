@@ -21,7 +21,7 @@ from datahub.metadata.urns import (
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.dataset import Dataset
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
+from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "dataset_golden"
 
@@ -58,6 +58,7 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     assert d.description is None
     assert d.custom_properties == {}
     assert d.domain is None
+    assert d.view_definition is None
 
     # TODO: The column descriptions should go in the editable fields, since we're not in ingestion mode.
     assert len(d.schema) == 2
@@ -125,6 +126,7 @@ def _build_complex_dataset() -> Dataset:
             GlossaryTermUrn("AccountBalance"),
         ],
         domain=DomainUrn("Marketing"),
+        view_definition="SELECT * FROM my_db.my_schema.my_other_table",
     )
 
     assert d.platform is not None
@@ -149,6 +151,8 @@ def _build_complex_dataset() -> Dataset:
     assert d.created == created
     assert d.last_modified == updated
     assert d.custom_properties == {"key1": "value1", "key2": "value2"}
+    assert d.view_definition is not None
+    assert d.view_definition.viewLogic == "SELECT * FROM my_db.my_schema.my_other_table"
 
     # Check standard aspects.
     assert d.subtype == "Table"
@@ -415,3 +419,423 @@ def test_links_add_remove() -> None:
         assert d.links[1].url == "https://example.com/doc3"
 
     assert_entity_golden(d, _GOLDEN_DIR / "test_links_add_remove_golden.json")
+
+
+def test_structured_properties() -> None:
+    """
+    Test structured properties initialization and manipulation
+    """
+    # Test initialization with structured properties
+    d1 = Dataset(
+        platform="bigquery",
+        name="proj.dataset.table",
+        structured_properties={
+            "urn:li:structuredProperty:sp1": ["value1"],
+            "urn:li:structuredProperty:sp2": ["value2"],
+        },
+    )
+
+    # Verify initialization
+    assert d1.structured_properties is not None
+    assert len(d1.structured_properties) == 2
+
+    # Test adding/updating via set_structured_property
+    d2 = Dataset(platform="bigquery", name="proj.dataset.table2")
+
+    # Add first property
+    d2.set_structured_property("urn:li:structuredProperty:sp1", ["value1"])
+
+    # Add second property
+    d2.set_structured_property("urn:li:structuredProperty:sp2", ["value2"])
+
+    # Update first property
+    d2.set_structured_property("urn:li:structuredProperty:sp1", ["updated_value"])
+
+    # Verify properties
+    assert d2.structured_properties is not None
+    assert len(d2.structured_properties) == 2
+
+    # Check final state
+    sp_dict = {prop.propertyUrn: prop.values for prop in d2.structured_properties}
+
+    assert sp_dict == {
+        "urn:li:structuredProperty:sp1": ["updated_value"],
+        "urn:li:structuredProperty:sp2": ["value2"],
+    }
+
+    assert_entity_golden(
+        d2, _GOLDEN_DIR / "test_structured_properties_golden.json", ["time"]
+    )
+
+
+def test_view_definition_auto_parses_lineage() -> None:
+    """
+    When view_definition is set, lineage should be auto-parsed by default.
+    """
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id, name FROM db.schema.source_table WHERE active = true",
+        schema=[
+            ("id", "int64"),
+            ("name", "string"),
+        ],
+    )
+
+    # Auto-parsing should happen by default
+    assert view.view_definition is not None
+    assert "source_table" in view.view_definition.viewLogic
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    # Check the full URN contains the fully-qualified table name
+    assert (
+        view.upstreams.upstreams[0].dataset
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source_table,PROD)"
+    )
+
+
+def test_view_definition_auto_parses_lineage_cross_database() -> None:
+    """
+    When view_definition is set, lineage should handle cross-database references properly.
+    """
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id, name FROM another_db.another_schema.source_table WHERE active = true",
+        schema=[
+            ("id", "int64"),
+            ("name", "string"),
+        ],
+    )
+
+    # Auto-parsing should happen by default
+    assert view.view_definition is not None
+    assert "source_table" in view.view_definition.viewLogic
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    # Verify cross-database reference is preserved with full path
+    assert (
+        view.upstreams.upstreams[0].dataset
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,another_db.another_schema.source_table,PROD)"
+    )
+
+
+def test_view_definition_with_multiple_sources() -> None:
+    """Multiple upstream tables should be extracted from JOINs."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.joined_view",
+        view_definition="""
+            SELECT u.id, u.name, o.order_id
+            FROM db.schema.users u
+            JOIN db.schema.orders o ON u.id = o.user_id
+        """,
+    )
+
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 2
+    upstream_urns = [u.dataset for u in view.upstreams.upstreams]
+    # Check full URNs
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.users,PROD)"
+        in upstream_urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
+        in upstream_urns
+    )
+
+
+def test_view_definition_explicit_upstreams_not_overwritten() -> None:
+    """Auto-parsing should NOT overwrite explicitly set upstreams."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+    )
+    # Set upstreams explicitly before view_definition
+    view.set_upstreams(
+        ["urn:li:dataset:(urn:li:dataPlatform:snowflake,custom.upstream,PROD)"]
+    )
+    # Now set view_definition - auto-parsing should be skipped since upstreams already set
+    view.set_view_definition("SELECT id, name FROM db.schema.source_table")
+
+    # Explicit upstreams should be preserved (not overwritten by auto-parsing)
+    assert view.upstreams is not None
+    assert len(view.upstreams.upstreams) == 1
+    assert "custom.upstream" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_parse_false_skips_parsing() -> None:
+    """parse=False should skip automatic lineage extraction."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="SELECT id FROM db.schema.source_table",
+        parse_view_lineage=False,
+    )
+
+    assert view.view_definition is not None
+    assert view.upstreams is None  # Parsing explicitly disabled
+
+
+def test_view_definition_different_platforms() -> None:
+    """Lineage extraction should work for different SQL dialects."""
+    # BigQuery
+    bq_view = Dataset(
+        platform="bigquery",
+        name="project.dataset.my_view",
+        view_definition="SELECT * FROM project.dataset.source_table",
+    )
+    assert bq_view.upstreams is not None
+    assert "project.dataset.source_table" in bq_view.upstreams.upstreams[0].dataset
+
+    # MSSQL (tests dialect mapping to tsql)
+    mssql_view = Dataset(
+        platform="mssql",
+        name="db.schema.my_view",
+        view_definition="SELECT id FROM db.schema.source_table",
+    )
+    assert mssql_view.upstreams is not None
+    assert "source_table" in mssql_view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_view_properties_class_input() -> None:
+    """ViewPropertiesClass input should also trigger auto-parsing."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition=models.ViewPropertiesClass(
+            materialized=False,
+            viewLogic="SELECT * FROM db.schema.source_table",
+            viewLanguage="SQL",
+        ),
+    )
+    assert view.upstreams is not None
+    assert "source_table" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_non_sql_language_skipped() -> None:
+    """Non-SQL view definitions should not be auto-parsed."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition=models.ViewPropertiesClass(
+            materialized=False,
+            viewLogic="some_python_function()",
+            viewLanguage="Python",
+        ),
+    )
+    assert view.upstreams is None  # Non-SQL, skipped
+
+
+def test_view_definition_invalid_sql_graceful() -> None:
+    """Invalid SQL should not crash, just skip lineage extraction."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.my_view",
+        view_definition="THIS IS NOT VALID SQL !!@#$%",
+    )
+    assert view.view_definition is not None
+    assert view.view_definition.viewLogic == "THIS IS NOT VALID SQL !!@#$%"
+    # Invalid SQL should result in no upstreams (graceful failure)
+    assert view.upstreams is None
+
+
+def test_view_definition_no_tables_in_sql() -> None:
+    """SQL without table references should not create upstreams."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.computed_view",
+        view_definition="SELECT 1 + 1 AS result, CURRENT_TIMESTAMP() AS ts",
+    )
+    assert view.view_definition is not None
+    # No tables in SQL, so no upstreams should be extracted
+    assert view.upstreams is None
+
+
+def test_view_definition_duplicate_table_refs() -> None:
+    """Duplicate table references should be deduplicated."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.union_view",
+        view_definition="""
+            SELECT id, name FROM db.schema.users
+            UNION ALL
+            SELECT id, name FROM db.schema.users
+            UNION ALL
+            SELECT id, name FROM db.schema.users
+        """,
+    )
+    assert view.upstreams is not None
+    # Should only have 1 upstream despite 3 references to the same table
+    assert len(view.upstreams.upstreams) == 1
+    assert "users" in view.upstreams.upstreams[0].dataset
+
+
+def test_view_definition_cte_handling() -> None:
+    """CTEs should be filtered out, only real table references extracted."""
+    view = Dataset(
+        platform="snowflake",
+        name="db.schema.cte_view",
+        view_definition="""
+            WITH cte AS (
+                SELECT id, name FROM db.schema.source_table
+            )
+            SELECT * FROM cte
+        """,
+    )
+    assert view.upstreams is not None
+    # Should contain the actual source_table, not the CTE alias
+    upstream_names = [u.dataset for u in view.upstreams.upstreams]
+    assert any("source_table" in name for name in upstream_names)
+    # CTE should NOT be in upstreams (it's not a real table)
+    assert not any(
+        "cte" in name.lower() and "source" not in name.lower()
+        for name in upstream_names
+    )
+
+
+def test_view_definition_sqlglot_not_installed(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """When sqlglot is not installed, a warning should be logged and no upstreams set."""
+    import builtins
+
+    original_import = builtins.__import__
+
+    def mock_import(name: str, *args, **kwargs):  # type: ignore
+        if name == "sqlglot" or name.startswith("sqlglot."):
+            raise ImportError("No module named 'sqlglot'")
+        return original_import(name, *args, **kwargs)
+
+    # Mock the import BEFORE creating the dataset
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
+    with caplog.at_level("WARNING"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
+
+    # Should gracefully handle missing sqlglot during auto-parsing
+    assert view.view_definition is not None
+    assert view.upstreams is None
+    # Verify warning was logged
+    assert "sqlglot is not installed" in caplog.text
+
+
+def test_view_definition_sqlglot_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """SqlglotError should be logged at warning level."""
+    import sqlglot
+    import sqlglot.errors
+
+    # Mock Dialect.get_or_raise BEFORE creating dataset
+    def mock_get_or_raise(dialect_str: str) -> None:
+        raise sqlglot.errors.SqlglotError("Mock sqlglot error")
+
+    monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
+
+    with caplog.at_level("WARNING"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
+
+    # Should gracefully handle SqlglotError during auto-parsing
+    assert view.view_definition is not None
+    assert view.upstreams is None
+    # Verify warning was logged with exception info
+    assert "Unexpected sqlglot error" in caplog.text
+    assert "Mock sqlglot error" in caplog.text
+
+
+def test_view_definition_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Unexpected exceptions should be logged at error level."""
+    import sqlglot
+
+    # Mock Dialect.get_or_raise BEFORE creating dataset
+    def mock_get_or_raise(dialect_str: str) -> None:
+        raise RuntimeError("Unexpected error")
+
+    monkeypatch.setattr(sqlglot.Dialect, "get_or_raise", mock_get_or_raise)
+
+    with caplog.at_level("ERROR"):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM source_table",
+        )
+
+    # Should gracefully handle unexpected error during auto-parsing
+    assert view.view_definition is not None
+    assert view.upstreams is None
+    # Verify error was logged with exception info and bug report suggestion
+    assert "Failed to parse view definition" in caplog.text
+    assert "Unexpected error" in caplog.text
+    assert "bug" in caplog.text.lower()
+
+
+def test_view_definition_skipped_in_ingestion_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Auto-parsing (parse=None) should be disabled in ingestion framework."""
+    from unittest.mock import MagicMock
+
+    from datahub.sdk._attribution import (
+        KnownAttribution,
+        change_default_attribution,
+    )
+
+    # Create a spy to track if _parse_and_set_view_lineage is called
+    parse_mock = MagicMock()
+    original_parse = Dataset._parse_and_set_view_lineage
+
+    def spy_parse(self: Dataset, sql: str) -> None:
+        parse_mock(sql)
+        return original_parse(self, sql)
+
+    monkeypatch.setattr(Dataset, "_parse_and_set_view_lineage", spy_parse)
+
+    # Simulate ingestion framework context
+    with change_default_attribution(KnownAttribution.INGESTION):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM db.schema.source_table",
+            # parse_view_lineage=None (default) - auto-skips in ingestion mode
+        )
+
+        # View definition should be set, but lineage should NOT be auto-parsed
+        assert view.view_definition is not None
+        assert view.view_definition.viewLogic == "SELECT * FROM db.schema.source_table"
+        assert view.upstreams is None  # Not auto-parsed in ingestion mode
+
+        # Verify that _parse_and_set_view_lineage was NOT called
+        parse_mock.assert_not_called()
+
+
+def test_view_definition_force_parse_in_ingestion_mode() -> None:
+    """parse=True should force parsing even in ingestion framework."""
+    from datahub.sdk._attribution import (
+        KnownAttribution,
+        change_default_attribution,
+    )
+
+    # Simulate ingestion framework context
+    with change_default_attribution(KnownAttribution.INGESTION):
+        view = Dataset(
+            platform="snowflake",
+            name="db.schema.my_view",
+            view_definition="SELECT * FROM db.schema.source_table",
+            parse_view_lineage=True,  # Force parsing even in ingestion mode
+        )
+
+        # Lineage should be parsed because we explicitly forced it
+        assert view.upstreams is not None
+        assert "source_table" in view.upstreams.upstreams[0].dataset

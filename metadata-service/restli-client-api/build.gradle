@@ -8,6 +8,7 @@ dependencies {
   api project(path: ':metadata-service:restli-api', configuration: 'restClient')
   api project(':metadata-operation-context')
   implementation project(':metadata-service:configuration')
+  implementation project(':metadata-utils')
 
   implementation externalDependency.caffeine
   implementation externalDependency.slf4jApi

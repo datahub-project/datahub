@@ -1,4 +1,8 @@
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { colors } from '@src/alchemy-components/theme';
+
+import { EntityType } from '@types';
 
 export const getNameInitials = (userName: string) => {
     if (!userName) return '';
@@ -62,4 +66,14 @@ export const getAvatarNameSizes = (size) => {
     if (size === 'sm') return '10px';
     if (size === 'md') return '14px';
     return '12px';
+};
+
+export const mapEntityTypeToAvatarType = (entityType: EntityType): AvatarType => {
+    if (entityType === EntityType.CorpGroup) return AvatarType.group;
+    return AvatarType.user;
+};
+
+export const mapAvatarTypeToEntityType = (avatarType: AvatarType): EntityType => {
+    if (avatarType === AvatarType.group) return EntityType.CorpGroup;
+    return EntityType.CorpUser;
 };

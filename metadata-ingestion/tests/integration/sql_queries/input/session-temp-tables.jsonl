@@ -1,0 +1,5 @@
+{"query": "CREATE TEMP TABLE temp_user_stats AS SELECT user_id, COUNT(*) as order_count FROM snowflake.db.orders GROUP BY user_id", "timestamp": 1609459200, "user": "analyst", "session_id": "session1"}
+{"query": "CREATE TEMP TABLE temp_active_users AS SELECT id, name FROM snowflake.db.users WHERE last_login >= '2021-01-01'", "timestamp": 1609459260, "user": "analyst", "session_id": "session1"}
+{"query": "INSERT INTO snowflake.db.user_summary SELECT u.id, u.name, s.order_count FROM temp_active_users u JOIN temp_user_stats s ON u.id = s.user_id", "timestamp": 1609459320, "user": "analyst", "session_id": "session1"}
+{"query": "CREATE TEMP TABLE temp_recent_orders AS SELECT * FROM snowflake.db.orders WHERE order_date >= '2021-01-01'", "timestamp": 1609459380, "user": "reporter", "session_id": "session2"}
+{"query": "INSERT INTO snowflake.db.audit_log SELECT 'order_processed', user_id, order_date FROM temp_recent_orders", "timestamp": 1609459440, "user": "reporter", "session_id": "session2"}

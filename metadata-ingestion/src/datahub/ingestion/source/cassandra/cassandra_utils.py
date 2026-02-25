@@ -6,7 +6,6 @@ from datahub.ingestion.source.cassandra.cassandra_api import CassandraColumn
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
@@ -35,7 +34,7 @@ SYSTEM_KEYSPACE_LIST = set(
 
 
 @dataclass
-class CassandraSourceReport(StaleEntityRemovalSourceReport, IngestionStageReport):
+class CassandraSourceReport(StaleEntityRemovalSourceReport):
     num_tables_failed: int = 0
     num_views_failed: int = 0
     tables_scanned: int = 0

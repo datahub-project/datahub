@@ -12,6 +12,7 @@ const List = styled.div`
     flex-direction: column;
     padding: 0px 0px 0px 0px;
     gap: 16px;
+    margin-top: 16px;
 `;
 
 export const AnnouncementsTab = () => {

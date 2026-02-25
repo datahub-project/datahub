@@ -66,7 +66,7 @@ This will deposit an artifact called `metadata-models-custom-<version>.zip` unde
 ### Deploy your versioned artifact to DataHub
 
 ```
-../gradlew -PprojVersion=0.0.1 install
+../gradlew -PprojVersion=0.0.1 :metadata-models-custom:modelDeploy
 ```
 
 This will unpack the artifact and deposit it under `~/.datahub/plugins/models/<registry-name>/<registry-version>/`.
@@ -269,6 +269,8 @@ plugins:
         - entityName: "*"
           aspectName: customDataQualityRules
 ```
+
+To see an example working validator, please refer to the [Demo Dataset Validator](../contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator).
 
 #### Custom Mutator
 

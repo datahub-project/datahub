@@ -2,6 +2,7 @@ package io.datahubproject.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.event.exception.UnsupportedTopicException;
+import io.datahubproject.event.kafka.CheckedConsumer;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
@@ -9,9 +10,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.naming.TimeLimitExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -28,7 +31,16 @@ import org.apache.kafka.common.TopicPartition;
 public class ExternalEventsService {
 
   public static final String PLATFORM_EVENT_TOPIC_NAME = "PlatformEvent_v1";
-  private static final Set<String> ALLOWED_TOPICS = Set.of(PLATFORM_EVENT_TOPIC_NAME);
+  public static final String METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME =
+      "MetadataChangeLog_Versioned_v1";
+  public static final String METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME =
+      "MetadataChangeLog_Timeseries_v1";
+
+  private static final Set<String> ALLOWED_TOPICS =
+      Set.of(
+          PLATFORM_EVENT_TOPIC_NAME,
+          METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+          METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME);
   private final KafkaConsumerPool consumerPool;
   private final ObjectMapper objectMapper;
   private final Map<String, String>
@@ -74,13 +86,18 @@ public class ExternalEventsService {
 
     String finalTopic = remapExternalTopicName(topic);
 
-    KafkaConsumer<String, GenericRecord> consumer = consumerPool.borrowConsumer();
     List<GenericRecord> messages = new ArrayList<>();
     long startTime = System.currentTimeMillis();
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
+    CheckedConsumer checkedConsumer =
+        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS, finalTopic);
+    if (checkedConsumer == null) {
+      throw new TimeLimitExceededException("Too many simultaneous requests, retry again later.");
+    }
 
     try {
+      KafkaConsumer<String, GenericRecord> consumer = checkedConsumer.getConsumer();
       List<TopicPartition> partitions =
           consumer.partitionsFor(finalTopic).stream()
               .map(partitionInfo -> new TopicPartition(finalTopic, partitionInfo.partition()))
@@ -88,7 +105,7 @@ public class ExternalEventsService {
       consumer.assign(partitions);
 
       Map<TopicPartition, Long> partitionOffsets =
-          getPartitionOffsets(topic, offsetId, consumer, partitions, lookbackWindowDays);
+          getPartitionOffsets(finalTopic, offsetId, consumer, partitions, lookbackWindowDays);
 
       for (Map.Entry<TopicPartition, Long> entry : partitionOffsets.entrySet()) {
         consumer.seek(entry.getKey(), entry.getValue());
@@ -99,7 +116,12 @@ public class ExternalEventsService {
       int finalLimit = limit != null ? limit : defaultLimit;
 
       while (fetchedRecords < finalLimit) {
-        ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofMillis(1000));
+        long timeRemaining = timeout - (System.currentTimeMillis() - startTime);
+        if (timeRemaining <= 0L) {
+          break;
+        }
+        ConsumerRecords<String, GenericRecord> records =
+            consumer.poll(Duration.ofMillis(Math.min(1000, timeRemaining)));
         for (ConsumerRecord<String, GenericRecord> record : records) {
           messages.add(record.value());
           latestOffsets.put(
@@ -109,14 +131,11 @@ public class ExternalEventsService {
             break;
           }
         }
-        if (System.currentTimeMillis() - startTime > timeout) {
-          break;
-        }
       }
 
       return convertToExternalEvents(messages, encodeOffsetId(latestOffsets), fetchedRecords);
     } finally {
-      consumerPool.returnConsumer(consumer);
+      consumerPool.returnConsumer(checkedConsumer);
     }
   }
 

@@ -42,6 +42,7 @@ public class GlossaryUtilsTest {
   @BeforeMethod
   private void setUpTests() throws Exception {
     Mockito.when(mockContext.getActorUrn()).thenReturn(userUrn);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     GlossaryNodeInfo parentNode1 =
@@ -122,7 +123,7 @@ public class GlossaryUtilsTest {
       String privilege, AuthorizationResult.Type allowOrDeny, EntitySpec resourceSpec) {
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(allowOrDeny);
-    when(mockContext.getOperationContext().authorize(eq(privilege), eq(resourceSpec)))
+    when(mockContext.getOperationContext().authorize(eq(privilege), eq(resourceSpec), any()))
         .thenReturn(result);
   }
 

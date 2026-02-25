@@ -2,18 +2,21 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,6 +60,8 @@ public class SearchQueryBuilder {
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
+  private final SearchValidationConfiguration searchValidationConfiguration;
+  private final Pattern validationRegex;
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -65,7 +71,11 @@ public class SearchQueryBuilder {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
-    this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
+    this.searchValidationConfiguration = searchConfiguration.getValidation();
+    this.validationRegex = Pattern.compile(searchConfiguration.getValidation().getRegex());
+    this.customizedQueryHandler =
+        CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
+            .build();
   }
 
   public QueryBuilder buildQuery(
@@ -96,6 +106,9 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    if (searchValidationConfiguration.isEnabled()) {
+      validateSearchQuery(query);
+    }
     final String sanitizedQuery = query.replaceFirst("^:+", "");
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
@@ -106,7 +119,7 @@ public class SearchQueryBuilder {
             .orElse(QueryBuilders.boolQuery());
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+      getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
               opContext.getEntityRegistry(),
@@ -139,6 +152,30 @@ public class SearchQueryBuilder {
     }
 
     return finalQuery;
+  }
+
+  /**
+   * Validates search query input to block malicious payloads. Blocks Java deserialization attacks,
+   * JNDI injection, and other exploits.
+   *
+   * @param input The raw search query string
+   * @throws ValidationException if the query contains dangerous patterns
+   */
+  @Nonnull
+  public void validateSearchQuery(@Nonnull String input) throws ValidationException {
+    // Limit query length
+    if (searchValidationConfiguration.isMaxLengthEnabled()
+        && input.length() > searchValidationConfiguration.getMaxQueryLength()) {
+      log.warn("Blocked excessively long search query: {} characters", input.length());
+      throw new ValidationException(
+          "Search query exceeds maximum length of "
+              + searchValidationConfiguration.getMaxQueryLength()
+              + " characters");
+    }
+    if (validationRegex.matcher(input).matches()) {
+      log.warn("Blocked potentially malicious search query.");
+      throw new ValidationException("Query rejected due to potentially malicious structure.");
+    }
   }
 
   /**
@@ -320,11 +357,12 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getSimpleQuery(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
     Optional<QueryBuilder> result = Optional.empty();
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
 
     final boolean executeSimpleQuery;
     if (customQueryConfig != null) {
@@ -334,18 +372,31 @@ public class SearchQueryBuilder {
     }
 
     if (executeSimpleQuery) {
+      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
+
+      // Get base fields
+      Set<SearchFieldConfig> baseFields =
+          entitySpecs.stream()
+              .map(spec -> getStandardFields(entityRegistry, spec))
+              .flatMap(Set::stream)
+              .collect(Collectors.toSet());
+
+      Set<SearchFieldConfig> configuredFields =
+          customizedQueryHandler.applySearchFieldConfiguration(
+              baseFields,
+              customizedQueryHandler.resolveFieldConfiguration(
+                  operationContext.getSearchContext().getSearchFlags(),
+                  CustomConfiguration::getSearchFieldConfigDefault));
+
       /*
        * NOTE: This logic applies the queryByDefault annotations for each entity to ALL entities
        * If we ever have fields that are queryByDefault on some entities and not others, this section will need to be refactored
        * to apply an index filter AND the analyzers added here.
        */
-      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
       Map<String, List<SearchFieldConfig>> analyzerGroup =
-          entitySpecs.stream()
-              .map(spec -> getStandardFields(entityRegistry, spec))
-              .flatMap(Set::stream)
+          configuredFields.stream()
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
 

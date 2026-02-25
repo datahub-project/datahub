@@ -1,5 +1,6 @@
 import { RoleEntity } from '@app/entity/Access/RoleEntity';
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { ApplicationEntity } from '@app/entity/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entity/chart/ChartEntity';
 import { ContainerEntity } from '@app/entity/container/ContainerEntity';
@@ -27,6 +28,7 @@ import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaField
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -46,6 +48,7 @@ export default function buildEntityRegistry() {
     registry.register(new MLModelEntity());
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
+    registry.register(new DocumentEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());
@@ -58,5 +61,6 @@ export default function buildEntityRegistry() {
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
+    registry.register(new ApplicationEntity());
     return registry;
 }

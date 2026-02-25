@@ -134,7 +134,9 @@ class StoredProcedure:
 
     @property
     def escape_full_name(self) -> str:
-        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
+        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]".replace(
+            "'", r"''"
+        )
 
     def to_base_procedure(self) -> BaseProcedure:
         return BaseProcedure(
@@ -313,7 +315,7 @@ class MSSQLDataFlow:
         type = (
             FlowContainerSubTypes.MSSQL_JOB
             if isinstance(self.entity, MSSQLJob)
-            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+            else FlowContainerSubTypes.PROCEDURE_CONTAINER
         )
         return SubTypesClass(
             typeNames=[type],

@@ -336,7 +336,7 @@ in datahub to point to the specific ES instance -
 
 Further, you can find a list of properties supported to work with a custom ES
 instance [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/ElasticsearchSSLContextFactory.java)
-and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/factory/common/RestHighLevelClientFactory.java)
+and [here](../../metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/ElasticSearchConfiguration.java)
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be

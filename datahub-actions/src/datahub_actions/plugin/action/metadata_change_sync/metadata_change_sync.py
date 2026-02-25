@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Union, cast
 
 from pydantic import BaseModel, Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class MetadataChangeEmitterConfig(BaseModel):
     gms_server: Optional[str] = None
-    gms_auth_token: Optional[str] = None
+    gms_auth_token: Optional[TransparentSecretStr] = None
     aspects_to_exclude: Optional[List] = None
     aspects_to_include: Optional[List] = None
     entity_type_to_exclude: List[str] = Field(default_factory=list)
@@ -48,7 +49,7 @@ class MetadataChangeSyncAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = MetadataChangeEmitterConfig.parse_obj(config_dict or {})
+        action_config = MetadataChangeEmitterConfig.model_validate(config_dict or {})
         return cls(action_config, ctx)
 
     def __init__(self, config: MetadataChangeEmitterConfig, ctx: PipelineContext):
@@ -56,7 +57,9 @@ class MetadataChangeSyncAction(Action):
         assert isinstance(self.config.gms_server, str)
         self.rest_emitter = DatahubRestEmitter(
             gms_server=self.config.gms_server,
-            token=self.config.gms_auth_token,
+            token=self.config.gms_auth_token.get_secret_value()
+            if self.config.gms_auth_token
+            else None,
             extra_headers=self.config.extra_headers,
         )
         self.aspects_exclude_set = (

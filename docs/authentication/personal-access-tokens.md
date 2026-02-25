@@ -86,11 +86,11 @@ is enabled.
 ## Additional Resources
 
 - Learn more about how this feature is by DataHub [Authentication Metadata Service](introducing-metadata-service-authentication.md).
-- Check out our [Authorization Policies](../authorization/policies.md) to see what permissions can be programatically used.
+- Check out our [Authorization Policies](../authorization/policies.md) to see what permissions can be programmatically used.
 
 ### GraphQL
 
-- Have a look at [Token Management in GraphQL](../api/graphql/token-management.md) to learn how to manage tokens programatically!
+- Have a look at [Token Management in GraphQL](../api/graphql/token-management.md) to learn how to manage tokens programmatically!
 
 ## FAQ and Troubleshooting
 

@@ -24,11 +24,19 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      cloudflare_token_available: ${{ steps.cloudflare-token-check.outputs.cloudflare_token_available }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - name: Check if cloudflare api token is available
+        id: cloudflare-token-check
+        env:
+          API_TOKEN_AVAILABLE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        run: |
+          echo "API_TOKEN_AVAILABLE is : ${{ env.API_TOKEN_AVAILABLE }}"
+          echo "cloudflare_token_available=${{ env.API_TOKEN_AVAILABLE }}" >> "$GITHUB_OUTPUT"
 
   deploy:
     runs-on: ubuntu-22.04
@@ -40,19 +48,19 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v3
+      - uses: gradle/actions/setup-gradle@v4
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
-        if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
         uses: cloudflare/pages-action@1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -49,8 +49,7 @@ export const useEntityOperations = ({
         useGetAutoCompleteResultsLazyQuery();
 
     // Handles search input for entity autocomplete
-    const handleSearchEntities = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { value } = e.target;
+    const handleSearchEntities = (value: string) => {
         setSearchText(value);
     };
 

@@ -1,0 +1,22 @@
+namespace com.linkedin.file
+
+/**
+ * Information where a file is stored
+ */
+record BucketStorageLocation {
+  /**
+   * The storage bucket this file is stored in
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  storageBucket: string
+
+  /**
+   * The key for where this file is stored inside of the given bucket
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  storageKey: string
+}

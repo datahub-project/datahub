@@ -2,12 +2,21 @@ import time
 import uuid
 from typing import Dict, Optional, Type
 
-from datahub.emitter.mce_builder import make_tag_urn, make_term_urn, make_user_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_schema_field_urn,
+    make_tag_urn,
+    make_term_urn,
+    make_user_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -16,6 +25,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
     _Aspect,
+)
+from datahub.specific.aspect_helpers.fine_grained_lineage import (
+    HasFineGrainedLineagePatch,
 )
 
 
@@ -262,3 +274,138 @@ def helper_test_custom_properties_patch(
     assert full_aspect
     for k, v in orig_aspect.__dict__.items():
         assert full_aspect.__dict__[k] == v
+
+
+def helper_test_add_fine_grained_lineage(
+    graph_client: DataHubGraph,
+    test_entity_urn: str,
+    aspect_type: Type[_Aspect],
+    patch_builder_class: Type[HasFineGrainedLineagePatch],
+):
+    """Test that add_fine_grained_lineage works correctly."""
+
+    def get_lineage_aspect():
+        return graph_client.get_aspect(
+            entity_urn=test_entity_urn,
+            aspect_type=aspect_type,
+        )
+
+    # Create test datasets and fields
+    source_dataset_urn = make_dataset_urn(
+        platform="postgres", name=f"source_table_{uuid.uuid4()}", env="PROD"
+    )
+    target_dataset_urn = make_dataset_urn(
+        platform="postgres", name=f"target_table_{uuid.uuid4()}", env="PROD"
+    )
+
+    source_field_urn = make_schema_field_urn(source_dataset_urn, "user_id")
+    target_field_urn = make_schema_field_urn(target_dataset_urn, "user_id")
+
+    fine_grained_lineage = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[source_field_urn],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[target_field_urn],
+        transformOperation="OPERATION",
+        confidenceScore=1.0,
+    )
+
+    # Test that add_fine_grained_lineage works
+    patch_builder = patch_builder_class(test_entity_urn)
+    patch_builder.add_fine_grained_lineage(fine_grained_lineage)
+
+    for patch_mcp in patch_builder.build():
+        graph_client.emit_mcp(patch_mcp)
+
+    # Verify the lineage was applied
+    lineage_aspect = get_lineage_aspect()
+    assert lineage_aspect is not None
+    assert lineage_aspect.fineGrainedLineages is not None
+    assert len(lineage_aspect.fineGrainedLineages) == 1
+
+    stored_lineage = lineage_aspect.fineGrainedLineages[0]
+    assert stored_lineage.transformOperation == "OPERATION"
+    assert stored_lineage.confidenceScore == 1.0
+    assert stored_lineage.upstreams == [source_field_urn]
+    assert stored_lineage.downstreams == [target_field_urn]
+
+    # Cleanup: Remove the fine-grained lineage
+    patch_builder.remove_fine_grained_lineage(fine_grained_lineage)
+    for patch_mcp in patch_builder.build():
+        graph_client.emit_mcp(patch_mcp)
+
+    # Verify cleanup worked
+    lineage_aspect = get_lineage_aspect()
+    assert lineage_aspect is not None
+    assert (
+        lineage_aspect.fineGrainedLineages is None
+        or len(lineage_aspect.fineGrainedLineages) == 0
+    )
+
+
+def helper_test_set_fine_grained_lineages(
+    graph_client: DataHubGraph,
+    test_entity_urn: str,
+    aspect_type: Type[_Aspect],
+    patch_builder_class: Type[HasFineGrainedLineagePatch],
+):
+    """Test setting fine-grained lineages."""
+
+    def get_lineage_aspect():
+        return graph_client.get_aspect(
+            entity_urn=test_entity_urn,
+            aspect_type=aspect_type,
+        )
+
+    # Create test datasets and fields
+    source_dataset_urn = make_dataset_urn(
+        platform="postgres", name=f"source_table_{uuid.uuid4()}", env="PROD"
+    )
+    target_dataset_urn = make_dataset_urn(
+        platform="postgres", name=f"target_table_{uuid.uuid4()}", env="PROD"
+    )
+
+    source_field_urn = make_schema_field_urn(source_dataset_urn, "user_id")
+    target_field_urn = make_schema_field_urn(target_dataset_urn, "user_id")
+
+    # Create fine-grained lineage
+    fine_grained_lineage = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[source_field_urn],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[target_field_urn],
+        transformOperation="OPERATION",
+        confidenceScore=1.0,
+    )
+
+    # Apply the fine-grained lineage patch using set method
+    patch_builder = patch_builder_class(test_entity_urn)
+    patch_builder.set_fine_grained_lineages([fine_grained_lineage])
+
+    for patch_mcp in patch_builder.build():
+        graph_client.emit_mcp(patch_mcp)
+
+    # Verify the lineage was applied
+    lineage_aspect = get_lineage_aspect()
+    assert lineage_aspect is not None
+    assert lineage_aspect.fineGrainedLineages is not None
+    assert len(lineage_aspect.fineGrainedLineages) == 1
+
+    stored_lineage = lineage_aspect.fineGrainedLineages[0]
+    assert stored_lineage.transformOperation == "OPERATION"
+    assert stored_lineage.confidenceScore == 1.0
+    assert stored_lineage.upstreams == [source_field_urn]
+    assert stored_lineage.downstreams == [target_field_urn]
+
+    # Cleanup: Clear all lineages
+    patch_builder.set_fine_grained_lineages([])
+    for patch_mcp in patch_builder.build():
+        graph_client.emit_mcp(patch_mcp)
+
+    # Verify cleanup worked
+    lineage_aspect = get_lineage_aspect()
+    assert lineage_aspect is not None
+    assert (
+        lineage_aspect.fineGrainedLineages is None
+        or len(lineage_aspect.fineGrainedLineages) == 0
+    )

@@ -1,0 +1,27 @@
+[
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(urn:li:dataPlatform:snowflake,chart_id)",
+    "changeType": "PATCH",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/inputEdges/urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+                    "created": {
+                        "time": 1749621934421,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "lastModified": {
+                        "time": 1749621934421,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                }
+            }
+        ]
+    }
+}
+]

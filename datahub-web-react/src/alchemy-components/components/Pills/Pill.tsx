@@ -7,6 +7,7 @@ import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeV
 
 export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
     [PillVariantValues.filled]: [
+        ColorValues.primary,
         ColorValues.violet,
         ColorValues.blue,
         ColorValues.green,
@@ -15,6 +16,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
         ColorValues.gray,
     ],
     [PillVariantValues.outline]: [
+        ColorValues.primary,
         ColorValues.violet,
         ColorValues.blue,
         ColorValues.green,
@@ -48,6 +50,8 @@ export function Pill({
     customIconRenderer,
     showLabel,
     className,
+    iconSource,
+    dataTestId,
 }: PillProps) {
     if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
         console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
@@ -60,7 +64,7 @@ export function Pill({
             size={size}
             clickable={clickable}
             id={id}
-            data-testid="pill-container"
+            data-testid={dataTestId ?? 'pill-container'}
             onClick={onPillClick}
             style={{
                 backgroundColor: customStyle?.backgroundColor,
@@ -70,11 +74,11 @@ export function Pill({
         >
             {customIconRenderer
                 ? customIconRenderer()
-                : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
+                : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} source={iconSource} />}
             <PillText style={customStyle}>{label}</PillText>
             {rightIcon && (
                 <Button style={{ padding: 0 }} variant="text" onClick={onClickRightIcon}>
-                    <Icon icon={rightIcon} size={size} />
+                    <Icon icon={rightIcon} size={size} source={iconSource} />
                 </Button>
             )}
         </PillContainer>

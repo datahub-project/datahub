@@ -29,7 +29,7 @@ public class SystemGraphRetriever implements GraphRetriever {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     return graphService.scrollRelatedEntities(
@@ -43,6 +43,7 @@ public class SystemGraphRetriever implements GraphRetriever {
             relationshipFilter),
         sortCriteria,
         scrollId,
+        null,
         count,
         startTimeMillis,
         endTimeMillis);

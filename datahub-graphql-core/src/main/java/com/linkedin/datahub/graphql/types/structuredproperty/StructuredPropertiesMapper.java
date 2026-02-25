@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.PropertyValue;
 import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -65,6 +66,10 @@ public class StructuredPropertiesMapper {
     entry.setValues(values);
     entry.setValueEntities(entities);
     entry.setAssociatedUrn(entityUrn.toString());
+    if (valueAssignment.getAttribution() != null) {
+      entry.setAttribution(
+          MetadataAttributionMapper.map(context, valueAssignment.getAttribution()));
+    }
     return entry;
   }
 

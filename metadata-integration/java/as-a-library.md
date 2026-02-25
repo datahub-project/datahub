@@ -1,5 +1,16 @@
 # Java Emitter
 
+> **Note:** This document describes the Java SDK V1, which provides low-level emitters for metadata events.
+>
+> For new projects, we recommend using the **[Java SDK V2](./as-a-library-v2.md)**, which offers:
+>
+> - Type-safe entity builders with fluent API
+> - Simplified CRUD operations
+> - Patch-based updates for efficient metadata management
+> - Better integration with DataHub's entity model
+>
+> See the [Migration Guide](./docs/sdk-v2/migration-from-v1.md) for help transitioning from V1 to V2.
+
 In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc.
 
 The [`io.acryl:datahub-client`](https://mvnrepository.com/artifact/io.acryl/datahub-client) Java package offers REST emitter API-s, which can be easily used to emit metadata from your JVM-based systems. For example, the Spark lineage integration uses the Java emitter to emit metadata events from Spark jobs.

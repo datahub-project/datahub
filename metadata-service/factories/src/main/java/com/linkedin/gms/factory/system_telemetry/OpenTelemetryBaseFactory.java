@@ -2,8 +2,10 @@ package com.linkedin.gms.factory.system_telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporter;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricSpanExporter;
-import io.datahubproject.metadata.context.TraceContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -18,7 +20,6 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.kafka.clients.producer.Producer;
 
 /** Common System OpenTelemetry */
 public abstract class OpenTelemetryBaseFactory {
@@ -26,11 +27,15 @@ public abstract class OpenTelemetryBaseFactory {
 
   protected abstract String getApplicationComponent();
 
-  protected TraceContext traceContext(
-      ConfigurationProvider configurationProvider, Producer<String, String> dueProducer) {
+  protected SystemTelemetryContext traceContext(
+      MetricUtils metricUtils,
+      ConfigurationProvider configurationProvider,
+      GenericProducer<String> dueProducer) {
+
     SpanProcessor usageSpanExporter = getUsageSpanExporter(configurationProvider, dueProducer);
-    OpenTelemetry openTelemetry = openTelemetry(usageSpanExporter);
-    return TraceContext.builder()
+    OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
+    return SystemTelemetryContext.builder()
+        .metricUtils(metricUtils)
         .tracer(tracer(openTelemetry))
         .usageSpanExporter(usageSpanExporter)
         .build();
@@ -38,7 +43,7 @@ public abstract class OpenTelemetryBaseFactory {
 
   @Nullable
   private SpanProcessor getUsageSpanExporter(
-      ConfigurationProvider configurationProvider, Producer<String, String> dueProducer) {
+      ConfigurationProvider configurationProvider, GenericProducer<String> dueProducer) {
     if (dueProducer != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
@@ -56,7 +61,7 @@ public abstract class OpenTelemetryBaseFactory {
     return openTelemetry.getTracer(getApplicationComponent());
   }
 
-  private OpenTelemetry openTelemetry(SpanProcessor usageSpanExporter) {
+  private OpenTelemetry openTelemetry(MetricUtils metricUtils, SpanProcessor usageSpanExporter) {
     return AutoConfiguredOpenTelemetrySdk.builder()
         .addPropertiesCustomizer(
             (configProperties) -> {
@@ -80,14 +85,15 @@ public abstract class OpenTelemetryBaseFactory {
             (sdkTracerProviderBuilder, configProperties) -> {
               sdkTracerProviderBuilder
                   .addSpanProcessor(
-                      TraceContext.LOG_SPAN_EXPORTER != null
-                          ? SimpleSpanProcessor.create(TraceContext.LOG_SPAN_EXPORTER)
+                      SystemTelemetryContext.LOG_SPAN_EXPORTER != null
+                          ? SimpleSpanProcessor.create(SystemTelemetryContext.LOG_SPAN_EXPORTER)
                           : SimpleSpanProcessor.create(
-                              new MetricSpanExporter())) // Fallback for exporter
-                  .addSpanProcessor(BatchSpanProcessor.builder(new MetricSpanExporter()).build())
+                              new MetricSpanExporter(metricUtils))) // Fallback for exporter
+                  .addSpanProcessor(
+                      BatchSpanProcessor.builder(new MetricSpanExporter(metricUtils)).build())
                   .setIdGenerator(
-                      TraceContext.TRACE_ID_GENERATOR != null
-                          ? TraceContext.TRACE_ID_GENERATOR
+                      SystemTelemetryContext.TRACE_ID_GENERATOR != null
+                          ? SystemTelemetryContext.TRACE_ID_GENERATOR
                           : io.opentelemetry.sdk.trace.IdGenerator
                               .random()) // Fallback for ID generator
                   .setResource(
@@ -119,7 +125,7 @@ public abstract class OpenTelemetryBaseFactory {
               return (metricsExporter == null || metricsExporter.trim().isEmpty())
                   ? (metricExporter != null
                       ? metricExporter
-                      : (MetricExporter) new MetricSpanExporter())
+                      : (MetricExporter) new MetricSpanExporter(metricUtils))
                   : metricExporter;
             })
         .build()

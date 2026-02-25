@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph.sibling;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -79,6 +80,7 @@ public class SiblingGraphServiceTest {
             Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     opContext = TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
     _graphService = Mockito.mock(GraphService.class);
+    when(_graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
 

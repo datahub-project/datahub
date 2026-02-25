@@ -26,14 +26,19 @@ const ChildNameText = styled(Typography.Text)`
     font-family: Manrope;
     font-weight: 500;
     word-wrap: break-word;
-    display: flex;
-    align-items: center;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    min-width: 0;
 `;
 
 const NameLabelWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
+    max-width: 80%;
 `;
 
 const ChildCountText = styled.span`

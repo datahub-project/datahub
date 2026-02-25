@@ -150,6 +150,12 @@ type StructuredPropertySettings {
   showInAssetSummary: Boolean!
 
   """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean!
+
+  """
   Whether or not this asset should be displayed as an asset badge on other asset's headers
   """
   showAsAssetBadge: Boolean!
@@ -250,6 +256,11 @@ type StructuredPropertiesEntry {
   The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -555,6 +566,12 @@ input StructuredPropertySettingsInput {
   Whether or not this asset should be displayed in the asset sidebar
   """
   showInAssetSummary: Boolean
+
+  """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean
 
   """
   Whether or not this asset should be displayed as an asset badge on other asset's headers

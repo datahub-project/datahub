@@ -1,8 +1,10 @@
 import { Pill } from '@components';
-import { Space, Table, Typography } from 'antd';
-import React from 'react';
+import { Space, Table, Tabs, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { ColorValues } from '@components/theme/config';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
@@ -40,22 +42,294 @@ const JobLink = styled(Link)`
     }
 `;
 
+const FormattedJson = styled.pre`
+    margin: 0;
+    padding: 8px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.4;
+`;
+
+const TruncatedItems = styled.div`
+    position: relative;
+`;
+
+const ItemsContent = styled.div<{ isExpanded: boolean }>`
+    ${({ isExpanded }) =>
+        !isExpanded &&
+        `
+        max-height: 80px;
+        overflow: hidden;
+    `}
+`;
+
+const ReadMoreLink = styled.div`
+    display: block;
+    margin-top: 4px;
+`;
+
+const renderTypePill = (type: string | object) => {
+    if (!type) return '-';
+    const typeLabel = typeof type === 'object' && type !== null ? JSON.stringify(type) : String(type);
+    return <Pill label={typeLabel} color={ColorValues.gray} variant="filled" clickable={false} />;
+};
+
+const renderRequiredPill = (required: boolean | undefined) => {
+    if (required === undefined) return '-';
+    return (
+        <Pill
+            label={required ? 'True' : 'False'}
+            color={required ? ColorValues.blue : ColorValues.red}
+            variant="filled"
+            clickable={false}
+        />
+    );
+};
+
+const renderDefault = (defaultValue: object) => {
+    if (defaultValue === null || defaultValue === undefined) return '-';
+    return String(defaultValue);
+};
+
+const renderShape = (shape: object) => {
+    if (shape === null || shape === undefined) return '-';
+    if (Array.isArray(shape)) {
+        return `[${shape.join(', ')}]`;
+    }
+    return String(shape);
+};
+
+const propertyTableColumns = [
+    {
+        title: 'Name',
+        dataIndex: 'name',
+        width: 450,
+    },
+    {
+        title: 'Value',
+        dataIndex: 'value',
+    },
+];
+
 export default function MLModelSummary() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
     const model = baseEntity?.mlModel;
     const entityRegistry = useEntityRegistry();
+    const [expandedItemsRows, setExpandedItemsRows] = useState<Set<string>>(new Set());
 
-    const propertyTableColumns = [
+    const renderItems = (items: object | null, record: object, index: number) => {
+        if (!items) return '-';
+
+        const itemsJson = JSON.stringify(items, null, 2);
+        const recordObj = record as Record<string, unknown>;
+        const rowKey = `${recordObj?.name || 'item'}-${index}`;
+        const isExpanded = expandedItemsRows.has(rowKey);
+        const isLong = itemsJson.length > 200;
+
+        if (!isLong) {
+            return <FormattedJson>{itemsJson}</FormattedJson>;
+        }
+
+        return (
+            <TruncatedItems>
+                <ItemsContent isExpanded={isExpanded}>
+                    <FormattedJson>{itemsJson}</FormattedJson>
+                </ItemsContent>
+                <ReadMoreLink>
+                    <Typography.Link
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const newExpanded = new Set(expandedItemsRows);
+                            if (isExpanded) {
+                                newExpanded.delete(rowKey);
+                            } else {
+                                newExpanded.add(rowKey);
+                            }
+                            setExpandedItemsRows(newExpanded);
+                        }}
+                    >
+                        {isExpanded ? 'Show less' : 'Read more'}
+                    </Typography.Link>
+                </ReadMoreLink>
+            </TruncatedItems>
+        );
+    };
+
+    // Parse signature data and create tabs
+    const signatureData = useMemo(() => {
+        const customProperties = model?.properties?.customProperties || [];
+
+        type SignatureItem = {
+            name?: string;
+            type?: string | object;
+            required?: boolean;
+            items?: object;
+            'tensor-spec'?: object;
+        };
+
+        type SignatureParameter = {
+            name?: string;
+            type?: object;
+            default?: object;
+            shape?: object;
+        };
+
+        const transformItem = (item: object, index: number) => {
+            const itemObj: SignatureItem = typeof item === 'object' && item !== null ? (item as SignatureItem) : {};
+            // Special handling for tensor type
+            if (itemObj?.type === 'tensor' && itemObj?.['tensor-spec']) {
+                return {
+                    name: 'tensor',
+                    type: itemObj['tensor-spec'],
+                    required: itemObj?.required,
+                    items: itemObj?.items,
+                };
+            }
+
+            return {
+                name: itemObj?.name ?? `Item ${index + 1}`,
+                type: itemObj?.type ?? '-',
+                required: itemObj?.required,
+                items: itemObj?.items,
+            };
+        };
+
+        const transformParameter = (item: object) => {
+            const itemObj: SignatureParameter =
+                typeof item === 'object' && item !== null ? (item as SignatureParameter) : {};
+            return {
+                name: itemObj?.name ?? '-',
+                type: itemObj?.type ?? '-',
+                default: itemObj?.default,
+                shape: itemObj?.shape,
+            };
+        };
+
+        const getSignatureData = (key: string, isParameters = false) => {
+            const property = customProperties.find((prop) => prop.key === key);
+            if (!property?.value) return null;
+
+            try {
+                const parsed = JSON.parse(property.value);
+
+                if (Array.isArray(parsed)) {
+                    return isParameters ? parsed.map(transformParameter) : parsed.map(transformItem);
+                }
+
+                if (typeof parsed === 'object' && parsed !== null) {
+                    if (isParameters) {
+                        return Object.entries(parsed).map(([name, value]) => {
+                            const valueObj: SignatureParameter =
+                                typeof value === 'object' && value !== null ? (value as SignatureParameter) : {};
+                            return {
+                                name,
+                                type: valueObj?.type ?? '-',
+                                default: valueObj?.default ?? undefined,
+                                shape: valueObj?.shape ?? undefined,
+                            };
+                        });
+                    }
+                    return Object.entries(parsed).map(([name, value]) => {
+                        const valueObj: SignatureItem =
+                            typeof value === 'object' && value !== null ? (value as SignatureItem) : {};
+                        return {
+                            name,
+                            type: valueObj?.type ?? '-',
+                            required: valueObj?.required ?? undefined,
+                            items: valueObj?.items ?? undefined,
+                        };
+                    });
+                }
+
+                if (isParameters) {
+                    return [{ name: key, type: typeof parsed, default: undefined, shape: undefined }];
+                }
+                return [{ name: key, type: typeof parsed, required: undefined, items: undefined }];
+            } catch (e) {
+                if (isParameters) {
+                    return [{ name: key, type: '-', default: undefined, shape: undefined }];
+                }
+                return [{ name: key, type: '-', required: undefined, items: undefined }];
+            }
+        };
+
+        return {
+            inputs: getSignatureData('signature.inputs'),
+            outputs: getSignatureData('signature.outputs'),
+            parameters: getSignatureData('signature.parameters', true),
+        };
+    }, [model?.properties?.customProperties]);
+
+    const hasSignatureData = Object.values(signatureData).some((data) => data && data.length > 0);
+
+    const signatureTableColumns = [
+        { title: 'Name', dataIndex: 'name', width: 200 },
+        { title: 'Type', dataIndex: 'type', width: 200, render: renderTypePill },
+        { title: 'Required', dataIndex: 'required', width: 100, render: renderRequiredPill },
         {
-            title: 'Name',
-            dataIndex: 'name',
-            width: 450,
-        },
-        {
-            title: 'Value',
-            dataIndex: 'value',
+            title: 'Items',
+            dataIndex: 'items',
+            width: 300,
+            render: (items, record, index) => renderItems(items, record, index),
         },
     ];
+
+    const parametersTableColumns = [
+        { title: 'Name', dataIndex: 'name', width: 200 },
+        { title: 'Type', dataIndex: 'type', width: 200, render: renderTypePill },
+        { title: 'Default', dataIndex: 'default', width: 150, render: renderDefault },
+        { title: 'Shape', dataIndex: 'shape', width: 150, render: renderShape },
+    ];
+
+    const signatureTabs: Array<{ key: string; label: string; children: React.ReactNode }> = [];
+
+    if (signatureData.inputs && signatureData.inputs.length > 0) {
+        signatureTabs.push({
+            key: 'inputs',
+            label: 'Inputs',
+            children: (
+                <Table
+                    pagination={false}
+                    columns={signatureTableColumns}
+                    dataSource={signatureData.inputs as Array<Record<string, unknown>>}
+                    rowKey={(record, index) => `input-${index}`}
+                />
+            ),
+        });
+    }
+
+    if (signatureData.outputs && signatureData.outputs.length > 0) {
+        signatureTabs.push({
+            key: 'outputs',
+            label: 'Outputs',
+            children: (
+                <Table
+                    pagination={false}
+                    columns={signatureTableColumns}
+                    dataSource={signatureData.outputs as Array<Record<string, unknown>>}
+                    rowKey={(record, index) => `output-${index}`}
+                />
+            ),
+        });
+    }
+
+    if (signatureData.parameters && signatureData.parameters.length > 0) {
+        signatureTabs.push({
+            key: 'parameters',
+            label: 'Parameters',
+            children: (
+                <Table
+                    pagination={false}
+                    columns={parametersTableColumns}
+                    dataSource={signatureData.parameters as Array<Record<string, unknown>>}
+                    rowKey={(record, index) => `parameter-${index}`}
+                />
+            ),
+        });
+    }
 
     const renderTrainingJobs = () => {
         const trainingJobs =
@@ -127,6 +401,12 @@ export default function MLModelSummary() {
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.hyperParams as MlHyperParam[]}
                 />
+                {hasSignatureData && (
+                    <>
+                        <Typography.Title level={3}>Model Signature</Typography.Title>
+                        {signatureTabs.length > 0 ? <Tabs items={signatureTabs} /> : null}
+                    </>
+                )}
             </Space>
         </TabContent>
     );

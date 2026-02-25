@@ -1,6 +1,6 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import { Alert } from 'antd';
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -14,6 +14,7 @@ import {
     GenericEntityProperties,
     GenericEntityUpdate,
 } from '@app/entity/shared/types';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
@@ -22,21 +23,15 @@ import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGet
 import {
     defaultTabDisplayConfig,
     getEntityPath,
-    getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
+    useFinalSidebarTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
-import {
-    EntitySidebarSection,
-    EntitySidebarTab,
-    EntityTab,
-    TabContextType,
-    TabRenderType,
-} from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import LineageExplorer from '@app/lineage/LineageExplorer';
@@ -58,6 +53,7 @@ import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
+import { useGetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
 
 type Props<T, U> = {
@@ -143,6 +139,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-shrink: 0;
     padding: 0;
+    overflow: hidden;
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -155,6 +152,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    padding-top: 12px;
     background-color: #ffffff;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -167,15 +165,6 @@ const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
             : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
     height: 100%;
     overflow: hidden;
-`;
-
-const TabsWrapper = styled.div``;
-
-const TabContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: auto;
 `;
 
 const StyledAlert = styled(Alert)`
@@ -211,7 +200,7 @@ export const EntityProfile = <T, U>({
     isIconEditable,
     subHeader,
 }: Props<T, U>): JSX.Element => {
-    const { isTabFullsize } = useContext(TabFullsizeContext);
+    const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
     const isLineageV2 = useLineageV2();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -257,8 +246,14 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
+    const { data: formsData } = useGetFormsForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+        skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
+    });
+
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
@@ -300,11 +295,26 @@ export const EntityProfile = <T, U>({
 
     const routedTab = useRoutedTab(enabledAndVisibleTabs);
 
+    useEffect(() => {
+        if (!routedTab?.supportsFullsize) {
+            setTabFullsize?.(false);
+        }
+    }, [routedTab?.supportsFullsize, setTabFullsize]);
+
+    // Different contexts require different sidebar behaviors (e.g., search results need compact views,
+    // lineage views have space constraints, profile sidebars support full feature sets)
+    let contextType = TabContextType.PROFILE_SIDEBAR;
+    if (isInSearch) {
+        contextType = TabContextType.SEARCH_SIDEBAR;
+    } else if (isCompact) {
+        contextType = TabContextType.LINEAGE_SIDEBAR;
+    }
+
+    const finalTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections || [], contextType);
+
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -331,7 +341,7 @@ export const EntityProfile = <T, U>({
                             type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
+                            contextType={contextType}
                             width={width}
                             headerDropdownItems={headerDropdownItems}
                         />
@@ -400,20 +410,7 @@ export const EntityProfile = <T, U>({
                                     )}
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                                            {!isTabFullsize && (
-                                                <TabsWrapper>
-                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                </TabsWrapper>
-                                            )}
-                                            <TabContent>
-                                                {routedTab && (
-                                                    <routedTab.component
-                                                        properties={routedTab.properties}
-                                                        contextType={TabContextType.PROFILE}
-                                                        renderType={TabRenderType.DEFAULT}
-                                                    />
-                                                )}
-                                            </TabContent>
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                         </BodyContent>
                                     </Body>
                                 </HeaderAndTabsFlex>

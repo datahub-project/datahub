@@ -1,27 +1,50 @@
 import json
 import logging
-import os
 import os.path
 import re
 from typing import Dict, Optional
 
 import click
+import packaging
 import requests
 import yaml
 from packaging.version import parse
 from pydantic import BaseModel
 
+from datahub._version import nice_version_name
+from datahub.configuration.env_vars import get_force_local_quickstart_mapping
+
 logger = logging.getLogger(__name__)
 
-LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
+LOCAL_QUICKSTART_MAPPING_FILE = get_force_local_quickstart_mapping()
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
+
+MINIMUM_SUPPORTED_VERSION = "v1.1.0"
+
+
+def get_minimum_supported_version_message(version: str) -> str:
+    MINIMUM_SUPPORTED_VERSION_MESSAGE = f"""
+    DataHub CLI Version Compatibility Issue
+
+    You're trying to install DataHub server version {version} which is not supported by this CLI version.
+
+    This CLI (version {nice_version_name()}) only supports installing DataHub server versions {MINIMUM_SUPPORTED_VERSION} and above.
+
+    To install older server versions:
+    1. Uninstall current CLI: pip uninstall acryl-datahub
+    2. Install older CLI: pip install acryl-datahub==1.1
+    3. Run quickstart with your desired version: datahub docker quickstart --version <version>
+
+    For more information: https://docs.datahub.com/docs/quickstart#install-datahub-server
+    """
+    return MINIMUM_SUPPORTED_VERSION_MESSAGE
 
 
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
-    mysql_tag: Optional[str]
+    mysql_tag: Optional[str] = None
 
 
 def _is_it_a_version(version: str) -> bool:
@@ -57,7 +80,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
             with open(path) as f:
                 config_raw = yaml.safe_load(f)
-            return cls.parse_obj(config_raw)
+            return cls.model_validate(config_raw)
 
         config_raw = None
         try:
@@ -87,7 +110,7 @@ class QuickstartVersionMappingConfig(BaseModel):
                 }
             )
 
-        config = cls.parse_obj(config_raw)
+        config = cls.model_validate(config_raw)
 
         # If stable is not defined in the config, we need to fetch the latest version from github.
         if config.quickstart_version_map.get("stable") is None:
@@ -126,15 +149,23 @@ class QuickstartVersionMappingConfig(BaseModel):
                 mysql_tag=str(mysql_tag),
             ),
         )
+
+        if not is_minimum_supported_version(requested_version):
+            click.secho(
+                get_minimum_supported_version_message(version=requested_version),
+                fg="red",
+            )
+            raise click.ClickException("Minimum supported version not met")
+
         # new CLI version is downloading the composefile corresponding to the requested version
-        # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
-        # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
-        # the setup job labels
+        # if the version is older than <MINIMUM_SUPPORTED_VERSION>, it doesn't contain the
+        # docker compose based resolved compose file. In those cases, we pick up the composefile from
+        # MINIMUM_SUPPORTED_VERSION which contains the compose file.
         if _is_it_a_version(result.composefile_git_ref):
-            if parse("v0.10.1") > parse(result.composefile_git_ref):
-                # The merge commit where the labels were added
-                # https://github.com/datahub-project/datahub/pull/7473
-                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"
+            if parse("v1.2.0") > parse(result.composefile_git_ref):
+                # The merge commit where profiles based resolved compose file was added.
+                # https://github.com/datahub-project/datahub/pull/13566
+                result.composefile_git_ref = "21726bc3341490f4182b904626c793091ac95edd"
 
         return result
 
@@ -146,5 +177,17 @@ def save_quickstart_config(
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        yaml.dump(config.dict(), f)
+        yaml.dump(config.model_dump(), f)
     logger.info(f"Saved quickstart config to {path}.")
+
+
+def is_minimum_supported_version(version: str) -> bool:
+    if not _is_it_a_version(version):
+        return True
+
+    requested_version = packaging.version.parse(version)
+    minimum_supported_version = packaging.version.parse(MINIMUM_SUPPORTED_VERSION)
+    if requested_version < minimum_supported_version:
+        return False
+
+    return True

@@ -11,6 +11,11 @@ dependencies {
   api project(path: ':metadata-models', configuration: "dataTemplate")
   api spec.product.pegasus.dataAvro
 
+  implementation externalDependency.jacksonDataFormatYaml
+
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
   testImplementation externalDependency.testng
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')

@@ -8,7 +8,7 @@ from sqlalchemy.sql.elements import TextClause
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.oracle import OracleConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 @dataclass
@@ -105,6 +105,11 @@ class OracleSourceMockDataBase:
         "SELECT ac.constraint_name": MockConstraints(),
         "SELECT col.column_name": MockColumns().execute(),
         "SELECT text": MockViewDefinition(),
+        "SELECT mview_name FROM dba_mviews WHERE owner = :owner": [],  # No materialized views in mock data
+        "SELECT mview_name, last_refresh_date FROM dba_mviews WHERE owner = :owner": [],  # No materialized views with refresh dates
+        "SELECT query FROM dba_mviews WHERE mview_name=:mview_name": None,  # No materialized view definition
+        "SELECT mview_name FROM ALL_MVIEWS WHERE owner = :owner": [],  # No materialized views in mock data (ALL mode)
+        "SELECT query FROM ALL_MVIEWS WHERE mview_name=:mview_name": None,  # No materialized view definition (ALL mode)
         "schema1": (["test1"], ["test2"]),
         "schema2": (["test3"], ["test4"]),
     }
@@ -159,7 +164,7 @@ class OracleTestCaseBase:
             "source": {
                 "type": "oracle",
                 "config": {
-                    **self.get_default_recipe_config().dict(),
+                    **self.get_default_recipe_config().model_dump(),
                 },
             }
         }

@@ -54,8 +54,8 @@ export default function UnlinkAssetVersionModal({ urn, entityType, closeModal, v
             title="Are you sure?"
             subtitle="Would you like to unlink this version?"
             buttons={[
-                { text: 'No', variant: 'text', onClick: closeModal },
-                { text: 'Yes', variant: 'filled', onClick: handleUnlink },
+                { text: 'No', variant: 'text', onClick: closeModal, key: 'no' },
+                { text: 'Yes', variant: 'filled', onClick: handleUnlink, key: 'yes' },
             ]}
             onCancel={closeModal}
         />

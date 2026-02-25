@@ -1,11 +1,16 @@
 from typing import Iterable
 
+from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
-from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
+from datahub.ingestion.source.redshift.redshift_schema import (
+    REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE,
+    RedshiftTable,
+    _add_redshift_query_tag,
+)
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -61,3 +66,31 @@ def test_gen_dataset_workunits_patch_custom_properties_upsert():
             custom_props_exist = True
 
     assert custom_props_exist
+
+
+def test_add_redshift_query_tag() -> None:
+    query = "SELECT * FROM test_table"
+    tagged_query = _add_redshift_query_tag(query)
+    expected_tag = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.format(version=__version__)
+    assert tagged_query == expected_tag + query
+
+
+def test_add_redshift_query_tag_multiline_query_preserves_text() -> None:
+    query = "SELECT 1 AS a\nUNION ALL\nSELECT 2 AS a\n"
+    tagged_query = _add_redshift_query_tag(query)
+    expected_tag = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.format(version=__version__)
+    assert tagged_query == expected_tag + query
+
+
+def test_add_redshift_query_tag_existing_leading_comment() -> None:
+    query = "-- existing comment\nSELECT * FROM test_table"
+    tagged_query = _add_redshift_query_tag(query)
+    expected_tag = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.format(version=__version__)
+    assert tagged_query == expected_tag + query
+
+
+def test_add_redshift_query_tag_leading_whitespace_and_blank_lines() -> None:
+    query = "\n\n  SELECT * FROM test_table"
+    tagged_query = _add_redshift_query_tag(query)
+    expected_tag = REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE.format(version=__version__)
+    assert tagged_query == expected_tag + query

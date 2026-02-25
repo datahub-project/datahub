@@ -208,9 +208,7 @@ class ToolMetaExtractor:
         Returns:
             bool: whether QueryLog entry is that of hex.
         """
-        last_line = _get_last_line(entry.query_text)
-
-        if not last_line.startswith("-- Hex query metadata:"):
+        if "-- Hex query metadata:" not in entry.query_text:
             return False
 
         entry.origin = HEX_PLATFORM_URN

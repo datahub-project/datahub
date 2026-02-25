@@ -11,13 +11,17 @@ import {
     SearchResultsInterface,
 } from '@app/entity/shared/components/styled/search/types';
 import { useEntityQueryParams } from '@app/entity/shared/containers/profile/utils';
-import { EMBEDDED_LIST_SEARCH_ENTITY_TYPES, UnionType } from '@app/search/utils/constants';
+import {
+    EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,
+    UnionType,
+} from '@app/search/utils/constants';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 import useFilters from '@app/search/utils/useFilters';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { FacetFilterInput } from '@types';
 
@@ -91,6 +95,15 @@ export const EmbeddedListSearchSection = ({
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
 
+    const entityRegistry = useEntityRegistry();
+
+    const searchableEntityTypes = entityRegistry.getSearchEntityTypes();
+
+    const embeddedListSearchEntityTypes = [
+        ...searchableEntityTypes,
+        ...EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,
+    ];
+
     const filters: Array<FacetFilterInput> = useFilters(params);
 
     const onSearch = (q: string) => {
@@ -143,7 +156,7 @@ export const EmbeddedListSearchSection = ({
 
     return (
         <EmbeddedListSearch
-            entityTypes={EMBEDDED_LIST_SEARCH_ENTITY_TYPES}
+            entityTypes={embeddedListSearchEntityTypes}
             query={query || ''}
             page={page}
             unionType={unionType}

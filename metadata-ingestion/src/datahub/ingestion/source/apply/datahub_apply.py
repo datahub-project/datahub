@@ -96,7 +96,7 @@ def apply_association_to_container(
 class DomainApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply domain hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply domain hierarchically. Currently only containers and datasets are supported",
     )
     domain_urn: str = Field(default="")
 
@@ -104,7 +104,7 @@ class DomainApplyConfig(ConfigModel):
 class TagApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply tag hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply tag hierarchically. Currently only containers and datasets are supported",
     )
     tag_urn: str = Field(default="")
 
@@ -112,7 +112,7 @@ class TagApplyConfig(ConfigModel):
 class TermApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply term hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply term hierarchically. Currently only containers and datasets are supported",
     )
     term_urn: str = Field(default="")
 
@@ -120,7 +120,7 @@ class TermApplyConfig(ConfigModel):
 class OwnerApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply owner hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply owner hierarchically. Currently only containers and datasets are supported",
     )
     owner_urn: str = Field(default="")
 

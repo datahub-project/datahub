@@ -105,7 +105,7 @@ These changes represent the first milestone in Metadata Service Authentication. 
 1. **Dynamic Authenticator Plugins**: Configure + register custom Authenticator implementations, without forking DataHub.
 2. **Service Accounts**: Create service accounts and generate Access tokens on their behalf.
 3. **Kafka Ingestion Authentication**: Authenticate ingestion requests coming from the Kafka ingestion sink inside the Metadata Service.
-4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens inlcude no server side state, and thus cannot be revoked once granted)
+4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens include no server side state, and thus cannot be revoked once granted)
 
 ...and more! To advocate for these features or others, reach out on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email).
 

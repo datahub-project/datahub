@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.EventSpecBuilder;
+import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
@@ -207,12 +208,18 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
       EntitySpec entitySpec;
       Optional<DataSchema> entitySchema = dataSchemaFactory.getEntitySchema(entity.getName());
+      String searchGroup =
+          entity.getSearchGroup() != null
+              ? entity.getSearchGroup()
+              : EntityAnnotation.DEFAULT_SEARCH_GROUP;
+
       if (!entitySchema.isPresent()) {
         entitySpec =
             entitySpecBuilder.buildConfigEntitySpec(
-                entity.getName(), entity.getKeyAspect(), aspectSpecs);
+                entity.getName(), entity.getKeyAspect(), aspectSpecs, searchGroup);
       } else {
-        entitySpec = entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs);
+        entitySpec =
+            entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs, searchGroup);
       }
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }

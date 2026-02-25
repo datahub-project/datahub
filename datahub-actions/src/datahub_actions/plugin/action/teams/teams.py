@@ -56,7 +56,7 @@ class TeamsNotificationAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = TeamsNotificationConfig.parse_obj(config_dict or {})
+        action_config = TeamsNotificationConfig.model_validate(config_dict or {})
         logger.info(f"Teams notification action configured with {action_config}")
         return cls(action_config, ctx)
 

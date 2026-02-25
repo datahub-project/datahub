@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity.versioning.sideeffects;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 

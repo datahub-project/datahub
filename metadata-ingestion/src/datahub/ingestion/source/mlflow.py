@@ -15,6 +15,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
 )
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
@@ -33,7 +34,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_platforms import KNOWN_VALID_PLATFORM_NAMES
-from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    MLAssetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -117,7 +121,7 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description="Username for MLflow authentication"
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="Password for MLflow authentication"
     )
 
@@ -133,10 +137,17 @@ class MLflowRegisteredModelStageInfo:
 
 @platform_name("MLflow")
 @config_class(MLflowConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for MLflow Registered Models and Model Versions",
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Extract ML experiments",
+    subtype_modifier=[
+        SourceCapabilityModifier.MLFLOW_EXPERIMENT,
+    ],
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
 class MLflowSource(StatefulIngestionSourceBase):
@@ -177,7 +188,9 @@ class MLflowSource(StatefulIngestionSourceBase):
 
         if self.config.username and self.config.password:
             os.environ["MLFLOW_TRACKING_USERNAME"] = self.config.username
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.config.password
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = (
+                self.config.password.get_secret_value()
+            )
 
         return MlflowClient(
             tracking_uri=self.config.tracking_uri,
@@ -882,5 +895,5 @@ class MLflowSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MLflowSource":
-        config = MLflowConfig.parse_obj(config_dict)
+        config = MLflowConfig.model_validate(config_dict)
         return cls(ctx, config)

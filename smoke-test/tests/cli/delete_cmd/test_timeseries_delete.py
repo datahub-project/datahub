@@ -12,7 +12,7 @@ from tests.aspect_generators.timeseries.dataset_profile_gen import gen_dataset_p
 from tests.utils import (
     get_strftime_from_timestamp_millis,
     run_datahub_cmd,
-    wait_for_writes_to_sync,
+    sync_elastic,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,10 +24,6 @@ test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
     "test_platform_instance",
     "TEST",
 )
-
-
-def sync_elastic() -> None:
-    wait_for_writes_to_sync()
 
 
 def datahub_put_profile(auth_session, dataset_profile: DatasetProfileClass) -> None:

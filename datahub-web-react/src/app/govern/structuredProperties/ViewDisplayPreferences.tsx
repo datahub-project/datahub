@@ -2,12 +2,15 @@ import { Collapse } from 'antd';
 import React from 'react';
 
 import {
+    CheckboxContainer,
     CollapseHeader,
+    CompoundedItemWrapper,
     StyledCollapse,
     StyledFormItem,
+    StyledFormSubItem,
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
-import { Icon, Switch, Text, colors } from '@src/alchemy-components';
+import { Checkbox, Icon, Switch, Text, colors } from '@src/alchemy-components';
 import { StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
@@ -55,15 +58,34 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                                 isDisabled
                             />
                         </StyledFormItem>
-                        <StyledFormItem name={['settings', 'showInAssetSummary']}>
-                            <Switch
-                                label="Show in Asset Sidebar"
-                                size="sm"
-                                checked={propEntity?.settings?.showInAssetSummary}
-                                labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
-                                isDisabled
-                            />
-                        </StyledFormItem>
+                        <CompoundedItemWrapper>
+                            <StyledFormItem name={['settings', 'showInAssetSummary']}>
+                                <Switch
+                                    label="Show in Asset Sidebar"
+                                    size="sm"
+                                    checked={propEntity?.settings?.showInAssetSummary}
+                                    labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
+                                    isDisabled
+                                />
+                            </StyledFormItem>
+
+                            {propEntity?.settings?.showInAssetSummary && (
+                                <StyledFormSubItem name={['settings', 'hideInAssetSummaryWhenEmpty']}>
+                                    <CheckboxContainer>
+                                        <Checkbox
+                                            label="Hide when Empty"
+                                            isChecked={propEntity?.settings?.hideInAssetSummaryWhenEmpty}
+                                            labelTooltip="If enabled, this property will only show in the asset sidebar if it's assigned to the asset"
+                                            size="sm"
+                                            gap="2px"
+                                            justifyContent="flex-start"
+                                            shouldHandleLabelClicks
+                                            isDisabled
+                                        />
+                                    </CheckboxContainer>
+                                </StyledFormSubItem>
+                            )}
+                        </CompoundedItemWrapper>
                         <StyledFormItem name={['settings', 'showAsAssetBadge']}>
                             <Switch
                                 label="Show as Asset Badge"

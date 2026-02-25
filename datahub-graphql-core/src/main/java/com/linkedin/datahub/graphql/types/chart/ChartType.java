@@ -82,7 +82,8 @@ public class ChartType
           BROWSE_PATHS_V2_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS =
       ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -148,7 +149,7 @@ public class ChartType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -168,7 +169,7 @@ public class ChartType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -181,7 +182,7 @@ public class ChartType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

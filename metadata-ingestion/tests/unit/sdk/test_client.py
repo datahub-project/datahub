@@ -40,7 +40,9 @@ def test_graphql_entity_types() -> None:
         "dataJob": "DATA_JOB",
         "glossaryNode": "GLOSSARY_NODE",
         "glossaryTerm": "GLOSSARY_TERM",
+        "dataProduct": "DATA_PRODUCT",
         "dataHubExecutionRequest": "EXECUTION_REQUEST",
+        "document": "DOCUMENT",
     }
 
     for entity_type, graphql_type in known_mappings.items():

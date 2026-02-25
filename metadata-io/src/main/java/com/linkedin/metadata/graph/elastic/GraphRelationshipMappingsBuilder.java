@@ -22,6 +22,11 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put(EDGE_FIELD_VIA, getMappingsForKeyword());
     mappings.put(EDGE_FIELD_LIFECYCLE_OWNER_STATUS, getMappingsForBoolean());
     mappings.put(EDGE_FIELD_VIA_STATUS, getMappingsForBoolean());
+    // Timestamp and actor fields used for lineage filtering and sorting
+    mappings.put("createdOn", getMappingsForLong());
+    mappings.put("createdActor", getMappingsForKeyword());
+    mappings.put("updatedOn", getMappingsForLong());
+    mappings.put("updatedActor", getMappingsForKeyword());
     return ImmutableMap.of("properties", mappings);
   }
 
@@ -31,6 +36,10 @@ public class GraphRelationshipMappingsBuilder {
 
   private static Map<String, Object> getMappingsForBoolean() {
     return ImmutableMap.<String, Object>builder().put("type", "boolean").build();
+  }
+
+  private static Map<String, Object> getMappingsForLong() {
+    return ImmutableMap.<String, Object>builder().put("type", "long").build();
   }
 
   private static Map<String, Object> getMappingsForEntity() {

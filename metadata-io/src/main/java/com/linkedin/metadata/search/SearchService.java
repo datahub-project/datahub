@@ -3,6 +3,8 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
@@ -28,14 +30,17 @@ public class SearchService {
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final EntityDocCountCache _entityDocCountCache;
   private final SearchRanker _searchRanker;
+  private final SearchServiceConfiguration searchServiceConfig;
 
   public SearchService(
       EntityDocCountCache entityDocCountCache,
       CachingEntitySearchService cachingEntitySearchService,
-      SearchRanker searchRanker) {
+      SearchRanker searchRanker,
+      SearchServiceConfiguration searchServiceConfig) {
     _cachingEntitySearchService = cachingEntitySearchService;
     _searchRanker = searchRanker;
     _entityDocCountCache = entityDocCountCache;
+    this.searchServiceConfig = searchServiceConfig;
   }
 
   public Map<String, Long> docCountPerEntity(
@@ -79,7 +84,9 @@ public class SearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
+
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
     if (entitiesToSearch.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
@@ -107,7 +114,7 @@ public class SearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      @Nullable Integer size) {
     return searchAcrossEntities(
         opContext, entities, input, postFilters, sortCriteria, from, size, null);
   }
@@ -135,8 +142,10 @@ public class SearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nullable List<String> facets) {
+
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
@@ -166,7 +175,9 @@ public class SearchService {
    * @return some entities to search
    */
   public List<String> getEntitiesToSearch(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> inputEntities, int size) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> inputEntities,
+      @Nullable Integer size) {
     List<String> lowercaseEntities =
         inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
 
@@ -203,7 +214,7 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     return scrollAcrossEntities(
         opContext,
         entities,
@@ -240,9 +251,10 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nullable List<String> facets) {
 
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final List<String> finalFacets = facetInput(facets);
     log.debug(
         String.format(

@@ -59,6 +59,7 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
                     value={tagName}
                     setValue={handleTagNameChange}
                     placeholder="Enter tag name"
+                    data-testid="tag-name-field"
                     required
                 />
             </FormSection>
@@ -69,6 +70,7 @@ const TagDetailsSection: React.FC<TagDetailsProps> = ({
                     value={tagDescription}
                     setValue={handleDescriptionChange}
                     placeholder="Add a description for your new tag"
+                    data-testid="tag-description-field"
                     type="textarea"
                 />
             </FormSection>

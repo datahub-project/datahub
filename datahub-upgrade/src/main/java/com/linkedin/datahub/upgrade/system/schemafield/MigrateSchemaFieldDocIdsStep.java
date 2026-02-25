@@ -16,6 +16,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -30,15 +31,12 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.action.bulk.BulkProcessor;
-import org.opensearch.action.bulk.BulkRequest;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
+import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -61,8 +59,7 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
 
   private final OperationContext opContext;
   private final EntityRegistry entityRegistry;
-  private final RestHighLevelClient elasticsearchClient;
-  private final BulkProcessor bulkProcessor;
+  private final SearchClientShim<?> elasticsearchClient;
   private final String indexName;
   private final EntityService<?> entityService;
   private final Scroll scroll = new Scroll(TimeValue.timeValueMinutes(5L));
@@ -86,7 +83,17 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
     this.limit = limit;
     this.indexName =
         elasticSearchComponents.getIndexConvention().getEntityIndexName(SCHEMA_FIELD_ENTITY_NAME);
-    this.bulkProcessor = buildBuildProcessor();
+    // FIXME: This is a legacy job that was doing bad things with the bulk processor, moved to the
+    // standard, but
+    //        ideally this should pull from config
+    elasticsearchClient.generateAsyncBulkProcessor(
+        WriteRequest.RefreshPolicy.NONE,
+        opContext.getMetricUtils().orElse(null),
+        batchSize,
+        1L,
+        1,
+        3,
+        1); // threadCount
     log.info("MigrateSchemaFieldDocIdsStep initialized");
   }
 
@@ -151,38 +158,13 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       } catch (Exception e) {
         throw new RuntimeException(e);
       } finally {
-        bulkProcessor.flush();
+        elasticsearchClient.flushBulkProcessor();
       }
 
       BootstrapStep.setUpgradeResult(context.opContext(), getUpgradeIdUrn(), entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
-  }
-
-  private BulkProcessor buildBuildProcessor() {
-    return BulkProcessor.builder(
-            (request, bulkListener) ->
-                elasticsearchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-            new BulkProcessor.Listener() {
-              @Override
-              public void beforeBulk(long executionId, BulkRequest request) {
-                log.debug("Deleting {} legacy schemaField documents", request.numberOfActions());
-              }
-
-              @Override
-              public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-                log.debug(
-                    "Delete executed {} failures", response.hasFailures() ? "with" : "without");
-              }
-
-              @Override
-              public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-                log.warn("Error while executing legacy schemaField documents", failure);
-              }
-            })
-        .setBulkActions(batchSize)
-        .build();
   }
 
   private SearchRequest buildSearchRequest() {
@@ -286,6 +268,6 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
   }
 
   private void deleteDocumentIds(Set<String> documentIds) {
-    documentIds.forEach(docId -> bulkProcessor.add(new DeleteRequest(indexName, docId)));
+    documentIds.forEach(docId -> elasticsearchClient.addBulk(new DeleteRequest(indexName, docId)));
   }
 }

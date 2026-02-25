@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.structured.StructuredPropertySettings;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,7 +37,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Setter
 @Getter
@@ -87,35 +88,42 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
         // Only need to get first set, if there are more then will have to resolve bad state
         ScrollResult scrollResult = scrollIterator.next();
         if (CollectionUtils.isNotEmpty(scrollResult.getEntities())) {
-          if (scrollResult.getEntities().size() > 1) {
-            // If it's greater than one, don't bother querying DB since we for sure are in a bad
-            // state
-            exceptions.addException(
-                mcpItem,
-                StructuredPropertyUtils.ONLY_ONE_BADGE
-                    + scrollResult.getEntities().stream()
-                        .map(SearchEntity::getEntity)
-                        .collect(Collectors.toList()));
-          } else {
-            // If there is just one, verify against DB to make sure we're not hitting a timing issue
-            // with eventual consistency
-            AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-            Optional<Aspect> propertySettings =
-                Optional.ofNullable(
-                    aspectRetriever.getLatestAspectObject(
-                        scrollResult.getEntities().get(0).getEntity(),
-                        STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME));
-            if (propertySettings.isPresent()) {
-              StructuredPropertySettings dbBadgeSettings =
-                  RecordUtils.toRecordTemplate(
-                      StructuredPropertySettings.class, propertySettings.get().data());
-              if (dbBadgeSettings.isShowAsAssetBadge()) {
-                exceptions.addException(
-                    mcpItem,
-                    StructuredPropertyUtils.ONLY_ONE_BADGE
-                        + scrollResult.getEntities().stream()
-                            .map(SearchEntity::getEntity)
-                            .collect(Collectors.toList()));
+          // Filter out the current entity being updated - it's allowed to keep its own badge
+          List<SearchEntity> otherBadgeEntities =
+              scrollResult.getEntities().stream()
+                  .filter(entity -> !entity.getEntity().equals(mcpItem.getUrn()))
+                  .collect(Collectors.toList());
+          if (CollectionUtils.isNotEmpty(otherBadgeEntities)) {
+            if (otherBadgeEntities.size() > 1) {
+              // If it's greater than one, don't bother querying DB since we for sure are in a bad
+              // state
+              exceptions.addException(
+                  mcpItem,
+                  StructuredPropertyUtils.ONLY_ONE_BADGE
+                      + otherBadgeEntities.stream()
+                          .map(SearchEntity::getEntity)
+                          .collect(Collectors.toList()));
+            } else {
+              // If there is just one, verify against DB to make sure we're not hitting a timing
+              // issue with eventual consistency
+              AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+              Optional<Aspect> propertySettings =
+                  Optional.ofNullable(
+                      aspectRetriever.getLatestAspectObject(
+                          otherBadgeEntities.get(0).getEntity(),
+                          STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME));
+              if (propertySettings.isPresent()) {
+                StructuredPropertySettings dbBadgeSettings =
+                    RecordUtils.toRecordTemplate(
+                        StructuredPropertySettings.class, propertySettings.get().data());
+                if (dbBadgeSettings.isShowAsAssetBadge()) {
+                  exceptions.addException(
+                      mcpItem,
+                      StructuredPropertyUtils.ONLY_ONE_BADGE
+                          + otherBadgeEntities.stream()
+                              .map(SearchEntity::getEntity)
+                              .collect(Collectors.toList()));
+                }
               }
             }
           }

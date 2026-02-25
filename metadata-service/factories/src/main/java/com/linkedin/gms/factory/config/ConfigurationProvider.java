@@ -3,12 +3,14 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 @EqualsAndHashCode(callSuper = true)
@@ -27,9 +29,15 @@ public class ConfigurationProvider extends DataHubAppConfiguration {
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
 
-  /** Structured properties related configurations */
-  private StructuredPropertiesConfiguration structuredProperties;
-
   /** Enable/disable DataHub analytics */
   private PlatformAnalyticsConfiguration platformAnalytics;
+
+  /**
+   * Provides GMSConfiguration bean for dependency injection. This extracts the GMS configuration
+   * from the main DataHub configuration.
+   */
+  @Bean("gmsConfiguration")
+  public GMSConfiguration gmsConfiguration() {
+    return this.getDatahub().getGms();
+  }
 }

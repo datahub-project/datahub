@@ -19,4 +19,8 @@ repositories {
 
 dependencies {
     implementation 'org.apache.spark:spark-sql_2.11:2.4.8'
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
+    implementation 'org.xerial.snappy:snappy-java:1.1.10.7' // CVE-2023-34453
 }

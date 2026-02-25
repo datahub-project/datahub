@@ -17,9 +17,12 @@ import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.AccessTokenType;
 import com.linkedin.datahub.graphql.generated.CreateAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -30,9 +33,12 @@ import lombok.extern.slf4j.Slf4j;
 public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<AccessToken>> {
 
   private final StatefulTokenService _statefulTokenService;
+  private final EntityClient _entityClient;
 
-  public CreateAccessTokenResolver(final StatefulTokenService statefulTokenService) {
+  public CreateAccessTokenResolver(
+      final StatefulTokenService statefulTokenService, final EntityClient entityClient) {
     _statefulTokenService = statefulTokenService;
+    _entityClient = entityClient;
   }
 
   @Override
@@ -48,6 +54,30 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
               "User {} requesting new access token for user {} ",
               context.getActorUrn(),
               input.getActorUrn());
+
+          // Validate service account exists if type is SERVICE_ACCOUNT
+          if (AccessTokenType.SERVICE_ACCOUNT.equals(input.getType())) {
+            try {
+              final Urn actorUrn = UrnUtils.getUrn(input.getActorUrn());
+              final EntityResponse response =
+                  _entityClient
+                      .batchGetV2(
+                          context.getOperationContext(),
+                          Constants.CORP_USER_ENTITY_NAME,
+                          Collections.singleton(actorUrn),
+                          Collections.singleton(Constants.SUB_TYPES_ASPECT_NAME))
+                      .get(actorUrn);
+
+              if (response == null || !ServiceAccountUtils.isServiceAccount(response)) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "The specified URN is not a service account: %s", input.getActorUrn()));
+              }
+            } catch (Exception e) {
+              log.error("Failed to validate service account", e);
+              throw new RuntimeException("Failed to validate service account", e);
+            }
+          }
 
           if (isAuthorizedToGenerateToken(context, input)) {
             final TokenType type =
@@ -109,6 +139,9 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
     if (AccessTokenType.PERSONAL.equals(input.getType())) {
       return isAuthorizedToGeneratePersonalAccessToken(context, input);
     }
+    if (AccessTokenType.SERVICE_ACCOUNT.equals(input.getType())) {
+      return isAuthorizedToGenerateServiceAccountToken(context, input);
+    }
     throw new UnsupportedOperationException(
         String.format("Unsupported AccessTokenType %s provided", input.getType()));
   }
@@ -120,9 +153,19 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
             && AuthorizationUtils.canGeneratePersonalAccessToken(context);
   }
 
+  private boolean isAuthorizedToGenerateServiceAccountToken(
+      final QueryContext context, final CreateAccessTokenInput input) {
+    return AuthorizationUtils.canManageServiceAccounts(context);
+  }
+
   private Actor createActor(AccessTokenType tokenType, String actorUrn) {
     if (AccessTokenType.PERSONAL.equals(tokenType)) {
       // If we are generating a personal access token, then the actor will be of "USER" type.
+      return new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId());
+    }
+    if (AccessTokenType.SERVICE_ACCOUNT.equals(tokenType)) {
+      // Service accounts are also USER type actors (they're CorpUser entities with special
+      // properties)
       return new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId());
     }
     throw new IllegalArgumentException(

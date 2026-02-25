@@ -73,7 +73,7 @@ public class GlobalTagsPatchBuilderTest {
     assertEquals(operation.getLeft(), "add");
     assertTrue(operation.getMiddle().startsWith("/tags/"));
     assertTrue(operation.getRight().isObject());
-    assertEquals(operation.getRight().get("urn").asText(), tagUrn.toString());
+    assertEquals(operation.getRight().get("tag").asText(), tagUrn.toString());
     assertEquals(operation.getRight().get("context").asText(), context);
   }
 
@@ -91,7 +91,7 @@ public class GlobalTagsPatchBuilderTest {
     assertEquals(operation.getLeft(), "add");
     assertTrue(operation.getMiddle().startsWith("/tags/"));
     assertTrue(operation.getRight().isObject());
-    assertEquals(operation.getRight().get("urn").asText(), tagUrn.toString());
+    assertEquals(operation.getRight().get("tag").asText(), tagUrn.toString());
     assertNull(operation.getRight().get("context"));
   }
 

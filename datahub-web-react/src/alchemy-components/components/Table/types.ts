@@ -10,9 +10,12 @@ export interface Column<T> {
     width?: string;
     minWidth?: string;
     maxWidth?: string;
-    sorter?: (a: T, b: T) => number;
+    sorter?: ((a: T, b: T) => number) | boolean;
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
+    onCellClick?: (record: T) => void;
+    isCellClickable?: (record: T) => boolean;
+    cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 
 export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
@@ -34,6 +37,8 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     rowSelection?: RowSelectionProps<T>;
     rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
     headerRef?: React.RefObject<HTMLTableSectionElement>;
+    footer?: React.ReactNode;
+    renderScrollObserver?: () => React.ReactNode;
 }
 
 export interface RowSelectionProps<T> {

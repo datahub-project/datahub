@@ -6,11 +6,12 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
 
-  implementation 'org.apache.commons:commons-lang3:3.12.0'
+  implementation 'org.apache.commons:commons-lang3:3.18.0'
   implementation project(path: ':metadata-auth:auth-api')
   implementation project(':entity-registry')
   implementation externalDependency.springContext
   implementation externalDependency.guava
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.jacksonJDK8

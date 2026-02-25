@@ -149,6 +149,7 @@ public class UpsertStructuredPropertiesResolver
                                 .collect(Collectors.toList()));
                     propAssignment.setValues(values);
                     propAssignment.setLastModified(auditStamp);
+                    propAssignment.removeAttribution();
                   }
                   return propAssignment;
                 })

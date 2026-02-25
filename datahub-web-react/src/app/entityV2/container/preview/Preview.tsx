@@ -1,9 +1,11 @@
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -49,6 +51,7 @@ export const Preview = ({
     isOutputPort,
     headerDropdownItems,
     browsePaths,
+    previewType,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -75,6 +78,7 @@ export const Preview = ({
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     browsePaths?: BrowsePathV2;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -87,7 +91,7 @@ export const Preview = ({
             platformInstanceId={platformInstanceId}
             description={description || ''}
             entityType={EntityType.Container}
-            type={subTypes?.typeNames?.[0]}
+            type={getFirstSubType({ subTypes })}
             owners={owners}
             deprecation={deprecation}
             insights={insights}
@@ -107,6 +111,7 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
             browsePaths={browsePaths}
+            previewType={previewType}
         />
     );
 };

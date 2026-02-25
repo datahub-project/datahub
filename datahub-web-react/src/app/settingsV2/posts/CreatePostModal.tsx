@@ -1,4 +1,4 @@
-import { Form, Modal, message } from 'antd';
+import { Form, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import CreatePostForm from '@app/settingsV2/posts/CreatePostForm';
@@ -13,8 +13,7 @@ import {
 } from '@app/settingsV2/posts/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType } from '@types';
@@ -159,21 +158,21 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             open
             onCancel={onCloseModal}
             width={700}
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" onClick={onCloseModal} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        id={CREATE_POST_BUTTON_ID}
-                        data-testid={!editData ? 'create-post-button' : 'update-post-button'}
-                        onClick={!editData ? onCreatePost : onUpdatePost}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editData ? 'Create' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: !editData ? 'Create' : 'Update',
+                    onClick: !editData ? onCreatePost : onUpdatePost,
+                    variant: 'filled',
+                    disabled: !createButtonEnabled,
+                    buttonDataTestId: !editData ? 'create-post-button' : 'update-post-button',
+                    id: CREATE_POST_BUTTON_ID,
+                },
+            ]}
         >
             <CreatePostForm
                 setCreateButtonEnabled={setCreateButtonEnabled}

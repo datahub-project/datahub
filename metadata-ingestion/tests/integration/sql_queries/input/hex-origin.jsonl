@@ -1,0 +1,2 @@
+{"query": "SELECT * FROM snowflake.db.users WHERE active = true\n-- Hex query metadata: {\"context\": \"SCHEDULED_RUN\", \"project_id\": \"abc-123-def\", \"project_url\": \"https://app.hex.tech/my-workspace/hex/abc-123-def\", \"cell_id\": \"cell-456\"}", "timestamp": 1609459200, "user": "analyst"}
+{"query": "SELECT COUNT(*) FROM snowflake.db.orders", "timestamp": 1609459260, "user": "reporter"}

@@ -1,18 +1,36 @@
 package com.linkedin.metadata.search;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -20,8 +38,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
@@ -42,18 +62,70 @@ public class ElasticSearchServiceTest {
   private ElasticSearchService testInstance;
   private static final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
+  private static final int DEFAULT_LIMIT = 100;
+  private static final int MAX_LIMIT = 1000;
+  private ElasticSearchService esSearchServiceLimited;
+  private static final String ENTITY_NAME = "dataset";
+  private static final String PATH = "/prod/kafka";
+  private static final String INPUT = "test-input";
+  private static final int START = 0;
+
+  @Mock private ESBrowseDAO esBrowseDAO;
+  @Mock private BrowseResultV2 browseResultV2;
+
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mock(ESSearchDAO.class),
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
+
+    // Setup search service configuration
+    ResultsLimitConfig resultsLimitConfig =
+        ResultsLimitConfig.builder().apiDefault(DEFAULT_LIMIT).max(MAX_LIMIT).strict(true).build();
+
+    LimitConfig limitConfig = LimitConfig.builder().results(resultsLimitConfig).build();
+
+    SearchServiceConfiguration searchServiceConfig =
+        SearchServiceConfiguration.builder().limit(limitConfig).build();
+
+    // Initialize ElasticSearchService
+    esSearchServiceLimited =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            searchServiceConfig,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            esBrowseDAO,
+            mock(ESWriteDAO.class));
+
+    when(esBrowseDAO.browseV2(
+            any(OperationContext.class),
+            any(String.class),
+            any(),
+            nullable(Filter.class),
+            any(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(browseResultV2);
+    when(esBrowseDAO.browseV2(
+            any(OperationContext.class),
+            anyList(),
+            any(),
+            nullable(Filter.class),
+            any(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(browseResultV2);
   }
 
   @Test
@@ -127,13 +199,118 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
+  public void testAppendRunId_DualWriteToSemanticIndex() {
+    // Setup: Create a mock that supports indexExists check
+    ESWriteDAO mockEsWriteDAOWithIndex = mock(ESWriteDAO.class);
+    when(mockEsWriteDAOWithIndex.indexExists(any(String.class))).thenReturn(true);
+
+    ElasticSearchService serviceWithSemanticIndex =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAOWithIndex);
+
+    String runId = "test-run-id-semantic";
+
+    // Execute
+    serviceWithSemanticIndex.appendRunId(opContext, TEST_URN, runId);
+
+    // Verify V2 index update
+    verify(mockEsWriteDAOWithIndex)
+        .applyScriptUpdate(
+            eq(opContext),
+            eq(TEST_URN.getEntityType()),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            any(Map.class),
+            any(Map.class));
+
+    // Verify semantic index update
+    String expectedSemanticIndexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(TEST_URN.getEntityType());
+
+    // Capture the arguments for semantic index update
+    ArgumentCaptor<String> indexNameCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> scriptSourceCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Map> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map> upsertCaptor = ArgumentCaptor.forClass(Map.class);
+
+    verify(mockEsWriteDAOWithIndex)
+        .applyScriptUpdateByIndexName(
+            indexNameCaptor.capture(),
+            docIdCaptor.capture(),
+            scriptSourceCaptor.capture(),
+            scriptParamsCaptor.capture(),
+            upsertCaptor.capture());
+
+    // Verify the semantic index was updated correctly
+    assertEquals(expectedSemanticIndexName, indexNameCaptor.getValue());
+    assertEquals(TEST_DOC_ID, docIdCaptor.getValue());
+    assertEquals(ElasticSearchService.SCRIPT_SOURCE, scriptSourceCaptor.getValue());
+    assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
+    assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+  }
+
+  @Test
+  public void testAppendRunId_SkipsSemanticIndexWhenNotExists() {
+    // Setup: Create a mock where semantic index does not exist
+    ESWriteDAO mockEsWriteDAONoSemanticIndex = mock(ESWriteDAO.class);
+    when(mockEsWriteDAONoSemanticIndex.indexExists(any(String.class))).thenReturn(false);
+
+    ElasticSearchService serviceWithoutSemanticIndex =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAONoSemanticIndex);
+
+    String runId = "test-run-id";
+
+    // Execute
+    serviceWithoutSemanticIndex.appendRunId(opContext, TEST_URN, runId);
+
+    // Verify V2 index update was called
+    verify(mockEsWriteDAONoSemanticIndex)
+        .applyScriptUpdate(
+            eq(opContext),
+            eq(TEST_URN.getEntityType()),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            any(Map.class),
+            any(Map.class));
+
+    // Verify semantic index update was NOT called (since index doesn't exist)
+    verify(mockEsWriteDAONoSemanticIndex, never())
+        .applyScriptUpdateByIndexName(
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Map.class),
+            any(Map.class));
+  }
+
+  @Test
   public void testRaw_WithValidUrns() {
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
@@ -193,8 +370,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
@@ -250,8 +428,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
@@ -289,8 +468,9 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
@@ -310,5 +490,657 @@ public class ElasticSearchServiceTest {
 
     // Verify ESSearchDAO.rawEntity was called with the correct parameters
     verify(mockEsSearchDAO).rawEntity(opContext, emptyUrns);
+  }
+
+  @Test
+  public void testBrowseV2WithNullCount() {
+    // Test single entity browseV2 with null count - should use default limit
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(opContext, ENTITY_NAME, PATH, null, INPUT, START, null);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(),
+        DEFAULT_LIMIT,
+        "Null count should result in default limit being used");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2WithValidCount() {
+    // Test single entity browseV2 with valid count
+    int validCount = 50;
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(
+            opContext, ENTITY_NAME, PATH, null, INPUT, START, validCount);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(), validCount, "Valid count should be passed through");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2WithMaxCount() {
+    // Test single entity browseV2 with max count
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(
+            opContext, ENTITY_NAME, PATH, null, INPUT, START, MAX_LIMIT);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(limitCaptor.getValue().intValue(), MAX_LIMIT, "Max count should be allowed");
+    assertNotNull(result);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testBrowseV2WithExceedingCountStrictMode() {
+    // Test single entity browseV2 with count exceeding max in strict mode
+    esSearchServiceLimited.browseV2(
+        opContext, ENTITY_NAME, PATH, null, INPUT, START, MAX_LIMIT + 1);
+  }
+
+  @Test
+  public void testBrowseV2WithNegativeCount() {
+    // Test single entity browseV2 with negative count - should use default limit
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(opContext, ENTITY_NAME, PATH, null, INPUT, START, -10);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(),
+        DEFAULT_LIMIT,
+        "Negative count should result in default limit being used");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2MultipleEntitiesWithNullCount() {
+    // Test multiple entities browseV2 with null count
+    List<String> entityNames = Arrays.asList("dataset", "dataflow");
+
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(opContext, entityNames, PATH, null, INPUT, START, null);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(entityNames),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(),
+        DEFAULT_LIMIT,
+        "Null count should result in default limit being used");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2MultipleEntitiesWithValidCount() {
+    // Test multiple entities browseV2 with valid count
+    List<String> entityNames = Arrays.asList("dataset", "dataflow");
+    int validCount = 75;
+
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(
+            opContext, entityNames, PATH, null, INPUT, START, validCount);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(entityNames),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(), validCount, "Valid count should be passed through");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2WithNonStrictMode() {
+    // Setup non-strict configuration
+    ResultsLimitConfig nonStrictResultsConfig =
+        ResultsLimitConfig.builder().apiDefault(DEFAULT_LIMIT).max(MAX_LIMIT).strict(false).build();
+
+    LimitConfig nonStrictLimitConfig =
+        LimitConfig.builder().results(nonStrictResultsConfig).build();
+
+    SearchServiceConfiguration nonStrictSearchConfig =
+        SearchServiceConfiguration.builder().limit(nonStrictLimitConfig).build();
+
+    ElasticSearchService nonStrictService =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            nonStrictSearchConfig,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            esBrowseDAO,
+            mock(ESWriteDAO.class));
+
+    // Test with count exceeding max in non-strict mode
+    BrowseResultV2 result =
+        nonStrictService.browseV2(
+            opContext, ENTITY_NAME, PATH, null, INPUT, START, MAX_LIMIT + 100);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(
+        limitCaptor.getValue().intValue(),
+        DEFAULT_LIMIT,
+        "Non-strict mode should return default when limit exceeds max");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2WithZeroCount() {
+    // Test browseV2 with zero count
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(opContext, ENTITY_NAME, PATH, null, INPUT, START, 0);
+
+    ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            limitCaptor.capture());
+
+    assertEquals(limitCaptor.getValue().intValue(), 0, "Zero count should be allowed");
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2DifferentInputParameters() {
+    // Test with different valid input parameters
+    String differentPath = "/test/different/path";
+    String differentInput = "different-input";
+    int differentStart = 10;
+
+    BrowseResultV2 result =
+        esSearchServiceLimited.browseV2(
+            opContext, ENTITY_NAME, differentPath, null, differentInput, differentStart, 25);
+
+    verify(esBrowseDAO)
+        .browseV2(
+            any(OperationContext.class),
+            eq(ENTITY_NAME),
+            eq(differentPath),
+            nullable(Filter.class),
+            eq(differentInput),
+            eq(differentStart),
+            eq(25));
+
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testSearchWithNullSize() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    List<String> entityNames = Arrays.asList("dataset", "dataflow");
+    String input = "test query";
+    Filter filter = null;
+    List<SortCriterion> sortCriteria = Collections.emptyList();
+    int from = 0;
+    List<String> facets = Arrays.asList("platform", "origin");
+
+    SearchResult expectedResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(100)
+            .setFrom(from)
+            .setPageSize(
+                TEST_SEARCH_SERVICE_CONFIG
+                    .getLimit()
+                    .getResults()
+                    .getApiDefault()); // Should use service config default
+
+    when(mockSearchDAO.search(
+            any(OperationContext.class),
+            eq(entityNames),
+            eq(input),
+            eq(filter),
+            eq(sortCriteria),
+            eq(from),
+            eq(null), // null size
+            eq(facets)))
+        .thenReturn(expectedResult);
+
+    // Execute
+    SearchResult result =
+        serviceWithMockDAO.search(
+            opContext,
+            entityNames,
+            input,
+            filter,
+            sortCriteria,
+            from,
+            null, // null size
+            facets);
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .search(
+            any(OperationContext.class),
+            eq(entityNames),
+            eq(input),
+            eq(filter),
+            eq(sortCriteria),
+            eq(from),
+            eq(null),
+            eq(facets));
+  }
+
+  @Test
+  public void testFilterWithNullSize() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    String entityName = "dataset";
+    Filter filter = mock(Filter.class);
+    List<SortCriterion> sortCriteria = Collections.emptyList();
+    int from = 0;
+
+    SearchResult expectedResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(50)
+            .setFrom(from)
+            .setPageSize(100);
+
+    when(mockSearchDAO.filter(
+            any(OperationContext.class),
+            eq(entityName),
+            eq(filter),
+            eq(sortCriteria),
+            eq(from),
+            eq(null) // null size
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    SearchResult result =
+        serviceWithMockDAO.filter(
+            opContext, entityName, filter, sortCriteria, from, null // null size
+            );
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .filter(
+            any(OperationContext.class),
+            eq(entityName),
+            eq(filter),
+            eq(sortCriteria),
+            eq(from),
+            eq(null));
+  }
+
+  @Test
+  public void testFullTextScrollWithNullSize() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    List<String> entities = Arrays.asList("dataset");
+    String input = "search term";
+    Filter postFilters = null;
+    List<SortCriterion> sortCriteria = Collections.emptyList();
+    String scrollId = "test-scroll-id";
+    String keepAlive = "5m";
+    List<String> facets = Collections.emptyList();
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(100)
+            .setPageSize(100)
+            .setScrollId("next-scroll-id");
+
+    when(mockSearchDAO.scroll(
+            any(OperationContext.class),
+            eq(entities),
+            eq(input),
+            eq(postFilters),
+            eq(sortCriteria),
+            eq(scrollId),
+            eq(keepAlive),
+            eq(null) // null size
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    ScrollResult result =
+        serviceWithMockDAO.fullTextScroll(
+            opContext,
+            entities,
+            input,
+            postFilters,
+            sortCriteria,
+            scrollId,
+            keepAlive,
+            null, // null size
+            facets);
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .scroll(
+            any(OperationContext.class),
+            eq(entities),
+            eq(input),
+            eq(postFilters),
+            eq(sortCriteria),
+            eq(scrollId),
+            eq(keepAlive),
+            eq(null));
+  }
+
+  @Test
+  public void testStructuredScrollWithNullSize() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    List<String> entities = Arrays.asList("dataset", "dataflow");
+    String input = "*";
+    Filter postFilters = mock(Filter.class);
+    List<SortCriterion> sortCriteria = Collections.emptyList();
+    String scrollId = null; // Initial scroll
+    String keepAlive = "1m";
+    List<String> facets = Arrays.asList("platform");
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(200)
+            .setPageSize(100)
+            .setScrollId("first-scroll-id");
+
+    when(mockSearchDAO.scroll(
+            any(OperationContext.class),
+            eq(entities),
+            eq(input),
+            eq(postFilters),
+            eq(sortCriteria),
+            eq(scrollId),
+            eq(keepAlive),
+            eq(null) // null size
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    ScrollResult result =
+        serviceWithMockDAO.structuredScroll(
+            opContext,
+            entities,
+            input,
+            postFilters,
+            sortCriteria,
+            scrollId,
+            keepAlive,
+            null, // null size
+            facets);
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .scroll(
+            any(OperationContext.class),
+            eq(entities),
+            eq(input),
+            eq(postFilters),
+            eq(sortCriteria),
+            eq(scrollId),
+            eq(keepAlive),
+            eq(null));
+  }
+
+  @Test
+  public void testAggregateByValueWithNullLimit() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    List<String> entityNames = Arrays.asList("dataset");
+    String field = "platform";
+    Filter requestParams = null;
+
+    Map<String, Long> expectedResult = new HashMap<>();
+    expectedResult.put("mysql", 25L);
+    expectedResult.put("postgres", 15L);
+
+    when(mockSearchDAO.aggregateByValue(
+            any(OperationContext.class),
+            eq(entityNames),
+            eq(field),
+            eq(requestParams),
+            eq(null) // null limit
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    Map<String, Long> result =
+        serviceWithMockDAO.aggregateByValue(
+            opContext, entityNames, field, requestParams, null // null limit
+            );
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .aggregateByValue(
+            any(OperationContext.class), eq(entityNames), eq(field), eq(requestParams), eq(null));
+  }
+
+  @Test
+  public void testAutoCompleteWithNullLimit() {
+    // Setup
+    ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
+
+    String entityName = "dataset";
+    String query = "test";
+    String field = "name";
+    Filter requestParams = null;
+
+    AutoCompleteResult expectedResult = new AutoCompleteResult();
+    expectedResult.setQuery(query);
+    expectedResult.setSuggestions(new StringArray(Arrays.asList("test1", "test2", "testing")));
+
+    when(mockSearchDAO.autoComplete(
+            any(OperationContext.class),
+            eq(entityName),
+            eq(query),
+            eq(field),
+            eq(requestParams),
+            eq(null) // null limit
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    AutoCompleteResult result =
+        serviceWithMockDAO.autoComplete(
+            opContext, entityName, query, field, requestParams, null // null limit
+            );
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockSearchDAO)
+        .autoComplete(
+            any(OperationContext.class),
+            eq(entityName),
+            eq(query),
+            eq(field),
+            eq(requestParams),
+            eq(null));
+  }
+
+  @Test
+  public void testBrowseWithNullSize() {
+    // Setup
+    ESBrowseDAO mockBrowseDAO = mock(ESBrowseDAO.class);
+    ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mockBrowseDAO,
+            mockEsWriteDAO);
+
+    String entityName = "dataset";
+    String path = "/prod/kafka";
+    Filter filters = null;
+    int from = 0;
+
+    BrowseResult expectedResult = new BrowseResult();
+    expectedResult.setFrom(from);
+    expectedResult.setPageSize(100);
+    expectedResult.setNumEntities(50);
+
+    when(mockBrowseDAO.browse(
+            any(OperationContext.class),
+            eq(entityName),
+            eq(path),
+            eq(filters),
+            eq(from),
+            eq(null) // null size
+            ))
+        .thenReturn(expectedResult);
+
+    // Execute
+    BrowseResult result =
+        serviceWithMockDAO.browse(
+            opContext, entityName, path, filters, from, null // null size
+            );
+
+    // Verify
+    assertEquals(result, expectedResult);
+    verify(mockBrowseDAO)
+        .browse(
+            any(OperationContext.class), eq(entityName), eq(path), eq(filters), eq(from), eq(null));
   }
 }

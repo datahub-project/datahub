@@ -4,8 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.*;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
@@ -19,10 +18,15 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -171,6 +175,104 @@ public class UpdateStructuredPropertyResolverTest {
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
         .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
+  public void testShouldCorrectlySetHideInAssetSummaryWhenEmpty() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    UpdateStructuredPropertyResolver resolver =
+        new UpdateStructuredPropertyResolver(mockEntityClient);
+
+    // if isHidden is true, other fields should not be true
+    StructuredPropertySettingsInput settingsInput = new StructuredPropertySettingsInput();
+    settingsInput.setShowInAssetSummary(true);
+    settingsInput.setHideInAssetSummaryWhenEmpty(true);
+
+    final UpdateStructuredPropertyInput testInput =
+        new UpdateStructuredPropertyInput(
+            TEST_STRUCTURED_PROPERTY_URN,
+            "New Display Name",
+            "new description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            settingsInput);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    StructuredPropertyEntity prop = resolver.get(mockEnv).get();
+
+    assertEquals(prop.getUrn(), TEST_STRUCTURED_PROPERTY_URN);
+
+    // Validate that we called ingest
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+
+    // Validate final values in mcp
+    MetadataChangeProposal proposal = mcpCaptor.getValue().get(1);
+    StructuredPropertySettings settings =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            StructuredPropertySettings.class);
+    assertTrue(settings.isShowInAssetSummary());
+    assertTrue(settings.isHideInAssetSummaryWhenEmpty());
+  }
+
+  @Test
+  public void testShouldCorrectlySetHideInAssetSummaryWhenEmptyIfShowInAssetSummaryIsFalse()
+      throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    UpdateStructuredPropertyResolver resolver =
+        new UpdateStructuredPropertyResolver(mockEntityClient);
+
+    StructuredPropertySettingsInput settingsInput = new StructuredPropertySettingsInput();
+    settingsInput.setShowInAssetSummary(false);
+    settingsInput.setHideInAssetSummaryWhenEmpty(true);
+
+    final UpdateStructuredPropertyInput testInput =
+        new UpdateStructuredPropertyInput(
+            TEST_STRUCTURED_PROPERTY_URN,
+            "New Display Name",
+            "new description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            settingsInput);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    StructuredPropertyEntity prop = resolver.get(mockEnv).get();
+
+    assertEquals(prop.getUrn(), TEST_STRUCTURED_PROPERTY_URN);
+
+    // Validate that we called ingest
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+
+    // Validate final values in mcp
+    MetadataChangeProposal proposal = mcpCaptor.getValue().get(1);
+    StructuredPropertySettings settings =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            StructuredPropertySettings.class);
+    assertFalse(settings.isShowInAssetSummary());
+    assertFalse(settings.isHideInAssetSummaryWhenEmpty());
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {

@@ -52,10 +52,10 @@ When running the `RestoreIndices` job, you can pass additional arguments to cust
 
 ### 🧱 Other Options
 
-| Argument               | Description                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica. |
-| `clean`                | **Deletes existing index documents before restoring.** Use with caution.                                    |
+| Argument               | Description                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica.                                                                                                   |
+| `clean`                | **Deletes existing index documents before restoring.** Use with caution. Note, it will clean the entire index before running the reindex step, thus ignoring any filters based on urn and aspect for reindex. |
 
 ---
 
@@ -177,6 +177,10 @@ All Aspects:
 
 For Rest.li, see [Restore Indices API](../api/restli/restore-indices.md).
 
+### CLI
+
+The [datahub CLI](../cli.md) also supports a utility command for restoring indices.
+
 ## Best Practices
 
 In general, this process is not required to run unless there has been a disruption of storage services or infrastructure,
@@ -275,7 +279,9 @@ Implementing these expanded best practices should help ensure a smoother, more e
 minimizing impact on your DataHub environment.
 
 This operation can be I/O intensive from the read-side from SQL and on the Elasticsearch write side. If you're able to leverage
-provisioned I/O. or throughput, you might want to monitor your infrastructure for a possible.
+provisioned I/O or throughput, you might want to monitor your infrastructure for a possible bottleneck.
+
+> 💡 **Performance Tip**: For bulk loading scenarios during initial deployment or major data migrations, consider using [LoadIndices](./load-indices.md) instead, which is optimized for high throughput rather than precise event replay.
 
 #### Elasticsearch/Opensearch Optimization
 

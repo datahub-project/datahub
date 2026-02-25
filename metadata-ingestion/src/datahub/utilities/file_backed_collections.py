@@ -1,7 +1,6 @@
 import collections
 import gzip
 import logging
-import os
 import pathlib
 import pickle
 import shutil
@@ -28,18 +27,18 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.env_vars import get_override_sqlite_version_req
 from datahub.ingestion.api.closeable import Closeable
 from datahub.utilities.sentinels import Unset, unset
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR = (
-    os.environ.get("OVERRIDE_SQLITE_VERSION_REQ") or ""
-)
-OVERRIDE_SQLITE_VERSION_REQUIREMENT = (
-    OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR
-    and OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR.lower() != "false"
-)
+
+def _get_sqlite_version_override() -> bool:
+    """Check if SQLite version requirement should be overridden at runtime."""
+    override_str = get_override_sqlite_version_req()
+    return bool(override_str and override_str.lower() != "false")
+
 
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
@@ -231,7 +230,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             # We use the ON CONFLICT clause to implement UPSERTs with sqlite.
             # This was added in 3.24.0 from 2018-06-04.
             # See https://www.sqlite.org/lang_conflict.html
-            if OVERRIDE_SQLITE_VERSION_REQUIREMENT:
+            if _get_sqlite_version_override():
                 self._use_sqlite_on_conflict = False
             else:
                 raise RuntimeError("SQLite version 3.24.0 or later is required")

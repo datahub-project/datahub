@@ -211,7 +211,23 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
               .getPlatformEntity()
               .getPlatformNameEntity()
               .equals(DBT_PLATFORM_NAME)) {
-        setSiblingsAndSoftDeleteSibling(datasetUrn, upstreams.get(0).getDataset());
+
+        Urn sourceTableUrn = upstreams.get(0).getDataset();
+
+        // Skip if siblings already exist to avoid conflicts with dbt patch-based management
+        Siblings dbtSiblings = getSiblingsFromEntityClient(datasetUrn);
+        Siblings sourceSiblings = getSiblingsFromEntityClient(sourceTableUrn);
+
+        if (dbtSiblings != null || sourceSiblings != null) {
+          log.debug(
+              "Skipping dbt source processing - existing siblings found: {} <-> {}",
+              datasetUrn,
+              sourceTableUrn);
+          return;
+        }
+
+        // Only create siblings if neither entity has any existing relationships
+        setSiblingsAndSoftDeleteSibling(datasetUrn, sourceTableUrn, true); // true = isDbtSource
       }
     }
   }
@@ -239,7 +255,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt
         // model
         if (dbtUpstreams.size() == 1) {
-          setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
+          setSiblingsAndSoftDeleteSibling(
+              dbtUpstreams.get(0).getDataset(), sourceUrn, false); // false = isDbtModel
         } else if (dbtUpstreams.size() > 1) {
           log.error(
               "{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.",
@@ -251,6 +268,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   }
 
   private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn) {
+    setSiblingsAndSoftDeleteSibling(dbtUrn, sourceUrn, false); // default: assume dbt model
+  }
+
+  private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn, boolean isDbtSource) {
     Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(dbtUrn);
     Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(sourceUrn);
 
@@ -264,12 +285,24 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       return;
     }
 
+    // Skip if any siblings exist to avoid conflicts with patch-based management
+    if (existingDbtSiblingAspect != null || existingSourceSiblingAspect != null) {
+      log.debug(
+          "Skipping sibling creation - existing siblings found: {} <-> {}", dbtUrn, sourceUrn);
+      return;
+    }
+
+    // Traditional hook behavior - dbt is primary by default
+    // This preserves backward compatibility for dbt_is_primary_sibling=true
+    boolean dbtShouldBePrimary = true;
+    boolean sourceShouldBePrimary = false;
+
     AuditStamp auditStamp = getAuditStamp();
 
     // set source as a sibling of dbt
     Siblings dbtSiblingAspect = new Siblings();
     dbtSiblingAspect.setSiblings(new UrnArray(ImmutableList.of(sourceUrn)));
-    dbtSiblingAspect.setPrimary(true);
+    dbtSiblingAspect.setPrimary(dbtShouldBePrimary);
 
     MetadataChangeProposal dbtSiblingProposal = new MetadataChangeProposal();
     GenericAspect dbtSiblingAspectSerialized = GenericRecordUtils.serializeAspect(dbtSiblingAspect);
@@ -315,7 +348,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             .collect(Collectors.toList());
 
     sourceSiblingAspect.setSiblings(new UrnArray(filteredNewSiblingsArray));
-    sourceSiblingAspect.setPrimary(false);
+    sourceSiblingAspect.setPrimary(sourceShouldBePrimary);
 
     MetadataChangeProposal sourceSiblingProposal = new MetadataChangeProposal();
     GenericAspect sourceSiblingAspectSerialized =

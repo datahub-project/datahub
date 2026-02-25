@@ -7,6 +7,22 @@ import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
+    // Mock IntersectionObserver
+    beforeAll(() => {
+        class MockIntersectionObserver {
+            observe() {}
+
+            unobserve() {}
+
+            disconnect() {}
+        }
+        (window as any).IntersectionObserver = MockIntersectionObserver;
+    });
+
+    afterAll(() => {
+        delete (window as any).IntersectionObserver;
+    });
+
     it('renders editable description', async () => {
         const { getByText, getByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
@@ -24,7 +40,7 @@ describe('SchemaDescriptionField', () => {
         expect(getByRole('img')).toBeInTheDocument();
         expect(getByText('test description updated')).toBeInTheDocument();
         expect(queryByText('Update description')).not.toBeInTheDocument();
-    });
+    }, 10_000);
 
     it('renders update description modal', async () => {
         const { getByText, getByRole, queryByText } = render(

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -29,6 +30,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -237,19 +239,23 @@ public class AspectsBatchImpl implements AspectsBatch {
       return result;
     }
 
-    public AspectsBatchImpl build() {
+    public AspectsBatchImpl build(@Nullable AuthorizationSession session) {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
       this.nonRepeatedItems = filterRepeats(this.items);
 
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext);
+          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext, session);
       if (!exceptions.isEmpty()) {
         throw new ValidationException("Failed to validate MCP due to: " + exceptions);
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+    }
+
+    private AspectsBatchImpl build() {
+      return null;
     }
   }
 

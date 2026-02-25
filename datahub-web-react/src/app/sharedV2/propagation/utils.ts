@@ -13,7 +13,7 @@ export function usePropagationDetails(sourceDetail?: StringMapEntry[] | null) {
     const originEntityUrn = sourceDetail?.find((mapEntry) => mapEntry.key === 'origin')?.value || '';
     const viaEntityUrn = sourceDetail?.find((mapEntry) => mapEntry.key === 'via')?.value || '';
 
-    const entities = useGetEntities([originEntityUrn, viaEntityUrn]);
+    const { entities } = useGetEntities([originEntityUrn, viaEntityUrn]);
     const originEntity = entities.find((e) => e.urn === originEntityUrn);
     const viaEntity = entities.find((e) => e.urn === viaEntityUrn);
 

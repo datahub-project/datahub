@@ -7,6 +7,7 @@ import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.Plugin;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,6 +22,22 @@ import javax.annotation.Nonnull;
  */
 public interface Authorizer extends Plugin {
   Authorizer EMPTY = new Authorizer() {};
+
+  Authorizer SYSTEM =
+      new Authorizer() {
+        @Override
+        public AuthorizationResult authorize(@Nonnull AuthorizationRequest request) {
+          if (Constants.SYSTEM_ACTOR.equals(request.getActorUrn())) {
+            return new AuthorizationResult(
+                request,
+                AuthorizationResult.Type.ALLOW,
+                "Granted by system actor " + request.getActorUrn());
+          }
+
+          return new AuthorizationResult(
+              request, AuthorizationResult.Type.DENY, "Only system user is allowed.");
+        }
+      };
 
   /**
    * Initialize the Authorizer. Invoked once at boot time.

@@ -16,6 +16,8 @@ export default function SingleSelectDefault<OptionType extends SelectOption>({
     isMultiSelect,
     showDescriptions,
 }: SelectLabelVariantProps<OptionType>) {
+    const value = selectedOptions[0]?.value;
+
     return (
         <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
@@ -23,7 +25,9 @@ export default function SingleSelectDefault<OptionType extends SelectOption>({
                 <>
                     <ActionButtonsContainer>
                         {selectedOptions[0]?.icon}
-                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                        <SelectValue data-testid={value ? `value-${value}` : undefined}>
+                            {selectedOptions[0]?.label}
+                        </SelectValue>
                     </ActionButtonsContainer>
                     {showDescriptions && !!selectedValues.length && (
                         <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>

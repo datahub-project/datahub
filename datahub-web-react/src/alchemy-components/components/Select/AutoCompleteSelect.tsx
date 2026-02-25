@@ -49,6 +49,7 @@ type Props<T> = Pick<
     | 'isRequired'
     | 'disabledValues'
     | 'width'
+    | 'minWidth'
     | 'placeholder'
     | 'icon'
     | 'optionListTestId'
@@ -131,6 +132,7 @@ export default function AutoCompleteSelect<T>({
             className={className}
             size={size || 'md'}
             width={props.width || 255}
+            $minWidth={props.minWidth}
             isSelected={selectedValue !== undefined}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}

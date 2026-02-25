@@ -7,8 +7,8 @@ from freezegun import freeze_time
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.metadata.schema_classes import DomainPropertiesClass
+from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
-from tests.test_helpers.mce_helpers import check_golden_file
 
 FROZEN_TIME = "2023-04-14 07:00:00"
 
@@ -59,8 +59,18 @@ def check_yaml_golden_file(input_file: str, golden_file: str) -> bool:
     [
         ("dataproduct.yaml", False, "golden_dataproduct_out.json"),
         ("dataproduct_upsert.yaml", True, "golden_dataproduct_out_upsert.json"),
+        (
+            "dataproduct_output_ports.yaml",
+            False,
+            "golden_dataproduct_output_ports.json",
+        ),
+        (
+            "dataproduct_output_ports_upsert.yaml",
+            True,
+            "golden_dataproduct_output_ports_upsert.json",
+        ),
     ],
-    ids=["update", "upsert"],
+    ids=["update", "upsert", "update_with_output_ports", "upsert_with_output_ports"],
 )
 def test_dataproduct_from_yaml(
     pytestconfig: pytest.Config,
@@ -203,3 +213,29 @@ def test_dataproduct_ownership_type_urn_patch_yaml(
         str(dataproduct_output_file),
         str(test_resources_dir / "dataproduct_ownership_type_urn.yaml"),
     )
+
+
+def test_dataproduct_output_ports_validation_not_urn(
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    """Test that output_ports must be valid URNs"""
+    with pytest.raises(ValueError, match="Output port .* is not an urn"):
+        DataProduct(
+            id="test_product",
+            domain="urn:li:domain:12345",
+            assets=["urn:li:container:DATABASE", "not-a-urn"],
+            output_ports=["not-a-urn"],
+        )
+
+
+def test_dataproduct_output_ports_validation_not_in_assets(
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    """Test that output_ports must be in the assets list"""
+    with pytest.raises(ValueError, match="Output port .* is not in asset list"):
+        DataProduct(
+            id="test_product",
+            domain="urn:li:domain:12345",
+            assets=["urn:li:container:DATABASE"],
+            output_ports=["urn:li:container:SCHEMA"],
+        )

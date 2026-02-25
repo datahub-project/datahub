@@ -63,7 +63,7 @@ class BigQueryIdentifierBuilder:
         )
 
     def gen_user_urn(self, user_email: str) -> str:
-        return make_user_urn(user_email.split("@")[0])
+        return make_user_urn(user_email)
 
     def make_data_platform_urn(self) -> str:
         return make_data_platform_urn(self.platform)
@@ -89,6 +89,15 @@ class BigQueryFilter:
     ) -> None:
         self.filter_config = filter_config
         self.structured_reporter = structured_reporter
+
+    def is_dataset_allowed(self, dataset_name: str, project_id: str) -> bool:
+        """Check if a dataset should be processed based on dataset_pattern."""
+        return is_schema_allowed(
+            self.filter_config.dataset_pattern,
+            dataset_name,
+            project_id,
+            self.filter_config.match_fully_qualified_names,
+        )
 
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(

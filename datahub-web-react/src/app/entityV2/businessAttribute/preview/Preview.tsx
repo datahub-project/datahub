@@ -7,6 +7,7 @@ import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import UrlButton from '@app/entityV2/shared/UrlButton';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType, Owner } from '@types';
 
@@ -40,7 +41,9 @@ export const Preview = ({
             type="Business Attribute"
             typeIcon={entityRegistry.getIcon(EntityType.BusinessAttribute, 14, IconStyleType.ACCENT)}
             entityTitleSuffix={
-                <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>View Related Entities</UrlButton>
+                <UrlButton href={resolveRuntimePath(getRelatedEntitiesUrl(entityRegistry, urn))}>
+                    View Related Entities
+                </UrlButton>
             }
         />
     );

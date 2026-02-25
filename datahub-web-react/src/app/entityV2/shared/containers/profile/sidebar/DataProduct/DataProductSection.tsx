@@ -1,6 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -10,10 +10,14 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
-import { DataProduct } from '@types';
+import { DataHubPageModuleType, DataProduct } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -27,7 +31,9 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
+    const { reloadByKeyType } = useReloadableContext();
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [showRemoveModal, setShowRemoveModal] = useState(false);
     const { entityData, urn } = useEntityData();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
@@ -48,6 +54,17 @@ export default function DataProductSection({ readOnly }: Props) {
             .then(() => {
                 message.success({ content: 'Removed Data Product.', duration: 2 });
                 setDataProduct(null);
+                setShowRemoveModal(false);
+                // Reload modules
+                // DataProducts - as data products could be shown in domain summary tab
+                // Assets - as assets module could be changed in data product summary tab
+                reloadByKeyType(
+                    [
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts),
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ],
+                    3000,
+                );
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -59,20 +76,6 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
             });
     }
-
-    const onRemoveDataProduct = () => {
-        Modal.confirm({
-            title: `Confirm Data Product Removal`,
-            content: `Are you sure you want to remove this data product?`,
-            onOk() {
-                removeDataProduct();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
 
     return (
         <>
@@ -87,7 +90,7 @@ export default function DataProductSection({ readOnly }: Props) {
                                 readOnly={readOnly}
                                 onClose={(e) => {
                                     e.preventDefault();
-                                    onRemoveDataProduct();
+                                    setShowRemoveModal(true);
                                 }}
                                 fontSize={12}
                             />
@@ -114,6 +117,13 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProduct={setDataProduct}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showRemoveModal}
+                handleClose={() => setShowRemoveModal(false)}
+                handleConfirm={removeDataProduct}
+                modalTitle="Confirm Data Product Removal"
+                modalText="Are you sure you want to remove this data product?"
+            />
         </>
     );
 }

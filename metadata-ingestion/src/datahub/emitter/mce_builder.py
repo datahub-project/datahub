@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,6 +25,7 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 from typing_extensions import assert_never
 
+from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
@@ -59,6 +59,7 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DataPlatformUrn,
     DatasetUrn,
+    OwnershipTypeUrn,
     TagUrn,
 )
 from datahub.utilities.urn_encoder import UrnEncoder
@@ -71,9 +72,7 @@ ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = (
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
-)
+DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
     from datahub.emitter.mcp_builder import DatahubKey
@@ -375,6 +374,12 @@ def make_domain_urn(domain: str) -> str:
     return f"urn:li:domain:{domain}"
 
 
+def make_data_product_urn(data_product_id: str) -> str:
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
+
+
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
@@ -406,7 +411,8 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
-        return OwnershipTypeClass.CUSTOM, ownership_type
+        ownership_type_urn = OwnershipTypeUrn.from_string(ownership_type)
+        return OwnershipTypeClass.CUSTOM, ownership_type_urn.urn()
     ownership_type = ownership_type.upper()
     if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None

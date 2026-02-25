@@ -43,7 +43,7 @@ However, if you only want to build `Metadata Change Event Consumer Job` specific
 
 ## Dependencies
 
-Before starting `Metadata Change Event Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup)
+Before starting `Metadata Change Event Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docs/how/kafka-config.md)
 and [DataHub GMS](../../docker/datahub-gms) Docker containers are up and running.
 
 ## Start via Docker image

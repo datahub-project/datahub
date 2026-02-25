@@ -5,6 +5,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 
 /**
@@ -16,7 +17,7 @@ public class GenericScrollIterator implements Iterator<ScrollResult> {
   @Nonnull private final Filter filter;
   @Nonnull private final List<String> entities;
   @Nonnull private final SearchRetriever searchRetriever;
-  private int count;
+  private @Nullable Integer count;
   @Builder.Default private String scrollId = null;
   @Builder.Default private boolean started = false;
 

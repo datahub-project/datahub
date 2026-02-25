@@ -15,11 +15,11 @@ def test_extras_not_allowed():
         required: str
         optional: str = "bar"
 
-    MyConfig.parse_obj({"required": "foo"})
-    MyConfig.parse_obj({"required": "foo", "optional": "baz"})
+    MyConfig.model_validate({"required": "foo"})
+    MyConfig.model_validate({"required": "foo", "optional": "baz"})
 
     with pytest.raises(pydantic.ValidationError):
-        MyConfig.parse_obj({"required": "foo", "extra": "extra"})
+        MyConfig.model_validate({"required": "foo", "extra": "extra"})
 
 
 def test_extras_allowed():

@@ -27,9 +27,11 @@ import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -47,6 +49,7 @@ const Container = styled.span`
  */
 export const SearchPage = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
+    const { config } = useAppConfig();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
@@ -58,6 +61,7 @@ export const SearchPage = () => {
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const start = (page - 1) * numResultsPerPage;
 
     const {
         data,
@@ -69,13 +73,17 @@ export const SearchPage = () => {
             input: {
                 types: [],
                 query,
-                start: (page - 1) * numResultsPerPage,
-                count: numResultsPerPage,
+                start,
+                count: getSearchCount(start, numResultsPerPage),
                 filters: [],
                 orFilters,
                 viewUrn,
                 sortInput,
-                searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
+                searchFlags: {
+                    getSuggestions: true,
+                    includeStructuredPropertyFacets: true,
+                    skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
+                },
             },
         },
         fetchPolicy: 'cache-and-network',

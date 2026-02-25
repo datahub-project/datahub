@@ -99,13 +99,12 @@ const BusinessGlossaryPage = () => {
                     )}
                     <GlossaryContentProvider
                         setIsCreateNodeModalVisible={setIsCreateNodeModalVisible}
+                        setIsCreateTermModalVisible={setIsCreateTermModalVisible}
                         hasTermsOrNodes={hasTermsOrNodes}
                         nodes={nodes || []}
                         terms={terms || []}
                         termsLoading={termsLoading}
                         nodesLoading={nodesLoading}
-                        refetchForNodes={refetchForNodes}
-                        refetchForTerms={refetchForTerms}
                     />
                 </GlossaryWrapper>
             </MainWrapper>

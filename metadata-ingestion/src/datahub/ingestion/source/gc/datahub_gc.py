@@ -34,7 +34,6 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,6 @@ class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
-    IngestionStageReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -129,7 +127,7 @@ class DataHubGcSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataHubGcSourceConfig.parse_obj(config_dict)
+        config = DataHubGcSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.

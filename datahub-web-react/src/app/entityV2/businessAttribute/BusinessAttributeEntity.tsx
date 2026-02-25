@@ -9,6 +9,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
@@ -17,6 +18,8 @@ import { PageRoutes } from '@conf/Global';
 
 import { useGetBusinessAttributeQuery } from '@graphql/businessAttribute.generated';
 import { BusinessAttribute, EntityType, SearchResult } from '@types';
+
+const headerDropdownItems = new Set([EntityMenuItems.DELETE]);
 
 /**
  *  Definition of datahub Business Attribute Entity
@@ -41,14 +44,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             );
         }
 
-        return (
-            <GlobalOutlined
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-            />
-        );
+        return <GlobalOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
     };
 
     displayName = (data: BusinessAttribute) => {
@@ -104,7 +100,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 urn={urn}
                 entityType={EntityType.BusinessAttribute}
                 useEntityQuery={useGetBusinessAttributeQuery as any}
-                headerDropdownItems={new Set([EntityMenuItems.DELETE])}
+                headerDropdownItems={headerDropdownItems}
                 isNameEditable
                 tabs={[
                     {
@@ -133,9 +129,12 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                     {
                         component: SidebarTagsSection,
                         properties: {
-                            hasTags: true,
-                            hasTerms: true,
                             customTagPath: 'properties.tags',
+                        },
+                    },
+                    {
+                        component: SidebarGlossaryTermsSection,
+                        properties: {
                             customTermPath: 'properties.glossaryTerms',
                         },
                     },
@@ -154,7 +153,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.GLOSSARY_TERMS,
-            // EntityCapabilityType.BUSINESS_ATTRIBUTES,
+            EntityCapabilityType.BUSINESS_ATTRIBUTES,
         ]);
     };
 }

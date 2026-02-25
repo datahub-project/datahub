@@ -116,12 +116,16 @@ public interface AspectDao {
    * @param txContext transaction context
    * @param latestAspect the aspect currently at version 0
    * @param newAspect the new aspect to be inserted or updated at version 0
+   * @param maxVersionsToKeep when <= 1, do not insert a new row for the previous version (only
+   *     update the existing version 0 row); when > 1, insert previous version as a history row then
+   *     update version 0
    */
   default Pair<Optional<EntityAspect>, Optional<EntityAspect>> saveLatestAspect(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nullable SystemAspect latestAspect,
-      @Nonnull SystemAspect newAspect) {
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
 
     if (newAspect.getSystemMetadataVersion().isEmpty()) {
       throw new IllegalArgumentException(
@@ -138,9 +142,10 @@ public interface AspectDao {
 
       // write version N (from previous database state if the version is modified)
       Optional<EntityAspect> inserted = Optional.empty();
-      if (!newAspect
-          .getSystemMetadataVersion()
-          .equals(currentVersion0.getSystemMetadataVersion())) {
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
 
         inserted = insertAspect(txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
       }
@@ -150,12 +155,13 @@ public interface AspectDao {
       boolean isNoOp =
           Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
+      // update trace
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+
       if (!Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
           || !isNoOp) {
         // update no-op used for tracing
         SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
-        // add trace - overwrite if version incremented
-        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
         updated = updateAspect(txContext, newAspect);
       }
 
@@ -210,12 +216,18 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
+  Integer countAspect(final RestoreIndicesArgs args);
+
+  @Nonnull
   PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 
-  int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn);
+  int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn);
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
@@ -270,14 +282,31 @@ public interface AspectDao {
     return runInTransactionWithRetry(block, maxTransactionRetry);
   }
 
-  default void incrementWriteMetrics(String aspectName, long count, long bytes) {
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)))
-        .inc(count);
-    MetricUtils.counter(
-            this.getClass(),
-            String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)))
-        .inc(bytes);
+  default void incrementWriteMetrics(
+      OperationContext opContext, String aspectName, long count, long bytes) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName)),
+                    count));
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    this.getClass(),
+                    String.join(
+                        MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
+                    bytes));
   }
+
+  @Nonnull
+  List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators();
+
+  @Nullable
+  com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig();
 }

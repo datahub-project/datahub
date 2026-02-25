@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.usage;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.Client;
@@ -43,7 +44,7 @@ public class UsageClientFactory {
   private ConfigurationProvider configurationProvider;
 
   @Bean("usageClient")
-  public RestliUsageClient getUsageClient() {
+  public RestliUsageClient getUsageClient(MetricUtils metricUtils) {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
@@ -54,6 +55,7 @@ public class UsageClientFactory {
         restClient,
         new ExponentialBackoff(retryInterval),
         numRetries,
-        configurationProvider.getCache().getClient().getUsageClient());
+        configurationProvider.getCache().getClient().getUsageClient(),
+        metricUtils);
   }
 }

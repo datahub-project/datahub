@@ -67,6 +67,14 @@ extend type Query {
   ): SearchResults
 
   """
+  List Application assets for a given urn
+  """
+  listApplicationAssets(
+    urn: String!
+    input: SearchAcrossEntitiesInput!
+  ): SearchResults
+
+  """
   Browse for different entities by getting organizational groups and their
   aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
   browse endpoint.
@@ -764,6 +772,11 @@ type SearchAcrossLineageResults {
   The path taken when doing search across lineage
   """
   lineageSearchPath: LineageSearchPath
+
+  """
+  Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+  """
+  isPartial: Boolean
 }
 
 """
@@ -794,6 +807,16 @@ type ScrollAcrossLineageResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Optional freshness characteristics of this query (cached, staleness etc.)
+  """
+  freshness: FreshnessStats
+
+  """
+  Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+  """
+  isPartial: Boolean
 }
 
 """

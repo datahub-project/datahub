@@ -1,72 +1,98 @@
-import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
-import { Button, List, Typography, message } from 'antd';
-import React from 'react';
+import { DeleteOutlined } from '@ant-design/icons';
+import { colors } from '@components';
+import { Pencil } from '@phosphor-icons/react';
+import { Button, List, Typography } from 'antd';
+import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
+import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
+import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useRemoveLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
+
+const LinkButtonsContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+`;
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;
-    > .ant-btn {
-        opacity: 0;
+    ${LinkButtonsContainer} {
+        > .ant-btn {
+            opacity: 0;
+        }
     }
     &:hover {
         background-color: ${ANTD_GRAY[2]};
-        > .ant-btn {
-            opacity: 1;
+        ${LinkButtonsContainer} {
+            > .ant-btn {
+                opacity: 1;
+            }
         }
     }
 `;
 
-const ListOffsetIcon = styled.span`
+const ListOffsetIcon = styled.div`
+    display: inline-block;
     margin-left: -18px;
     margin-right: 6px;
 `;
 
-type LinkListProps = {
-    refetch?: () => Promise<any>;
-};
-
-export const LinkList = ({ refetch }: LinkListProps) => {
-    const { urn: entityUrn, entityData } = useEntityData();
+export const LinkList = () => {
+    const [isEditFormModalOpened, setIsEditFormModalOpened] = useState<boolean>(false);
+    const [editingMetadata, setEditingMetadata] = useState<InstitutionalMemoryMetadata>();
+    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const [removeLinkMutation] = useRemoveLinkMutation();
     const links = entityData?.institutionalMemory?.elements || [];
 
-    const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
-        try {
-            await removeLinkMutation({
-                variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
-            });
-            message.success({ content: 'Link Removed', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Error removing link: \n ${e.message || ''}`, duration: 2 });
-            }
-        }
-        refetch?.();
-    };
+    const { handleDeleteLink } = useLinkUtils(editingMetadata);
+
+    const onEdit = useCallback((metadata: InstitutionalMemoryMetadata) => {
+        setEditingMetadata(metadata);
+        setIsEditFormModalOpened(true);
+    }, []);
+
+    const onEditFormModalClosed = useCallback(() => {
+        setEditingMetadata(undefined);
+        setIsEditFormModalOpened(false);
+    }, []);
 
     return entityData ? (
         <>
             {links.length > 0 && (
                 <List
+                    data-testid="link-list"
                     size="large"
                     dataSource={links}
                     renderItem={(link) => (
                         <LinkListItem
                             extra={
-                                <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
-                                    <DeleteOutlined />
-                                </Button>
+                                <LinkButtonsContainer>
+                                    <Button
+                                        onClick={() => onEdit(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="edit-link-button"
+                                    >
+                                        <Pencil size={16} color={colors.gray[500]} />
+                                    </Button>
+                                    <Button
+                                        onClick={() => handleDeleteLink(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="remove-link-button"
+                                        danger
+                                    >
+                                        <DeleteOutlined />
+                                    </Button>
+                                </LinkButtonsContainer>
                             }
                         >
                             <List.Item.Meta
@@ -74,7 +100,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Typography.Title level={5}>
                                         <a href={link.url} target="_blank" rel="noreferrer">
                                             <ListOffsetIcon>
-                                                <LinkOutlined />
+                                                <LinkIcon url={link.url} />
                                             </ListOffsetIcon>
                                             {link.description || link.label}
                                         </a>
@@ -93,6 +119,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                     )}
                 />
             )}
+            {isEditFormModalOpened && <EditLinkModal link={editingMetadata} onClose={onEditFormModalClosed} />}
         </>
     ) : null;
 };

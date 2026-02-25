@@ -77,6 +77,16 @@ Mutations which change Entity metadata are subject to [DataHub Access Policies](
 This means that DataHub's server will check whether the requesting actor is authorized to perform the action.
 :::
 
+:::note
+GraphQL's mutations in DataHub are primarily designed to support user interface interactions and should generally be
+avoided in programmatic use cases. While mutations are implemented and available through the GraphQL API,
+they are not intended for high-throughput scenarios or bulk operations commonly found in data integration workflows.
+
+For programmatic metadata management, data ingestion, and bulk operations, use the **Python SDK** instead.
+The Python SDK is available as part of the `acryl-datahub` package and includes comprehensive examples for common use
+cases. For detailed usage instructions, see the [Python SDK documentation](../../../metadata-ingestion/as-a-library.md).
+:::
+
 To update an existing Metadata Entity, simply use the `update<entityName>(urn: String!, input: EntityUpdateInput!)` GraphQL Query.
 For example, to update a Dashboard entity, you can issue the following GraphQL mutation:
 

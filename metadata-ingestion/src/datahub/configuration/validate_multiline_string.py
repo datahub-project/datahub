@@ -1,9 +1,13 @@
-from typing import Optional, Type, Union
+from typing import TYPE_CHECKING, Optional, Type, Union
 
 import pydantic
+from pydantic import field_validator
+
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1Validator
 
 
-def pydantic_multiline_string(field: str) -> classmethod:
+def pydantic_multiline_string(field: str) -> "V1Validator":
     """If the field is present and contains an escaped newline, replace it with a real newline.
 
     This makes the assumption that the field value is never supposed to have a
@@ -28,4 +32,4 @@ def pydantic_multiline_string(field: str) -> classmethod:
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264
     # This hack ensures that multiple field deprecated do not overwrite each other.
     _validate_field.__name__ = f"{_validate_field.__name__}_{field}"
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_validate_field)
+    return field_validator(field, mode="before")(_validate_field)

@@ -121,7 +121,7 @@ class TermPropagationAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = TermPropagationConfig.parse_obj(config_dict or {})
+        action_config = TermPropagationConfig.model_validate(config_dict or {})
         logger.info(f"Term Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
 

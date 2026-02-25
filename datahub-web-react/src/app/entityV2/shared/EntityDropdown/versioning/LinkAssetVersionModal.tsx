@@ -104,8 +104,8 @@ export default function LinkAssetVersionModal({ urn, entityType, closeModal, ref
             title="Link a Newer Version"
             onCancel={close}
             buttons={[
-                { text: 'Cancel', variant: 'text', onClick: close },
-                { text: 'Create', variant: 'filled', onClick: handleLink },
+                { text: 'Cancel', variant: 'text', onClick: close, key: 'Cancel' },
+                { text: 'Create', variant: 'filled', onClick: handleLink, key: 'Create' },
             ]}
         >
             <Form

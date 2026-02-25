@@ -1,0 +1,347 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-table-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-table-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "business_owner": "jdoe.last@gmail.com",
+                            "data_governance.team_owner": "Finance",
+                            "has_pii": "True",
+                            "int_property": "1",
+                            "double_property": "2.5",
+                            "node_type": "model",
+                            "materialization": "ephemeral",
+                            "dbt_file_path": "models/transform/customer_details.sql",
+                            "language": "sql",
+                            "dbt_unique_id": "model.sample_dbt.customer_details",
+                            "dbt_package_name": "sample_dbt",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
+                        },
+                        "name": "customer_details",
+                        "description": "",
+                        "tags": [
+                            "dbt:test_tag"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:alice2",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:dbt:test_tag"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "model.sample_dbt.customer_details",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "full_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "email",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "address",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "city",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "postal_code",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "phone",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),customer_id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),customer_id)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),first_name)",
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),last_name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),full_name)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),email)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),email)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),address)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),address)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD),city)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),city)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),postal_code)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),postal_code)"
+                                ],
+                                "confidenceScore": 0.9
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),phone)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD),phone)"
+                                ],
+                                "confidenceScore": 0.9
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
+                        "formattedViewLogic": "SELECT\n  c.customer_id,\n  c.first_name || ' ' || c.last_name AS \"full_name\",\n  c.email,\n  a.address,\n  m.city,\n  a.postal_code,\n  a.phone\nFROM \"pagila\".\"public\".\"customer\" AS c\nLEFT OUTER JOIN \"pagila\".\"public\".\"address\" AS a\n  ON c.address_id = a.address_id\nLEFT OUTER JOIN \"pagila\".\"public\".\"city\" AS m\n  ON a.city_id = m.city_id",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-table-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:dbt:test_tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "dbt:test_tag"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-source-table-pattern",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

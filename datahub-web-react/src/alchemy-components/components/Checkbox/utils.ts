@@ -21,7 +21,7 @@ export function getCheckboxColor(checked: boolean, error: string, disabled: bool
     }
     if (error) return checkboxBackgroundDefault.error;
     if (checked) return checkboxBackgroundDefault.checked;
-    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[500];
+    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[1800];
 }
 
 export function getCheckboxHoverBackgroundColor(checked: boolean, error: string) {
@@ -36,7 +36,7 @@ const sizeMap: Record<SizeOptions, string> = {
     md: '20px',
     lg: '22px',
     xl: '24px',
-    inherit: '',
+    inherit: 'inherit',
 };
 
 export function getCheckboxSize(size: SizeOptions) {

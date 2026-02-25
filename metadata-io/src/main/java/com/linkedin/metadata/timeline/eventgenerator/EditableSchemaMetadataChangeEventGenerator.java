@@ -95,7 +95,9 @@ public class EditableSchemaMetadataChangeEventGenerator
             ? baseEditableSchemaMetadata.getEditableSchemaFieldInfo()
             : new EditableSchemaFieldInfoArray();
     EditableSchemaFieldInfoArray targetFieldInfos =
-        targetEditableSchemaMetadata.getEditableSchemaFieldInfo();
+        (targetEditableSchemaMetadata != null)
+            ? targetEditableSchemaMetadata.getEditableSchemaFieldInfo()
+            : new EditableSchemaFieldInfoArray();
     int baseIdx = 0;
     int targetIdx = 0;
     while (baseIdx < baseFieldInfos.size() && targetIdx < targetFieldInfos.size()) {

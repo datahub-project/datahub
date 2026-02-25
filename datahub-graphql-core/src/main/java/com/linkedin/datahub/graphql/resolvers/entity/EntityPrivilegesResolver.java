@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import static com.linkedin.metadata.Constants.WILDCARD_URN;
 import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
@@ -27,6 +29,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -50,6 +53,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           switch (urn.getEntityType()) {
+            case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+              return getBusinessAttributePrivileges(urn, context);
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
               return getGlossaryTermPrivileges(urn, context);
             case Constants.GLOSSARY_NODE_ENTITY_NAME:
@@ -62,6 +67,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDashboardPrivileges(urn, context);
             case Constants.DATA_JOB_ENTITY_NAME:
               return getDataJobPrivileges(urn, context);
+            case Constants.DOCUMENT_ENTITY_NAME:
+              return getDocumentPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -73,6 +80,14 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private EntityPrivileges getBusinessAttributePrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanManageEntity(
+        BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
+    addCommonPrivileges(result, urn, context);
+    return result;
   }
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
@@ -123,7 +138,9 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     // Schema Field Edits are a bit of a hack.
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
-    result.setCanEditSchemaFieldTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, "ignored"));
+    result.setCanEditSchemaFieldTags(
+        LabelUtils.isAuthorizedToUpdateTags(
+            context, urn, "ignored", Collections.singleton(WILDCARD_URN)));
     result.setCanEditSchemaFieldGlossaryTerms(
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
     result.setCanEditSchemaFieldDescription(
@@ -157,6 +174,14 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return result;
   }
 
+  private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    // Document-specific: canManageEntity includes ability to delete/move documents
+    result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
+    return result;
+  }
+
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
@@ -171,9 +196,12 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditDeprecation(
         DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn));
     result.setCanEditGlossaryTerms(LabelUtils.isAuthorizedToUpdateTerms(context, urn, null));
-    result.setCanEditTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, null));
+    result.setCanEditTags(
+        LabelUtils.isAuthorizedToUpdateTags(
+            context, urn, null, Collections.singleton(WILDCARD_URN)));
     result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
+    result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
   }
 }

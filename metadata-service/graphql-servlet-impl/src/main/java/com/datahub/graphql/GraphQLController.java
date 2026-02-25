@@ -46,16 +46,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class GraphQLController {
 
-  public GraphQLController() {
-    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error"));
-    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call"));
-  }
-
   @Inject GraphQLEngine _engine;
 
   @Inject AuthorizerChain _authorizerChain;
 
   @Inject ConfigurationProvider configurationProvider;
+
+  @Inject MetricUtils metricUtils;
 
   @Nonnull
   @Inject
@@ -198,21 +195,21 @@ public class GraphQLController {
               if (graphQLError instanceof DataHubGraphQLError) {
                 DataHubGraphQLError dhGraphQLError = (DataHubGraphQLError) graphQLError;
                 int errorCode = dhGraphQLError.getErrorCode();
-                MetricUtils.get()
-                    .counter(
-                        MetricRegistry.name(
-                            this.getClass(), "errorCode", Integer.toString(errorCode)))
-                    .inc();
+                if (metricUtils != null)
+                  metricUtils.increment(
+                      MetricRegistry.name(
+                          this.getClass(), "errorCode", Integer.toString(errorCode)),
+                      1);
               } else {
-                MetricUtils.get()
-                    .counter(
-                        MetricRegistry.name(
-                            this.getClass(), "errorType", graphQLError.getErrorType().toString()))
-                    .inc();
+                if (metricUtils != null)
+                  metricUtils.increment(
+                      MetricRegistry.name(
+                          this.getClass(), "errorType", graphQLError.getErrorType().toString()),
+                      1);
               }
             });
-    if (executionResult.getErrors().size() != 0) {
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
+    if (executionResult.getErrors().size() != 0 && metricUtils != null) {
+      metricUtils.increment(MetricRegistry.name(this.getClass(), "error"), 1);
     }
   }
 
@@ -220,7 +217,8 @@ public class GraphQLController {
   private long submitMetrics(ExecutionResult executionResult) {
     try {
       observeErrors(executionResult);
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
+      if (metricUtils != null)
+        metricUtils.increment(MetricRegistry.name(this.getClass(), "call"), 1);
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
@@ -237,15 +235,13 @@ public class GraphQLController {
                 .map(parentResolver -> parentResolver.get("fieldName"))
                 .map(Object::toString)
                 .orElse("UNKNOWN");
-        MetricUtils.get()
-            .histogram(MetricRegistry.name(this.getClass(), fieldName))
-            .update(totalDuration);
+        if (metricUtils != null) metricUtils.histogram(this.getClass(), fieldName, totalDuration);
         return totalDuration;
       }
     } catch (Exception e) {
-      MetricUtils.get()
-          .counter(MetricRegistry.name(this.getClass(), "submitMetrics", "exception"))
-          .inc();
+      if (metricUtils != null)
+        metricUtils.increment(
+            MetricRegistry.name(this.getClass(), "submitMetrics", "exception"), 1);
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
 

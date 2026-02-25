@@ -1,7 +1,7 @@
 import { BookOpen } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -14,7 +14,7 @@ import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
@@ -305,4 +305,17 @@ export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | 
         };
     }
     return null;
+}
+
+/**
+ * Hook to get final sidebar tabs with all additions applied.
+ * In OSS, this is a simple wrapper around getFinalSidebarTabs.
+ * In SaaS, additional tabs like "Ask DataHub" are added on top.
+ */
+export function useFinalSidebarTabs(
+    baseTabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[] | undefined,
+    _contextType: TabContextType,
+) {
+    return useMemo(() => getFinalSidebarTabs(baseTabs, sidebarSections || []), [baseTabs, sidebarSections]);
 }

@@ -169,12 +169,11 @@ public class ProtobufUtils {
     if (fieldDescriptor.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
       registry.add(fieldDescriptor);
     } else {
-      fileDescriptorProto.getMessageTypeList().stream()
-          .filter(typ -> typ.getName().equals(fieldDescriptor.getMessageType().getName()))
-          .findFirst()
-          .ifPresent(
-              messageType ->
-                  registry.add(fieldDescriptor, messageType.getDefaultInstanceForType()));
+      // For MESSAGE-type extensions, we need to use DynamicMessage to create the default instance
+      // from the Descriptor, as there's no compiled Java class for custom proto extensions
+      registry.add(
+          fieldDescriptor,
+          com.google.protobuf.DynamicMessage.getDefaultInstance(fieldDescriptor.getMessageType()));
       fieldDescriptor.getMessageType().getFields().stream()
           .filter(Descriptors.FieldDescriptor::isExtension)
           .forEach(f -> addToRegistry(fileDescriptorProto, f, registry));

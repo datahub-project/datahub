@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entity/chart/shared/ChartStatsSummary';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -49,6 +49,7 @@ export const ChartPreview = ({
     paths,
     subType,
     health,
+    previewType,
 }: {
     urn: string;
     platform?: string;
@@ -75,6 +76,7 @@ export const ChartPreview = ({
     paths?: EntityPath[];
     subType?: string | null;
     health?: Health[] | null;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -112,6 +114,7 @@ export const ChartPreview = ({
             degree={degree}
             paths={paths}
             health={health || undefined}
+            previewType={previewType}
         />
     );
 };

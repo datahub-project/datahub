@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entityV2/chart/shared/ChartStatsSummary';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
@@ -56,6 +56,7 @@ export const ChartPreview = ({
     tier,
     headerDropdownItems,
     browsePaths,
+    previewType,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -86,6 +87,7 @@ export const ChartPreview = ({
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
     browsePaths?: BrowsePathV2 | undefined;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -134,6 +136,7 @@ export const ChartPreview = ({
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
             browsePaths={browsePaths}
+            previewType={previewType}
         />
     );
 };

@@ -1,0 +1,12 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+com.google.code.findbugs:jsr305:3.0.2=spotless865458226
+com.google.errorprone:error_prone_annotations:2.21.1=spotless865458226
+com.google.googlejavaformat:google-java-format:1.18.1=spotless865458226
+com.google.guava:failureaccess:1.0.1=spotless865458226
+com.google.guava:guava:32.1.3-jre=spotless865458226
+com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava=spotless865458226
+javax.annotation:javax.annotation-api:1.3.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.checkerframework:checker-qual:3.37.0=spotless865458226
+empty=annotationProcessor,testAnnotationProcessor

@@ -4,124 +4,66 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
         count
         total
         ingestionSources {
-            urn
-            name
-            type
-            config {
-                recipe
-                version
-                executorId
-                debugMode
-                extraArgs {
-                    key
-                    value
-                }
-            }
-            schedule {
-                interval
-                timezone
-            }
-            platform {
-                urn
-            }
+            ...ingestionSourceFields
             executions(start: 0, count: 1) {
                 start
                 count
                 total
                 executionRequests {
-                    urn
-                    id
-                    input {
-                        requestedAt
-                        actorUrn
-                    }
-                    result {
-                        status
-                        startTimeMs
-                        durationMs
-                        structuredReport {
-                            type
-                            serializedValue
-                        }
-                    }
+                    ...ingestionExecutionRequestFields
                 }
+            }
+            ownership {
+                ...ownershipFields
             }
         }
     }
 }
 
+query getNoOfIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        total
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
-        urn
-        name
-        type
-        config {
-            recipe
-            version
-            executorId
-            debugMode
-            extraArgs {
-                key
-                value
-            }
-        }
-        schedule {
-            interval
-            timezone
-        }
-        platform {
-            urn
-        }
+        ...ingestionSourceFields
         executions(start: $runStart, count: $runCount) {
             start
             count
             total
             executionRequests {
-                urn
-                id
-                input {
-                    requestedAt
-                    actorUrn
-                    source {
-                        type
-                    }
-                }
-                result {
-                    status
-                    startTimeMs
-                    durationMs
-                    structuredReport {
-                        type
-                        serializedValue
-                    }
-                }
+                ...ingestionExecutionRequestFields
             }
+        }
+        ownership {
+            ...ownershipFields
         }
     }
 }
 
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
-        urn
-        id
-        input {
-            source {
-                type
-            }
-            actorUrn
-            arguments {
-                key
-                value
-            }
+        ...ingestionExecutionRequestFields
+        source {
+            ...ingestionSourceFields
         }
-        result {
-            status
-            startTimeMs
-            durationMs
-            report
-            structuredReport {
-                type
-                serializedValue
+    }
+}
+
+query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
+    listExecutionRequests(input: $input) {
+        start
+        total
+        count
+        executionRequests {
+            ...ingestionExecutionRequestFields
+            source {
+                ...ingestionSourceFields
+                latestSuccessfulExecution {
+                    ...minimalIngestionExecutionRequestFields
+                }
             }
         }
     }

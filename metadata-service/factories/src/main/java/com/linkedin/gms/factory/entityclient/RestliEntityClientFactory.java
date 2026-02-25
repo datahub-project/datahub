@@ -7,6 +7,8 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.client.Client;
 import java.net.URI;
 import javax.inject.Singleton;
@@ -25,18 +27,24 @@ public class RestliEntityClientFactory {
   public EntityClient entityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
+      @Value("${datahub.gms.basePath:}") String gmsBasePath,
+      @Value("${datahub.gms.basePathEnabled:false}") boolean gmsBasePathEnabled,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     final Client restClient;
     if (gmsUri != null) {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
     } else {
+      // Use the same logic as GMSConfiguration.getResolvedBasePath()
+      String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(
+              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
     }
-    return new RestliEntityClient(restClient, entityClientConfig);
+    return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
 
   @Bean("systemEntityClient")
@@ -44,19 +52,26 @@ public class RestliEntityClientFactory {
   public SystemEntityClient systemEntityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
+      @Value("${datahub.gms.basePath:}") String gmsBasePath,
+      @Value("${datahub.gms.basePathEnabled:false}") boolean gmsBasePathEnabled,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       final EntityClientCacheConfig entityClientCacheConfig,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
 
     final Client restClient;
     if (gmsUri != null) {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
     } else {
+      // Use the same logic as GMSConfiguration.getResolvedBasePath()
+      String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(
+              gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol);
     }
-    return new SystemRestliEntityClient(restClient, entityClientConfig, entityClientCacheConfig);
+    return new SystemRestliEntityClient(
+        restClient, entityClientConfig, entityClientCacheConfig, metricUtils);
   }
 }

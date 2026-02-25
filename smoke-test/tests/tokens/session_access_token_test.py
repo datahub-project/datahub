@@ -100,8 +100,7 @@ def custom_user_session():
     assert {"username": "sessionUser"} not in res_data["data"]["listUsers"]["users"]
 
 
-@pytest.mark.dependency()
-def test_soft_delete(graph_client, custom_user_session):
+def test_01_soft_delete(graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
@@ -110,15 +109,14 @@ def test_soft_delete(graph_client, custom_user_session):
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)
 
     # undo soft delete
     graph_client.set_soft_delete_status(urn=user_urn, delete=False)
     wait_for_writes_to_sync()
 
 
-@pytest.mark.dependency(depends=["test_soft_delete"])
-def test_suspend(graph_client, custom_user_session):
+def test_02_suspend(graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
@@ -140,7 +138,7 @@ def test_suspend(graph_client, custom_user_session):
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)
 
     # undo suspend
     graph_client.emit(
@@ -160,8 +158,7 @@ def test_suspend(graph_client, custom_user_session):
     wait_for_writes_to_sync()
 
 
-@pytest.mark.dependency(depends=["test_suspend"])
-def test_hard_delete(graph_client, custom_user_session):
+def test_03_hard_delete(graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
@@ -170,4 +167,4 @@ def test_hard_delete(graph_client, custom_user_session):
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)

@@ -26,7 +26,7 @@ interface Props {
 
 export default function SearchBarDropdown({ menu, query, filters, updateFilters, facets, isSearching }: Props) {
     return (
-        <DropdownContainer>
+        <DropdownContainer data-testid="search-bar-dropdown">
             {isSearching && (
                 <Filters
                     query={query ?? ''}

@@ -61,6 +61,26 @@ enum FabricType {
   RVW
 
   /**
+   * Alternative Prod spelling
+   */
+  PRD
+
+  /**
+   * Alternative Test spelling
+   */
+  TST
+
+  /**
+   * System Integration Testing
+   */
+  SIT
+
+  /**
+   * Alternative spelling for sandbox
+   */
+  SBX
+
+  /**
    * Designates sandbox fabrics
    */
   SANDBOX

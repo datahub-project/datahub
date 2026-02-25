@@ -36,7 +36,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
     BigQueryV2Config,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -84,7 +84,7 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
                         )
                     ],
                     max_workers=1,
-                ).dict(),
+                ).model_dump(),
                 **source_config_override,
             },
         },
@@ -457,7 +457,7 @@ def test_bigquery_queries_v2_ingest(
     # if use_queries_v2 is set.
     pipeline_config_dict: Dict[str, Any] = recipe(
         mcp_output_path=mcp_output_path,
-        source_config_override={"use_queries_v2": True, "include_table_lineage": False},
+        source_config_override={"include_table_lineage": False},
     )
 
     run_and_get_pipeline(pipeline_config_dict)
@@ -564,7 +564,6 @@ LIMIT 100
     pipeline_config_dict: Dict[str, Any] = recipe(
         mcp_output_path=mcp_output_path,
         source_config_override={
-            "use_queries_v2": True,
             "include_schema_metadata": False,
             "include_table_lineage": True,
             "include_usage_statistics": True,

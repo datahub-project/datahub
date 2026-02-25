@@ -7,7 +7,7 @@ from datahub.api.entities.structuredproperties.structuredproperties import (
     StructuredProperties,
     TypeQualifierAllowedTypes,
 )
-from tests.test_helpers.mce_helpers import check_goldens_stream
+from datahub.testing.mce_helpers import check_goldens_stream
 
 RESOURCE_DIR = pathlib.Path(__file__).parent
 

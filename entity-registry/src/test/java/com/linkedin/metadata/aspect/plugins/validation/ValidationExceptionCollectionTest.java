@@ -220,4 +220,131 @@ public class ValidationExceptionCollectionTest {
     assertTrue(result.contains("EntityAspect:"));
     assertTrue(result.contains("urn:li:chart:123"));
   }
+
+  @Test
+  public void testAddAuthException() {
+    BatchItem testItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+    String authErrorMessage = "Authorization failed for user";
+
+    collection.addAuthException(testItem, authErrorMessage);
+
+    // Verify the exception was added
+    assertEquals(collection.size(), 1);
+
+    // Verify it's an AUTHORIZATION subtype
+    assertTrue(collection.getSubTypes().contains(ValidationSubType.AUTHORIZATION));
+
+    // Verify it's a fatal exception (AUTHORIZATION is not FILTER type)
+    assertTrue(collection.hasFatalExceptions());
+
+    // Get the actual exception and verify its properties
+    AspectValidationException authException =
+        collection.values().stream().flatMap(Collection::stream).findFirst().orElse(null);
+
+    assertNotNull(authException);
+    assertEquals(authException.getSubType(), ValidationSubType.AUTHORIZATION);
+    assertEquals(authException.getMsg(), authErrorMessage);
+    assertEquals(authException.getItem(), testItem);
+  }
+
+  @Test
+  public void testAddAuthExceptionWithMultipleItems() {
+    BatchItem item1 =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:111"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+    BatchItem item2 =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:222"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+
+    collection.addAuthException(item1, "Auth failed for item1");
+    collection.addAuthException(item2, "Auth failed for item2");
+
+    // Should have 2 different aspect groups
+    assertEquals(collection.size(), 2);
+
+    // All should be AUTHORIZATION type
+    assertEquals(collection.getSubTypes().size(), 1);
+    assertTrue(collection.getSubTypes().contains(ValidationSubType.AUTHORIZATION));
+
+    // Should be fatal since AUTHORIZATION is not FILTER
+    assertTrue(collection.hasFatalExceptions());
+  }
+
+  @Test
+  public void testMixedExceptionTypes() {
+    BatchItem authItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:111"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+    BatchItem validationItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:222"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+    BatchItem filterItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:333"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+
+    // Add different types of exceptions
+    collection.addAuthException(authItem, "Authorization failed");
+    collection.addException(validationItem, "Validation failed");
+    collection.addException(
+        new AspectValidationException(filterItem, "Filter failed", ValidationSubType.FILTER, null));
+
+    // Should have all 3 subtypes
+    Set<ValidationSubType> subTypes = collection.getSubTypes();
+    assertEquals(subTypes.size(), 3);
+    assertTrue(subTypes.contains(ValidationSubType.AUTHORIZATION));
+    assertTrue(subTypes.contains(ValidationSubType.VALIDATION));
+    assertTrue(subTypes.contains(ValidationSubType.FILTER));
+
+    // Should be fatal because of AUTHORIZATION and VALIDATION
+    assertTrue(collection.hasFatalExceptions());
+
+    // Test exceptions method - should not include FILTER items
+    Collection<BatchItem> items = Arrays.asList(authItem, validationItem, filterItem);
+    Collection<BatchItem> exceptions = collection.exceptions(items);
+    assertEquals(exceptions.size(), 2);
+    assertTrue(exceptions.contains(authItem));
+    assertTrue(exceptions.contains(validationItem));
+    assertFalse(exceptions.contains(filterItem));
+  }
+
+  @Test
+  public void testAuthExceptionInStreamOperations() {
+    BatchItem authItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:111"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+    BatchItem successItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:222"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+
+    collection.addAuthException(authItem, "Not authorized");
+
+    List<BatchItem> items = Arrays.asList(authItem, successItem);
+
+    // Test streamSuccessful - should only contain successItem
+    List<BatchItem> successful = collection.streamSuccessful(items.stream()).toList();
+    assertEquals(successful.size(), 1);
+    assertTrue(successful.contains(successItem));
+    assertFalse(successful.contains(authItem));
+
+    // Test streamExceptions - should contain authItem
+    List<BatchItem> exceptions = collection.streamExceptions(items.stream()).toList();
+    assertEquals(exceptions.size(), 1);
+    assertTrue(exceptions.contains(authItem));
+    assertFalse(exceptions.contains(successItem));
+  }
 }

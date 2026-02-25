@@ -60,7 +60,7 @@ export class TagEntity implements Entity<Tag> {
 
     renderProfile: (urn: string) => JSX.Element = (_) => <TagProfile />;
 
-    renderPreview = (_: PreviewType, data: Tag) => (
+    renderPreview = (previewType: PreviewType, data: Tag) => (
         <DefaultPreviewCard
             description={data.description || ''}
             name={this.displayName(data)}
@@ -69,6 +69,7 @@ export class TagEntity implements Entity<Tag> {
             logoComponent={<PreviewTagIcon />}
             type="Tag"
             typeIcon={this.icon(14, IconStyleType.ACCENT)}
+            previewType={previewType}
         />
     );
 

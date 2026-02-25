@@ -23,6 +23,11 @@ record CustomAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset" ]
+    }
     entity: Urn
 
     /**
@@ -32,6 +37,11 @@ record CustomAssertionInfo {
     */
     @Relationship = {
       "name": "Asserts",
+      "entityTypes": [ "schemaField" ]
+    }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
       "entityTypes": [ "schemaField" ]
     }
     field: optional Urn

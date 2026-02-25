@@ -123,7 +123,7 @@ export const SidebarSection = ({
                 collapsible={!collapsible ? 'disabled' : undefined}
                 showArrow={collapsible}
             >
-                <Container>{content}</Container>
+                <Container data-testid={`sidebar-section-content-${title}`}>{content}</Container>
             </Collapse.Panel>
         </StyledCollapse>
     );

@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -45,7 +45,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 public class AnalyticsService {
 
-  private final RestHighLevelClient _elasticClient;
+  private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
 
   private static final String FILTERED = "filtered";

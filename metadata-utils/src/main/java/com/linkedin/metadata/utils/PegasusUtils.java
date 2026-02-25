@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -119,5 +120,31 @@ public class PegasusUtils {
       metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
     }
     return metadataChangeLog;
+  }
+
+  public static MetadataChangeLog constructMCL(
+      @Nullable MetadataChangeProposal base,
+      String entityName,
+      Urn urn,
+      String aspectName,
+      AuditStamp auditStamp,
+      RecordTemplate newAspectValue,
+      SystemMetadata newSystemMetadata,
+      RecordTemplate oldAspectValue,
+      SystemMetadata oldSystemMetadata) {
+    return constructMCL(
+        base,
+        entityName,
+        urn,
+        SystemMetadataUtils.isNoOp(newSystemMetadata)
+                || Objects.equals(oldAspectValue, newAspectValue)
+            ? ChangeType.RESTATE
+            : newAspectValue != null ? ChangeType.UPSERT : ChangeType.DELETE,
+        aspectName,
+        auditStamp,
+        newAspectValue,
+        newSystemMetadata,
+        oldAspectValue,
+        oldSystemMetadata);
   }
 }

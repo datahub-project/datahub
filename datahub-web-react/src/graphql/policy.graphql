@@ -1,4 +1,4 @@
-query listPolicies($input: ListPoliciesInput!) {
+query listPolicies($input: ListPoliciesInput!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     listPolicies(input: $input) {
         start
         count
@@ -44,6 +44,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 resolvedUsers {
                     username
                     urn
+                    type
                     properties {
                         active
                         displayName
@@ -64,6 +65,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 resolvedGroups {
                     name
                     urn
+                    type
                     properties {
                         displayName
                         description

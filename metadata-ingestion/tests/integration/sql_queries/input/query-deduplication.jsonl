@@ -1,0 +1,9 @@
+{"query": "SELECT * FROM snowflake.db.users", "timestamp": 1609459200, "user": "john.doe"}
+{"query": "SELECT * FROM snowflake.db.users", "timestamp": 1609459260, "user": "jane.smith"}
+{"query": "SELECT * FROM snowflake.db.users", "timestamp": 1609459320, "user": "john.doe"}
+{"query": "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders", "timestamp": 1609459380, "user": "etl_job"}
+{"query": "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders", "timestamp": 1609459440, "user": "etl_job"}
+{"query": "SELECT COUNT(*) FROM snowflake.db.orders", "timestamp": 1609459500, "user": "reporter"}
+{"query": "SELECT COUNT(*) FROM snowflake.db.orders", "timestamp": 1609459560, "user": "dashboard"}
+{"query": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT user_id FROM snowflake.db.sessions)", "timestamp": 1609459620, "user": "system"}
+{"query": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT user_id FROM snowflake.db.sessions)", "timestamp": 1609459680, "user": "system"}

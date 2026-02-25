@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -24,8 +25,8 @@ import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.*;
-import org.apache.commons.lang.StringUtils;
-import org.apache.kafka.clients.producer.Producer;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -33,7 +34,7 @@ import org.testng.annotations.Test;
 
 public class DataHubUsageSpanExporterTest {
 
-  private Producer<String, String> mockProducer;
+  private GenericProducer<String> mockProducer;
   private UsageExportConfiguration config;
   private DataHubUsageSpanExporter exporter;
   private final String TEST_TOPIC = "test-usage-topic";
@@ -41,7 +42,7 @@ public class DataHubUsageSpanExporterTest {
 
   @BeforeMethod
   public void setup() {
-    mockProducer = mock(Producer.class);
+    mockProducer = mock(GenericProducer.class);
     config = new UsageExportConfiguration();
     config.setUsageEventTypes(
         StringUtils.join(
@@ -76,7 +77,7 @@ public class DataHubUsageSpanExporterTest {
     // Capture Kafka record
     ArgumentCaptor<ProducerRecord<String, String>> recordCaptor =
         ArgumentCaptor.forClass(ProducerRecord.class);
-    verify(mockProducer).send(recordCaptor.capture());
+    verify(mockProducer).send(recordCaptor.capture(), nullable(Callback.class));
 
     // Verify Kafka record properties
     ProducerRecord<String, String> record = recordCaptor.getValue();
@@ -128,7 +129,7 @@ public class DataHubUsageSpanExporterTest {
     // Capture Kafka record
     ArgumentCaptor<ProducerRecord<String, String>> recordCaptor =
         ArgumentCaptor.forClass(ProducerRecord.class);
-    verify(mockProducer).send(recordCaptor.capture());
+    verify(mockProducer).send(recordCaptor.capture(), nullable(Callback.class));
 
     // Verify Kafka record properties
     ProducerRecord<String, String> record = recordCaptor.getValue();
@@ -185,7 +186,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockProducer).send(any(ProducerRecord.class));
+    verify(mockProducer).send(any(ProducerRecord.class), nullable(Callback.class));
   }
 
   @Test
@@ -211,7 +212,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to user filter
-    verify(mockProducer, never()).send(any(ProducerRecord.class));
+    verify(mockProducer, never()).send(any(ProducerRecord.class), nullable(Callback.class));
   }
 
   @Test
@@ -237,7 +238,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to aspect filter
-    verify(mockProducer, never()).send(any(ProducerRecord.class));
+    verify(mockProducer, never()).send(any(ProducerRecord.class), nullable(Callback.class));
   }
 
   @Test
@@ -272,7 +273,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockProducer).send(any(ProducerRecord.class));
+    verify(mockProducer).send(any(ProducerRecord.class), nullable(Callback.class));
   }
 
   @Test
@@ -304,7 +305,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify two events were published (login and update, but not the non-matching one)
-    verify(mockProducer, times(2)).send(any(ProducerRecord.class));
+    verify(mockProducer, times(2)).send(any(ProducerRecord.class), nullable(Callback.class));
   }
 
   @Test

@@ -109,7 +109,7 @@
   {
     "request": {
       "description": "Elasticsearch refresh interval",
-      "wait": 2
+      "wait": 4
     }
   },
   {
@@ -138,7 +138,7 @@
   {
     "request": {
       "description": "Elasticsearch refresh interval",
-      "wait": 2
+      "wait": 4
     }
   },
   {

@@ -3,10 +3,10 @@ import { useMemo } from 'react';
 
 import { StructuredProp, getEntityTypeUrn, valueTypes } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
-    selectedProperty?: SearchResult;
+    selectedProperty?: StructuredPropertyEntity;
     form: FormInstance;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
@@ -55,13 +55,13 @@ export default function useStructuredProp({
     };
 
     const handleSelectUpdateChange = (field, values) => {
-        const entity = selectedProperty?.entity as StructuredPropertyEntity;
+        const entity = selectedProperty;
         let initialValues: string[] = [];
 
-        if (field === 'entityTypes') initialValues = entity.definition.entityTypes.map((type) => type.urn);
+        if (field === 'entityTypes') initialValues = entity?.definition?.entityTypes?.map((type) => type.urn) || [];
 
         if (field.includes('typeQualifier'))
-            initialValues = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
+            initialValues = entity?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
 
         const updatedValues = [...initialValues, ...values.filter((value) => !initialValues.includes(value))];
 
@@ -89,6 +89,7 @@ export default function useStructuredProp({
         showInSearchFilters: false,
         showAsAssetBadge: false,
         showInAssetSummary: false,
+        hideInAssetSummaryWhenEmpty: false,
         showInColumnsTable: false,
     };
 
@@ -100,6 +101,16 @@ export default function useStructuredProp({
                 settings: {
                     ...settingsDefault,
                     [settingField]: value,
+                },
+            }));
+        } else if (settingField === 'showInAssetSummary' && !value) {
+            // Automatically disable `hideInAssetSummaryWhenEmpty` on disabling of `showInAssetSummary`
+            setFormValues((prev) => ({
+                ...prev,
+                settings: {
+                    ...(prev?.settings || settingsDefault),
+                    showInAssetSummary: false,
+                    hideInAssetSummaryWhenEmpty: false,
                 },
             }));
         } else {
@@ -115,13 +126,11 @@ export default function useStructuredProp({
     };
 
     const disabledEntityTypeValues = useMemo(() => {
-        return (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.entityTypes?.map((type) => type.urn);
+        return selectedProperty?.definition?.entityTypes?.map((type) => type.urn);
     }, [selectedProperty]);
 
     const disabledTypeQualifierValues = useMemo(() => {
-        return (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.typeQualifier?.allowedTypes?.map(
-            (type) => type.urn,
-        );
+        return selectedProperty?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn);
     }, [selectedProperty]);
 
     return {

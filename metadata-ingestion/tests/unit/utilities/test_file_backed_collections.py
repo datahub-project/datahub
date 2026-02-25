@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import os
 import pathlib
 import random
 import sqlite3
@@ -33,9 +34,9 @@ def test_set_use_sqlite_on_conflict():
         )
         assert cache._use_sqlite_on_conflict is False
 
-    with patch("sqlite3.sqlite_version_info", (3, 23, 1)), patch(
-        "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
-        True,
+    with (
+        patch("sqlite3.sqlite_version_info", (3, 23, 1)),
+        patch.dict(os.environ, {"OVERRIDE_SQLITE_VERSION_REQ": "true"}),
     ):
         cache = FileBackedDict[int](
             tablename="cache",

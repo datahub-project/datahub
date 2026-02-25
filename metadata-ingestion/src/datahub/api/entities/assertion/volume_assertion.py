@@ -1,15 +1,14 @@
 from typing import Optional, Union
 
+from pydantic import Field
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
-    BaseAssertionProtocol,
     BaseEntityAssertion,
 )
 from datahub.api.entities.assertion.assertion_operator import Operators
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.api.entities.assertion.filter import DatasetFilter
-from datahub.configuration.pydantic_migration_helpers import v1_Field
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -24,9 +23,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 
 class RowCountTotalVolumeAssertion(BaseEntityAssertion):
     type: Literal["volume"]
-    metric: Literal["row_count"] = v1_Field(default="row_count")
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
+    metric: Literal["row_count"] = Field(default="row_count")
+    operator: Operators = Field(discriminator="type", alias="condition")
+    filters: Optional[DatasetFilter] = Field(default=None)
 
     def get_assertion_info(
         self,
@@ -44,13 +43,27 @@ class RowCountTotalVolumeAssertion(BaseEntityAssertion):
             ),
         )
 
+    def get_id(self) -> str:
+        guid_dict = {
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
+        }
+        return self.id or datahub_guid(guid_dict)
+
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
+
+    def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
+        return self.trigger
+
 
 class RowCountChangeVolumeAssertion(BaseEntityAssertion):
     type: Literal["volume"]
-    metric: Literal["row_count"] = v1_Field(default="row_count")
+    metric: Literal["row_count"] = Field(default="row_count")
     change_type: Literal["absolute", "percentage"]
-    operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
+    operator: Operators = Field(discriminator="type", alias="condition")
+    filters: Optional[DatasetFilter] = Field(default=None)
 
     def get_assertion_info(
         self,
@@ -64,7 +77,7 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
                 rowCountChange=RowCountChange(
                     type=(
                         AssertionValueChangeType.ABSOLUTE
-                        if self.change_type == Literal["absolute"]
+                        if self.change_type == "absolute"
                         else AssertionValueChangeType.PERCENTAGE
                     ),
                     operator=self.operator.operator,
@@ -73,26 +86,21 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
             ),
         )
 
-
-class VolumeAssertion(BaseAssertionProtocol):
-    __root__: Union[RowCountTotalVolumeAssertion, RowCountChangeVolumeAssertion]
-
-    @property
-    def assertion(self):
-        return self.__root__
-
     def get_id(self) -> str:
         guid_dict = {
-            "entity": self.__root__.entity,
-            "type": self.__root__.type,
-            "id_raw": self.__root__.id_raw,
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
         }
-        return self.__root__.id or datahub_guid(guid_dict)
+        return self.id or datahub_guid(guid_dict)
 
-    def get_assertion_info_aspect(
-        self,
-    ) -> AssertionInfo:
-        return self.__root__.get_assertion_info()
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return self.get_assertion_info()
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
-        return self.__root__.trigger
+        return self.trigger
+
+
+# Pydantic v2 smart union: automatically discriminates based on presence of
+# unique fields (eg absence vs presence of change_type)
+VolumeAssertion = Union[RowCountTotalVolumeAssertion, RowCountChangeVolumeAssertion]

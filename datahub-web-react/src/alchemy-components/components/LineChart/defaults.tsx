@@ -23,6 +23,7 @@ export const lineChartDefault: LineChartProps = {
 
     xScale: { type: 'time' },
     yScale: { type: 'linear', nice: true, round: true, zero: true },
+    shouldAdjustYZeroPoint: true,
 
     lineColor: colors.violet[500],
     areaColor: 'url(#line-gradient)',

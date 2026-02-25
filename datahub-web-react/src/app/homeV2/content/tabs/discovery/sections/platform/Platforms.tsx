@@ -37,6 +37,7 @@ export const Platforms = () => {
     };
 
     const showSkeleton = isUserInitializing || !user || loading;
+
     return (
         <div id={HOME_PAGE_PLATFORMS_ID}>
             {showSkeleton && <HorizontalListSkeletons Component={SkeletonCard} />}

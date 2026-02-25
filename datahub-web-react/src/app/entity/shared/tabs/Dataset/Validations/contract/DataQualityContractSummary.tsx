@@ -1,4 +1,4 @@
-import { Table } from 'antd';
+import { Table, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -10,7 +10,7 @@ import { VolumeAssertionDescription } from '@app/entity/shared/tabs/Dataset/Vali
 import { DataContractAssertionStatus } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
 import { DataContractSummaryFooter } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
-import { Assertion, DataQualityContract, DatasetAssertionInfo } from '@types';
+import { Assertion, AssertionType, DataQualityContract, DatasetAssertionInfo } from '@types';
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -63,6 +63,9 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                         <FieldAssertionDescription assertionInfo={assertion.info?.fieldAssertion} />
                     )}
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
+                    {assertion.info?.type === AssertionType.Custom && (
+                        <Typography.Text>{assertion.info?.description}</Typography.Text>
+                    )}
                 </>
             ),
         },

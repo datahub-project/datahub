@@ -1,0 +1,19 @@
+services:
+  testoracle:
+    image: container-registry.oracle.com/database/express:21.3.0-xe
+    container_name: "testoracle"
+    environment:
+      ORACLE_PWD: example
+      ORACLE_CHARACTERSET: AL32UTF8
+    ports:
+      - "51521:1521"
+      - "55500:5500"  # Oracle Enterprise Manager Express
+    volumes:
+      - ./startup:/opt/oracle/scripts/startup
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
+      interval: 30s
+      timeout: 30s
+      retries: 30
+      start_period: 240s
+    

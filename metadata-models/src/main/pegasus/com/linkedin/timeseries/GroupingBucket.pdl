@@ -18,4 +18,9 @@ record GroupingBucket {
    * Bucket size (like a day/hour etc) for the date grouping buckets.
    */
   timeWindowSize: optional TimeWindowSize
+
+  /**
+   * Optional specified time zone to take into account when grouping by date
+   */
+  timeZone: optional string
 }

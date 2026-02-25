@@ -15,6 +15,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
@@ -55,4 +56,3 @@ dependencies {
   testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
-

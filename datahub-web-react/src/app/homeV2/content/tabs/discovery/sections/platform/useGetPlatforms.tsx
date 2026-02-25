@@ -5,12 +5,17 @@ import { CorpUser, DataPlatform, ScenarioType } from '@types';
 
 export const PLATFORMS_MODULE_ID = 'Platforms';
 
+const MAX_PLATFORMS_TO_FETCH = 10;
+
 export type PlatformAndCount = {
     platform: DataPlatform;
     count: number;
 };
 
-export const useGetPlatforms = (user?: CorpUser | null): { platforms: PlatformAndCount[]; loading: boolean } => {
+export const useGetPlatforms = (
+    user?: CorpUser | null,
+    maxToFetch?: number,
+): { platforms: PlatformAndCount[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
     const { data, loading } = useListRecommendationsQuery({
@@ -20,7 +25,7 @@ export const useGetPlatforms = (user?: CorpUser | null): { platforms: PlatformAn
                 requestContext: {
                     scenario: ScenarioType.Home,
                 },
-                limit: 10,
+                limit: maxToFetch || MAX_PLATFORMS_TO_FETCH,
                 viewUrn: selectedViewUrn,
             },
         },

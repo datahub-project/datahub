@@ -1,5 +1,6 @@
 package auth.sso.oidc.custom;
 
+import auth.sso.oidc.OidcConfigs;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
@@ -50,9 +51,11 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
           ClientAuthenticationMethod.NONE);
 
   private final ClientAuthentication clientAuthentication;
+  private final OidcConfigs oidcConfigs;
 
-  public CustomOidcAuthenticator(final OidcClient client) {
+  public CustomOidcAuthenticator(final OidcClient client, final OidcConfigs oidcConfigs) {
     super(client.getConfiguration(), client);
+    this.oidcConfigs = oidcConfigs;
 
     // check authentication methods
     OIDCProviderMetadata providerMetadata;
@@ -166,27 +169,9 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
                     .getValueRetriever()
                     .retrieve(ctx, client.getCodeVerifierSessionAttributeName(), client)
                     .orElse(null);
-        // Token request
-        final TokenRequest request =
-            createTokenRequest(
-                new AuthorizationCodeGrant(code, new URI(computedCallbackUrl), verifier));
-        HTTPRequest tokenHttpRequest = request.toHTTPRequest();
-        tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
-        tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
-
-        final HTTPResponse httpResponse = tokenHttpRequest.send();
-        logger.debug(
-            "Token response: status={}, content={}",
-            httpResponse.getStatusCode(),
-            httpResponse.getContent());
-
-        final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
-        if (response instanceof TokenErrorResponse) {
-          throw new TechnicalException(
-              "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
-        }
-        logger.debug("Token response successful");
-        final OIDCTokenResponse tokenSuccessResponse = (OIDCTokenResponse) response;
+        // Token request with retry
+        final OIDCTokenResponse tokenSuccessResponse =
+            executeTokenRequestWithRetry(code, computedCallbackUrl, verifier);
 
         // save tokens in credentials
         final OIDCTokens oidcTokens = tokenSuccessResponse.getOIDCTokens();
@@ -234,5 +219,54 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
     }
     throw new RuntimeException(
         "Failed to load provider metadata after " + maxAttempts + " attempts");
+  }
+
+  // Retry logic for token request with exponential backoff
+  private OIDCTokenResponse executeTokenRequestWithRetry(
+      AuthorizationCode code, String computedCallbackUrl, CodeVerifier verifier)
+      throws URISyntaxException, IOException, ParseException {
+    int maxAttempts = Integer.parseInt(oidcConfigs.getHttpRetryAttempts());
+    long initialDelay = Long.parseLong(oidcConfigs.getHttpRetryDelay());
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // Token request
+        final TokenRequest request =
+            createTokenRequest(
+                new AuthorizationCodeGrant(code, new URI(computedCallbackUrl), verifier));
+        HTTPRequest tokenHttpRequest = request.toHTTPRequest();
+        tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
+        tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
+
+        final HTTPResponse httpResponse = tokenHttpRequest.send();
+        logger.debug(
+            "Token response: status={}, content={}",
+            httpResponse.getStatusCode(),
+            httpResponse.getContent());
+
+        final TokenResponse response = OIDCTokenResponseParser.parse(httpResponse);
+        if (response instanceof TokenErrorResponse) {
+          throw new TechnicalException(
+              "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
+        }
+        logger.debug("Token response successful");
+        return (OIDCTokenResponse) response;
+
+      } catch (IOException | ParseException | TechnicalException e) {
+        if (attempt == maxAttempts) {
+          throw e; // Rethrow on final attempt
+        }
+        try {
+          // Exponential backoff
+          Thread.sleep(initialDelay * (long) Math.pow(2, attempt - 1));
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException("Token request retry interrupted", ie);
+        }
+        logger.warn("Token request retry attempt {} of {} failed", attempt, maxAttempts, e);
+      }
+    }
+    throw new RuntimeException(
+        "Failed to execute token request after " + maxAttempts + " attempts");
   }
 }

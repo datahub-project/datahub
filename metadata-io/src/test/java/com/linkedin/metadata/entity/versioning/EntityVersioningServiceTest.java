@@ -7,6 +7,9 @@ import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.VersionTag;
@@ -76,10 +79,14 @@ public class EntityVersioningServiceTest {
     mockCachingAspectRetriever = mock(CachingAspectRetriever.class);
     mockSearchRetriever = mock(SearchRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(testEntityRegistry);
+    // Create authentication using the actual SYSTEM_ACTOR to bypass actor validation
+    Authentication systemAuth =
+        new Authentication(new Actor(ActorType.USER, "__datahub_system"), "");
+
     mockOpContext =
         TestOperationContexts.systemContext(
             null,
-            null,
+            () -> systemAuth,
             null,
             () -> testEntityRegistry,
             () ->

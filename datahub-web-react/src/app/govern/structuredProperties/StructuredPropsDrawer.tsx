@@ -1,12 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { useApolloClient } from '@apollo/client';
 import { Tooltip } from '@components';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import AllowedValuesDrawer from '@app/govern/structuredProperties/AllowedValuesDrawer';
 import StructuredPropsForm from '@app/govern/structuredProperties/StructuredPropsForm';
-import { updatePropertiesList } from '@app/govern/structuredProperties/cacheUtils';
 import {
     DrawerHeader,
     FooterContainer,
@@ -27,6 +25,9 @@ import {
     getValueType,
     valueTypes,
 } from '@app/govern/structuredProperties/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { Button, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -38,9 +39,6 @@ import {
 import {
     AllowedValue,
     PropertyCardinality,
-    SearchAcrossEntitiesInput,
-    SearchResult,
-    SearchResults,
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
@@ -48,12 +46,12 @@ import {
 interface Props {
     isDrawerOpen: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    selectedProperty?: SearchResult;
-    setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
+    selectedProperty?: StructuredPropertyEntity;
+    setSelectedProperty: React.Dispatch<React.SetStateAction<StructuredPropertyEntity | undefined>>;
     refetch: () => void;
-    inputs: SearchAcrossEntitiesInput;
-    searchAcrossEntities?: SearchResults | null;
     badgeProperty?: StructuredPropertyEntity;
+    handleAddProperty?: (StructuredPropertyEntity) => void;
+    handleUpdateProperty?: (StructuredPropertyEntity) => void;
 }
 
 const StructuredPropsDrawer = ({
@@ -62,9 +60,9 @@ const StructuredPropsDrawer = ({
     selectedProperty,
     setSelectedProperty,
     refetch,
-    inputs,
-    searchAcrossEntities,
     badgeProperty,
+    handleAddProperty,
+    handleUpdateProperty,
 }: Props) => {
     const [form] = Form.useForm();
     const [valuesForm] = Form.useForm();
@@ -73,7 +71,6 @@ const StructuredPropsDrawer = ({
 
     const [createStructuredProperty] = useCreateStructuredPropertyMutation();
     const [updateStructuredProperty] = useUpdateStructuredPropertyMutation();
-    const client = useApolloClient();
 
     const [cardinality, setCardinality] = useState<PropertyCardinality>(PropertyCardinality.Single);
     const [formValues, setFormValues] = useState<StructuredProp>();
@@ -118,6 +115,8 @@ const StructuredPropsDrawer = ({
         showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
     };
 
+    const { reloadByKeyType } = useReloadableContext();
+
     const handleSubmit = () => {
         if (isEditMode) {
             form.validateFields().then(() => {
@@ -127,29 +126,21 @@ const StructuredPropsDrawer = ({
                 };
 
                 const editInput: UpdateStructuredPropertyInput = {
-                    urn: selectedProperty.entity.urn,
+                    urn: selectedProperty.urn,
                     displayName: updateValues.displayName,
                     description: updateValues.description,
                     typeQualifier: {
-                        newAllowedTypes: getNewAllowedTypes(
-                            selectedProperty.entity as StructuredPropertyEntity,
-                            updateValues,
-                        ),
+                        newAllowedTypes: getNewAllowedTypes(selectedProperty, updateValues),
                     },
-                    newEntityTypes: getNewEntityTypes(
-                        selectedProperty.entity as StructuredPropertyEntity,
-                        updateValues,
-                    ),
-                    newAllowedValues: getNewAllowedValues(
-                        selectedProperty.entity as StructuredPropertyEntity,
-                        updateValues,
-                    ),
+                    newEntityTypes: getNewEntityTypes(selectedProperty, updateValues),
+                    newAllowedValues: getNewAllowedValues(selectedProperty, updateValues),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
                     settings: {
                         isHidden: updateValues.settings?.isHidden ?? false,
                         showInSearchFilters: updateValues.settings?.showInSearchFilters ?? false,
                         showAsAssetBadge: updateValues.settings?.showAsAssetBadge ?? false,
                         showInAssetSummary: updateValues.settings?.showInAssetSummary ?? false,
+                        hideInAssetSummaryWhenEmpty: updateValues.settings?.hideInAssetSummaryWhenEmpty ?? false,
                         showInColumnsTable: updateValues.settings?.showInColumnsTable ?? false,
                     },
                 };
@@ -160,10 +151,10 @@ const StructuredPropsDrawer = ({
                         input: editInput,
                     },
                 })
-                    .then(() => {
+                    .then((res) => {
                         analytics.event({
                             type: EventType.EditStructuredPropertyEvent,
-                            propertyUrn: selectedProperty.entity.urn,
+                            propertyUrn: selectedProperty.urn,
                             propertyType:
                                 valueTypes.find((valType) => valType.value === form.getFieldValue('valueType'))?.urn ||
                                 '',
@@ -176,10 +167,19 @@ const StructuredPropsDrawer = ({
                             showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                             showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                             showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            hideInAssetSummaryWhenEmpty:
+                                form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                             showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
                         refetch();
+                        handleUpdateProperty?.(res.data?.updateStructuredProperty);
                         showSuccessMessage();
+                        reloadByKeyType([
+                            getReloadableKeyType(
+                                ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY,
+                                'EntitySummaryTabSidebar',
+                            ),
+                        ]);
                     })
                     .catch(() => {
                         showErrorMessage();
@@ -205,6 +205,8 @@ const StructuredPropsDrawer = ({
                         showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                         showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                         showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                        hideInAssetSummaryWhenEmpty:
+                            form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                         showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                     },
                 };
@@ -230,11 +232,19 @@ const StructuredPropsDrawer = ({
                             showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                             showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                             showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            hideInAssetSummaryWhenEmpty:
+                                form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                             showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
 
                         showSuccessMessage();
-                        updatePropertiesList(client, inputs, res.data?.createStructuredProperty, searchAcrossEntities);
+                        handleAddProperty?.(res.data?.createStructuredProperty);
+                        reloadByKeyType([
+                            getReloadableKeyType(
+                                ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY,
+                                'EntitySummaryTabSidebar',
+                            ),
+                        ]);
                     })
                     .catch(() => {
                         showErrorMessage();
@@ -249,7 +259,7 @@ const StructuredPropsDrawer = ({
 
     useEffect(() => {
         if (selectedProperty) {
-            const entity = selectedProperty.entity as StructuredPropertyEntity;
+            const entity = selectedProperty;
             const typeValue = getValueType(
                 entity.definition.valueType.urn,
                 entity.definition.cardinality || PropertyCardinality.Single,
@@ -281,7 +291,7 @@ const StructuredPropsDrawer = ({
     }, [selectedProperty, form]);
 
     useEffect(() => {
-        const entity = selectedProperty?.entity as StructuredPropertyEntity;
+        const entity = selectedProperty;
         const field = getStringOrNumberValueField(selectedValueType);
         setValueField(field);
         const allowedList = entity?.definition?.allowedValues?.map((item) => {
@@ -342,7 +352,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleUpdateAllowedValues}
-                                isDisabled={!canEditProps}
+                                disabled={!canEditProps}
                             >
                                 Update Allowed Values
                             </Button>
@@ -350,7 +360,7 @@ const StructuredPropsDrawer = ({
                             <Button
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleSubmit}
-                                isDisabled={isLoading || !canEditProps}
+                                disabled={isLoading || !canEditProps}
                                 data-testid="structured-props-create-update-button"
                             >
                                 {isEditMode ? 'Update' : 'Create'}
@@ -369,10 +379,7 @@ const StructuredPropsDrawer = ({
                             propType={valueField}
                             allowedValues={allowedValues}
                             isEditMode={isEditMode}
-                            noOfExistingValues={
-                                (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.allowedValues
-                                    ?.length || 0
-                            }
+                            noOfExistingValues={selectedProperty?.definition?.allowedValues?.length || 0}
                             form={valuesForm}
                         />
                     </>

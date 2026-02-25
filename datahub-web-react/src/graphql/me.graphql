@@ -1,6 +1,7 @@
 query getMe {
     me {
         corpUser {
+            type
             urn
             username
             info {
@@ -35,6 +36,12 @@ query getMe {
                         urn
                     }
                 }
+                homePage {
+                    pageTemplate {
+                        ...PageTemplate
+                    }
+                    dismissedAnnouncementUrns
+                }
             }
         }
         platformPrivileges {
@@ -61,6 +68,11 @@ query getMe {
             manageBusinessAttributes
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageApplications
+            manageFeatures
+            manageHomePageTemplates
+            manageDocuments
+            manageServiceAccounts
         }
     }
 }

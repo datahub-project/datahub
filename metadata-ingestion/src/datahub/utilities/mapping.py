@@ -83,7 +83,7 @@ class Constants:
     MATCH = "match"
     USER_OWNER = "user"
     GROUP_OWNER = "group"
-    OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float]
+    OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float, list]
     TAG_PARTITION_KEY = "PARTITION_KEY"
     TAG_DIST_KEY = "DIST_KEY"
     TAG_SORT_KEY = "SORT_KEY"
@@ -455,7 +455,34 @@ class OperationProcessor:
         # function to check if a match clause is satisfied to a value.
         if not any(
             isinstance(raw_props_value, t) for t in Constants.OPERAND_DATATYPE_SUPPORTED
-        ) or not isinstance(raw_props_value, type(match_clause)):
+        ):
+            return None
+
+        # Handle list values by checking if any item in the list matches
+        if isinstance(raw_props_value, list):
+            # For lists, we need to find at least one matching item
+            # Return a match with the concatenated values of all matching items
+            matching_items = []
+            for item in raw_props_value:
+                if isinstance(item, str):
+                    match = re.match(match_clause, item)
+                    if match:
+                        matching_items.append(item)
+                elif isinstance(match_clause, type(item)):
+                    match = re.match(str(match_clause), str(item))
+                    if match:
+                        matching_items.append(str(item))
+
+            if matching_items:
+                # Create a synthetic match object with all matching items joined
+                combined_value = ",".join(matching_items)
+                return re.match(
+                    ".*", combined_value
+                )  # Always matches, returns combined value
+            return None
+
+        # Handle scalar values (existing logic)
+        elif not isinstance(raw_props_value, type(match_clause)):
             return None
         elif isinstance(raw_props_value, str):
             return re.match(match_clause, raw_props_value)

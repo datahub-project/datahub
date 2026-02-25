@@ -1,6 +1,7 @@
 import collections
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
+from pydantic import Field, field_validator
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
@@ -10,11 +11,7 @@ from datahub.api.entities.datacontract.data_quality_assertion import (
 )
 from datahub.api.entities.datacontract.freshness_assertion import FreshnessAssertion
 from datahub.api.entities.datacontract.schema_assertion import SchemaAssertion
-from datahub.configuration.pydantic_migration_helpers import (
-    v1_ConfigModel,
-    v1_Field,
-    v1_validator,
-)
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -31,7 +28,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.urn import guess_entity_type
 
 
-class DataContract(v1_ConfigModel):
+class DataContract(ConfigModel):
     """A yml representation of a Data Contract.
 
     This model is used as a simpler, Python-native representation of a DataHub data contract.
@@ -41,36 +38,33 @@ class DataContract(v1_ConfigModel):
 
     version: Literal[1]
 
-    id: Optional[str] = v1_Field(
+    id: Optional[str] = Field(
         default=None,
         alias="urn",
         description="The data contract urn. If not provided, one will be generated.",
     )
-    entity: str = v1_Field(
+    entity: str = Field(
         description="The entity urn that the Data Contract is associated with"
     )
-    properties: Optional[Dict[str, Union[str, float, List[Union[str, float]]]]] = (
-        v1_Field(
-            default=None,
-            description="Structured properties associated with the data contract.",
-        )
+    properties: Optional[Dict[str, Union[str, float, List[Union[str, float]]]]] = Field(
+        default=None,
+        description="Structured properties associated with the data contract.",
     )
 
-    schema_field: Optional[SchemaAssertion] = v1_Field(default=None, alias="schema")
+    schema_field: Optional[SchemaAssertion] = Field(default=None, alias="schema")
 
-    freshness: Optional[FreshnessAssertion] = v1_Field(default=None)
+    freshness: Optional[FreshnessAssertion] = Field(default=None)
 
-    # TODO: Add a validator to ensure that ids are unique
-    data_quality: Optional[List[DataQualityAssertion]] = v1_Field(default=None)
+    data_quality: Optional[List[DataQualityAssertion]] = Field(default=None)
 
     _original_yaml_dict: Optional[dict] = None
 
-    @v1_validator("data_quality")  # type: ignore
+    @field_validator("data_quality")
+    @classmethod
     def validate_data_quality(
         cls, data_quality: Optional[List[DataQualityAssertion]]
     ) -> Optional[List[DataQualityAssertion]]:
         if data_quality:
-            # Raise an error if there are duplicate ids.
             id_counts = collections.Counter(dq_check.id for dq_check in data_quality)
             duplicates = [id for id, count in id_counts.items() if count > 1]
 
@@ -243,8 +237,8 @@ class DataContract(v1_ConfigModel):
         file: str,
     ) -> "DataContract":
         with open(file) as fp:
-            yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
+            yaml = YAML(typ="rt")
             orig_dictionary = yaml.load(fp)
-            parsed_data_contract = DataContract.parse_obj(orig_dictionary)
+            parsed_data_contract = DataContract.model_validate(orig_dictionary)
             parsed_data_contract._original_yaml_dict = orig_dictionary
             return parsed_data_contract

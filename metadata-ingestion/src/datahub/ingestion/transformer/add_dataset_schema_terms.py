@@ -39,7 +39,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetSchemaTerms":
-        config = AddDatasetSchemaTermsConfig.parse_obj(config_dict)
+        config = AddDatasetSchemaTermsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def extend_field(
@@ -162,5 +162,5 @@ class PatternAddDatasetSchemaTerms(AddDatasetSchemaTerms):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetSchemaTerms":
-        config = PatternDatasetTermsConfig.parse_obj(config_dict)
+        config = PatternDatasetTermsConfig.model_validate(config_dict)
         return cls(config, ctx)

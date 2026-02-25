@@ -1,0 +1,11 @@
+namespace com.linkedin.template
+
+/**
+ * The page template info for asset summaries
+ */
+record DataHubPageTemplateAssetSummary  {
+  /**
+   * The optional list of properties shown on an asset summary page header.
+   */
+  summaryElements: optional array[SummaryElement]
+}

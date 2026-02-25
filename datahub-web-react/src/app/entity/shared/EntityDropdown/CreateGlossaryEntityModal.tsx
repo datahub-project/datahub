@@ -1,5 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Button, Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Modal } from '@components';
+import { Button, Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -13,10 +14,13 @@ import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -51,6 +55,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
     const refetch = useRefetch();
     const history = useHistory();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
@@ -129,6 +134,11 @@ function CreateGlossaryEntityModal(props: Props) {
                                 : res.data?.createGlossaryNode;
                         history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
+                    // Reload modules
+                    // ChildHierarchy - to update contents module as new term/node could change it
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
+                    ]);
                 }, 2000);
             })
             .catch((e) => {
@@ -148,20 +158,20 @@ function CreateGlossaryEntityModal(props: Props) {
             title={`Create ${entityRegistry.getEntityName(entityType)}`}
             open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled}
-                        data-testid="glossary-entity-modal-create-button"
-                    >
-                        Create
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    variant: 'filled',
+                    disabled: createButtonDisabled,
+                    onClick: createGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-create-button',
+                },
+            ]}
         >
             <Form
                 form={form}

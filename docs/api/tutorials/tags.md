@@ -89,7 +89,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_tag.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/tag_create.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -327,7 +327,6 @@ We can also verify this operation programmatically by checking the `globalTags` 
 
 ```shell
 datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)" --aspect globalTags
-
 ```
 
 ## Remove Tags

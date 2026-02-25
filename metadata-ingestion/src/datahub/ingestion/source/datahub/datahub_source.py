@@ -6,7 +6,9 @@ from typing import Dict, Iterable, List, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -17,7 +19,11 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.datahub.config import (
+    DEFAULT_URN_DENY_PATTERNS,
+    DataHubSourceConfig,
+)
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
@@ -37,6 +43,13 @@ logger = logging.getLogger(__name__)
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 class DataHubSource(StatefulIngestionSourceBase):
     platform: str = "datahub"
 
@@ -48,11 +61,21 @@ class DataHubSource(StatefulIngestionSourceBase):
             self.urn_pattern = self.config.urn_pattern
 
         self.report: DataHubSourceReport = DataHubSourceReport()
+
+        # Warn if user has explicitly customized urn_pattern
+        if self.config._urn_pattern_was_set:
+            warning_msg = (
+                "You have customized 'urn_pattern' which overrides default behavior. "
+                f"Ensure your configuration excludes these sensitive entity patterns: {', '.join(DEFAULT_URN_DENY_PATTERNS)}. "
+                "These defaults prevent copying credentials and creating invalid entities."
+            )
+            self.report.report_warning("urn_pattern_override", warning_msg)
+
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DataHubSource":
-        config: DataHubSourceConfig = DataHubSourceConfig.parse_obj(config_dict)
+        config: DataHubSourceConfig = DataHubSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_report(self) -> SourceReport:
@@ -117,7 +140,7 @@ class DataHubSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Fetching database aspects starting from {from_createdon}")
         progress = ProgressTimer(report_every=timedelta(seconds=60))
-        mcps = reader.get_aspects(from_createdon, self.report.stop_time)
+        mcps = reader.get_all_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
             if not self.urn_pattern.allowed(str(mcp.entityUrn)):
                 continue

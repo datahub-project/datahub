@@ -19,7 +19,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class DefaultRestliClientFactory {
 
@@ -52,13 +52,39 @@ public class DefaultRestliClientFactory {
   public static RestClient getRestLiClient(
       @Nonnull String restLiServerHost,
       int restLiServerPort,
+      @Nullable String basePath,
+      boolean useSSL,
+      @Nullable String sslProtocol) {
+    return getRestLiClient(restLiServerHost, restLiServerPort, basePath, useSSL, sslProtocol, null);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
       boolean useSSL,
       @Nullable String sslProtocol,
       @Nullable Map<String, String> params) {
+    return getRestLiClient(restLiServerHost, restLiServerPort, null, useSSL, sslProtocol, params);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      @Nullable String basePath,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> params) {
+    String basePathPart = "";
+    if (basePath != null && !basePath.isEmpty()) {
+      basePathPart = basePath.startsWith("/") ? basePath : "/" + basePath;
+    }
     return getRestLiClient(
         URI.create(
             String.format(
-                "%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
+                "%s://%s:%s%s",
+                useSSL ? "https" : "http", restLiServerHost, restLiServerPort, basePathPart)),
         sslProtocol,
         params);
   }

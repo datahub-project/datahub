@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2024 contributors to the OpenLineage project
+/* Copyright 2018-2025 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -173,19 +173,33 @@ public class PlanUtils {
    * and namespace.
    *
    * @param parentRunId
-   * @param parentJob
+   * @param parentJobName
    * @param parentJobNamespace
    * @return
    */
   public static OpenLineage.ParentRunFacet parentRunFacet(
-      UUID parentRunId, String parentJob, String parentJobNamespace) {
+      UUID parentRunId,
+      String parentJobName,
+      String parentJobNamespace,
+      UUID rootParentRunId,
+      String rootParentJobName,
+      String rootParentJobNamespace) {
     return new OpenLineage(Versions.OPEN_LINEAGE_PRODUCER_URI)
         .newParentRunFacetBuilder()
         .run(new OpenLineage.ParentRunFacetRunBuilder().runId(parentRunId).build())
         .job(
             new OpenLineage.ParentRunFacetJobBuilder()
-                .name(NameNormalizer.normalize(parentJob))
+                .name(NameNormalizer.normalize(parentJobName))
                 .namespace(parentJobNamespace)
+                .build())
+        .root(
+            new OpenLineage.ParentRunFacetRootBuilder()
+                .run(new OpenLineage.RootRunBuilder().runId(rootParentRunId).build())
+                .job(
+                    new OpenLineage.RootJobBuilder()
+                        .namespace(rootParentJobNamespace)
+                        .name(rootParentJobName)
+                        .build())
                 .build())
         .build();
   }

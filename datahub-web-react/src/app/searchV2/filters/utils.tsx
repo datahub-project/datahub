@@ -59,6 +59,7 @@ import {
     AggregationMetadata,
     DataPlatform,
     DataPlatformInstance,
+    Document,
     Domain,
     Entity,
     EntityType,
@@ -342,12 +343,12 @@ export function getFilterOptions(
     return filterOptions;
 }
 
+const normalize = (str) => str.replace(/[_␞\s]/g, '').toLowerCase();
+
 export function filterOptionsWithSearch(searchQuery: string, name: string, nestedOptions: FilterOptionType[] = []) {
     if (searchQuery) {
-        return (
-            name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()) ||
-            !!nestedOptions.find((option) => option.value.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
-        );
+        const query = normalize(searchQuery);
+        return normalize(name).includes(query) || nestedOptions.some((o) => normalize(o.value).includes(query));
     }
     return true;
 }
@@ -376,6 +377,10 @@ export function getParentEntities(entity: Entity): Entity[] | null {
     }
     if (entity.type === EntityType.Domain) {
         return (entity as Domain).parentDomains?.domains || [];
+    }
+    if (entity.type === EntityType.Document) {
+        // Document type is generated and includes parentDocuments field
+        return (entity as Document).parentDocuments?.documents || [];
     }
     return null;
 }
@@ -614,6 +619,9 @@ interface FilterEntityIconProps {
 export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entity, icon }) => {
     switch (true) {
         case field === PLATFORM_FILTER_NAME && entity !== null:
+            return <>{icon}</>;
+
+        case field === DATA_PLATFORM_INSTANCE_FILTER_NAME && entity?.type === EntityType.DataPlatformInstance:
             return <>{icon}</>;
 
         case field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag:

@@ -1,0 +1,269 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "SELECT * FROM snowflake.db.users WHERE active = true\n-- Hex query metadata: {\"context\": \"SCHEDULED_RUN\", \"project_id\": \"abc-123-def\", \"project_url\": \"https://app.hex.tech/my-workspace/hex/abc-123-def\", \"cell_id\": \"cell-456\"}"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:analyst",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531547,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "SELECT COUNT(*) FROM snowflake.db.orders"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:reporter",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531549,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:abf845ec8ef3cd5cfa95838684f063ddecff76568e6f36a95a3f1b9820def93b",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "SELECT * FROM snowflake.db.users WHERE active = true\n-- Hex query metadata: {\"context\": \"SCHEDULED_RUN\", \"project_id\": \"abc-123-def\", \"project_url\": \"https://app.hex.tech/my-workspace/hex/abc-123-def\", \"cell_id\": \"cell-456\"}",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459200000,
+                "actor": "urn:li:corpuser:analyst"
+            },
+            "lastModified": {
+                "time": 1609459200000,
+                "actor": "urn:li:corpuser:analyst"
+            },
+            "origin": "urn:li:dataPlatform:hex"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283830254,
+        "runId": "sql-queries-2025_07_23-17_17_10-hoyxn3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:abf845ec8ef3cd5cfa95838684f063ddecff76568e6f36a95a3f1b9820def93b",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531551,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:abf845ec8ef3cd5cfa95838684f063ddecff76568e6f36a95a3f1b9820def93b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531551,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:abf845ec8ef3cd5cfa95838684f063ddecff76568e6f36a95a3f1b9820def93b",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "queryCount": 1,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:analyst",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531552,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3040b62b05de5153eb3759a5c81d08cf3152132a214c43546221b14eaef5d9eb",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "SELECT COUNT(*) FROM snowflake.db.orders",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459260000,
+                "actor": "urn:li:corpuser:reporter"
+            },
+            "lastModified": {
+                "time": 1609459260000,
+                "actor": "urn:li:corpuser:reporter"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531553,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3040b62b05de5153eb3759a5c81d08cf3152132a214c43546221b14eaef5d9eb",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531553,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3040b62b05de5153eb3759a5c81d08cf3152132a214c43546221b14eaef5d9eb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531554,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3040b62b05de5153eb3759a5c81d08cf3152132a214c43546221b14eaef5d9eb",
+    "changeType": "UPSERT",
+    "aspectName": "queryUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "queryCount": 1,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:reporter",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1753283531555,
+        "runId": "sql-queries-2025_07_23-17_12_11-efq3av",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

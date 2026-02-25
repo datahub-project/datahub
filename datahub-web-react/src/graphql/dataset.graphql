@@ -40,7 +40,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
-query getDataset($urn: String!) {
+query getDataset($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
         ...nonSiblingDatasetFields
         siblings {
@@ -51,7 +51,7 @@ query getDataset($urn: String!) {
                 ...nonSiblingDatasetFields
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -221,11 +221,14 @@ fragment nonSiblingDatasetFields on Dataset {
     privileges {
         ...entityPrivileges
     }
-    forms {
-        ...formsFields
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
     ...notes
     ...entityProfileVersionProperties
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getRecentQueries($urn: String!) {
@@ -275,9 +278,9 @@ query getLastMonthUsageAggregations($urn: String!) {
     }
 }
 
-query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!) {
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $startTime: Long, $timeZone: String) {
     dataset(urn: $urn) {
-        usageStats(range: $timeRange) {
+        usageStats(range: $timeRange, startTimeMillis: $startTime, timeZone: $timeZone) {
             aggregations {
                 uniqueUserCount
                 totalSqlQueries
@@ -349,7 +352,7 @@ fragment assertionsQuery on Dataset {
     }
 }
 
-query getDatasetAssertions($urn: String!) {
+query getDatasetAssertions($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
         ...assertionsQuery
         siblings {
@@ -360,7 +363,7 @@ query getDatasetAssertions($urn: String!) {
                 ...assertionsQuery
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -400,7 +403,7 @@ fragment datasetSchema on Dataset {
     }
 }
 
-query getDatasetSchema($urn: String!) {
+query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
         ...datasetSchema
         siblings {
@@ -413,7 +416,7 @@ query getDatasetSchema($urn: String!) {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -452,6 +455,19 @@ fragment getRoles on Access {
     }
 }
 
+query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            timestampMillis
+            lastUpdatedTimestamp
+            operationType
+            actor
+            lastUpdatedTimestamp
+            customOperationType
+        }
+    }
+}
+
 fragment assertionsQueryWithRunEvents on Dataset {
     assertions(start: 0, count: 1000) {
         start
@@ -463,13 +479,84 @@ fragment assertionsQueryWithRunEvents on Dataset {
     }
 }
 
-query getDatasetAssertionsWithRunEvents($urn: String!) {
+query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
+    dataset(urn: $urn) {
+        operationsStats(input: $input) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
+            buckets {
+                bucket
+                aggregations {
+                    totalOperations
+                    totalInserts
+                    totalUpdates
+                    totalDeletes
+                    totalCreates
+                    totalAlters
+                    totalDrops
+                    totalCustoms
+                    customOperationsMap {
+                        key
+                        value
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getDatasetTimeseriesCapability($urn: String!) {
+    dataset(urn: $urn) {
+        timeseriesCapabilities {
+            assetStats {
+                oldestOperationTime
+                oldestDatasetUsageTime
+                oldestDatasetProfileTime
+            }
+        }
+    }
+}
+
+query getOperationsStats($urn: String!, $range: TimeRange!) {
+    dataset(urn: $urn) {
+        operationsStats(input: { range: $range }) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+query getDatasetAssertionsWithRunEvents($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
         ...assertionsQueryWithRunEvents
         siblings {
             isPrimary
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {

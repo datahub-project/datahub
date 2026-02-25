@@ -138,7 +138,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException;
 
@@ -156,7 +156,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -175,7 +175,7 @@ public interface EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -197,7 +197,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -219,7 +219,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -253,7 +253,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -272,7 +272,7 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -293,7 +293,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException;
 
   /**
@@ -314,7 +314,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
@@ -339,7 +339,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nonnull List<String> facets)
       throws RemoteInvocationException;
@@ -366,7 +366,7 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return scrollAcrossEntities(
         opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, count, List.of());
@@ -392,7 +392,7 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer limit,
       List<String> facets)
       throws RemoteInvocationException;
 
@@ -407,7 +407,7 @@ public interface EntityClient {
    * @param filter the request map with fields and values as filters to be applied to search hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
-   * @param count the number of search hits to return
+   * @param limit the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -421,7 +421,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -436,7 +436,7 @@ public interface EntityClient {
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
-   * @param count the number of search hits to return of roundtrips for UI visualizations.
+   * @param limit the number of search hits to return of roundtrips for UI visualizations.
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -452,7 +452,7 @@ public interface EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**
@@ -487,7 +487,7 @@ public interface EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /** Hard delete an entity with a particular urn. */
@@ -505,7 +505,7 @@ public interface EntityClient {
    * @param filter search filters
    * @param sortCriteria sort criteria
    * @param start start offset for search results
-   * @param count max number of search results requested
+   * @param limit max number of search results requested
    * @return a set of {@link SearchResult}s
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -515,7 +515,7 @@ public interface EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer limit)
       throws RemoteInvocationException;
 
   /**

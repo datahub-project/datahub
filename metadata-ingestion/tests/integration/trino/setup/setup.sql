@@ -27,8 +27,8 @@ CONSTRAINT fk_member FOREIGN KEY(member_id) REFERENCES librarydb.member(id)
 );
 
 INSERT INTO librarydb.book (id, name, author) VALUES (1, 'Book 1', 'ABC');
-INSERT INTO librarydb.book (id, name, author) VALUES (2, 'Book 2', 'PQR');
-INSERT INTO librarydb.book (id, name, author) VALUES (3, 'Book 3', 'XYZ');
+INSERT INTO librarydb.book (id, name, author, tags) VALUES (2, 'Book 2', 'PQR', '{"bisac_code":"OCC037000"}');
+INSERT INTO librarydb.book (id, name, author, tags) VALUES (3, 'Book 3', 'XYZ', '{"bisac_code":"OCC037000"}');
 
 INSERT INTO librarydb.member(id, name) VALUES (1, 'Member 1');
 INSERT INTO librarydb.member(id, name) VALUES (2, 'Member 2');

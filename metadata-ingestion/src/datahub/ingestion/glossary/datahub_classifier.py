@@ -3,11 +3,10 @@ from typing import Any, Dict, List, Optional
 from datahub_classify.helper_classes import ColumnInfo
 from datahub_classify.infotype_predictor import predict_infotypes
 from datahub_classify.reference_input import input1 as default_config
-from pydantic import validator
+from pydantic import ConfigDict, field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.glossary.classifier import Classifier
 from datahub.utilities.str_enum import StrEnum
 
@@ -50,11 +49,7 @@ class ValuesFactorConfig(ConfigModel):
 
 
 class PredictionFactorsAndWeights(ConfigModel):
-    class Config:
-        if PYDANTIC_VERSION_2:
-            populate_by_name = True
-        else:
-            allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     Name: float = Field(alias="name")
     Description: float = Field(alias="description")
@@ -63,11 +58,7 @@ class PredictionFactorsAndWeights(ConfigModel):
 
 
 class InfoTypeConfig(ConfigModel):
-    class Config:
-        if PYDANTIC_VERSION_2:
-            populate_by_name = True
-        else:
-            allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     Prediction_Factors_and_Weights: PredictionFactorsAndWeights = Field(
         description="Factors and their weights to consider when predicting info types",
@@ -90,7 +81,7 @@ class InfoTypeConfig(ConfigModel):
 
 
 DEFAULT_CLASSIFIER_CONFIG = {
-    k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()
+    k: InfoTypeConfig.model_validate(v) for k, v in default_config.items()
 }
 
 
@@ -114,8 +105,11 @@ class DataHubClassifierConfig(ConfigModel):
         description="Minimum number of non-null column values required to process `values` prediction factor.",
     )
 
-    @validator("info_types_config")
-    def input_config_selectively_overrides_default_config(cls, info_types_config):
+    @field_validator("info_types_config", mode="after")
+    @classmethod
+    def input_config_selectively_overrides_default_config(
+        cls, info_types_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         for infotype, infotype_config in DEFAULT_CLASSIFIER_CONFIG.items():
             if infotype not in info_types_config:
                 # if config for some info type is not provided by user, use default config for that info type.
@@ -125,7 +119,7 @@ class DataHubClassifierConfig(ConfigModel):
                 # use default config for that prediction factor.
                 for factor, weight in (
                     info_types_config[infotype]
-                    .Prediction_Factors_and_Weights.dict()
+                    .Prediction_Factors_and_Weights.model_dump()
                     .items()
                 ):
                     if (
@@ -146,7 +140,7 @@ class DataHubClassifierConfig(ConfigModel):
             for (
                 factor,
                 weight,
-            ) in custom_infotype_config.Prediction_Factors_and_Weights.dict().items():
+            ) in custom_infotype_config.Prediction_Factors_and_Weights.model_dump().items():
                 if weight > 0:
                     assert getattr(custom_infotype_config, factor) is not None, (
                         f"Missing Configuration for Prediction Factor {factor} for Custom Info Type {custom_infotype}"
@@ -173,7 +167,7 @@ class DataHubClassifier(Classifier):
     def create(cls, config_dict: Optional[Dict[str, Any]]) -> "DataHubClassifier":
         # This could be replaced by parsing to particular class, if required
         if config_dict is not None:
-            config = DataHubClassifierConfig.parse_obj(config_dict)
+            config = DataHubClassifierConfig.model_validate(config_dict)
         else:
             config = DataHubClassifierConfig()
         return cls(config)
@@ -183,7 +177,7 @@ class DataHubClassifier(Classifier):
             column_infos=columns,
             confidence_level_threshold=self.config.confidence_level_threshold,
             global_config={
-                k: v.dict() for k, v in self.config.info_types_config.items()
+                k: v.model_dump() for k, v in self.config.info_types_config.items()
             },
             infotypes=self.config.info_types,
             minimum_values_threshold=self.config.minimum_values_threshold,

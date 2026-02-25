@@ -55,6 +55,11 @@ class SQLSourceReport(
     view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
+    # Query-based lineage (e.g., Postgres pg_stat_statements)
+    num_queries_extracted: int = 0
+    num_queries_parsed: int = 0
+    num_queries_parse_failures: int = 0
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table

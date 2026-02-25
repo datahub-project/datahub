@@ -57,7 +57,6 @@ with DAG(
     start_date=datetime(2022, 1, 1),
     schedule_interval=timedelta(days=1),
     catchup=False,
-    default_view="tree",
 ) as dag:
     # This example pulls credentials from Airflow's connection store.
     # For this to work, you must have previously configured these connections in Airflow.

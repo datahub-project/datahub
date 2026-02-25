@@ -5,6 +5,7 @@ import lombok.Data;
 
 @Data
 public class EntityClientCacheConfig implements ClientCacheConfig {
+  private String name = "entityClient";
   private boolean enabled;
   private boolean statsEnabled;
   private int statsIntervalSeconds;

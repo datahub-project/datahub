@@ -1,0 +1,16 @@
+{
+    "cluster_permissions": [
+        "indices:*",
+        "cluster:monitor/tasks/lists"
+    ],
+    "index_permissions": [
+        {
+            "index_patterns": [
+                "PREFIX*"
+            ],
+            "allowed_actions": [
+                "indices_all"
+            ]
+        }
+    ]
+}

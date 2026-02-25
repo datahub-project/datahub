@@ -93,7 +93,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
           AspectsBatchImpl.builder()
               .retrieverContext(systemOperationContext.getRetrieverContext())
               .items(items)
-              .build(),
+              .build(systemOperationContext),
           true,
           true);
 

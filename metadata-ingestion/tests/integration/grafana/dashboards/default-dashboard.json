@@ -1,0 +1,295 @@
+{
+    "id": null,
+    "uid": "default",
+    "title": "Test Integration Dashboard",
+    "tags": ["test-tag", "integration-test"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 0,
+    "panels": [
+        {
+            "id": 1,
+            "type": "text",
+            "title": "Dashboard Information",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 24,
+                "h": 3
+            },
+            "options": {
+                "content": "# Test Integration Dashboard\nThis dashboard contains test panels for DataHub integration testing with both PostgreSQL metrics and Prometheus system metrics.",
+                "mode": "markdown"
+            }
+        },
+        {
+            "id": 2,
+            "type": "timeseries",
+            "title": "Response Times by Dimension",
+            "description": "Response times tracked across different dimensions",
+            "datasource": {
+                "type": "postgres",
+                "uid": "test-postgres"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "spanNulls": false
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "unit": "ms"
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 3
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "postgres",
+                        "uid": "test-postgres"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT time, value, dimension FROM test_metrics WHERE metric = 'response_time' AND time > NOW() - interval '1 hour' ORDER BY time ASC;",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "time"
+                            },
+                            {
+                                "parameters": [
+                                    {
+                                        "name": "value",
+                                        "type": "column"
+                                    }
+                                ],
+                                "type": "value"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "type": "table",
+            "title": "Recent Metrics",
+            "description": "Recent metrics from all sources",
+            "datasource": {
+                "type": "postgres",
+                "uid": "test-postgres"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "align": "auto",
+                        "displayMode": "auto"
+                    }
+                },
+                "overrides": [
+                    {
+                        "matcher": {
+                            "id": "byName",
+                            "options": "value"
+                        },
+                        "properties": [
+                            {
+                                "id": "custom.width",
+                                "value": 150
+                            }
+                        ]
+                    }
+                ]
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 11
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "postgres",
+                        "uid": "test-postgres"
+                    },
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT time, metric, value, dimension FROM test_metrics WHERE time > NOW() - interval '1 hour' ORDER BY time DESC LIMIT 10;",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [],
+                                "type": "time"
+                            },
+                            {
+                                "parameters": [
+                                    {
+                                        "name": "metric",
+                                        "type": "column"
+                                    }
+                                ],
+                                "type": "string"
+                            },
+                            {
+                                "parameters": [
+                                    {
+                                        "name": "value",
+                                        "type": "column"
+                                    }
+                                ],
+                                "type": "number"
+                            },
+                            {
+                                "parameters": [
+                                    {
+                                        "name": "dimension",
+                                        "type": "column"
+                                    }
+                                ],
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "type": "stat",
+            "title": "Total Metrics Count",
+            "description": "Total number of metrics collected",
+            "datasource": {
+                "type": "postgres",
+                "uid": "test-postgres"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 3
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "postgres",
+                        "uid": "test-postgres"
+                    },
+                    "editorMode": "code",
+                    "format": "table",
+                    "rawQuery": true,
+                    "rawSql": "SELECT COUNT(*) as count FROM test_metrics WHERE time > NOW() - interval '1 hour';",
+                    "refId": "A",
+                    "sql": {
+                        "columns": [
+                            {
+                                "parameters": [
+                                    {
+                                        "name": "count",
+                                        "type": "column"
+                                    }
+                                ],
+                                "type": "number"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "type": "timeseries",
+            "title": "System Metrics",
+            "description": "Prometheus system metrics",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "test-prometheus"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineWidth": 1,
+                        "fillOpacity": 10
+                    }
+                }
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 19
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "test-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "rate(process_cpu_seconds_total[5m])",
+                    "legendFormat": "CPU Usage",
+                    "range": true,
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "test-prometheus"
+                    },
+                    "editorMode": "code",
+                    "expr": "go_memstats_alloc_bytes",
+                    "legendFormat": "Memory Usage",
+                    "range": true,
+                    "refId": "B"
+                }
+            ]
+        }
+    ],
+    "refresh": "5s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {
+        "refresh_intervals": [
+            "5s",
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h"
+        ]
+    },
+    "timezone": "browser",
+    "description": "A comprehensive test dashboard for integration testing with various panel types and data sources"
+}

@@ -727,4 +727,209 @@ public class ProtobufDatasetTest {
             .findFirst()
             .orElseThrow());
   }
+
+  /**
+   * Test that verifies protobuf fields are faithfully ingested with their standard metadata. This
+   * test focuses on ensuring that field information (names, types, etc.) is correctly extracted and
+   * preserved during ingestion. Custom field options, if present, are ignored and do not affect the
+   * field metadata that gets stored.
+   */
+  @Test
+  public void messageCustomFieldOptions() throws IOException {
+    ProtobufDataset test = getTestProtobufDataset("protobuf", "messageCustomFieldOptions");
+
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test.customFieldOptions.v1.Action,TEST)",
+        test.getDatasetUrn().toString());
+
+    SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+    assertEquals(1, testMetadata.getVersion());
+    assertEquals(7, testMetadata.getFields().size());
+
+    assertEquals("Action", extractAspect(test.getDatasetMCPs().get(0), "name"));
+    assertEquals(
+        "test.customFieldOptions.v1.Action",
+        extractAspect(test.getDatasetMCPs().get(0), "qualifiedName"));
+
+    // Test that standard protobuf field metadata is preserved (custom field options are ignored)
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].id")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Unique ID of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].id"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test string field - standard protobuf metadata preserved
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].name")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Name of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].name"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test string field with description
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].description")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Description of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].description"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test integer field - standard protobuf metadata preserved
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=int].version")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int32")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Version of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=int].version"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test boolean field - standard protobuf metadata preserved
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=boolean].enabled")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new BooleanType())))
+            .setNativeDataType("bool")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Whether the action is enabled.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=boolean].enabled"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test timestamp fields - standard protobuf metadata preserved
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].created_at")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int64")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Created timestamp.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].created_at"))
+            .findFirst()
+            .orElseThrow());
+
+    assertEquals(
+        new SchemaField()
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].updated_at")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int64")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Updated timestamp.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].updated_at"))
+            .findFirst()
+            .orElseThrow());
+  }
 }

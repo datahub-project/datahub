@@ -56,6 +56,8 @@ export type BarChartProps = {
     gridProps?: GridProps;
 
     popoverRenderer?: (datum: Datum) => React.ReactNode;
+
+    dataTestId?: string;
 };
 
 export type TruncatableTickProps = TickRendererProps & {

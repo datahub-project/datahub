@@ -1,11 +1,12 @@
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_2
 
-@pytest.mark.integration
+
 def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mongodb"
 

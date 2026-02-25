@@ -2,9 +2,19 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
@@ -44,6 +54,9 @@ from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1Validator
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 EXTERNAL_LINEAGE = "external_lineage"
@@ -51,13 +64,13 @@ TABLE_LINEAGE = "table_lineage"
 VIEW_LINEAGE = "view_lineage"
 
 
-def pydantic_parse_json(field: str) -> classmethod:
+def pydantic_parse_json(field: str) -> "V1Validator":
     def _parse_from_json(cls: Type, v: Any) -> dict:
         if isinstance(v, str):
             return json.loads(v)
         return v
 
-    return validator(field, pre=True, allow_reuse=True)(_parse_from_json)
+    return field_validator(field, mode="before")(_parse_from_json)
 
 
 class UpstreamColumnNode(BaseModel):
@@ -72,7 +85,7 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: Optional[str]
+    column_name: Optional[str] = None
     upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
@@ -91,9 +104,9 @@ class Query(BaseModel):
 class UpstreamLineageEdge(BaseModel):
     DOWNSTREAM_TABLE_NAME: str
     DOWNSTREAM_TABLE_DOMAIN: str
-    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]]
-    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]]
-    QUERIES: Optional[List[Query]]
+    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]] = None
+    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]] = None
+    QUERIES: Optional[List[Query]] = None
 
     _json_upstream_tables = pydantic_parse_json("UPSTREAM_TABLES")
     _json_upstream_columns = pydantic_parse_json("UPSTREAM_COLUMNS")
@@ -239,24 +252,68 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
         downstream_table_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
+        # Extract table-level upstreams
+        upstreams = self.map_query_result_upstreams(
+            db_row.UPSTREAM_TABLES, query.query_id
+        )
+
+        # Extract column-level lineage
+        column_lineage = None
+        if self.config.include_column_lineage and db_row.UPSTREAM_COLUMNS:
+            column_lineage = self.map_query_result_fine_upstreams(
+                downstream_table_urn,
+                db_row.UPSTREAM_COLUMNS,
+                query.query_id,
+            )
+
+            # It can happen tables are only showing up in CLL and we have to correct
+            # upstream tables with that
+            if column_lineage:
+                tables_from_column_lineage: Set[str] = set()
+                for fg_lineage in column_lineage:
+                    for upstream_col_ref in fg_lineage.upstreams:
+                        tables_from_column_lineage.add(upstream_col_ref.table)
+
+                # Check for tables in column lineage but not in table lineage
+                upstreams_set = set(upstreams)
+                missing_tables = tables_from_column_lineage - upstreams_set
+
+                if missing_tables:
+                    logger.info(
+                        f"Found {len(missing_tables)} table(s) in column lineage "
+                        f"but not in table lineage for {dataset_name}. "
+                        f"This indicates Snowflake's directSources metadata was incomplete. "
+                        f"Adding missing tables to table lineage to ensure consistency. "
+                        f"Missing tables: {sorted(missing_tables)}. The affected query id: {query.query_id}"
+                    )
+                    # Add missing tables to upstreams list
+                    upstreams.extend(list(missing_tables))
+                    self.report.num_tables_added_from_column_lineage += len(
+                        missing_tables
+                    )
+
+        # Log warning if table lineage exists but column lineage is empty
+        # This helps identify cases where Snowflake's directSources is completely empty
+        if (
+            self.config.include_column_lineage
+            and db_row.UPSTREAM_TABLES
+            and not db_row.UPSTREAM_COLUMNS
+        ):
+            logger.debug(
+                f"Table lineage present but column lineage empty for {dataset_name}. "
+                f"Query will rely on SQL parsing for column-level lineage. "
+                f"This may indicate Snowflake's directSources field was empty. The affected query id: {query.query_id}"
+            )
+            self.report.num_queries_with_empty_directsources += 1
+
         known_lineage = KnownQueryLineageInfo(
             query_id=get_query_fingerprint(
                 query.query_text, self.identifiers.platform, fast=True
             ),
             query_text=query.query_text,
             downstream=downstream_table_urn,
-            upstreams=self.map_query_result_upstreams(
-                db_row.UPSTREAM_TABLES, query.query_id
-            ),
-            column_lineage=(
-                self.map_query_result_fine_upstreams(
-                    downstream_table_urn,
-                    db_row.UPSTREAM_COLUMNS,
-                    query.query_id,
-                )
-                if (self.config.include_column_lineage and db_row.UPSTREAM_COLUMNS)
-                else None
-            ),
+            upstreams=upstreams,  # Now includes tables from column lineage
+            column_lineage=column_lineage,
             timestamp=parse_absolute_time(query.start_time),
         )
 
@@ -366,7 +423,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 # To avoid that causing a pydantic error we are setting it to an empty list
                 # instead of a list with an empty object
                 db_row["QUERIES"] = "[]"
-            return UpstreamLineageEdge.parse_obj(db_row)
+            return UpstreamLineageEdge.model_validate(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
             upstream_tables = db_row.get("UPSTREAM_TABLES")

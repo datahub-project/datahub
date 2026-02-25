@@ -17,6 +17,7 @@ export function mapQuery({ queryEntity, entityUrn, siblingUrn, poweredEntity }: 
         description: queryEntity.properties?.description || undefined,
         query: queryEntity.properties?.statement?.value || '',
         createdTime: queryEntity?.properties?.created?.time,
+        createdBy: queryEntity?.properties?.createdOn?.actor,
         columns: queryEntity.subjects
             ?.filter((s) => !!s.schemaField)
             ?.filter((s) => {

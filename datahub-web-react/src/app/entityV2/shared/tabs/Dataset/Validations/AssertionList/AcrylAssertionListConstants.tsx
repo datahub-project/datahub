@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { NO_RUNNING_STATE } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
-import { AssertionResultType } from '@src/types.generated';
+import { AssertionResultType, AssertionType } from '@src/types.generated';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -16,6 +16,16 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
     align-items: center;
     font-size: 12px;
 `;
+
+export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
+    [AssertionType.Freshness]: 'Verifies when this dataset should be updated.',
+    [AssertionType.Volume]: 'Verifies the row count of this dataset.',
+    [AssertionType.Field]: 'Verifies the validity of a column.',
+    [AssertionType.DataSchema]: 'Verifies the schema of this dataset.',
+    [AssertionType.Custom]: 'A custom externally reported assertion.',
+    [AssertionType.Sql]: 'Verifies using custom SQL rules.',
+    [AssertionType.Dataset]: 'An external assertion.',
+};
 
 export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
     passing: {

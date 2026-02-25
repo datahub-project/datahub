@@ -41,6 +41,8 @@ import lombok.Value;
 public abstract class RetentionService<U extends ChangeMCP> {
   protected static final String ALL = "*";
 
+  protected RetentionService() {}
+
   protected abstract EntityService<U> getEntityService();
 
   /**
@@ -71,6 +73,29 @@ public abstract class RetentionService<U extends ChangeMCP> {
             .map(retention -> (DataHubRetentionConfig) retention)
             .findFirst();
     return retentionInfo.map(DataHubRetentionConfig::getRetention).orElse(new Retention());
+  }
+
+  /**
+   * Returns the effective max versions to keep for the given entity/aspect for the write path. When
+   * this is <= 1, callers should not create version-history rows (only update version 0). When > 1,
+   * callers should insert the previous version as history. Resolution uses the same policy lookup
+   * as {@link #getRetention}: (entity, aspect), (entity, *), (*, aspect), (*, *).
+   *
+   * <p>When there is no version-based retention policy (time-only or no policy), returns 1 so only
+   * the current version is retained—consistent with retention service not being enabled.
+   *
+   * @param opContext operation context
+   * @param entityNa entity type
+   * @param aspectName aspect name
+   * @return 1 if no version policy; else version.maxVersions if set
+   */
+  public int getMaxVersionsToKeepForWrite(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    Retention retention = getRetention(opContext, entityName, aspectName);
+    if (retention.hasVersion()) {
+      return retention.getVersion().getMaxVersions();
+    }
+    return 1;
   }
 
   // Get list of datahub retention keys that match the input entity name and aspect name

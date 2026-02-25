@@ -11,11 +11,13 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -31,7 +33,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.TraceIdGenerator;
 import io.datahubproject.openapi.v1.models.TraceStatus;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
@@ -53,8 +55,10 @@ import org.testng.annotations.Test;
 
 public class TraceServiceImplTest {
   private static final String TEST_TRACE_ID_FUTURE =
-      TraceContext.TRACE_ID_GENERATOR.generateTraceId(Instant.now().toEpochMilli() + 1000);
-  private static final String TEST_TRACE_ID = TraceContext.TRACE_ID_GENERATOR.generateTraceId();
+      SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
+          Instant.now().toEpochMilli() + 1000);
+  private static final String TEST_TRACE_ID =
+      SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId();
   protected static final String ASPECT_NAME = "status";
   protected static final String TIMESERIES_ASPECT_NAME = "datasetProfile";
   protected static final Urn TEST_URN =
@@ -96,7 +100,7 @@ public class TraceServiceImplTest {
     // Mock entityService response for primary storage
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
@@ -235,7 +239,7 @@ public class TraceServiceImplTest {
     // Mock primary storage with historic state
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID_FUTURE);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID_FUTURE);
     systemMetadata.setProperties(new StringMap(properties));
 
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
@@ -298,7 +302,7 @@ public class TraceServiceImplTest {
     // Mock the failed message in MCPFailedTraceReader
     SystemMetadata failedMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
     failedMetadata.setProperties(new StringMap(properties));
 
     FailedMetadataChangeProposal failedMCP =
@@ -358,7 +362,7 @@ public class TraceServiceImplTest {
     // Create system metadata with NO_OP state
     SystemMetadata systemMetadata = new SystemMetadata();
     systemMetadata.setProperties(
-        new StringMap(Map.of(TraceContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID)));
+        new StringMap(Map.of(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID)));
     SystemMetadataUtils.setNoOp(systemMetadata, true); // Set NO_OP flag
 
     // Create enveloped aspect with NO_OP system metadata
@@ -438,5 +442,36 @@ public class TraceServiceImplTest {
         TraceWriteStatus.HISTORIC_STATE,
         "When primary storage is HISTORIC_STATE, search storage should also be HISTORIC_STATE");
     assertTrue(status.isSuccess());
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis() {
+    // Test case 1: Valid system metadata with trace ID
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    systemMetadata.setProperties(new StringMap(properties));
+
+    Long epochMillis = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata);
+    assertNotNull(epochMillis);
+    assertEquals(epochMillis, TraceIdGenerator.getTimestampMillis(TEST_TRACE_ID));
+
+    // Test case 2: System metadata without trace ID property
+    SystemMetadata systemMetadataNoTrace = new SystemMetadata();
+    systemMetadataNoTrace.setProperties(new StringMap(new HashMap<>()));
+
+    Long epochMillisNoTrace = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadataNoTrace);
+    assertNull(epochMillisNoTrace);
+
+    // Test case 3: System metadata with null properties
+    SystemMetadata systemMetadataNullProps = new SystemMetadata();
+    systemMetadataNullProps.setProperties(null, SetMode.REMOVE_IF_NULL);
+
+    Long epochMillisNullProps = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadataNullProps);
+    assertNull(epochMillisNullProps);
+
+    // Test case 4: Null system metadata
+    Long epochMillisNull = TraceServiceImpl.extractTraceIdEpochMillis(null);
+    assertNull(epochMillisNull);
   }
 }

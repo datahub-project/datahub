@@ -1,13 +1,8 @@
-import { Button, Heading, Text, typography } from '@components';
-import { Modal } from 'antd';
+import { Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-const ButtonsContainer = styled.div`
-    display: flex;
-    gap: 16px;
-    justify-content: end;
-`;
+import { ModalButton } from '@components/components/Modal/Modal';
 
 export const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
@@ -30,12 +25,15 @@ export const StyledModal = styled(Modal)`
 
 interface Props {
     isOpen: boolean;
-    handleConfirm: (e: any) => void;
+    handleConfirm: () => void;
     handleClose: () => void;
     modalTitle?: string;
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
+    closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
+    isDeleteModal?: boolean;
+    closeOnPrimaryAction?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -45,28 +43,33 @@ export const ConfirmationModal = ({
     modalTitle,
     modalText,
     closeButtonText,
+    closeButtonColor,
     confirmButtonText,
+    isDeleteModal,
+    closeOnPrimaryAction,
 }: Props) => {
     return (
         <StyledModal
             open={isOpen}
-            onCancel={handleClose}
+            onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
-            footer={
-                <ButtonsContainer>
-                    <Button variant="text" onClick={handleClose} data-testid="modal-cancel-button">
-                        {closeButtonText || 'Cancel'}
-                    </Button>
-                    <Button variant="filled" onClick={handleConfirm} data-testid="modal-confirm-button">
-                        {confirmButtonText || 'Yes'}
-                    </Button>
-                </ButtonsContainer>
-            }
-            title={
-                <Heading type="h1" weight="bold">
-                    {modalTitle || 'Confirm'}
-                </Heading>
-            }
+            buttons={[
+                {
+                    variant: 'text',
+                    onClick: handleClose,
+                    buttonDataTestId: 'modal-cancel-button',
+                    text: closeButtonText || 'Cancel',
+                    color: closeButtonColor,
+                },
+                {
+                    variant: 'filled',
+                    onClick: handleConfirm,
+                    buttonDataTestId: 'modal-confirm-button',
+                    text: confirmButtonText || 'Yes',
+                    color: isDeleteModal ? 'red' : 'primary',
+                },
+            ]}
+            title={modalTitle || 'Confirm'}
         >
             <Text color="gray" size="lg">
                 {modalText || 'Are you sure?'}

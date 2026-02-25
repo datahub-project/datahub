@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Document
+ */
+@Aspect = {
+  "name": "documentKey"
+}
+record DocumentKey {
+  /**
+   * Unique identifier for the document.
+   */
+  @Searchable = {}
+  id: string
+}
+

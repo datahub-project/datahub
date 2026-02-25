@@ -9,6 +9,8 @@ class SnowflakeCloudProvider(StrEnum):
 
 SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
+DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"
@@ -49,16 +51,29 @@ class SnowflakeObjectDomain(StrEnum):
     EXTERNAL_TABLE = "external table"
     VIEW = "view"
     MATERIALIZED_VIEW = "materialized view"
+    SEMANTIC_VIEW = "semantic view"
     DATABASE = "database"
     SCHEMA = "schema"
     COLUMN = "column"
     ICEBERG_TABLE = "iceberg table"
     STREAM = "stream"
     PROCEDURE = "procedure"
+    DYNAMIC_TABLE = "dynamic table"
+    STREAMLIT = "streamlit"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
 LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
+
+STREAMLIT_PLATFORM = "streamlit"
+
+
+class SemanticViewColumnSubtype(StrEnum):
+    """Subtype for semantic view columns: dimensions, facts, and metrics."""
+
+    DIMENSION = "DIMENSION"
+    FACT = "FACT"
+    METRIC = "METRIC"
 
 
 # Snowflake connection arguments

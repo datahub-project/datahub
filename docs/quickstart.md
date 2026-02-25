@@ -17,17 +17,17 @@ If you're interested in a managed version, [DataHub](https://www.datahub.com) pr
 
   | Platform | Application                                                                                                                                     |
   | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Window   | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
+  | Windows  | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Mac      | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.8+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 
 Make sure to allocate enough hardware resources for Docker engine. <br />
-Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 12GB disk space.
 
 :::
 
@@ -75,35 +75,49 @@ If you are curious, the `docker-compose.yaml` file is downloaded to your home di
 If things go well, you should see messages like the ones below:
 
 ```shell-session
-Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
+Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml from GitHub
 Pulling docker images...
 Finished pulling docker images!
 
-[+] Running 11/11
-⠿ Container zookeeper                  Running                                                                                                                                                         0.0s
-⠿ Container elasticsearch              Running                                                                                                                                                         0.0s
-⠿ Container broker                     Running                                                                                                                                                         0.0s
-⠿ Container schema-registry            Running                                                                                                                                                         0.0s
-⠿ Container elasticsearch-setup        Started                                                                                                                                                         0.7s
-⠿ Container kafka-setup                Started                                                                                                                                                         0.7s
-⠿ Container mysql                      Running                                                                                                                                                         0.0s
-⠿ Container datahub-gms                Running                                                                                                                                                         0.0s
-⠿ Container mysql-setup                Started                                                                                                                                                         0.7s
-⠿ Container datahub-datahub-actions-1  Running                                                                                                                                                         0.0s
-⠿ Container datahub-frontend-react     Running                                                                                                                                                         0.0s
-.......
+Starting up DataHub...
+[+] Running 14/14
+ ✔ Network datahub_network                         Created                                                                                              0.0s
+ ✔ Volume "datahub_broker"                         Created                                                                                              0.0s
+ ✔ Volume "datahub_mysqldata"                      Created                                                                                              0.0s
+ ✔ Volume "datahub_osdata"                         Created                                                                                              0.0s
+ ✔ Container datahub-mysql-1                       Healthy                                                                                             11.6s
+ ✔ Container datahub-opensearch-1                  Healthy                                                                                             11.6s
+ ✔ Container datahub-kafka-broker-1                Healthy                                                                                              6.0s
+ ✔ Container datahub-opensearch-setup-1            Exited                                                                                              11.6s
+ ✔ Container datahub-mysql-setup-1                 Exited                                                                                              11.6s
+ ✔ Container datahub-system-update-quickstart-1    Exited                                                                                              26.6s
+ ✔ Container datahub-datahub-gms-quickstart-1      Healthy                                                                                             42.1s
+ ✔ Container datahub-frontend-quickstart-1         Started                                                                                             26.6s
+ ✔ Container datahub-datahub-actions-quickstart-1  Started                                                                                             42.1s
+
 ✔ DataHub is now running
 Ingest some demo data using `datahub docker ingest-sample-data`,
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
 
-:::note Mac M1/M2
+:::note Breaking change
 
-On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`.
-This typically means that the datahub cli was not able to detect that you are running it on Apple Silicon.
-To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+From version 1.2 onwards, the `datahub docker quickstart` command uses a version of docker-compose file that is incompatible with datahub that was installed using earlier versions of the CLI.
 
+If you have datahub already installed using an earlier version of CLI, additional steps are needed to upgrade.
+
+Required steps to upgrade:
+
+1. Backup your data (recommended): datahub docker quickstart --backup
+   Guide: https://docs.datahub.com/docs/quickstart#back-up-datahub
+   This step can be skipped if data does not need to be preserved.
+
+2. Remove old installation: datahub docker nuke
+
+3. Start fresh installation: datahub docker quickstart
+
+⚠️ Without backup, all existing data will be lost.
 :::
 
 ### Sign In
@@ -163,6 +177,15 @@ If you have been testing DataHub locally, a new version of DataHub got released 
 datahub docker quickstart
 ```
 
+By default, quickstart will install the latest released version of datahub. You can pick a specific version by specifying a release explicitly.
+
+```bash
+datahub docker quickstart --version v1.2.0
+```
+
+You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
+You can also specify `head` as the version to get the latest development version on the master branch.
+
 ### Customize installation
 
 If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
@@ -176,26 +199,17 @@ datahub docker quickstart --quickstart-compose-file <path to compose file>
 The quickstart image is not recommended for use as a production instance. <br />
 However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
 
-<Tabs>
-<TabItem value="backup" label="Back up (default)">
-
 ```bash
 datahub docker quickstart --backup
 ```
 
 This will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`.
 
-</TabItem>
-<TabItem value="backup custom" label="Back up to custom directory">
+You can customize the backup file path by passing a `--backup-file` argument:
 
 ```bash
 datahub docker quickstart --backup --backup-file <path to backup file>
 ```
-
-You can customize the backup file path by passing a `--backup-file` argument.
-
-</TabItem>
-</Tabs>
 
 :::caution
 
@@ -207,8 +221,7 @@ Note that the Quickstart backup does not include any timeseries data (dataset st
 
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
 
-<Tabs>
-<TabItem value="General" label="General Restoring">
+#### General Restoring
 
 To restore a previous backup, run the following command:
 
@@ -224,8 +237,7 @@ To supply a specific backup file, use the `--restore-file` option.
 datahub docker quickstart --restore --restore-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
 ```
 
-</TabItem>
-<TabItem value="Restoring Only Index" label="Restore Only Index">
+#### Restore Only Index
 
 Another situation that can come up is the index can get corrupt, or be missing some update. In order to re-bootstrap the index from the primary store, you can run this command to sync the index with the primary store.
 
@@ -233,18 +245,13 @@ Another situation that can come up is the index can get corrupt, or be missing s
 datahub docker quickstart --restore-indices
 ```
 
-</TabItem>
-
-<TabItem value="Restoring Only Primary" label="Restore Only Primary">
+#### Restore Only Primary
 
 Sometimes, you might want to just restore the state of your primary database (MySQL), but not re-index the data. To do this, you have to explicitly disable the restore-indices capability.
 
 ```bash
 datahub docker quickstart --restore --no-restore-indices
 ```
-
-</TabItem>
-</Tabs>
 
 ---
 

@@ -118,7 +118,7 @@ class CassandraAPI:
                 profile = ExecutionProfile(request_timeout=cloud_config.request_timeout)
                 auth_provider = PlainTextAuthProvider(
                     "token",
-                    cloud_config.token,
+                    cloud_config.token.get_secret_value(),
                 )
                 cluster = Cluster(
                     cloud=cluster_cloud_config,
@@ -132,7 +132,23 @@ class CassandraAPI:
 
             ssl_context = None
             if self.config.ssl_ca_certs:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Map SSL version string to ssl module constant
+                ssl_version_map = {
+                    "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
+                    "TLSv1": ssl.PROTOCOL_TLSv1,
+                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
+                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
+                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                }
+
+                ssl_protocol = (
+                    ssl_version_map.get(
+                        self.config.ssl_version, ssl.PROTOCOL_TLS_CLIENT
+                    )
+                    if self.config.ssl_version
+                    else ssl.PROTOCOL_TLS_CLIENT
+                )
+                ssl_context = ssl.SSLContext(ssl_protocol)
                 ssl_context.load_verify_locations(self.config.ssl_ca_certs)
                 if self.config.ssl_certfile and self.config.ssl_keyfile:
                     ssl_context.load_cert_chain(
@@ -148,7 +164,8 @@ class CassandraAPI:
 
             if self.config.username and self.config.password:
                 auth_provider = PlainTextAuthProvider(
-                    username=self.config.username, password=self.config.password
+                    username=self.config.username,
+                    password=self.config.password.get_secret_value(),
                 )
                 cluster = Cluster(
                     [self.config.contact_point],

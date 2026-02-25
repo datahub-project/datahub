@@ -6,7 +6,7 @@ from pydantic.fields import Field
 from pydruid.db.sqlalchemy import DruidDialect
 from sqlalchemy.exc import ResourceClosedError
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -34,7 +34,7 @@ DruidDialect.get_table_names = get_table_names
 
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme: str = "druid"
+    scheme: HiddenFromDocs[str] = "druid"
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["^(lookup|sysgit|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",
@@ -77,5 +77,5 @@ class DruidSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DruidConfig.parse_obj(config_dict)
+        config = DruidConfig.model_validate(config_dict)
         return cls(config, ctx)

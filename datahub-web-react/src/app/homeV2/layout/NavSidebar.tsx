@@ -86,7 +86,7 @@ const SkeletonButton = styled(Skeleton.Button)`
     }
 `;
 
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const NavSkeleton = () => {
     return (

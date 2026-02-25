@@ -27,7 +27,8 @@ record TestInfo {
      * Description of the test
      */
      @Searchable = {
-       "fieldType": "TEXT"
+       "fieldType": "TEXT",
+       "searchTier": 2
      }
     description: optional string
 

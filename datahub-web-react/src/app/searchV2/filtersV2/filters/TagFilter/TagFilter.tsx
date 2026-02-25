@@ -21,5 +21,13 @@ function TagLabel({ entity }: PlatformLabelProps) {
 export default function TagFilter(props: FilterComponentProps) {
     const renderEntity = useCallback((entity: Entity) => <TagLabel entity={entity} />, []);
 
-    return <BaseEntityFilter {...props} renderEntity={renderEntity} entityTypes={[EntityType.Tag]} filterName="Tags" />;
+    return (
+        <BaseEntityFilter
+            {...props}
+            renderEntity={renderEntity}
+            entityTypes={[EntityType.Tag]}
+            filterName="Tags"
+            dataTestId="filter-tag"
+        />
+    );
 }

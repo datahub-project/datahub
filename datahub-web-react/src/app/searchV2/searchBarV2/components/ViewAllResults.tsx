@@ -20,11 +20,12 @@ const Container = styled.div`
 
 interface Props {
     searchText?: string;
+    dataTestId?: string;
 }
 
-export default function ViewAllResults({ searchText }: Props) {
+export default function ViewAllResults({ searchText, dataTestId }: Props) {
     return (
-        <Container>
+        <Container data-testid={dataTestId}>
             <LeftInternalContainer>
                 <MagnifyingGlass size={16} color={colors.gray[500]} />
                 <Text color="gray">

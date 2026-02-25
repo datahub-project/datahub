@@ -85,7 +85,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_term.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/glossary_term_create_simple.py show_path_as_comment }}
 ```
 
 </TabItem>

@@ -7883,7 +7883,10 @@
           "meta": {
             "is_sensitive": true,
             "maturity": "beta",
-            "terms": "pii, customer_id"
+            "terms": "pii, customer_id",
+            "governance": {
+              "pii_category": "organization"
+            }
           },
           "name": "customer_id",
           "quote": null,
@@ -7908,7 +7911,12 @@
         "grants": {},
         "incremental_strategy": null,
         "materialized": "table",
-        "meta": {},
+        "meta": {
+          "data_governance_nested": {
+            "team_owner": "Finance"
+          },
+          "data_governance.team_owner": "Finance"
+        },
         "on_schema_change": "ignore",
         "packages": [],
         "persist_docs": {},

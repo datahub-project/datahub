@@ -238,7 +238,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461123"
+                "value": "1764342584"
             },
             {
                 "op": "add",
@@ -268,7 +268,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -427,7 +427,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461123"
+                "value": "1764342584"
             },
             {
                 "op": "add",
@@ -462,7 +462,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -677,7 +677,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461123"
+                "value": "1764342584"
             },
             {
                 "op": "add",
@@ -712,7 +712,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -940,7 +940,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461120"
+                "value": "1764342580"
             },
             {
                 "op": "add",
@@ -965,7 +965,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -1148,13 +1148,8 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numRows",
+                "path": "/customProperties/totalSize",
                 "value": "0"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461116"
             },
             {
                 "op": "add",
@@ -1173,8 +1168,13 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
+                "path": "/customProperties/numRows",
                 "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1764342577"
             },
             {
                 "op": "add",
@@ -1189,7 +1189,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -1366,13 +1366,8 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numRows",
+                "path": "/customProperties/totalSize",
                 "value": "0"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461116"
             },
             {
                 "op": "add",
@@ -1391,8 +1386,13 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
+                "path": "/customProperties/numRows",
                 "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1764342577"
             },
             {
                 "op": "add",
@@ -1407,7 +1407,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             }
         ]
     },
@@ -1557,7 +1557,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1746461113"
+                "value": "1764342573"
             },
             {
                 "op": "add",
@@ -1572,7 +1572,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2025-05-05"
+                "value": "2025-11-28"
             },
             {
                 "op": "add",
@@ -1847,6 +1847,36 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test_presto_view,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1632398400000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test_presto_view,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1860,6 +1890,90 @@
                     "urn": "urn:li:container:5bd3e4d159b00200dfe53d79a486ce7f"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "SELECT\n  *\nFROM db1.array_struct_test",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1632398400000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test_presto_view,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:presto-on-hive"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apresto-on-hive%2Cdb1.array_struct_test_presto_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

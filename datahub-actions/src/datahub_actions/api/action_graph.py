@@ -14,6 +14,7 @@
 
 import json
 import logging
+import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,7 @@ from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
+    MetadataAttributionClass,
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -250,20 +252,57 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
             return target_urn in entities
         return False
 
+    def _create_attribution_from_context(
+        self, context: Optional[Dict]
+    ) -> Optional[MetadataAttributionClass]:
+        """Create MetadataAttributionClass from context if action source is present."""
+        if not context:
+            return None
+
+        # Extract action source from context if present
+        action_source = context.get("propagation_source") or context.get("source")
+        if not action_source:
+            return None
+
+        return MetadataAttributionClass(
+            source=action_source,
+            time=int(time.time() * 1000.0),
+            actor=context.get("actor", "urn:li:corpuser:__datahub_system"),
+            sourceDetail=context,
+        )
+
     def add_tags_to_dataset(
         self,
         entity_urn: str,
         dataset_tags: List[str],
         field_tags: Optional[Dict] = None,
         context: Optional[Dict] = None,
+        action_urn: Optional[str] = None,
     ) -> None:
         if field_tags is None:
             field_tags = {}
+
+        # Create attribution - prefer action_urn parameter, fallback to context
+        attribution = None
+        if action_urn:
+            attribution = MetadataAttributionClass(
+                source=action_urn,
+                time=int(time.time() * 1000.0),
+                actor=context.get("actor", "urn:li:corpuser:__datahub_system")
+                if context
+                else "urn:li:corpuser:__datahub_system",
+                sourceDetail=context if context else {},
+            )
+        else:
+            attribution = self._create_attribution_from_context(context)
+
         dataset = DatasetPatchBuilder(entity_urn)
         for t in dataset_tags:
             dataset.add_tag(
                 tag=TagAssociationClass(
-                    tag=t, context=json.dumps(context) if context else None
+                    tag=t,
+                    context=json.dumps(context) if context else None,
+                    attribution=attribution,
                 )
             )
 
@@ -272,7 +311,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
             for tag in tags:
                 field_builder.add_tag(
                     tag=TagAssociationClass(
-                        tag=tag, context=json.dumps(context) if context else None
+                        tag=tag,
+                        context=json.dumps(context) if context else None,
+                        attribution=attribution,
                     )
                 )
 

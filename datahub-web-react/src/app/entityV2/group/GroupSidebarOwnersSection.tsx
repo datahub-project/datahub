@@ -31,7 +31,7 @@ export const GroupSidebarOwnersSection = ({ ownership, refetch, urn }: Props) =>
             }
             extra={
                 <SectionActionButton
-                    button={<PlusOutlined />}
+                    button={<PlusOutlined data-testid="add-owners-sidebar-button" />}
                     onClick={(event) => {
                         setShowAddOwnerModal(true);
                         event.stopPropagation();

@@ -10,7 +10,6 @@ from requests import Response
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -130,7 +129,6 @@ def get_timeline(
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def timeline(
     ctx: Any,
     urn: str,

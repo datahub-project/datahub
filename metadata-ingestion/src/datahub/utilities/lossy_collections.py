@@ -1,8 +1,6 @@
 import random
 from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-
 T = TypeVar("T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
@@ -47,15 +45,11 @@ class LossyList(List[T], Generic[T]):
     def __str__(self) -> str:
         return repr(self)
 
-    if PYDANTIC_VERSION_2:
-        # With pydantic 2, it doesn't recognize that this is a list subclass,
-        # so we need to make it explicit.
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
+        from pydantic_core import core_schema
 
-        @classmethod
-        def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
-            from pydantic_core import core_schema
-
-            return core_schema.no_info_after_validator_function(cls, handler(list))
+        return core_schema.no_info_after_validator_function(cls, handler(list))
 
     def as_obj(self) -> List[Union[T, str]]:
         from datahub.ingestion.api.report import Report

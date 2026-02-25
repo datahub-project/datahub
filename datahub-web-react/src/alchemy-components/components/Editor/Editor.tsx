@@ -9,6 +9,8 @@ import {
     CodeBlockExtension,
     CodeExtension,
     DropCursorExtension,
+    FontSizeExtension,
+    GapCursorExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -26,6 +28,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -34,18 +37,29 @@ import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBloc
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
+import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
-type EditorProps = {
-    readOnly?: boolean;
-    content?: string;
-    onChange?: (md: string) => void;
-    className?: string;
-    doNotFocus?: boolean;
-    placeholder?: string;
-};
+import { notEmpty } from '@app/entityV2/shared/utils';
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder } = props;
+    const {
+        content,
+        readOnly,
+        onChange,
+        className,
+        placeholder,
+        hideHighlightToolbar,
+        toolbarStyles,
+        dataTestId,
+        onKeyDown,
+        onPaste,
+        hideBorder,
+        uploadFileProps,
+        fixedBottomToolbar,
+        hideToolbar,
+        compact,
+    } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -54,11 +68,18 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            new FileDragDropExtension({
+                uploadFileProps,
+            }),
+            new GapCursorExtension(), // required to allow cursor placement next to non-editable inline elements
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
@@ -68,7 +89,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
-            ...(readOnly ? [] : [new HistoryExtension({})]),
+            new FontSizeExtension({}),
         ],
         content,
         stringHandler: 'markdown',
@@ -82,14 +103,23 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         }
     });
     useEffect(() => {
-        if (readOnly && content) {
+        if (readOnly && notEmpty(content)) {
             manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer
+            className={className}
+            data-testid={dataTestId}
+            $readOnly={readOnly}
+            onKeyDownCapture={onKeyDown}
+            onPasteCapture={onPaste}
+            $hideBorder={hideBorder}
+            $fixedBottomToolbar={fixedBottomToolbar}
+            $compact={compact}
+        >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
@@ -100,11 +130,15 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar />
-                            <CodeBlockToolbar />
-                            <FloatingToolbar />
-                            <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
-                            <MentionsComponent />
+                            {!hideToolbar && (
+                                <>
+                                    <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                    <CodeBlockToolbar />
+                                    {!hideHighlightToolbar && <FloatingToolbar />}
+                                    <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
+                                </>
+                            )}
+                            <MentionsComponent renderOutsideEditor={compact} />
                             {onChange && <OnChangeMarkdown onChange={onChange} />}
                         </>
                     )}

@@ -4,6 +4,7 @@ import com.google.common.cache.Cache;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -27,7 +28,7 @@ public interface SystemEntityClient extends EntityClient {
    * @return the cache
    */
   default EntityClientCache buildEntityClientCache(
-      Class<?> metricClazz, EntityClientCacheConfig cacheConfig) {
+      MetricUtils metricUtils, Class<?> metricClazz, EntityClientCacheConfig cacheConfig) {
     return EntityClientCache.builder()
         .config(cacheConfig)
         .build(
@@ -55,6 +56,7 @@ public interface SystemEntityClient extends EntityClient {
                 throw new RuntimeException(e);
               }
             },
+            metricUtils,
             metricClazz);
   }
 

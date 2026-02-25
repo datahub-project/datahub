@@ -2,6 +2,10 @@ package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.OperationContext;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtBuilder;
@@ -37,19 +41,24 @@ public class StatelessTokenService {
   private final String signingKey;
   private final SignatureAlgorithm signingAlgorithm;
   private final String iss;
+  private final OperationContext systemOperationContext;
 
   public StatelessTokenService(
-      @Nonnull final String signingKey, @Nonnull final String signingAlgorithm) {
-    this(signingKey, signingAlgorithm, null);
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final String signingKey,
+      @Nonnull final String signingAlgorithm) {
+    this(systemOperationContext, signingKey, signingAlgorithm, null);
   }
 
   public StatelessTokenService(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss) {
     this.signingKey = Objects.requireNonNull(signingKey);
     this.signingAlgorithm = validateAlgorithm(Objects.requireNonNull(signingAlgorithm));
     this.iss = iss;
+    this.systemOperationContext = systemOperationContext;
   }
 
   /**
@@ -131,6 +140,9 @@ public class StatelessTokenService {
       final String actorId = claims.get(TokenClaims.ACTOR_ID_CLAIM_NAME, String.class);
       final String actorType = claims.get(TokenClaims.ACTOR_TYPE_CLAIM_NAME, String.class);
       if (tokenType != null && actorId != null && actorType != null) {
+        // Validate the actor is active before returning claims
+        validateActor(actorId);
+
         return new TokenClaims(
             TokenVersion.fromNumericStringValue(tokenVersion),
             TokenType.valueOf(tokenType),
@@ -140,11 +152,36 @@ public class StatelessTokenService {
       }
     } catch (io.jsonwebtoken.ExpiredJwtException e) {
       throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);
+    } catch (TokenException e) {
+      throw e;
     } catch (Exception e) {
       throw new TokenException("Failed to validate DataHub token", e);
     }
+
     throw new TokenException(
         "Failed to validate DataHub token: Found malformed or missing 'actor' claim.");
+  }
+
+  /** Validates that the actor is active using the OperationContext's built-in validation */
+  private void validateActor(@Nonnull final String actorId) throws TokenException {
+    try {
+      AspectRetriever aspectRetriever = systemOperationContext.getAspectRetriever();
+      ActorContext actorContext =
+          ActorContext.builder()
+              .authentication(new Authentication(new Actor(ActorType.USER, actorId), ""))
+              .enforceExistenceEnabled(true)
+              .build();
+
+      // Use the existing isActive check from ActorContext
+      if (!actorContext.isActive(aspectRetriever)) {
+        throw new TokenException("Actor is not active");
+      }
+    } catch (Exception e) {
+      if (e instanceof TokenException) {
+        throw (TokenException) e;
+      }
+      throw new TokenException("Failed to validate actor status", e);
+    }
   }
 
   private void validateTokenAlgorithm(final String algorithm) throws TokenException {

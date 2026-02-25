@@ -12,7 +12,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -75,7 +75,7 @@ public final class MCPTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataC
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     MetadataChangeProposal mcp = buildMessage(systemMetadata);

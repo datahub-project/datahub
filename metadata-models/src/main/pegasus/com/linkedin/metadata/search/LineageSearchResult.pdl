@@ -37,4 +37,9 @@ record LineageSearchResult includes AnyResult {
    * The path taken when doing search across lineage
    */
   lineageSearchPath: optional LineageSearchPath
+
+  /**
+   * Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+   */
+  isPartial: optional boolean
 }

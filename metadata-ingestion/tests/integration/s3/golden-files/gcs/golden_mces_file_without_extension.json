@@ -1,0 +1,833 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "gs://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small",
+                "number_of_files": "1",
+                "size_in_bytes": "172"
+            },
+            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small",
+            "name": "small",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "small",
+            "platform": "urn:li:dataPlatform:gcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "1st chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "2nd chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "3rd chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "4th chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Progression Quality",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847850000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "GCS bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+                    "urn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:cec27b752c098e441e1cbed7922e888e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+                    "urn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
+                },
+                {
+                    "id": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+                    "urn": "urn:li:container:cec27b752c098e441e1cbed7922e888e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "gcs",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension"
+            },
+            "name": "no_extension",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:gcs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+                    "urn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
+                },
+                {
+                    "id": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+                    "urn": "urn:li:container:cec27b752c098e441e1cbed7922e888e"
+                },
+                {
+                    "id": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+                    "urn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
+                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
+                },
+                {
+                    "id": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
+                    "urn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
+                },
+                {
+                    "id": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
+                    "urn": "urn:li:container:cec27b752c098e441e1cbed7922e888e"
+                },
+                {
+                    "id": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
+                    "urn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce"
+                },
+                {
+                    "id": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f",
+                    "urn": "urn:li:container:586dbfb136d3f140cbbf75a9f306bb1f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847850000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

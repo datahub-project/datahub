@@ -29,7 +29,7 @@ However, if you only want to build `DataHub Metadata Service` specifically:
 
 ## Dependencies
 
-Before starting `DataHub Metadata Service`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka-setup),  
+Before starting `DataHub Metadata Service`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docs/how/kafka-config.md),
 [Elasticsearch](../docker/elasticsearch) and [MySQL](../docker/mysql) Docker containers are up and running.
 
 ## Start via Docker image
@@ -1461,7 +1461,7 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 
 {
    "value":{
-      "limit":10000,
+      "limit":2000,
       "aspectName":"datasetProfile",
       "endTimeMillis":1627455600000,
       "startTimeMillis":1625122800000,

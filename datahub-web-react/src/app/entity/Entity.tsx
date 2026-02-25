@@ -100,6 +100,18 @@ export enum EntityCapabilityType {
      * Assigning Business Attribute to a entity
      */
     BUSINESS_ATTRIBUTES,
+    /**
+     * Assigning an application to a entity
+     */
+    APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
+    /**
+     * Forms associated with an entity
+     */
+    FORMS,
 }
 
 /**

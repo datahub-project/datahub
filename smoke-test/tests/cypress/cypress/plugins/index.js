@@ -21,5 +21,8 @@ module.exports = (on, config) => {
   // `config` is the resolved Cypress config
 
   // eslint-disable-next-line global-require
+  require("./memoryUsageLogger")(on);
+
+  // eslint-disable-next-line global-require
   require("cypress-timestamps/plugin")(on);
 };

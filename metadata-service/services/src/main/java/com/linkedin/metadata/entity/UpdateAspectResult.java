@@ -12,6 +12,7 @@ import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Objects;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -37,7 +38,7 @@ public class UpdateAspectResult {
   Future<?> mclFuture;
 
   public boolean isNoOp() {
-    return oldValue == newValue;
+    return Objects.equals(oldValue, newValue);
   }
 
   public MetadataChangeLog toMCL() {

@@ -145,10 +145,12 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
+You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+
 ### Steps
 
 1. Navigate to the Table that to monitor for freshness
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -186,14 +188,14 @@ _Check whether the table has changed in a specific window of time_
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
-- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
-- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period.
+- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period. This will filter out No-Ops (e.g. `INSERT 0`). However, the Audit Log can be delayed by several hours depending on the Data Platform. This is also a little more costly on the warehouse than Information Schema.
+- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period. This is the optimal balance between cost and accuracy for most Data Platforms.
 - **Last Modified Column**: Check for the presence of rows using a "Last Modified Time" column, which should reflect the time at which a given row was last changed in the table, to
-  determine whether the table changed within the evaluation period.
+  determine whether the table changed within the evaluation period. This issues a query to the table, which can be more expensive than Information Schema.
 - **High Watermark Column**: Monitor changes to a continuously-increasing "high watermark" column value to determine whether a table
   has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-stream) tables. It is not available
-  when using a fixed lookback period.
-- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
+  when using a fixed lookback period. This issues a query to the table, which can be more expensive than Information Schema.
+- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period. This is the cheapest option, but requires that Operations are reported to DataHub. By default, Ingestion will report Operations to DataHub, which can be and infrequent. You can report Operations via the DataHub APIs for more frequent and reliable data.
 
 8. Configure actions that should be taken when the Freshness Assertion passes or fails
 
@@ -224,7 +226,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Freshness** to open the Freshness Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -238,23 +240,17 @@ To resume the assertion, simply click **Start**.
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
-## Smart Assertions ⚡
+## Anomaly Detection with Smart Assertions ⚡
 
 As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
-requiring any manual setup.
+requiring any manual setup. The Smart Assertion's ML model will train based on the Table change history that is captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
 
-If DataHub Cloud is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
 
 <p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/freshness-smart-assertion.png"/>
 </p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history, by default using the **Audit Log**.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
 
 ## Creating Freshness Assertions via API
 
@@ -289,6 +285,24 @@ mutation upsertDatasetFreshnessAssertionMonitor {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Freshness Assertion:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      evaluationSchedule: { timezone: "America/Los_Angeles", cron: "0 * * * *" }
       evaluationParameters: { sourceType: INFORMATION_SCHEMA }
       mode: ACTIVE
     }

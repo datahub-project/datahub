@@ -49,7 +49,8 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
                       context.getOperationContext(),
                       secretUrn.getEntityType(),
                       secretUrn,
-                      Set.of(SECRET_VALUE_ASPECT_NAME));
+                      Set.of(SECRET_VALUE_ASPECT_NAME),
+                      false);
               if (!entityClient.exists(context.getOperationContext(), secretUrn)
                   || response == null) {
                 throw new IllegalArgumentException(

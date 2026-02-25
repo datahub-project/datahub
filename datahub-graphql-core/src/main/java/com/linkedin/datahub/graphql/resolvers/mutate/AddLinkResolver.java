@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
+import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -33,6 +34,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
     String linkUrl = input.getLinkUrl();
     String linkLabel = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    LinkSettingsInput settingsInput = input.getSettings();
 
     if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
         && !GlossaryUtils.canUpdateGlossaryEntity(targetUrn, context, _entityClient)) {
@@ -55,6 +57,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
                 linkLabel,
                 targetUrn,
                 actor,
+                settingsInput,
                 _entityService);
             return true;
           } catch (Exception e) {

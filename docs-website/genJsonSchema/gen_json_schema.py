@@ -11,7 +11,7 @@ def get_base() -> Any:
         "id": "https://json.schemastore.org/datahub-ingestion",
         "title": "Datahub Ingestion",
         "description": "Root schema of Datahub Ingestion",
-        "definitions": {
+        "$defs": {
             "console_sink": {
                 "type": "object",
                 "properties": {
@@ -26,7 +26,7 @@ def get_base() -> Any:
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "enum": ["file"]},
-                    "config": {"$ref": "#/definitions/file_sink_config"},
+                    "config": {"$ref": "#/$defs/file_sink_config"},
                 },
                 "required": ["type", "config"],
             },
@@ -45,7 +45,7 @@ def get_base() -> Any:
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "enum": ["datahub-rest"]},
-                    "config": {"$ref": "#/definitions/datahub_rest_sink_config"},
+                    "config": {"$ref": "#/$defs/datahub_rest_sink_config"},
                 },
                 "required": ["type", "config"],
                 "additionalProperties": False,
@@ -102,7 +102,7 @@ def get_base() -> Any:
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "enum": ["datahub-kafka"]},
-                    "config": {"$ref": "#/definitions/datahub_kafka_sink_config"},
+                    "config": {"$ref": "#/$defs/datahub_kafka_sink_config"},
                 },
                 "required": ["type", "config"],
                 "additionalProperties": False,
@@ -178,10 +178,10 @@ def get_base() -> Any:
             "sink": {
                 "description": "sink",
                 "anyOf": [
-                    {"$ref": "#/definitions/datahub_kafka_sink"},
-                    {"$ref": "#/definitions/datahub_rest_sink"},
-                    {"$ref": "#/definitions/console_sink"},
-                    {"$ref": "#/definitions/file_sink"},
+                    {"$ref": "#/$defs/datahub_kafka_sink"},
+                    {"$ref": "#/$defs/datahub_rest_sink"},
+                    {"$ref": "#/$defs/console_sink"},
+                    {"$ref": "#/$defs/file_sink"},
                 ],
             },
         },
@@ -216,22 +216,22 @@ for jfile in glob.glob(f"{config_schemas_dir}/*"):
         "type": "object",
         "properties": {
             "type": {"type": "string", "enum": [f"{config_name}"]},
-            "config": {"$ref": f"#/definitions/{config_name}_config"},
+            "config": {"$ref": f"#/$defs/{config_name}_config"},
         },
         "required": ["type", "config"],
     }
     configs[f"{config_name}"] = source_obj
-    if "definitions" in data:
-        definitions.update(data["definitions"])
-        data.pop("definitions", None)
+    if "$defs" in data:
+        definitions.update(data["$defs"])
+        data.pop("$defs", None)
 
     configs[f"{config_name}_config"] = data
-    ref = {"$ref": f"#/definitions/{config_name}"}
+    ref = {"$ref": f"#/$defs/{config_name}"}
     refs.append(ref)
 
 base = get_base()
-base["definitions"].update(configs)
-base["definitions"].update(definitions)
+base["$defs"].update(configs)
+base["$defs"].update(definitions)
 
 print(base["properties"]["source"])
 

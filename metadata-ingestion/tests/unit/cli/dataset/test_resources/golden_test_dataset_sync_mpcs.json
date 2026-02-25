@@ -42,7 +42,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "fields:\n- description: The IP address of the user\n  id: ip\n  structured_properties:\n    io.acryl.privacy.retentionTime:\n    - '30'\n    - '90'\n  type: string\n- description: The user ID of the user\n  id: user_id\n  type: string\n"
+                    "rawSchema": "fields:\n- description: The IP address of the user\n  id: ip\n  structured_properties:\n    io.acryl.privacy.retentionTime:\n    - 30.0\n    - 90.0\n  type: string\n- description: The user ID of the user\n  id: user_id\n  type: string\n"
                 }
             },
             "fields": [
@@ -88,10 +88,10 @@
                     "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
                     "values": [
                         {
-                            "string": "30"
+                            "double": 30.0
                         },
                         {
-                            "string": "90"
+                            "double": 90.0
                         }
                     ]
                 }

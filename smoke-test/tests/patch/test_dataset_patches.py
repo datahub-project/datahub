@@ -18,10 +18,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from tests.patch.common_patch_tests import (
+    helper_test_add_fine_grained_lineage,
     helper_test_custom_properties_patch,
     helper_test_dataset_tags_patch,
     helper_test_entity_terms_patch,
     helper_test_ownership_patch,
+    helper_test_set_fine_grained_lineages,
 )
 
 
@@ -353,3 +355,31 @@ def test_custom_properties_patch(request, client_fixture_name: DataHubGraph):
     assert custom_properties is not None
 
     assert custom_properties["test_description_property"] == "test_description_value"
+
+
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_add_fine_grained_lineage(request, client_fixture_name):
+    """Test that add_fine_grained_lineage works correctly for DataJobs."""
+    graph_client = request.getfixturevalue(client_fixture_name)
+    datajob_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset{uuid.uuid4()}", env="PROD"
+    )
+    helper_test_add_fine_grained_lineage(
+        graph_client, datajob_urn, UpstreamLineageClass, DatasetPatchBuilder
+    )
+
+
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_set_fine_grained_lineages(request, client_fixture_name):
+    """Test setting fine-grained lineages with end-to-end DataHub integration."""
+    graph_client = request.getfixturevalue(client_fixture_name)
+    datajob_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset{uuid.uuid4()}", env="PROD"
+    )
+    helper_test_set_fine_grained_lineages(
+        graph_client, datajob_urn, UpstreamLineageClass, DatasetPatchBuilder
+    )

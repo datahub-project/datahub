@@ -24,7 +24,7 @@ public class FieldExtractor {
 
   private FieldExtractor() {}
 
-  private static long getNumArrayWildcards(PathSpec pathSpec) {
+  public static long getNumArrayWildcards(PathSpec pathSpec) {
     return pathSpec.getPathComponents().stream().filter(ARRAY_WILDCARD::equals).count();
   }
 

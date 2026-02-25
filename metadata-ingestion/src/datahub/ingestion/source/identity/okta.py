@@ -11,9 +11,10 @@ import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
-from pydantic import validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -41,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
@@ -61,7 +61,7 @@ class OktaConfig(StatefulIngestionConfigBase):
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
-    okta_api_token: str = Field(
+    okta_api_token: TransparentSecretStr = Field(
         description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
@@ -158,21 +158,21 @@ class OktaConfig(StatefulIngestionConfigBase):
     mask_group_id: bool = True
     mask_user_id: bool = True
 
-    @validator("okta_users_search")
-    def okta_users_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_users_filter"]:
+    @model_validator(mode="after")
+    def okta_users_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_users_search and self.okta_users_filter:
             raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
-        return v
+        return self
 
-    @validator("okta_groups_search")
-    def okta_groups_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_groups_filter"]:
+    @model_validator(mode="after")
+    def okta_groups_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_groups_search and self.okta_groups_filter:
             raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
-        return v
+        return self
 
 
 @dataclass
@@ -202,7 +202,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class OktaSource(StatefulIngestionSourceBase):
     """
@@ -289,7 +289,7 @@ class OktaSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OktaConfig.parse_obj(config_dict)
+        config = OktaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
@@ -332,18 +332,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
@@ -418,18 +412,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
@@ -444,7 +432,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def _create_okta_client(self):
         config = {
             "orgUrl": f"https://{self.config.okta_domain}",
-            "token": f"{self.config.okta_api_token}",
+            "token": self.config.okta_api_token.get_secret_value(),
             "raiseException": True,
         }
         return OktaClient(config)

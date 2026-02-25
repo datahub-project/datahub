@@ -6,6 +6,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useAppConfig } from '@src/app/useAppConfig';
 
+import { GetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
 
 interface Props<T> {
@@ -25,9 +26,16 @@ interface Props<T> {
         }>
     >;
     getOverrideProperties?: (T) => GenericEntityProperties;
+    formsData?: GetFormsForEntityQuery;
 }
 
-export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuery, getOverrideProperties }: Props<T>) {
+export default function useGetDataForProfile<T>({
+    urn,
+    entityType,
+    useEntityQuery,
+    getOverrideProperties,
+    formsData,
+}: Props<T>) {
     const flags = useAppConfig().config.featureFlags;
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const {
@@ -48,7 +56,10 @@ export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuer
         (dataPossiblyCombinedWithSiblings &&
             Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
             getDataForEntityType({
-                data: dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
+                data: {
+                    ...formsData?.entity,
+                    ...dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
+                },
                 entityType,
                 getOverrideProperties,
                 isHideSiblingMode,

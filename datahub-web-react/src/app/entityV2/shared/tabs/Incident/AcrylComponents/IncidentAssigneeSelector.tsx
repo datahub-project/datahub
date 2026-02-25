@@ -8,6 +8,7 @@ import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Avatar, SimpleSelect } from '@src/alchemy-components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
@@ -117,9 +118,11 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
 
     const handleSearch = (type: EntityType, text: string) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput({ type, query: text, limit: 10 }, type);
+
             userSearch({
                 variables: {
-                    input: { type, query: text, limit: 10 },
+                    input,
                 },
             });
             setUseSearch(true);

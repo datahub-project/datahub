@@ -7,10 +7,8 @@ from sqlalchemy_bigquery import STRUCT
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import AthenaSource
+from datahub.testing import mce_helpers
 from datahub.utilities.sqlalchemy_type_converter import MapType
-from tests.test_helpers import (  # Ensure mce_helpers is available for validation.
-    mce_helpers,
-)
 
 FROZEN_TIME = "2022-12-15 10:00:00"
 
@@ -23,11 +21,10 @@ def test_athena_source_ingestion(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/athena"
 
     # Mock dependencies
-    with patch.object(
-        AthenaSource, "get_inspectors"
-    ) as mock_get_inspectors, patch.object(
-        AthenaSource, "get_table_properties"
-    ) as mock_get_table_properties:
+    with (
+        patch.object(AthenaSource, "get_inspectors") as mock_get_inspectors,
+        patch.object(AthenaSource, "get_table_properties") as mock_get_table_properties,
+    ):
         # Mock engine and inspectors
         mock_inspector = MagicMock()
         mock_get_inspectors.return_value = [mock_inspector]

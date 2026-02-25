@@ -7,7 +7,6 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import ColoredBackgroundPlatformIconGroup, {
     PlatformContentWrapper,
@@ -32,16 +31,18 @@ const RowContainer = styled.div`
     }
 `;
 
+const StyledPlatformIconGroup = styled(ColoredBackgroundPlatformIconGroup)`
+    margin: 0;
+`;
+
+const ContextPathRowContainer = styled(RowContainer)`
+    align-items: center;
+    justify-content: start;
+`;
+
 const CompactActionsAndStatusSection = styled(ActionsAndStatusSection)`
     justify-content: end;
     margin-right: -0.3rem;
-`;
-
-const PlatformDivider = styled.div`
-    font-size: 16px;
-    margin-right: 0.5rem;
-    margin-top: -3px;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
 `;
 
 interface Props {
@@ -72,11 +73,8 @@ interface Props {
     logoUrls?: Maybe<string | undefined>[];
     logoUrl?: string;
     previewData: GenericEntityProperties | null;
-    platformInstanceId?: string;
-    typeIcon?: JSX.Element;
     finalType?: string | undefined;
     parentEntities?: Entity[] | null;
-    contentRef: React.RefObject<HTMLDivElement>;
     browsePaths?: BrowsePathV2 | undefined;
 }
 
@@ -102,11 +100,8 @@ export const CompactView = ({
     previewType,
     urn,
     entityType,
-    platformInstanceId,
-    typeIcon,
     finalType,
-    parentEntities, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    contentRef,
+    parentEntities,
     browsePaths,
 }: Props) => {
     return (
@@ -138,10 +133,10 @@ export const CompactView = ({
                     )}
                 </CompactActionsAndStatusSection>
             </RowContainer>
-            <RowContainer>
+            <ContextPathRowContainer>
                 {isIconPresent ? (
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <ColoredBackgroundPlatformIconGroup
+                        <StyledPlatformIconGroup
                             platformName={platform}
                             platformLogoUrl={logoUrl}
                             platformNames={platforms}
@@ -151,24 +146,19 @@ export const CompactView = ({
                             imgSize={10}
                             backgroundSize={20}
                         />
-                        <PlatformDivider> | </PlatformDivider>
                     </div>
                 ) : (
                     <div />
                 )}
                 <ContextPath
-                    instanceId={platformInstanceId}
-                    typeIcon={typeIcon}
-                    type={finalType}
+                    displayedEntityType={finalType}
                     entityType={entityType}
                     browsePaths={browsePaths}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
                     entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                    previewType={previewType}
                     isCompactView
                 />
-            </RowContainer>
+            </ContextPathRowContainer>
         </>
     );
 };

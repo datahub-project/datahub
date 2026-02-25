@@ -13,6 +13,7 @@ interface Props<OptionType extends NestedSelectOption> {
     removeOptions: (nodes: OptionType[]) => void;
     setSelectedOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
     handleOptionChange: (node: OptionType) => void;
+    isMultiSelect: boolean;
 }
 
 export default function useNestedOption<OptionType extends NestedSelectOption>({
@@ -26,6 +27,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     removeOptions,
     setSelectedOptions,
     handleOptionChange,
+    isMultiSelect,
 }: Props<OptionType>) {
     const parentChildren = useMemo(() => children.filter((c) => c.isParent), [children]);
 
@@ -74,16 +76,18 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
 
     const isPartialSelected = useMemo(
         () =>
-            (!areAllChildrenSelected && areAnyChildrenSelected) ||
-            (isSelected && isParentMissingChildren) ||
-            (isSelected && areAnyUnselectableChildrenUnexpanded) ||
-            (areAnyUnselectableChildrenUnexpanded && areAnyChildrenSelected) ||
-            (isSelected && !!children.length && !areAnyChildrenSelected) ||
-            (!isSelected &&
-                areAllChildrenSelected &&
-                !isParentMissingChildren &&
-                option.isParent &&
-                areParentsSelectable),
+            areParentsSelectable && !isMultiSelect
+                ? false
+                : (!areAllChildrenSelected && areAnyChildrenSelected) ||
+                  (isSelected && isParentMissingChildren) ||
+                  (isSelected && areAnyUnselectableChildrenUnexpanded) ||
+                  (areAnyUnselectableChildrenUnexpanded && areAnyChildrenSelected) ||
+                  (isSelected && !!children.length && !areAnyChildrenSelected) ||
+                  (!isSelected &&
+                      areAllChildrenSelected &&
+                      !isParentMissingChildren &&
+                      option.isParent &&
+                      areParentsSelectable),
         [
             isSelected,
             children,
@@ -93,6 +97,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
             areAnyUnselectableChildrenUnexpanded,
             isParentMissingChildren,
             areParentsSelectable,
+            isMultiSelect,
         ],
     );
 
@@ -116,10 +121,13 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
         if (areParentsSelectable && option.isParent && implicitlySelectChildren) {
             selectChildrenImplicitly();
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
-            const optionsToAdd =
-                option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
-
-            addOptions(optionsToAdd);
+            if (!isMultiSelect) {
+                setSelectedOptions([option]);
+            } else {
+                const optionsToAdd =
+                    option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
+                addOptions(optionsToAdd);
+            }
         } else if (areAllChildrenSelected) {
             removeOptions([option, ...selectableChildren]);
         } else {

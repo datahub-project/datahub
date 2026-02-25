@@ -1,4 +1,4 @@
-import { Dropdown, Text } from '@components';
+import { Dropdown, Text, colors } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -65,6 +65,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     renderCustomOptionText,
     selectLabelProps,
     onSearchChange,
+    emptyState,
+    descriptionMaxWidth,
+    dataTestId,
+    visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +79,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef);
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
 
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const [tempValues, setTempValues] = useState<string[]>(values || []);
@@ -118,8 +122,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         (option: SelectOption) => {
             const updatedValues = selectedValues.filter((val) => val !== option.value);
             setSelectedValues(updatedValues);
+            if (onUpdate) {
+                onUpdate(updatedValues);
+            }
         },
-        [selectedValues],
+        [selectedValues, onUpdate],
     );
 
     const handleUpdateClick = useCallback(() => {
@@ -169,7 +176,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     );
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width}>
+        <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             {isVisible && (
                 <Dropdown
@@ -177,7 +184,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -195,6 +205,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                     />
                                 )}
+                                {!filteredOptions.length && emptyState}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
@@ -208,7 +219,15 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                 {renderCustomOptionText ? (
                                                     renderCustomOptionText(option)
                                                 ) : (
-                                                    <span>{option.label}</span>
+                                                    <div>
+                                                        <span>{option.label}</span>
+                                                        {!!option.description && [
+                                                            <br />,
+                                                            <span style={{ color: colors.gray[400] }}>
+                                                                {option.description}
+                                                            </span>,
+                                                        ]}
+                                                    </div>
                                                 )}
                                                 <StyledCheckbox
                                                     onClick={() => handleOptionChange(option)}
@@ -231,7 +250,12 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                     </Text>
                                                 </ActionButtonsContainer>
                                                 {!!option.description && (
-                                                    <Text color="gray" weight="normal" size="sm">
+                                                    <Text
+                                                        color="gray"
+                                                        weight="normal"
+                                                        size="sm"
+                                                        style={{ maxWidth: descriptionMaxWidth }}
+                                                    >
                                                         {option.description}
                                                     </Text>
                                                 )}
@@ -255,6 +279,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                     >
                         <SelectLabelContainer>

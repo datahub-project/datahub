@@ -55,7 +55,7 @@ class AddDatasetOwnership(OwnershipTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetOwnership":
-        config = AddDatasetOwnershipConfig.parse_obj(config_dict)
+        config = AddDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -71,8 +71,24 @@ class AddDatasetOwnership(OwnershipTransformer):
 
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
-            owners = {owner.owner: owner for owner in server_ownership.owners}
-            owners.update({owner.owner: owner for owner in mce_ownership.owners})
+            owners = {
+                (
+                    owner.owner,
+                    owner.type,
+                    owner.typeUrn,
+                ): owner
+                for owner in server_ownership.owners
+            }
+            owners.update(
+                {
+                    (
+                        owner.owner,
+                        owner.type,
+                        owner.typeUrn,
+                    ): owner
+                    for owner in mce_ownership.owners
+                }
+            )
             mce_ownership.owners = list(owners.values())
 
         return mce_ownership
@@ -193,7 +209,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetOwnership":
-        config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
+        config = SimpleDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -231,5 +247,5 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetOwnership":
-        config = PatternDatasetOwnershipConfig.parse_obj(config_dict)
+        config = PatternDatasetOwnershipConfig.model_validate(config_dict)
         return cls(config, ctx)

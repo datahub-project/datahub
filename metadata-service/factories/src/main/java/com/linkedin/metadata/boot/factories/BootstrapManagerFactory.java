@@ -14,7 +14,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
+import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
@@ -74,10 +74,6 @@ public class BootstrapManagerFactory {
   private AspectMigrationsDao _migrationsDao;
 
   @Autowired
-  @Qualifier("ingestRetentionPoliciesStep")
-  private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
-
-  @Autowired
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
@@ -113,6 +109,8 @@ public class BootstrapManagerFactory {
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
+    final MigrateHomePageLinksStep migrateHomePageLinksStep =
+        new MigrateHomePageLinksStep(_entityService, _entitySearchService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
@@ -120,7 +118,6 @@ public class BootstrapManagerFactory {
                 waitForSystemUpdateStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
-                _ingestRetentionPoliciesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
@@ -129,6 +126,10 @@ public class BootstrapManagerFactory {
                 restoreColumnLineageIndices,
                 ingestEntityTypesStep,
                 restoreFormInfoIndicesStep));
+
+    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
+      finalSteps.add(migrateHomePageLinksStep);
+    }
 
     return new BootstrapManager(finalSteps);
   }

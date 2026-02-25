@@ -1,26 +1,33 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
+import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
 import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
+import { GlobalStyles } from '@components/components/GlobalStyles';
+
 import { Routes } from '@app/Routes';
+import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
+import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
     Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const httpLink = createHttpLink({
+    uri: resolveRuntimePath(`/api/v2/graphql`),
+});
 
 const errorLink = onError((error) => {
     const { networkError } = error;
@@ -29,8 +36,9 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            const currentPath = window.location.pathname + window.location.search;
-            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+            const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
+            const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
+            window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
@@ -43,9 +51,20 @@ const errorLink = onError((error) => {
     // }
 });
 
+const injectVariablesLink = new ApolloLink((operation, forward) => {
+    // eslint-disable-next-line no-param-reassign
+    operation.variables = {
+        ...operation.variables,
+        skipSiblingsSearch: showSeparateSiblingsRef.current,
+        skipLineage: hideLineageInSearchCardsRef.current,
+    };
+
+    return forward(operation);
+});
+
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: errorLink.concat(httpLink),
+    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
@@ -81,10 +100,13 @@ export const InnerApp: React.VFC = () => {
     return (
         <HelmetProvider>
             <CustomThemeProvider>
+                <GlobalStyles />
+                <FilesUploadingDownloadingLatencyTracker />
+
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
-                <Router>
+                <Router basename={getRuntimeBasePath()}>
                     <Routes />
                 </Router>
             </CustomThemeProvider>

@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_domain_urn,
     make_group_urn,
@@ -14,6 +15,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioContainer,
     DremioDataset,
@@ -364,9 +366,9 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if entity.subclass == "Dremio Space":
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == "Dremio Source":
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
         if paths:
             return BrowsePathsV2Class(path=paths)
@@ -381,7 +383,7 @@ class DremioAspects:
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             instance=(
                 make_dataplatform_instance_urn(self.platform, self.platform_instance)
                 if self.platform_instance
@@ -459,7 +461,7 @@ class DremioAspects:
     def _create_schema_metadata(self, dataset: DremioDataset) -> SchemaMetadataClass:
         return SchemaMetadataClass(
             schemaName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             version=0,
             fields=[self._create_schema_field(column) for column in dataset.columns],
             platformSchema=MySqlDDLClass(""),
