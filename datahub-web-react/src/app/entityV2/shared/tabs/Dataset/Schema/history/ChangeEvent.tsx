@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -6,6 +6,8 @@ import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/h
 import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 
 import { ChangeEvent } from '@types';
+
+const MAX_DISPLAY_CHARS = 200;
 
 const ChangeEventCircle = styled.div`
     display: inline-block;
@@ -36,17 +38,37 @@ const ChangeEventContainer = styled.div`
     word-wrap: break-word;
 `;
 
+const ToggleLink = styled.span`
+    color: #5280e2;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 4px;
+    &:hover {
+        text-decoration: underline;
+    }
+`;
+
 interface ChangeTransactionProps {
     changeEvent: ChangeEvent;
 }
 
 const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent }) => {
-    const displayString = getChangeEventString(changeEvent);
+    const [expanded, setExpanded] = useState(false);
+    const fullString = getChangeEventString(changeEvent);
+    const needsTruncation = (fullString?.length ?? 0) > MAX_DISPLAY_CHARS;
+    const displayString = needsTruncation && !expanded ? `${fullString?.slice(0, MAX_DISPLAY_CHARS)}...` : fullString;
 
     return (
         <ChangeEventContainer>
             <ChangeEventCircle />
-            <ChangeEventText>{processDocumentationString(displayString)}</ChangeEventText>
+            <ChangeEventText>
+                {processDocumentationString(displayString)}
+                {needsTruncation && (
+                    <ToggleLink onClick={() => setExpanded((prev) => !prev)}>
+                        {expanded ? 'Show less' : 'Show more'}
+                    </ToggleLink>
+                )}
+            </ChangeEventText>
         </ChangeEventContainer>
     );
 };
