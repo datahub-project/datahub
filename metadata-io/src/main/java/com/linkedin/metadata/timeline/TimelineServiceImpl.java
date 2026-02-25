@@ -27,6 +27,8 @@ import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGen
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
@@ -52,6 +54,7 @@ public class TimelineServiceImpl implements TimelineService {
 
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS =
       7 * 24 * 60 * 60 * 1000L; // 1 week lookback
+  private static final int ASPECT_ROW_MULTIPLIER = 10;
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -178,6 +181,26 @@ public class TimelineServiceImpl implements TimelineService {
                 new SchemaMetadataChangeEventGenerator());
           }
           break;
+        case DOMAIN:
+          {
+            aspects.add(DOMAINS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DOMAINS_ASPECT_NAME,
+                new SingleDomainChangeEventGenerator());
+          }
+          break;
+        case STRUCTURED_PROPERTY:
+          {
+            aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                new StructuredPropertyChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -241,6 +264,7 @@ public class TimelineServiceImpl implements TimelineService {
       }
       documentElementAspectRegistry.put(elementName, aspects);
     }
+
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
@@ -296,16 +320,57 @@ public class TimelineServiceImpl implements TimelineService {
     List<EntityAspect> aspectsInRange =
         this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
-    // Prepopulate with all versioned aspectNames -> ignore timeseries using
-    // registry
+    return processAspectTimeline(
+        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested, -1);
+  }
+
+  @Nonnull
+  @Override
+  public List<ChangeTransaction> getTimeline(
+      @Nonnull final Urn urn,
+      @Nonnull final Set<ChangeCategory> elementNames,
+      int maxChangeTransactions,
+      boolean rawDiffRequested) {
+
+    Set<String> aspectNames = getAspectsFromElements(urn.getEntityType(), elementNames);
+
+    EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
+    List<AspectSpec> aspectSpecs = entitySpec.getAspectSpecs();
+    Set<String> fullAspectNames =
+        aspectSpecs.stream()
+            .filter(aspectSpec -> !aspectSpec.isTimeseries())
+            .map(AspectSpec::getName)
+            .collect(Collectors.toSet());
+
+    int maxAspectRows = maxChangeTransactions * ASPECT_ROW_MULTIPLIER;
+    List<EntityAspect> latestAspects =
+        this._aspectDao.getLatestAspects(urn, fullAspectNames, maxAspectRows);
+
+    return processAspectTimeline(
+        urn,
+        elementNames,
+        aspectNames,
+        fullAspectNames,
+        latestAspects,
+        rawDiffRequested,
+        maxChangeTransactions);
+  }
+
+  private List<ChangeTransaction> processAspectTimeline(
+      @Nonnull final Urn urn,
+      @Nonnull final Set<ChangeCategory> elementNames,
+      @Nonnull final Set<String> aspectNames,
+      @Nonnull final Set<String> fullAspectNames,
+      @Nonnull final List<EntityAspect> fetchedAspects,
+      boolean rawDiffRequested,
+      int maxChangeTransactions) {
+
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap =
-        constructAspectRowSetMap(urn, fullAspectNames, aspectsInRange);
+        constructAspectRowSetMap(urn, fullAspectNames, fetchedAspects);
 
     Map<Long, SortedMap<String, Long>> timestampVersionCache =
         constructTimestampVersionCache(aspectRowSetMap);
 
-    // TODO: There are some extra steps happening here, we need to clean up how
-    // transactions get combined across differs
     SortedMap<Long, List<ChangeTransaction>> semanticDiffs =
         aspectRowSetMap.entrySet().stream()
             .filter(entry -> aspectNames.contains(entry.getKey()))
@@ -315,7 +380,7 @@ public class TimelineServiceImpl implements TimelineService {
                 TreeMap::new,
                 this::combineComputedDiffsPerTransactionId,
                 this::combineComputedDiffsPerTransactionId);
-    // TODO:Move this down
+
     assignSemanticVersions(semanticDiffs);
     List<ChangeTransaction> changeTransactions =
         semanticDiffs.values().stream()
@@ -323,6 +388,14 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> combinedChangeTransactions =
         combineTransactionsByTimestamp(changeTransactions, timestampVersionCache);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
+
+    if (maxChangeTransactions > 0 && combinedChangeTransactions.size() > maxChangeTransactions) {
+      combinedChangeTransactions =
+          combinedChangeTransactions.subList(
+              combinedChangeTransactions.size() - maxChangeTransactions,
+              combinedChangeTransactions.size());
+    }
+
     return combinedChangeTransactions;
   }
 
@@ -607,9 +680,11 @@ public class TimelineServiceImpl implements TimelineService {
         ChangeTransaction result = transactionList.get(0);
         SemanticChangeType maxSemanticChangeType = result.getSemVerChange();
         String maxSemVer = result.getSemVer();
+        // Copy into a mutable list; some generators return unmodifiable lists
+        List<ChangeEvent> mergedEvents = new ArrayList<>(result.getChangeEvents());
         for (int i = 1; i < transactionList.size(); i++) {
           ChangeTransaction element = transactionList.get(i);
-          result.getChangeEvents().addAll(element.getChangeEvents());
+          mergedEvents.addAll(element.getChangeEvents());
           maxSemanticChangeType =
               maxSemanticChangeType.compareTo(element.getSemVerChange()) >= 0
                   ? maxSemanticChangeType
@@ -617,10 +692,12 @@ public class TimelineServiceImpl implements TimelineService {
           maxSemVer =
               maxSemVer.compareTo(element.getSemVer()) >= 0 ? maxSemVer : element.getSemVer();
         }
+        result.setChangeEvents(mergedEvents);
         result.setSemVerChange(maxSemanticChangeType);
         result.setSemanticVersion(maxSemVer);
+        SortedMap<String, Long> versionStampMap = timestampVersionCache.get(result.getTimestamp());
         result.setVersionStamp(
-            constructVersionStamp(timestampVersionCache.get(result.getTimestamp())));
+            versionStampMap != null ? constructVersionStamp(versionStampMap) : "");
         combinedChangeTransactions.add(result);
       }
     }

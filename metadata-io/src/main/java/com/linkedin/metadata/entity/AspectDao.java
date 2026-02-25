@@ -59,6 +59,9 @@ public interface AspectDao {
   List<EntityAspect> getAspectsInRange(
       @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
+  @Nonnull
+  List<EntityAspect> getLatestAspects(@Nonnull Urn urn, Set<String> aspectNames, int maxRows);
+
   /**
    * @param urn urn to fetch
    * @param aspectName aspect to fetch

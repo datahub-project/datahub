@@ -26,6 +26,8 @@ public enum ChangeCategory {
   RUN,
 
   BUSINESS_ATTRIBUTE,
+  // Structured property assignment changes
+  STRUCTURED_PROPERTY,
   // Parent relationship changes (for hierarchical entities like documents)
   PARENT,
   // Related entities changes (Currently used for document related assets, related documents, etc.)
