@@ -38,7 +38,7 @@ def chunking_config():
 
 
 def test_embedding_failure_reporting_inline_mode(pipeline_context, chunking_config):
-    """Test that embedding failures are reported as warnings in inline mode."""
+    """Test that embedding failures propagate as exceptions in inline mode."""
     # Initialize source in inline mode
     source = DocumentChunkingSource(
         ctx=pipeline_context,
@@ -53,25 +53,16 @@ def test_embedding_failure_reporting_inline_mode(pipeline_context, chunking_conf
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Mock _generate_embeddings to raise an exception
-    with patch.object(
-        source, "_generate_embeddings", side_effect=Exception("AWS credentials expired")
+    # In inline mode, embedding failures raise — the caller decides how to handle them
+    with (
+        patch.object(
+            source,
+            "_generate_embeddings",
+            side_effect=Exception("AWS credentials expired"),
+        ),
+        pytest.raises(Exception, match="AWS credentials expired"),
     ):
-        # Process elements inline
         list(source.process_elements_inline(document_urn, elements))
-
-    # Verify embedding failure was tracked
-    assert source.report.num_embedding_failures == 1
-    assert len(source.report.embedding_failures) == 1
-    assert "AWS credentials expired" in source.report.embedding_failures[0]
-    assert document_urn in source.report.embedding_failures[0]
-
-    # Verify warning was reported
-    assert len(source.report.warnings) > 0
-
-    # Verify document was still processed (not failed)
-    assert source.report.num_documents_processed == 1
-    assert source.report.num_documents_with_embeddings == 0
 
 
 def test_embedding_success_reporting_inline_mode(pipeline_context, chunking_config):
@@ -93,19 +84,11 @@ def test_embedding_success_reporting_inline_mode(pipeline_context, chunking_conf
     # Mock successful embedding generation
     mock_embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
-        # Process elements inline
         list(source.process_elements_inline(document_urn, elements))
 
-    # Verify embedding success was tracked
-    assert source.report.num_documents_with_embeddings == 1
-    assert source.report.num_embedding_failures == 0
-    assert len(source.report.embedding_failures) == 0
-
-    # Verify no warnings
-    assert len(source.report.warnings) == 0
-
-    # Verify document was processed
+    # Verify document was processed and embeddings counted
     assert source.report.num_documents_processed == 1
+    assert source.report.num_embeddings_generated == 2
 
 
 def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
@@ -146,7 +129,7 @@ def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
 def test_document_processed_without_embeddings_on_failure(
     pipeline_context, chunking_config
 ):
-    """Test that documents are still marked as processed when embeddings fail."""
+    """Test that embedding failures propagate as exceptions in inline mode."""
     # Initialize source in inline mode
     source = DocumentChunkingSource(
         ctx=pipeline_context,
@@ -161,30 +144,18 @@ def test_document_processed_without_embeddings_on_failure(
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Mock _generate_embeddings to raise an exception
-    with patch.object(
-        source, "_generate_embeddings", side_effect=Exception("Service unavailable")
+    # In inline mode, failures propagate so the caller can decide how to handle them
+    with (
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("Service unavailable")
+        ),
+        pytest.raises(Exception, match="Service unavailable"),
     ):
-        # Process elements inline
-        workunits = list(source.process_elements_inline(document_urn, elements))
-
-    # Verify no work units were emitted (no embeddings = no SemanticContent aspect)
-    assert len(workunits) == 0
-
-    # Verify embedding failure was tracked
-    assert source.report.num_embedding_failures == 1
-    assert source.report.num_documents_with_embeddings == 0
-
-    # Verify warning was reported
-    assert len(source.report.warnings) >= 1
-
-    # Verify document was still processed (not failed)
-    assert source.report.num_documents_processed == 1
-    assert source.report.num_embeddings_generated == 0
+        list(source.process_elements_inline(document_urn, elements))
 
 
 def test_multiple_embedding_failures(pipeline_context, chunking_config):
-    """Test that multiple embedding failures are tracked correctly."""
+    """Test that embedding failures propagate in inline mode."""
     # Initialize source in inline mode
     source = DocumentChunkingSource(
         ctx=pipeline_context,
@@ -193,34 +164,21 @@ def test_multiple_embedding_failures(pipeline_context, chunking_config):
         graph=None,
     )
 
-    documents = [
-        ("urn:li:document:(test,doc1,PROD)", [{"type": "Title", "text": "Doc 1"}]),
-        ("urn:li:document:(test,doc2,PROD)", [{"type": "Title", "text": "Doc 2"}]),
-        ("urn:li:document:(test,doc3,PROD)", [{"type": "Title", "text": "Doc 3"}]),
-    ]
+    document_urn = "urn:li:document:(test,doc1,PROD)"
+    elements = [{"type": "Title", "text": "Doc 1"}]
 
-    # Mock _generate_embeddings to raise an exception for all documents
-    with patch.object(
-        source, "_generate_embeddings", side_effect=Exception("Connection timeout")
+    # Each call raises — verified per-call
+    with (
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("Connection timeout")
+        ),
+        pytest.raises(Exception, match="Connection timeout"),
     ):
-        for doc_urn, elements in documents:
-            list(source.process_elements_inline(doc_urn, elements))
-
-    # Verify all failures were tracked
-    assert source.report.num_embedding_failures == 3
-    assert len(source.report.embedding_failures) == 3
-    assert source.report.num_documents_with_embeddings == 0
-
-    # Verify warnings were reported (note: structured logs may deduplicate by title+message)
-    # At minimum, we should have at least 1 warning entry
-    assert len(source.report.warnings) >= 1
-
-    # Verify all documents were still processed
-    assert source.report.num_documents_processed == 3
+        list(source.process_elements_inline(document_urn, elements))
 
 
 def test_mixed_success_and_failure(pipeline_context, chunking_config):
-    """Test scenario with both successful and failed embedding generations."""
+    """Test that successful calls process correctly and failures propagate."""
     # Initialize source in inline mode
     source = DocumentChunkingSource(
         ctx=pipeline_context,
@@ -229,36 +187,27 @@ def test_mixed_success_and_failure(pipeline_context, chunking_config):
         graph=None,
     )
 
-    documents = [
-        ("urn:li:document:(test,doc1,PROD)", [{"type": "Title", "text": "Doc 1"}]),
-        ("urn:li:document:(test,doc2,PROD)", [{"type": "Title", "text": "Doc 2"}]),
-        ("urn:li:document:(test,doc3,PROD)", [{"type": "Title", "text": "Doc 3"}]),
-    ]
+    # Successful document
+    doc1_urn = "urn:li:document:(test,doc1,PROD)"
+    doc1_elements = [{"type": "Title", "text": "Doc 1"}]
+    mock_embeddings = [[0.1, 0.2, 0.3]]
 
-    call_count = 0
+    with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
+        list(source.process_elements_inline(doc1_urn, doc1_elements))
 
-    def mock_generate_embeddings(chunks):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 2:
-            # Second call fails
-            raise Exception("Temporary failure")
-        return [[0.1, 0.2, 0.3]]
+    assert source.report.num_documents_processed == 1
 
-    with patch.object(
-        source, "_generate_embeddings", side_effect=mock_generate_embeddings
+    # Failing document raises
+    doc2_urn = "urn:li:document:(test,doc2,PROD)"
+    doc2_elements = [{"type": "Title", "text": "Doc 2"}]
+
+    with (
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("Temporary failure")
+        ),
+        pytest.raises(Exception, match="Temporary failure"),
     ):
-        for doc_urn, elements in documents:
-            list(source.process_elements_inline(doc_urn, elements))
-
-    # Verify statistics
-    assert source.report.num_documents_with_embeddings == 2
-    assert source.report.num_embedding_failures == 1
-    assert len(source.report.embedding_failures) == 1
-    assert len(source.report.warnings) == 1
-
-    # Verify all documents were processed
-    assert source.report.num_documents_processed == 3
+        list(source.process_elements_inline(doc2_urn, doc2_elements))
 
 
 def test_embedding_success_batch_mode(pipeline_context, chunking_config):
@@ -458,3 +407,59 @@ def test_bedrock_requires_no_api_key(pipeline_context):
         ctx=pipeline_context, config=config, standalone=False, graph=None
     )
     assert source.embedding_model == "bedrock/cohere.embed-english-v3"
+
+
+# --- max_documents limit tests ---
+
+
+def test_max_documents_limit_raises_after_nth_document(
+    pipeline_context, chunking_config
+):
+    """RuntimeError is raised after processing max_documents documents."""
+    chunking_config.max_documents = 2
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Disable embedding to keep the test focused on limit logic only
+    source.embedding_model = None
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with patch.object(source, "_chunk_elements", return_value=dummy_chunk):
+        # First document — should succeed
+        list(source.process_elements_inline("urn:li:document:doc1", elements))
+        assert source.report.num_documents_processed == 1
+        assert source.report.num_documents_limit_reached is False
+
+        # Second document — hits the limit
+        with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+            list(source.process_elements_inline("urn:li:document:doc2", elements))
+
+    assert source.report.num_documents_processed == 2
+    assert source.report.num_documents_limit_reached is True
+
+
+def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_config):
+    """Setting max_documents=-1 disables the limit entirely."""
+    chunking_config.max_documents = -1
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    source.embedding_model = None
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with patch.object(source, "_chunk_elements", return_value=dummy_chunk):
+        for i in range(5):
+            list(source.process_elements_inline(f"urn:li:document:doc{i}", elements))
+
+    assert source.report.num_documents_processed == 5
+    assert source.report.num_documents_limit_reached is False

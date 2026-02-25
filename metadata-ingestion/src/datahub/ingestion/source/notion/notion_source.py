@@ -335,6 +335,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             datahub=DataHubConnectionConfig(),  # Not used in inline mode
             chunking=config.chunking,
             embedding=config.embedding,
+            max_documents=config.max_documents,
         )
 
         # Pass graph to DocumentChunkingSource so it can load server config
@@ -1626,7 +1627,10 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 logger.error(error_msg, exc_info=True)
                 self.report.report_file_failed(error_msg)
 
-                if not self.config.advanced.continue_on_failure:
+                if (
+                    not self.config.advanced.continue_on_failure
+                    or self.chunking_source.report.num_documents_limit_reached
+                ):
                     raise
 
     def _should_skip_file(
@@ -1957,10 +1961,19 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         for wu in doc.as_workunits():
             yield wu
 
-        # Generate embeddings inline using ChunkingSource
+        # Generate embeddings inline using ChunkingSource.
+        # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
         try:
             yield from self.chunking_source.process_elements_inline(
                 document_urn=document_urn, elements=elements
+            )
+        except RuntimeError as e:
+            if self.chunking_source.report.num_documents_limit_reached:
+                self.report.num_documents_limit_reached = True
+                raise
+            short_error = str(e).split("\n")[0][:150]
+            logger.warning(
+                f"Failed to generate embeddings for {page_id}: {short_error}"
             )
         except Exception as e:
             short_error = str(e).split("\n")[0][:150]
@@ -1999,7 +2012,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             self._update_document_state(document_urn, text_content, page_id)
 
     def get_report(self) -> NotionSourceReport:
-        # Copy embedding statistics from chunking source report
+        # Copy statistics from chunking source report
         if self.chunking_source:
             chunking_report = self.chunking_source.report
             self.report.num_documents_with_embeddings = (
@@ -2009,6 +2022,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # Extend LossyList with items from the regular list
             for failure in chunking_report.embedding_failures:
                 self.report.embedding_failures.append(failure)
+            self.report.num_documents_limit_reached = (
+                chunking_report.num_documents_limit_reached
+            )
 
         # Log prominent warning if all embeddings failed
         if (
