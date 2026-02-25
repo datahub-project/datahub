@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -13,6 +14,7 @@ from typing import (
     List,
     Optional,
     Set,
+    Tuple,
 )
 
 from google.api_core import retry
@@ -43,6 +45,48 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_EXTERNAL_TABLE_DDL_FORMAT_RE = re.compile(
+    r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+)
+_EXTERNAL_TABLE_DDL_URIS_RE = re.compile(r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE)
+_EXTERNAL_TABLE_DDL_URI_ITEM_RE = re.compile(r"['\"]([^'\"]+)['\"]")
+_EXTERNAL_TABLE_DDL_COMPRESSION_RE = re.compile(
+    r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+)
+_EXTERNAL_TABLE_DDL_MAX_BAD_RECORDS_RE = re.compile(
+    r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
+)
+
+
+def _parse_external_table_options(
+    ddl: str,
+) -> Tuple[Optional[str], Optional[List[str]], Optional[str], Optional[int]]:
+    """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
+    source_format: Optional[str] = None
+    source_uris: Optional[List[str]] = None
+    compression: Optional[str] = None
+    max_bad_records: Optional[int] = None
+
+    format_match = _EXTERNAL_TABLE_DDL_FORMAT_RE.search(ddl)
+    if format_match:
+        source_format = format_match.group(1).upper()
+
+    uris_match = _EXTERNAL_TABLE_DDL_URIS_RE.search(ddl)
+    if uris_match:
+        items = _EXTERNAL_TABLE_DDL_URI_ITEM_RE.findall(uris_match.group(1))
+        if items:
+            source_uris = items
+
+    compression_match = _EXTERNAL_TABLE_DDL_COMPRESSION_RE.search(ddl)
+    if compression_match:
+        compression = compression_match.group(1).upper()
+
+    max_bad_records_match = _EXTERNAL_TABLE_DDL_MAX_BAD_RECORDS_RE.search(ddl)
+    if max_bad_records_match:
+        max_bad_records = int(max_bad_records_match.group(1))
+
+    return source_format, source_uris, compression, max_bad_records
 
 
 @dataclass
@@ -130,6 +174,10 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
+    external_source_format: Optional[str] = None
+    external_source_uris: Optional[List[str]] = None
+    external_compression: Optional[str] = None
+    external_max_bad_records: Optional[int] = None
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
 
@@ -451,6 +499,18 @@ class BigQuerySchemaApi:
             expiration = None
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
+        external = table.table_type == BigqueryTableType.EXTERNAL
+        external_source_format = None
+        external_source_uris = None
+        external_compression = None
+        external_max_bad_records = None
+        if external and table.ddl:
+            (
+                external_source_format,
+                external_source_uris,
+                external_compression,
+                external_max_bad_records,
+            ) = _parse_external_table_options(table.ddl)
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
@@ -471,7 +531,11 @@ class BigQuerySchemaApi:
             num_partitions=table.get("num_partitions"),
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
-            external=(table.table_type == BigqueryTableType.EXTERNAL),
+            external=external,
+            external_source_format=external_source_format,
+            external_source_uris=external_source_uris,
+            external_compression=external_compression,
+            external_max_bad_records=external_max_bad_records,
         )
 
     def get_views_for_dataset(
