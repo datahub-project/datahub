@@ -780,10 +780,14 @@
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:john.doe@acryldata.io",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "corpUserInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {},
+            "active": true,
+            "displayName": "John Doe",
+            "email": "john.doe@acryldata.io",
+            "system": false
         }
     },
     "systemMetadata": {

@@ -60,7 +60,7 @@ jobs:
 
           # Count projects
           project_count=$(wc -l < /tmp/projects_to_check.txt)
-          echo "project_count=$project_count" >> $GITHUB_OUTPUT
+          echo "project_count=$project_count" >> "$GITHUB_OUTPUT"
 
       - name: Analyze dependencies on PR branch
         run: |
@@ -153,15 +153,19 @@ jobs:
             fi
           done < /tmp/projects_to_check.txt
 
-          echo "has_violations=$has_violations" >> $GITHUB_OUTPUT
-          echo "total_violations=$total_violations" >> $GITHUB_OUTPUT
-          echo "total_excluded=$total_excluded" >> $GITHUB_OUTPUT
+          {
+            echo "has_violations=$has_violations"
+            echo "total_violations=$total_violations"
+            echo "total_excluded=$total_excluded"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate GitHub Actions Summary
         if: always()
         run: |
-          echo "## Python Dependency Pinning Check Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Python Dependency Pinning Check Results"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Check if we have violations
           has_violations="${{ steps.compare.outputs.has_violations }}"
@@ -169,19 +173,23 @@ jobs:
           total_excluded="${{ steps.compare.outputs.total_excluded }}"
 
           if [ "$has_violations" = "true" ]; then
-            echo "### Status: ❌ FAILED ($total_violations violations)" >> $GITHUB_STEP_SUMMARY
+            echo "### Status: ❌ FAILED ($total_violations violations)" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "### Status: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "### Status: ✅ PASSED" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ "$total_excluded" -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "⚠️  **Note:** $total_excluded unpinned dependencies are allowed via exclusion list" >> $GITHUB_STEP_SUMMARY
+            {
+              echo ""
+              echo "⚠️  **Note:** $total_excluded unpinned dependencies are allowed via exclusion list"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo ""
+            echo "---"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Process results for each project
           projects_with_violations=()
@@ -210,14 +218,18 @@ jobs:
 
           # Show violations
           if [ ${#projects_with_violations[@]} -gt 0 ]; then
-            echo "### ❌ Violations Detected" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### ❌ Violations Detected"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
 
             for project in "${projects_with_violations[@]}"; do
-              echo "#### $project" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "| Type | Dependency | Old Pinning | New Pinning | Source |" >> $GITHUB_STEP_SUMMARY
-              echo "|------|------------|-------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+              {
+                echo "#### $project"
+                echo ""
+                echo "| Type | Dependency | Old Pinning | New Pinning | Source |"
+                echo "|------|------------|-------------|-------------|--------|"
+              } >> "$GITHUB_STEP_SUMMARY"
 
               safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               result_file="/tmp/comparison-results/${safe_name}.json"
@@ -233,28 +245,34 @@ jobs:
                   .source
                 ] | @tsv' "$result_file" | \
               while IFS=$'\t' read -r type name old new source; do
-                echo "| $type | $name | $old | $new | $source |" >> $GITHUB_STEP_SUMMARY
+                echo "| $type | $name | $old | $new | $source |" >> "$GITHUB_STEP_SUMMARY"
               done
 
-              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
             done
 
-            echo "---" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "---"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Show excluded violations
           if [ ${#projects_with_exclusions[@]} -gt 0 ]; then
-            echo "### ⚠️  Unpinned But Allowed (Exclusions)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "These dependencies are unpinned but allowed via \`.github/python-deps-exclusions.txt\`:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### ⚠️  Unpinned But Allowed (Exclusions)"
+              echo ""
+              echo "These dependencies are unpinned but allowed via \`.github/python-deps-exclusions.txt\`:"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
 
             for project in "${projects_with_exclusions[@]}"; do
-              echo "#### $project" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "| Type | Dependency | Old Pinning | New Pinning | Source |" >> $GITHUB_STEP_SUMMARY
-              echo "|------|------------|-------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+              {
+                echo "#### $project"
+                echo ""
+                echo "| Type | Dependency | Old Pinning | New Pinning | Source |"
+                echo "|------|------------|-------------|-------------|--------|"
+              } >> "$GITHUB_STEP_SUMMARY"
 
               safe_name=$(echo "$project" | sed 's/[\/.]/-/g; s/^-//; s/-$//')
               result_file="/tmp/comparison-results/${safe_name}.json"
@@ -270,59 +288,67 @@ jobs:
                   .source
                 ] | @tsv' "$result_file" | \
               while IFS=$'\t' read -r type name old new source; do
-                echo "| $type | $name | $old | $new | $source |" >> $GITHUB_STEP_SUMMARY
+                echo "| $type | $name | $old | $new | $source |" >> "$GITHUB_STEP_SUMMARY"
               done
 
-              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
             done
 
-            echo "---" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "---"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Show projects without issues
           if [ ${#projects_without_violations[@]} -gt 0 ]; then
-            echo "### ✅ Projects with No Issues (${#projects_without_violations[@]})" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### ✅ Projects with No Issues (${#projects_without_violations[@]})"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
             for project in "${projects_without_violations[@]}"; do
-              echo "- $project" >> $GITHUB_STEP_SUMMARY
+              echo "- $project" >> "$GITHUB_STEP_SUMMARY"
             done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "---" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo ""
+              echo "---"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Add policy explanation
-          echo "### Policy Violation Details" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This workflow enforces strict dependency pinning to prevent supply chain vulnerabilities:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Blocked Pin Types:**" >> $GITHUB_STEP_SUMMARY
-          echo "- **UNPINNED**: No version constraint (e.g., \`requests\`)" >> $GITHUB_STEP_SUMMARY
-          echo "- **LOWER_BOUND**: Only minimum version (e.g., \`requests>=2.0\`)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Allowed Pin Types:**" >> $GITHUB_STEP_SUMMARY
-          echo "- **EXACT**: Fully pinned (e.g., \`requests==2.28.1\`) ✅ Recommended" >> $GITHUB_STEP_SUMMARY
-          echo "- **RANGE**: Lower and upper bounds (e.g., \`requests>=2.0,<3.0\`)" >> $GITHUB_STEP_SUMMARY
-          echo "- **COMPATIBLE**: Compatible release (e.g., \`requests~=2.1\`)" >> $GITHUB_STEP_SUMMARY
-          echo "- **WILDCARD**: Exact with wildcard (e.g., \`requests==2.*\`)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**How to Fix:**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. For new dependencies, use exact pinning:" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`python" >> $GITHUB_STEP_SUMMARY
-          echo "   # Bad" >> $GITHUB_STEP_SUMMARY
-          echo "   install_requires=[\"requests>=2.0\"]" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "   # Good" >> $GITHUB_STEP_SUMMARY
-          echo "   install_requires=[\"requests==2.28.1\"]" >> $GITHUB_STEP_SUMMARY
-          echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "2. For existing dependencies being modified, maintain or improve pinning level" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "3. If you must use loose pinning, ensure it exists in master first (grandfathered)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "4. For special cases, add to \`.github/python-deps-exclusions.txt\`" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Policy Violation Details"
+            echo ""
+            echo "This workflow enforces strict dependency pinning to prevent supply chain vulnerabilities:"
+            echo ""
+            echo "**Blocked Pin Types:**"
+            echo "- **UNPINNED**: No version constraint (e.g., \`requests\`)"
+            echo "- **LOWER_BOUND**: Only minimum version (e.g., \`requests>=2.0\`)"
+            echo ""
+            echo "**Allowed Pin Types:**"
+            echo "- **EXACT**: Fully pinned (e.g., \`requests==2.28.1\`) ✅ Recommended"
+            echo "- **RANGE**: Lower and upper bounds (e.g., \`requests>=2.0,<3.0\`)"
+            echo "- **COMPATIBLE**: Compatible release (e.g., \`requests~=2.1\`)"
+            echo "- **WILDCARD**: Exact with wildcard (e.g., \`requests==2.*\`)"
+            echo ""
+            echo "**How to Fix:**"
+            echo ""
+            echo "1. For new dependencies, use exact pinning:"
+            echo "   \`\`\`python"
+            echo "   # Bad"
+            echo "   install_requires=[\"requests>=2.0\"]"
+            echo ""
+            echo "   # Good"
+            echo "   install_requires=[\"requests==2.28.1\"]"
+            echo "   \`\`\`"
+            echo ""
+            echo "2. For existing dependencies being modified, maintain or improve pinning level"
+            echo ""
+            echo "3. If you must use loose pinning, ensure it exists in master first (grandfathered)"
+            echo ""
+            echo "4. For special cases, add to \`.github/python-deps-exclusions.txt\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if violations found
         if: steps.compare.outputs.has_violations == 'true'

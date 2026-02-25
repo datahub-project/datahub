@@ -572,5 +572,5 @@ class TestAllUdfsUseDataHubContext:
 
         assert "_snowflake.get_generic_secret_string('datahub_url_secret')" in result
         assert "_snowflake.get_generic_secret_string('datahub_token_secret')" in result
-        assert "DataHubGraph(" in result
-        assert "with DataHubContext(graph):" in result
+        assert "DataHubClient(" in result
+        assert "with DataHubContext(client):" in result

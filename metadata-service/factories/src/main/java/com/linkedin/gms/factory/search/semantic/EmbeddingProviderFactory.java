@@ -81,14 +81,16 @@ public class EmbeddingProviderFactory {
   }
 
   private EmbeddingProvider createAwsBedrockProvider(EmbeddingProviderConfiguration config) {
+    EmbeddingProviderConfiguration.BedrockConfig bedrockConfig = config.getBedrock();
+
     log.info(
         "Configuring AWS Bedrock embedding provider: region={}, model={}, maxCharLength={}",
-        config.getAwsRegion(),
-        config.getModelId(),
+        bedrockConfig.getAwsRegion(),
+        bedrockConfig.getModel(),
         config.getMaxCharacterLength());
 
     return new AwsBedrockEmbeddingProvider(
-        config.getAwsRegion(), config.getModelId(), config.getMaxCharacterLength());
+        bedrockConfig.getAwsRegion(), bedrockConfig.getModel(), config.getMaxCharacterLength());
   }
 
   private EmbeddingProvider createOpenAIProvider(EmbeddingProviderConfiguration config) {

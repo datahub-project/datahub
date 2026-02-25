@@ -5,7 +5,11 @@ from unittest.mock import Mock
 import pytest
 
 from datahub_agent_context.context import DataHubContext
-from datahub_agent_context.mcp_tools.owners import add_owners, remove_owners
+from datahub_agent_context.mcp_tools.owners import (
+    OwnershipType,
+    add_owners,
+    remove_owners,
+)
 
 
 @pytest.fixture
@@ -47,7 +51,11 @@ def test_add_owners_to_multiple_datasets(mock_client):
     ]
 
     with DataHubContext(mock_client):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+        result = add_owners(
+            owner_urns=owner_urns,
+            entity_urns=entity_urns,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
+        )
     assert result["success"] is True
     assert "Successfully added 2 owner(s) to 2 entit(ies)" in result["message"]
 
@@ -68,19 +76,18 @@ def test_add_owners_to_multiple_datasets(mock_client):
     assert variables["input"]["resources"][1]["resourceUrn"] == entity_urns[1]
 
 
-def test_add_owners_with_ownership_type(mock_client):
-    """Test adding owners with a specific ownership type."""
-    owner_urns = ["urn:li:corpuser:tech.owner"]
+def test_add_owners_with_technical_owner_type(mock_client):
+    """Test adding owners with technical owner type."""
+    owner_urns = ["urn:li:corpuser:john.doe"]
     entity_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.users,PROD)"
     ]
-    ownership_type_urn = "urn:li:ownershipType:technical_owner"
 
     # Mock validation response
     mock_client._graph.execute_graphql.side_effect = [
         {
             "entities": [
-                {"urn": owner_urns[0], "type": "CORP_USER", "username": "tech.owner"}
+                {"urn": owner_urns[0], "type": "CORP_USER", "username": "john.doe"}
             ]
         },
         {"batchAddOwners": True},
@@ -90,7 +97,7 @@ def test_add_owners_with_ownership_type(mock_client):
         result = add_owners(
             owner_urns=owner_urns,
             entity_urns=entity_urns,
-            ownership_type_urn=ownership_type_urn,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
         )
 
     assert result["success"] is True
@@ -99,9 +106,15 @@ def test_add_owners_with_ownership_type(mock_client):
     mutation_call = mock_client._graph.execute_graphql.call_args_list[1]
     variables = mutation_call.kwargs["variables"]
 
-    # Verify ownership type is included in both owner input and top-level input
-    assert variables["input"]["owners"][0]["ownershipTypeUrn"] == ownership_type_urn
-    assert variables["input"]["ownershipTypeUrn"] == ownership_type_urn
+    # Verify technical owner ownership type is applied
+    assert (
+        variables["input"]["owners"][0]["ownershipTypeUrn"]
+        == "urn:li:ownershipType:__system__technical_owner"
+    )
+    assert (
+        variables["input"]["ownershipTypeUrn"]
+        == "urn:li:ownershipType:__system__technical_owner"
+    )
 
 
 def test_add_owners_to_mixed_entity_types(mock_client):
@@ -123,7 +136,11 @@ def test_add_owners_to_mixed_entity_types(mock_client):
     ]
 
     with DataHubContext(mock_client):
-        result = add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+        result = add_owners(
+            owner_urns=owner_urns,
+            entity_urns=entity_urns,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
+        )
     assert result["success"] is True
 
     # Check the mutation call
@@ -145,7 +162,11 @@ def test_add_owners_with_nonexistent_owner(mock_client):
 
     with pytest.raises(ValueError, match="do not exist in DataHub"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            add_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_add_owners_with_invalid_owner_type(mock_client):
@@ -160,21 +181,33 @@ def test_add_owners_with_invalid_owner_type(mock_client):
 
     with pytest.raises(ValueError, match="not valid owner entities"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            add_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_add_owners_empty_owner_urns(mock_client):
     """Test that empty owner_urns raises ValueError."""
     with pytest.raises(ValueError, match="owner_urns cannot be empty"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=[], entity_urns=["urn:li:dataset:test"])
+            add_owners(
+                owner_urns=[],
+                entity_urns=["urn:li:dataset:test"],
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_add_owners_empty_entity_urns(mock_client):
     """Test that empty entity_urns raises ValueError."""
     with pytest.raises(ValueError, match="entity_urns cannot be empty"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=["urn:li:corpuser:test"], entity_urns=[])
+            add_owners(
+                owner_urns=["urn:li:corpuser:test"],
+                entity_urns=[],
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_add_owners_mutation_returns_false(mock_client):
@@ -190,7 +223,11 @@ def test_add_owners_mutation_returns_false(mock_client):
 
     with pytest.raises(RuntimeError, match="Failed to add owners"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            add_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_add_owners_graphql_exception(mock_client):
@@ -206,7 +243,11 @@ def test_add_owners_graphql_exception(mock_client):
 
     with pytest.raises(RuntimeError, match="Error add owners"):
         with DataHubContext(mock_client):
-            add_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            add_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 # ===== Tests for remove_owners =====
@@ -239,7 +280,11 @@ def test_remove_owners_from_multiple_datasets(mock_client):
     ]
 
     with DataHubContext(mock_client):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+        result = remove_owners(
+            owner_urns=owner_urns,
+            entity_urns=entity_urns,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
+        )
     assert result["success"] is True
     assert "Successfully removed 2 owner(s) from 2 entit(ies)" in result["message"]
 
@@ -261,7 +306,6 @@ def test_remove_owners_with_ownership_type(mock_client):
     entity_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.users,PROD)"
     ]
-    ownership_type_urn = "urn:li:ownershipType:technical_owner"
 
     # Mock validation response
     mock_client._graph.execute_graphql.side_effect = [
@@ -277,7 +321,7 @@ def test_remove_owners_with_ownership_type(mock_client):
         result = remove_owners(
             owner_urns=owner_urns,
             entity_urns=entity_urns,
-            ownership_type_urn=ownership_type_urn,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
         )
 
     assert result["success"] is True
@@ -287,7 +331,8 @@ def test_remove_owners_with_ownership_type(mock_client):
     variables = mutation_call.kwargs["variables"]
 
     # Verify ownership type is included
-    assert variables["input"]["ownershipTypeUrn"] == ownership_type_urn
+    expected_urn = "urn:li:ownershipType:__system__technical_owner"
+    assert variables["input"]["ownershipTypeUrn"] == expected_urn
 
 
 def test_remove_owners_from_mixed_entity_types(mock_client):
@@ -309,7 +354,11 @@ def test_remove_owners_from_mixed_entity_types(mock_client):
     ]
 
     with DataHubContext(mock_client):
-        result = remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+        result = remove_owners(
+            owner_urns=owner_urns,
+            entity_urns=entity_urns,
+            ownership_type=OwnershipType.TECHNICAL_OWNER,
+        )
     assert result["success"] is True
 
     # Check the mutation call
@@ -331,7 +380,11 @@ def test_remove_owners_with_nonexistent_owner(mock_client):
 
     with pytest.raises(ValueError, match="do not exist in DataHub"):
         with DataHubContext(mock_client):
-            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            remove_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_remove_owners_with_invalid_owner_type(mock_client):
@@ -346,21 +399,33 @@ def test_remove_owners_with_invalid_owner_type(mock_client):
 
     with pytest.raises(ValueError, match="not valid owner entities"):
         with DataHubContext(mock_client):
-            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            remove_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_remove_owners_empty_owner_urns(mock_client):
     """Test that empty owner_urns raises ValueError."""
     with pytest.raises(ValueError, match="owner_urns cannot be empty"):
         with DataHubContext(mock_client):
-            remove_owners(owner_urns=[], entity_urns=["urn:li:dataset:test"])
+            remove_owners(
+                owner_urns=[],
+                entity_urns=["urn:li:dataset:test"],
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_remove_owners_empty_entity_urns(mock_client):
     """Test that empty entity_urns raises ValueError."""
     with pytest.raises(ValueError, match="entity_urns cannot be empty"):
         with DataHubContext(mock_client):
-            remove_owners(owner_urns=["urn:li:corpuser:test"], entity_urns=[])
+            remove_owners(
+                owner_urns=["urn:li:corpuser:test"],
+                entity_urns=[],
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_remove_owners_mutation_returns_false(mock_client):
@@ -376,7 +441,11 @@ def test_remove_owners_mutation_returns_false(mock_client):
 
     with pytest.raises(RuntimeError, match="Failed to remove owners"):
         with DataHubContext(mock_client):
-            remove_owners(owner_urns=owner_urns, entity_urns=entity_urns)
+            remove_owners(
+                owner_urns=owner_urns,
+                entity_urns=entity_urns,
+                ownership_type=OwnershipType.TECHNICAL_OWNER,
+            )
 
 
 def test_remove_owners_graphql_exception(mock_client):

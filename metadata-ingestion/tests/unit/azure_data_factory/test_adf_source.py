@@ -13,10 +13,22 @@ We do NOT test:
 - Pydantic validation (covered by test_adf_config.py)
 """
 
+from typing import Callable, Optional
+
+import pytest
+
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+    CopyActivityColumnLineageExtractor,
+    DatasetSchemaInfo,
+)
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
     LINKED_SERVICE_PLATFORM_MAP,
+)
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
 
 
@@ -447,3 +459,463 @@ class TestActivityRunToDataJobUrnMapping:
         # Each URN should contain its activity name
         for activity, urn in zip(activities, job_urns, strict=False):
             assert activity in str(urn)
+
+
+# =============================================================================
+# Column-Level Lineage Tests
+# =============================================================================
+
+
+class MockActivity:
+    """Mock activity object for testing column lineage extraction."""
+
+    def __init__(
+        self,
+        activity_type: str = "Copy",
+        translator: dict | None = None,
+        type_properties: dict | None = None,
+        name: str = "TestActivity",
+    ):
+        self.name = name
+        self.type = activity_type
+        self.translator = translator
+        self.type_properties = type_properties
+
+
+def make_schema_resolver(
+    schema_map: Optional[dict[str, DatasetSchemaInfo]] = None,
+) -> Callable[[str], Optional[DatasetSchemaInfo]]:
+    """Create a schema resolver function for testing.
+
+    Args:
+        schema_map: Optional dict mapping dataset URNs to DatasetSchemaInfo.
+                   If None, resolver always returns None.
+    """
+
+    def resolver(dataset_urn: str) -> Optional[DatasetSchemaInfo]:
+        if schema_map is None:
+            return None
+        return schema_map.get(dataset_urn)
+
+    return resolver
+
+
+class TestCopyActivityColumnLineageExtractor:
+    """Tests for CopyActivityColumnLineageExtractor.
+
+    These tests verify the column mapping extraction logic for Copy activities.
+    """
+
+    @pytest.mark.parametrize(
+        "activity_type,expected",
+        [
+            ("Copy", True),
+            ("ExecuteDataFlow", False),
+            ("Lookup", False),
+            ("ForEach", False),
+            ("If", False),
+            ("Switch", False),
+        ],
+    )
+    def test_supports_activity_types(self, activity_type: str, expected: bool) -> None:
+        """Extractor should only support Copy activity type."""
+        extractor = CopyActivityColumnLineageExtractor()
+        assert extractor.supports_activity(activity_type) is expected
+
+    def test_extract_dict_format_column_mappings(self) -> None:
+        """Should parse legacy dictionary format: {source_col: sink_col}."""
+
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": {
+                    "source_id": "target_id",
+                    "source_name": "target_name",
+                },
+            }
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.source_table,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.sink_table,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 2
+        # Extract column names from URNs (format: urn:li:schemaField:(...,column))
+        mapping_dict = {}
+        for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
+            upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
+            downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
+            mapping_dict[upstream_col] = downstream_col
+        assert mapping_dict["source_id"] == "target_id"
+        assert mapping_dict["source_name"] == "target_name"
+        # Verify URNs contain the dataset URNs
+        for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
+            assert source_urn in fgl.upstreams[0]
+            assert sink_urn in fgl.downstreams[0]
+
+    def test_extract_list_format_column_mappings(self) -> None:
+        """Should parse current list format: [{source: {name}, sink: {name}}]."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"name": "col_a"}, "sink": {"name": "col_x"}},
+                    {"source": {"name": "col_b"}, "sink": {"name": "col_y"}},
+                ],
+            }
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 2
+        # Extract column names from URNs
+        mapping_dict = {}
+        for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
+            upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
+            downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
+            mapping_dict[upstream_col] = downstream_col
+        assert mapping_dict["col_a"] == "col_x"
+        assert mapping_dict["col_b"] == "col_y"
+
+    def test_empty_when_no_translator(self) -> None:
+        """Should return empty list when no translator configuration."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(translator=None, type_properties=None)
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert lineages == []
+
+    def test_empty_when_missing_inlets_or_outlets(self) -> None:
+        """Should return empty list when inlets or outlets are empty."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={"columnMappings": {"a": "b"}},
+        )
+
+        # Missing inlets
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[],
+            outlets=["urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"],
+            schema_resolver=make_schema_resolver(),
+        )
+        assert lineages == []
+
+        # Missing outlets
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=["urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"],
+            outlets=[],
+            schema_resolver=make_schema_resolver(),
+        )
+        assert lineages == []
+
+    def test_handles_empty_column_names_gracefully(self) -> None:
+        """Should skip mappings with empty or None column names."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={
+                "columnMappings": {
+                    "valid_src": "valid_sink",
+                    "": "empty_source",
+                    "empty_sink": "",
+                },
+            }
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        # Only the valid mapping should be extracted
+        assert len(lineages) == 1
+        # Extract column names from URNs
+        assert lineages[0].upstreams is not None and lineages[0].downstreams is not None
+        upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
+        downstream_col = lineages[0].downstreams[0].split(",")[-1].rstrip(")")
+        assert upstream_col == "valid_src"
+        assert downstream_col == "valid_sink"
+
+    def test_extract_from_sdk_flattened_translator(self) -> None:
+        """Should extract translator from activity-level attribute (SDK flattening)."""
+        extractor = CopyActivityColumnLineageExtractor()
+        # Translator at activity level (not in typeProperties)
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": {"id": "id"},
+            },
+            type_properties={},  # Empty typeProperties
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 1
+        assert lineages[0].upstreams is not None
+        upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
+        assert upstream_col == "id"
+
+    def test_extract_from_type_properties_translator(self) -> None:
+        """Should extract translator from typeProperties when not at activity level."""
+        extractor = CopyActivityColumnLineageExtractor()
+        # Translator in typeProperties (raw JSON format)
+        activity = MockActivity(
+            translator=None,
+            type_properties={
+                "translator": {
+                    "type": "TabularTranslator",
+                    "columnMappings": {"name": "full_name"},
+                }
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 1
+        assert lineages[0].upstreams is not None and lineages[0].downstreams is not None
+        upstream_col = lineages[0].upstreams[0].split(",")[-1].rstrip(")")
+        downstream_col = lineages[0].downstreams[0].split(",")[-1].rstrip(")")
+        assert upstream_col == "name"
+        assert downstream_col == "full_name"
+
+    def test_infer_auto_mapped_columns_from_source_schema(self) -> None:
+        """Should infer 1:1 mappings from source schema when no explicit mappings."""
+        extractor = CopyActivityColumnLineageExtractor()
+        # TabularTranslator without explicit mappings
+        activity = MockActivity(
+            translator={"type": "TabularTranslator"},  # No columnMappings or mappings
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+        source_schema = DatasetSchemaInfo(columns=["id", "name", "email"])
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver({source_urn: source_schema}),
+        )
+
+        assert len(lineages) == 3
+        # Auto-mapping means same column name on both sides
+        for fgl in lineages:
+            assert fgl.upstreams is not None and fgl.downstreams is not None
+            upstream_col = fgl.upstreams[0].split(",")[-1].rstrip(")")
+            downstream_col = fgl.downstreams[0].split(",")[-1].rstrip(")")
+            assert upstream_col == downstream_col
+        column_names = set()
+        for fgl in lineages:
+            assert fgl.upstreams is not None
+            column_names.add(fgl.upstreams[0].split(",")[-1].rstrip(")"))
+        assert column_names == {"id", "name", "email"}
+
+    def test_no_inference_without_source_schema(self) -> None:
+        """Should not infer mappings when source schema is unavailable."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={"type": "TabularTranslator"},  # No explicit mappings
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),  # Returns None
+        )
+
+        assert lineages == []
+
+
+class TestSourceDatasetSchemaExtraction:
+    """Tests for dataset schema extraction logic.
+
+    These tests verify the schema extraction patterns used by
+    _get_source_dataset_schema and _extract_dataset_schema.
+    """
+
+    def test_extract_columns_from_schema_definition(self) -> None:
+        """Should extract columns from dataset's schema property (newer format)."""
+        schema = [
+            {"name": "id", "type": "int"},
+            {"name": "name", "type": "string"},
+            {"name": "created_at", "type": "datetime"},
+        ]
+
+        # Logic pattern from _extract_dataset_schema
+        columns = []
+        for field in schema:
+            if isinstance(field, dict):
+                name = field.get("name")
+                if name:
+                    columns.append(str(name))
+
+        assert columns == ["id", "name", "created_at"]
+
+    def test_extract_columns_from_structure(self) -> None:
+        """Should extract columns from dataset's structure property (legacy format)."""
+        structure = [
+            {"name": "column_a"},
+            {"name": "column_b"},
+        ]
+
+        columns = []
+        for field in structure:
+            if isinstance(field, dict):
+                name = field.get("name")
+                if name:
+                    columns.append(str(name))
+
+        assert columns == ["column_a", "column_b"]
+
+    def test_returns_empty_when_no_schema(self) -> None:
+        """Should return empty list when no schema or structure."""
+        schema = None
+        structure = None
+
+        columns: list[str] = []
+        if schema and isinstance(schema, list):
+            for field in schema:
+                if isinstance(field, dict):
+                    name = field.get("name")
+                    if name:
+                        columns.append(str(name))
+
+        if not columns and structure and isinstance(structure, list):
+            for field in structure:
+                if isinstance(field, dict):
+                    name = field.get("name")
+                    if name:
+                        columns.append(str(name))
+
+        assert columns == []
+
+
+class TestFineGrainedLineageOutput:
+    """Tests for FineGrainedLineageClass output from column lineage extractor.
+
+    These tests verify the extractor produces correct URN formats and types.
+    """
+
+    def test_produces_correct_schema_field_urns(self) -> None:
+        """Should produce valid SchemaFieldUrn for upstreams and downstreams."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": {"id": "target_id"},
+            }
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dest,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 1
+        fgl = lineages[0]
+
+        # Verify URN formats
+        assert fgl.upstreams is not None and fgl.downstreams is not None
+        assert "schemaField" in fgl.upstreams[0]
+        assert "id" in fgl.upstreams[0]
+        assert "schemaField" in fgl.downstreams[0]
+        assert "target_id" in fgl.downstreams[0]
+
+    def test_upstream_type_is_field_set(self) -> None:
+        """Upstream type should be FIELD_SET (many-to-one possible)."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={"columnMappings": {"col": "col"}},
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,t2,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 1
+        assert lineages[0].upstreamType == FineGrainedLineageUpstreamTypeClass.FIELD_SET
+
+    def test_downstream_type_is_field(self) -> None:
+        """Downstream type should be FIELD (single field target)."""
+        extractor = CopyActivityColumnLineageExtractor()
+        activity = MockActivity(
+            translator={"columnMappings": {"col": "col"}},
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,t2,PROD)"
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver(),
+        )
+
+        assert len(lineages) == 1
+        assert lineages[0].downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD

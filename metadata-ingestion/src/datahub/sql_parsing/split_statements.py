@@ -8,7 +8,11 @@ SELECT_KEYWORD = "SELECT"
 CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
 
+_WORD_BOUNDARY_PATTERN = re.compile(r"\w\W|\W\w")
+_FOR_CLAUSE_PATTERN = re.compile(r"\bFOR\s*$")
+
 CONTROL_FLOW_KEYWORDS = [
+    # MSSQL/T-SQL control flow
     "GO",
     r"BEGIN\s+TRY",
     r"BEGIN\s+CATCH",
@@ -22,6 +26,20 @@ CONTROL_FLOW_KEYWORDS = [
     # We have special handling for this.
     END_KEYWORD,
     # "ELSE",  # else is also valid in CASE, so we we can't use it here.
+    # Oracle PL/SQL control flow
+    "WHILE",
+    "LOOP",
+    r"END\s+LOOP",
+    r"END\s+IF",
+    "ELSIF",
+    "EXCEPTION",
+    r"WHEN\s+OTHERS",  # Exception handler (specific to avoid matching CASE/MERGE)
+    "EXIT",  # Exit loop
+    "CONTINUE",  # Continue to next iteration
+    "GOTO",  # Transfer control to label
+    "RETURN",  # Safe - only used in functions/procedures
+    # Note: FOR and DECLARE are intentionally excluded as they conflict with standard SQL
+    # (FOR UPDATE/SHARE, DECLARE variables are handled separately)
 ]
 
 # There's an exception to this rule, which is when the statement
@@ -88,10 +106,7 @@ class _StatementSplitter:
             return False, ""
 
         # If we're not at a word boundary, we can't generate a keyword.
-        if pos > 0 and not (
-            bool(re.match(r"\w\W", sql[pos - 1 : pos + 1]))
-            or bool(re.match(r"\W\w", sql[pos - 1 : pos + 1]))
-        ):
+        if pos > 0 and not _WORD_BOUNDARY_PATTERN.match(sql[pos - 1 : pos + 1]):
             return False, ""
 
         pattern = rf"^{keyword}\b"
@@ -253,6 +268,10 @@ class _StatementSplitter:
             is_force_new_statement_keyword
             and not self._has_preceding_cte(most_recent_real_char)
             and not self._is_part_of_merge_query()
+            and not (
+                keyword.upper() in ("UPDATE", "SHARE")
+                and self._is_for_update_or_share()
+            )
         ):
             # Force termination of current statement
             yield from self._yield_if_complete()
@@ -290,10 +309,24 @@ class _StatementSplitter:
         # In merge statement we'd have `when matched then` or `when not matched then"
         return "".join(self.current_statement).strip().lower().endswith("then")
 
+    def _is_for_update_or_share(self) -> bool:
+        """
+        Check if UPDATE/SHARE is part of a FOR UPDATE/FOR SHARE clause.
+        These are locking hints in SELECT statements, not new statements.
+        """
+        # Look backwards in current statement for FOR keyword
+        current_text = "".join(self.current_statement).strip().upper()
+        # Check if the current statement ends with "FOR" (possibly with whitespace)
+        return bool(_FOR_CLAUSE_PATTERN.search(current_text))
+
 
 def split_statements(sql: str) -> Iterator[str]:
     """
-    Split T-SQL code into individual statements, handling various SQL constructs.
+    Split SQL code into individual statements, handling various SQL constructs.
+
+    Used for stored procedure lineage extraction across multiple platforms (MSSQL, Oracle,
+    Postgres, MySQL, DB2). Handles MSSQL/T-SQL (which doesn't require semicolons) and
+    Oracle PL/SQL control flow keywords.
     """
 
     splitter = _StatementSplitter(sql)

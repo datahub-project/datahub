@@ -94,7 +94,7 @@ class BIContainerSubTypes(StrEnum):
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
-    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
 
 
@@ -102,6 +102,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    FUNCTION = "Function"
 
 
 class BIAssetSubTypes(StrEnum):
