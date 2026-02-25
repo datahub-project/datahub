@@ -99,7 +99,7 @@ DataHub Cloud offers comprehensive features designed to support the authoring of
   <i style={{color:"grey"}}>Business Glossary Center</i>
 </p>
 
-- **[Centralized Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary):** A repository for all business terms and definitions, ensuring consistency across the organization.
+- **[Centralized Business Glossary](/docs/glossary/business-glossary):** A repository for all business terms and definitions, ensuring consistency across the organization.
 
 
 <p align="center">
@@ -109,10 +109,10 @@ DataHub Cloud offers comprehensive features designed to support the authoring of
 </p>
 
 
-- **[Approval Flows](https://docs.datahub.com/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to the glossary, maintaining quality and consistency through time
+- **[Approval Flows](/docs/managed-datahub/change-proposals#using-approval-workflows):** Structured workflows for approving changes to the glossary, maintaining quality and consistency through time
 
-- **Automated Data Classification:** Tools to tag critical data assets - tables, columns, dashboards, and pipelines - with terms from the business glossary using automations and custom rules.
-
+- **[Automated Data Classification](/docs/automations/ai-term-suggestion):** Tools to automatically suggest and tag your data assets - specifically tables, columns, dashboards, and pipelines - with terms from your business glossary, using AI automations and custom instructions.
+ 
 By implementing these solutions, you can ensure that your business terminology is consistently defined and accurately used across all teams, supporting reliable decision-making and regulatory compliance.
 
 ## Conclusion
