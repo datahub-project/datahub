@@ -77,7 +77,7 @@ For schemas-enabled lakehouses, you may also need OneLake data access permission
 
 For detailed information on permissions, see:
 
-- [Fabric REST API Permissions](https://learn.microsoft.com/en-us/rest/api/fabric/articles/api-permissions)
+- [Fabric REST API Permissions](https://learn.microsoft.com/en-us/rest/api/fabric/articles/scopes)
 - [Workspace Roles and Permissions](https://learn.microsoft.com/en-us/fabric/admin/roles)
 - [OneLake Data Access Control](https://learn.microsoft.com/en-us/fabric/onelake/security/data-access-control-model)
 
@@ -392,9 +392,9 @@ source:
 
 **References:**
 
-- [What is the SQL analytics endpoint for a lakehouse?](https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse)
-- [Warehouse connectivity in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity)
-- [Connect to Fabric Data Warehouse](https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse)
+- [What is the SQL analytics endpoint for a lakehouse?](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-sql-analytics-endpoint)
+- [Warehouse connectivity in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/connectivity)
+- [Connect to Fabric Data Warehouse](https://learn.microsoft.com/en-us/fabric/data-warehouse/how-to-connect)
 
 ### Important Notes
 
@@ -461,7 +461,7 @@ When enabled, the connector will:
 ### Fabric Concepts
 
 - [Microsoft Fabric Overview](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview)
-- [OneLake Overview](https://learn.microsoft.com/en-us/fabric/data-engineering/onelake-overview)
+- [OneLake Overview](https://learn.microsoft.com/en-us/fabric/onelake/onelake-overview)
 - [Workspaces in Fabric](https://learn.microsoft.com/en-us/fabric/get-started/workspaces)
 - [Lakehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview)
-- [Warehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-overview)
+- [Warehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing)

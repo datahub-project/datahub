@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
@@ -86,6 +87,14 @@ public class DataHubKafkaProducerFactory {
       producerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
+    String securityProtocol =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getSecurityProtocol())
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      producerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
     Map<String, Object> props = properties.buildProducerProperties(null);
     props.putAll(
         kafkaConfiguration.getSerde().getEvent().getProducerProperties(schemaRegistryConfig));
@@ -109,6 +118,11 @@ public class DataHubKafkaProducerFactory {
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     props.putAll(kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrl = kafkaConfiguration.getProducer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrl)) {
+      props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+    }
 
     return props;
   }

@@ -3966,5 +3966,23 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:cli-cypress-test",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "json": {
+        "name": "[CLI] file (cypress)",
+        "type": "file",
+        "config": {
+          "recipe": "{\"source\": {\"type\": \"file\", \"config\": {\"filename\": \"tests/cypress/query-data.json\"}, \"extractor\": \"generic\", \"extractor_config\": {}}, \"sink\": {\"type\": \"datahub-rest\", \"config\": {\"server\": \"http://localhost:8080\", \"token\": \"********\", \"mode\": \"ASYNC_BATCH\"}}, \"transformers\": null, \"flags\": {\"generate_browse_path_v2\": true, \"generate_browse_path_v2_dry_run\": false, \"generate_memory_profiles\": null, \"set_system_metadata\": true, \"set_system_metadata_pipeline_name\": true}, \"reporting\": [{\"type\": \"datahub\", \"config\": null, \"required\": false}], \"run_id\": \"file-2026_02_19-11_36_20-ioptda\", \"datahub_api\": null, \"pipeline_name\": null, \"failure_log\": {\"enabled\": false, \"log_config\": null}, \"recording\": null}",
+          "executorId": "__datahub_cli_",
+          "version": "unavailable (installed in develop mode)"
+        },
+        "platform": "urn:li:dataPlatform:unknown"
+      }
+    }
   }
 ]

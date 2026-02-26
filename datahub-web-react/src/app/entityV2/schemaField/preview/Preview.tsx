@@ -1,4 +1,4 @@
-import { PicCenterOutlined } from '@ant-design/icons';
+import { Rows } from '@phosphor-icons/react';
 import React from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -44,7 +44,7 @@ export const Preview = ({
             urn={datasetUrn}
             description={description ?? ''}
             owners={owners}
-            logoComponent={<PicCenterOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<Rows size={20} color="currentColor" />}
             type="Column"
             typeIcon={entityRegistry.getIcon(EntityType.SchemaField, 14, IconStyleType.ACCENT)}
         />

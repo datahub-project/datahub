@@ -1,4 +1,5 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Key } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -32,20 +33,12 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
     type: EntityType = EntityType.MlprimaryKey;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <DotChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
-            );
-        }
-
         return (
-            <DotChartOutlined
+            <Key
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

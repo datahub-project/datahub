@@ -1,4 +1,4 @@
-import { DatabaseOutlined } from '@ant-design/icons';
+import { Database } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -17,11 +17,13 @@ const getDisplayName = (data?: DataPlatform): string => {
 export class DataPlatformEntity implements Entity<DataPlatform> {
     type: EntityType = EntityType.DataPlatform;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <DatabaseOutlined
+            <Database
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
