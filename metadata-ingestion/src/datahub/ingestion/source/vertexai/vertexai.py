@@ -101,6 +101,22 @@ logger = logging.getLogger(__name__)
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",
 )
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default: training job → model, dataset → training job, and cross-platform lineage to GCS, BigQuery, S3, Snowflake, and Azure Blob Storage",
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default: Experiments are modeled as Container entities; model groups and pipeline templates create folder containers",
+)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default via stateful ingestion",
+)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Optionally set via the `platform_instance` config field to namespace resources when ingesting from multiple Vertex AI setups",
+)
 class VertexAISource(StatefulIngestionSourceBase):
     platform: Literal["vertexai"] = PLATFORM
 
