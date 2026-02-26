@@ -51,6 +51,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #16358 (Ingestion) dbt: Added `convert_urns_to_lowercase` config option for dbt ingestion (both dbt-core and dbt-cloud). When enabled, dbt platform URNs are lowercased, preventing duplicate entities caused by schema name casing differences (e.g., `app_sales` vs `APP_SALES`).
+  - **Default behavior change for Snowflake**: When `target_platform` is `snowflake`, `convert_urns_to_lowercase` now defaults to `true`. This means dbt platform URNs will be lowercased automatically, matching Snowflake's case-insensitive behavior. Existing Snowflake dbt users may see their dbt entity URNs change on the next ingestion run, which will consolidate any casing-related duplicates.
+  - **Migration**: If you want to preserve the previous behavior for Snowflake, explicitly set `convert_urns_to_lowercase: false` in your dbt recipe. For all other platforms, the default remains `false` (no change).
 - #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
 
 ## v1.4.0

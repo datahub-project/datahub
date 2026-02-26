@@ -329,6 +329,14 @@ class DbtTestConfig:
             manifest_file="dbt_manifest_with_queries.json",
             source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
         ),
+        DbtTestConfig(
+            "dbt-test-with-convert-urns-to-lowercase",
+            "dbt_test_with_convert_urns_to_lowercase_mces.json",
+            "dbt_test_with_convert_urns_to_lowercase_mces_golden.json",
+            source_config_modifiers={
+                "convert_urns_to_lowercase": True,
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
