@@ -51,6 +51,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #16317 (Ingestion) Looker/LookML: The `tag_measures_and_dimensions` config is now correctly honored. Previously, setting it to `false` had no effect — Dimension/Measure/Temporal tags were always added to schema fields. After this fix, setting `tag_measures_and_dimensions: false` will remove those tags and prepend the field type to the description instead (e.g., `"Dimension. My field"`). If you had this config set to `false` but were relying on the tags being present, be aware they will now be removed as intended.
 - #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
 
 ## v1.4.0
