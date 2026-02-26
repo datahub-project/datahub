@@ -103,7 +103,11 @@ class VertexAIExperimentExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "Experiment")
 
-        experiments = aiplatform.Experiment.list()
+        if self.rate_limiter:
+            with self.rate_limiter:
+                experiments = aiplatform.Experiment.list()
+        else:
+            experiments = aiplatform.Experiment.list()
         filtered = [
             e
             for e in experiments
@@ -146,9 +150,14 @@ class VertexAIExperimentExtractor:
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
             logger.info("Fetching Experiments from Vertex AI")
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    raw_experiments = aiplatform.Experiment.list()
+            else:
+                raw_experiments = aiplatform.Experiment.list()
             filtered_experiments = [
                 e
-                for e in aiplatform.Experiment.list()
+                for e in raw_experiments
                 if self.config.experiment_name_pattern.allowed(e.name)
             ]
             experiment_metadata = [

@@ -91,9 +91,26 @@ class VertexAIModelExtractor:
         self.rate_limiter = rate_limiter
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
+        self._models_cache: Optional[List] = None
+
+    def _list_models(self) -> List:
+        if self._models_cache is None:
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    self._models_cache = self.client.Model.list(
+                        order_by=ORDER_BY_UPDATE_TIME_DESC
+                    )
+            else:
+                self._models_cache = self.client.Model.list(
+                    order_by=ORDER_BY_UPDATE_TIME_DESC
+                )
+        return self._models_cache
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Models from Vertex AI")
+        # Reset so each region gets its own fetch; get_evaluation_workunits reuses
+        # the cache while still in the same region.
+        self._models_cache = None
 
         last_checkpoint_millis = self.state_handler.get_last_update_time(
             ResourceTypes.MODEL
@@ -101,7 +118,7 @@ class VertexAIModelExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "Model")
 
-        registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
+        registered_models = self._list_models()
         total_versions = 0
         for model_idx, model in enumerate(registered_models, start=1):
             if last_checkpoint_millis:
@@ -158,7 +175,7 @@ class VertexAIModelExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "ModelEvaluation")
 
-        registered_models = self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
+        registered_models = self._list_models()
         total_evaluations = 0
 
         for model in registered_models:

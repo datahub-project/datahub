@@ -161,9 +161,15 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        pipeline_jobs_pager = self.client.PipelineJob.list(
-            order_by=ORDER_BY_UPDATE_TIME_DESC
-        )
+        if self.rate_limiter:
+            with self.rate_limiter:
+                pipeline_jobs_pager = self.client.PipelineJob.list(
+                    order_by=ORDER_BY_UPDATE_TIME_DESC
+                )
+        else:
+            pipeline_jobs_pager = self.client.PipelineJob.list(
+                order_by=ORDER_BY_UPDATE_TIME_DESC
+            )
 
         for job_count, pipeline in enumerate(pipeline_jobs_pager, start=1):
             if last_checkpoint_millis:

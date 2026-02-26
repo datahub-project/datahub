@@ -128,9 +128,15 @@ class VertexAITrainingExtractor:
             if last_checkpoint_millis:
                 log_checkpoint_time(last_checkpoint_millis, class_name)
 
-            jobs_pager = getattr(self.client, class_name).list(
-                order_by=ORDER_BY_UPDATE_TIME_DESC
-            )
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    jobs_pager = getattr(self.client, class_name).list(
+                        order_by=ORDER_BY_UPDATE_TIME_DESC
+                    )
+            else:
+                jobs_pager = getattr(self.client, class_name).list(
+                    order_by=ORDER_BY_UPDATE_TIME_DESC
+                )
 
             max_jobs = self.config.max_training_jobs_per_type
             for job_count, job in enumerate(jobs_pager, start=1):
