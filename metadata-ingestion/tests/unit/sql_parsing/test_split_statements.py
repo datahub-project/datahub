@@ -1,5 +1,7 @@
 from typing import List
 
+import pytest
+
 from datahub.sql_parsing.split_statements import split_statements
 
 
@@ -451,3 +453,30 @@ END;"""
         "END" in statements and "LOOP" in statements
     )
     assert "RETURN" in statements
+
+
+@pytest.mark.parametrize(
+    "end_keyword",
+    ["END", "End", "end", "eNd"],
+    ids=["uppercase", "titlecase", "lowercase", "mixedcase"],
+)
+def test_case_end_not_split_regardless_of_case(end_keyword: str) -> None:
+    """CASE...END inside a SELECT should not be split by the statement splitter,
+    regardless of the casing of the END keyword."""
+    sql = f"SELECT CASE WHEN x = 1 THEN 'a' ELSE 'b' {end_keyword} AS result FROM t1"
+    statements = [s.strip() for s in split_statements(sql) if s.strip()]
+    assert len(statements) == 1, (
+        f"Expected 1 statement with '{end_keyword}', got {len(statements)}: {statements}"
+    )
+
+
+def test_tsql_case_end_in_select_into() -> None:
+    """T-SQL SELECT with CASE...End (mixed case) into temp table should be one statement."""
+    sql = (
+        "select col1, case when x = 1 then 'yes' when x = 2 then 'no' "
+        "else 'maybe' End as flag into #temp from t1 where active = 1"
+    )
+    statements = [s.strip() for s in split_statements(sql) if s.strip()]
+    assert len(statements) == 1, (
+        f"Expected 1 statement, got {len(statements)}: {statements}"
+    )

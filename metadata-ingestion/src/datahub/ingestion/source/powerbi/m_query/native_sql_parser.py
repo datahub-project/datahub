@@ -7,6 +7,7 @@ import sqlparse
 from datahub.ingestion.api.common import PipelineContext
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
+    create_lineage_from_sql_statements,
     create_lineage_sql_parsed_result,
 )
 
@@ -18,6 +19,10 @@ SPECIAL_CHARACTERS = {
 }
 
 ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
+
+_DECLARE_PATTERN = re.compile(r"\bDECLARE\s+@", re.IGNORECASE)
+_SELECT_INTO_TEMP_PATTERN = re.compile(r"\bINTO\s+#\w+", re.IGNORECASE)
+_SELECT_KEYWORD_PATTERN = re.compile(r"\bSELECT\b", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +83,8 @@ def remove_drop_statement(query: str) -> str:
         #   "DROP TABLE IF EXISTS #<identifier>;"
         #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...;"
         #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...\n"
-        r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)[;\n]",
+        #   "DROP TABLE IF EXISTS #<identifier>" (at end of string)
+        r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)(?:[;\n]|$)",
     ]
 
     new_query = query
@@ -98,6 +104,168 @@ def remove_drop_statement(query: str) -> str:
     return new_query
 
 
+def remove_table_hints(query: str) -> str:
+    """Remove T-SQL table hints like WITH (NOLOCK), WITH (NOLOCK NOWAIT), etc.
+
+    These hints are MSSQL-specific locking directives that are not relevant
+    for lineage extraction and cause sqlglot parse failures.
+    """
+    hint_keywords = (
+        r"NOLOCK|NOWAIT|READUNCOMMITTED|READCOMMITTED|REPEATABLEREAD|SERIALIZABLE"
+        r"|HOLDLOCK|UPDLOCK|TABLOCK|TABLOCKX|PAGLOCK|ROWLOCK|XLOCK|READPAST"
+    )
+    return re.sub(
+        rf"\bWITH\s*\(\s*(?:{hint_keywords})"
+        rf"(?:\s+(?:{hint_keywords}))*\s*\)",
+        "",
+        query,
+        flags=re.IGNORECASE,
+    )
+
+
+def remove_declare_statement(query: str) -> str:
+    """Remove T-SQL DECLARE statements which are not relevant for lineage.
+
+    Handles patterns like:
+      DECLARE @var TYPE = value
+      DECLARE @var TYPE = (SELECT ...)
+    """
+    result = query
+    match = _DECLARE_PATTERN.search(result)
+    while match:
+        start = match.start()
+        i = match.end()
+        paren_depth = 0
+        in_string = False
+        # Walk forward to find the end of the DECLARE statement.
+        # DECLARE ends at a top-level SELECT/INSERT/CREATE/WITH keyword,
+        # or at a semicolon when not inside parentheses.
+        while i < len(result):
+            c = result[i]
+            if in_string:
+                if c == "'" and i + 1 < len(result) and result[i + 1] == "'":
+                    i += 1  # escaped quote
+                elif c == "'":
+                    in_string = False
+            elif c == "'":
+                in_string = True
+            elif c == "(":
+                paren_depth += 1
+            elif c == ")":
+                if paren_depth > 0:
+                    paren_depth -= 1
+                    if paren_depth == 0:
+                        # End of parenthesized expression in DECLARE.
+                        # The DECLARE ends here; advance past the ')'.
+                        i += 1
+                        break
+            elif paren_depth == 0 and c == ";":
+                i += 1  # consume the semicolon
+                break
+            i += 1
+
+        result = result[:start] + result[i:]
+        match = _DECLARE_PATTERN.search(result, start)
+
+    return result.strip()
+
+
+def insert_semicolons_after_select_into(query: str) -> str:
+    """Insert semicolons between T-SQL SELECT INTO #temp and subsequent statements.
+
+    T-SQL scripts commonly use multiple statements without semicolons:
+        SELECT ... INTO #temp FROM ... WHERE ...
+        SELECT ... FROM #temp JOIN real_table ...
+
+    This function detects SELECT INTO #temp_table patterns and inserts a
+    semicolon before the next top-level SELECT to enable statement splitting.
+    """
+    if "#" not in query:
+        return query
+
+    result: List[str] = []
+    i = 0
+    paren_depth = 0
+    in_string = False
+    in_line_comment = False
+    in_block_comment = False
+    saw_into_hash = False
+
+    while i < len(query):
+        c = query[i]
+        nc = query[i + 1] if i + 1 < len(query) else ""
+
+        if in_string:
+            result.append(c)
+            if c == "'" and nc == "'":
+                result.append(nc)
+                i += 2
+                continue
+            elif c == "'":
+                in_string = False
+            i += 1
+            continue
+
+        if in_line_comment:
+            result.append(c)
+            if c == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            result.append(c)
+            if c == "*" and nc == "/":
+                result.append(nc)
+                i += 2
+                in_block_comment = False
+                continue
+            i += 1
+            continue
+
+        if c == "'":
+            in_string = True
+            result.append(c)
+            i += 1
+            continue
+        if c == "-" and nc == "-":
+            in_line_comment = True
+            result.append(c)
+            i += 1
+            continue
+        if c == "/" and nc == "*":
+            in_block_comment = True
+            result.append(c)
+            result.append(nc)
+            i += 2
+            continue
+
+        if c == "(":
+            paren_depth += 1
+        elif c == ")":
+            paren_depth = max(0, paren_depth - 1)
+
+        if paren_depth == 0:
+            if not saw_into_hash:
+                m = _SELECT_INTO_TEMP_PATTERN.match(query, i)
+                if m:
+                    saw_into_hash = True
+                    chunk = query[i : m.end()]
+                    result.append(chunk)
+                    i = m.end()
+                    continue
+            else:
+                m = _SELECT_KEYWORD_PATTERN.match(query, i)
+                if m:
+                    result.append(";")
+                    saw_into_hash = False
+
+        result.append(c)
+        i += 1
+
+    return "".join(result)
+
+
 def parse_custom_sql(
     ctx: PipelineContext,
     query: str,
@@ -107,11 +275,9 @@ def parse_custom_sql(
     env: str,
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
-    logger.debug("Using sqlglot_lineage to parse custom sql")
-
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
 
-    return create_lineage_sql_parsed_result(
+    result = create_lineage_sql_parsed_result(
         query=query,
         default_schema=schema,
         default_db=database,
@@ -120,3 +286,24 @@ def parse_custom_sql(
         env=env,
         graph=ctx.graph,
     )
+
+    if result.debug_info and result.debug_info.table_error:
+        logger.debug(
+            f"Single-statement parsing failed ({result.debug_info.table_error}), "
+            "trying multi-statement parsing"
+        )
+
+        multi_result = create_lineage_from_sql_statements(
+            queries=query,
+            default_schema=schema,
+            default_db=database,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=ctx.graph,
+        )
+
+        if multi_result.in_tables or multi_result.out_tables:
+            return multi_result
+
+    return result

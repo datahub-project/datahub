@@ -228,7 +228,7 @@ class _StatementSplitter:
         )
         if (
             is_control_keyword
-            and keyword == END_KEYWORD
+            and keyword.upper() == END_KEYWORD
             and self.current_case_statements > 0
         ):
             # If we're closing a CASE statement with END, we can just decrement the counter and continue.
