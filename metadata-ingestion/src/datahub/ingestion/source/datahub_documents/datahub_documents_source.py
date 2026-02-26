@@ -13,6 +13,7 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
+from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
@@ -42,11 +43,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
-    get_semantic_search_config,
+    DataHubConnectionConfig,
+    DocumentChunkingSourceConfig,
 )
+from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
-from datahub.metadata.urns import DocumentUrn
-from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
+    num_embedding_failures: int = 0
+    embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
+    num_documents_limit_reached: bool = False
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -147,130 +151,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             )
             self.graph = DataHubGraph(config=graph_config)
 
-        # Load/validate embedding configuration from server
-        if not self.config.embedding.allow_local_embedding_config:
-            logger.info("Loading embedding configuration from DataHub server...")
-
-            try:
-                server_config = get_semantic_search_config(self.graph)
-
-                # Check if semantic search is enabled
-                if not server_config.enabled:
-                    raise ValueError(
-                        "Semantic search is not enabled on the DataHub server. "
-                        "Cannot proceed with embedding generation. "
-                        "Please enable semantic search in the server's application.yml configuration."
-                    )
-
-                # Check if user provided local config (override flow)
-                if self.config.embedding.has_local_config():
-                    logger.info(
-                        "Validating local embedding configuration against server..."
-                    )
-
-                    # Validate local config matches server
-                    self.config.embedding.validate_against_server(
-                        server_config.embedding_config
-                    )
-
-                    logger.info(
-                        "✓ Local embedding configuration validated successfully"
-                        f"\n  Provider: {server_config.embedding_config.provider}"
-                        f"\n  Model: {server_config.embedding_config.model_id}"
-                    )
-
-                else:
-                    # Default flow: Load config from server
-                    logger.info(
-                        "No local embedding config provided - using server configuration..."
-                    )
-
-                    # Preserve any local credentials (api_key) that user may have set
-                    local_api_key = self.config.embedding.api_key
-
-                    # Replace embedding config with server config
-                    from datahub.ingestion.source.unstructured.chunking_config import (
-                        EmbeddingConfig,
-                    )
-
-                    self.config.embedding = EmbeddingConfig.from_server(
-                        server_config.embedding_config,
-                        api_key=local_api_key,
-                    )
-
-                    logger.info(
-                        "✓ Loaded embedding configuration from server"
-                        f"\n  Provider: {server_config.embedding_config.provider}"
-                        f"\n  Model: {server_config.embedding_config.model_id}"
-                        f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
-                        f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
-                    )
-
-            except Exception as e:
-                # Check if this is an old server that doesn't support semantic search config API
-                error_str = str(e)
-                is_old_server = (
-                    "does not expose semantic search configuration" in error_str
-                    or "semanticSearchConfig" in error_str  # GraphQL validation error
-                )
-
-                if is_old_server and self.config.embedding.has_local_config():
-                    # Backward compatibility: Old server + local config provided
-                    logger.warning(
-                        f"⚠️  Server does not support semantic search configuration API (likely older version). "
-                        f"Falling back to local embedding configuration.\n"
-                        f"  Provider: {self.config.embedding.provider}\n"
-                        f"  Model: {self.config.embedding.model}\n"
-                        f"  AWS Region: {self.config.embedding.aws_region or 'N/A'}\n\n"
-                        f"Note: Semantic search on the server may not work if the configuration doesn't match. "
-                        f"Consider upgrading to DataHub 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
-                    )
-                    # Continue with local config (don't raise)
-                elif is_old_server:
-                    # Old server but no local config - can't proceed
-                    raise ValueError(
-                        "Server does not support semantic search configuration API (likely older version).\n"
-                        "To use this source with an older server, you must provide local embedding configuration:\n\n"
-                        "  embedding:\n"
-                        "    provider: bedrock  # or cohere\n"
-                        "    model: cohere.embed-english-v3\n"
-                        "    aws_region: us-west-2\n\n"
-                        "Or upgrade your DataHub server to 1.4.0+ (DataHub Core) or 0.3.16.3+ (DataHub Cloud) for automatic configuration sync."
-                    ) from e
-                else:
-                    # Other error (semantic search disabled, validation failed, etc.)
-                    logger.error(
-                        f"Failed to load/validate embedding configuration from server: {e}"
-                    )
-                    raise ValueError(
-                        f"Cannot proceed with embedding generation - server configuration failed.\n"
-                        f"Error: {e}\n\n"
-                        f"To bypass server validation (NOT RECOMMENDED), set:\n"
-                        f"  embedding:\n"
-                        f"    allow_local_embedding_config: true"
-                    ) from e
-
-        else:
-            logger.warning(
-                "⚠️  WARNING: Server validation is disabled (allow_local_embedding_config=true). "
-                "Proceeding with local embedding configuration. "
-                "This may cause semantic search to fail if configuration doesn't match the server."
-            )
-
         # Initialize text partitioner
         self.text_partitioner = TextPartitioner()
 
-        # Initialize embedding model name for litellm
-        if self.config.embedding.provider == "bedrock":
-            self.embedding_model = f"bedrock/{self.config.embedding.model}"
-        elif self.config.embedding.provider == "cohere":
-            self.embedding_model = f"cohere/{self.config.embedding.model}"
-        elif self.config.embedding.provider == "openai":
-            self.embedding_model = f"openai/{self.config.embedding.model}"
-        else:
-            raise ValueError(
-                f"Unsupported embedding provider: {self.config.embedding.provider}"
-            )
+        # Initialize chunking/embedding sub-component (same pattern as NotionSource)
+        chunking_config = DocumentChunkingSourceConfig(
+            datahub=DataHubConnectionConfig(),
+            chunking=self.config.chunking,
+            embedding=self.config.embedding,
+            max_documents=self.config.max_documents,
+        )
+        self.chunking_source = DocumentChunkingSource(
+            ctx=ctx,
+            config=chunking_config,
+            standalone=False,
+            graph=self.graph,
+        )
 
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
@@ -326,10 +222,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point - route to batch or event mode."""
-        if self.config.event_mode.enabled:
-            yield from self._process_event_mode()
-        else:
-            yield from self._process_batch_mode()
+        try:
+            if self.config.event_mode.enabled:
+                yield from self._process_event_mode()
+            else:
+                yield from self._process_batch_mode()
+        except Exception as e:
+            logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
+            self.report.report_failure(str(e))
 
         # Save state after processing
         if self.config.incremental.enabled:
@@ -455,11 +355,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return
 
         # Filter by source type (NATIVE vs EXTERNAL)
-        source = aspect_dict.get("source", {})
-        source_type = source.get("sourceType")
-        # Default to NATIVE if sourceType is not set (backward compatibility with old documents)
-        if source_type is None:
-            source_type = "NATIVE"
+        # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
+        source = aspect_dict.get("source") or {}
+        source_type = source.get("sourceType") or "NATIVE"
 
         # Determine if we should process this document based on source type and platform filter
         should_process = self._should_process_by_source_type_event(
@@ -1052,7 +950,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 self.report.report_document_skipped_empty()
                 return
 
-            # Partition text as markdown into elements
+            # Partition text as markdown into unstructured elements
             logger.debug(f"Partitioning text for document {document_urn}")
             elements = self.text_partitioner.partition_text(text)
 
@@ -1063,154 +961,40 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 self.report.report_document_skipped()
                 return
 
-            # Chunk the elements
-            logger.debug(
-                f"Chunking {len(elements)} elements for document {document_urn}"
-            )
-            chunks = self._chunk_elements(elements)
-
-            if not chunks:
-                logger.warning(f"No chunks created for document {document_urn}")
-                self.report.report_document_skipped()
-                return
-
-            # Generate embeddings
-            logger.debug(f"Generating embeddings for {len(chunks)} chunks")
-            embeddings = self._generate_embeddings(chunks)
-
-            # Emit SemanticContent aspect to DataHub
-            yield from self._emit_semantic_content(document_urn, chunks, embeddings)
-
-            self.report.report_document_processed(len(chunks))
-            self.report.report_embeddings_generated(len(embeddings))
-
-            logger.info(
-                f"Successfully processed document {document_urn}: {len(chunks)} chunks, {len(embeddings)} embeddings"
+            # Delegate chunking + embedding + SemanticContent emission to chunking_source.
+            # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+            yield from self.chunking_source.process_elements_inline(
+                document_urn=document_urn, elements=elements
             )
 
         except Exception as e:
+            if self.chunking_source.report.num_documents_limit_reached:
+                self.report.num_documents_limit_reached = True
+                raise
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.error(error_msg, exc_info=True)
-            self.report.report_error(error_msg)
-
-    def _chunk_elements(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Chunk elements using Unstructured's chunking strategies."""
-        try:
-            from unstructured.chunking.basic import chunk_elements as basic_chunk
-            from unstructured.chunking.title import chunk_by_title
-            from unstructured.staging.base import elements_from_dicts
-
-            # Convert dict elements to Unstructured Element objects
-            element_objects = elements_from_dicts(elements)
-
-            # Apply chunking strategy
-            if self.config.chunking.strategy == "by_title":
-                chunks = chunk_by_title(
-                    elements=element_objects,
-                    max_characters=self.config.chunking.max_characters,
-                    combine_text_under_n_chars=self.config.chunking.combine_text_under_n_chars,
-                )
-            else:  # basic
-                chunks = basic_chunk(
-                    elements=element_objects,
-                    max_characters=self.config.chunking.max_characters,
-                    overlap=self.config.chunking.overlap,
-                )
-
-            # Convert chunks back to dicts
-            chunk_dicts = [chunk.to_dict() for chunk in chunks]
-            logger.debug(
-                f"Created {len(chunk_dicts)} chunks using {self.config.chunking.strategy} strategy"
-            )
-            return chunk_dicts
-
-        except Exception as e:
-            logger.error(f"Failed to chunk elements: {e}", exc_info=True)
-            return []
-
-    def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
-        """Generate embeddings using litellm (supports Bedrock and Cohere)."""
-        import litellm  # Lazy import to avoid ModuleNotFoundError during tests
-
-        # Extract text from chunks
-        texts = [chunk.get("text", "") for chunk in chunks]
-
-        # Filter out empty texts
-        texts = [t for t in texts if t.strip()]
-
-        if not texts:
-            return []
-
-        try:
-            # Generate embeddings in batches
-            embeddings = []
-            for i in range(0, len(texts), self.config.embedding.batch_size):
-                batch = texts[i : i + self.config.embedding.batch_size]
-
-                # Use litellm.embedding() which works with both Bedrock and Cohere
-                response = litellm.embedding(
-                    model=self.embedding_model,
-                    input=batch,
-                    api_key=self.config.embedding.api_key.get_secret_value()
-                    if self.config.embedding.api_key
-                    else None,  # Only used for Cohere
-                    aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
-                )
-
-                # Extract embeddings from response
-                batch_embeddings = [data["embedding"] for data in response.data]
-                embeddings.extend(batch_embeddings)
-                logger.debug(f"Generated {len(batch_embeddings)} embeddings for batch")
-
-            logger.debug(
-                f"Generated {len(embeddings)} embeddings using {self.embedding_model}"
-            )
-            return embeddings
-
-        except Exception as e:
-            logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
-            raise
-
-    def _emit_semantic_content(
-        self,
-        document_urn: str,
-        chunks: list[dict[str, Any]],
-        embeddings: list[list[float]],
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit SemanticContent aspect for the document using SDK V2."""
-        # Build model version string (e.g., "bedrock/cohere.embed-english-v3")
-        assert self.config.embedding.model is not None
-        assert self.config.embedding.provider is not None
-        model_version = (
-            f"{self.config.embedding.provider}/{self.config.embedding.model}"
-        )
-
-        # Get model embedding key from config (populated from server or provided locally)
-        assert self.config.embedding.model_embedding_key is not None, (
-            "model_embedding_key must be set"
-        )
-        model_key = self.config.embedding.model_embedding_key
-
-        # Create Document entity and set semantic content using SDK V2
-        doc_urn = DocumentUrn.from_string(document_urn)
-        doc = Document(urn=doc_urn)
-
-        doc.set_semantic_content(
-            chunks=chunks,
-            embeddings=embeddings,
-            model_key=model_key,
-            model_version=model_version,
-            chunking_strategy=self.config.chunking.strategy,
-        )
-
-        logger.debug(
-            f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"
-        )
-
-        # Convert to work units and yield
-        yield from doc.as_workunits()
+            logger.warning(error_msg, exc_info=True)
 
     def get_report(self) -> SourceReport:
+        # Forward stats from the chunking sub-component into our report
+        self.report.num_documents_processed = (
+            self.chunking_source.report.num_documents_processed
+        )
+        self.report.num_chunks_created = self.chunking_source.report.num_chunks_created
+        self.report.num_embeddings_generated = (
+            self.chunking_source.report.num_embeddings_generated
+        )
+        self.report.num_documents_limit_reached = (
+            self.chunking_source.report.num_documents_limit_reached
+        )
+        self.report.num_embedding_failures = (
+            self.chunking_source.report.num_embedding_failures
+        )
+        self.report.embedding_failures = list(
+            self.chunking_source.report.embedding_failures
+        )
+        self.report.processing_errors = list(
+            self.chunking_source.report.processing_errors
+        )
         return self.report
 
     def close(self) -> None:

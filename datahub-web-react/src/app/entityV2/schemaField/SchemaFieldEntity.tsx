@@ -1,5 +1,5 @@
-import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { TreeStructure } from '@phosphor-icons/react';
+import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Rows, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
@@ -7,6 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/schemaField/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -27,8 +28,13 @@ const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNO
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
-    icon = (fontSize?: number, styleType?: IconStyleType, color = 'inherit') => (
-        <PicCenterOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => (
+        <Rows
+            className={TYPE_ICON_CLASS_NAME}
+            size={fontSize || 14}
+            color={color || 'currentColor'}
+            weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+        />
     );
 
     isSearchEnabled = () => true;
