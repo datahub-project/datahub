@@ -846,6 +846,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "freezegun<2.0.0",  # TODO: fully remove and use time-machine
     "time-machine<4.0.0",  # better Pydantic v2 compatibility
