@@ -68,7 +68,7 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.borderDisabled};
     line-height: 16px;
 `;
 
