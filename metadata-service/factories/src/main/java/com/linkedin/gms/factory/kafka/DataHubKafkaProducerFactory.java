@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.StringUtils;
@@ -86,13 +87,29 @@ public class DataHubKafkaProducerFactory {
    */
   public static <K, V> Producer<K, V> createProducerWithRetry(
       Map<String, Object> props, ProducerConfiguration producerConfiguration) {
+    return createProducerWithRetry(props, producerConfiguration, KafkaProducer::new);
+  }
+
+  /**
+   * Creates a KafkaProducer with retry logic, using the provided factory function to construct the
+   * producer. This overload exists to support testing without requiring a real Kafka broker.
+   *
+   * @param props the producer configuration properties
+   * @param producerConfiguration the producer configuration containing retry settings
+   * @param producerFactory function that creates a Producer from config properties
+   * @return the created Producer
+   */
+  static <K, V> Producer<K, V> createProducerWithRetry(
+      Map<String, Object> props,
+      ProducerConfiguration producerConfiguration,
+      Function<Map<String, Object>, Producer<K, V>> producerFactory) {
     int maxRetries = producerConfiguration.getInitializationRetryCount();
     long retryDelayMs = producerConfiguration.getInitializationRetryBackoffMs();
     KafkaException lastException = null;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        return new KafkaProducer<>(props);
+        return producerFactory.apply(props);
       } catch (KafkaException e) {
         lastException = e;
         if (attempt < maxRetries) {
