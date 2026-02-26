@@ -1,4 +1,5 @@
-import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
+import { CloseCircleFilled } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -6,9 +7,7 @@ import styled from 'styled-components/macro';
 
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
@@ -27,7 +26,7 @@ import { getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
 import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig, useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
@@ -41,8 +40,9 @@ const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolea
 const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: 0 30px;
     align-items: center;
-    border: ${(props) => (props.$isShowNavBarRedesign ? `2px solid ${colors.gray[100]}` : '2px solid transparent')};
-    ${(props) => props.$isShowNavBarRedesign && 'box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+    border: ${(props) =>
+        props.$isShowNavBarRedesign ? `2px solid ${props.theme.colors.border}` : '2px solid transparent'};
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowXs}`};
 
     transition: border-color 0.3s ease;
 
@@ -68,8 +68,9 @@ const StyledSearchBar = styled(Input)<{
         border-radius: 8px;
         height: 40px;
         font-size: 14px;
-        color: #dcdcdc;
-        background-color: ${ANTD_GRAY_V2[2]};
+        color: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.colors.text : props.theme.colors.textOnFillDefault};
+        background-color: ${(props) => props.theme.colors.bgInput};
         border: 2px solid transparent;
         padding-right: 2.5px;
         ${(props) =>
@@ -81,12 +82,13 @@ const StyledSearchBar = styled(Input)<{
     }
 
     > .ant-input::placeholder {
-        color: ${(props) =>
-            props.$placeholderColor || (props.$isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
+        color: ${(props) => props.$placeholderColor || props.theme.colors.textPlaceholder};
     }
 
     > .ant-input {
-        color: ${(props) => props.$textColor || (props.$isShowNavBarRedesign ? '#000' : '#fff')};
+        color: ${(props) =>
+            props.$textColor ||
+            (props.$isShowNavBarRedesign ? props.theme.colors.text : props.theme.colors.textOnFillDefault)};
     }
 
     .ant-input-clear-icon {
@@ -103,25 +105,17 @@ const ClearIcon = styled(CloseCircleFilled)`
 `;
 
 const ViewSelectContainer = styled.div`
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     line-height: 20px;
     padding-right: 5.6px;
 
     &&& {
-        border-left: 0px solid ${ANTD_GRAY_V2[5]};
+        border-left: 0px solid ${(props) => props.theme.colors.border};
     }
 `;
 
-const SearchIcon = styled(SearchOutlined)<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : '#dcdcdc')};
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        && svg {
-            width: 16px;
-            height: 16px;
-        }    
-    `}
+const SearchIcon = styled(MagnifyingGlass)<{ $isShowNavBarRedesign?: boolean }>`
+    color: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.icon : props.theme.colors.textDisabled)};
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
@@ -465,7 +459,7 @@ export const SearchBar = ({
                                     getFiltersWithQuickFilter(selectedQuickFilter),
                                 );
                             }}
-                            style={{ ...inputStyle, color: '#fff' }}
+                            style={inputStyle}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             data-testid="search-input"

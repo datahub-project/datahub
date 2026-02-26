@@ -56,6 +56,9 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
+    # (not enforced here due to Airflow constraint file conflicts in CI)
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -386,7 +389,9 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core>=1.31.0,<2.0.0",
+    # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
+    # redirect handling in the pipeline transport layer, fixed in 1.38.0.
+    "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",

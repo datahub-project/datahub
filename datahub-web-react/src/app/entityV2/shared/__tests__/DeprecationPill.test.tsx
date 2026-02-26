@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 import { EntityType, SubResourceType } from '@src/types.generated';
 
 describe('DeprecationPill', () => {
@@ -17,18 +18,20 @@ describe('DeprecationPill', () => {
     it('correctly converts v2 schema field replacement path', async () => {
         render(
             <MockedProvider>
-                <DeprecationIcon
-                    {...defaultProps}
-                    deprecation={{
-                        note: 'Deprecating this field',
-                        decommissionTime: null,
-                        deprecated: true,
-                        replacement: {
-                            urn: 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.schema.table,PROD),[version=2.0].[key=True].parent.[type=struct].child.[type=string])',
-                            type: EntityType.SchemaField,
-                        },
-                    }}
-                />
+                <CustomThemeProvider>
+                    <DeprecationIcon
+                        {...defaultProps}
+                        deprecation={{
+                            note: 'Deprecating this field',
+                            decommissionTime: null,
+                            deprecated: true,
+                            replacement: {
+                                urn: 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.schema.table,PROD),[version=2.0].[key=True].parent.[type=struct].child.[type=string])',
+                                type: EntityType.SchemaField,
+                            },
+                        }}
+                    />
+                </CustomThemeProvider>
             </MockedProvider>,
         );
 
@@ -42,15 +45,17 @@ describe('DeprecationPill', () => {
     it('shows note and decommission time when both present', async () => {
         render(
             <MockedProvider>
-                <DeprecationIcon
-                    {...defaultProps}
-                    deprecation={{
-                        note: 'This is deprecated',
-                        decommissionTime: 1735689600, // Jan 1, 2025
-                        deprecated: true,
-                        replacement: null,
-                    }}
-                />
+                <CustomThemeProvider>
+                    <DeprecationIcon
+                        {...defaultProps}
+                        deprecation={{
+                            note: 'This is deprecated',
+                            decommissionTime: 1735689600, // Jan 1, 2025
+                            deprecated: true,
+                            replacement: null,
+                        }}
+                    />
+                </CustomThemeProvider>
             </MockedProvider>,
         );
 
