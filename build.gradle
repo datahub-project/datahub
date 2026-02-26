@@ -53,6 +53,7 @@ buildscript {
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   ext.log4jVersion = '2.25.3'
@@ -460,6 +461,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
@@ -525,6 +527,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
 configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
   configurations.all {
+    resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"
     resolutionStrategy.force "com.nimbusds:nimbus-jose-jwt:${rootProject.ext.sparkLineageNimbusJoseJwtVersion}"
