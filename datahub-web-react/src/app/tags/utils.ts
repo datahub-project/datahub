@@ -33,6 +33,6 @@ export const getTagColor = (entity: any): string => {
         console.error('Error accessing tag color', e);
     }
 
-    // Default color if all else fails
-    return '#BFBFBF';
+    // eslint-disable-next-line rulesdir/no-hardcoded-colors
+    return '#BFBFBF'; // default tag color persisted to DB
 };

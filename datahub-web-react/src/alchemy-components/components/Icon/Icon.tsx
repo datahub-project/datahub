@@ -1,9 +1,9 @@
-import { Tooltip } from '@components';
 import React from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
 import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
+import { Tooltip } from '@components/components/Tooltip';
 import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';

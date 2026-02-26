@@ -1,6 +1,7 @@
-import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
+
+import { hashString } from '@components/components/Avatar/utils';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -10,7 +11,6 @@ import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
-import { hashString } from '@app/shared/avatar/getAvatarColor';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -24,9 +24,6 @@ export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
 
 export const VERTICAL_HANDLE = 'vertical';
-
-export const HOVER_COLOR = colors.violet[300];
-export const SELECT_COLOR = colors.violet[500];
 
 type Urn = string;
 
@@ -413,10 +410,13 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     return true;
 }
 
+// Lineage entity-type category colors for graph visualization — no semantic equivalents
+/* eslint-disable rulesdir/no-hardcoded-colors */
 const DATA_STORE_COLOR = '#ffd279';
 const BI_TOOL_COLOR = '#8682a2';
 const ML_COLOR = '#206de8';
 const DEFAULT_COLOR = '#ff7979';
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 export function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Chart || type === EntityType.Dashboard) {
