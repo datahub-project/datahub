@@ -9,3 +9,9 @@ jaraco.context>=6.1.0,<7
 # but botocore requires <1.27. Pin to latest 1.26.x until botocore supports 2.x.
 # See: https://github.com/boto/botocore/issues/3499
 urllib3>=1.26.20,<1.27
+# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+# Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
+# conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
+# older version; this constraint is safe for Docker images which don't coexist with
+# Airflow's pinned dependencies.
+aiohttp>=3.13.3
