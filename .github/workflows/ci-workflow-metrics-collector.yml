@@ -1,5 +1,5 @@
-name: Collect Workflow Metrics
-run-name: Collect Workflow Metrics for ${{ github.event.workflow_run.name }}
+name: Post Workflow Actions
+run-name: Post Workflow Actions for ${{ github.event.workflow_run.name }}
 
 # Triggered when a monitored workflow completes.
 # NOTE: workflow_run.workflows does not support wildcards —
@@ -8,6 +8,7 @@ run-name: Collect Workflow Metrics for ${{ github.event.workflow_run.name }}
 on:
   workflow_run:
     workflows:
+      # List to be updated after testing
       - "Docker Build, Scan, Test"
       - "Metadata Ingestion"
     types:
