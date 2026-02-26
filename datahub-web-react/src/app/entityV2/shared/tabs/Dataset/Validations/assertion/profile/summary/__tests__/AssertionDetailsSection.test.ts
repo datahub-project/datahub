@@ -46,7 +46,7 @@ describe('hasAssertionDetails', () => {
     it('returns true when assertion has custom properties', () => {
         const assertion = buildAssertion({
             type: AssertionType.Custom,
-            customProperties: [{ key: 'owner', value: 'team-a' }],
+            customProperties: [{ key: 'owner', value: 'team-a', associatedUrn: 'urn:li:assertion:test' }],
         });
         expect(hasAssertionDetails(assertion)).toBe(true);
     });
