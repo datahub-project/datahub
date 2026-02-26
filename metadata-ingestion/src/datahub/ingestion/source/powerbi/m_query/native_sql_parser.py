@@ -21,6 +21,9 @@ SPECIAL_CHARACTERS = {
 ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 
 _DECLARE_PATTERN = re.compile(r"\bDECLARE\s+@", re.IGNORECASE)
+_DECLARE_END_KEYWORD_PATTERN = re.compile(
+    r"\b(?:SELECT|INSERT|CREATE|UPDATE|DELETE|WITH|SET)\b", re.IGNORECASE
+)
 _SELECT_INTO_TEMP_PATTERN = re.compile(r"\bINTO\s+#\w+", re.IGNORECASE)
 _SELECT_KEYWORD_PATTERN = re.compile(r"\bSELECT\b", re.IGNORECASE)
 
@@ -127,8 +130,9 @@ def remove_declare_statement(query: str) -> str:
     """Remove T-SQL DECLARE statements which are not relevant for lineage.
 
     Handles patterns like:
-      DECLARE @var TYPE = value
+      DECLARE @var TYPE = value;
       DECLARE @var TYPE = (SELECT ...)
+      DECLARE @var TYPE = 'literal' SELECT ...
     """
     result = query
     match = _DECLARE_PATTERN.search(result)
@@ -138,8 +142,8 @@ def remove_declare_statement(query: str) -> str:
         paren_depth = 0
         in_string = False
         # Walk forward to find the end of the DECLARE statement.
-        # DECLARE ends at a top-level SELECT/INSERT/CREATE/WITH keyword,
-        # or at a semicolon when not inside parentheses.
+        # DECLARE ends at a semicolon, a closing paren at depth 0,
+        # or a top-level SQL keyword (SELECT, INSERT, etc.) at depth 0.
         while i < len(result):
             c = result[i]
             if in_string:
@@ -156,12 +160,16 @@ def remove_declare_statement(query: str) -> str:
                     paren_depth -= 1
                     if paren_depth == 0:
                         # End of parenthesized expression in DECLARE.
-                        # The DECLARE ends here; advance past the ')'.
                         i += 1
                         break
-            elif paren_depth == 0 and c == ";":
-                i += 1  # consume the semicolon
-                break
+            elif paren_depth == 0:
+                if c == ";":
+                    i += 1  # consume the semicolon
+                    break
+                # A top-level SQL keyword signals the real query starts here.
+                kw_match = _DECLARE_END_KEYWORD_PATTERN.match(result, i)
+                if kw_match:
+                    break
             i += 1
 
         result = result[:start] + result[i:]

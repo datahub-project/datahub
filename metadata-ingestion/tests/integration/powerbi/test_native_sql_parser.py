@@ -69,6 +69,53 @@ def test_remove_declare_with_block_comment():
     assert "select col from t1" in result
 
 
+def test_remove_declare_non_parenthesized_value():
+    """Non-parenthesized DECLARE followed by SELECT should keep the SELECT."""
+    query = (
+        "DECLARE @date DATETIME = '2024-01-01' SELECT * FROM table1 WHERE date = @date"
+    )
+    result = native_sql_parser.remove_declare_statement(query)
+    assert "DECLARE" not in result
+    assert "@date DATETIME" not in result
+    assert "SELECT * FROM table1 WHERE date = @date" in result
+
+
+def test_remove_declare_non_parenthesized_no_value():
+    """DECLARE without assignment followed by SELECT."""
+    query = "DECLARE @x INT SELECT * FROM t1"
+    result = native_sql_parser.remove_declare_statement(query)
+    assert "DECLARE" not in result
+    assert "SELECT * FROM t1" in result
+
+
+def test_remove_declare_non_parenthesized_with_semicolon():
+    """Semicolon-terminated DECLARE should still work."""
+    query = "DECLARE @x INT = 5; SELECT * FROM t1"
+    result = native_sql_parser.remove_declare_statement(query)
+    assert "DECLARE" not in result
+    assert "SELECT * FROM t1" in result
+
+
+def test_remove_declare_multiple_mixed():
+    """Multiple DECLAREs with mixed styles: parenthesized and non-parenthesized."""
+    query = (
+        "DECLARE @a INT = 1 "
+        "DECLARE @b TABLE = (SELECT id FROM t1) "
+        "SELECT * FROM t2 WHERE a = @a"
+    )
+    result = native_sql_parser.remove_declare_statement(query)
+    assert "DECLARE" not in result
+    assert "SELECT * FROM t2 WHERE a = @a" in result
+
+
+def test_remove_declare_string_containing_select():
+    """DECLARE value with 'SELECT' inside a string literal should not break early."""
+    query = "DECLARE @q VARCHAR(100) = 'SELECT is a keyword'; SELECT col FROM t1"
+    result = native_sql_parser.remove_declare_statement(query)
+    assert "DECLARE" not in result
+    assert "SELECT col FROM t1" in result
+
+
 def test_insert_semicolons_for_select_into():
     query = "SELECT col INTO #temp FROM t1 WHERE x = 1 SELECT col2 FROM #temp"
     result = native_sql_parser.insert_semicolons_after_select_into(query)
