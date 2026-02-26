@@ -1,4 +1,4 @@
-import { GlobalOutlined } from '@ant-design/icons';
+import { Hexagon } from '@phosphor-icons/react';
 import React from 'react';
 
 import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
@@ -37,7 +37,7 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             owners={owners}
-            logoComponent={<GlobalOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<Hexagon size={20} color="currentColor" />}
             type="Business Attribute"
             typeIcon={entityRegistry.getIcon(EntityType.BusinessAttribute, 14, IconStyleType.ACCENT)}
             entityTitleSuffix={
