@@ -1602,7 +1602,9 @@ class TestConcurrentProjectProcessing:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(
-                project_ids=["project-a", "project-b"], region="us-west2"
+                project_ids=["project-a", "project-b"],
+                region="us-west2",
+                max_threads_resource_parallelism=3,
             ),
         )
 
@@ -1628,7 +1630,7 @@ class TestConcurrentProjectProcessing:
 
         with patch.object(
             source,
-            "_process_current_project",
+            "_process_project_with_parallelism",
             side_effect=[mock_process_a(), mock_process_b()],
         ):
             list(source.get_workunits_internal())
@@ -1645,7 +1647,9 @@ class TestConcurrentProjectProcessing:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(
-                project_ids=["project-a", "project-b"], region="us-west2"
+                project_ids=["project-a", "project-b"],
+                region="us-west2",
+                max_threads_resource_parallelism=3,
             ),
         )
 
@@ -1663,7 +1667,7 @@ class TestConcurrentProjectProcessing:
 
         with patch.object(
             source,
-            "_process_current_project",
+            "_process_project_with_parallelism",
             side_effect=[mock_process_a(), mock_process_b()],
         ):
             workunits = list(source.get_workunits_internal())
@@ -1697,7 +1701,9 @@ class TestConcurrentProjectProcessing:
         source = VertexAISource(
             ctx=PipelineContext(run_id="test"),
             config=VertexAIConfig(
-                project_ids=["project-a", "project-b"], region="us-west2"
+                project_ids=["project-a", "project-b"],
+                region="us-west2",
+                max_threads_resource_parallelism=3,
             ),
         )
 
@@ -1715,7 +1721,7 @@ class TestConcurrentProjectProcessing:
 
         with patch.object(
             source,
-            "_process_current_project",
+            "_process_project_with_parallelism",
             side_effect=[mock_process_a(), mock_process_b()],
         ):
             workunits = list(source.get_workunits_internal())
