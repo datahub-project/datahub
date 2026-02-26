@@ -19,6 +19,7 @@ from sqlglot.expressions import (
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
     DEFAULT_MAX_PARTITION_VALUES,
@@ -1504,10 +1505,9 @@ LIMIT 1"""
         required_columns: List[str],
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
-        if not table.max_partition_id or table.max_partition_id in (
-            "__NULL__",
-            "__UNPARTITIONED__",
-            "__STREAMING_UNPARTITIONED__",
+        if (
+            not table.max_partition_id
+            or table.max_partition_id in BQ_SPECIAL_PARTITION_IDS
         ):
             return None
 

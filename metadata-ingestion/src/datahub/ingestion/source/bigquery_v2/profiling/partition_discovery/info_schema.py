@@ -6,6 +6,11 @@ from typing import Callable, Dict, List, Optional, Union
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_NULL_PARTITION_ID,
+    BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+    BQ_UNPARTITIONED_PARTITION_ID,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
     PARTITION_ID_YYYYMMDD_LENGTH,
@@ -142,8 +147,8 @@ AND ({column_filter_clause})"""
             query = f"""SELECT partition_id, total_rows
 FROM {safe_info_schema_ref}
 WHERE table_name = @table_name 
-AND partition_id != '__NULL__'
-AND partition_id != '__UNPARTITIONED__'
+AND partition_id != '{BQ_NULL_PARTITION_ID}'
+AND partition_id != '{BQ_UNPARTITIONED_PARTITION_ID}'
 AND total_rows > 0
 ORDER BY total_rows DESC
 LIMIT @max_results"""
@@ -234,7 +239,7 @@ LIMIT @max_results"""
                 "SELECT partition_id, last_modified_time, total_rows",
                 f"FROM {safe_info_schema_ref}",
                 "WHERE table_name = @table_name",
-                "AND partition_id NOT IN ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')",
+                f"AND partition_id NOT IN ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}')",
                 "AND total_rows > 0",
                 "ORDER BY last_modified_time DESC",
                 "LIMIT @max_partitions",

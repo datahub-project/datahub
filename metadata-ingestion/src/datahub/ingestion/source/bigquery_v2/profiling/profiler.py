@@ -10,7 +10,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BQ_SAFETY_ROW_LIMIT,
+    BQ_SAFETY_ROW_LIMIT_THRESHOLD,
     DATE_FORMAT_PATTERNS,
     DATE_FORMAT_YYYY_MM_DD,
     DATE_FORMAT_YYYYMMDD,
@@ -179,6 +182,9 @@ ORDER BY table_name, ordinal_position
 
         if bq_table.external:
             base_kwargs["is_external"] = "true"
+            # Partition discovery for external tables is deferred to parallel threads in
+            # generate_profile_workunits_with_deferred_partitions to avoid blocking.
+            return base_kwargs
 
         logger.debug(f"Starting partition discovery for {table_ref}")
         self._partition_discovery_calls += 1
@@ -195,13 +201,29 @@ ORDER BY table_name, ordinal_position
             cached_partition_metadata=cached_metadata,
         )
 
-        validated_filters = []
+        if partition_filters is None:
+            # Table requires a partition filter but one couldn't be constructed.
+            # Callers should catch ValueError and skip the table.
+            raise ValueError(
+                f"Could not construct required partition filters for {table_ref}"
+            )
+
+        validated_filters: List[str] = []
         partition_where = ""
 
         if partition_filters:
             validated_filters = validate_and_filter_expressions(
                 partition_filters, "batch kwargs"
             )
+
+            # Apply partition date windowing once here so it isn't duplicated in get_profile_request.
+            if (
+                validated_filters
+                and self.config.profiling.partition_datetime_window_days
+            ):
+                validated_filters = self._apply_partition_date_windowing(
+                    validated_filters, bq_table
+                )
 
             if validated_filters:
                 partition_where = " AND ".join(validated_filters)
@@ -214,11 +236,6 @@ ORDER BY table_name, ordinal_position
                 )
 
         safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
-
-        # We always produce custom_sql so GE uses our query rather than building one itself.
-        # This gives us full control over partition pruning, sampling, and row limits, and
-        # avoids the secondary TABLESAMPLE pass in ge_data_profiler.update_dataset_batch_use_sampling
-        # which fails silently on BigQuery anonymous cached-results tables.
         custom_sql = None
 
         should_sample = (
@@ -234,57 +251,73 @@ ORDER BY table_name, ordinal_position
             sample_percent = min(100 * sample_pc, 100.0)
 
             if partition_where:
-                custom_sql = f"""SELECT * FROM {safe_table_ref} 
+                custom_sql = f"""SELECT * FROM {safe_table_ref}
 TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
 WHERE {partition_where}"""
             else:
-                custom_sql = f"""SELECT * FROM {safe_table_ref} 
+                custom_sql = f"""SELECT * FROM {safe_table_ref}
 TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
 
             logger.info(
                 f"Applied {sample_percent:.4f}% sampling to {table_ref} "
                 f"({bq_table.rows_count:,} rows)"
             )
-        else:
-            if partition_where:
-                if self.config.profiling.profiling_row_limit > 0:
-                    row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-                    custom_sql = f"""SELECT * FROM {safe_table_ref}
+        elif partition_where:
+            if self.config.profiling.profiling_row_limit > 0:
+                row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+                custom_sql = f"""SELECT * FROM {safe_table_ref}
 WHERE {partition_where}
 LIMIT {row_limit}"""
-                    logger.info(
-                        f"Applied row limit ({row_limit:,}) to partitioned {table_ref}"
-                    )
-                else:
-                    custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}"""
+                logger.info(
+                    f"Applied row limit ({row_limit:,}) to partitioned {table_ref}"
+                )
             else:
-                if self.config.profiling.profiling_row_limit > 0:
-                    row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-                    custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {row_limit}"
-                else:
-                    if (
-                        hasattr(bq_table, "rows_count")
-                        and bq_table.rows_count
-                        and bq_table.rows_count > 1000000
-                    ):
-                        # Safety cap when sampling is disabled and no explicit row limit is
-                        # configured: avoid accidentally scanning very large unpartitioned tables.
-                        safety_limit = 100000
-                        custom_sql = (
-                            f"SELECT * FROM {safe_table_ref} LIMIT {safety_limit}"
-                        )
-                        logger.info(
-                            f"Applied safety limit of {safety_limit:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows)"
-                        )
-                    else:
-                        custom_sql = f"SELECT * FROM {safe_table_ref}"
+                custom_sql = f"""SELECT * FROM {safe_table_ref}
+WHERE {partition_where}"""
+        elif (
+            hasattr(bq_table, "rows_count")
+            and bq_table.rows_count
+            and self.config.profiling.profiling_row_limit > 0
+            and bq_table.rows_count > self.config.profiling.profiling_row_limit
+        ):
+            # Apply the row limit for non-partitioned tables that exceed it to avoid
+            # expensive full-table scans.
+            row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+            custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {row_limit}"
+            logger.info(
+                f"Applied row limit ({row_limit:,}) to non-partitioned table {table_ref} ({bq_table.rows_count:,} rows)"
+            )
+        elif (
+            hasattr(bq_table, "rows_count")
+            and bq_table.rows_count
+            and bq_table.rows_count > BQ_SAFETY_ROW_LIMIT_THRESHOLD
+            and self.config.profiling.profiling_row_limit == 0
+        ):
+            # Safety cap for very large unpartitioned tables when no explicit limit is configured.
+            custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {BQ_SAFETY_ROW_LIMIT}"
+            logger.info(
+                f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows)"
+            )
+        # else: no custom_sql for non-partitioned, non-sampled tables that fit within limits —
+        # let GE profile normally, preserving the default FULL_TABLE partitionSpec on the profile MCP.
 
-        base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
+        if custom_sql:
+            base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
+            logger.debug(
+                f"Generated batch kwargs for {table_ref} with custom_sql: {custom_sql[:100]}..."
+            )
+        else:
+            logger.debug(f"Generated batch kwargs for {table_ref} without custom_sql")
 
-        logger.debug(
-            f"Generated batch kwargs for {table_ref} with custom_sql: {custom_sql[:100]}..."
+        # Set the partition key so that profile MCPs carry the real partition ID and
+        # type=PARTITION rather than type=QUERY/"SAMPLE".  This matches the master branch
+        # behaviour where generate_partition_profiler_query returned (partition, custom_sql).
+        partition_id = bq_table.max_partition_id or getattr(
+            bq_table, "max_shard_id", None
         )
+        if partition_id and partition_id not in BQ_SPECIAL_PARTITION_IDS:
+            base_kwargs["partition"] = partition_id
+
         return base_kwargs
 
     def get_profile_request(
@@ -293,13 +326,13 @@ WHERE {partition_where}"""
         try:
             profile_request = super().get_profile_request(table, schema_name, db_name)
         except ValueError as e:
-            # get_batch_kwargs raises ValueError for identifiers that fail security
-            # validation (e.g. table names with unsupported characters). Skip gracefully
-            # rather than crashing the whole pipeline.
+            # get_batch_kwargs raises ValueError for:
+            # - identifiers that fail security validation
+            # - partitioned tables that require a filter but one couldn't be constructed
             table_ref = f"{db_name}.{schema_name}.{table.name}"
             self.report.report_warning(
-                title="Invalid identifier in profiling",
-                message=f"Skipping profiling due to invalid identifier: {e}",
+                title="Table skipped during profiling",
+                message=str(e),
                 context=table_ref,
             )
             return None
@@ -320,12 +353,20 @@ WHERE {partition_where}"""
             )
             return None
 
+        # Only skip profiling for tables that actually have partitions when
+        # partition_profiling_enabled is False. Non-partitioned tables should still be profiled.
         if not self.config.profiling.partition_profiling_enabled:
-            logger.info(f"Skipping partition profiling (disabled): {table_ref}")
-            self.report.profiling_skipped_partition_profiling_disabled.append(
-                profile_request.pretty_name
+            is_partitioned = (
+                bq_table.max_partition_id
+                or getattr(bq_table, "max_shard_id", None)
+                or (hasattr(bq_table, "partition_info") and bq_table.partition_info)
             )
-            return None
+            if is_partitioned:
+                logger.info(f"Skipping partition profiling (disabled): {table_ref}")
+                self.report.profiling_skipped_partition_profiling_disabled.append(
+                    profile_request.pretty_name
+                )
+                return None
 
         if bq_table.external:
             # External table partition discovery can't use INFORMATION_SCHEMA and may
@@ -340,70 +381,6 @@ WHERE {partition_where}"""
             profile_request.db_name = db_name  # type: ignore[attr-defined]
             profile_request.schema_name = schema_name  # type: ignore[attr-defined]
             self._external_tables_processed += 1
-        else:
-            partition_filters = self.partition_discovery.get_required_partition_filters(
-                bq_table, db_name, schema_name, self.query_executor.execute_query_safely
-            )
-
-            if partition_filters is None:
-                self.report.report_warning(
-                    title="Profile skipped for partitioned table",
-                    message="Could not construct partition filters - required for partition elimination",
-                    context=profile_request.pretty_name,
-                )
-                return None
-
-            if partition_filters:
-                validated_filters = validate_and_filter_expressions(
-                    partition_filters, "profile request"
-                )
-
-                if validated_filters:
-                    windowed_filters = self._apply_partition_date_windowing(
-                        validated_filters, bq_table
-                    )
-
-                    partition_where = " AND ".join(windowed_filters)
-                    safe_table_ref = build_safe_table_reference(
-                        db_name, schema_name, bq_table.name
-                    )
-
-                    logger.info(
-                        f"Final partition WHERE clause for {table_ref}: {partition_where}"
-                    )
-
-                    if (
-                        self.config.profiling.use_sampling
-                        and hasattr(bq_table, "rows_count")
-                        and bq_table.rows_count
-                        and bq_table.rows_count > self.config.profiling.sample_size
-                    ):
-                        sample_pc = (
-                            self.config.profiling.sample_size / bq_table.rows_count
-                        )
-                        sample_percent = min(100 * sample_pc, 100.0)
-
-                        custom_sql = f"""SELECT * FROM {safe_table_ref} 
-TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
-WHERE {partition_where}"""
-                    else:
-                        if self.config.profiling.profiling_row_limit > 0:
-                            row_limit = max(
-                                1, int(self.config.profiling.profiling_row_limit)
-                            )
-                            custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}
-LIMIT {row_limit}"""
-                        else:
-                            custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}"""
-
-                    logger.debug(
-                        f"Using partition filters (with windowing): {partition_where}"
-                    )
-                    profile_request.batch_kwargs.update(
-                        dict(custom_sql=custom_sql, partition_handling="true")
-                    )
 
         logger.info(f"Successfully created profile request for {table_ref}")
         return profile_request

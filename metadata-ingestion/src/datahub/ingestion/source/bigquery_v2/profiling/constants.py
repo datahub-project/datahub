@@ -269,6 +269,12 @@ SAMPLING_PERCENT = 0.001  # 0.1% sample rate for large tables
 SAMPLING_LIMIT_ROWS = 5  # Maximum rows to return when sampling
 TEST_QUERY_LIMIT_ROWS = 1  # Row limit for test queries (validation)
 
+# Fallback row cap for unpartitioned tables when profiling_row_limit is explicitly set
+# to 0 (unlimited). Applied only to tables exceeding BQ_SAFETY_ROW_LIMIT_THRESHOLD rows
+# to prevent full-scan profiling of extremely large tables from causing OOM failures.
+BQ_SAFETY_ROW_LIMIT = 100_000
+BQ_SAFETY_ROW_LIMIT_THRESHOLD = 1_000_000
+
 # Default limits for partition discovery operations
 DEFAULT_POPULATED_PARTITIONS_LIMIT = (
     5  # Max partitions from get_most_populated_partitions
