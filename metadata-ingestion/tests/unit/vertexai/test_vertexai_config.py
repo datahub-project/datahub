@@ -102,7 +102,7 @@ def test_rate_limit_disabled_by_default() -> None:
     )
     source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
 
-    assert source._rate_limiter is None
+    assert not isinstance(source._rate_limiter, RateLimiter)
 
 
 def test_rate_limit_creates_shared_rate_limiter() -> None:

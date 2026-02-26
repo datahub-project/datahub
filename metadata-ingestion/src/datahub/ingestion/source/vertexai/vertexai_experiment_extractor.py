@@ -1,4 +1,5 @@
 import logging
+from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
@@ -78,7 +79,7 @@ class VertexAIExperimentExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
-        rate_limiter: Optional[RateLimiter] = None,
+        rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
         self.urn_builder = urn_builder
@@ -103,10 +104,7 @@ class VertexAIExperimentExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "Experiment")
 
-        if self.rate_limiter:
-            with self.rate_limiter:
-                experiments = aiplatform.Experiment.list()
-        else:
+        with self.rate_limiter:
             experiments = aiplatform.Experiment.list()
         filtered = [
             e
@@ -150,10 +148,7 @@ class VertexAIExperimentExtractor:
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
             logger.info("Fetching Experiments from Vertex AI")
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    raw_experiments = aiplatform.Experiment.list()
-            else:
+            with self.rate_limiter:
                 raw_experiments = aiplatform.Experiment.list()
             filtered_experiments = [
                 e
@@ -186,12 +181,7 @@ class VertexAIExperimentExtractor:
             logger.info(
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    runs = list(
-                        aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
-                    )
-            else:
+            with self.rate_limiter:
                 runs = list(
                     aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
                 )

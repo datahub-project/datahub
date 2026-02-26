@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from contextlib import AbstractContextManager, nullcontext
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -97,7 +98,7 @@ class VertexAITrainingExtractor:
         report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
         model_usage_tracker: ModelUsageTracker,
-        rate_limiter: Optional[RateLimiter] = None,
+        rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
         self.client = client
@@ -128,12 +129,7 @@ class VertexAITrainingExtractor:
             if last_checkpoint_millis:
                 log_checkpoint_time(last_checkpoint_millis, class_name)
 
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    jobs_pager = getattr(self.client, class_name).list(
-                        order_by=ORDER_BY_UPDATE_TIME_DESC
-                    )
-            else:
+            with self.rate_limiter:
                 jobs_pager = getattr(self.client, class_name).list(
                     order_by=ORDER_BY_UPDATE_TIME_DESC
                 )
@@ -153,10 +149,7 @@ class VertexAITrainingExtractor:
                     )
 
                 log_progress(job_count, max_jobs, class_name)
-                if self.rate_limiter:
-                    with self.rate_limiter:
-                        yield from self._get_training_job_mcps(job)
-                else:
+                with self.rate_limiter:
                     yield from self._get_training_job_mcps(job)
 
                 if max_jobs is not None and job_count >= max_jobs:
@@ -381,10 +374,7 @@ class VertexAITrainingExtractor:
 
             for dtype in DatasetTypes.all():
                 dataset_class = getattr(self.client.datasets, dtype)
-                if self.rate_limiter:
-                    with self.rate_limiter:
-                        datasets = list(dataset_class.list())
-                else:
+                with self.rate_limiter:
                     datasets = list(dataset_class.list())
                 for ds in datasets:
                     self.datasets[ds.name] = ds
@@ -447,10 +437,7 @@ class VertexAITrainingExtractor:
     def _search_model_version(
         self, model: Model, model_version_str: str
     ) -> Optional[VersionInfo]:
-        if self.rate_limiter:
-            with self.rate_limiter:
-                versions = list(model.versioning_registry.list_versions())
-        else:
+        with self.rate_limiter:
             versions = list(model.versioning_registry.list_versions())
         for version in versions:
             if version.version_id == model_version_str:

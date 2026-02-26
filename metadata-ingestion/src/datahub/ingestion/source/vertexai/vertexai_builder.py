@@ -437,9 +437,10 @@ class VertexAIURIParser:
                         platform_detail=platform_detail,
                     )
                 )
-        except (ValueError, IndexError, AttributeError, KeyError):
-            logger.debug(
-                f"Could not parse artifact uri for lineage: {uri}", exc_info=True
+        except (ValueError, IndexError, AttributeError, KeyError) as e:
+            logger.warning(
+                f"Could not parse artifact URI for lineage: {uri} | cause={type(e).__name__}: {e}",
+                exc_info=True,
             )
         return urns
 
@@ -539,9 +540,10 @@ class VertexAIURIParser:
         try:
             job_conf = job.to_dict()
             walk(job_conf, [])
-        except (AttributeError, TypeError, ValueError):
-            logger.debug(
-                "Failed to parse training job config for external URIs", exc_info=True
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.warning(
+                f"Failed to parse training job config for external URIs | cause={type(e).__name__}: {e}",
+                exc_info=True,
             )
 
         input_urns: List[str] = []

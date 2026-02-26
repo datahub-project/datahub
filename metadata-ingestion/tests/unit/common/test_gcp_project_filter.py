@@ -104,7 +104,7 @@ class TestResolveGcpProjects:
     def test_resolve_explicit_project_ids(self):
         """Test resolution with explicit project IDs."""
         config = GcpProjectFilterConfig(project_ids=["proj-1", "proj-2"])
-        projects = resolve_gcp_projects(config)
+        projects = resolve_gcp_projects(config, SourceReport())
 
         assert len(projects) == 2
         assert all(isinstance(p, GcpProject) for p in projects)
@@ -125,7 +125,9 @@ class TestResolveGcpProjects:
         ]
 
         config = GcpProjectFilterConfig(project_labels=["env:prod"])
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         assert len(projects) == 2
         assert projects[0].id == "prod-1"
@@ -147,7 +149,9 @@ class TestResolveGcpProjects:
             project_labels=["env:prod"],
             project_id_pattern=AllowDenyPattern(deny=[".*-test$"]),
         )
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         assert len(projects) == 1
         assert projects[0].id == "prod-ml"
@@ -164,7 +168,9 @@ class TestResolveGcpProjects:
         ]
 
         config = GcpProjectFilterConfig()
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         assert len(projects) == 2
         assert projects[0].id == "proj-1"
@@ -228,7 +234,9 @@ class TestResolveGcpProjects:
         ]
 
         config = GcpProjectFilterConfig()
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         # Should skip malformed project and only return valid one
         assert len(projects) == 1
@@ -245,7 +253,9 @@ class TestResolveGcpProjects:
         ]
 
         config = GcpProjectFilterConfig()
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         assert len(projects) == 1
         # Should fallback to project_id when display_name is None
@@ -295,7 +305,9 @@ class TestResolveGcpProjects:
         mock_client.list_projects.return_value = []
 
         config = GcpProjectFilterConfig(project_ids=[])
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         # Empty list should fall through to list_all_projects
         assert isinstance(projects, list)
@@ -312,7 +324,9 @@ class TestResolveGcpProjects:
         ]
 
         config = GcpProjectFilterConfig()
-        projects = resolve_gcp_projects(config, projects_client=mock_client)
+        projects = resolve_gcp_projects(
+            config, SourceReport(), projects_client=mock_client
+        )
 
         assert len(projects) == 1
         assert projects[0].id == "my-project-123"

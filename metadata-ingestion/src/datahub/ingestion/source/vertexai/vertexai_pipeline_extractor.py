@@ -1,4 +1,5 @@
 import logging
+from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import (
     Any,
@@ -6,7 +7,6 @@ from typing import (
     Dict,
     Iterable,
     List,
-    Optional,
     Set,
     Union,
 )
@@ -100,7 +100,7 @@ class VertexAIPipelineExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
-        rate_limiter: Optional[RateLimiter] = None,
+        rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
         self.client = client
@@ -166,12 +166,7 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        if self.rate_limiter:
-            with self.rate_limiter:
-                pipeline_jobs_pager = self.client.PipelineJob.list(
-                    order_by=ORDER_BY_UPDATE_TIME_DESC
-                )
-        else:
+        with self.rate_limiter:
             pipeline_jobs_pager = self.client.PipelineJob.list(
                 order_by=ORDER_BY_UPDATE_TIME_DESC
             )
@@ -192,10 +187,7 @@ class VertexAIPipelineExtractor:
             log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    pipeline_meta = self._get_pipeline_metadata(pipeline)
-            else:
+            with self.rate_limiter:
                 pipeline_meta = self._get_pipeline_metadata(pipeline)
 
             yield from self._get_pipeline_workunits(pipeline, pipeline_meta)

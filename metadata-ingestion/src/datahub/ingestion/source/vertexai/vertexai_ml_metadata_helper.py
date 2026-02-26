@@ -1,6 +1,7 @@
 import itertools
 import logging
-from typing import List, Optional, Sequence
+from contextlib import AbstractContextManager, nullcontext
+from typing import List, Optional, Sequence, Union
 
 from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
@@ -66,7 +67,7 @@ class MLMetadataHelper:
         metadata_client: MetadataServiceClient,
         config: MLMetadataConfig,
         uri_parser: VertexAIURIParser,
-        rate_limiter: Optional[RateLimiter] = None,
+        rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.client = metadata_client
         self.config = config
@@ -123,7 +124,7 @@ class MLMetadataHelper:
             )
             return None
         except NotFound as e:
-            logger.debug(
+            logger.warning(
                 format_api_error_message(
                     e,
                     f"ML Metadata for job {job.display_name}",
@@ -133,7 +134,7 @@ class MLMetadataHelper:
             )
             return None
         except AttributeError as e:
-            logger.debug(
+            logger.warning(
                 f"Failed to extract lineage metadata for job {job.display_name} due to missing attribute | resource_type=training_job | resource_name={job.name} | cause={type(e).__name__}: {e}",
                 exc_info=True,
             )
@@ -151,13 +152,8 @@ class MLMetadataHelper:
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
 
-        if self.rate_limiter:
-            with self.rate_limiter:
-                executions: List[Execution] = list(
-                    self.client.list_executions(request=request, retry=_METADATA_RETRY)
-                )
-        else:
-            executions = list(
+        with self.rate_limiter:
+            executions: List[Execution] = list(
                 self.client.list_executions(request=request, retry=_METADATA_RETRY)
             )
 
@@ -202,17 +198,11 @@ class MLMetadataHelper:
             page_size=MLMetadataDefaults.MAX_PAGE_SIZE,  # API max is 100 per page
         )
 
-        if self.rate_limiter:
-            with self.rate_limiter:
-                paged_response = self.client.list_executions(
-                    request=request, retry=_METADATA_RETRY
-                )
-                executions = list(itertools.islice(paged_response, max_to_retrieve))
-        else:
+        with self.rate_limiter:
             paged_response = self.client.list_executions(
                 request=request, retry=_METADATA_RETRY
             )
-            executions = list(itertools.islice(paged_response, max_to_retrieve))
+        executions = list(itertools.islice(paged_response, max_to_retrieve))
         logger.info(
             f"Loaded {len(executions)} executions into cache for ML Metadata matching"
         )
@@ -304,12 +294,7 @@ class MLMetadataHelper:
         try:
             request = QueryExecutionInputsAndOutputsRequest(execution=execution_name)
 
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    response = self.client.query_execution_inputs_and_outputs(
-                        request=request, retry=_METADATA_RETRY
-                    )
-            else:
+            with self.rate_limiter:
                 response = self.client.query_execution_inputs_and_outputs(
                     request=request, retry=_METADATA_RETRY
                 )
@@ -354,7 +339,7 @@ class MLMetadataHelper:
             )
             return ArtifactURNs()
         except NotFound as e:
-            logger.debug(
+            logger.warning(
                 format_api_error_message(
                     e,
                     f"Artifact lineage for execution {execution_name}",
@@ -364,8 +349,9 @@ class MLMetadataHelper:
             )
             return ArtifactURNs()
         except AttributeError as e:
-            logger.debug(
-                f"Failed to extract artifact lineage for execution {execution_name} due to missing attribute | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}"
+            logger.warning(
+                f"Failed to extract artifact lineage for execution {execution_name} due to missing attribute | resource_type=execution | resource_name={execution_name} | cause={type(e).__name__}: {e}",
+                exc_info=True,
             )
             return ArtifactURNs()
         except GoogleAPICallError as e:

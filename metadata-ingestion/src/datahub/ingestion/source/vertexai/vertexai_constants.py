@@ -110,6 +110,9 @@ class MLMetadataEventTypes:
 
 
 class HyperparameterPatterns:
+    # Heuristic lists derived from common ML framework naming conventions
+    # (scikit-learn, Keras/TensorFlow, PyTorch, XGBoost). No single authoritative
+    # source; extend as needed for frameworks not covered here.
     EXACT_MATCHES: Set[str] = {
         "learning_rate",
         "lr",
@@ -139,21 +142,11 @@ class HyperparameterPatterns:
         "max_iterations",
         "tolerance",
         "tol",
-        "random_state",
-        "seed",
-        "n_jobs",
-        "validation_split",
-        "test_split",
-        "train_size",
-        "test_size",
     }
 
     PREFIXES: Set[str] = {
         "param_",
         "hp_",
-        "hyperparameter_",
-        "hyper_param_",
-        "hyperparam_",
     }
 
     @classmethod
@@ -165,6 +158,9 @@ class HyperparameterPatterns:
 
 
 class MetricPatterns:
+    # Heuristic lists derived from common ML framework naming conventions
+    # (scikit-learn, Keras/TensorFlow, PyTorch, XGBoost). No single authoritative
+    # source; extend as needed for frameworks not covered here.
     EXACT_MATCHES: Set[str] = {
         # Classification
         "accuracy",

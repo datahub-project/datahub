@@ -1,7 +1,8 @@
 import logging
+from contextlib import AbstractContextManager, nullcontext
 from numbers import Real
 from operator import attrgetter
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
@@ -76,7 +77,7 @@ class VertexAIModelExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
-        rate_limiter: Optional[RateLimiter] = None,
+        rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
         self.config = config
         self.client = client
@@ -95,12 +96,7 @@ class VertexAIModelExtractor:
 
     def _list_models(self) -> List:
         if self._models_cache is None:
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    self._models_cache = self.client.Model.list(
-                        order_by=ORDER_BY_UPDATE_TIME_DESC
-                    )
-            else:
+            with self.rate_limiter:
                 self._models_cache = self.client.Model.list(
                     order_by=ORDER_BY_UPDATE_TIME_DESC
                 )
@@ -138,11 +134,8 @@ class VertexAIModelExtractor:
 
             yield from self._gen_ml_group_container(model)
 
-            if self.rate_limiter:
-                with self.rate_limiter:
-                    model_versions = list(model.versioning_registry.list_versions())
-            else:
-                model_versions = model.versioning_registry.list_versions()
+            with self.rate_limiter:
+                model_versions = list(model.versioning_registry.list_versions())
             for model_version in model_versions:
                 total_versions += 1
                 log_progress(total_versions, None, "model versions")
@@ -185,13 +178,10 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "fetch model evaluations", "model", model.name
             ):
-                if self.rate_limiter:
-                    with self.rate_limiter:
-                        evaluations: List[ModelEvaluation] = list(
-                            model.list_model_evaluations()
-                        )
-                else:
-                    evaluations = list(model.list_model_evaluations())
+                with self.rate_limiter:
+                    evaluations: List[ModelEvaluation] = list(
+                        model.list_model_evaluations()
+                    )
 
                 evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
 
@@ -334,13 +324,10 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "get model versions", "model", model.name, log_level="debug"
             ):
-                if self.rate_limiter:
-                    with self.rate_limiter:
-                        versions: List[VersionInfo] = list(
-                            model.versioning_registry.list_versions()
-                        )
-                else:
-                    versions = list(model.versioning_registry.list_versions())
+                with self.rate_limiter:
+                    versions: List[VersionInfo] = list(
+                        model.versioning_registry.list_versions()
+                    )
                 if versions:
                     latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
                     model_name = self.name_formatter.format_model_name(
@@ -714,11 +701,10 @@ class VertexAIModelExtractor:
         if self.endpoints is None:
             logger.info("Fetching Endpoints from Vertex AI")
             endpoint_dict: Dict[str, List[Endpoint]] = {}
-            for endpoint in self.client.Endpoint.list():
-                if self.rate_limiter:
-                    with self.rate_limiter:
-                        deployed = list(endpoint.list_models())
-                else:
+            with self.rate_limiter:
+                all_endpoints = list(self.client.Endpoint.list())
+            for endpoint in all_endpoints:
+                with self.rate_limiter:
                     deployed = list(endpoint.list_models())
                 for resource in deployed:
                     if resource.model not in endpoint_dict:

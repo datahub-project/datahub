@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterable, List, Literal, Optional
+from contextlib import AbstractContextManager, nullcontext
+from typing import Dict, Iterable, List, Literal, Optional, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -126,10 +127,10 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
 
-        self._rate_limiter: Optional[RateLimiter] = (
+        self._rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = (
             RateLimiter(max_calls=config.requests_per_min, period=60)
             if config.rate_limit
-            else None
+            else nullcontext()
         )
 
         self._initialize_builders_and_extractors()

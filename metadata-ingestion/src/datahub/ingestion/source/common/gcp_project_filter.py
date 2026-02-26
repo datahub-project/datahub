@@ -1,6 +1,8 @@
 import logging
 from typing import FrozenSet, List, Optional, Protocol
 
+from google.api_core.exceptions import GoogleAPICallError
+from google.auth.exceptions import GoogleAuthError
 from google.cloud.resourcemanager_v3 import ProjectsClient
 from pydantic import BaseModel, Field
 
@@ -111,7 +113,7 @@ def _list_all_projects(
 
 def resolve_gcp_projects(
     filter_config: GcpProjectFilterConfig,
-    report: Optional[SourceReport] = None,
+    report: SourceReport,
     projects_client: Optional[ProjectsClient] = None,
 ) -> List[GcpProject]:
     """
@@ -131,7 +133,7 @@ def resolve_gcp_projects(
                 frozenset(filter_config.project_labels), projects_client
             )
             allowed = [p for p in labeled if is_project_allowed(filter_config, p.id)]
-            if not allowed and report:
+            if not allowed:
                 report.warning(
                     title="Project Filter",
                     message="No projects matched provided labels after applying project_id_pattern.",
@@ -140,7 +142,7 @@ def resolve_gcp_projects(
 
         all_projects = _list_all_projects(projects_client)
         allowed = [p for p in all_projects if is_project_allowed(filter_config, p.id)]
-        if not allowed and report:
+        if not allowed:
             report.failure(
                 title="No GCP projects resolved",
                 message=(
@@ -148,12 +150,11 @@ def resolve_gcp_projects(
                 ),
             )
         return allowed
-    except Exception as e:
+    except (GoogleAPICallError, GoogleAuthError) as e:
         logger.error("Failed to resolve GCP projects", exc_info=True)
-        if report:
-            report.failure(
-                title="Failed to resolve GCP projects",
-                message="Error while resolving GCP projects via Resource Manager",
-                exc=e,
-            )
+        report.failure(
+            title="Failed to resolve GCP projects",
+            message="Error while resolving GCP projects via Resource Manager",
+            exc=e,
+        )
         return []
