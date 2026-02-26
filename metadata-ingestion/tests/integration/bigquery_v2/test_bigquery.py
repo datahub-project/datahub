@@ -1,6 +1,7 @@
 import random
 import string
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -26,7 +27,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper impo
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
-    BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
     BigqueryTableSnapshot,
@@ -245,7 +245,6 @@ def test_bigquery_v2_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@patch.object(BigQuerySchemaApi, attribute="get_projects_with_labels")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
@@ -255,15 +254,14 @@ def test_bigquery_v2_ingest(
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_bigquery_v2_project_labels_ingest(
-    client,
-    policy_tag_manager_client,
     projects_client,
+    policy_tag_manager_client,
+    client,
     get_sample_data_for_table,
     get_columns_for_dataset,
     get_datasets_for_project_id,
     get_core_table_details,
     get_tables_for_dataset,
-    get_projects_with_labels,
     pytestconfig,
     tmp_path,
 ):
@@ -275,9 +273,12 @@ def test_bigquery_v2_project_labels_ingest(
         BigqueryDataset(name="bigquery-dataset-1")
     ]
 
-    get_projects_with_labels.return_value = [
-        BigqueryProject(id="dev", name="development")
+    # Mock ProjectsClient instance and its search_projects method
+    mock_projects_client_instance = MagicMock()
+    mock_projects_client_instance.search_projects.return_value = [
+        SimpleNamespace(project_id="dev", display_name="development")
     ]
+    projects_client.return_value = mock_projects_client_instance
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}

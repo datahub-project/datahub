@@ -93,6 +93,7 @@ const TypeContainer = styled.div`
     display: flex;
     align-items: center;
     white-space: nowrap;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Icons = styled.div`
@@ -258,13 +259,7 @@ export default function AutoCompleteEntityItem({
 
             {!hideType && (
                 <TypeContainer>
-                    {customDetailsRenderer ? (
-                        customDetailsRenderer(entity)
-                    ) : (
-                        <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                            {displayType}
-                        </Text>
-                    )}
+                    {customDetailsRenderer ? customDetailsRenderer(entity) : <Text size="sm">{displayType}</Text>}
                 </TypeContainer>
             )}
         </Container>
