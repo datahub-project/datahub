@@ -113,13 +113,29 @@ public class MCLKafkaListener
               Long requestEpochMillis =
                   TraceServiceImpl.extractTraceIdEpochMillis(event.getSystemMetadata());
               if (requestEpochMillis != null) {
-                long queueTimeMs = System.currentTimeMillis() - requestEpochMillis;
+                long currentTimeMillis = System.currentTimeMillis();
+                long queueTimeMs = currentTimeMillis - requestEpochMillis;
 
-                // request
-                metricUtils
-                    .getRegistry()
-                    .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
-                    .record(Duration.ofMillis(queueTimeMs));
+                // Validate timestamp is reasonable to avoid ArithmeticException from overflow
+                // when converting to nanoseconds. External trace IDs (e.g., from observability
+                // tools) may not follow DataHub's trace ID format and can parse as invalid
+                // timestamps.
+                if (requestEpochMillis > 0
+                    && requestEpochMillis <= currentTimeMillis
+                    && queueTimeMs >= 0
+                    && queueTimeMs < Long.MAX_VALUE / 1_000_000) {
+                  // request
+                  metricUtils
+                      .getRegistry()
+                      .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
+                      .record(Duration.ofMillis(queueTimeMs));
+                } else {
+                  log.debug(
+                      "Skipping queue time metric recording for hook {} due to invalid timestamp: requestEpochMillis={}, queueTimeMs={}",
+                      hookName,
+                      requestEpochMillis,
+                      queueTimeMs);
+                }
               }
             });
   }
