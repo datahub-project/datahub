@@ -2014,7 +2014,7 @@ class TestGetTraceStatus:
     def test_get_trace_status_returns_none_when_server_config_is_none(self):
         """Test that get_trace_status() returns None when server config is explicitly None."""
         emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
-        emitter._server_config = None  # Explicitly set to None
+        emitter._server_config = None  # type: ignore[assignment]
 
         with patch.object(logger, "warning") as mock_warning:
             trace = TraceData(

@@ -347,7 +347,7 @@ class TestDataHubRestSinkBatchEmission:
             sink.report = DataHubRestSinkReport()
 
             # Create test MCPs
-            mcps = [
+            mcps: list = [
                 (
                     MetadataChangeProposalWrapper(
                         entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:test,table{i},PROD)",
