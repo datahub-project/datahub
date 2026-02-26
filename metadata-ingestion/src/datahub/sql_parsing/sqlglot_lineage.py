@@ -1052,6 +1052,7 @@ def _select_statement_cll(
                     dialect=dialect,
                     scope=root_scope,
                     trim_selects=False,
+                    copy=False,
                     # We don't need to pass the schema in here, since we've already qualified the columns.
                 )
             except Exception as e:
@@ -1397,11 +1398,13 @@ def _get_raw_col_upstreams_for_expression(
         # So this line should basically never happen.
         return OrderedSet()
 
-    original_expression = scope.expression
-    updated_expression = scope.expression.select(select, append=False, copy=True)
+    # Temporarily swap the selects list to contain only the target expression,
+    # avoiding a full deep copy of the entire AST that .select(copy=True) would do.
+    # This is safe because to_node() only reads from the expression tree.
+    original_selects = scope.expression.args.get("expressions", [])
 
     try:
-        scope.expression = updated_expression
+        scope.expression.args["expressions"] = [select]
         node = sqlglot.lineage.to_node(
             column=0,
             scope=scope,
@@ -1411,7 +1414,7 @@ def _get_raw_col_upstreams_for_expression(
 
         return _get_direct_raw_col_upstreams(node, dialect, None, None)
     finally:
-        scope.expression = original_expression
+        scope.expression.args["expressions"] = original_selects
 
 
 def _list_joins(
