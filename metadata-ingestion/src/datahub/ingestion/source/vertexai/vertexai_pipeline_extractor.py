@@ -119,13 +119,18 @@ class VertexAIPipelineExtractor:
 
     def _get_stable_pipeline_id(self, pipeline: PipelineJob) -> str:
         """
-        Extract stable pipeline identifier.
-
-        Prefers display_name if set. For Kubeflow Pipelines running on Vertex AI,
-        display_name often includes a timestamp suffix (e.g., -20241107083959).
-        This is stripped to get the stable pipeline name, allowing multiple runs to
-        be grouped under the same DataFlow and container.
+        Prefer pipeline_spec.pipelineInfo.name (set at compile time, unaffected by
+        display_name edits) over display_name. Falls back to display_name with the
+        Kubeflow timestamp suffix stripped for non-Kubeflow pipelines (e.g. AutoML).
         """
+        resource = pipeline.gca_resource
+        if isinstance(resource, PipelineJobType):
+            pipeline_info_name = resource.pipeline_spec.get("pipelineInfo", {}).get(
+                "name"
+            )
+            if pipeline_info_name:
+                return pipeline_info_name
+
         name = pipeline.display_name or pipeline.name
         return KUBEFLOW_TIMESTAMP_SUFFIX_PATTERN.sub("", name)
 
