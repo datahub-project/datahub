@@ -72,6 +72,7 @@ from datahub.metadata.schema_classes import (
     MLTrainingRunPropertiesClass,
     TimeStampClass,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ class VertexAITrainingExtractor:
         report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
         model_usage_tracker: ModelUsageTracker,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         self.config = config
         self.client = client
@@ -111,6 +113,7 @@ class VertexAITrainingExtractor:
         self.report = report
         self.state_handler = state_handler
         self.model_usage_tracker = model_usage_tracker
+        self.rate_limiter = rate_limiter
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
 
@@ -144,8 +147,11 @@ class VertexAITrainingExtractor:
                     )
 
                 log_progress(job_count, max_jobs, class_name)
-
-                yield from self._get_training_job_mcps(job)
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        yield from self._get_training_job_mcps(job)
+                else:
+                    yield from self._get_training_job_mcps(job)
 
                 if max_jobs is not None and job_count >= max_jobs:
                     logger.info(
@@ -369,7 +375,12 @@ class VertexAITrainingExtractor:
 
             for dtype in DatasetTypes.all():
                 dataset_class = getattr(self.client.datasets, dtype)
-                for ds in dataset_class.list():
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        datasets = list(dataset_class.list())
+                else:
+                    datasets = list(dataset_class.list())
+                for ds in datasets:
                     self.datasets[ds.name] = ds
 
             logger.info(f"Cached {len(self.datasets)} datasets")
@@ -430,7 +441,12 @@ class VertexAITrainingExtractor:
     def _search_model_version(
         self, model: Model, model_version_str: str
     ) -> Optional[VersionInfo]:
-        for version in model.versioning_registry.list_versions():
+        if self.rate_limiter:
+            with self.rate_limiter:
+                versions = list(model.versioning_registry.list_versions())
+        else:
+            versions = list(model.versioning_registry.list_versions())
+        for version in versions:
             if version.version_id == model_version_str:
                 return version
         return None

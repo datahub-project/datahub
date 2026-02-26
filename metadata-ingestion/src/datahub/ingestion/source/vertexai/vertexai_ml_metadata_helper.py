@@ -2,6 +2,7 @@ import itertools
 import logging
 from typing import List, Optional, Sequence
 
+from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
@@ -39,8 +40,22 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import format_api_error_message
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
+
+# Retry only on quota exceeded (429 ResourceExhausted), mirroring the
+# google.api_core.retry.Retry approach used in the BigQuery connector.
+# ServiceUnavailable (503) is intentionally excluded: in credential-less
+# environments it manifests as a persistent error that retrying won't fix,
+# and it is already handled gracefully by the caller exception handlers.
+_METADATA_RETRY = api_retry.Retry(
+    predicate=api_retry.if_exception_type(ResourceExhausted),
+    initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
+    maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
+    multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
+    deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
+)
 
 
 class MLMetadataHelper:
@@ -51,10 +66,13 @@ class MLMetadataHelper:
         metadata_client: MetadataServiceClient,
         config: MLMetadataConfig,
         uri_parser: VertexAIURIParser,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         self.client = metadata_client
         self.config = config
         self.uri_parser = uri_parser
+        self.rate_limiter = rate_limiter
+        self._execution_cache: Optional[List[Execution]] = None
 
     def get_job_lineage_metadata(
         self, job: VertexAiResourceNoun
@@ -132,7 +150,16 @@ class MLMetadataHelper:
 
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
-        executions: List[Execution] = list(self.client.list_executions(request=request))
+
+        if self.rate_limiter:
+            with self.rate_limiter:
+                executions: List[Execution] = list(
+                    self.client.list_executions(request=request, retry=_METADATA_RETRY)
+                )
+        else:
+            executions = list(
+                self.client.list_executions(request=request, retry=_METADATA_RETRY)
+            )
 
         if not executions:
             matching = self._find_executions_by_schema_and_name(
@@ -147,20 +174,25 @@ class MLMetadataHelper:
 
         return executions
 
-    def _find_executions_by_schema_and_name(
-        self, parent: str, job_name: str, job_display_name: str
-    ) -> Sequence[Execution]:
+    def _load_execution_cache(self) -> List[Execution]:
+        """Fetch all relevant executions from the API once per helper instance.
+
+        This is called at most once per region/project to avoid making repeated
+        API calls for each training job, which would quickly exhaust the 600 RPM
+        quota for regional resource management requests.
+        """
+        if self._execution_cache is not None:
+            return self._execution_cache
+
+        parent = self.config.get_parent_path()
         schema_filters = [
             MLMetadataSchemas.CONTAINER_EXECUTION,
             MLMetadataSchemas.RUN,
             MLMetadataSchemas.CUSTOM_JOB,
         ]
-
         filter_str = " OR ".join(
             [f'schema_title="{schema}"' for schema in schema_filters]
         )
-
-        # Use configured search limit (default 500) to prevent excessive API calls and timeouts
         max_to_retrieve = self.config.max_execution_search_limit
 
         request = ListExecutionsRequest(
@@ -170,23 +202,44 @@ class MLMetadataHelper:
             page_size=MLMetadataDefaults.MAX_PAGE_SIZE,  # API max is 100 per page
         )
 
-        paged_response = self.client.list_executions(request=request)
-
-        all_executions: List[Execution] = list(
-            itertools.islice(paged_response, max_to_retrieve)
+        if self.rate_limiter:
+            with self.rate_limiter:
+                paged_response = self.client.list_executions(
+                    request=request, retry=_METADATA_RETRY
+                )
+                executions = list(itertools.islice(paged_response, max_to_retrieve))
+        else:
+            paged_response = self.client.list_executions(
+                request=request, retry=_METADATA_RETRY
+            )
+            executions = list(itertools.islice(paged_response, max_to_retrieve))
+        logger.info(
+            f"Loaded {len(executions)} executions into cache for ML Metadata matching"
         )
 
-        if len(all_executions) >= max_to_retrieve:
+        if len(executions) >= max_to_retrieve:
             logger.warning(
-                f"Retrieved maximum number of executions ({max_to_retrieve}) "
-                f"while searching for job '{job_display_name}'. Results may be incomplete. "
-                f"Consider using more specific display names or reducing concurrent job volume."
+                f"Hit execution cache limit of {max_to_retrieve}. Some training jobs may "
+                f"not have lineage/metrics. Consider increasing "
+                f"ml_metadata_max_execution_search_limit."
             )
 
-        matching_executions: List[Execution] = []
-        for execution in all_executions:
-            if self._execution_matches_job(execution, job_name, job_display_name):
-                matching_executions.append(execution)
+        self._execution_cache = executions
+        return self._execution_cache
+
+    def _find_executions_by_schema_and_name(
+        self, parent: str, job_name: str, job_display_name: str
+    ) -> Sequence[Execution]:
+        # Uses a cached bulk fetch instead of re-fetching from the API for each job.
+        # Without caching, N training jobs × (limit/page_size) pages = O(N) API calls,
+        # which quickly exhausts the 600 RPM quota for regional resource management.
+        all_executions = self._load_execution_cache()
+
+        matching_executions: List[Execution] = [
+            execution
+            for execution in all_executions
+            if self._execution_matches_job(execution, job_name, job_display_name)
+        ]
 
         return matching_executions
 
@@ -250,7 +303,16 @@ class MLMetadataHelper:
     def _extract_artifact_lineage(self, execution_name: str) -> ArtifactURNs:
         try:
             request = QueryExecutionInputsAndOutputsRequest(execution=execution_name)
-            response = self.client.query_execution_inputs_and_outputs(request=request)
+
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    response = self.client.query_execution_inputs_and_outputs(
+                        request=request, retry=_METADATA_RETRY
+                    )
+            else:
+                response = self.client.query_execution_inputs_and_outputs(
+                    request=request, retry=_METADATA_RETRY
+                )
 
             input_urns: List[str] = []
             output_urns: List[str] = []

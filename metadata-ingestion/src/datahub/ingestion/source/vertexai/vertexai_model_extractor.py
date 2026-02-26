@@ -57,6 +57,7 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
 )
 from datahub.metadata.urns import MlModelUrn, VersionSetUrn
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ class VertexAIModelExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         self.config = config
         self.client = client
@@ -86,6 +88,7 @@ class VertexAIModelExtractor:
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
         self.state_handler = state_handler
+        self.rate_limiter = rate_limiter
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
 
@@ -118,7 +121,11 @@ class VertexAIModelExtractor:
 
             yield from self._gen_ml_group_container(model)
 
-            model_versions = model.versioning_registry.list_versions()
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    model_versions = list(model.versioning_registry.list_versions())
+            else:
+                model_versions = model.versioning_registry.list_versions()
             for model_version in model_versions:
                 total_versions += 1
                 log_progress(total_versions, None, "model versions")
@@ -161,9 +168,13 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "fetch model evaluations", "model", model.name
             ):
-                evaluations: List[ModelEvaluation] = list(
-                    model.list_model_evaluations()
-                )
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        evaluations: List[ModelEvaluation] = list(
+                            model.list_model_evaluations()
+                        )
+                else:
+                    evaluations = list(model.list_model_evaluations())
 
                 evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
 
@@ -306,9 +317,13 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "get model versions", "model", model.name, log_level="debug"
             ):
-                versions: List[VersionInfo] = list(
-                    model.versioning_registry.list_versions()
-                )
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        versions: List[VersionInfo] = list(
+                            model.versioning_registry.list_versions()
+                        )
+                else:
+                    versions = list(model.versioning_registry.list_versions())
                 if versions:
                     latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
                     model_name = self.name_formatter.format_model_name(
@@ -683,7 +698,12 @@ class VertexAIModelExtractor:
             logger.info("Fetching Endpoints from Vertex AI")
             endpoint_dict: Dict[str, List[Endpoint]] = {}
             for endpoint in self.client.Endpoint.list():
-                for resource in endpoint.list_models():
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        deployed = list(endpoint.list_models())
+                else:
+                    deployed = list(endpoint.list_models())
+                for resource in deployed:
                     if resource.model not in endpoint_dict:
                         endpoint_dict[resource.model] = []
                     endpoint_dict[resource.model].append(endpoint)

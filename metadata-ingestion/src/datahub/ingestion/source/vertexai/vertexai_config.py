@@ -168,6 +168,17 @@ class VertexAIConfig(
         "you'll get the most recently completed/updated executions. Prevents excessive API calls and timeouts. "
         "Default: 500. The API will automatically paginate results (100 per page).",
     )
+    rate_limit: bool = Field(
+        default=False,
+        description="Should we rate limit requests made to the Vertex AI API. "
+        "Enable this if you hit 429 quota errors for the regional resource management quota "
+        "(aiplatform.googleapis.com/resource_management_requests, limit: 600/min/region).",
+    )
+    requests_per_min: int = Field(
+        default=60,
+        description="Used to control the number of Vertex AI API calls made per minute. "
+        "Only used when rate_limit is set to True.",
+    )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
         default_factory=list,

@@ -88,6 +88,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, VersionSetUrn
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,12 @@ class VertexAISource(StatefulIngestionSourceBase):
         self.client = aiplatform
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
+
+        self._rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(max_calls=config.requests_per_min, period=60)
+            if config.rate_limit
+            else None
+        )
 
         self._initialize_builders_and_extractors()
 
@@ -213,6 +220,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
             state_handler=self.state_handler,
+            rate_limiter=self._rate_limiter,
         )
         self.experiment_extractor = VertexAIExperimentExtractor(
             config=self.config,
@@ -225,6 +233,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
             state_handler=self.state_handler,
+            rate_limiter=self._rate_limiter,
         )
         self.training_extractor = VertexAITrainingExtractor(
             config=self.config,
@@ -241,6 +250,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             report=self.report,
             state_handler=self.state_handler,
             model_usage_tracker=self.model_usage_tracker,
+            rate_limiter=self._rate_limiter,
         )
         self.model_extractor = VertexAIModelExtractor(
             config=self.config,
@@ -253,6 +263,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
             state_handler=self.state_handler,
+            rate_limiter=self._rate_limiter,
         )
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
@@ -348,6 +359,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                             metadata_client=self._metadata_client,
                             config=ml_metadata_config,
                             uri_parser=self.uri_parser,
+                            rate_limiter=self._rate_limiter,
                         )
                     except (
                         PermissionDenied,

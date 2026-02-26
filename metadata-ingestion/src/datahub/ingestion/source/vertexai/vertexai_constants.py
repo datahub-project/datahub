@@ -324,6 +324,11 @@ class MLMetadataDefaults:
         "projects/{project_id}/locations/{region}/metadataStores/{metadata_store}"
     )
 
+    RETRY_INITIAL_WAIT_SECS = 10.0
+    RETRY_MAXIMUM_WAIT_SECS = 60.0
+    RETRY_MULTIPLIER = 2.0
+    RETRY_DEADLINE_SECS = 120.0
+
 
 class IngestionLimits:
     """Safety limits for ingestion to prevent resource exhaustion."""

@@ -59,6 +59,7 @@ from datahub.metadata.schema_classes import (
     MLTrainingRunPropertiesClass,
     RunResultTypeClass,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class VertexAIExperimentExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         self.config = config
         self.urn_builder = urn_builder
@@ -88,6 +90,7 @@ class VertexAIExperimentExtractor:
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
         self.state_handler = state_handler
+        self.rate_limiter = rate_limiter
 
         self.experiments: Optional[List[ExperimentMetadata]] = None
 
@@ -174,7 +177,15 @@ class VertexAIExperimentExtractor:
             logger.info(
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
-            runs = list(aiplatform.ExperimentRun.list(experiment=experiment_meta.name))
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    runs = list(
+                        aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
+                    )
+            else:
+                runs = list(
+                    aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
+                )
 
             run_metadata = [
                 ExperimentRunMetadata(

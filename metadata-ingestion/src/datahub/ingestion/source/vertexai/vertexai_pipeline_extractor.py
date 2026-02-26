@@ -6,6 +6,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Optional,
     Set,
     Union,
 )
@@ -77,6 +78,7 @@ from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import guess_entity_type
@@ -98,6 +100,7 @@ class VertexAIPipelineExtractor:
         model_usage_tracker: ModelUsageTracker,
         platform: str,
         state_handler: VertexAIStateHandler,
+        rate_limiter: Optional[RateLimiter] = None,
     ):
         self.config = config
         self.client = client
@@ -110,6 +113,7 @@ class VertexAIPipelineExtractor:
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
         self.state_handler = state_handler
+        self.rate_limiter = rate_limiter
         self._emitted_pipeline_urns: Set[str] = set()
         self._emitted_task_urns: Set[str] = set()
 
@@ -177,7 +181,11 @@ class VertexAIPipelineExtractor:
             log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
-            pipeline_meta = self._get_pipeline_metadata(pipeline)
+            if self.rate_limiter:
+                with self.rate_limiter:
+                    pipeline_meta = self._get_pipeline_metadata(pipeline)
+            else:
+                pipeline_meta = self._get_pipeline_metadata(pipeline)
 
             yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
 

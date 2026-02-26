@@ -13,8 +13,6 @@ from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 
 class TestLineageMetadata:
-    """Test LineageMetadata model."""
-
     def test_merge(self):
         lineage1 = LineageMetadata(
             input_urns=["urn1", "urn2"],
@@ -61,8 +59,6 @@ class TestLineageMetadata:
 
 
 class TestMLMetadataHelper:
-    """Test MLMetadataHelper class."""
-
     @pytest.fixture
     def mock_metadata_client(self):
         return Mock()
@@ -240,3 +236,41 @@ class TestMLMetadataHelper:
         assert len(lineage.input_urns) > 0
         assert len(lineage.hyperparams) == 1
         assert len(lineage.metrics) == 1
+
+    def test_execution_cache_loaded_once_for_multiple_jobs(
+        self, helper, mock_metadata_client
+    ):
+        """Bulk execution fetch must happen at most once regardless of job count.
+
+        Without caching, N jobs that miss the targeted display_name filter each
+        trigger a full paginated fetch — easily exhausting the 600 RPM quota.
+        """
+        # Targeted display_name filter returns nothing for both jobs,
+        # forcing the fallback to the schema-based bulk fetch.
+        schema_execution = Mock()
+        schema_execution.name = "exec-1"
+        schema_execution.metadata = {"job_name": "job-a"}
+
+        def list_executions_side_effect(request=None, **kwargs):
+            filter_str = getattr(request, "filter", "")
+            if "display_name=" in filter_str:
+                return []
+            # Schema-based bulk fetch
+            return [schema_execution]
+
+        mock_metadata_client.list_executions.side_effect = list_executions_side_effect
+
+        job_a = Mock()
+        job_a.display_name = "job-a"
+        job_a.name = "projects/123/jobs/job-a"
+
+        job_b = Mock()
+        job_b.display_name = "job-b"
+        job_b.name = "projects/123/jobs/job-b"
+
+        helper._find_executions_for_job(job_a)
+        helper._find_executions_for_job(job_b)
+
+        # list_executions called twice for targeted display_name filters (one per
+        # job) plus once for the schema-based cache load — never more than 3 total.
+        assert mock_metadata_client.list_executions.call_count == 3
