@@ -171,6 +171,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     return candidate_urn, schema_info
 
         if self.graph:
+            # Exclude URNs already present in the cache, including those stored as None.
+            # A None entry means a prior lookup found nothing, so we skip them
+            # to avoid making repeated API calls for known-missing schemas.
             urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
 
             if urns_to_fetch:
@@ -196,33 +199,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
                         self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
 
-                except (TimeoutError, ConnectionError, OSError) as e:
+                except (
+                    TimeoutError,
+                    ConnectionError,
+                    OSError,
+                    HTTPError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    KeyError,
+                    GraphError,
+                    AssertionError,
+                ) as e:
                     logger.warning(
-                        f"Batch fetch failed due to network issue: {e}. "
-                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
-                        exc_info=True,
-                    )
-                    self._fallback_fetch_schemas(urns_to_fetch)
-
-                except HTTPError as e:
-                    logger.warning(
-                        f"Batch fetch failed due to HTTP error: {e}. "
-                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
-                        exc_info=True,
-                    )
-                    self._fallback_fetch_schemas(urns_to_fetch)
-
-                except (json.JSONDecodeError, ValueError, KeyError) as e:
-                    logger.warning(
-                        f"Batch fetch failed due to data parsing error: {e}. "
-                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
-                        exc_info=True,
-                    )
-                    self._fallback_fetch_schemas(urns_to_fetch)
-
-                except (GraphError, AssertionError) as e:
-                    logger.warning(
-                        f"Batch fetch failed due to DataHub error: {e}. "
+                        f"Batch fetch failed ({type(e).__name__}): {e}. "
                         f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
                         exc_info=True,
                     )
@@ -277,24 +266,27 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        """Add schema metadata from ingestion source.
+        """Add schema metadata from an ingestion source.
 
-        Ingestion-provided schemas ALWAYS take precedence and overwrite any cached
-        schemas (from DataHub or previous runs) because they are fresh from the source.
+        Always overwrites any previously cached value because ingestion-provided
+        schemas are authoritative and fresh from the source system.
+        Use this for schemas discovered during ingestion.
+
+        See also: add_schema_metadata_from_fetch (for schemas retrieved on-demand
+        from the DataHub API, which must not override ingestion-provided schemas).
         """
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
-    ) -> bool:
-        """Cache schema from DataHub API fetch if not already present.
+    ) -> None:
+        """Cache a schema retrieved on-demand from the DataHub API.
 
-        Respects cache precedence: ingestion schemas take precedence over fetched schemas.
-        Always caches the result (even None) to prevent repeated API calls for missing schemas.
-
-        Returns:
-            True if schema was cached (new entry), False if skipped (already cached from ingestion).
+        Unlike add_schema_metadata, this never overwrites an existing non-None
+        entry, so ingestion-provided schemas always take precedence. Always stores
+        a result (including None) to prevent repeated API calls for missing schemas.
+        Use this for schemas fetched lazily via the graph client.
         """
         if urn in self._schema_cache:
             existing = self._schema_cache[urn]
@@ -302,16 +294,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 logger.debug(
                     f"Skipping DataHub schema for {urn} - already in cache from ingestion"
                 )
-                return False
+                return
 
         if schema_metadata is not None:
             schema_info = _convert_schema_aspect_to_info(schema_metadata)
             self._save_to_cache(urn, schema_info)
         else:
-            # Cache None to prevent repeated lookups for missing schemas
             self._save_to_cache(urn, None)
-
-        return True
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
@@ -358,27 +347,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 schema_metadata = self.graph.get_aspect(fetch_urn, SchemaMetadataClass)
                 self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
 
-            except (TimeoutError, ConnectionError, OSError) as net_error:
+            except (
+                TimeoutError,
+                ConnectionError,
+                OSError,
+                HTTPError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                GraphError,
+                AssertionError,
+            ) as e:
                 logger.debug(
-                    f"Network error fetching schema for {fetch_urn}: {net_error}"
-                )
-                self.add_schema_metadata_from_fetch(fetch_urn, None)
-
-            except HTTPError as http_error:
-                logger.debug(
-                    f"HTTP error fetching schema for {fetch_urn}: {http_error}"
-                )
-                self.add_schema_metadata_from_fetch(fetch_urn, None)
-
-            except (json.JSONDecodeError, ValueError, KeyError) as data_error:
-                logger.debug(
-                    f"Data parsing error fetching schema for {fetch_urn}: {data_error}"
-                )
-                self.add_schema_metadata_from_fetch(fetch_urn, None)
-
-            except (GraphError, AssertionError) as datahub_error:
-                logger.debug(
-                    f"DataHub error fetching schema for {fetch_urn}: {datahub_error}"
+                    f"Error fetching schema for {fetch_urn} ({type(e).__name__}): {e}"
                 )
                 self.add_schema_metadata_from_fetch(fetch_urn, None)
 
