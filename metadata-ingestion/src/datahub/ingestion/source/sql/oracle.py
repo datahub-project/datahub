@@ -374,6 +374,7 @@ extra_oracle_types = {
     make_sqlalchemy_type("SDO_POINT_TYPE"),
     make_sqlalchemy_type("SDO_ELEM_INFO_ARRAY"),
     make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
+    make_sqlalchemy_type("XMLTYPE"),
 }
 assert ischema_names
 
@@ -2127,7 +2128,7 @@ class OracleSource(SQLAlchemySource):
             {klass.__name__: klass for klass in extra_oracle_types},
             clear=False,
         ):
-            return super().get_workunits()
+            yield from super().get_workunits()
 
     def generate_profile_candidates(
         self,
