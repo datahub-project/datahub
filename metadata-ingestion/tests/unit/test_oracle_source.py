@@ -307,6 +307,36 @@ class TestOracleInspectorObjectWrapper:
         call_args = self.mock_inspector.bind.execute.call_args
         assert "dba_mviews" in str(call_args[0][0]).lower()
 
+    def test_get_columns_sdo_geometry(self):
+        """SDO_GEOMETRY columns must resolve to a non-null type when ischema_names is patched."""
+        self.mock_inspector.dialect.server_version_info = (19,)
+        self.mock_inspector.bind.execute.return_value = [
+            [
+                "GEOM_COLUMN",
+                "SDO_GEOMETRY",
+                0,
+                None,
+                None,
+                "Y",
+                None,
+                None,
+                "NO",
+                None,
+                None,
+            ]
+        ]
+
+        with patch.dict(
+            "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
+            {klass.__name__: klass for klass in extra_oracle_types},
+            clear=False,
+        ):
+            columns = self.wrapper.get_columns("TEST_TABLE", "TEST_SCHEMA")
+
+        assert len(columns) == 1
+        assert columns[0]["name"] == "geom_column"
+        assert not isinstance(columns[0]["type"], sqltypes.NullType)
+
     def test_get_columns_xmltype(self):
         """XMLTYPE columns must resolve to a non-null type when ischema_names is patched."""
         self.mock_inspector.dialect.server_version_info = (19,)
