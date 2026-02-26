@@ -1,6 +1,13 @@
-from typing import Dict, List, Optional
+from __future__ import annotations
 
-from pydantic import ConfigDict, Field
+import logging
+import re
+from copy import deepcopy
+from typing import Any, Dict, List, Optional
+
+import pydantic
+from pydantic import ConfigDict, Field, field_validator, model_validator
+from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -13,6 +20,11 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GCPValidationError,
+    validate_project_id_list,
+    validate_project_label_list,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -23,6 +35,8 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     IngestionLimits,
     MLMetadataDefaults,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PlatformDetail(ConfigModel):
@@ -72,7 +86,15 @@ class VertexAIConfig(
     credential: Optional[GCPCredential] = Field(
         default=None, description="GCP credential information"
     )
-    project_id: str = Field(description=("Project ID in Google Cloud Platform"))
+
+    project_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "[DEPRECATED] Use 'project_ids' instead. "
+            "Single GCP project ID. Will be automatically migrated to 'project_ids'."
+        ),
+    )
+
     region: str = Field(
         description=(
             "[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'."
@@ -179,6 +201,15 @@ class VertexAIConfig(
         "Start low (30–60) and increase only if ingestion is too slow — some calls fetch multiple "
         "pages of results internally, so the real quota usage is higher than this number suggests.",
     )
+    max_threads_resource_parallelism: int = Field(
+        default=3,
+        description=(
+            "Number of worker threads to parallelize Vertex AI resource fetching within each project/region. "
+            "Resources like models, training jobs, experiments, and pipelines are fetched in parallel. "
+            "Set to 1 to disable parallelism. Recommended value for production: 3-5 threads. "
+            "Note: Models are always processed after training jobs and pipelines to preserve lineage accuracy."
+        ),
+    )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
         default_factory=list,
@@ -227,7 +258,107 @@ class VertexAIConfig(
         description="Stateful ingestion configuration for tracking and removing stale metadata.",
     )
 
-    def get_credentials(self) -> Optional[Dict[str, str]]:
+    @field_validator("project_ids", mode="before")
+    @classmethod
+    def _validate_project_ids(cls, v: Any) -> List[str]:
+        if not v:
+            return v or []
+        try:
+            validate_project_id_list(v, allow_empty=False)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
+        return v
+
+    @field_validator("project_labels", mode="before")
+    @classmethod
+    def _validate_project_labels(cls, v: Any) -> List[str]:
+        if not v:
+            return v or []
+        try:
+            validate_project_label_list(v)
+        except GCPValidationError as e:
+            raise ValueError(str(e)) from e
+        return v
+
+    @field_validator("project_id_pattern")
+    @classmethod
+    def _validate_project_id_pattern_syntax(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        invalid_patterns = []
+        for pattern in v.allow + v.deny:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                invalid_patterns.append(f"'{pattern}': {e}")
+        if invalid_patterns:
+            raise ValueError(
+                f"Invalid regex in project_id_pattern: {', '.join(invalid_patterns)}. "
+                "Check your allow/deny patterns for syntax errors."
+            )
+        return v
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _migrate_deprecated_project_id(
+        cls,
+        values: Any,
+        handler: pydantic.ValidatorFunctionWrapHandler,
+        info: pydantic.ValidationInfo,
+    ) -> Self:
+        """Auto-migrate deprecated 'project_id' to 'project_ids' for backward compatibility."""
+        if not isinstance(values, dict):
+            return handler(values)
+
+        values = deepcopy(values)
+        project_id = values.get("project_id")
+        project_ids = values.get("project_ids")
+
+        if not project_id:
+            return handler(values)
+
+        if not project_ids:
+            logger.warning(
+                "Config field 'project_id' is deprecated and will be removed in a future release. "
+                "Please update your config to use 'project_ids: [\"%s\"]' instead. "
+                "Auto-migrating for now.",
+                project_id,
+            )
+            values["project_ids"] = [project_id]
+            values.pop("project_id", None)
+            return handler(values)
+
+        if project_id in project_ids:
+            logger.warning(
+                "Both 'project_id' (deprecated) and 'project_ids' are set with the same project '%s'. "
+                "Ignoring 'project_id' - please remove it from your config.",
+                project_id,
+            )
+            values.pop("project_id", None)
+            return handler(values)
+
+        raise ValueError(
+            f"Conflicting project configuration: 'project_id' is set to '{project_id}' "
+            f"but 'project_ids' is set to {project_ids}. "
+            "Please remove the deprecated 'project_id' field and use only 'project_ids'."
+        )
+
+    @model_validator(mode="after")
+    def _validate_pattern_does_not_filter_all(self) -> VertexAIConfig:
+        """Raise early if project_id_pattern would filter out all explicitly configured project_ids."""
+        if not self.project_ids:
+            return self
+        allowed = [
+            pid for pid in self.project_ids if self.project_id_pattern.allowed(pid)
+        ]
+        if not allowed:
+            raise ValueError(
+                f"All {len(self.project_ids)} configured project_ids were filtered out "
+                "by project_id_pattern. Check your allow/deny patterns."
+            )
+        return self
+
+    def get_credentials(self) -> Optional[Dict[str, Any]]:
         if self.credential:
-            return self.credential.to_dict(self.project_id)
+            return self.credential.to_dict()
         return None
