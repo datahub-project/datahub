@@ -544,7 +544,22 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         objects_modified = res["objects_modified"]
         object_modified_by_ddl = res["object_modified_by_ddl"]
 
-        if object_modified_by_ddl and not objects_modified:
+        if (
+            object_modified_by_ddl
+            and not isinstance(object_modified_by_ddl, dict)
+            and not objects_modified
+        ):
+            self.report.num_ddl_queries_dropped += 1
+            if direct_objects_accessed:
+                pass  # Fall through to normal query processing for usage tracking
+            else:
+                return None
+
+        if (
+            isinstance(object_modified_by_ddl, dict)
+            and object_modified_by_ddl
+            and not objects_modified
+        ):
             known_ddl_entry: Optional[Union[TableRename, TableSwap]] = None
             with self.structured_reporter.report_exc(
                 "Error fetching ddl lineage from Snowflake"
@@ -734,14 +749,29 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         )
         return entry
 
+    @staticmethod
+    def _get_ddl_property(properties: dict, key: str) -> str:
+        """Extract a property value from object_modified_by_ddl properties,
+        handling both pre-2026_01 BCR ({"key": {"value": "..."}}) and
+        post-2026_01 BCR ({"key": "..."}) formats.
+
+        Callers must ensure properties[key] exists and is truthy before calling."""
+        val = properties[key]
+        if isinstance(val, dict):
+            return val["value"]
+        return val
+
     def parse_ddl_query(
         self,
         query: str,
         session_id: str,
         timestamp: datetime,
-        object_modified_by_ddl: dict,
+        object_modified_by_ddl: object,
         query_type: str,
     ) -> Optional[Union[TableRename, TableSwap]]:
+        if not isinstance(object_modified_by_ddl, dict):
+            self.report.num_ddl_queries_dropped += 1
+            return None
         if (
             object_modified_by_ddl["operationType"] == "ALTER"
             and query_type == "RENAME_TABLE"
@@ -755,7 +785,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             new_urn = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                    self._get_ddl_property(
+                        object_modified_by_ddl["properties"], "objectName"
+                    )
                 )
             )
             return TableRename(original_un, new_urn, query, session_id, timestamp)
@@ -770,7 +802,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             urn2 = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
-                    object_modified_by_ddl["properties"]["swapTargetName"]["value"]
+                    self._get_ddl_property(
+                        object_modified_by_ddl["properties"], "swapTargetName"
+                    )
                 )
             )
 
