@@ -264,9 +264,12 @@ class DocumentChunkingSource(Source):
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
             )
 
-        # Emit SemanticContent aspect (only if embeddings were generated)
+        # Emit SemanticContent aspect
         if embeddings:
             yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+        elif self.config.emit_chunks_without_embeddings and chunks:
+            # No embedding model — store raw chunks for later embedding computation
+            yield from self._emit_raw_chunks(document_urn, chunks)
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
@@ -845,6 +848,58 @@ class DocumentChunkingSource(Source):
 
         logger.info(
             f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"
+        )
+
+        yield workunit
+
+    def _emit_raw_chunks(
+        self,
+        document_urn: str,
+        chunks: list[dict[str, Any]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit SemanticContent aspect with rawChunks when no embedding provider is configured."""
+        from datahub.metadata.schema_classes import (
+            RawChunksClass,
+            SemanticContentClass,
+            TextChunkClass,
+        )
+
+        text_chunks = []
+        current_offset = 0
+
+        for i, chunk in enumerate(chunks):
+            chunk_text = chunk.get("text", "")
+            chunk_length = len(chunk_text)
+
+            text_chunk = TextChunkClass(
+                position=i,
+                text=chunk_text,
+                characterOffset=current_offset,
+                characterLength=chunk_length,
+            )
+            text_chunks.append(text_chunk)
+            current_offset += chunk_length
+
+        raw_chunks = RawChunksClass(
+            chunkingStrategy=self.config.chunking.strategy,
+            totalChunks=len(chunks),
+            chunks=text_chunks,
+        )
+
+        semantic_content = SemanticContentClass(
+            embeddings={},
+            rawChunks=raw_chunks,
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=document_urn,
+            aspect=semantic_content,
+        )
+
+        workunit = MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
+
+        logger.info(
+            f"Emitting SemanticContent with rawChunks for {document_urn} ({len(chunks)} chunks, no embedding provider)"
         )
 
         yield workunit

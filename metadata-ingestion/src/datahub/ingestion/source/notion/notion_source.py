@@ -336,6 +336,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             chunking=config.chunking,
             embedding=config.embedding,
             max_documents=config.max_documents,
+            emit_chunks_without_embeddings=True,  # store chunks even without embedding provider
         )
 
         # Pass graph to DocumentChunkingSource so it can load server config
@@ -889,22 +890,14 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             Dictionary of config values that affect processing output.
         """
-        # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
         return {
-            # Chunking affects chunk boundaries and structure
-            "chunking_enabled": embedding_enabled,
-            "chunking_strategy": self.config.chunking.strategy
-            if embedding_enabled
-            else None,
-            "chunking_max_characters": self.config.chunking.max_characters
-            if embedding_enabled
-            else None,
-            "chunking_overlap": self.config.chunking.overlap
-            if embedding_enabled
-            else None,
-            # Embedding affects vector embeddings on chunks
+            # Chunking now always runs (emit_chunks_without_embeddings=True)
+            "chunking_strategy": self.config.chunking.strategy,
+            "chunking_max_characters": self.config.chunking.max_characters,
+            "chunking_overlap": self.config.chunking.overlap,
+            # Embedding
             "embedding_enabled": embedding_enabled,
             "embedding_provider": self.config.embedding.provider
             if embedding_enabled

@@ -341,6 +341,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             chunking=config.chunking,
             embedding=config.embedding,
             max_documents=config.max_documents,
+            emit_chunks_without_embeddings=True,  # store chunks even without embedding provider
         )
 
         # Pass graph to DocumentChunkingSource so it can load server config
