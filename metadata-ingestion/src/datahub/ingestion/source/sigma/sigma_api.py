@@ -370,6 +370,13 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
+                # only element of table and visualization type have lineage and sql query supported
+                if element_dict.get("type") not in ["table", "visualization"]:
+                    logger.debug(
+                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                    )
+                    continue
+
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
                         f"Element {i + 1} of Page '{page.name}'"
@@ -378,11 +385,9 @@ class SigmaAPI:
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
                 element = Element.model_validate(element_dict)
-                # Only table and visualization elements support lineage and sql query extraction
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
-                    and element_dict.get("type") in ("table", "visualization")
                 ):
                     element.upstream_sources = self._get_element_upstream_sources(
                         element, workbook
