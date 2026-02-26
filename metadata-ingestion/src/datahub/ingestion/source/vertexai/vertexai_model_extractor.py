@@ -97,8 +97,8 @@ class VertexAIModelExtractor:
     def _list_models(self) -> List:
         if self._models_cache is None:
             with self.rate_limiter:
-                self._models_cache = self.client.Model.list(
-                    order_by=ORDER_BY_UPDATE_TIME_DESC
+                self._models_cache = list(
+                    self.client.Model.list(order_by=ORDER_BY_UPDATE_TIME_DESC)
                 )
         return self._models_cache
 

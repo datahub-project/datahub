@@ -202,7 +202,7 @@ class MLMetadataHelper:
             paged_response = self.client.list_executions(
                 request=request, retry=_METADATA_RETRY
             )
-        executions = list(itertools.islice(paged_response, max_to_retrieve))
+            executions = list(itertools.islice(paged_response, max_to_retrieve))
         logger.info(
             f"Loaded {len(executions)} executions into cache for ML Metadata matching"
         )
