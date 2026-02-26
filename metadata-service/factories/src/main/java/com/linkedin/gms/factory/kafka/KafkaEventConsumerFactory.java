@@ -8,6 +8,7 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CON
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -97,7 +98,8 @@ public class KafkaEventConsumerFactory {
    *     for migrating and the producer side is the one we'd be migrating to. Only should share for
    *     topics like Upgrade History which do not need historical data to drain.
    */
-  private static Map<String, Object> buildCustomizedProperties(
+  @com.google.common.annotations.VisibleForTesting
+  static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
       KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
@@ -126,6 +128,16 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
+    String securityProtocolOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : kafkaConfiguration.getConsumer().getSecurityProtocol();
+    String securityProtocol =
+        StringUtils.isNotBlank(securityProtocolOverride) ? securityProtocolOverride : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
     Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
@@ -133,6 +145,15 @@ public class KafkaEventConsumerFactory {
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrlOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSchemaRegistryUrl()
+            : kafkaConfiguration.getConsumer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrlOverride)) {
+      customizedProperties.put(
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrlOverride);
+    }
 
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,

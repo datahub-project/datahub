@@ -50,7 +50,7 @@
     ],
     "joins": [
         {
-            "join_type": "inner JOIN",
+            "join_type": "INNER JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)"
             ],
