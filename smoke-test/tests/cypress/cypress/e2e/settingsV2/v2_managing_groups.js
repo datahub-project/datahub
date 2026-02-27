@@ -82,8 +82,9 @@ describe("create and manage group", () => {
       .should("be.visible")
       .click();
     cy.get('[role="dialog"]', { timeout: 10000 }).should("be.visible");
-    cy.get('[data-testid="add-members-select"]', { timeout: 10000 })
-      .should("be.visible");
+    cy.get('[data-testid="add-members-select"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.get('[data-testid="add-members-select-base"]', { timeout: 10000 })
       .should("exist")
       .click({ force: true });
@@ -152,8 +153,9 @@ describe("create and manage group", () => {
       .should("be.visible")
       .click();
     cy.get('[role="dialog"]', { timeout: 10000 }).should("be.visible");
-    cy.get('[data-testid="add-owners-select"]', { timeout: 10000 })
-      .should("be.visible");
+    cy.get('[data-testid="add-owners-select"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.get('[data-testid="add-owners-select-base"]', { timeout: 10000 })
       .should("exist")
       .click({ force: true });

@@ -14,10 +14,18 @@ const loginAndGoToDataset = () => {
 
 const addOwner = (owner, type) => {
   cy.clickOptionWithTestId("add-owners-button");
-  cy.contains("Search for users or groups...").click({ force: true });
-  cy.focused().type(owner);
-  cy.get(".ant-select-item").contains(owner).click();
-  cy.focused().blur();
+  cy.get('[data-testid="add-owners-select"]', { timeout: 10000 }).should(
+    "be.visible",
+  );
+  cy.get('[data-testid="add-owners-select-base"]', { timeout: 10000 })
+    .should("exist")
+    .click({ force: true });
+  cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
+    .should("be.visible")
+    .type(owner);
+  cy.get('[data-testid="add-owners-select-dropdown"]', { timeout: 10000 })
+    .contains(owner)
+    .click({ force: true });
   cy.waitTextVisible(owner);
   cy.get('[role="dialog"]').contains("Technical Owner").click();
   cy.get('[role="listbox"]').parent().contains(type).click();
