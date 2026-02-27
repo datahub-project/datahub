@@ -87,6 +87,10 @@ Releases = "https://github.com/acryldata/datahub/releases"
 
 [project.optional-dependencies]
 
+# base extra is referenced in Docker builds (e.g., [base,datahub-rest,...]).
+# Its deps are already in [project].dependencies, so this is an empty marker.
+base = []
+
 # --- Shared dependency sets ---
 # These mirror the named sets in setup.py (sql_common, aws_common, etc.).
 # Plugins reference them via acryl-datahub[sql-common] instead of

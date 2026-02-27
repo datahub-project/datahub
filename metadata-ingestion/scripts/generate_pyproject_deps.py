@@ -220,6 +220,11 @@ def generate_pyproject_toml():
     output_lines.append("[project.optional-dependencies]")
     output_lines.append("")
 
+    # base extra: referenced in Docker builds (e.g., [base,datahub-rest,...]).
+    # Its deps are already in [project].dependencies, so this is an empty marker.
+    output_lines.append("base = []")
+    output_lines.append("")
+
     # Shared dependency sets as extras (enables self-referencing)
     output_lines.append("# --- Shared dependency sets ---")
     output_lines.append(

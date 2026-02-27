@@ -87,81 +87,10 @@ def compare_sets(label: str, setup_set: Set[str], pyproject_set: Set[str]) -> bo
     return False
 
 
-def main():
-    ns = load_setup_py_variables()
-    pyproject = load_pyproject()
-
-    base_requirements: Set[str] = ns["base_requirements"]
-    framework_common: Set[str] = ns["framework_common"]
-    plugins: Dict[str, Set[str]] = ns["plugins"]
-    all_exclude_plugins: Set[str] = ns["all_exclude_plugins"]
-    test_api_requirements: Set[str] = ns["test_api_requirements"]
-    lint_requirements: Set[str] = ns["lint_requirements"]
-    dev_requirements: Set[str] = ns["dev_requirements"]
-    docs_requirements: Set[str] = ns["docs_requirements"]
-    full_test_dev_requirements: Set[str] = ns["full_test_dev_requirements"]
-    debug_requirements: Set[str] = ns["debug_requirements"]
-    entry_points: Dict = ns["entry_points"]
-
-    optional_deps = pyproject.get("project", {}).get("optional-dependencies", {})
-    resolve_cache: Dict[str, Set[str]] = {}
-
-    mismatches = 0
+def check_entry_points(entry_points: Dict, pyproject: Dict) -> tuple:
+    """Check entry points match between setup.py and pyproject.toml."""
     total = 0
-
-    # --- Base dependencies ---
-    print("=== Base dependencies ===")
-    setup_base = base_requirements | framework_common
-    pyproject_base = set(pyproject.get("project", {}).get("dependencies", []))
-    total += 1
-    if not compare_sets("dependencies", setup_base, pyproject_base):
-        mismatches += 1
-
-    # --- Plugin extras ---
-    # Compare total installed sets: pip install pkg[extra] installs
-    # install_requires + extras_require[extra] on both sides.
-    print("\n=== Plugin extras ===")
-    setup_base = base_requirements | framework_common
-    for plugin_name in sorted(plugins.keys()):
-        if plugin_name in CIRCULAR_EXTRAS:
-            continue
-        total += 1
-        # setup.py: install_requires (base_requirements | framework_common) + extras_require[plugin] (framework_common | plugin_deps)
-        setup_total = setup_base | framework_common | plugins[plugin_name]
-        # pyproject.toml: dependencies + resolved optional-deps[plugin]
-        pyproject_resolved = resolve_extra(plugin_name, optional_deps, resolve_cache)
-        pyproject_total = pyproject_base | pyproject_resolved
-        if not compare_sets(plugin_name, setup_total, pyproject_total):
-            mismatches += 1
-
-    # --- Meta extras ---
-    print("\n=== Meta extras ===")
-    # "all" uses the same total-installed-set comparison as plugins
-    total += 1
-    setup_all = setup_base | framework_common.union(
-        *(deps for name, deps in plugins.items() if name not in all_exclude_plugins)
-    )
-    pyproject_all = pyproject_base | resolve_extra("all", optional_deps, resolve_cache)
-    if not compare_sets("all", setup_all, pyproject_all):
-        mismatches += 1
-
-    # Non-plugin meta extras are standalone sets (not combined with install_requires)
-    meta_extras = {
-        "dev": dev_requirements,
-        "docs": docs_requirements,
-        "lint": lint_requirements,
-        "testing-utils": test_api_requirements,
-        "integration-tests": full_test_dev_requirements,
-        "debug": debug_requirements,
-    }
-    for extra_name, setup_deps in sorted(meta_extras.items()):
-        total += 1
-        pyproject_deps = resolve_extra(extra_name, optional_deps, resolve_cache)
-        if not compare_sets(extra_name, setup_deps, pyproject_deps):
-            mismatches += 1
-
-    # --- Entry points ---
-    print("\n=== Entry points ===")
+    mismatches = 0
     pyproject_scripts = pyproject.get("project", {}).get("scripts", {})
     pyproject_entry_points = pyproject.get("project", {}).get("entry-points", {})
 
@@ -172,7 +101,6 @@ def main():
         if group == "console_scripts":
             pyproject_eps = {(k, v) for k, v in pyproject_scripts.items()}
         elif group == "datahub.custom_packages":
-            # Empty group — just check it's absent or empty
             pyproject_eps = set()
             if not ep_list:
                 print(f"  {group}... OK (empty)")
@@ -192,6 +120,92 @@ def main():
             if only_pyproject:
                 print(f"    In pyproject.toml only: {sorted(only_pyproject)}")
             mismatches += 1
+
+    return total, mismatches
+
+
+def main():
+    ns = load_setup_py_variables()
+    pyproject = load_pyproject()
+
+    base_requirements: Set[str] = ns["base_requirements"]
+    framework_common: Set[str] = ns["framework_common"]
+    plugins: Dict[str, Set[str]] = ns["plugins"]
+    all_exclude_plugins: Set[str] = ns["all_exclude_plugins"]
+    entry_points: Dict = ns["entry_points"]
+
+    optional_deps = pyproject.get("project", {}).get("optional-dependencies", {})
+    resolve_cache: Dict[str, Set[str]] = {}
+
+    mismatches = 0
+    total = 0
+
+    # --- Base dependencies ---
+    print("=== Base dependencies ===")
+    setup_base = base_requirements | framework_common
+    pyproject_base = set(pyproject.get("project", {}).get("dependencies", []))
+    total += 1
+    if not compare_sets("dependencies", setup_base, pyproject_base):
+        mismatches += 1
+
+    # --- Plugin extras ---
+    print("\n=== Plugin extras ===")
+    for plugin_name in sorted(plugins.keys()):
+        if plugin_name in CIRCULAR_EXTRAS:
+            continue
+        total += 1
+        setup_total = setup_base | framework_common | plugins[plugin_name]
+        pyproject_resolved = resolve_extra(plugin_name, optional_deps, resolve_cache)
+        pyproject_total = pyproject_base | pyproject_resolved
+        if not compare_sets(plugin_name, setup_total, pyproject_total):
+            mismatches += 1
+
+    # --- Meta extras ---
+    print("\n=== Meta extras ===")
+    total += 1
+    setup_all = setup_base | framework_common.union(
+        *(deps for name, deps in plugins.items() if name not in all_exclude_plugins)
+    )
+    pyproject_all = pyproject_base | resolve_extra("all", optional_deps, resolve_cache)
+    if not compare_sets("all", setup_all, pyproject_all):
+        mismatches += 1
+
+    # "base" extra: deps are already in [project].dependencies, so
+    # pyproject.toml has base = []. Just verify the extra exists.
+    total += 1
+    if "base" in optional_deps:
+        print("  base... OK (empty marker, deps already in dependencies)")
+    else:
+        print("  base... MISSING (required by Docker builds)")
+        mismatches += 1
+
+    # "cloud" extra
+    total += 1
+    setup_cloud = {"acryl-datahub-cloud"}
+    pyproject_cloud = resolve_extra("cloud", optional_deps, resolve_cache)
+    if not compare_sets("cloud", setup_cloud, pyproject_cloud):
+        mismatches += 1
+
+    # Non-plugin meta extras are standalone sets
+    meta_extras = {
+        "dev": ns["dev_requirements"],
+        "docs": ns["docs_requirements"],
+        "lint": ns["lint_requirements"],
+        "testing-utils": ns["test_api_requirements"],
+        "integration-tests": ns["full_test_dev_requirements"],
+        "debug": ns["debug_requirements"],
+    }
+    for extra_name, setup_deps in sorted(meta_extras.items()):
+        total += 1
+        pyproject_deps = resolve_extra(extra_name, optional_deps, resolve_cache)
+        if not compare_sets(extra_name, setup_deps, pyproject_deps):
+            mismatches += 1
+
+    # --- Entry points ---
+    print("\n=== Entry points ===")
+    ep_total, ep_mismatches = check_entry_points(entry_points, pyproject)
+    total += ep_total
+    mismatches += ep_mismatches
 
     # --- Project metadata ---
     print("\n=== Project metadata ===")
