@@ -188,3 +188,7 @@ class SigmaSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
     )
+    workbook_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )

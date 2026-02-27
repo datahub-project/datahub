@@ -432,6 +432,13 @@ class SigmaAPI:
                 for workbook_dict in response_dict[Constant.ENTRIES]:
                     workbook = Workbook.model_validate(workbook_dict)
 
+                    # Skip workbook if workbook name filtered out by config
+                    if not self.config.workbook_pattern.allowed(workbook.name):
+                        self.report.workbooks.dropped(
+                            f"{workbook.name} ({workbook.workbookId})"
+                        )
+                        continue
+
                     if workbook.workbookId not in workbook_files_metadata:
                         # Due to a bug in the Sigma API, it seems like the /files endpoint does not
                         # return file metadata when the user has access via admin permissions. In
