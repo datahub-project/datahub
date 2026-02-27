@@ -59,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
-          path: ${{ env.ARTIFACT_NAME }}.json
+          path: .github/scripts/${{ env.ARTIFACT_NAME }}.json
           if-no-files-found: error
           retention-days: 7
       # TODO(devashish.chandra): Post metrics to Posthog, maybe save to S3?
