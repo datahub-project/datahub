@@ -195,13 +195,16 @@ class EventSpecProcessor(EntityProcessor):
         """
         custom_props = self._build_custom_properties(event_spec)
 
-        # Build container aspect conditionally
+        # Use tracking plan container if available (pre-populated by
+        # TrackingPlanProcessor.emit_containers), otherwise fall back to org.
         container_aspect = None
         if self.config.bdp_connection:
-            org_urn = self.urn_factory.make_organization_urn(
-                self.config.bdp_connection.organization_id
-            )
-            container_aspect = ContainerClass(container=org_urn)
+            container_urn = self.state.event_spec_container_map.get(event_spec.id)
+            if not container_urn:
+                container_urn = self.urn_factory.make_organization_urn(
+                    self.config.bdp_connection.organization_id
+                )
+            container_aspect = ContainerClass(container=container_urn)
 
         # Emit all aspects using SDK V2 batching pattern
         yield from self.emit_aspects(

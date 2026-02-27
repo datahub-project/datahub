@@ -353,8 +353,13 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         if self.schema_processor.is_enabled():
             yield from self.schema_processor.extract()
 
-        # Extract event specifications (via processor) - MUST be before parsed events dataset creation
-        # so we can capture the event spec ID and name for dataset naming
+        # Emit tracking plan containers BEFORE event specs so that
+        # auto_browse_path_v2 can resolve the full container chain
+        # (org → tracking_plan) when computing browse paths for event specs.
+        if self.tracking_plan_processor.is_enabled():
+            yield from self.tracking_plan_processor.emit_containers()
+
+        # Extract event specifications (via processor)
         if self.event_spec_processor.is_enabled():
             yield from self.event_spec_processor.extract()
 
@@ -364,16 +369,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.standard_schema_processor.extract()
 
         # Emit schema metadata for event specs now that ALL schemas (custom + standard) are extracted
-        # This is a second pass that adds complete field information to event specs
         if self.event_spec_processor.is_enabled():
             yield from self.event_spec_processor.emit_event_spec_schema_metadata()
-
-        # Event Specs now serve as the datasets that enrichments read from (Option A architecture)
-        # No need for separate Parsed Events dataset - Event Spec IS the parsed events
-
-        # Extract tracking plans (via processor)
-        if self.tracking_plan_processor.is_enabled():
-            yield from self.tracking_plan_processor.extract()
 
         # Extract pipelines and enrichments (via processor)
         if self.pipeline_processor.is_enabled():

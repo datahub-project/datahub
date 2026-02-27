@@ -100,6 +100,8 @@ class IngestionState:
     field_version_cache: Dict[str, Dict[str, str]] = field(default_factory=dict)
     # Track referenced Iglu URIs from event specs (for standard schema extraction)
     referenced_iglu_uris: Set[str] = field(default_factory=set)
+    # Map event_spec_id → container URN (populated by TrackingPlanProcessor.emit_containers)
+    event_spec_container_map: Dict[str, str] = field(default_factory=dict)
     # Track structured properties by field path for propagation to event_spec datasets
     # Key: field_path, Value: list of structured property value assignments
     field_structured_properties: Dict[

@@ -85,6 +85,7 @@ class TestTrackingPlanProcessorExtract:
         """Create mock state with real containers."""
         state = Mock()
         state.emitted_event_spec_ids = set()
+        state.event_spec_container_map = {}
         return state
 
     def test_extract_returns_empty_when_no_bdp_client(self, mock_deps, mock_state):
