@@ -582,7 +582,19 @@ class SnowplowBDPClient:
         # Typical schemas have <100 deployments, 1000 is more than sufficient
         params = {"from": 0, "size": 1000}
 
-        response_data = self._request("GET", endpoint, params=params)
+        try:
+            response_data = self._request("GET", endpoint, params=params)
+        except ResourceNotFoundError:
+            logger.info(
+                f"Deployments not found for data structure {data_structure_hash} (404)"
+            )
+            return []
+        except Exception as e:
+            error_msg = f"Failed to fetch deployments for {data_structure_hash}: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("deployment_fetch", error_msg)
+            return []
 
         if not response_data:
             return []

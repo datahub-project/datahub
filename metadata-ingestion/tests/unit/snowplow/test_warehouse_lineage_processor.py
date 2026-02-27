@@ -314,7 +314,7 @@ class TestWarehouseLineageProcessor:
         # No workunits but no exception raised
         assert len(workunits) == 0
         # Verify warning was reported
-        processor.report.warning.assert_called_once()
+        processor.report.report_warning.assert_called_once()
 
     def test_extract_processes_multiple_data_models(self, processor, mock_deps):
         """Test that multiple data models are processed correctly."""

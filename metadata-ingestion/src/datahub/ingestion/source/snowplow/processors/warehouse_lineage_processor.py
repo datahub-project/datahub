@@ -5,7 +5,6 @@ Handles extraction of warehouse lineage from Snowplow BDP Data Models API.
 """
 
 import logging
-import traceback
 from typing import TYPE_CHECKING, Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -175,10 +174,14 @@ class WarehouseLineageProcessor(EntityProcessor):
             )
 
         except Exception as e:
-            self.report.warning(
+            self.report.report_warning(
                 title="Failed to extract warehouse lineage via data models",
-                message="Unable to retrieve data models from BDP API for lineage extraction. This is optional and won't affect other metadata.",
+                message="Unable to retrieve data models from BDP API for lineage extraction. "
+                "This is optional and won't affect other metadata.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
             )
-            traceback.print_exc()
+            logger.warning(
+                "Failed to extract warehouse lineage via data models",
+                exc_info=True,
+            )

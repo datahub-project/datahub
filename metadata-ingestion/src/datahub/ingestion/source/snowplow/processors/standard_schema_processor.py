@@ -101,7 +101,13 @@ class StandardSchemaProcessor(EntityProcessor):
                 yield from self._process_standard_schema(iglu_uri)
             except Exception as e:
                 logger.warning(
-                    f"Failed to extract standard schema {iglu_uri} from Iglu Central: {e}"
+                    f"Failed to extract standard schema {iglu_uri} from Iglu Central: {e}",
+                    exc_info=True,
+                )
+                self.report.report_warning(
+                    title="Failed to extract standard schema from Iglu Central",
+                    message=f"Failed to extract standard schema {iglu_uri}: {e}. "
+                    "Lineage from event specs to this schema may be incomplete.",
                 )
 
     def _collect_standard_schema_uris(self) -> Set[str]:
