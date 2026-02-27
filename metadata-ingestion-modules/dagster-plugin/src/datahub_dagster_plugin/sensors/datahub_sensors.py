@@ -823,7 +823,6 @@ class DatahubSensors:
 
             # For failed/canceled runs where no lineage was collected,
             # skip emitting lineage to avoid overwriting existing lineage
-            # from previous successful runs. See: https://github.com/datahub-project/datahub/issues/16024
             run_is_not_successful = context.dagster_run.status in (
                 DagsterRunStatus.FAILURE,
                 DagsterRunStatus.CANCELED,
