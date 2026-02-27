@@ -1,13 +1,14 @@
 import collections
 import dataclasses
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
@@ -69,10 +70,31 @@ class ClickHouseJoinedAccessEvent(BaseModel):
     endtime: datetime
 
 
+# Valid identifier pattern for ClickHouse (database.table format)
+CLICKHOUSE_IDENTIFIER_PATTERN = re.compile(
+    r"^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$"
+)
+
+
+def validate_clickhouse_identifier(identifier: str, field_name: str) -> str:
+    """Validate that identifier is safe for SQL interpolation (database.table format)."""
+    if not CLICKHOUSE_IDENTIFIER_PATTERN.match(identifier):
+        raise ValueError(
+            f"Invalid {field_name}: '{identifier}'. "
+            f"Must be in 'database.table' format with alphanumeric characters and underscores only."
+        )
+    return identifier
+
+
 class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     email_domain: str = Field(description="")
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        # Validate query_log_table on initialization to prevent SQL injection
+        validate_clickhouse_identifier(self.query_log_table, "query_log_table")
 
     def get_sql_alchemy_url(
         self,
@@ -148,39 +170,45 @@ class ClickHouseUsageSource(Source):
     def _get_clickhouse_history(self):
         query = self._make_usage_query()
         engine = self._make_sql_engine()
-        results = engine.execute(query)
         events = []
-        for row in results:
-            event_dict = row._asdict()
+        with engine.connect() as connection:
+            results = connection.execute(text(query))
+            for row in results:
+                event_dict = row._asdict()
 
-            # stripping extra spaces caused by above _asdict() conversion
-            for k, v in event_dict.items():
-                if isinstance(v, str):
-                    event_dict[k] = v.strip()
+                # stripping extra spaces caused by above _asdict() conversion
+                for k, v in event_dict.items():
+                    if isinstance(v, str):
+                        event_dict[k] = v.strip()
 
-            if not self.config.database_pattern.allowed(
-                event_dict.get("database")
-            ) or not (
-                self.config.table_pattern.allowed(event_dict.get("full_table_name"))
-                or self.config.view_pattern.allowed(event_dict.get("full_table_name"))
-            ):
-                logger.debug(
-                    f"Dropping usage event for {event_dict.get('full_table_name')}"
-                )
-                continue
+                if not self.config.database_pattern.allowed(
+                    event_dict.get("database")
+                ) or not (
+                    self.config.table_pattern.allowed(event_dict.get("full_table_name"))
+                    or self.config.view_pattern.allowed(
+                        event_dict.get("full_table_name")
+                    )
+                ):
+                    logger.debug(
+                        f"Dropping usage event for {event_dict.get('full_table_name')}"
+                    )
+                    continue
 
-            if event_dict.get("starttime", None):
-                event_dict["starttime"] = event_dict.get("starttime").__str__()
-            if event_dict.get("endtime", None):
-                event_dict["endtime"] = event_dict.get("endtime").__str__()
-            # when the http protocol is used, the columns field is returned as a string
-            if isinstance(event_dict.get("columns"), str):
-                event_dict["columns"] = (
-                    event_dict.get("columns").replace("'", "").strip("][").split(",")
-                )
+                if event_dict.get("starttime", None):
+                    event_dict["starttime"] = event_dict.get("starttime").__str__()
+                if event_dict.get("endtime", None):
+                    event_dict["endtime"] = event_dict.get("endtime").__str__()
+                # when the http protocol is used, the columns field is returned as a string
+                if isinstance(event_dict.get("columns"), str):
+                    event_dict["columns"] = (
+                        event_dict.get("columns")
+                        .replace("'", "")
+                        .strip("][")
+                        .split(",")
+                    )
 
-            logger.debug(f"event_dict: {event_dict}")
-            events.append(event_dict)
+                logger.debug(f"event_dict: {event_dict}")
+                events.append(event_dict)
 
         if events:
             return events

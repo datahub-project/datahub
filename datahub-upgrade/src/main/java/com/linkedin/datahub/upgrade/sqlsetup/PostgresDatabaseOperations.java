@@ -225,9 +225,9 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
       try (ResultSet rs = checkStmt.executeQuery()) {
         if (!rs.next()) {
           // Database doesn't exist, create it
-          // Note: CREATE DATABASE cannot be parameterized, so we use proper identifier quoting
-          String escapedDatabaseName = databaseName.replace("\"", "\"\"");
-          String createDbSql = "CREATE DATABASE \"" + escapedDatabaseName + "\"";
+          // SECURITY FIX: Validate and use proper escape method to prevent SQL injection
+          validateIdentifier(databaseName, "database name");
+          String createDbSql = "CREATE DATABASE " + escapePostgresIdentifier(databaseName);
           try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
             createStmt.executeUpdate();
             log.info("Successfully created PostgreSQL database: {}", databaseName);
@@ -236,6 +236,34 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
           log.info("PostgreSQL database {} already exists", databaseName);
         }
       }
+    }
+  }
+
+  /**
+   * Validates that an identifier contains only safe characters for SQL identifiers. This is a
+   * defense-in-depth measure in addition to proper escaping.
+   *
+   * @param identifier the identifier to validate
+   * @param identifierType description of the identifier type for error messages
+   * @throws IllegalArgumentException if the identifier contains unsafe characters
+   */
+  private void validateIdentifier(String identifier, String identifierType) {
+    if (identifier == null || identifier.isEmpty()) {
+      throw new IllegalArgumentException(identifierType + " cannot be null or empty");
+    }
+    // Allow only alphanumeric, underscores, and hyphens (common safe characters)
+    // This is stricter than PostgreSQL allows but provides defense-in-depth
+    if (!identifier.matches("^[a-zA-Z][a-zA-Z0-9_-]*$")) {
+      throw new IllegalArgumentException(
+          identifierType
+              + " contains invalid characters. Only alphanumeric, underscores, "
+              + "and hyphens are allowed, and must start with a letter: "
+              + identifier);
+    }
+    // Additional length check (PostgreSQL limit is 63 bytes)
+    if (identifier.length() > 63) {
+      throw new IllegalArgumentException(
+          identifierType + " exceeds maximum length of 63 characters: " + identifier);
     }
   }
 

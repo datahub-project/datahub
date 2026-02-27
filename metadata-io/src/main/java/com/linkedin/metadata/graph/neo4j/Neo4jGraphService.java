@@ -113,6 +113,11 @@ public class Neo4jGraphService implements GraphService {
     final String sourceUrn = edge.getSource().toString();
     final String destinationUrn = edge.getDestination().toString();
 
+    // SECURITY FIX (2026-02-01): Validate identifiers before Cypher query construction
+    validateCypherIdentifier(sourceType, "source entity type");
+    validateCypherIdentifier(destinationType, "destination entity type");
+    validateCypherIdentifier(edge.getRelationshipType(), "relationship type");
+
     // Introduce startUrn, endUrn for real source node and destination node without consider direct
     // or indirect pattern match
     String endUrn = destinationUrn;
@@ -171,6 +176,8 @@ public class Neo4jGraphService implements GraphService {
                   "Tried setting properties on graph edge but property key is preserved. Key: %s",
                   entry.getKey()));
         }
+        // SECURITY FIX (2026-02-01): Validate property key before Cypher query construction
+        validateCypherIdentifier(entry.getKey(), "property key");
         if (entry.getValue() instanceof String) {
           propertySetters.add("r." + entry.getKey() + " = $prop_" + entry.getKey());
         } else {
@@ -249,6 +256,11 @@ public class Neo4jGraphService implements GraphService {
     final String destinationType = edge.getDestination().getEntityType();
     final String sourceUrn = edge.getSource().toString();
     final String destinationUrn = edge.getDestination().toString();
+
+    // SECURITY FIX (2026-02-01): Validate identifiers before Cypher query construction
+    validateCypherIdentifier(sourceType, "source entity type");
+    validateCypherIdentifier(destinationType, "destination entity type");
+    validateCypherIdentifier(edge.getRelationshipType(), "relationship type");
 
     String startUrn = sourceUrn;
     String startType = sourceType;
@@ -375,6 +387,8 @@ public class Neo4jGraphService implements GraphService {
   }
 
   private String getPathFindingLabelFilter(Set<String> entityNames) {
+    // Defense-in-depth: validate entity names before embedding in APOC label filter
+    entityNames.forEach(name -> validateCypherIdentifier(name, "entity type in label filter"));
     return entityNames.stream().map(x -> String.format("+%s", x)).collect(Collectors.joining("|"));
   }
 
@@ -384,9 +398,12 @@ public class Neo4jGraphService implements GraphService {
     // so simply transform entries lineage registry into format of filter
     final var filterComponents = new HashSet<String>();
     for (final var entityName : entityNames) {
+      // Defense-in-depth: validate entity name and relationship types from registry
+      validateCypherIdentifier(entityName, "entity name in relationship filter");
       if (direction != null) {
         for (final var edgeInfo : lineageRegistry.getLineageRelationships(entityName, direction)) {
           final var type = edgeInfo.getType();
+          validateCypherIdentifier(type, "relationship type from lineage registry");
           if (edgeInfo.getDirection() == RelationshipDirection.INCOMING) {
             filterComponents.add("<" + type);
           } else {
@@ -426,6 +443,8 @@ public class Neo4jGraphService implements GraphService {
                 "maxHops", maxHops));
 
     final String entityType = entityUrn.getEntityType();
+    // Defense-in-depth: validate entity type from URN before Cypher label construction
+    validateCypherIdentifier(entityType, "entity type from URN");
 
     if (lineageFlags == null
         || (lineageFlags.getStartTimeMillis() == null && lineageFlags.getEndTimeMillis() == null)) {
@@ -559,6 +578,8 @@ public class Neo4jGraphService implements GraphService {
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
+        // Defense-in-depth: validate entity type from URN before Cypher label construction
+        validateCypherIdentifier(srcNodeLabel, "source entity type from URN");
         matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
       } catch (URISyntaxException e) {
         log.error("Failed to parse URN: {} ", urnValue, e);
@@ -567,6 +588,10 @@ public class Neo4jGraphService implements GraphService {
 
     String relationshipTypeFilter = "";
     if (!graphFilters.getRelationshipTypes().isEmpty()) {
+      // SECURITY FIX (2026-02-01): Validate relationship types before Cypher query construction
+      graphFilters
+          .getRelationshipTypes()
+          .forEach(type -> validateCypherIdentifier(type, "relationship type filter"));
       relationshipTypeFilter = ":" + StringUtils.join(graphFilters.getRelationshipTypes(), "|");
     }
 
@@ -633,6 +658,15 @@ public class Neo4jGraphService implements GraphService {
   private String computeEntityTypeWhereClause(
       @Nonnull final Set<String> sourceTypes, @Nonnull final Set<String> destinationTypes) {
     String whereClause = " WHERE left(type(r), 2)<>'r_' ";
+
+    // SECURITY FIX (2026-02-01): Validate entity types before Cypher query construction
+    if (sourceTypes != null) {
+      sourceTypes.forEach(type -> validateCypherIdentifier(type, "source entity type filter"));
+    }
+    if (destinationTypes != null) {
+      destinationTypes.forEach(
+          type -> validateCypherIdentifier(type, "destination entity type filter"));
+    }
 
     Boolean hasSourceTypes = sourceTypes != null && !sourceTypes.isEmpty();
     Boolean hasDestTypes = destinationTypes != null && !destinationTypes.isEmpty();
@@ -719,8 +753,12 @@ public class Neo4jGraphService implements GraphService {
 
     String relationshipTypeFilter = "";
     if (!relationshipTypes.isEmpty()) {
+      // SECURITY FIX: Validate relationship types before Cypher query construction
+      relationshipTypes.forEach(type -> validateCypherIdentifier(type, "relationship type"));
       relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
+    // SECURITY FIX: Validate srcNodeLabel (entity type from URN) before query construction
+    validateCypherIdentifier(srcNodeLabel, "source entity type");
     final String statement = String.format(matchTemplate, srcNodeLabel, relationshipTypeFilter);
 
     final Map<String, Object> params = new HashMap<>();
@@ -763,11 +801,12 @@ public class Neo4jGraphService implements GraphService {
       return;
     }
     log.debug("Removing Neo4j nodes matching label {}", labelPattern);
-    final String matchTemplate =
-        "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
-    final String statement = String.format(matchTemplate, labelPattern);
+    // SECURITY FIX: Use parameterized regex pattern to prevent Cypher injection
+    final String statement =
+        "MATCH (n) WHERE any(l IN labels(n) WHERE l=~$labelPattern) DETACH DELETE n";
 
     final Map<String, Object> params = new HashMap<>();
+    params.put("labelPattern", labelPattern);
 
     runQuery(buildStatement(statement, params)).consume();
   }
@@ -867,13 +906,19 @@ public class Neo4jGraphService implements GraphService {
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it
+  // SECURITY FIX (2026-02-01): Validate key and escape value to prevent Cypher injection
   @Nonnull
   private static String toCriterionString(@Nonnull String key, @Nonnull Object value) {
+    // Validate the field name to prevent injection via property names
+    validateCypherIdentifier(key, "criterion field name");
+
     if (ClassUtils.isPrimitiveOrWrapper(value.getClass())) {
       return key + ":" + value;
     }
 
-    return key + ":\"" + value + "\"";
+    // Escape string values to prevent injection
+    String escapedValue = escapeCypherStringValue(value.toString());
+    return key + ":\"" + escapedValue + "\"";
   }
 
   /**
@@ -980,6 +1025,53 @@ public class Neo4jGraphService implements GraphService {
     }
   }
 
+  /**
+   * Validates a Cypher identifier (node label, relationship type, or property name) to prevent
+   * Cypher injection attacks.
+   *
+   * <p>SECURITY FIX (2026-02-01): Neo4j Cypher does not support parameterization for structural
+   * elements like node labels, relationship types, and property names. These must be validated
+   * before concatenation into Cypher queries.
+   *
+   * @param identifier the identifier to validate
+   * @param identifierType description for error messages (e.g., "relationship type")
+   * @throws IllegalArgumentException if the identifier contains unsafe characters
+   */
+  private static void validateCypherIdentifier(String identifier, String identifierType) {
+    if (identifier == null || identifier.isEmpty()) {
+      throw new IllegalArgumentException(identifierType + " cannot be null or empty");
+    }
+    // Allow only alphanumeric characters and underscores (standard Neo4j identifier pattern)
+    // This is stricter than Neo4j allows but provides defense-in-depth
+    if (!identifier.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) {
+      throw new IllegalArgumentException(
+          identifierType
+              + " contains invalid characters. Only alphanumeric and underscores allowed, "
+              + "must start with letter or underscore: "
+              + identifier);
+    }
+    // Prevent excessively long identifiers
+    if (identifier.length() > 128) {
+      throw new IllegalArgumentException(
+          identifierType + " exceeds maximum length of 128 characters: " + identifier);
+    }
+  }
+
+  /**
+   * Escapes a string value for use in Cypher queries where parameterization is not possible. Uses
+   * single quote escaping as per Cypher string literal syntax.
+   *
+   * @param value the string value to escape
+   * @return the escaped string (without surrounding quotes)
+   */
+  private static String escapeCypherStringValue(String value) {
+    if (value == null) {
+      return "";
+    }
+    // Escape single quotes by doubling them, and escape backslashes
+    return value.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"");
+  }
+
   @Nonnull
   @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
@@ -1027,6 +1119,8 @@ public class Neo4jGraphService implements GraphService {
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
+        // Defense-in-depth: validate entity type from URN before Cypher label construction
+        validateCypherIdentifier(srcNodeLabel, "source entity type from URN");
         matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
       } catch (URISyntaxException e) {
         log.error("Failed to parse URN: {} ", urnValue, e);
@@ -1035,6 +1129,10 @@ public class Neo4jGraphService implements GraphService {
 
     String relationshipTypeFilter = "";
     if (!graphFilters.getRelationshipTypes().isEmpty()) {
+      // SECURITY FIX (2026-02-01): Validate relationship types before Cypher query construction
+      graphFilters
+          .getRelationshipTypes()
+          .forEach(type -> validateCypherIdentifier(type, "relationship type filter"));
       relationshipTypeFilter = ":" + StringUtils.join(graphFilters.getRelationshipTypes(), "|");
     }
 

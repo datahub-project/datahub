@@ -124,8 +124,9 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
       stmt.setString(1, databaseName);
       try (ResultSet result = stmt.executeQuery()) {
         if (!result.next()) {
-          // Create database using PreparedStatement
-          String createDbSql = "CREATE DATABASE `" + databaseName + "`";
+          // SECURITY FIX: Validate and escape database name to prevent SQL injection
+          validateIdentifier(databaseName, "database name");
+          String createDbSql = "CREATE DATABASE " + escapeMysqlIdentifier(databaseName);
           try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
             createStmt.executeUpdate();
             log.info("Created MySQL database: {}", databaseName);
@@ -137,8 +138,10 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     } catch (Exception e) {
       log.debug("MySQL database check failed, attempting to create: {}", e.getMessage());
       // Fallback: try to create database directly
+      // SECURITY FIX: Validate and escape database name to prevent SQL injection
+      validateIdentifier(databaseName, "database name");
       try (PreparedStatement createStmt =
-          connection.prepareStatement("CREATE DATABASE `" + databaseName + "`")) {
+          connection.prepareStatement("CREATE DATABASE " + escapeMysqlIdentifier(databaseName))) {
         createStmt.executeUpdate();
         log.info("Created MySQL database: {}", databaseName);
       }
@@ -147,8 +150,9 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
 
   @Override
   public void selectDatabase(String databaseName, Connection connection) throws SQLException {
-    // Use PreparedStatement for the USE statement
-    String useDbSql = "USE `" + databaseName + "`";
+    // SECURITY FIX: Validate and escape database name to prevent SQL injection
+    validateIdentifier(databaseName, "database name");
+    String useDbSql = "USE " + escapeMysqlIdentifier(databaseName);
     try (PreparedStatement stmt = connection.prepareStatement(useDbSql)) {
       stmt.executeUpdate();
       log.info("Selected MySQL database: {}", databaseName);
@@ -171,6 +175,34 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           "SqlSetup MySQL: Using original database URL '{}' (no database creation needed)",
           originalUrl);
       return originalUrl;
+    }
+  }
+
+  /**
+   * Validates that an identifier contains only safe characters for SQL identifiers. This is a
+   * defense-in-depth measure in addition to proper escaping.
+   *
+   * @param identifier the identifier to validate
+   * @param identifierType description of the identifier type for error messages
+   * @throws IllegalArgumentException if the identifier contains unsafe characters
+   */
+  private void validateIdentifier(String identifier, String identifierType) {
+    if (identifier == null || identifier.isEmpty()) {
+      throw new IllegalArgumentException(identifierType + " cannot be null or empty");
+    }
+    // Allow only alphanumeric, underscores, and hyphens (common safe characters)
+    // This is stricter than MySQL allows but provides defense-in-depth
+    if (!identifier.matches("^[a-zA-Z][a-zA-Z0-9_-]*$")) {
+      throw new IllegalArgumentException(
+          identifierType
+              + " contains invalid characters. Only alphanumeric, underscores, "
+              + "and hyphens are allowed, and must start with a letter: "
+              + identifier);
+    }
+    // Additional length check to prevent buffer issues
+    if (identifier.length() > 64) {
+      throw new IllegalArgumentException(
+          identifierType + " exceeds maximum length of 64 characters: " + identifier);
     }
   }
 
