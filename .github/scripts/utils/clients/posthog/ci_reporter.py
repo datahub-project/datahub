@@ -22,22 +22,22 @@ class PostHogCIReporter:
             for step in job.get("steps", []):
                 posthog.capture(
                     distinct_id=repo,
-                    event="step_completed",
+                    event="ci_step_completed",
                     properties={**workflow_props, **job_props, **self._step_props(step)},
-                    timestamp=step.get("started_at"),
+                    timestamp=step.get("completed_at"),
                 )
             posthog.capture(
                 distinct_id=repo,
-                event="job_completed",
+                event="ci_job_completed",
                 properties={**workflow_props, **job_props},
-                timestamp=job.get("started_at"),
+                timestamp=job.get("completed_at"),
             )
 
         posthog.capture(
             distinct_id=repo,
-            event="workflow_run_completed",
+            event="ci_workflow_run_completed",
             properties=workflow_props,
-            timestamp=data["workflow"].get("started_at"),
+            timestamp=data["workflow"].get("completed_at"),
         )
 
         # flush() blocks until the background delivery thread has sent all queued events —
