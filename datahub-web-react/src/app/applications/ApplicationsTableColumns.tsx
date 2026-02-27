@@ -146,7 +146,7 @@ export const ApplicationActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
-                    <Icon icon={DotsThreeVertical} size="md" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="MoreVertOutlinedIcon" />
                 </Dropdown>
             </CardIcons>
         );

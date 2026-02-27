@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
-import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -91,7 +91,7 @@ export const Card = ({
                                             label={`${Math.abs(percent)}%`}
                                             size="sm"
                                             color={percent < 0 ? 'red' : 'green'}
-                                            leftIcon={percent < 0 ? ArrowRight : ArrowUpRight}
+                                            leftIcon={percent < 0 ? TrendDown : TrendUp}
                                             clickable={false}
                                         />
                                     )}
