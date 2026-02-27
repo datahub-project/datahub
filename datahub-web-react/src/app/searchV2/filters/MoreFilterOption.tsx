@@ -1,34 +1,20 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
-import React, { useRef } from 'react';
+import { CaretRight } from '@phosphor-icons/react';
+import React, { useMemo, useRef } from 'react';
 import styled from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
-
-import { IconWrapper } from '@app/searchV2/filters/SearchFilterView';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
-import { getFilterDropdownIcon, useElementDimensions, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { useElementDimensions, useFilterDisplayName } from '@app/searchV2/filters/utils';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
-const IconNameWrapper = styled.span`
-    display: flex;
-    align-items: center;
+const OptionDisplayName = styled.span`
     overflow: hidden;
-`;
-
-const StyledValueSelector = styled(ValueSelector)<{ width: number; height: number; isElementOutsideWindow: boolean }>`
-    position: absolute;
-    top: -${(props) => props.height}px;
-    ${(props) => (props.isElementOutsideWindow ? 'right' : 'left')}: ${(props) => props.width}px;
-`;
-
-const StyledRightOutlined = styled(RightOutlined)`
-    font-size: 12px;
-    height: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: inherit;
 `;
 
 interface Props {
@@ -45,9 +31,17 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
         onChangeFilters,
     });
     const displayName = useFilterDisplayName(filter);
-    const filterIcon = getFilterDropdownIcon(filter.field);
     const labelRef = useRef<HTMLDivElement>(null);
-    const elementDimensions = useElementDimensions(labelRef);
+    const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
+
+    const menuStyle = useMemo(
+        () => ({
+            top: -height,
+            left: isElementOutsideWindow ? undefined : width,
+            right: isElementOutsideWindow ? width : undefined,
+        }),
+        [width, height, isElementOutsideWindow],
+    );
 
     const onChangeFilterValues = (currentFilterPredicate: FilterPredicate, newValues) => {
         if (currentFilterPredicate.values !== newValues) {
@@ -60,37 +54,24 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
     ) as FilterPredicate;
 
     return (
-        <StyledValueSelector
+        <ValueSelector
             field={currentFilterPredicate?.field}
             values={currentFilterPredicate?.values}
             defaultOptions={finalAggregations}
             onChangeValues={(newValues) => onChangeFilterValues(currentFilterPredicate, newValues)}
             manuallyUpdateFilters={manuallyUpdateFilters}
-            {...elementDimensions}
+            menuStyle={menuStyle}
         >
             <MoreFilterOptionLabel
                 $isActive={!!numActiveFilters}
                 data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
                 ref={labelRef}
             >
-                <IconNameWrapper>
-                    {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                    <Typography.Text
-                        ellipsis={{
-                            tooltip: {
-                                title: displayName,
-                                showArrow: false,
-                                color: 'white',
-                                overlayInnerStyle: { color: colors.gray[1700] },
-                                placement: 'left',
-                            },
-                        }}
-                    >
-                        {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                    </Typography.Text>
-                </IconNameWrapper>
-                <StyledRightOutlined />
+                <OptionDisplayName>
+                    {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                </OptionDisplayName>
+                <CaretRight size={12} />
             </MoreFilterOptionLabel>
-        </StyledValueSelector>
+        </ValueSelector>
     );
 }

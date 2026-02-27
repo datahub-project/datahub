@@ -1,7 +1,8 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import { Dropdown } from 'antd';
-import React, { useState } from 'react';
+import { CaretDown } from '@phosphor-icons/react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+
+import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
@@ -14,15 +15,27 @@ import { useAppConfig } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
-const DropdownMenu = styled.div<{ padding?: string }>`
-    background-color: white;
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    overflow: hidden;
+const DropdownWrapper = styled.div`
+    position: relative;
+`;
+
+const DropdownPanel = styled.div`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1050;
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 12px;
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     min-width: 200px;
     max-width: 400px;
+    padding: 4px;
+`;
 
-    ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
+const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
+    transition: transform 0.2s ease;
+    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
 `;
 
 interface Props {
@@ -38,22 +51,30 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
         setIsMenuOpen(false);
     }
 
-    function onOpenChange(isOpen: boolean) {
-        if (isOpen) trackShowMoreEvent(activeFilters.length, filters.length);
-        setIsMenuOpen(isOpen);
+    function toggleMenu() {
+        if (!isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
+        setIsMenuOpen((prev) => !prev);
     }
 
+    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
+    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
+    useClickOutside(handleClickOutside, clickOutsideOptions);
+
     return (
-        <Dropdown
-            trigger={['click']}
-            dropdownRender={() => (
-                <DropdownMenu padding="4px 0px">
+        <DropdownWrapper ref={wrapperRef}>
+            <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters} onClick={toggleMenu}>
+                More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                <CaretIcon size={12} $isOpen={isMenuOpen} />
+            </SearchFilterLabel>
+            {isMenuOpen && (
+                <DropdownPanel>
                     {filters.map((filter) => {
                         return filterRendererRegistry.hasRenderer(filter.field) ? (
                             filterRendererRegistry.render(filter.field, {
@@ -73,15 +94,8 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
                             />
                         );
                     })}
-                </DropdownMenu>
+                </DropdownPanel>
             )}
-            open={isMenuOpen}
-            onOpenChange={onOpenChange}
-        >
-            <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
-                More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
-            </SearchFilterLabel>
-        </Dropdown>
+        </DropdownWrapper>
     );
 }

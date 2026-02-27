@@ -1,4 +1,4 @@
-import { CaretDownFilled } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react';
 import React from 'react';
 import styled, { CSSProperties } from 'styled-components';
 
@@ -16,9 +16,13 @@ export const IconWrapper = styled.div`
     }
 `;
 
+const CaretIcon = styled(CaretDown)<{ $isOpen?: boolean }>`
+    transition: transform 0.2s ease;
+    ${(props) => props.$isOpen && 'transform: rotate(180deg);'}
+`;
+
 interface Props {
     numActiveFilters: number;
-    filterIcon?: JSX.Element;
     displayName: string;
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
@@ -29,7 +33,6 @@ interface Props {
 
 export default function SearchFilterView({
     numActiveFilters,
-    filterIcon,
     displayName,
     filterPredicate,
     onChangeValues,
@@ -50,9 +53,8 @@ export default function SearchFilterView({
                 style={labelStyle}
                 data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
-                {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                 {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                <CaretIcon size={12} />
             </SearchFilterLabel>
         </ValueSelector>
     );

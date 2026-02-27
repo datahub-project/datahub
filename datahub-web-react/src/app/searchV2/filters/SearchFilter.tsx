@@ -4,7 +4,7 @@ import { CSSProperties } from 'styled-components';
 import SearchFilterView from '@app/searchV2/filters/SearchFilterView';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
-import { getFilterDropdownIcon, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { useFilterDisplayName } from '@app/searchV2/filters/utils';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
@@ -31,7 +31,6 @@ export default function SearchFilter({
         onChangeFilters,
         shouldUseAggregationsFromFilter,
     });
-    const filterIcon = getFilterDropdownIcon(filter.field);
 
     const currentFilterPredicate = filterPredicates?.find((obj) =>
         obj.field.field.includes(filter.field),
@@ -44,7 +43,6 @@ export default function SearchFilter({
             filterPredicate={currentFilterPredicate}
             numActiveFilters={numActiveFilters}
             filterOptions={finalAggregations}
-            filterIcon={filterIcon}
             displayName={displayName}
             onChangeValues={updateFilters}
             labelStyle={labelStyle}

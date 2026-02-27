@@ -1,24 +1,19 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Dropdown } from 'antd';
-import React, { useRef, useState } from 'react';
+import { CaretRight } from '@phosphor-icons/react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+
+import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { useElementDimensions } from '@app/searchV2/filters/utils';
 
-const IconNameWrapper = styled.span`
-    display: flex;
-    align-items: center;
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 8px;
+const SubMenuWrapper = styled.div`
+    position: relative;
 `;
 
 interface Props {
-    icon?: React.ReactNode;
     title: string;
     option: string;
     count: number;
@@ -26,10 +21,11 @@ interface Props {
     onUpdate: (newValue: boolean) => void;
 }
 
-export default function BooleanMoreFilter({ icon, title, option, count, initialSelected, onUpdate }: Props) {
+export default function BooleanMoreFilter({ title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
     const labelRef = useRef<HTMLDivElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const { width, height, isElementOutsideWindow } = useElementDimensions(labelRef);
 
     function updateSelected() {
@@ -37,31 +33,31 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
         setIsMenuOpen(false);
     }
 
-    const filterOptions = [
-        {
-            key: option,
-            // Re-use the Normal Filter object
-            label: (
-                <FilterOption
-                    filterOption={{ field: title, value: option, count }}
-                    selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
-                    setSelectedFilterOptions={() => setIsSelected(!isSelected)}
-                />
-            ),
-            style: { padding: 0 },
-            displayName: title,
-        },
-    ];
+    const handleClickOutside = useCallback(() => setIsMenuOpen(false), []);
+    const clickOutsideOptions = useMemo(() => ({ wrappers: [wrapperRef] }), []);
+    useClickOutside(handleClickOutside, clickOutsideOptions);
 
     return (
-        <Dropdown
-            trigger={['click']}
-            menu={{ items: filterOptions }}
-            open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
-            dropdownRender={(menuOption) => (
+        <SubMenuWrapper ref={wrapperRef}>
+            <MoreFilterOptionLabel
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                isOpen={isMenuOpen}
+                $isActive={isSelected}
+                data-testid={`more-filter-${title.replace(/\s/g, '-')}`}
+                ref={labelRef}
+            >
+                {title} {isSelected ? `(1) ` : ''}
+                <CaretRight size={12} />
+            </MoreFilterOptionLabel>
+            {isMenuOpen && (
                 <BooleanSearchFilterMenu
-                    menuOption={menuOption}
+                    filterOption={
+                        <FilterOption
+                            filterOption={{ field: title, value: option, count }}
+                            selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
+                            setSelectedFilterOptions={() => setIsSelected(!isSelected)}
+                        />
+                    }
                     onUpdate={updateSelected}
                     style={{
                         position: 'absolute',
@@ -70,20 +66,6 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                     }}
                 />
             )}
-        >
-            <MoreFilterOptionLabel
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                isOpen={isMenuOpen}
-                $isActive={isSelected}
-                data-testid={`more-filter-${title.replace(/\s/g, '-')}`}
-                ref={labelRef}
-            >
-                <IconNameWrapper>
-                    {icon && <IconWrapper>{icon}</IconWrapper>}
-                    {title} {isSelected ? `(1) ` : ''}
-                </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
-            </MoreFilterOptionLabel>
-        </Dropdown>
+        </SubMenuWrapper>
     );
 }

@@ -19,7 +19,6 @@ interface Props {
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    type?: 'card' | 'default';
     visible: boolean;
     includeCount?: boolean;
     className?: string;
@@ -31,7 +30,6 @@ export default function ValueMenu({
     field,
     values,
     defaultOptions,
-    type = 'card',
     onChangeValues,
     visible,
     includeCount,
@@ -43,10 +41,6 @@ export default function ValueMenu({
     const visibilityRef = useRef<boolean>(visible);
     const isDateRangeFilter = getIsDateRangeFilter(field);
 
-    /**
-     * Synchronize stagedSelectedValues with the values prop
-     * NOTE: Callback with useState not feasible due to its initialization behavior.
-     */
     const previousValues = usePrevious(values);
     useEffect(() => {
         if (!isEqual(values, previousValues)) {
@@ -54,10 +48,6 @@ export default function ValueMenu({
         }
     }, [values, previousValues]);
 
-    /**
-     * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing
-     * to make the UI feel more responsive.
-     */
     useEffect(() => {
         const previouslyVisible = visibilityRef.current;
         visibilityRef.current = visible;
@@ -74,22 +64,15 @@ export default function ValueMenu({
     switch (field.type) {
         case FieldType.TEXT:
             return (
-                <TextValueMenu
-                    field={field}
-                    values={stagedSelectedValues}
-                    onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
-                />
+                <TextValueMenu field={field} values={stagedSelectedValues} onChangeValues={setStagedSelectedValues} />
             );
         case FieldType.BOOLEAN:
             return (
                 <BooleanValueMenu
                     field={field}
                     values={stagedSelectedValues}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                 />
             );
         case FieldType.ENTITY:
@@ -99,10 +82,8 @@ export default function ValueMenu({
                     includeCount={includeCount}
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                 />
             );
         case FieldType.NESTED_ENTITY_TYPE:
@@ -112,10 +93,8 @@ export default function ValueMenu({
                     includeCount={includeCount}
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                 />
             );
         case FieldType.ENTITY_TYPE:
@@ -125,10 +104,8 @@ export default function ValueMenu({
                     includeCount={includeCount}
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                     aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
@@ -139,10 +116,8 @@ export default function ValueMenu({
                     includeCount={includeCount}
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                     aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
@@ -151,10 +126,8 @@ export default function ValueMenu({
                 <TimeBucketMenu
                     field={field}
                     values={stagedSelectedValues}
-                    type={type}
                     className={className}
                     onChangeValues={setStagedSelectedValues}
-                    onApply={() => onChangeValues(stagedSelectedValues)}
                 />
             );
         case FieldType.BROWSE_PATH:

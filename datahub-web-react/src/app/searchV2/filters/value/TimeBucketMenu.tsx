@@ -1,26 +1,22 @@
-import type { ItemType } from 'antd/lib/menu/hooks/useItems';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
 
-const FilterOptionWrapper = styled.div`
+const TimeBucketOption = styled.div<{ $isSelected: boolean }>`
     display: flex;
     align-items: center;
-
-    margin: 0 4px;
-    padding: 10px;
-
+    padding: 8px 4px;
     border-radius: 8px;
-
     font-size: 14px;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSelectedSubtle : 'transparent')};
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -28,45 +24,44 @@ interface Props {
     field: TimeBucketFilterField;
     values: FilterValue[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    onApply: () => void;
-    type?: 'card' | 'default';
     className?: string;
 }
 
-export default function TimeBucketMenu({ field, values, type = 'card', onChangeValues, onApply, className }: Props) {
-    const filterMenuOptions = useMemo(
+export default function TimeBucketMenu({ field, values, onChangeValues, className }: Props) {
+    const options = useMemo(
         () =>
-            field.options.map(({ label, startOffsetMillis }): ItemType => {
+            field.options.map(({ label, startOffsetMillis }) => {
                 const timestamp = moment()
                     .subtract(startOffsetMillis, 'milliseconds')
                     .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
                     .valueOf()
                     .toString();
-                return {
-                    key: timestamp,
-                    label: <FilterOptionWrapper>{label}</FilterOptionWrapper>,
-                    onClick: () => onChangeValues([{ value: timestamp, entity: null }]),
-                };
+                return { key: timestamp, label, timestamp };
             }),
-        [field.options, onChangeValues],
+        [field.options],
     );
 
     const selectedKey = useMemo(
-        () => filterMenuOptions.find((option) => values.length && option?.key === values[0].value)?.key,
-        [filterMenuOptions, values],
+        () => options.find((option) => values.length && option.key === values[0].value)?.key,
+        [options, values],
     );
 
     return (
         <OptionsDropdownMenu
             menu={
-                <OptionMenu
-                    items={filterMenuOptions}
-                    selectedKeys={selectedKey ? [selectedKey.toString()] : undefined}
-                />
+                <div>
+                    {options.map((option) => (
+                        <TimeBucketOption
+                            key={option.key}
+                            $isSelected={option.key === selectedKey}
+                            onClick={() => onChangeValues([{ value: option.timestamp, entity: null }])}
+                        >
+                            {option.label}
+                        </TimeBucketOption>
+                    ))}
+                </div>
             }
-            updateFilters={onApply}
             showSearchBar={false}
-            type={type}
             className={className}
         />
     );
