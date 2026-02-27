@@ -1016,36 +1016,6 @@ class SnowplowBDPClient:
             logger.error(f"Connection test failed: {e}")
             return False
 
-    def get_available_permissions(self) -> List[str]:
-        """
-        Get available API permissions for current credentials.
-
-        This is a best-effort call to the /permissions endpoint, which is not
-        part of the publicly documented BDP Console API. It was discovered via
-        UI network inspection and may not be available on all BDP tiers or
-        API versions. Returns an empty list gracefully if the endpoint is missing.
-
-        Returns:
-            List of permission strings, or empty list if unavailable
-        """
-        try:
-            endpoint = f"organizations/{self.organization_id}/permissions"
-            response_data = self._request("GET", endpoint)
-            return response_data.get("permissions", [])
-        except requests.exceptions.HTTPError as e:
-            # 404 expected for older BDP versions without permissions endpoint
-            if e.response is not None and e.response.status_code == 404:
-                logger.debug("Permissions endpoint not available (404)")
-            else:
-                logger.warning(
-                    f"Failed to fetch permissions: HTTP {e.response.status_code if e.response else 'unknown'}"
-                )
-            return []
-        except requests.exceptions.RequestException as e:
-            # Network errors, timeouts, etc.
-            logger.warning(f"Failed to fetch permissions due to network error: {e}")
-            return []
-
     def get_users(self) -> List[User]:
         """
         Get all users in the organization.
