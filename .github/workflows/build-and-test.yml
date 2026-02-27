@@ -4,9 +4,14 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - ".github/**"
+      - "!.github/workflows/build-and-test.yml"
+      - "!.github/actions/ensure-codegen-updated"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
   pull_request:
     branches:
       - "**"

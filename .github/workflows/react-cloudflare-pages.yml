@@ -6,12 +6,16 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - ".github/**"
+      - "!.github/workflows/react-cloudflare-pages.yml"
   pull_request:
     branches:
       - "**"
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - ".github/**"
+      - "!.github/workflows/react-cloudflare-pages.yml"
   release:
     types: [published]
 

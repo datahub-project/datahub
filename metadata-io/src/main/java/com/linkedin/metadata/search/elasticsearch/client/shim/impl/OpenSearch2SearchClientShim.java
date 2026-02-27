@@ -577,6 +577,11 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     return client.submitDeleteByQueryTask(deleteByQueryRequest, options).getTask();
   }
 
+  /**
+   * Submits reindex asynchronously (OpenSearch REST client's submitReindexTask returns a task id;
+   * wait_for_completion is handled by the client for this API). Aligned with Es8SearchClientShim
+   * which sets waitForCompletion(false) for async reindex.
+   */
   @Nonnull
   @Override
   public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
