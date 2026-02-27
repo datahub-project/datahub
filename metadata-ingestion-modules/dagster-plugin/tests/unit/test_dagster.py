@@ -407,6 +407,8 @@ def test_failure_with_static_input_metadata_still_emits_lineage(
 
     # Verify the static metadata lineage is present
     io_aspect = failing_op_io[0].aspect
+    assert io_aspect is not None
+    assert hasattr(io_aspect, "inputDatasets")
     assert len(io_aspect.inputDatasets) > 0, (
         "Input datasets from datahub.inputs metadata should be present"
     )
@@ -466,6 +468,9 @@ def test_partial_failure_preserves_lineage_for_failed_op(
     # The successful op also has no metadata-based lineage to emit.
     for mcp in datajob_io_mcps:
         io_aspect = mcp.aspect
+        assert io_aspect is not None
+        assert hasattr(io_aspect, "inputDatasets")
+        assert hasattr(io_aspect, "outputDatasets")
         # If a DataJobInputOutput IS emitted, it should have actual lineage data
         # (not be empty), otherwise it would incorrectly clear existing lineage.
         has_lineage = (
@@ -540,6 +545,9 @@ def test_success_run_still_emits_lineage(mock_emit: Mock, mock_uuid: Mock) -> No
     assert len(transform_io) > 0, (
         "Transform op should have DataJobInputOutput emitted on success"
     )
+    io_aspect = transform_io[0].aspect
+    assert io_aspect is not None
+    assert hasattr(io_aspect, "inputDatasets")
     assert "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)" in [
-        str(d) for d in transform_io[0].aspect.inputDatasets
+        str(d) for d in io_aspect.inputDatasets
     ]
