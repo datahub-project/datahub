@@ -1,6 +1,7 @@
 import random
 import string
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
@@ -26,7 +27,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper impo
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
-    BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
     BigqueryTableSnapshot,
@@ -245,7 +245,6 @@ def test_bigquery_v2_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@patch.object(BigQuerySchemaApi, attribute="get_projects_with_labels")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
@@ -255,15 +254,14 @@ def test_bigquery_v2_ingest(
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_bigquery_v2_project_labels_ingest(
-    client,
-    policy_tag_manager_client,
     projects_client,
+    policy_tag_manager_client,
+    client,
     get_sample_data_for_table,
     get_columns_for_dataset,
     get_datasets_for_project_id,
     get_core_table_details,
     get_tables_for_dataset,
-    get_projects_with_labels,
     pytestconfig,
     tmp_path,
 ):
@@ -275,9 +273,12 @@ def test_bigquery_v2_project_labels_ingest(
         BigqueryDataset(name="bigquery-dataset-1")
     ]
 
-    get_projects_with_labels.return_value = [
-        BigqueryProject(id="dev", name="development")
+    # Mock ProjectsClient instance and its search_projects method
+    mock_projects_client_instance = MagicMock()
+    mock_projects_client_instance.search_projects.return_value = [
+        SimpleNamespace(project_id="dev", display_name="development")
     ]
+    projects_client.return_value = mock_projects_client_instance
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
@@ -573,6 +574,206 @@ LIMIT 100
 
     run_and_get_pipeline(pipeline_config_dict)
 
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=mcp_golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_convert_column_urns_to_lowercase(
+    client,
+    policy_tag_manager_client,
+    projects_client,
+    get_bigquery_client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
+    mcp_golden_path = f"{test_resources_dir}/bigquery_lowercase_columns_mcp_golden.json"
+    mcp_output_path = "{}/{}".format(
+        tmp_path, "bigquery_lowercase_columns_mcp_output.json"
+    )
+
+    # Setting up dataset and project
+    dataset_name = "bigquery-dataset-1"
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US")
+    ]
+
+    # Setup table list items
+    table_list_item = TableListItem(
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+    )
+    table_name = "table-1"
+    derived_table_name = "derived-table"
+    get_core_table_details.return_value = {
+        table_name: table_list_item,
+        derived_table_name: table_list_item,
+    }
+
+    # Create columns with mixed case names for source table
+    source_columns = [
+        BigqueryColumn(
+            name="UserID",  # Mixed case column
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="UserID",  # Mixed case field path
+            data_type="INT",
+            comment="User identifier",
+            is_partition_column=False,
+            cluster_column_position=None,
+        ),
+        BigqueryColumn(
+            name="EmailAddress",  # Mixed case column
+            ordinal_position=2,
+            is_nullable=False,
+            field_path="EmailAddress",  # Mixed case field path
+            data_type="STRING",
+            comment="User email address",
+            is_partition_column=False,
+            cluster_column_position=None,
+        ),
+    ]
+
+    # Create columns for derived table that depend on the source table
+    derived_columns = [
+        BigqueryColumn(
+            name="UserID",  # Mixed case column, same as source
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="UserID",  # Mixed case field path
+            data_type="INT",
+            comment="User identifier from source",
+            is_partition_column=False,
+            cluster_column_position=None,
+        ),
+        BigqueryColumn(
+            name="TransformedEmail",  # Mixed case column
+            ordinal_position=2,
+            is_nullable=False,
+            field_path="TransformedEmail",  # Mixed case field path
+            data_type="STRING",
+            comment="Transformed email address",
+            is_partition_column=False,
+            cluster_column_position=None,
+        ),
+    ]
+
+    # Set up mock returns for columns
+    get_columns_for_dataset.return_value = {
+        table_name: source_columns,
+        derived_table_name: derived_columns,
+    }
+
+    # Set up sample data
+    get_sample_data_for_table.return_value = {
+        "UserID": [random.randint(1, 1000) for i in range(10)],
+        "EmailAddress": [random_email() for i in range(10)],
+    }
+
+    # Set up tables
+    source_table = BigqueryTable(
+        name=table_name,
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+
+    derived_table = BigqueryTable(
+        name=derived_table_name,
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+
+    get_tables_for_dataset.return_value = iter([source_table, derived_table])
+    get_views_for_dataset.return_value = iter([])
+    get_snapshots_for_dataset.return_value = iter([])
+
+    # Set up lineage information through audit logs
+    bq_client = MagicMock()
+    get_bigquery_client.return_value = bq_client
+    bq_client.list_tables.return_value = [
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "",
+                    "datasetId": "",
+                    "tableId": table_name,
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "",
+                    "datasetId": "",
+                    "tableId": derived_table_name,
+                }
+            }
+        ),
+    ]
+
+    # Mock query that created the derived table - contains uppercase column names
+    bq_client.query.return_value = [
+        {
+            "job_id": "1",
+            "project_id": "project-id-1",
+            "creation_time": datetime.now(timezone.utc),
+            "user_email": "test@example.com",
+            "query": f"""CREATE TABLE `{dataset_name}.{derived_table_name}` AS
+            SELECT 
+              UserID,
+              CONCAT(EmailAddress, '@transformed.com') AS TransformedEmail
+            FROM 
+              `{dataset_name}.{table_name}`""",
+            "session_id": None,
+            "query_hash": None,
+            "statement_type": "CREATE_TABLE_AS_SELECT",
+            "destination_table": f"{dataset_name}.{derived_table_name}",
+            "referenced_tables": f"{dataset_name}.{table_name}",
+        }
+    ]
+
+    # Create pipeline config with convert_column_urns_to_lowercase enabled
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "convert_column_urns_to_lowercase": True,
+            "use_queries_v2": True,
+            "include_table_lineage": True,
+            "classification": {"enabled": False},
+        },
+    )
+
+    # Run pipeline
+    run_and_get_pipeline(pipeline_config_dict)
+
+    # Check output against golden file
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=mcp_output_path,
