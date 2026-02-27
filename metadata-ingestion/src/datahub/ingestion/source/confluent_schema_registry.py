@@ -318,7 +318,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
             avro_schema = avro.schema.parse(
                 cleaned_str,
-                validate_names=self.source_config.validate_avro_schema_names,
+                validate_names=False,
             )
 
             # "value.id" or "value.[type=string]id"

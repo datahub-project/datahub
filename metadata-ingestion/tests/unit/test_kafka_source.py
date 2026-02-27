@@ -770,7 +770,7 @@ def test_kafka_source_with_hyphenated_namespace_schema(
     mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
     """Test that schemas with hyphens in namespace (e.g., from Debezium CDC)
-    can be ingested when validate_avro_schema_names is set to False."""
+    are ingested successfully by default, matching Java Schema Registry client behavior."""
     # Debezium-style schemas where the topic name (with hyphens) is used as namespace
     topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
         "my-debezium-topic": (
@@ -836,12 +836,10 @@ def test_kafka_source_with_hyphenated_namespace_schema(
         mock_get_latest_version
     )
 
-    # Test with validate_avro_schema_names=False to allow hyphenated namespaces
     ctx = PipelineContext(run_id="test_hyphen")
     kafka_source = KafkaSource.create(
         {
             "connection": {"bootstrap": "localhost:9092"},
-            "validate_avro_schema_names": False,
         },
         ctx,
     )

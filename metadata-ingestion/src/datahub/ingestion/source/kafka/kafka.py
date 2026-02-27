@@ -431,7 +431,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
             avro_schema = avro.schema.parse(
                 schema_metadata.platformSchema.documentSchema,
-                validate_names=self.source_config.validate_avro_schema_names,
+                validate_names=False,
             )
             description = getattr(avro_schema, "doc", None)
 
