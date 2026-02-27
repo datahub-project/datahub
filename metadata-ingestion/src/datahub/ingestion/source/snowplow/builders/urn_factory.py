@@ -11,7 +11,6 @@ from typing import Optional
 
 from datahub.emitter.mce_builder import (
     make_container_urn,
-    make_dataset_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.source.snowplow.builders.container_keys import (
@@ -195,14 +194,10 @@ class SnowplowURNFactory:
         if platform_instance is None:
             platform_instance = self.config.warehouse_lineage.platform_instance
 
-        # Build dataset name with optional platform instance prefix
-        dataset_name = table_name
-        if platform_instance:
-            dataset_name = f"{platform_instance}.{table_name}"
-
-        urn = make_dataset_urn(
+        urn = make_dataset_urn_with_platform_instance(
             platform=query_engine,
-            name=dataset_name,
+            name=table_name,
+            platform_instance=platform_instance,
             env=env,
         )
 

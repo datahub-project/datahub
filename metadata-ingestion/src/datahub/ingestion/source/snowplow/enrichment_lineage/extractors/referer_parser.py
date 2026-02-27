@@ -93,7 +93,7 @@ class RefererParserLineageExtractor(EnrichmentLineageExtractor):
         )
 
         logger.debug(
-            f"Referer Parser: Extracted {len(lineages)} field lineages ({self.INPUT_FIELD} → refr_*)"
+            f"Referer Parser: Extracted {len(lineages)} field lineages ({self.INPUT_FIELD} -> refr_*)"
         )
 
         return lineages

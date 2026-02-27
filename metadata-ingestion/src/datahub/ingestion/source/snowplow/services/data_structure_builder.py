@@ -273,8 +273,8 @@ class DataStructureBuilder:
         """Build extra aspects including status and optional tags."""
         extra_aspects: List[Any] = [StatusClass(removed=False)]
 
-        logger.info(
-            f"🔍 Dataset tag check for '{name}': field_tagging.enabled={self.config.field_tagging.enabled}, "
+        logger.debug(
+            f"Dataset tag check for '{name}': field_tagging.enabled={self.config.field_tagging.enabled}, "
             f"tag_event_type={self.config.field_tagging.tag_event_type}"
         )
 
@@ -282,14 +282,14 @@ class DataStructureBuilder:
             self.config.field_tagging.enabled
             and self.config.field_tagging.tag_event_type
         ):
-            logger.info(f"✅ Building dataset tags for '{name}'")
+            logger.debug(f"Building dataset tags for '{name}'")
             dataset_tags = self._build_dataset_tags(name, schema_type)
             if dataset_tags:
                 extra_aspects.append(dataset_tags)
-                logger.info(f"✅ Added dataset tags to '{name}'")
+                logger.debug(f"Added dataset tags to '{name}'")
         else:
-            logger.info(
-                f"⏭️ Skipping dataset tags for '{name}' (tag_event_type={self.config.field_tagging.tag_event_type})"
+            logger.debug(
+                f"Skipping dataset tags for '{name}' (tag_event_type={self.config.field_tagging.tag_event_type})"
             )
 
         return extra_aspects

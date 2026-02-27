@@ -147,7 +147,7 @@ class YauaaLineageExtractor(EnrichmentLineageExtractor):
             )
 
         logger.debug(
-            f"YAUAA: Created {len(lineages)} field lineages (useragent → browser/OS/device fields)"
+            f"YAUAA: Created {len(lineages)} field lineages (useragent -> browser/OS/device fields)"
         )
 
         return lineages

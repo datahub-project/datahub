@@ -108,7 +108,7 @@ class CampaignAttributionLineageExtractor(EnrichmentLineageExtractor):
         )
 
         logger.debug(
-            f"Campaign Attribution: Extracted {len(lineages)} field lineages ({self.INPUT_FIELD} → mkt_*)"
+            f"Campaign Attribution: Extracted {len(lineages)} field lineages ({self.INPUT_FIELD} -> mkt_*)"
         )
 
         return lineages

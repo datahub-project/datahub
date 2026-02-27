@@ -111,7 +111,7 @@ class EventFingerprintLineageExtractor(EnrichmentLineageExtractor):
         )
 
         logger.debug(
-            f"Event Fingerprint: Extracted lineage ({len(self.COMMON_INPUT_FIELDS)} fields → event_fingerprint)"
+            f"Event Fingerprint: Extracted lineage ({len(self.COMMON_INPUT_FIELDS)} fields -> event_fingerprint)"
         )
 
         return [lineage]

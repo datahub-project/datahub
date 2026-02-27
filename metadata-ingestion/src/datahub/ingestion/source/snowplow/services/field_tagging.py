@@ -327,7 +327,7 @@ class FieldTagger:
         # Check PII from enrichment config first (most accurate)
         if self.config.use_pii_enrichment and field_name in pii_fields:
             logger.info(
-                f"✅ Field '{field_name}' classified as PII from enrichment config"
+                f"Field '{field_name}' classified as PII from enrichment config"
             )
             return DataClassification.PII.value
 
@@ -336,7 +336,7 @@ class FieldTagger:
         for pattern in self.config.pii_field_patterns:
             if pattern in field_lower:
                 logger.info(
-                    f"✅ Field '{field_name}' classified as PII by pattern match: '{pattern}'"
+                    f"Field '{field_name}' classified as PII by pattern match: '{pattern}'"
                 )
                 return DataClassification.PII.value
 
@@ -344,7 +344,7 @@ class FieldTagger:
         for pattern in self.config.sensitive_field_patterns:
             if pattern in field_lower:
                 logger.info(
-                    f"✅ Field '{field_name}' classified as sensitive by pattern match: '{pattern}'"
+                    f"Field '{field_name}' classified as sensitive by pattern match: '{pattern}'"
                 )
                 return DataClassification.SENSITIVE.value
 

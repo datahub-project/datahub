@@ -214,5 +214,5 @@ class ParsedEventsBuilder:
             ).as_workunit()
 
         logger.info(
-            "Created Event dataset (intermediate: collector/parser → enrichments)"
+            "Created Event dataset (intermediate: collector/parser -> enrichments)"
         )

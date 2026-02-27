@@ -154,7 +154,7 @@ class ColumnLineageBuilder:
 
         logger.info(
             f"Emitting column-level lineage: {len(iglu_field_urns)} Iglu fields "
-            f"from {vendor}/{name} → Snowflake VARIANT column '{snowflake_column}'"
+            f"from {vendor}/{name} -> Snowflake VARIANT column '{snowflake_column}'"
         )
 
         yield MetadataChangeProposalWrapper(

@@ -127,7 +127,13 @@ class DeploymentFetcher:
 
             failed_schemas: List[str] = []
             for future in as_completed(futures):
-                vendor, name, deployments, error = future.result()
+                try:
+                    vendor, name, deployments, error = future.result()
+                except Exception as e:
+                    logger.warning(f"Unexpected error from deployment fetch task: {e}")
+                    if self.report:
+                        self.report.report_deployment_fetch_failure("unknown", str(e))
+                    continue
                 schema_key = f"{vendor}/{name}"
                 if error:
                     failed_schemas.append(schema_key)

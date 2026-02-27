@@ -158,7 +158,7 @@ class WarehouseLineageProcessor(EntityProcessor):
                         ).as_workunit()
 
                         logger.info(
-                            f"Created warehouse lineage: {source_table_urn} → {warehouse_urn} (via data model '{data_model.name}')"
+                            f"Created warehouse lineage: {source_table_urn} -> {warehouse_urn} (via data model '{data_model.name}')"
                         )
                         total_lineage_created += 1
                     else:

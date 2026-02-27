@@ -138,7 +138,7 @@ class IgluClient:
             except Exception as parse_error:
                 is_error = True
                 logger.error(f"Failed to parse Iglu schema response: {parse_error}")
-                logger.error(
+                logger.debug(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
                 return None

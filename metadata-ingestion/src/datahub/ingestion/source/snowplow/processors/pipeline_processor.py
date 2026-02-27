@@ -202,7 +202,7 @@ class PipelineProcessor(EntityProcessor):
             )
 
             logger.info(
-                f"✅ Created single DataFlow for pipeline '{pipeline.name}' "
+                f"Created single DataFlow for pipeline '{pipeline.name}' "
                 f"(will contain enrichments shared by {event_spec_count} event specs)"
             )
             self.report.report_pipeline_extracted()
@@ -315,15 +315,15 @@ class PipelineProcessor(EntityProcessor):
                 # Store in state for column lineage builder
                 self.state.warehouse_table_urn = warehouse_table_urn
                 logger.info(
-                    f"✅ Enrichments will output to warehouse table: {warehouse_table_urn}"
+                    f"Enrichments will output to warehouse table: {warehouse_table_urn}"
                 )
-                logger.info("✅ Column-level lineage will be extracted for enrichments")
+                logger.info("Column-level lineage will be extracted for enrichments")
             else:
                 logger.warning(
-                    "⚠️  No warehouse table URN found - column-level lineage will NOT be extracted"
+                    "No warehouse table URN found - column-level lineage will NOT be extracted"
                 )
                 logger.warning(
-                    "⚠️  To enable column-level lineage, ensure your Snowplow pipeline has a destination configured"
+                    "To enable column-level lineage, ensure your Snowplow pipeline has a destination configured"
                 )
 
             # Validate prerequisites for enrichment extraction
@@ -436,7 +436,7 @@ class PipelineProcessor(EntityProcessor):
         )
         if fine_grained_lineages:
             logger.info(
-                f"✅ Extracted {len(fine_grained_lineages)} column-level lineages for {enrichment.filename}"
+                f"Extracted {len(fine_grained_lineages)} column-level lineages for {enrichment.filename}"
             )
         else:
             logger.debug(f"No column-level lineage extracted for {enrichment.filename}")
@@ -519,7 +519,7 @@ class PipelineProcessor(EntityProcessor):
 
         if warehouse_table_urn:
             logger.debug(
-                f"Linked enrichment {enrichment_name}: Event → warehouse table"
+                f"Linked enrichment {enrichment_name}: Event -> warehouse table"
             )
         else:
             logger.debug(
@@ -614,8 +614,8 @@ class PipelineProcessor(EntityProcessor):
         )
 
         logger.info(
-            f"✅ Created Collector job with {len(collector_endpoints)} endpoints "
-            f"→ {len(output_dataset_urns)} event specs"
+            f"Created Collector job with {len(collector_endpoints)} endpoints "
+            f"-> {len(output_dataset_urns)} event specs"
         )
 
     def _emit_loader_datajob(
@@ -672,7 +672,7 @@ class PipelineProcessor(EntityProcessor):
             ],
         )
 
-        logger.info(f"✅ Created Loader job: Event → {warehouse_table_urn}")
+        logger.info(f"Created Loader job: Event -> {warehouse_table_urn}")
 
     def _extract_enrichment_field_lineage(
         self,

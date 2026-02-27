@@ -116,7 +116,7 @@ class CurrencyConversionLineageExtractor(EnrichmentLineageExtractor):
         # So we don't create lineage for it (it's a constant from configuration)
 
         logger.debug(
-            f"Currency Conversion: Extracted {len(lineages)} field lineages (tr_*/ti_* → *_base)"
+            f"Currency Conversion: Extracted {len(lineages)} field lineages (tr_*/ti_* -> *_base)"
         )
 
         return lineages

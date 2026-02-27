@@ -27,6 +27,7 @@ Field Types:
 import logging
 from typing import List, Optional
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
     EnrichmentFieldInfo,
     EnrichmentLineageExtractor,
@@ -170,8 +171,8 @@ class PiiPseudonymizationLineageExtractor(EnrichmentLineageExtractor):
         Returns:
             FieldLineage for this POJO field
         """
-        upstream_field = f"urn:li:schemaField:({event_schema_urn},{field_name})"
-        downstream_field = f"urn:li:schemaField:({warehouse_table_urn},{field_name})"
+        upstream_field = make_schema_field_urn(event_schema_urn, field_name)
+        downstream_field = make_schema_field_urn(warehouse_table_urn, field_name)
 
         return FieldLineage(
             upstream_fields=[upstream_field],
@@ -209,15 +210,13 @@ class PiiPseudonymizationLineageExtractor(EnrichmentLineageExtractor):
         for field_path in field_paths:
             # The upstream field is the field within the event schema
             # For JSON fields, we use the full path (e.g., "customer.email")
-            upstream_field = f"urn:li:schemaField:({event_schema_urn},{field_path})"
+            upstream_field = make_schema_field_urn(event_schema_urn, field_path)
 
             # The downstream field in the warehouse may have a context prefix
             # e.g., "contexts_com_acme_checkout_1.customer.email"
             # For simplicity, we use the leaf field name
             leaf_field = field_path.split(".")[-1] if "." in field_path else field_path
-            downstream_field = (
-                f"urn:li:schemaField:({warehouse_table_urn},{leaf_field})"
-            )
+            downstream_field = make_schema_field_urn(warehouse_table_urn, leaf_field)
 
             lineages.append(
                 FieldLineage(

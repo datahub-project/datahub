@@ -156,7 +156,7 @@ class SnowplowBDPClient:
                 logger.info("Successfully authenticated with Snowplow BDP Console API")
             except ValidationError as parse_error:
                 logger.error(f"Failed to parse authentication response: {parse_error}")
-                logger.error(
+                logger.debug(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
                 raise ValueError(
@@ -319,7 +319,7 @@ class SnowplowBDPClient:
                 return organization
             except ValidationError as parse_error:
                 logger.error(f"Failed to parse organization response: {parse_error}")
-                logger.error(
+                logger.debug(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
                 return None
@@ -399,10 +399,15 @@ class SnowplowBDPClient:
                 offset += len(page_structures)
 
             except ValidationError as e:
-                logger.error(f"Failed to parse data structures page: {e}")
-                logger.error(
+                error_msg = (
+                    f"Failed to parse data structures page at offset {offset}: {e}"
+                )
+                logger.error(error_msg)
+                logger.debug(
                     f"Raw response data (first item): {json.dumps(response_data[0] if response_data else 'empty', indent=2, default=str)}"
                 )
+                if self.report:
+                    self.report.report_warning("data_structures_parsing", error_msg)
                 break
 
         logger.info(f"Found {len(all_structures)} data structures total")
@@ -433,8 +438,11 @@ class SnowplowBDPClient:
             # Real BDP API returns data structure directly, not wrapped
             return DataStructure.model_validate(response_data)
         except ValidationError as e:
-            logger.error(f"Failed to parse data structure {data_structure_hash}: {e}")
-            logger.error(
+            error_msg = f"Failed to parse data structure {data_structure_hash}: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("data_structure_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
@@ -511,10 +519,13 @@ class SnowplowBDPClient:
 
             return DataStructure.model_validate(data_structure_dict)
         except ValidationError as e:
-            logger.error(
+            error_msg = (
                 f"Failed to parse schema version {data_structure_hash}/{version}: {e}"
             )
-            logger.error(
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("schema_version_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
@@ -560,8 +571,11 @@ class SnowplowBDPClient:
 
             return [DataStructureDeployment.model_validate(d) for d in deployments_list]
         except ValidationError as e:
-            logger.error(f"Failed to parse deployments for {data_structure_hash}: {e}")
-            logger.error(
+            error_msg = f"Failed to parse deployments for {data_structure_hash}: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("deployment_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -619,8 +633,11 @@ class SnowplowBDPClient:
 
             return response.data
         except ValidationError as e:
-            logger.error(f"Failed to parse event specifications: {e}")
-            logger.error(
+            error_msg = f"Failed to parse event specifications: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("event_specs_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -654,7 +671,7 @@ class SnowplowBDPClient:
             return EventSpecification.model_validate(response_data.get("data", {}))
         except ValidationError as e:
             logger.error(f"Failed to parse event specification {event_spec_id}: {e}")
-            logger.error(
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
@@ -713,8 +730,11 @@ class SnowplowBDPClient:
 
             return response.data
         except ValidationError as e:
-            logger.error(f"Failed to parse tracking plans: {e}")
-            logger.error(
+            error_msg = f"Failed to parse tracking plans: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("tracking_plans_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -742,7 +762,7 @@ class SnowplowBDPClient:
             return TrackingPlan.model_validate(response_data.get("data", {}))
         except ValidationError as e:
             logger.error(f"Failed to parse tracking plan {plan_id}: {e}")
-            logger.error(
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
@@ -792,7 +812,7 @@ class SnowplowBDPClient:
                 data_models.append(data_model)
             except ValidationError as e:
                 logger.warning(f"Failed to parse data model: {e}")
-                logger.warning(
+                logger.debug(
                     f"Raw model data: {json.dumps(model_data, indent=2, default=str)}"
                 )
                 continue
@@ -841,8 +861,11 @@ class SnowplowBDPClient:
 
             return response.pipelines
         except ValidationError as e:
-            logger.error(f"Failed to parse pipelines: {e}")
-            logger.error(
+            error_msg = f"Failed to parse pipelines: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("pipelines_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -869,7 +892,7 @@ class SnowplowBDPClient:
             return Pipeline.model_validate(response_data)
         except ValidationError as e:
             logger.error(f"Failed to parse pipeline {pipeline_id}: {e}")
-            logger.error(
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return None
@@ -912,8 +935,11 @@ class SnowplowBDPClient:
 
             return enrichments
         except ValidationError as e:
-            logger.error(f"Failed to parse enrichments: {e}")
-            logger.error(
+            error_msg = f"Failed to parse enrichments: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("enrichments_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -962,8 +988,11 @@ class SnowplowBDPClient:
 
             return destinations
         except ValidationError as e:
-            logger.error(f"Failed to parse destinations: {e}")
-            logger.error(
+            error_msg = f"Failed to parse destinations: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("destinations_parsing", error_msg)
+            logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
             return []
@@ -991,14 +1020,15 @@ class SnowplowBDPClient:
         """
         Get available API permissions for current credentials.
 
-        Note: This endpoint may not be available on all BDP deployments.
+        This is a best-effort call to the /permissions endpoint, which is not
+        part of the publicly documented BDP Console API. It was discovered via
+        UI network inspection and may not be available on all BDP tiers or
+        API versions. Returns an empty list gracefully if the endpoint is missing.
 
         Returns:
             List of permission strings, or empty list if unavailable
         """
         try:
-            # GET /organizations/{organizationId}/permissions (hypothetical endpoint)
-            # Note: This endpoint may not exist in actual API
             endpoint = f"organizations/{self.organization_id}/permissions"
             response_data = self._request("GET", endpoint)
             return response_data.get("permissions", [])
@@ -1047,7 +1077,7 @@ class SnowplowBDPClient:
         except ValidationError as e:
             logger.warning(f"Failed to parse users: {e}")
             if isinstance(response_data, list) and response_data:
-                logger.error(
+                logger.debug(
                     f"Raw response data (first item): {json.dumps(response_data[0], indent=2, default=str)}"
                 )
             return []
