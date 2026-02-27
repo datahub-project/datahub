@@ -54,7 +54,7 @@ class JobMetrics:
     completed_at: str | None
     duration_seconds: int | None
     runner_name: str | None
-    rerun_count: int
+    run_attempt: int
     steps: list[StepMetrics]
 
     @staticmethod
@@ -87,7 +87,7 @@ class JobMetrics:
             completed_at=data.get("completed_at"),
             duration_seconds=duration_seconds(started, completed),
             runner_name=data.get("runner_name"),
-            rerun_count=data.get("run_attempt", 1),
+            run_attempt=data.get("run_attempt", 1),
             steps=[StepMetrics.from_api(s) for s in data.get("steps", [])],
         )
 
