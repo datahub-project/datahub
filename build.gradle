@@ -3,34 +3,21 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 buildscript {
   ext.jdkVersionDefault = 17
-  ext.javaClassVersionDefault = 11
+  ext.javaClassVersionDefault = 17
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
   ext.jdkVersion = { p ->
-    // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any{
-      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
-      || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
-    }} || springModules.contains(p.name)) {
-      return 17
-    } else {
-      // otherwise we can use the preferred default which can be overridden with a property: -PjdkVersionDefault
-      return p.hasProperty('jdkVersionDefault') ? Integer.valueOf((String) p.getProperty('jdkVersionDefault')) : ext.jdkVersionDefault
-    }
+    return p.hasProperty('jdkVersionDefault')
+      ? Integer.valueOf((String) p.getProperty('jdkVersionDefault'))
+      : ext.jdkVersionDefault
   }
 
+  // Main bytecode version selector
   ext.javaClassVersion = { p ->
-    // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any {
-      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
-              || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
-    }} || springModules.contains(p.name)) {
-      return 17
-    } else {
-      // otherwise we can use the preferred default which can be overridden with a property: -PjavaClassVersionDefault
-      return p.hasProperty('javaClassVersionDefault') ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault')) : ext.javaClassVersionDefault
-    }
+    return p.hasProperty('javaClassVersionDefault')
+      ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault'))
+      : ext.javaClassVersionDefault
   }
 
   ext.junitJupiterVersion = '5.12.2'
@@ -72,7 +59,6 @@ buildscript {
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
-  ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
 
@@ -222,7 +208,6 @@ project.ext.externalDependency = [
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
-    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
