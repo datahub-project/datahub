@@ -609,9 +609,6 @@ class DataStructureBuilder:
         )
         tags.add(event_type_tag)
 
-        if not tags:
-            return None
-
         # Convert to TagAssociationClass
         tag_associations = [
             TagAssociationClass(tag=f"urn:li:tag:{tag}") for tag in sorted(tags)

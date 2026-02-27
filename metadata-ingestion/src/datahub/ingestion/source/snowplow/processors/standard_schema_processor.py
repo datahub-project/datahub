@@ -120,10 +120,9 @@ class StandardSchemaProcessor(EntityProcessor):
         standard_uris: Set[str] = set()
 
         # Get URIs tracked during event spec processing
-        if hasattr(self.state, "referenced_iglu_uris"):
-            for uri in self.state.referenced_iglu_uris:
-                if self._is_standard_schema(uri):
-                    standard_uris.add(uri)
+        for uri in self.state.referenced_iglu_uris:
+            if self._is_standard_schema(uri):
+                standard_uris.add(uri)
 
         return standard_uris
 

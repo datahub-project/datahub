@@ -66,14 +66,12 @@ class WarehouseLineageProcessor(EntityProcessor):
             MetadataWorkUnit: Warehouse lineage metadata work units
         """
         if not self.config.warehouse_lineage.enabled:
-            yield from []  # Empty generator
             return
 
         if not self.deps.bdp_client:
             logger.warning(
                 "Warehouse lineage enabled but BDP client not available. Skipping."
             )
-            yield from []  # Empty generator
             return
 
         logger.info("Extracting warehouse lineage via Data Models API...")

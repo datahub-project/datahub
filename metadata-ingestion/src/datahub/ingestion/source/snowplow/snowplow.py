@@ -554,6 +554,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         """Clean up resources after ingestion completes."""
         # Clean up FileBackedDict SQLite resources in IngestionState
         self.state.close()
+        if self.bdp_client:
+            self.bdp_client.close()
+        if self.iglu_client:
+            self.iglu_client.close()
         super().close()
 
     @staticmethod

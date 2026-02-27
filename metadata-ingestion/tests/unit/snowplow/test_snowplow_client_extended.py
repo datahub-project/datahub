@@ -283,8 +283,9 @@ class TestSnowplowBDPClientEnrichments:
 
         result = bdp_client.get_enrichments("pipeline-123")
 
-        # Should return empty list due to parsing errors (all or nothing approach)
-        assert result == []
+        # Per-item parsing: valid items are kept, invalid ones are skipped
+        assert len(result) == 1
+        assert result[0].id == "enrichment-1"
 
 
 class TestSnowplowBDPClientDestinations:

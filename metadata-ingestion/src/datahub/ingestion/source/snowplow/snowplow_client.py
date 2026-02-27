@@ -382,7 +382,19 @@ class SnowplowBDPClient:
 
             logger.debug(f"Fetching page: offset={offset}, size={page_size}")
 
-            response_data = self._request("GET", endpoint, params=params)
+            try:
+                response_data = self._request("GET", endpoint, params=params)
+            except (
+                requests.exceptions.RequestException,
+                ResourceNotFoundError,
+            ) as e:
+                error_msg = (
+                    f"Failed to fetch data structures page at offset {offset}: {e}"
+                )
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("data_structures_pagination", error_msg)
+                break  # Return partial results instead of losing everything
 
             # BDP API returns direct array (per Swagger spec)
             if not isinstance(response_data, list):
@@ -589,7 +601,7 @@ class SnowplowBDPClient:
                 f"Deployments not found for data structure {data_structure_hash} (404)"
             )
             return []
-        except Exception as e:
+        except (requests.exceptions.RequestException, PermissionError) as e:
             error_msg = f"Failed to fetch deployments for {data_structure_hash}: {e}"
             logger.warning(error_msg)
             if self.report:
@@ -701,7 +713,14 @@ class SnowplowBDPClient:
             f"organizations/{self.organization_id}/event-specs/v1/{event_spec_id}"
         )
 
-        response_data = self._request("GET", endpoint)
+        try:
+            response_data = self._request("GET", endpoint)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = f"Failed to fetch event specification {event_spec_id}: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("event_spec_fetch", error_msg)
+            return None
 
         if not response_data:
             return None
@@ -796,7 +815,14 @@ class SnowplowBDPClient:
         # Note: API path uses legacy 'data-products' name
         endpoint = f"organizations/{self.organization_id}/data-products/v2/{plan_id}"
 
-        response_data = self._request("GET", endpoint)
+        try:
+            response_data = self._request("GET", endpoint)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = f"Failed to fetch tracking plan {plan_id}: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("tracking_plan_fetch", error_msg)
+            return None
 
         if not response_data:
             return None
@@ -834,7 +860,16 @@ class SnowplowBDPClient:
 
         logger.debug(f"Fetching data models for tracking plan {tracking_plan_id}")
 
-        response_data = self._request("GET", endpoint)
+        try:
+            response_data = self._request("GET", endpoint)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = (
+                f"Failed to fetch data models for tracking plan {tracking_plan_id}: {e}"
+            )
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("data_models_fetch", error_msg)
+            return []
 
         # Handle 404 or empty response
         if not response_data:
@@ -929,7 +964,14 @@ class SnowplowBDPClient:
         # GET /organizations/{organizationId}/pipelines/v1/{pipelineId}
         endpoint = f"organizations/{self.organization_id}/pipelines/v1/{pipeline_id}"
 
-        response_data = self._request("GET", endpoint)
+        try:
+            response_data = self._request("GET", endpoint)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = f"Failed to fetch pipeline {pipeline_id}: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("pipeline_fetch", error_msg)
+            return None
 
         if not response_data:
             return None
@@ -977,21 +1019,20 @@ class SnowplowBDPClient:
             logger.debug(f"No enrichments found for pipeline {pipeline_id}")
             return []
 
-        try:
-            # Response is a direct array of enrichments
-            enrichments = [Enrichment.model_validate(e) for e in response_data]
-            logger.info(f"Found {len(enrichments)} enrichments")
+        # Parse enrichments individually so one bad item doesn't lose all
+        enrichments: List[Enrichment] = []
+        for enrichment_data in response_data:
+            try:
+                enrichments.append(Enrichment.model_validate(enrichment_data))
+            except ValidationError as e:
+                error_msg = f"Failed to parse enrichment in pipeline {pipeline_id}: {e}"
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("enrichment_parsing", error_msg)
+                continue
 
-            return enrichments
-        except ValidationError as e:
-            error_msg = f"Failed to parse enrichments: {e}"
-            logger.error(error_msg)
-            if self.report:
-                self.report.report_warning("enrichments_parsing", error_msg)
-            logger.debug(
-                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
-            )
-            return []
+        logger.info(f"Found {len(enrichments)} enrichments")
+        return enrichments
 
     def get_destinations(self) -> List[Destination]:
         """
@@ -1034,20 +1075,20 @@ class SnowplowBDPClient:
                 self.report.report_warning("destinations_format", error_msg)
             return []
 
-        try:
-            destinations = [Destination.model_validate(d) for d in response_data]
-            logger.info(f"Found {len(destinations)} destinations")
+        # Parse destinations individually so one bad item doesn't lose all
+        destinations: List[Destination] = []
+        for dest_data in response_data:
+            try:
+                destinations.append(Destination.model_validate(dest_data))
+            except ValidationError as e:
+                error_msg = f"Failed to parse destination: {e}"
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("destination_parsing", error_msg)
+                continue
 
-            return destinations
-        except ValidationError as e:
-            error_msg = f"Failed to parse destinations: {e}"
-            logger.error(error_msg)
-            if self.report:
-                self.report.report_warning("destinations_parsing", error_msg)
-            logger.debug(
-                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
-            )
-            return []
+        logger.info(f"Found {len(destinations)} destinations")
+        return destinations
 
     # ============================================
     # Helper Methods
@@ -1087,31 +1128,32 @@ class SnowplowBDPClient:
 
         try:
             response_data = self._request("GET", endpoint)
-
-            # BDP API returns direct array (per Swagger spec)
-            if not isinstance(response_data, list):
-                error_msg = f"Expected list from users API, got {type(response_data)}"
-                logger.error(error_msg)
-                if self.report:
-                    self.report.report_warning("users_format", error_msg)
-                return []
-
-            users = [User.model_validate(user) for user in response_data]
-            logger.info(f"Found {len(users)} users")
-            return users
-        except ValidationError as e:
-            error_msg = f"Failed to parse users: {e}"
-            logger.warning(error_msg)
-            if self.report:
-                self.report.report_warning("users_parsing", error_msg)
-            if isinstance(response_data, list) and response_data:
-                logger.debug(
-                    f"Raw response data (first item): {json.dumps(response_data[0], indent=2, default=str)}"
-                )
-            return []
         except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
             error_msg = f"Failed to fetch users: {e}"
             logger.warning(error_msg)
             if self.report:
                 self.report.report_warning("users_fetch", error_msg)
             return []
+
+        # BDP API returns direct array (per Swagger spec)
+        if not isinstance(response_data, list):
+            error_msg = f"Expected list from users API, got {type(response_data)}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("users_format", error_msg)
+            return []
+
+        # Parse users individually so one bad item doesn't lose all
+        users: List[User] = []
+        for user_data in response_data:
+            try:
+                users.append(User.model_validate(user_data))
+            except ValidationError as e:
+                error_msg = f"Failed to parse user: {e}"
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("user_parsing", error_msg)
+                continue
+
+        logger.info(f"Found {len(users)} users")
+        return users
