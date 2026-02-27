@@ -383,11 +383,12 @@ class TestDataStructureBuilder:
         assert name == "com.acme.checkout_started.1-0-0"
 
     def test_parent_container_built_with_bdp_connection(self, builder):
-        """Test parent container is built when BDP connection exists."""
+        """Test parent container chain includes org and all vendor segments."""
         containers = builder._build_parent_container("com.acme")
 
         assert containers is not None
-        assert len(containers) == 1
+        # Chain: org → com → com.acme
+        assert len(containers) == 3
 
     def test_no_parent_container_without_bdp_connection(
         self, mock_deps, state, mock_column_lineage_builder

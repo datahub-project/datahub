@@ -1495,6 +1495,14 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                },
+                {
+                    "id": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32",
+                    "urn": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32"
+                },
+                {
                     "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
                     "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
@@ -1503,7 +1511,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-b9m8yb",
+        "runId": "snowplow-2024_01_01-00_00_00-rj5uad",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2353,6 +2361,14 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                },
+                {
+                    "id": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32",
+                    "urn": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32"
+                },
+                {
                     "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
                     "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
@@ -2361,7 +2377,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-b9m8yb",
+        "runId": "snowplow-2024_01_01-00_00_00-rj5uad",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2607,6 +2623,14 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                },
+                {
+                    "id": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32",
+                    "urn": "urn:li:container:b8c5932fbc1627015f31b9ecafeced32"
+                },
+                {
                     "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
                     "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
@@ -2615,7 +2639,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-b9m8yb",
+        "runId": "snowplow-2024_01_01-00_00_00-rj5uad",
         "lastRunId": "no-run-id-provided"
     }
 },

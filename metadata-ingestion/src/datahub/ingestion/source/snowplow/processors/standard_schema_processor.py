@@ -228,18 +228,11 @@ class StandardSchemaProcessor(EntityProcessor):
         ]
         extra_aspects.append(GlobalTagsClass(tags=tag_associations))
 
-        # Build parent container (vendor within organization)
+        # Build parent container chain (org → vendor segments) for browse path
         parent_container = None
         if self.config.bdp_connection:
             yield from self._emit_vendor_container(vendor)
-            vendor_key = SnowplowVendorKey(
-                organization_id=self.config.bdp_connection.organization_id,
-                vendor=vendor,
-                platform=self.deps.platform,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            parent_container = [str(vendor_key.as_urn())]
+            parent_container = self._build_parent_container_chain(vendor)
 
         # Create dataset using SDK V2 (following data_structure_builder pattern)
         dataset = Dataset(
@@ -285,6 +278,36 @@ class StandardSchemaProcessor(EntityProcessor):
         logger.info(
             f"Successfully extracted standard schema: {vendor}/{name}/{version}"
         )
+
+    def _build_parent_container_chain(self, vendor: str) -> Optional[List[str]]:
+        """Build the full container chain for browse path: org → vendor segments."""
+        if not self.config.bdp_connection:
+            return None
+
+        org_id = self.config.bdp_connection.organization_id
+        chain: List[str] = []
+
+        org_key = SnowplowOrganizationKey(
+            organization_id=org_id,
+            platform=self.deps.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        chain.append(str(org_key.as_urn()))
+
+        segments = vendor.split(".")
+        for i in range(len(segments)):
+            vendor_path = ".".join(segments[: i + 1])
+            vendor_key = SnowplowVendorKey(
+                organization_id=org_id,
+                vendor=vendor_path,
+                platform=self.deps.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            chain.append(str(vendor_key.as_urn()))
+
+        return chain
 
     def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
         """Emit nested vendor containers by splitting the vendor namespace on dots.

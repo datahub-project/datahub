@@ -264,18 +264,41 @@ class DataStructureBuilder:
         return custom_properties
 
     def _build_parent_container(self, vendor: str) -> Optional[List[str]]:
-        """Build parent container URN (vendor container within organization)."""
+        """Build the full container chain for browse path: org → vendor segments.
+
+        The SDK uses this list to set both ContainerClass (last entry) and
+        browsePathsV2 (all entries). Returning the full chain ensures datasets
+        appear correctly nested in the DataHub sidebar.
+        """
         if not self.config.bdp_connection:
             return None
 
-        vendor_key = SnowplowVendorKey(
-            organization_id=self.config.bdp_connection.organization_id,
-            vendor=vendor,
+        org_id = self.config.bdp_connection.organization_id
+        chain: List[str] = []
+
+        # Organization container
+        org_key = SnowplowOrganizationKey(
+            organization_id=org_id,
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        return [str(vendor_key.as_urn())]
+        chain.append(str(org_key.as_urn()))
+
+        # Each vendor segment as a container
+        segments = vendor.split(".")
+        for i in range(len(segments)):
+            vendor_path = ".".join(segments[: i + 1])
+            vendor_key = SnowplowVendorKey(
+                organization_id=org_id,
+                vendor=vendor_path,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            chain.append(str(vendor_key.as_urn()))
+
+        return chain
 
     def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
         """Emit nested vendor containers by splitting the vendor namespace on dots.
