@@ -372,7 +372,9 @@ class SchemaProcessor(EntityProcessor):
             )
             return
 
-        logger.info(f"Processing schema from Iglu: {schema_identifier} ({schema_type})")
+        logger.debug(
+            f"Processing schema from Iglu: {schema_identifier} ({schema_type})"
+        )
 
         # Build dataset name
         if self.config.include_version_in_urn:

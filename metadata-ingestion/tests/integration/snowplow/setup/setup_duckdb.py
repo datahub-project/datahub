@@ -78,9 +78,9 @@ def create_database(db_path: str = "snowplow_test.duckdb") -> None:
         )
     """)
 
-    print(f"✅ Created database: {db_path}")
-    print("✅ Created schema: snowplow")
-    print("✅ Created table: snowplow.events")
+    print(f"Created database: {db_path}")
+    print("Created schema: snowplow")
+    print("Created table: snowplow.events")
 
     conn.close()
 
@@ -229,7 +229,7 @@ def generate_sample_events(
     # Verify
     result = conn.execute("SELECT COUNT(*) FROM snowplow.events").fetchone()
     if result:
-        print(f"✅ Inserted {result[0]} events into snowplow.events")
+        print(f"Inserted {result[0]} events into snowplow.events")
 
     conn.close()
 
@@ -291,7 +291,7 @@ if __name__ == "__main__":
         db_file = Path(args.db_path)
         if db_file.exists():
             db_file.unlink()
-            print(f"🗑️  Deleted existing database: {args.db_path}")
+            print(f"Deleted existing database: {args.db_path}")
 
     # Create database
     create_database(args.db_path)
@@ -302,4 +302,4 @@ if __name__ == "__main__":
     # Print sample queries
     print_sample_query(args.db_path)
 
-    print("✅ Setup complete!")
+    print("Setup complete!")

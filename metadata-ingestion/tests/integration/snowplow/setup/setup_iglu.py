@@ -177,16 +177,16 @@ def upload_schema(schema_path: str, schema_data: Dict) -> bool:
         )
 
         if response.status_code in (200, 201):
-            logger.info(f"✓ Successfully uploaded: {schema_path}")
+            logger.info(f"Successfully uploaded: {schema_path}")
             return True
         else:
             logger.error(
-                f"✗ Failed to upload {schema_path}: {response.status_code} - {response.text}"
+                f"Failed to upload {schema_path}: {response.status_code} - {response.text}"
             )
             return False
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"✗ Error uploading {schema_path}: {e}")
+        logger.error(f"Error uploading {schema_path}: {e}")
         return False
 
 
@@ -200,13 +200,13 @@ def verify_schema(schema_path: str) -> bool:
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            logger.info(f"✓ Verified schema: {schema_path}")
+            logger.info(f"Verified schema: {schema_path}")
             return True
         else:
-            logger.error(f"✗ Failed to verify {schema_path}: {response.status_code}")
+            logger.error(f"Failed to verify {schema_path}: {response.status_code}")
             return False
     except requests.exceptions.RequestException as e:
-        logger.error(f"✗ Error verifying {schema_path}: {e}")
+        logger.error(f"Error verifying {schema_path}: {e}")
         return False
 
 
@@ -244,12 +244,12 @@ def main():
     # Summary
     logger.info("=" * 60)
     if success_count == len(schemas) and verify_count == len(schemas):
-        logger.info("✓ Iglu Server setup complete!")
+        logger.info("Iglu Server setup complete!")
         logger.info(f"Iglu Server URL: {IGLU_SERVER_URL}")
         logger.info(f"Uploaded schemas: {len(schemas)}")
         sys.exit(0)
     else:
-        logger.error("✗ Iglu Server setup had errors")
+        logger.error("Iglu Server setup had errors")
         sys.exit(1)
 
 

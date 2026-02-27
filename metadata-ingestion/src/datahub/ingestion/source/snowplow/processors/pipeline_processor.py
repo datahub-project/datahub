@@ -672,7 +672,7 @@ class PipelineProcessor(EntityProcessor):
             ],
         )
 
-        logger.info(f"Created Loader job: Event -> {warehouse_table_urn}")
+        logger.debug(f"Created Loader job: Event -> {warehouse_table_urn}")
 
     def _extract_enrichment_field_lineage(
         self,

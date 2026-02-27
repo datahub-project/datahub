@@ -115,15 +115,16 @@ class SnowplowBDPClient:
         """
         Authenticate with BDP Console API using v3 flow.
 
-        Exchanges API credentials for JWT token.
+        Exchanges API credentials for JWT token. Credentials (api_key_id, api_key) are
+        sent as headers, and the server returns a short-lived JWT for subsequent requests.
 
         API Reference: https://docs.snowplow.io/docs/using-the-snowplow-console/managing-console-api-authentication/
 
-        Note: The token endpoint uses GET method, not POST (as confirmed by snowplow-cli).
+        The token endpoint uses GET (not POST). This is Snowplow's API convention,
+        confirmed by snowplow-cli source code. Credentials are passed via
+        X-API-Key-ID and X-API-Key headers rather than a request body.
         """
         # GET /organizations/{organizationId}/credentials/v3/token
-        # Docs: https://docs.snowplow.io/docs/using-the-snowplow-console/managing-console-api-authentication/
-        # Note: Despite being a token endpoint, this uses GET, not POST
         url = (
             f"{self.base_url}/organizations/{self.organization_id}/credentials/v3/token"
         )
@@ -298,7 +299,7 @@ class SnowplowBDPClient:
         """
         endpoint = f"organizations/{self.organization_id}"
 
-        logger.info("Fetching organization details from Snowplow")
+        logger.debug("Fetching organization details from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -318,14 +319,20 @@ class SnowplowBDPClient:
 
                 return organization
             except ValidationError as parse_error:
-                logger.error(f"Failed to parse organization response: {parse_error}")
+                error_msg = f"Failed to parse organization response: {parse_error}"
+                logger.error(error_msg)
+                if self.report:
+                    self.report.report_warning("organization_parsing", error_msg)
                 logger.debug(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
                 return None
 
         except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
-            logger.warning(f"Failed to fetch organization details: {e}")
+            error_msg = f"Failed to fetch organization details: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("organization_fetch", error_msg)
             return None
 
     # ============================================
@@ -361,7 +368,7 @@ class SnowplowBDPClient:
         if name:
             params["name"] = name
 
-        logger.info(
+        logger.debug(
             f"Fetching data structures from Snowplow (vendor={vendor}, name={name})"
         )
 
@@ -379,7 +386,10 @@ class SnowplowBDPClient:
 
             # BDP API returns direct array (per Swagger spec)
             if not isinstance(response_data, list):
-                logger.error(f"Expected list from BDP API, got {type(response_data)}")
+                error_msg = f"Expected list from BDP API, got {type(response_data)}"
+                logger.error(error_msg)
+                if self.report:
+                    self.report.report_warning("data_structures_format", error_msg)
                 break
 
             # No more results
@@ -597,7 +607,7 @@ class SnowplowBDPClient:
         # Docs: https://docs.snowplow.io/docs/data-product-studio/event-specifications/api/
         endpoint = f"organizations/{self.organization_id}/event-specs/v1"
 
-        logger.info("Fetching event specifications from Snowplow")
+        logger.debug("Fetching event specifications from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -610,15 +620,16 @@ class SnowplowBDPClient:
 
         # Handle empty response
         if not response_data:
-            logger.info("Event specifications endpoint returned empty response")
+            logger.debug("Event specifications endpoint returned empty response")
             return []
 
         # Event specifications API uses wrapped format (unlike data structures API)
         # Response structure: {"data": [...], "includes": [...], "errors": [...]}
         if not isinstance(response_data, dict):
-            logger.error(
-                f"Expected dict (wrapped response) from BDP API, got {type(response_data)}"
-            )
+            error_msg = f"Expected dict (wrapped response) from event specs API, got {type(response_data)}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("event_specs_format", error_msg)
             return []
 
         try:
@@ -695,7 +706,7 @@ class SnowplowBDPClient:
         # Note: API path uses legacy 'data-products' name (Snowplow renamed to tracking plans)
         endpoint = f"organizations/{self.organization_id}/data-products/v2"
 
-        logger.info("Fetching tracking plans from Snowplow")
+        logger.debug("Fetching tracking plans from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -707,15 +718,16 @@ class SnowplowBDPClient:
 
         # Handle empty response
         if not response_data:
-            logger.info("Tracking plans endpoint returned empty response")
+            logger.debug("Tracking plans endpoint returned empty response")
             return []
 
         # Tracking plans API uses wrapped format
         # Response structure: {"data": [...], "includes": {...}, "errors": [...]}
         if not isinstance(response_data, dict):
-            logger.error(
-                f"Expected dict (wrapped response) from BDP API, got {type(response_data)}"
-            )
+            error_msg = f"Expected dict (wrapped response) from tracking plans API, got {type(response_data)}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("tracking_plans_format", error_msg)
             return []
 
         try:
@@ -839,7 +851,7 @@ class SnowplowBDPClient:
         # GET /organizations/{organizationId}/pipelines/v1
         endpoint = f"organizations/{self.organization_id}/pipelines/v1"
 
-        logger.info("Fetching pipelines from Snowplow")
+        logger.debug("Fetching pipelines from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -852,7 +864,7 @@ class SnowplowBDPClient:
 
         # Handle empty response
         if not response_data:
-            logger.info("Pipelines endpoint returned empty response")
+            logger.debug("Pipelines endpoint returned empty response")
             return []
 
         try:
@@ -912,7 +924,7 @@ class SnowplowBDPClient:
         # GET /organizations/{organizationId}/resources/v1/pipelines/{pipelineId}/configuration/enrichments
         endpoint = f"organizations/{self.organization_id}/resources/v1/pipelines/{pipeline_id}/configuration/enrichments"
 
-        logger.info(f"Fetching enrichments for pipeline {pipeline_id}")
+        logger.debug(f"Fetching enrichments for pipeline {pipeline_id}")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -959,7 +971,7 @@ class SnowplowBDPClient:
         # GET /organizations/{organizationId}/destinations/v3
         endpoint = f"organizations/{self.organization_id}/destinations/v3"
 
-        logger.info("Fetching destinations from Snowplow")
+        logger.debug("Fetching destinations from Snowplow")
 
         try:
             response_data = self._request("GET", endpoint)
@@ -972,14 +984,17 @@ class SnowplowBDPClient:
 
         # Handle empty response
         if not response_data:
-            logger.info("Destinations endpoint returned empty response")
+            logger.debug("Destinations endpoint returned empty response")
             return []
 
         # Response is a direct array of destinations
         if not isinstance(response_data, list):
-            logger.error(
+            error_msg = (
                 f"Expected list from destinations API, got {type(response_data)}"
             )
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("destinations_format", error_msg)
             return []
 
         try:
@@ -1031,26 +1046,35 @@ class SnowplowBDPClient:
         # GET /organizations/{organizationId}/users
         endpoint = f"organizations/{self.organization_id}/users"
 
-        logger.info("Fetching users from Snowplow BDP")
+        logger.debug("Fetching users from Snowplow BDP")
 
         try:
             response_data = self._request("GET", endpoint)
 
             # BDP API returns direct array (per Swagger spec)
             if not isinstance(response_data, list):
-                logger.error(f"Expected list from BDP API, got {type(response_data)}")
+                error_msg = f"Expected list from users API, got {type(response_data)}"
+                logger.error(error_msg)
+                if self.report:
+                    self.report.report_warning("users_format", error_msg)
                 return []
 
             users = [User.model_validate(user) for user in response_data]
             logger.info(f"Found {len(users)} users")
             return users
         except ValidationError as e:
-            logger.warning(f"Failed to parse users: {e}")
+            error_msg = f"Failed to parse users: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("users_parsing", error_msg)
             if isinstance(response_data, list) and response_data:
                 logger.debug(
                     f"Raw response data (first item): {json.dumps(response_data[0], indent=2, default=str)}"
                 )
             return []
         except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
-            logger.warning(f"Failed to fetch users: {e}")
+            error_msg = f"Failed to fetch users: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("users_fetch", error_msg)
             return []

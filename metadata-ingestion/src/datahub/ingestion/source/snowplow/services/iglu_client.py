@@ -198,7 +198,7 @@ class IgluClient:
         is_error = False
 
         try:
-            logger.info("Listing schemas from Iglu registry")
+            logger.debug("Listing schemas from Iglu registry")
             response = self.session.get(
                 url, params=self._api_key_param, timeout=self.config.timeout_seconds
             )
