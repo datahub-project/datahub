@@ -127,10 +127,15 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
       havingValue = "true")
-  public MCPSideEffect dataProductUnsetSideEffect() {
+  public MCPSideEffect dataProductUnsetSideEffect(ConfigurationProvider configurationProvider) {
+    // Only enable this side effect if multiple data products per asset feature is disabled
+    final boolean multipleDataProductsEnabled =
+        configurationProvider.getFeatureFlags().isMultipleDataProductsPerAsset();
+
     AspectPluginConfig config =
         AspectPluginConfig.builder()
-            .enabled(true)
+            .enabled(!multipleDataProductsEnabled) // Disable if multiple data products feature is
+            // enabled
             .className(DataProductUnsetSideEffect.class.getName())
             .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE"))
             .supportedEntityAspectNames(
@@ -141,7 +146,10 @@ public class SpringStandardPluginConfiguration {
                         .build()))
             .build();
 
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    log.info(
+        "Initialized {} with enabled={}",
+        DataProductUnsetSideEffect.class.getName(),
+        !multipleDataProductsEnabled);
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
