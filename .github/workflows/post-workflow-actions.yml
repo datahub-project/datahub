@@ -9,6 +9,7 @@ on:
   workflow_run:
     workflows:
       # List to be updated after testing
+      - "Lint actions"
       - "Docker Build, Scan, Test"
       - "Metadata Ingestion"
     types:
@@ -52,11 +53,13 @@ jobs:
             --attempt "${{ github.event.workflow_run.run_attempt }}" \
             --repo "${{ github.repository }}" \
             --output "${{ env.ARTIFACT_NAME }}.json"
+          cat ${{ env.ARTIFACT_NAME }}
 
       - name: Upload metrics artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
-          path: ${{ env.ARTIFACT_NAME }}.json
+          path: .github/scripts/${{ env.ARTIFACT_NAME }}.json
+          if-no-files-found: error
           retention-days: 7
       # TODO(devashish.chandra): Post metrics to Posthog, maybe save to S3?

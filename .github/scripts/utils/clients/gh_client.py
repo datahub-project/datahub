@@ -115,11 +115,12 @@ class GitHubAPIClient:
         """Make a GET request. Raises on non-2xx responses."""
         resp = self._request(url, params=params)
         if not resp.ok:
+            message = f"GitHub API error: {resp.status_code} {resp.reason}\n{resp.text}"
             print(
-                f"GitHub API error: {resp.status_code} {resp.reason}\n{resp.text}",
+                message,
                 file=sys.stderr,
             )
-            sys.exit(1)
+            raise RuntimeError(message)
         return resp.json()
 
     def get_paginated(
