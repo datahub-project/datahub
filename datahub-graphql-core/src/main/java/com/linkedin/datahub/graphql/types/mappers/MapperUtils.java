@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchSuggestion;
+import com.linkedin.datahub.graphql.generated.SemanticMatchedChunk;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
@@ -38,11 +39,13 @@ public class MapperUtils {
 
   public static SearchResult mapResult(
       @Nullable final QueryContext context, SearchEntity searchEntity) {
-    return new SearchResult(
-        UrnToEntityMapper.map(context, searchEntity.getEntity()),
-        getInsightsFromFeatures(searchEntity.getFeatures()),
-        getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
-        getExtraProperties(searchEntity.getExtraFields()));
+    SearchResult result = new SearchResult();
+    result.setEntity(UrnToEntityMapper.map(context, searchEntity.getEntity()));
+    result.setInsights(getInsightsFromFeatures(searchEntity.getFeatures()));
+    result.setMatchedFields(getMatchedFieldEntry(context, searchEntity.getMatchedFields()));
+    result.setExtraProperties(getExtraProperties(searchEntity.getExtraFields()));
+    result.setMatchedChunks(getMatchedChunks(searchEntity.getSemanticMatchedChunks()));
+    return result;
   }
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {
@@ -102,6 +105,22 @@ public class MapperUtils {
                     ? EntityTypeMapper.getType(aggregations[idx]).toString()
                     : aggregations[idx])
         .collect(Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
+  }
+
+  public static List<SemanticMatchedChunk> getMatchedChunks(
+      List<com.linkedin.metadata.search.SemanticMatchedChunk> pdlChunks) {
+    return pdlChunks.stream()
+        .map(
+            src -> {
+              SemanticMatchedChunk gql = new SemanticMatchedChunk();
+              gql.setPosition(src.getPosition());
+              if (src.hasText()) gql.setText(src.getText());
+              if (src.hasCharacterOffset()) gql.setCharacterOffset(src.getCharacterOffset());
+              if (src.hasCharacterLength()) gql.setCharacterLength(src.getCharacterLength());
+              if (src.hasScore()) gql.setScore(src.getScore());
+              return gql;
+            })
+        .collect(Collectors.toList());
   }
 
   public static List<MatchedField> getMatchedFieldEntry(

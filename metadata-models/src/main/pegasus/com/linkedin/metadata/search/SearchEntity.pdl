@@ -40,4 +40,11 @@ record SearchEntity {
     * Extra fields from the search document based on what is requested in the search request
     */
    extraFields: optional map[string, string]
+
+  /**
+   * The top-ranked chunks that drove this document's semantic search ranking.
+   * Populated only for semantic search results; empty array for keyword search results.
+   * Ordered by descending similarity score (best match first).
+   */
+  semanticMatchedChunks: array[SemanticMatchedChunk] = []
 }
