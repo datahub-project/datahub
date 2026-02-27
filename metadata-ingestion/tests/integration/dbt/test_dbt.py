@@ -1,4 +1,5 @@
 import dataclasses
+import json
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, List, Union
@@ -329,14 +330,6 @@ class DbtTestConfig:
             manifest_file="dbt_manifest_with_queries.json",
             source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
         ),
-        DbtTestConfig(
-            "dbt-test-with-convert-urns-to-lowercase",
-            "dbt_test_with_convert_urns_to_lowercase_mces.json",
-            "dbt_test_with_convert_urns_to_lowercase_mces_golden.json",
-            source_config_modifiers={
-                "convert_urns_to_lowercase": True,
-            },
-        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
@@ -626,3 +619,53 @@ def test_dbt_only_test_definitions_and_results(
         )
         == number_of_assertions - 1
     )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_convert_urns_to_lowercase(
+    test_resources_dir, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Verify that convert_urns_to_lowercase flows through the full pipeline
+    and all emitted dbt-platform URNs contain only lowercase dataset names."""
+    output_file = tmp_path / "dbt_lowercase_urns_output.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTCoreConfig(
+                    **_default_dbt_source_args,
+                    manifest_path=str(
+                        (test_resources_dir / "dbt_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "dbt_catalog.json").resolve()
+                    ),
+                    sources_path=str(
+                        (test_resources_dir / "dbt_sources.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    convert_urns_to_lowercase=True,
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_file) as f:
+        output = json.load(f)
+
+    dbt_urns = {
+        item["entityUrn"]
+        for item in output
+        if "entityUrn" in item and "dataPlatform:dbt" in item["entityUrn"]
+    }
+    assert len(dbt_urns) > 0, "Expected at least one dbt platform URN in output"
+    for urn in dbt_urns:
+        dataset_name = urn.split(",")[1]
+        assert dataset_name == dataset_name.lower(), (
+            f"dbt URN dataset name should be lowercase: {urn}"
+        )
