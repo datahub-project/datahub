@@ -246,7 +246,7 @@ class TestParsedEventsBuilder:
                 break
 
         assert subtypes is not None
-        assert "event" in subtypes.typeNames
+        assert "Event" in subtypes.typeNames
 
     def test_container_aspect_added_when_bdp_connection_configured(
         self, builder, state, config

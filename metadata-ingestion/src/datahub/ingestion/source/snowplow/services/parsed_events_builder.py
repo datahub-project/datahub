@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
+from datahub.ingestion.source.snowplow.constants import DatasetSubtype
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -200,7 +201,7 @@ class ParsedEventsBuilder:
         # Emit subTypes
         yield MetadataChangeProposalWrapper(
             entityUrn=self.state.parsed_events_urn,
-            aspect=SubTypesClass(typeNames=["event"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubtype.EVENT]),
         ).as_workunit()
 
         # Emit container (organization)

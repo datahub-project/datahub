@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import DatasetSubtype
 from datahub.ingestion.source.snowplow.models.snowplow_models import EventSpecification
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.metadata.schema_classes import (
@@ -211,7 +212,7 @@ class EventSpecProcessor(EntityProcessor):
                     description=event_spec.description,
                     customProperties=custom_props,
                 ),
-                SubTypesClass(typeNames=["snowplow_event_spec"]),
+                SubTypesClass(typeNames=[DatasetSubtype.EVENT_SPEC]),
                 container_aspect,
                 StatusClass(removed=False),
             ],

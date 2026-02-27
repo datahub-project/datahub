@@ -1045,6 +1045,22 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
     "changeType": "UPSERT",
@@ -1052,13 +1068,86 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "snowplow_entity_schema"
+                "Entity Schema"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "env": "PROD",
+                "organization_id": "test-org-uuid",
+                "vendor": "com.acme"
+            },
+            "name": "com.acme",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1084,6 +1173,27 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
     "changeType": "UPSERT",
@@ -1091,13 +1201,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "atomic_event"
+                "Atomic Event"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-nuqv57",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1254,13 +1364,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "snowplow_event_schema"
+                "Event Schema"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1271,12 +1381,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1747,13 +1857,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "snowplow_event_schema"
+                "Event Schema"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1764,12 +1874,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1885,15 +1995,15 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                    "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+                    "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2093,15 +2203,15 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                    "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+                    "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2150,15 +2260,15 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                    "id": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b",
+                    "urn": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2226,12 +2336,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+            "container": "urn:li:container:f4525bbaa1b69a02102f287c909fa00b"
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-9291xc",
+        "runId": "snowplow-2024_01_01-00_00_00-ftfwgd",
         "lastRunId": "no-run-id-provided"
     }
 },

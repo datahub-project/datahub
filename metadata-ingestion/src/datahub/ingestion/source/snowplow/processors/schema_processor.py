@@ -14,7 +14,11 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 import requests
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.constants import infer_schema_type
+from datahub.ingestion.source.snowplow.constants import (
+    DatasetSubtype,
+    get_schema_subtype,
+    infer_schema_type,
+)
 from datahub.ingestion.source.snowplow.models.snowplow_models import (
     DataStructure,
     IgluSchema,
@@ -387,7 +391,9 @@ class SchemaProcessor(EntityProcessor):
         }
 
         # SubTypes
-        subtype = f"snowplow_{schema_type}_schema"
+        subtype = (
+            get_schema_subtype(schema_type) if schema_type else DatasetSubtype.SCHEMA
+        )
 
         # Prepare extra aspects
         extra_aspects: list = [

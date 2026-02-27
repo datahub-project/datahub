@@ -11,8 +11,17 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
 
 import requests
 
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.constants import infer_schema_type
+from datahub.ingestion.source.snowplow.builders.container_keys import (
+    SnowplowOrganizationKey,
+    SnowplowVendorKey,
+)
+from datahub.ingestion.source.snowplow.constants import (
+    DatasetSubtype,
+    get_schema_subtype,
+    infer_schema_type,
+)
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
@@ -50,6 +59,7 @@ class StandardSchemaProcessor(EntityProcessor):
         """
         super().__init__(deps, state)
         self.iglu_central_url = self.config.iglu_central_url
+        self._emitted_vendors: Set[str] = set()
 
     def is_enabled(self) -> bool:
         """Check if standard schema extraction is enabled."""
@@ -218,13 +228,18 @@ class StandardSchemaProcessor(EntityProcessor):
         ]
         extra_aspects.append(GlobalTagsClass(tags=tag_associations))
 
-        # Build parent container (organization)
+        # Build parent container (vendor within organization)
         parent_container = None
         if self.config.bdp_connection:
-            org_urn = self.deps.urn_factory.make_organization_urn(
-                self.config.bdp_connection.organization_id
+            yield from self._emit_vendor_container(vendor)
+            vendor_key = SnowplowVendorKey(
+                organization_id=self.config.bdp_connection.organization_id,
+                vendor=vendor,
+                platform=self.deps.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
             )
-            parent_container = [org_urn]
+            parent_container = [str(vendor_key.as_urn())]
 
         # Create dataset using SDK V2 (following data_structure_builder pattern)
         dataset = Dataset(
@@ -235,7 +250,9 @@ class StandardSchemaProcessor(EntityProcessor):
             description=description,
             display_name=name,
             custom_properties=custom_properties,
-            subtype=f"snowplow_{schema_type}_schema",
+            subtype=get_schema_subtype(schema_type)
+            if schema_type
+            else DatasetSubtype.SCHEMA,
             parent_container=parent_container
             if parent_container is not None
             else unset,
@@ -267,6 +284,38 @@ class StandardSchemaProcessor(EntityProcessor):
         self.report.report_schema_extracted(schema_type)
         logger.info(
             f"Successfully extracted standard schema: {vendor}/{name}/{version}"
+        )
+
+    def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
+        """Emit a vendor container if not already emitted."""
+        if not self.config.bdp_connection or vendor in self._emitted_vendors:
+            return
+
+        self._emitted_vendors.add(vendor)
+
+        org_id = self.config.bdp_connection.organization_id
+        org_key = SnowplowOrganizationKey(
+            organization_id=org_id,
+            platform=self.deps.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        vendor_key = SnowplowVendorKey(
+            organization_id=org_id,
+            vendor=vendor,
+            platform=self.deps.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_containers(
+            container_key=vendor_key,
+            name=vendor,
+            sub_types=[DatasetSubtype.SCHEMA],
+            parent_container_key=org_key,
+            extra_properties={
+                "vendor": vendor,
+            },
         )
 
     def _parse_iglu_uri(self, iglu_uri: str) -> Optional[Dict[str, str]]:

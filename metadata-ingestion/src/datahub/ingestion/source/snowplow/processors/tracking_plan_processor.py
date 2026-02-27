@@ -14,6 +14,7 @@ from datahub.ingestion.source.snowplow.builders.container_keys import (
     SnowplowOrganizationKey,
     SnowplowTrackingPlanKey,
 )
+from datahub.ingestion.source.snowplow.constants import DatasetSubtype
 from datahub.ingestion.source.snowplow.models.snowplow_models import TrackingPlan
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.metadata.schema_classes import (
@@ -137,7 +138,7 @@ class TrackingPlanProcessor(EntityProcessor):
         yield from gen_containers(
             container_key=plan_key,
             name=plan.name,
-            sub_types=["tracking_plan"],
+            sub_types=[DatasetSubtype.TRACKING_PLAN],
             parent_container_key=org_key,
             description=plan.description,
             extra_properties=custom_properties,

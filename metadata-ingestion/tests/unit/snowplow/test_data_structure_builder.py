@@ -384,7 +384,7 @@ class TestDataStructureBuilder:
 
     def test_parent_container_built_with_bdp_connection(self, builder):
         """Test parent container is built when BDP connection exists."""
-        containers = builder._build_parent_container()
+        containers = builder._build_parent_container("com.acme")
 
         assert containers is not None
         assert len(containers) == 1
@@ -414,7 +414,7 @@ class TestDataStructureBuilder:
             column_lineage_builder=mock_column_lineage_builder,
         )
 
-        containers = builder._build_parent_container()
+        containers = builder._build_parent_container("com.acme")
 
         assert containers is None
 

@@ -9,10 +9,20 @@ Handles processing of individual data structures (schemas) including:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
 
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.constants import EventFieldType, SchemaType
+from datahub.ingestion.source.snowplow.builders.container_keys import (
+    SnowplowOrganizationKey,
+    SnowplowVendorKey,
+)
+from datahub.ingestion.source.snowplow.constants import (
+    DatasetSubtype,
+    EventFieldType,
+    SchemaType,
+    get_schema_subtype,
+)
 from datahub.ingestion.source.snowplow.models.snowplow_models import DataStructure
 from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
@@ -74,6 +84,9 @@ class DataStructureBuilder:
         self.ownership_builder = deps.ownership_builder
         self.field_tagger = deps.field_tagger
 
+        # Track emitted vendor containers to avoid duplicates
+        self._emitted_vendors: Set[str] = set()
+
     def process_data_structure(
         self, data_structure: DataStructure
     ) -> Iterable[MetadataWorkUnit]:
@@ -106,6 +119,9 @@ class DataStructureBuilder:
         # Capture first event schema for parsed events dataset naming
         self._capture_first_event_schema(vendor, name, schema_type)
 
+        # Emit vendor container (idempotent - only emits once per vendor)
+        yield from self._emit_vendor_container(vendor)
+
         # Build dataset name
         dataset_name = self._build_dataset_name(vendor, name, version)
 
@@ -115,11 +131,13 @@ class DataStructureBuilder:
         )
 
         # Build parent container and owners
-        parent_container = self._build_parent_container()
+        parent_container = self._build_parent_container(vendor)
         owners_list = self._build_owners_list(data_structure, schema_identifier)
 
         # Build subtype and extra aspects
-        subtype = f"snowplow_{schema_type}_schema" if schema_type else "snowplow_schema"
+        subtype = (
+            get_schema_subtype(schema_type) if schema_type else DatasetSubtype.SCHEMA
+        )
         extra_aspects = self._build_extra_aspects(name, schema_type)
 
         # Parse schema metadata and add tags
@@ -245,14 +263,52 @@ class DataStructureBuilder:
             custom_properties["format"] = data_structure.data.self_descriptor.format
         return custom_properties
 
-    def _build_parent_container(self) -> Optional[List[str]]:
-        """Build parent container URN."""
-        if self.config.bdp_connection:
-            parent_container_urn = self.urn_factory.make_organization_urn(
-                self.config.bdp_connection.organization_id
-            )
-            return [parent_container_urn]
-        return None
+    def _build_parent_container(self, vendor: str) -> Optional[List[str]]:
+        """Build parent container URN (vendor container within organization)."""
+        if not self.config.bdp_connection:
+            return None
+
+        vendor_key = SnowplowVendorKey(
+            organization_id=self.config.bdp_connection.organization_id,
+            vendor=vendor,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        return [str(vendor_key.as_urn())]
+
+    def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
+        """Emit a vendor container if not already emitted."""
+        if not self.config.bdp_connection or vendor in self._emitted_vendors:
+            return
+
+        self._emitted_vendors.add(vendor)
+
+        org_id = self.config.bdp_connection.organization_id
+
+        org_key = SnowplowOrganizationKey(
+            organization_id=org_id,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        vendor_key = SnowplowVendorKey(
+            organization_id=org_id,
+            vendor=vendor,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_containers(
+            container_key=vendor_key,
+            name=vendor,
+            sub_types=[DatasetSubtype.SCHEMA],
+            parent_container_key=org_key,
+            extra_properties={
+                "vendor": vendor,
+            },
+        )
 
     def _build_owners_list(
         self, data_structure: DataStructure, schema_identifier: str

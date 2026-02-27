@@ -15,6 +15,14 @@ class SnowplowOrganizationKey(ContainerKey):
     organization_id: str = Field(description="Snowplow organization ID")
 
 
+class SnowplowVendorKey(SnowplowOrganizationKey):
+    """Container key for Iglu schema vendors within an organization."""
+
+    vendor: str = Field(
+        description="Iglu schema vendor (e.g., 'com.snowplowanalytics.snowplow')"
+    )
+
+
 class SnowplowTrackingPlanKey(SnowplowOrganizationKey):
     """Container key for tracking plans within an organization."""
 

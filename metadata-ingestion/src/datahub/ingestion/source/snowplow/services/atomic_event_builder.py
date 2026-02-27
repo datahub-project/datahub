@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
+from datahub.ingestion.source.snowplow.constants import DatasetSubtype
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -259,7 +260,7 @@ class AtomicEventBuilder:
         """Emit subTypes aspect."""
         yield MetadataChangeProposalWrapper(
             entityUrn=self.state.atomic_event_urn,
-            aspect=SubTypesClass(typeNames=["atomic_event"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubtype.ATOMIC_EVENT]),
         ).as_workunit()
 
     def _emit_container(self) -> Iterable[MetadataWorkUnit]:

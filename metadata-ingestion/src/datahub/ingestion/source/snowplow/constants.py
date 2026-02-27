@@ -66,12 +66,27 @@ class Environment(StrEnum):
 class DatasetSubtype:
     """Dataset subtypes for Snowplow schemas."""
 
-    EVENT_SCHEMA = "snowplow_event_schema"
-    ENTITY_SCHEMA = "snowplow_entity_schema"
-    EVENT_SPEC = "snowplow_event_spec"
-    TRACKING_PLAN = "snowplow_tracking_plan"
-    PIPELINE = "snowplow_pipeline"
-    ENRICHMENT = "snowplow_enrichment"
+    EVENT_SCHEMA = "Event Schema"
+    ENTITY_SCHEMA = "Entity Schema"
+    EVENT_SPEC = "Event Specification"
+    TRACKING_PLAN = "Tracking Plan"
+    PIPELINE = "Pipeline"
+    ENRICHMENT = "Enrichment"
+    ATOMIC_EVENT = "Atomic Event"
+    EVENT = "Event"
+    SCHEMA = "Schema"
+
+
+# Map from schema type string to DatasetSubtype constant
+_SCHEMA_TYPE_SUBTYPE_MAP = {
+    SchemaType.EVENT.value: DatasetSubtype.EVENT_SCHEMA,
+    SchemaType.ENTITY.value: DatasetSubtype.ENTITY_SCHEMA,
+}
+
+
+def get_schema_subtype(schema_type: str) -> str:
+    """Get the DatasetSubtype for a given schema type string."""
+    return _SCHEMA_TYPE_SUBTYPE_MAP.get(schema_type, DatasetSubtype.SCHEMA)
 
 
 # Platform constants
