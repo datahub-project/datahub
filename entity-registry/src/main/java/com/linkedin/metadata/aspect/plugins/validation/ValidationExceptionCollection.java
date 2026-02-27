@@ -89,19 +89,11 @@ public class ValidationExceptionCollection
 
   @Override
   public String toString() {
-    return String.format(
-        "ValidationExceptionCollection{%s}",
-        entrySet().stream()
-            // sort by entity/aspect
-            .sorted(Comparator.comparing(p -> p.getKey().toString()))
-            .map(
-                e ->
-                    String.format(
-                        "EntityAspect:%s: %s",
-                        e.getKey().toString(),
-                        e.getValue().stream()
-                            .map(AspectValidationException::getMsg)
-                            .collect(Collectors.joining("; "))))
-            .collect(Collectors.joining("; ")));
+    // Return just the error messages without verbose wrapper for cleaner UI display
+    return entrySet().stream()
+        // sort by entity/aspect
+        .sorted(Comparator.comparing(p -> p.getKey().toString()))
+        .flatMap(e -> e.getValue().stream().map(AspectValidationException::getMsg))
+        .collect(Collectors.joining("; "));
   }
 }

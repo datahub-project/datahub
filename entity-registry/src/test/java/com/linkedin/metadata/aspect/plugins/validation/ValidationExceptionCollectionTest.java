@@ -216,13 +216,8 @@ public class ValidationExceptionCollectionTest {
     collection.addException(exception);
 
     String result = collection.toString();
-    assertTrue(result.contains("ValidationExceptionCollection"));
-    assertTrue(result.contains("EntityAspect:"));
-    assertTrue(result.contains("urn:li:chart:123"));
-    // Verify the actual error message is included in the output (not buried in Lombok toString)
-    assertTrue(
-        result.contains(ERROR_MESSAGE),
-        "Expected toString() to contain the error message: " + ERROR_MESSAGE);
+    // toString() should return just the error messages for clean UI display
+    assertEquals(result, ERROR_MESSAGE);
   }
 
   @Test
