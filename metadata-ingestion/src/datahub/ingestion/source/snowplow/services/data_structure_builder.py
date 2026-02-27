@@ -26,6 +26,7 @@ from datahub.ingestion.source.snowplow.constants import (
 from datahub.ingestion.source.snowplow.models.snowplow_models import DataStructure
 from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     GlobalTagsClass,
     OwnerClass,
     SchemaMetadataClass,
@@ -33,7 +34,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.sdk.dataset import Dataset
-from datahub.utilities.sentinels import unset
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -130,8 +130,7 @@ class DataStructureBuilder:
             data_structure, vendor, name, version, schema_type, schema_meta
         )
 
-        # Build parent container and owners
-        parent_container = self._build_parent_container(vendor)
+        # Build owners
         owners_list = self._build_owners_list(data_structure, schema_identifier)
 
         # Build subtype and extra aspects
@@ -139,6 +138,11 @@ class DataStructureBuilder:
             get_schema_subtype(schema_type) if schema_type else DatasetSubtype.SCHEMA
         )
         extra_aspects = self._build_extra_aspects(name, schema_type)
+
+        # Set container via extra_aspects; browse path is computed by auto_browse_path_v2
+        leaf_container_urn = self._get_leaf_container_urn(vendor)
+        if leaf_container_urn:
+            extra_aspects.append(ContainerClass(container=leaf_container_urn))
 
         # Parse schema metadata and add tags
         schema_metadata = self._parse_schema_metadata(
@@ -158,7 +162,6 @@ class DataStructureBuilder:
             data_structure,
             version,
             custom_properties,
-            parent_container,
             subtype,
             owners_list,
             extra_aspects,
@@ -263,42 +266,25 @@ class DataStructureBuilder:
             custom_properties["format"] = data_structure.data.self_descriptor.format
         return custom_properties
 
-    def _build_parent_container(self, vendor: str) -> Optional[List[str]]:
-        """Build the full container chain for browse path: org → vendor segments.
+    def _get_leaf_container_urn(self, vendor: str) -> Optional[str]:
+        """Return the URN of the leaf vendor container for this vendor namespace.
 
-        The SDK uses this list to set both ContainerClass (last entry) and
-        browsePathsV2 (all entries). Returning the full chain ensures datasets
-        appear correctly nested in the DataHub sidebar.
+        Only ContainerClass is set on the dataset; browsePathsV2 is computed
+        automatically by the framework's auto_browse_path_v2 stream processor
+        from the container hierarchy emitted by _emit_vendor_container.
         """
         if not self.config.bdp_connection:
             return None
 
         org_id = self.config.bdp_connection.organization_id
-        chain: List[str] = []
-
-        # Organization container
-        org_key = SnowplowOrganizationKey(
+        vendor_key = SnowplowVendorKey(
             organization_id=org_id,
+            vendor=vendor,
             platform=self.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        chain.append(str(org_key.as_urn()))
-
-        # Each vendor segment as a container
-        segments = vendor.split(".")
-        for i in range(len(segments)):
-            vendor_path = ".".join(segments[: i + 1])
-            vendor_key = SnowplowVendorKey(
-                organization_id=org_id,
-                vendor=vendor_path,
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            chain.append(str(vendor_key.as_urn()))
-
-        return chain
+        return str(vendor_key.as_urn())
 
     def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
         """Emit nested vendor containers by splitting the vendor namespace on dots.
@@ -444,12 +430,15 @@ class DataStructureBuilder:
         data_structure: DataStructure,
         version: str,
         custom_properties: Dict[str, str],
-        parent_container: Optional[List[str]],
         subtype: str,
         owners_list: Optional[List[OwnerClass]],
         extra_aspects: List[Any],
     ) -> Dataset:
-        """Create Dataset object using SDK V2."""
+        """Create Dataset object using SDK V2.
+
+        ContainerClass is set via extra_aspects; browsePathsV2 is left unset
+        so auto_browse_path_v2 can compute it from the container hierarchy.
+        """
         return Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -466,9 +455,6 @@ class DataStructureBuilder:
                 data_structure.hash,
             ),
             custom_properties=custom_properties,
-            parent_container=parent_container
-            if parent_container is not None
-            else unset,
             subtype=subtype,
             owners=owners_list,
             extra_aspects=extra_aspects,

@@ -382,18 +382,17 @@ class TestDataStructureBuilder:
 
         assert name == "com.acme.checkout_started.1-0-0"
 
-    def test_parent_container_built_with_bdp_connection(self, builder):
-        """Test parent container chain includes org and all vendor segments."""
-        containers = builder._build_parent_container("com.acme")
+    def test_leaf_container_urn_with_bdp_connection(self, builder):
+        """Test leaf container URN is returned for the vendor namespace."""
+        urn = builder._get_leaf_container_urn("com.acme")
 
-        assert containers is not None
-        # Chain: org → com → com.acme
-        assert len(containers) == 3
+        assert urn is not None
+        assert urn.startswith("urn:li:container:")
 
-    def test_no_parent_container_without_bdp_connection(
+    def test_no_leaf_container_without_bdp_connection(
         self, mock_deps, state, mock_column_lineage_builder
     ):
-        """Test no parent container when no BDP connection."""
+        """Test no leaf container URN when no BDP connection."""
         from datahub.ingestion.source.snowplow.snowplow_config import (
             IgluConnectionConfig,
         )
@@ -415,9 +414,9 @@ class TestDataStructureBuilder:
             column_lineage_builder=mock_column_lineage_builder,
         )
 
-        containers = builder._build_parent_container("com.acme")
+        urn = builder._get_leaf_container_urn("com.acme")
 
-        assert containers is None
+        assert urn is None
 
     def test_external_url_generation_with_bdp(self, builder):
         """Test external URL is generated for BDP connection."""

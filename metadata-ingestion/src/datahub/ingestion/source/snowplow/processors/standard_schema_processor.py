@@ -25,12 +25,12 @@ from datahub.ingestion.source.snowplow.constants import (
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     GlobalTagsClass,
     StatusClass,
     TagAssociationClass,
 )
 from datahub.sdk.dataset import Dataset
-from datahub.utilities.sentinels import unset
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -228,11 +228,12 @@ class StandardSchemaProcessor(EntityProcessor):
         ]
         extra_aspects.append(GlobalTagsClass(tags=tag_associations))
 
-        # Build parent container chain (org → vendor segments) for browse path
-        parent_container = None
+        # Set container via extra_aspects; browse path is computed by auto_browse_path_v2
         if self.config.bdp_connection:
             yield from self._emit_vendor_container(vendor)
-            parent_container = self._build_parent_container_chain(vendor)
+            leaf_container_urn = self._get_leaf_container_urn(vendor)
+            if leaf_container_urn:
+                extra_aspects.append(ContainerClass(container=leaf_container_urn))
 
         # Create dataset using SDK V2 (following data_structure_builder pattern)
         dataset = Dataset(
@@ -246,9 +247,6 @@ class StandardSchemaProcessor(EntityProcessor):
             subtype=get_schema_subtype(schema_type)
             if schema_type
             else DatasetSubtype.SCHEMA,
-            parent_container=parent_container
-            if parent_container is not None
-            else unset,
             extra_aspects=extra_aspects,
         )
 
@@ -279,35 +277,24 @@ class StandardSchemaProcessor(EntityProcessor):
             f"Successfully extracted standard schema: {vendor}/{name}/{version}"
         )
 
-    def _build_parent_container_chain(self, vendor: str) -> Optional[List[str]]:
-        """Build the full container chain for browse path: org → vendor segments."""
+    def _get_leaf_container_urn(self, vendor: str) -> Optional[str]:
+        """Return the URN of the leaf vendor container for this vendor namespace.
+
+        Only ContainerClass is set on the dataset; browsePathsV2 is computed
+        automatically by the framework's auto_browse_path_v2 stream processor.
+        """
         if not self.config.bdp_connection:
             return None
 
         org_id = self.config.bdp_connection.organization_id
-        chain: List[str] = []
-
-        org_key = SnowplowOrganizationKey(
+        vendor_key = SnowplowVendorKey(
             organization_id=org_id,
+            vendor=vendor,
             platform=self.deps.platform,
             instance=self.config.platform_instance,
             env=self.config.env,
         )
-        chain.append(str(org_key.as_urn()))
-
-        segments = vendor.split(".")
-        for i in range(len(segments)):
-            vendor_path = ".".join(segments[: i + 1])
-            vendor_key = SnowplowVendorKey(
-                organization_id=org_id,
-                vendor=vendor_path,
-                platform=self.deps.platform,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            chain.append(str(vendor_key.as_urn()))
-
-        return chain
+        return str(vendor_key.as_urn())
 
     def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
         """Emit nested vendor containers by splitting the vendor namespace on dots.
