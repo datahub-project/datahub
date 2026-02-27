@@ -15,6 +15,16 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/docker-unified.yml"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
+      - "!.github/scripts/docker_helpers.sh"
+      - "!.github/actions/ci-optimization"
+      - "!.github/scripts/check_python_package.py"
+      - "!.github/scripts/parse_failed_cypress_tests.py"
+      - "!.github/scripts/parse_failed_pytest_tests.py"
+      - "!.github/scripts/docker_logs.sh"
   release:
     types: [published]
 
