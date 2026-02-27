@@ -220,6 +220,7 @@ export const EditOwnersModal = ({
                             onUpdate={handleActorsUpdate}
                             placeholder="Search for users or groups..."
                             width="full"
+                            dataTestId="add-owners-select"
                         />
                     </FormSection>
                 </Form.Item>
