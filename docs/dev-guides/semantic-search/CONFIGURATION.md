@@ -58,15 +58,15 @@ elasticsearch:
 | OpenAI text-embedding-3-large | `text_embedding_3_large` | 3072       |
 | Cohere embed-english-v3.0     | `embed_english_v3_0`     | 1024       |
 
-> **Important:** The model key is derived from `EMBEDDING_PROVIDER_MODEL_ID` using explicit mappings for known models, with a fallback that replaces dots, hyphens, and colons with underscores. For example:
+> **Important:** The model key is derived from the configured model ID using explicit mappings for known models, with a fallback that replaces dots, hyphens, and colons with underscores. For example:
 >
-> - `cohere.embed-english-v3` (AWS Bedrock) → `cohere_embed_v3`
-> - `embed-english-v3.0` (Cohere direct) → `embed_english_v3_0`
-> - `text-embedding-3-small` (OpenAI) → `text_embedding_3_small`
+> - `cohere.embed-english-v3` (AWS Bedrock, via `BEDROCK_EMBEDDING_MODEL`) → `cohere_embed_v3`
+> - `embed-english-v3.0` (Cohere direct, via `COHERE_EMBEDDING_MODEL`) → `embed_english_v3_0`
+> - `text-embedding-3-small` (OpenAI, via `OPENAI_EMBEDDING_MODEL`) → `text_embedding_3_small`
 >
 > The explicit mappings ensure AWS Bedrock Cohere models (`cohere.embed-english-v3`) and Cohere direct API models (`embed-english-v3.0`) produce distinct keys despite similar names.
 
-> **Matching with Ingestion:** The model key in the index mapping must match the key used in the `semanticContent` aspect when documents are ingested. The ingestion connector (e.g., `datahub-documents`) uses `EMBEDDING_PROVIDER_MODEL_ID` to determine this key. For example, if your index has `text_embedding_3_small`, the ingested `semanticContent` aspect must have embeddings under `embeddings.text_embedding_3_small`.
+> **Matching with Ingestion:** The model key in the index mapping must match the key used in the `semanticContent` aspect when documents are ingested. The ingestion connector (e.g., `datahub-documents`) uses the configured model to determine this key. For example, if your index has `text_embedding_3_small`, the ingested `semanticContent` aspect must have embeddings under `embeddings.text_embedding_3_small`.
 
 #### Embedding Provider Configuration
 
@@ -80,9 +80,10 @@ elasticsearch:
 
       embeddingProvider:
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
-        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
-        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+        bedrock:
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 
         # OpenAI configuration (used when type is "openai")
         openai:
@@ -192,7 +193,7 @@ AWS Bedrock provides managed access to embedding models:
 ```bash
 # Environment
 EMBED_PROVIDER=bedrock
-BEDROCK_MODEL=cohere.embed-english-v3
+BEDROCK_EMBEDDING_MODEL=cohere.embed-english-v3
 AWS_REGION=us-west-2
 
 # For local development
@@ -224,11 +225,7 @@ OPENAI_API_KEY=sk-your-api-key-here
 # Optional - defaults shown
 # OPENAI_EMBEDDING_MODEL: Model used to generate query embeddings via OpenAI API
 OPENAI_EMBEDDING_MODEL=text-embedding-3-large
-# EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
-EMBEDDING_PROVIDER_MODEL_ID=text-embedding-3-large
 ```
-
-> **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
 
 **Available OpenAI Models:**
 
@@ -249,11 +246,7 @@ COHERE_API_KEY=your-cohere-api-key
 # Optional - defaults shown
 # COHERE_EMBEDDING_MODEL: Model used to generate query embeddings via Cohere API
 COHERE_EMBEDDING_MODEL=embed-english-v3.0
-# EMBEDDING_PROVIDER_MODEL_ID: Model key used to look up embeddings in the semantic index
-EMBEDDING_PROVIDER_MODEL_ID=embed-english-v3.0
 ```
-
-> **Important:** Both values should match to ensure query embeddings are compared against the correct document embeddings in the index.
 
 **Available Cohere Models:**
 
@@ -437,7 +430,7 @@ models:
     m: 16
 ```
 
-When using multiple models, `EMBEDDING_PROVIDER_MODEL_ID` determines which model is used for query embeddings at search time.
+When using multiple models, the configured provider model (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, or `COHERE_EMBEDDING_MODEL`) determines which model is used for query embeddings at search time.
 
 ## Query Configuration
 

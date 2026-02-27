@@ -61,7 +61,7 @@ class TestGeneratePythonUdfCode:
             function_body="return {}",
         )
 
-        assert "PACKAGES = ('datahub-agent-context>=1.3.1.8')" in result
+        assert "PACKAGES = ('datahub-agent-context==1.4.0.3')" in result
 
     def test_secrets_configuration(self) -> None:
         """Test that secrets are properly configured."""
@@ -98,7 +98,7 @@ class TestGeneratePythonUdfCode:
         )
 
         assert "import _snowflake" in result
-        assert "from datahub.ingestion.graph.client import DataHubGraph" in result
+        assert "from datahub.sdk.main_client import DataHubClient" in result
         assert "from datahub_agent_context.context import DataHubContext" in result
 
     def test_function_body_indentation(self) -> None:
@@ -161,7 +161,7 @@ return x + y"""
         assert (
             "ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository" in result
         )
-        assert "PACKAGES = ('datahub-agent-context>=1.3.1.8')" in result
+        assert "PACKAGES = ('datahub-agent-context==1.4.0.3')" in result
         assert "SECRETS = " in result
         assert "EXTERNAL_ACCESS_INTEGRATIONS = " in result
         assert "HANDLER = " in result

@@ -81,7 +81,9 @@ class DataHubDocumentsSourceConfig(
     # DataHub connection
     datahub: DataHubConnectionConfig = Field(
         default_factory=DataHubConnectionConfig,
-        description="DataHub connection configuration",
+        description="DataHub connection configuration. Only used when running standalone "
+        "(e.g., CLI ingestion). In managed ingestion (deployed sources), the connection "
+        "is automatically configured from the sink.",
     )
 
     # Platform filtering (multi-platform support)
@@ -124,6 +126,14 @@ class DataHubDocumentsSourceConfig(
         description="Embedding generation configuration (LiteLLM with Cohere/Bedrock)",
     )
 
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
+    )
+
     # Partitioning configuration
     partition_strategy: Literal["markdown"] = Field(
         default="markdown",
@@ -139,7 +149,6 @@ class DataHubDocumentsSourceConfig(
         default=50,
         description="Minimum text length in characters to process (shorter documents are skipped)",
     )
-
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:
     # - Incremental mode (document hash tracking) in batch mode

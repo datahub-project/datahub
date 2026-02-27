@@ -35,13 +35,11 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
     urn_list = json.loads(urns) if isinstance(urns, str) else urns
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return grep_documents(
             urns=urn_list,
             pattern=pattern,

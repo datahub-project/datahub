@@ -301,6 +301,10 @@ def default_source_config():
             "enabled": True,
         },
         "profile_pattern": {"allow": [".*"]},
+        # Explicitly set to True to maintain backward compatibility with golden files
+        "ownership": {
+            "create_corp_user": True,
+        },
     }
 
 

@@ -340,6 +340,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             datahub=DataHubConnectionConfig(),  # Not used in inline mode
             chunking=config.chunking,
             embedding=config.embedding,
+            max_documents=config.max_documents,
         )
 
         # Pass graph to DocumentChunkingSource so it can load server config
@@ -939,6 +940,15 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.chunking_source.process_elements_inline(
                 document_urn=document_urn, elements=elements
             )
+        except RuntimeError as e:
+            if self.chunking_source.report.num_documents_limit_reached:
+                self.report.num_documents_limit_reached = True
+                raise
+            logger.warning(
+                f"Failed to generate embeddings for {document_urn}: {e}. "
+                f"Document will be ingested without embeddings.",
+                exc_info=True,
+            )
         except Exception as e:
             logger.warning(
                 f"Failed to generate embeddings for {document_urn}: {e}. "
@@ -1051,7 +1061,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 logger.error(f"Failed to create entity for page {page_id}: {e}")
                 self.report.report_page_failed(page_id, space_key, str(e))
 
-                if not self.config.advanced.continue_on_failure:
+                if (
+                    not self.config.advanced.continue_on_failure
+                    or self.chunking_source.report.num_documents_limit_reached
+                ):
                     raise
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -1340,7 +1353,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> ConfluenceSourceReport:
         """Get ingestion report."""
-        # Copy embedding statistics from chunking source report
+        # Copy statistics from chunking source report
         if self.chunking_source:
             chunking_report = self.chunking_source.report
             self.report.num_documents_with_embeddings = (
@@ -1350,6 +1363,9 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             # Extend LossyList with items from the regular list
             for failure in chunking_report.embedding_failures:
                 self.report.embedding_failures.append(failure)
+            self.report.num_documents_limit_reached = (
+                chunking_report.num_documents_limit_reached
+            )
 
         return self.report
 

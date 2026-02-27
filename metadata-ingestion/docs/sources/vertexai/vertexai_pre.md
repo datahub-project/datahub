@@ -25,7 +25,7 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 | `aiplatform.customJobs.list`        | Allows a user to view and list all custom jobs in a project          |
 | `aiplatform.customJobs.get`         | Allows a user to view details of a specific custom job               |
 | `aiplatform.experiments.list`       | Allows a user to view and list all experiments in a project          |
-| `laiplatform.experiments.get`       | Allows a user to view details of a specific experiment in a project  |
+| `aiplatform.experiments.get`        | Allows a user to view details of a specific experiment in a project  |
 | `aiplatform.metadataStores.list`    | allows a user to view and list all metadata store in a project       |
 | `aiplatform.metadataStores.get`     | allows a user to view details of a specific metadata store           |
 | `aiplatform.executions.list`        | allows a user to view and list all executions in a project           |
@@ -34,6 +34,8 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 | `aiplatform.datasets.get`           | allows a user to view details of a specific dataset                  |
 | `aiplatform.pipelineJobs.get`       | allows a user to view and list all pipeline jobs in a project        |
 | `aiplatform.pipelineJobs.list`      | allows a user to view details of a specific pipeline job             |
+
+**Note**: ML Metadata extraction (enabled by default for enhanced lineage tracking) requires the `aiplatform.metadataStores.*` and `aiplatform.executions.*` permissions listed above. If your service account lacks these permissions, the connector will gracefully fall back with warnings. To disable ML Metadata features, set `use_ml_metadata_for_lineage: false`, `extract_execution_metrics: false`, and `include_evaluations: false`.
 
 #### Create a service account and assign roles
 
@@ -79,7 +81,18 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 ### Integration Details
 
-Ingestion Job extract Models, Datasets, Training Jobs, Endpoints, Experiment and Experiment Runs in a given project and region on Vertex AI.
+Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
+
+The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
+
+**Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
+
+Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
+
+For improved organization in the DataHub UI:
+
+- Model versions are organized under their respective model group folders
+- Pipeline tasks and task runs are nested under their parent pipeline folders
 
 #### Concept Mapping
 
@@ -94,8 +107,11 @@ This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 |    [`Experiment`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Experiment)     |           [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/)           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         Experiments organize related runs and serve as logical groupings for model development iterations. Each Experiment is mapped to a Container in DataHub.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | [`Experiment Run`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.ExperimentRun) | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                An Experiment Run represents a single execution of a ML workflow. An Experiment Run tracks ML parameters, metricis, artifacts and metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |     [`Execution`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.Execution)      | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Metadata Execution resource for Vertex AI. Metadata Execution is started in a experiment run and captures input and output artifacts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+|   [`PipelineJob`](https://cloud.google.com/python/docs/reference/aiplatform/latest/google.cloud.aiplatform.PipelineJob)    |            [`DataFlow`](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)            |                                                                                                                                                                                                                                                                                             A Vertex AI Pipeline is mapped to a stable DataFlow entity in DataHub (one per pipeline template). The compiled pipeline spec name (`pipelineInfo.name`, i.e. the `@pipeline(name="...")` argument) is used as the stable identifier; non-Kubeflow pipelines fall back to `display_name` with any timestamp suffix stripped. Each pipeline run creates a DataProcessInstance, and pipeline tasks are modeled as DataJobs nested under the parent DataFlow. This enables proper incremental lineage aggregation across multiple pipeline runs. **Breaking Change (v1.4.0)**: Previously, each pipeline run created a separate DataFlow entity. Existing pipeline entities from earlier versions will appear as separate entities from new ingestion runs. Enable stateful ingestion with stale entity removal to clean up old pipeline entities.                                                                                                                                                                                                                                                                                              |
+|       [`PipelineJob Task`](https://cloud.google.com/vertex-ai/docs/pipelines/build-pipeline#understanding-pipelines)       |             [`DataJob`](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             Each task within a Vertex AI pipeline is modeled as a DataJob in DataHub, nested under its parent pipeline DataFlow. Tasks represent individual steps in the pipeline workflow.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+|     [`PipelineJob Task Run`](https://cloud.google.com/vertex-ai/docs/pipelines/build-pipeline#understanding-pipelines)     | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   Each execution of a pipeline task is modeled as a DataProcessInstance, linked to its DataJob (task definition). This captures runtime metadata, inputs/outputs, and lineage for each task execution.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
-Vertex AI Concept Diagram:
+##### Vertex AI Concept Diagram
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/vertexai/concept-mapping.png"/>
@@ -103,9 +119,26 @@ Vertex AI Concept Diagram:
 
 #### Lineage
 
-Lineage is emitted using Vertex AI API to capture the following relationships:
+The connector captures comprehensive lineage relationships including cross-platform lineage to external data sources:
 
-- A training job and a model (which training job produce a model)
-- A dataset and a training job (which dataset was consumed by a training job to train a model)
-- Experiment runs and an experiment
-- Metadata execution and an experiment run
+**Core Vertex AI Lineage**:
+
+- Training job → Model (AutoML and CustomJob)
+- Dataset → Training job (AutoML and ML Metadata-based)
+- Training job → Output models (ML Metadata Executions)
+- Model → Training datasets (direct upstream lineage via TrainingData aspect)
+- Experiment run → Model (outputs)
+- Model evaluation → Model and test datasets (inputs)
+- Pipeline task runs → Models and datasets (inputs/outputs via DataProcessInstance aspects)
+
+**Cross-Platform Lineage** (external data sources):
+
+The connector links Vertex AI resources to external datasets when referenced in job configurations or ML Metadata artifacts. Supported platforms:
+
+- **Google Cloud Storage** (gs://...) → `gcs` platform
+- **BigQuery** (bq://project.dataset.table or projects/.../datasets/.../tables/...) → `bigquery` platform
+- **Amazon S3** (s3://..., s3a://...) → `s3` platform
+- **Azure Blob Storage** (wasbs://..., abfss://...) → `abs` platform
+- **Snowflake** (snowflake://...) → `snowflake` platform
+
+Use `platform_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.

@@ -1565,6 +1565,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
+            .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 

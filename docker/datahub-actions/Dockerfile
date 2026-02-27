@@ -307,6 +307,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -360,6 +362,8 @@ COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 
 USER datahub
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
@@ -437,7 +441,7 @@ CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_G
 # =============================================================================
 
 # Alpine runtime base - minimal packages for running the application
-FROM alpine:3.22 AS alpine-base
+FROM alpine:3.23 AS alpine-base
 
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
@@ -550,6 +554,8 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 USER datahub
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"

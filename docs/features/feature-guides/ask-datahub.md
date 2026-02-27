@@ -6,6 +6,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 **Ask DataHub** is DataHub's conversational AI assistant that brings intelligent, context-aware help directly to where you work. Using Ask DataHub, you can ask questions about your organization's data and get instant, accurate answers grounded in both your **metadata graph** and your **organizational knowledge**—like runbooks, policies, and FAQs stored in Context Graph.
 
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/ask_datahub_chat.png"/>
+</p>
+
 ## What Can Ask DataHub Do?
 
 Ask DataHub empowers your organization to navigate and understand your entire data ecosystem with ease—combining technical metadata with your team's tribal knowledge for smarter, more reliable answers.
