@@ -29,8 +29,8 @@ def handle_rate_limit(
             for attempt in range(1, max_retries + 1):
                 last_resp = func(*args, **kwargs)
 
-                remaining = last_resp.headers.get("x-ratelimit-remaining")
-                if last_resp.status_code in [403, 429] and remaining == "0":
+                is_rate_limited = last_resp.headers.get("retry-after") or last_resp.headers.get("x-ratelimit-remaining")
+                if last_resp.status_code in [403, 429] and is_rate_limited:
                     retry_after = last_resp.headers.get("retry-after")
                     reset_timestamp = last_resp.headers.get("x-ratelimit-reset")
 
