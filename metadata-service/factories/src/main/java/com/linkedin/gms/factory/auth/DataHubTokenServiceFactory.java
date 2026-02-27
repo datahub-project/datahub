@@ -4,6 +4,7 @@ import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,5 +39,15 @@ public class DataHubTokenServiceFactory {
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     return new StatefulTokenService(
         systemOpContext, signingKey, signingAlgorithm, issuer, _entityService, saltingKey);
+  }
+
+  @PostConstruct
+  public void validate() {
+    if (signingKey == null || signingKey.isEmpty()) {
+      throw new IllegalStateException("DATAHUB_TOKEN_SERVICE_SIGNING_KEY must be set as env var");
+    }
+    if (saltingKey == null || saltingKey.isEmpty()) {
+      throw new IllegalStateException("DATAHUB_TOKEN_SERVICE_SALT must be set as env var");
+    }
   }
 }

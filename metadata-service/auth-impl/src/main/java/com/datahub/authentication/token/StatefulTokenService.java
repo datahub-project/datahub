@@ -61,6 +61,9 @@ public class StatefulTokenService extends StatelessTokenService {
                     return !_entityService.exists(systemOperationContext, accessUrn, true);
                   }
                 });
+    if (salt == null || salt.isEmpty()) {
+      throw new IllegalArgumentException("salt must not be null or empty");
+    }
     this.salt = salt;
   }
 

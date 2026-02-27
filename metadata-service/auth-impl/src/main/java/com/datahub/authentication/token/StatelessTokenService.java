@@ -55,7 +55,10 @@ public class StatelessTokenService {
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss) {
-    this.signingKey = Objects.requireNonNull(signingKey);
+    if (signingKey == null || signingKey.isEmpty()) {
+      throw new IllegalArgumentException("signingKey must not be null or empty");
+    }
+    this.signingKey = signingKey;
     this.signingAlgorithm = validateAlgorithm(Objects.requireNonNull(signingAlgorithm));
     this.iss = iss;
     this.systemOperationContext = systemOperationContext;
