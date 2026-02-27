@@ -96,15 +96,14 @@ jobs:
         id: check-run
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          SHA="${{ github.event.workflow_run.head_sha }}"
-          CHECK_RUN_ID=$(gh api "/repos/${{ github.repository }}/check-runs" \
-            -f name="connector-tests" \
-            -f head_sha="${SHA}" \
-            -f status="in_progress" \
-            -f "output[title]=Connector tests in progress" \
-            -f "output[summary]=Connector tests have been triggered and are running..." \
-            --jq '.id')
+          CHECK_RUN_ID=$(jq -nc \
+            --arg sha "$SHA" \
+            --arg started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{name: "connector-tests", head_sha: $sha, status: "in_progress", started_at: $started_at, output: {title: "Connector tests in progress", summary: "Connector tests have been triggered and are running..."}}' \
+          | gh api "/repos/${REPO}/check-runs" --input - --jq '.id')
           echo "check_run_id=${CHECK_RUN_ID}" >> "$GITHUB_OUTPUT"
           echo "Created check run ${CHECK_RUN_ID}"
 
@@ -133,14 +132,13 @@ jobs:
           echo "Dispatched for PR #${PR_NUMBER}"
 
       - name: On failure — mark check run as failed
-        if: failure() && steps.check-run.outputs.check_run_id
+        if: (failure() || cancelled()) && steps.check-run.outputs.check_run_id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHECK_RUN_ID: ${{ steps.check-run.outputs.check_run_id }}
+          REPO: ${{ github.repository }}
         run: |
-          gh api "/repos/${{ github.repository }}/check-runs/${CHECK_RUN_ID}" \
-            -X PATCH \
-            -f status="completed" \
-            -f conclusion="failure" \
-            -f "output[title]=Failed to trigger connector tests" \
-            -f "output[summary]=Infrastructure issue prevented connector tests from being dispatched."
+          jq -nc \
+            --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{status: "completed", conclusion: "failure", completed_at: $completed_at, output: {title: "Failed to trigger connector tests", summary: "Infrastructure issue prevented connector tests from being dispatched."}}' \
+          | gh api "/repos/${REPO}/check-runs/${CHECK_RUN_ID}" -X PATCH --input -
