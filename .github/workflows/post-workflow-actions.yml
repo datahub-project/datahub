@@ -1,0 +1,62 @@
+name: Post Workflow Actions
+run-name: Post Workflow Actions for ${{ github.event.workflow_run.name }}
+
+# Triggered when a monitored workflow completes.
+# NOTE: workflow_run.workflows does not support wildcards —
+# workflow names must be listed explicitly here.
+# This workflow is NOT listed, so it will not trigger itself (no recursion).
+on:
+  workflow_run:
+    workflows:
+      # List to be updated after testing
+      - "Docker Build, Scan, Test"
+      - "Metadata Ingestion"
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  collect-metrics:
+    runs-on: ubuntu-latest
+
+    env:
+      ARTIFACT_NAME: workflow-metrics-${{ github.event.workflow_run.id }}-attempt-${{ github.event.workflow_run.run_attempt }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv pip install requests==2.32.5 --system
+
+      - name: Collect metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd .github/scripts
+          python collect_workflow_metrics.py \
+            --run-id "${{ github.event.workflow_run.id }}" \
+            --attempt "${{ github.event.workflow_run.run_attempt }}" \
+            --repo "${{ github.repository }}" \
+            --output "${{ env.ARTIFACT_NAME }}.json"
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_NAME }}.json
+          retention-days: 7
+      # TODO(devashish.chandra): Post metrics to Posthog, maybe save to S3?
