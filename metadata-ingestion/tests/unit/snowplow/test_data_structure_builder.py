@@ -1,5 +1,6 @@
 """Unit tests for DataStructureBuilder service."""
 
+import dataclasses
 from typing import Optional
 from unittest.mock import Mock
 
@@ -21,6 +22,7 @@ from datahub.ingestion.source.snowplow.services.data_structure_builder import (
 )
 from datahub.ingestion.source.snowplow.snowplow_config import (
     FieldTaggingConfig,
+    IgluConnectionConfig,
     SnowplowBDPConnectionConfig,
     SnowplowSourceConfig,
 )
@@ -393,10 +395,6 @@ class TestDataStructureBuilder:
         self, mock_deps, state, mock_column_lineage_builder
     ):
         """Test no leaf container URN when no BDP connection."""
-        from datahub.ingestion.source.snowplow.snowplow_config import (
-            IgluConnectionConfig,
-        )
-
         # Create config without BDP connection
         config = SnowplowSourceConfig(
             iglu_connection=IgluConnectionConfig(
@@ -405,11 +403,11 @@ class TestDataStructureBuilder:
             field_tagging=FieldTaggingConfig(enabled=False),
         )
 
-        # Update mock_deps config to not have bdp_connection
-        mock_deps.config = config
+        # Create new frozen deps with Iglu-only config
+        iglu_deps = dataclasses.replace(mock_deps, config=config)
 
         builder = DataStructureBuilder(
-            deps=mock_deps,
+            deps=iglu_deps,
             state=state,
             column_lineage_builder=mock_column_lineage_builder,
         )

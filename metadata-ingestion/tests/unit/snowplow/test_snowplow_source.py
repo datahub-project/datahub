@@ -6,6 +6,7 @@ import pytest
 
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowplow.snowplow import SnowplowSource
+from datahub.ingestion.source.snowplow.snowplow_report import SnowplowSourceReport
 
 
 class TestSnowplowSourceTestConnection:
@@ -258,6 +259,7 @@ class TestSnowplowSourcePIIFieldExtraction:
             source.config = Mock()
             source.config.field_tagging = Mock()
             source.config.field_tagging.use_pii_enrichment = True
+            source.report = SnowplowSourceReport()
             source.state = Mock()
             source.state.pii_fields_cache = None
             return source

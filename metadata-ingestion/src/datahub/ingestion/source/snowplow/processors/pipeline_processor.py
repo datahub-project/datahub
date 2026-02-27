@@ -284,8 +284,14 @@ class PipelineProcessor(EntityProcessor):
                 logger.debug("No destinations found via destinations API")
 
             except Exception as e:
+                self.report.report_warning(
+                    "warehouse_destination",
+                    f"Failed to get warehouse destination from destinations API: {e}. "
+                    "Enrichment-to-warehouse lineage will be unavailable.",
+                )
                 logger.warning(
-                    f"Failed to get warehouse destination from destinations API: {e}"
+                    f"Failed to get warehouse destination from destinations API: {e}",
+                    exc_info=True,
                 )
 
         # Cache None to avoid repeated failed API calls

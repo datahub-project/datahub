@@ -439,7 +439,14 @@ class SnowplowBDPClient:
         # Docs: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/
         endpoint = f"organizations/{self.organization_id}/data-structures/v1/{data_structure_hash}"
 
-        response_data = self._request("GET", endpoint)
+        try:
+            response_data = self._request("GET", endpoint)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = f"Failed to fetch data structure {data_structure_hash}: {e}"
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("data_structure_fetch", error_msg)
+            return None
 
         if not response_data:
             return None
@@ -488,7 +495,16 @@ class SnowplowBDPClient:
             f"Fetching schema definition for {data_structure_hash} version {version}"
         )
 
-        response_data = self._request("GET", endpoint, params=params)
+        try:
+            response_data = self._request("GET", endpoint, params=params)
+        except (requests.exceptions.RequestException, ResourceNotFoundError) as e:
+            error_msg = (
+                f"Failed to fetch schema version {data_structure_hash}/{version}: {e}"
+            )
+            logger.warning(error_msg)
+            if self.report:
+                self.report.report_warning("schema_version_fetch", error_msg)
+            return None
 
         if not response_data:
             return None
@@ -681,7 +697,10 @@ class SnowplowBDPClient:
         try:
             return EventSpecification.model_validate(response_data.get("data", {}))
         except ValidationError as e:
-            logger.error(f"Failed to parse event specification {event_spec_id}: {e}")
+            error_msg = f"Failed to parse event specification {event_spec_id}: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("event_spec_parsing", error_msg)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -773,7 +792,10 @@ class SnowplowBDPClient:
         try:
             return TrackingPlan.model_validate(response_data.get("data", {}))
         except ValidationError as e:
-            logger.error(f"Failed to parse tracking plan {plan_id}: {e}")
+            error_msg = f"Failed to parse tracking plan {plan_id}: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("tracking_plan_parsing", error_msg)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -903,7 +925,10 @@ class SnowplowBDPClient:
         try:
             return Pipeline.model_validate(response_data)
         except ValidationError as e:
-            logger.error(f"Failed to parse pipeline {pipeline_id}: {e}")
+            error_msg = f"Failed to parse pipeline {pipeline_id}: {e}"
+            logger.error(error_msg)
+            if self.report:
+                self.report.report_warning("pipeline_parsing", error_msg)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )

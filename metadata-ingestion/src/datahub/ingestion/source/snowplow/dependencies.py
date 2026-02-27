@@ -95,7 +95,7 @@ class IngestionState:
     first_event_schema_name: Optional[str] = (
         None  # First event schema for parsed events naming
     )
-    pii_fields_cache: Optional[set] = None  # Cache for PII fields from data structures
+    pii_fields_cache: Optional[Set[str]] = None
     # Field version tracking: schema_key -> (field_path -> version_added)
     field_version_cache: Dict[str, Dict[str, str]] = field(default_factory=dict)
     # Track referenced Iglu URIs from event specs (for standard schema extraction)
@@ -116,6 +116,12 @@ class IngestionState:
         SQLite resources are properly released.
         """
         self.extracted_schema_fields_by_urn.close()
+
+    def __enter__(self) -> "IngestionState":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     # --- Predicate methods ---
 
@@ -275,7 +281,7 @@ class IngestionState:
         self.warehouse_table_urn = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProcessorDependencies:
     """
     Explicit immutable dependencies for processors.

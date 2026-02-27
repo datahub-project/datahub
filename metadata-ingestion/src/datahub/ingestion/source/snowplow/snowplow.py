@@ -351,34 +351,83 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         # Extract schemas (via processor)
         if self.schema_processor.is_enabled():
-            yield from self.schema_processor.extract()
+            try:
+                yield from self.schema_processor.extract()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="schema extraction",
+                    context="schema_processor",
+                )
 
         # Emit tracking plan containers BEFORE event specs so that
         # auto_browse_path_v2 can resolve the full container chain
         # (org → tracking_plan) when computing browse paths for event specs.
         if self.tracking_plan_processor.is_enabled():
-            yield from self.tracking_plan_processor.emit_containers()
+            try:
+                yield from self.tracking_plan_processor.emit_containers()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="tracking plan container emission",
+                    context="tracking_plan_processor",
+                )
 
         # Extract event specifications (via processor)
         if self.event_spec_processor.is_enabled():
-            yield from self.event_spec_processor.extract()
+            try:
+                yield from self.event_spec_processor.extract()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="event specification extraction",
+                    context="event_spec_processor",
+                )
 
         # Extract Snowplow standard schemas (via processor) - MUST be after event specs
         # so we have collected all referenced Iglu URIs from event specifications
         if self.standard_schema_processor.is_enabled():
-            yield from self.standard_schema_processor.extract()
+            try:
+                yield from self.standard_schema_processor.extract()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="standard schema extraction",
+                    context="standard_schema_processor",
+                )
 
         # Emit schema metadata for event specs now that ALL schemas (custom + standard) are extracted
         if self.event_spec_processor.is_enabled():
-            yield from self.event_spec_processor.emit_event_spec_schema_metadata()
+            try:
+                yield from self.event_spec_processor.emit_event_spec_schema_metadata()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="event spec schema metadata emission",
+                    context="event_spec_processor",
+                )
 
         # Extract pipelines and enrichments (via processor)
         if self.pipeline_processor.is_enabled():
-            yield from self.pipeline_processor.extract()
+            try:
+                yield from self.pipeline_processor.extract()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="pipeline extraction",
+                    context="pipeline_processor",
+                )
 
         # Extract warehouse lineage (via processor)
         if self.warehouse_lineage_processor.is_enabled():
-            yield from self.warehouse_lineage_processor.extract()
+            try:
+                yield from self.warehouse_lineage_processor.extract()
+            except Exception as e:
+                self.error_handler.handle_api_error(
+                    error=e,
+                    operation="warehouse lineage extraction",
+                    context="warehouse_lineage_processor",
+                )
 
         # Compute final statistics
         self.report.compute_stats()
@@ -441,6 +490,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for pipeline in pipelines:
                 self._extract_pii_fields_from_pipeline(pipeline.id, pii_fields)
         except Exception as e:
+            self.report.report_warning(
+                "pii_extraction",
+                f"Failed to extract PII fields from enrichments: {e}. "
+                "PII field tagging may be incomplete.",
+            )
             logger.warning(f"Failed to extract PII fields from enrichments: {e}")
 
         self.state.pii_fields_cache = pii_fields
@@ -456,6 +510,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for enrichment in enrichments:
                 self._extract_pii_fields_from_enrichment(enrichment, pii_fields)
         except Exception as e:
+            self.report.report_warning(
+                "pii_extraction",
+                f"Failed to extract PII fields from pipeline {pipeline_id}: {e}. "
+                "PII field tagging may be incomplete for this pipeline.",
+            )
             logger.warning(
                 f"Failed to extract PII fields from pipeline {pipeline_id}: {e}"
             )
