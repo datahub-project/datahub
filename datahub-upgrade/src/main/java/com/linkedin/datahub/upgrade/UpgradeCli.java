@@ -31,6 +31,13 @@ public class UpgradeCli implements CommandLineRunner {
 
     @CommandLine.Option(names = {"-a", "--arg"})
     List<String> args;
+
+    @CommandLine.Option(
+        names = {"-n", "--nonblocking-classname"},
+        description =
+            "Run only the specified non-blocking upgrade(s). Supports comma-delimited list "
+                + "(e.g., BackfillBrowsePathsV2,BackfillPolicyFields). Only applicable with SystemUpdateNonBlocking.")
+    String nonBlockingClassnames;
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
@@ -144,8 +151,15 @@ public class UpgradeCli implements CommandLineRunner {
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
+
+    List<String> execArgs =
+        args.args != null ? new java.util.ArrayList<>(args.args) : new java.util.ArrayList<>();
+    if (args.nonBlockingClassnames != null && !args.nonBlockingClassnames.isBlank()) {
+      execArgs.add("nonBlockingClassnames=" + args.nonBlockingClassnames.trim());
+    }
+
     UpgradeResult result =
-        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), args.args);
+        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), execArgs);
 
     if (DataHubUpgradeState.FAILED.equals(result.result())) {
       System.exit(1);

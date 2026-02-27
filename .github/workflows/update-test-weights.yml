@@ -74,10 +74,10 @@ jobs:
 
           # Check if PR body was generated (non-empty file means changes exceed threshold)
           if [ -s ./pr-body.md ]; then
-            echo "create_pr=true" >> $GITHUB_OUTPUT
+            echo "create_pr=true" >> "$GITHUB_OUTPUT"
             echo "✓ Changes exceed 5% threshold. Will create PR."
           else
-            echo "create_pr=false" >> $GITHUB_OUTPUT
+            echo "create_pr=false" >> "$GITHUB_OUTPUT"
             echo "✓ Changes below 5% threshold. No PR needed."
           fi
 
@@ -107,7 +107,7 @@ jobs:
           git push origin "$BRANCH_NAME"
 
           # Save branch name for PR creation
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
 
       - name: Create pull request
         if: steps.compare.outputs.create_pr == 'true'
@@ -129,18 +129,20 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "### Test Weight Update Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Test Weight Update Summary"
+            echo ""
 
-          if [ "${{ steps.compare.outputs.create_pr }}" == "true" ]; then
-            echo "✅ **PR Created**: Changes exceeded 5% threshold" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Branch: \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "ℹ️ **No PR Created**: Changes below 5% threshold" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Test weights were updated but the changes were too small to warrant a PR." >> $GITHUB_STEP_SUMMARY
-          fi
+            if [ "${{ steps.compare.outputs.create_pr }}" == "true" ]; then
+              echo "✅ **PR Created**: Changes exceeded 5% threshold"
+              echo ""
+              echo "Branch: \`$BRANCH_NAME\`"
+            else
+              echo "ℹ️ **No PR Created**: Changes below 5% threshold"
+              echo ""
+              echo "Test weights were updated but the changes were too small to warrant a PR."
+            fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -46,8 +47,6 @@ public class UpgradeCliApplicationTestConfiguration {
 
   @MockBean public GraphService graphService;
 
-  @MockBean public EntityRegistry entityRegistry;
-
   @MockBean public ConfigEntityRegistry configEntityRegistry;
 
   @MockBean public SearchClientShim<?> searchClientShim;
@@ -64,6 +63,13 @@ public class UpgradeCliApplicationTestConfiguration {
     // Configure SearchClientShim mock to return a valid engine type
     Mockito.when(searchClientShim.getEngineType())
         .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+  }
+
+  /** Use real EntityRegistry from TestOperationContexts for proper annotation-based validation. */
+  @Primary
+  @Bean
+  public EntityRegistry entityRegistry() {
+    return TestOperationContexts.defaultEntityRegistry();
   }
 
   @Primary

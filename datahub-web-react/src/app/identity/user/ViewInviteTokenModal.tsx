@@ -1,18 +1,17 @@
 import { UserOutlined } from '@ant-design/icons';
 import { Button, Modal, Tooltip } from '@components';
 import { Select, Typography, message } from 'antd';
-import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
-import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
+import { useGetInviteTokenQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';
 
 const ModalSection = styled.div`
@@ -72,27 +71,11 @@ type Props = {
 
 export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const baseUrl = window.location.origin;
-    const location = useLocation();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
 
-    // Code related to listing role options and selecting a role
     const noRoleText = 'No Role';
 
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-                query,
-            },
-        },
-    });
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const { roles: selectRoleOptions } = useRoleSelector();
 
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
@@ -102,7 +85,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
     const roleSelectOptions = () =>
         selectRoleOptions.map((role) => {
             return (
-                <Select.Option value={role.urn}>
+                <Select.Option key={role.urn} value={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
                     {role.name}
                 </Select.Option>

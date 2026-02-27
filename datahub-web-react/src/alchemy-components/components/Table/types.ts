@@ -14,6 +14,7 @@ export interface Column<T> {
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
     onCellClick?: (record: T) => void;
+    isCellClickable?: (record: T) => boolean;
     cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 

@@ -120,8 +120,8 @@ meta_mapping:
   case:
     match: "PLT-(.*)"
     operation: "add_tag"
-     config:
-       tag: "case_{{ $match }}"
+    config:
+      tag: "case_{{ $match }}"
 ```
 
 #### Nested meta properties
@@ -293,6 +293,24 @@ source:
       test_results: No
 ```
 
+:::note Tests not showing up in the Assertion UI?
+
+Double check you are using the same `job_id` for your `test_results: Only` and `test_results: No` recipes. Otherwise you might end up reporting `tests_results` for tests that haven't had their `test_definitions` ingested yet. This can lead to orphaned assertions that do not show up under your dataset.
+
+If you choose not to share a `job_id`, you should adjust your recipe to also ingest the `test_definitions`
+
+```yaml
+entities_enabled:
+  models: No
+  sources: No
+  seeds: No
+  snapshots: No
+  test_definitions: Yes
+  test_results: Yes
+```
+
+:::
+
 ### Multiple dbt projects
 
 In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
@@ -356,3 +374,169 @@ source:
 ```
 
 [Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.
+
+### Semantic Views
+
+DataHub can ingest dbt models that have been materialized as `semantic_view` objects, a pattern used to define a semantic layer directly in warehouses like Snowflake.
+
+#### What are Materialized Semantic Views?
+
+A materialized [semantic view](https://docs.snowflake.com/en/user-guide/views-semantic/overview) is a dbt model (a `.sql` file) that uses the `materialized='semantic_view'` configuration via the [dbt_semantic_view package](https://github.com/Snowflake-Labs/dbt_semantic_view). This creates a `SEMANTIC VIEW` object in Snowflake, containing a rich set of metadata including dimensions and metrics.
+
+When you define a dbt model as a semantic view:
+
+```sql
+-- models/sales_analytics.sql
+{{ config(
+    materialized='semantic_view'
+) }}
+
+TABLES (
+    OrdersTable AS {{ source('coffee_shop_source', 'ORDERS') }}
+)
+DIMENSIONS (
+    OrdersTable.CUSTOMER_ID AS CUSTOMER_ID
+)
+METRICS (
+    OrdersTable.GROSS_REVENUE AS SUM(ORDER_TOTAL)
+)
+```
+
+DataHub will:
+
+1. Create a dataset with the subtype `Semantic View`.
+2. Create sibling relationships to the underlying Snowflake `SEMANTIC VIEW` object.
+3. Extract column-level lineage from the semantic view's DDL.
+
+#### Configuration
+
+Semantic views are dbt models with `materialized='semantic_view'`. They are emitted by default along with other models when `entities_enabled.models: Yes` (the default).
+
+#### How Semantic Views Appear in DataHub
+
+- **Subtype**: Datasets are tagged with the subtype `Semantic View`.
+- **Lineage**: Upstream lineage to the source dbt model is created, with column-level lineage where available.
+
+#### Column-Level Lineage for Snowflake Semantic Views
+
+For dbt models materialized as semantic views in Snowflake, DataHub can extract column-level lineage from the compiled DDL. This requires:
+
+1. Using Snowflake as the `target_platform`.
+2. Having the `compiled_code` for the model available in the dbt manifest or dbt Cloud API.
+
+If these conditions are not met, warnings will appear in the ingestion report:
+
+| Condition               | Warning                                 |
+| ----------------------- | --------------------------------------- |
+| Non-Snowflake adapter   | `Semantic View CLL Unsupported Adapter` |
+| Missing `compiled_code` | `Semantic View Missing compiled_code`   |
+| Empty CLL results       | `Semantic View CLL Empty`               |
+| Parsing failure         | `Semantic View CLL Parsing Failed`      |
+
+> **Note: Limitations**
+>
+> Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
+
+### Exposures
+
+DataHub supports ingesting [dbt exposures](https://docs.getdbt.com/docs/build/exposures) - downstream consumers of your dbt models such as dashboards, notebooks, ML models, and applications.
+
+#### What are dbt Exposures?
+
+Exposures define how your dbt models are used downstream. They help you understand the full picture of your data ecosystem by documenting:
+
+- **Dashboards** - BI tools like Looker, Tableau, or Metabase
+- **Notebooks** - Jupyter notebooks or other analysis tools
+- **ML Models** - Machine learning pipelines consuming your data
+- **Applications** - Apps or services that use your data
+- **Analysis** - Ad-hoc analysis or reports
+
+#### How Exposures Map to DataHub
+
+dbt exposures are ingested as **Dashboard** entities in DataHub, with the exposure type preserved as a subtype:
+
+| dbt Exposure Type | DataHub SubType |
+| ----------------- | --------------- |
+| `dashboard`       | Dashboard       |
+| `notebook`        | Notebook        |
+| `ml`              | ML Model        |
+| `application`     | Application     |
+| `analysis`        | Analysis        |
+
+#### Configuration
+
+Exposures are enabled by default. You can control their emission using the `entities_enabled.exposures` config:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: _path_to_manifest_json
+    catalog_path: _path_to_catalog_json
+    target_platform: postgres
+    entities_enabled:
+      exposures: Yes # Default - emit exposures
+      # exposures: No  # Disable exposure ingestion
+      # exposures: Only  # Only emit exposures, skip other entities
+```
+
+#### Lineage
+
+Exposures automatically create lineage relationships to their upstream dbt models. The `depends_on` field in your exposure definition determines which models appear as upstreams:
+
+```yaml
+# models/exposures.yml
+exposures:
+  - name: weekly_metrics_dashboard
+    type: dashboard
+    owner:
+      email: analytics@company.com
+    depends_on:
+      - ref('orders')
+      - ref('customers')
+    url: https://bi.company.com/dashboards/weekly-metrics
+```
+
+This creates lineage: `orders` → `weekly_metrics_dashboard` and `customers` → `weekly_metrics_dashboard`.
+
+#### Owner Resolution
+
+Owner resolution for exposures is **the same** as for other dbt assets (models, sources, etc.). The `enable_owner_extraction` config applies to all of them: when `true` (default), ownership is extracted; when `false`, no ownership aspect is emitted for any dbt asset, including exposures.
+
+For exposures, the owner is read from the exposure definition:
+
+- **`owner.email`** (recommended): used as the user URN (e.g., `analytics@company.com` → `urn:li:corpuser:analytics@company.com`)
+- **`owner.name`** (fallback): converted to lowercase with underscores (e.g., `"John Doe"` → `urn:li:corpuser:john_doe`)
+
+The same configs apply as elsewhere: `strip_user_ids_from_email` strips the domain from email-based owners when set.
+
+:::note
+When only `owner.name` is provided (without email), the generated URN may not match existing users in DataHub. We recommend providing `owner.email` for accurate user matching.
+:::
+
+#### Example Output
+
+An exposure like:
+
+```yaml
+exposures:
+  - name: weekly_metrics_dashboard
+    type: dashboard
+    description: Weekly business metrics for leadership
+    owner:
+      email: analytics@company.com
+    maturity: high
+    url: https://bi.company.com/dashboards/123
+    depends_on:
+      - ref('orders')
+```
+
+Will create a Dashboard entity in DataHub with:
+
+- **Title**: `weekly_metrics_dashboard`
+- **Description**: `Weekly business metrics for leadership`
+- **SubType**: `Dashboard`, `Notebook`, `ML Model`, `Application`, `Analysis`
+- **Owner**: `urn:li:corpuser:analytics@company.com`
+- **External URL**: `https://bi.company.com/dashboards/123`
+- **Upstream Lineage**: Link to the `orders` dbt model
+- **Custom Properties**: `exposure_type`, `maturity`, `dbt_unique_id`

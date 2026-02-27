@@ -604,6 +604,65 @@ class TestMongoSourceConnector:
         assert lineages[0].source_dataset == "my-new-database.users"
         assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
 
+    def test_mongo_source_fine_grained_lineage(self) -> None:
+        """Test MongoDB connector produces column-level lineage when schema resolver is available."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo",
+            },
+            tasks=[],
+            topic_names=["prod.mongo.mydb.users"],
+        )
+
+        mock_resolver = Mock()
+        mock_resolver.resolve_table.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+            {"_id": "string", "name": "string", "email": "string"},
+        )
+
+        connector = MongoSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].target_dataset == "prod.mongo.mydb.users"
+        assert lineages[0].fine_grained_lineages is not None
+        assert len(lineages[0].fine_grained_lineages) == 3
+
+    def test_mongo_source_no_fine_grained_without_schema_resolver(self) -> None:
+        """Test MongoDB connector skips column-level lineage when schema resolver is disabled."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo.avro",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = MongoSourceConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert all(lin.fine_grained_lineages is None for lin in lineages)
+
 
 class TestConfluentCloudConnectors:
     """Test Confluent Cloud connector compatibility with Platform connectors."""
@@ -961,7 +1020,9 @@ class TestFullConnectorConfigValidation:
         )
 
         # Validate each lineage matches expectations
-        for i, (actual, expected) in enumerate(zip(lineages, expected_lineages)):
+        for i, (actual, expected) in enumerate(
+            zip(lineages, expected_lineages, strict=False)
+        ):
             assert actual.source_dataset == expected["source_dataset"], (
                 f"Lineage {i}: Expected source_dataset '{expected['source_dataset']}', "
                 f"got '{actual.source_dataset}'"

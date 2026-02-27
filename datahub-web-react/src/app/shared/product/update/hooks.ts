@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { checkShouldSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLatestProductUpdateQuery } from '@graphql/app.generated';
@@ -57,6 +58,15 @@ export function useIsProductAnnouncementVisible(updateId: string | null | undefi
 
     // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
     if (!userUrn) {
+        return {
+            visible: false,
+            refetch,
+        };
+    }
+
+    // If welcome modal hasn't been seen/dismissed, don't show product update
+    const hasSeenWelcomeModal = checkShouldSkipWelcomeModal();
+    if (!hasSeenWelcomeModal) {
         return {
             visible: false,
             refetch,

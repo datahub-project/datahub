@@ -79,6 +79,7 @@ public class TestUtils {
 
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
@@ -110,6 +111,7 @@ public class TestUtils {
 
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);

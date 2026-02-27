@@ -1,8 +1,9 @@
 import { Icon, Switch, Text } from '@components';
 import cronstrue from 'cronstrue';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/CronField';
@@ -45,6 +46,8 @@ export function ScheduleStep() {
     const [scheduleEnabled, setScheduleEnabled] = useState(!!schedule);
     const [scheduleCronInterval, setScheduleCronInterval] = useState(interval);
     const [scheduleTimezone, setScheduleTimezone] = useState(timezone);
+
+    const analyticsRef = useRef(false);
 
     const cronAsText = useMemo(() => {
         if (scheduleCronInterval) {
@@ -94,6 +97,19 @@ export function ScheduleStep() {
         }
     }, [cronAsText, setCurrentStepCompleted, setCurrentStepUncompleted]);
 
+    useEffect(() => {
+        if (analyticsRef.current) return;
+        if (state) {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.IngestionEnterSyncScheduleEvent,
+                sourceType: state.type || '',
+                sourceUrn: state.ingestionSource?.urn,
+                configurationType: state.isEditing ? 'edit_existing' : 'create_new',
+            });
+        }
+    }, [state]);
+
     return (
         <StepContainer>
             <SwitchLabel>
@@ -105,7 +121,7 @@ export function ScheduleStep() {
                 </Text>
             </SwitchLabel>
             <Switch
-                label="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
+                label="Keep metadata current by automatically syncing on a regular interval"
                 checked={scheduleEnabled}
                 onChange={(e) => setScheduleEnabled(e.target.checked)}
                 labelPosition="right"

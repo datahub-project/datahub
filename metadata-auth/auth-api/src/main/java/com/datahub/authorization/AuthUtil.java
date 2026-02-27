@@ -2,6 +2,7 @@ package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_VIEW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
@@ -112,7 +113,8 @@ public class AuthUtil {
           GLOSSARY_NODE_ENTITY_NAME,
           DOMAIN_ENTITY_NAME,
           DATA_PRODUCT_ENTITY_NAME,
-          NOTEBOOK_ENTITY_NAME);
+          NOTEBOOK_ENTITY_NAME,
+          DATAHUB_VIEW_ENTITY_NAME);
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(

@@ -10,6 +10,7 @@ import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import UserListItem from '@app/identity/user/UserListItem';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     USERS_ASSIGN_ROLE_ID,
@@ -23,9 +24,8 @@ import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListRolesQuery } from '@graphql/role.generated';
 import { useListUsersQuery } from '@graphql/user.generated';
-import { CorpUser, DataHubRole } from '@types';
+import { CorpUser } from '@types';
 
 const UserContainer = styled.div`
     display: flex;
@@ -98,22 +98,16 @@ export const UserList = () => {
     };
 
     const {
+        roles: selectRoleOptions,
         loading: rolesLoading,
-        error: rolesError,
-        data: rolesData,
-    } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     const loading = usersLoading || rolesLoading;
-    const error = usersError || rolesError;
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const error = usersError;
 
     useToggleEducationStepIdsAllowList(canManageUserCredentials, USERS_INVITE_LINK_ID);
 
@@ -168,6 +162,11 @@ export const UserList = () => {
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
                     )}

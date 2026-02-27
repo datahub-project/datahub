@@ -5,7 +5,6 @@ import {
     RecipeField,
     setListValuesOnRecipe,
 } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingestV2/source/utils';
 
 export const OKTA_DOMAIN_URL: RecipeField = {
     name: 'okta_domain',
@@ -16,7 +15,7 @@ export const OKTA_DOMAIN_URL: RecipeField = {
     fieldPath: 'source.config.okta_domain',
     placeholder: 'dev-35531955.okta.com',
     required: true,
-    rules: [() => validateURL('Okta Domain URL')],
+    rules: null,
 };
 
 export const OKTA_API_TOKEN: RecipeField = {
@@ -68,6 +67,7 @@ export const PROFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Okta Profile To User Attribute Regex',
+    filteringResource: 'User',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
@@ -86,6 +86,7 @@ export const PROFILE_TO_USER_REGEX_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Okta Profile To User Attribute Regex',
+    filteringResource: 'User',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
@@ -104,6 +105,7 @@ export const PROFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPathForGroup,
     rules: null,
     section: 'Okta Profile To Group Attribute Regex',
+    filteringResource: 'Group',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPathForGroup),
 };
@@ -122,6 +124,7 @@ export const PROFILE_TO_GROUP_REGX_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPathForGroup,
     rules: null,
     section: 'Okta Profile To Group Attribute Regex',
+    filteringResource: 'Group',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathForGroup),
 };

@@ -1,6 +1,9 @@
 describe("auto-complete", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+      res.body.data.appConfig.featureFlags.showSearchBarAutocompleteRedesign = false;
+    });
     cy.skipIntroducePage();
     cy.hideOnboardingTour();
     cy.login();
@@ -26,7 +29,7 @@ describe("auto-complete", () => {
     // look for a dataflow
     cy.get("input[data-testid=search-input]").type("dataflow user");
     cy.contains("Pipelines").scrollIntoView();
-    cy.contains("Users");
+    cy.contains("users");
     cy.focused().clear();
   });
 

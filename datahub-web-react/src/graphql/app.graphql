@@ -121,6 +121,8 @@ query appConfig {
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
+            hideLineageInSearchCards
+            glossaryBasedPoliciesEnabled
         }
         chromeExtensionConfig {
             enabled
@@ -190,9 +192,21 @@ query getLatestProductUpdate {
         enabled
         id
         title
+        header
+        requiredVersion
         description
         image
+        primaryCtaText
+        primaryCtaLink
+        secondaryCtaText
+        secondaryCtaLink
         ctaText
         ctaLink
+        features {
+            title
+            description
+            icon
+            availability
+        }
     }
 }

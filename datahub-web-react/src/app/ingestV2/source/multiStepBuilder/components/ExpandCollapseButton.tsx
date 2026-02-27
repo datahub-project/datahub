@@ -8,10 +8,10 @@ interface Props {
 
 export function ExpandCollapseButton({ expanded, onToggle }: Props) {
     return (
-        <Button variant="link" color="gray" onClick={onToggle}>
+        <Button variant="link" color="gray" onClick={onToggle} data-testid="expand-collapse-button">
             <Icon
                 source="phosphor"
-                icon={expanded ? 'CaretUp' : 'CaretDown'}
+                icon={expanded ? 'CaretDown' : 'CaretRight'}
                 size="2xl"
                 color="gray"
                 colorLevel={1800}

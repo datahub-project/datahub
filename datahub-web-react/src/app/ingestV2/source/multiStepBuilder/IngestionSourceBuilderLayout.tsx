@@ -32,13 +32,14 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    const breadCrumpStepItems: BreadcrumbItem[] = steps.map((step) => {
-        const breadCrumpItem: BreadcrumbItem = {
+    const breadCrumbStepItems: BreadcrumbItem[] = steps.map((step) => {
+        const breadCrumbItem: BreadcrumbItem = {
             label: step.label,
             onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
+            isCurrent: currentStep === step,
         };
 
-        return breadCrumpItem;
+        return breadCrumbItem;
     }, []);
 
     useEffect(() => {
@@ -59,7 +60,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
                     label: isEditing ? 'Update Source' : 'Create Source',
                     separator: <VerticalDivider type="vertical" />,
                 },
-                ...breadCrumpStepItems,
+                ...breadCrumbStepItems,
             ]}
         />
     );

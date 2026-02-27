@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 : ${MYSQL_PORT:=3306}
 : ${MYSQL_ARGS:=--ssl=0}

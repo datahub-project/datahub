@@ -106,6 +106,12 @@ const meta: Meta = {
                 defaultValue: { summary: `${selectDefaults.width}` },
             },
         },
+        minWidth: {
+            description: 'Minimal width of the Select component.',
+            control: {
+                type: 'number',
+            },
+        },
         isMultiSelect: {
             description: 'Whether the Select component allows multiple values to be selected.',
             control: {
@@ -192,6 +198,9 @@ const meta: Meta = {
             table: {
                 defaultValue: { summary: 'undefined' },
             },
+        },
+        visibilityDeps: {
+            description: 'Additional dependencies to trigger computing of visibility state',
         },
     },
 

@@ -6,14 +6,15 @@ ARG APP_ENV=prod
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 
-FROM alpine:3.22 AS base
+FROM alpine:3.23 AS base
 
 ARG ALPINE_REPO_URL
 
 # Optionally set corporate mirror for apk
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
-RUN apk add --no-cache curl jq bash coreutils
+RUN apk add --no-cache 'curl>8.17.0' --repository=${ALPINE_REPO_URL}/edge/main \
+    && apk add --no-cache jq bash coreutils
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install

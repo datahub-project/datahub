@@ -42,17 +42,19 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -72,9 +74,11 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
+    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
@@ -165,7 +169,7 @@ class Mapper:
         )
 
     def _to_work_unit(
-        self, mcp: MetadataChangeProposalWrapper
+        self, mcp: MetadataChangeProposalWrapper, is_primary_source: bool = True
     ) -> EquableMetadataWorkUnit:
         return Mapper.EquableMetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
@@ -174,6 +178,37 @@ class Mapper:
                 ASPECT_NAME=mcp.aspectName,
             ),
             mcp=mcp,
+            is_primary_source=is_primary_source,
+        )
+
+    def _to_user_work_unit(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> EquableMetadataWorkUnit:
+        """
+        Create work unit for user entities with is_primary_source=False.
+
+        PowerBI is NOT the authoritative source for users (LDAP/Okta/SCIM are).
+        By marking is_primary_source=False, we prevent stateful ingestion from:
+        1. Tracking these user entities in its state
+        2. Soft-deleting them when they disappear from PowerBI
+
+        This follows the pattern used by dbt, Unity Catalog, and other non-authoritative sources.
+        """
+        return self._to_work_unit(mcp, is_primary_source=False)
+
+    def _get_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        """
+        Generate DataPlatformInstanceClass aspect for PowerBI entities.
+        """
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.__config.platform_name),
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.__config.platform_name, self.__config.platform_instance
+                )
+                if self.__config.platform_instance
+                else None
+            ),
         )
 
     def extract_dataset_schema(
@@ -230,11 +265,129 @@ class Mapper:
 
         return fine_grained_lineages
 
+    def extract_directlake_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Extract lineage for DirectLake tables to their upstream Fabric OneLake tables.
+
+        DirectLake tables read data directly from Fabric Lakehouses or Warehouses.
+        This method creates lineage from the PowerBI table to the corresponding OneLake table.
+
+        Args:
+            table: The PowerBI table with DirectLake storage mode
+            ds_urn: The URN of the downstream PowerBI dataset
+            workspace: The workspace containing the Fabric artifacts
+
+        Returns:
+            List of MCPs with upstream lineage to OneLake tables
+        """
+        mcps: List[MetadataChangeProposalWrapper] = []
+        dataset = table.dataset
+
+        if not dataset:
+            logger.debug(f"No dataset for DirectLake table {table.full_name}")
+            return mcps
+
+        if not dataset.dependent_on_artifact_id:
+            logger.debug(
+                f"No dependent artifact ID for DirectLake table {table.full_name}"
+            )
+            return mcps
+
+        # Look up the Fabric artifact (Lakehouse/Warehouse) this dataset depends on
+        artifact = workspace.fabric_artifacts.get(dataset.dependent_on_artifact_id)
+        if not artifact:
+            logger.debug(
+                f"Fabric artifact {dataset.dependent_on_artifact_id} not found "
+                f"for DirectLake table {table.full_name}. Available artifacts: "
+                f"{list(workspace.fabric_artifacts.keys())}"
+            )
+            return mcps
+
+        if not table.source_expression:
+            logger.debug(f"No source expression for DirectLake table {table.full_name}")
+            return mcps
+
+        # Resolve platform instance using server_to_platform_instance mapping
+        # Mapping: workspace_id -> (platform_instance, env)
+        # The platform_instance typically represents the Fabric tenant identifier,
+        # matching how the OneLake connector uses platform_instance to group workspaces by tenant.
+        # Falls back to None if no mapping is found.
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                data_platform_server=workspace.id,  # Use workspace ID as the mapping key
+            )
+        )
+
+        # Resolve item ids for lineage URN. For SQLAnalyticsEndpoint we use physical_item_ids
+        # (from relations.dependentOnArtifactId) so lineage URNs match the OneLake connector;
+        # we do not model SQLAnalyticsEndpoint as an entity (if we do, align with OneLake connector).
+        # Lineage to an SQLAnalyticsEndpoint id is not emitted; we require at least one resolved physical id.
+        if artifact.artifact_type == "SQLAnalyticsEndpoint":
+            item_ids = artifact.physical_item_ids if artifact.physical_item_ids else []
+            if not item_ids:
+                logger.warning(
+                    "DirectLake lineage skipped: SQLAnalyticsEndpoint artifact %s has no "
+                    "resolvable relation to a Lakehouse/Warehouse (table: %s)",
+                    artifact.id,
+                    table.full_name,
+                )
+                return mcps
+        else:
+            item_ids = [artifact.id]
+
+        upstreams: List[UpstreamClass] = []
+        for item_id in item_ids:
+            upstream_urn = make_onelake_urn(
+                workspace_id=workspace.id,
+                item_id=item_id,
+                table_name=table.source_expression,
+                schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
+                env=platform_detail.env or self.__config.env,
+                platform_instance=platform_detail.platform_instance,  # None if not mapped
+            )
+            upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
+            upstreams.append(
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+        logger.info(
+            "DirectLake lineage: %s -> %s upstream(s) (artifact: %s, type: %s)",
+            table.full_name,
+            len(upstreams),
+            artifact.name,
+            artifact.artifact_type,
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
+            aspect=upstream_lineage,
+        )
+        mcps.append(mcp)
+
+        return mcps
+
     def extract_lineage(
-        self, table: powerbi_data_classes.Table, ds_urn: str
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # Check for DirectLake storage mode first - use Fabric lineage path
+        if table.storage_mode == Constant.DIRECT_LAKE:
+            return self.extract_directlake_lineage(table, ds_urn, workspace)
+
+        # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
@@ -262,12 +415,12 @@ class Mapper:
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
-                if (
+                platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping
-                ):
+                )
+                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
                     logger.debug(
-                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                        f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
                     continue
 
@@ -412,9 +565,15 @@ class Mapper:
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
+                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
+                # This is done after all parsing is complete to avoid interfering with M-Query parsing
+
+                converted_expression = native_sql_parser.remove_special_characters(
+                    table.expression
+                )
                 view_properties = ViewPropertiesClass(
                     materialized=False,
-                    viewLogic=table.expression,
+                    viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(
@@ -469,10 +628,18 @@ class Mapper:
                 )
                 dataset_mcps.extend([owner_mcp])
 
-            dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
+            # DataPlatformInstance
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=ds_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            dataset_mcps.extend(
+                [info_mcp, status_mcp, subtype_mcp, data_platform_instance_mcp]
+            )
 
             if self.__config.extract_lineage is True:
-                dataset_mcps.extend(self.extract_lineage(table, ds_urn))
+                dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
 
             self.append_container_mcp(
                 dataset_mcps,
@@ -638,12 +805,20 @@ class Mapper:
             entity_urn=chart_urn,
             aspect=browse_path,
         )
+
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=chart_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         result_mcps = [
             info_mcp,
             status_mcp,
             subtype_mcp,
             chart_key_mcp,
             browse_path_mcp,
+            data_platform_instance_mcp,
         ]
 
         self.append_container_mcp(
@@ -682,7 +857,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            dashboard.users, user_mcps
+        )
 
         def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
@@ -750,11 +927,18 @@ class Mapper:
             aspect=browse_path,
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -783,7 +967,11 @@ class Mapper:
         if self.__config.extract_datasets_to_containers and isinstance(
             dataset, powerbi_data_classes.PowerBIDataset
         ):
-            container_key = dataset.get_dataset_key(self.__config.platform_name)
+            container_key = dataset.get_dataset_key(
+                self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
         elif self.__config.extract_workspaces_to_containers and self.workspace_key:
             container_key = self.workspace_key
         else:
@@ -804,6 +992,7 @@ class Mapper:
         self.workspace_key = workspace.get_workspace_key(
             platform_name=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
             workspace_id_as_urn_part=self.__config.workspace_id_as_urn_part,
         )
         container_work_units = gen_containers(
@@ -821,7 +1010,11 @@ class Mapper:
     def generate_container_for_dataset(
         self, dataset: powerbi_data_classes.PowerBIDataset
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        dataset_key = dataset.get_dataset_key(self.__config.platform_name)
+        dataset_key = dataset.get_dataset_key(
+            self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
+        )
         container_work_units = gen_containers(
             container_key=dataset_key,
             name=dataset.name if dataset.name else dataset.id,
@@ -850,56 +1043,133 @@ class Mapper:
             )
             list_of_mcps.append(tags_mcp)
 
-    def to_datahub_user(
-        self, user: powerbi_data_classes.User
-    ) -> List[MetadataChangeProposalWrapper]:
+    def _make_user_urn(self, user: powerbi_data_classes.User) -> str:
         """
-        Map PowerBi user to datahub user
+        Single source of truth for user URN generation.
+        Handles email/ID selection and suffix removal based on config.
         """
-
-        logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
-
-        # Create an URN for user
         user_id = user.get_urn_part(
             use_email=self.__config.ownership.use_powerbi_email,
             remove_email_suffix=self.__config.ownership.remove_email_suffix,
         )
-        user_urn = builder.make_user_urn(user_id)
-        user_key = CorpUserKeyClass(username=user.id)
+        return builder.make_user_urn(user_id)
 
-        user_key_mcp = self.new_mcp(
-            entity_urn=user_urn,
-            aspect=user_key,
+    def to_datahub_user(
+        self, user: powerbi_data_classes.User
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Create user entity with Key and Info aspects.
+        Only called when create_corp_user=True (opt-in).
+        User accepts conflict risk - PowerBI data may overwrite existing profiles.
+        """
+        logger.debug(
+            "Mapping user %s (id=%s) to datahub corpuser",
+            user.displayName,
+            user.id,
         )
 
-        return [user_key_mcp]
+        user_urn = self._make_user_urn(user)
+        # Extract user_id from URN for Key aspect (must match URN identity)
+        user_id = user_urn.split(":")[-1]
+
+        user_key = CorpUserKeyClass(username=user_id)
+
+        user_info = CorpUserInfoClass(
+            displayName=user.displayName or user_id,  # Fallback to user_id if null
+            email=user.emailAddress
+            or None,  # PowerBI API may return "" for missing email
+            active=True,
+        )
+
+        return [
+            self.new_mcp(entity_urn=user_urn, aspect=user_key),
+            self.new_mcp(entity_urn=user_urn, aspect=user_info),
+        ]
+
+    def _get_qualified_owners(
+        self, users: List[powerbi_data_classes.User]
+    ) -> List[powerbi_data_classes.User]:
+        """
+        Filter users based on principalType and owner_criteria.
+        Returns users that qualify for ownership assignment.
+
+        Filtering rules:
+        - Must be non-None
+        - principalType must be "User" (not Group, App, etc.)
+        - If owner_criteria is set, user must have at least one matching access right
+        - If owner_criteria is None or [], all User-type principals qualify
+        """
+        qualified_users = []
+        for user in users:
+            if not user:
+                continue
+
+            # Check principalType first
+            if not user.principalType or user.principalType != "User":
+                continue
+
+            user_rights = [
+                user.datasetUserAccessRight,
+                user.reportUserAccessRight,
+                user.dashboardUserAccessRight,
+                user.groupUserAccessRight,
+            ]
+
+            # Check if user qualifies based on criteria
+            # Note: Empty list [] is treated same as None (no criteria = all qualify)
+            if not self.__config.ownership.owner_criteria:
+                # No criteria (None or []) - all User-type principals qualify
+                qualified_users.append(user)
+            elif (
+                len(set(user_rights) & set(self.__config.ownership.owner_criteria)) > 0
+            ):
+                # Has matching access rights
+                qualified_users.append(user)
+
+        return qualified_users
 
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
-        user_mcps = []
+        """
+        Return user MCPs if create_corp_user=True, empty list otherwise.
+        When True: Emits full user entities (Key + Info).
+        When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
+        """
+        # Check flag FIRST, return empty if False (soft reference mode)
+        if not self.__config.ownership.create_corp_user:
+            return []
 
-        for user in users:
-            if user:
-                user_rights = [
-                    user.datasetUserAccessRight,
-                    user.reportUserAccessRight,
-                    user.dashboardUserAccessRight,
-                    user.groupUserAccessRight,
-                ]
-                if (
-                    user.principalType == "User"
-                    and self.__config.ownership.owner_criteria
-                    and len(
-                        set(user_rights) & set(self.__config.ownership.owner_criteria)
-                    )
-                    > 0
-                ) or self.__config.ownership.owner_criteria is None:
-                    user_mcps.extend(self.to_datahub_user(user))
-                else:
-                    continue
+        # Opt-in mode: Create full user entities
+        user_mcps = []
+        for user in self._get_qualified_owners(users):
+            user_mcps.extend(self.to_datahub_user(user))
 
         return user_mcps
+
+    def to_datahub_user_urns(self, users: List[powerbi_data_classes.User]) -> List[str]:
+        """
+        Return user URNs for ownership references (soft references).
+        Used when create_corp_user=False (default mode).
+        No entity creation - follows Tableau/Looker pattern.
+        """
+        return [self._make_user_urn(user) for user in self._get_qualified_owners(users)]
+
+    def _get_user_urns_for_ownership(
+        self,
+        users: List[powerbi_data_classes.User],
+        user_mcps: List[MetadataChangeProposalWrapper],
+    ) -> List[str]:
+        """
+        Get user URNs for ownership based on create_corp_user mode.
+
+        When create_corp_user=True (opt-in): Extract URNs from created user MCPs
+        When create_corp_user=False (default): Get URNs directly (soft references)
+        """
+        if self.__config.ownership.create_corp_user:
+            return self.to_urn_set(user_mcps)
+        else:
+            return self.to_datahub_user_urns(users)
 
     def to_datahub_chart(
         self,
@@ -975,17 +1245,26 @@ class Mapper:
             )
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
+        work_units: List[Mapper.EquableMetadataWorkUnit] = [
+            wu for wu in map(self._to_work_unit, mcps) if wu is not None
+        ]
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            user_work_units = [
+                wu for wu in map(self._to_user_work_unit, user_mcps) if wu is not None
+            ]
+            work_units.extend(user_work_units)
+
         # Return set of work_unit
-        return deduplicate_list([wu for wu in work_units if wu is not None])
+        return deduplicate_list(work_units)
 
     def pages_to_chart(
         self,
@@ -1055,7 +1334,20 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
+
+            # DataPlatformInstance aspect
+            data_platform_instance_mcp = self.new_mcp(
+                entity_urn=chart_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            )
+
+            list_of_mcps = [
+                info_mcp,
+                status_mcp,
+                subtype_mcp,
+                browse_path_mcp,
+                data_platform_instance_mcp,
+            ]
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -1092,7 +1384,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        user_urn_list: List[str] = self._get_user_urns_for_ownership(
+            report.users, user_mcps
+        )
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
@@ -1156,12 +1450,19 @@ class Mapper:
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
+        # DataPlatformInstance aspect
+        data_platform_instance_mcp = self.new_mcp(
+            entity_urn=dashboard_urn,
+            aspect=self._get_data_platform_instance_aspect(),
+        )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
             sub_type_mcp,
+            data_platform_instance_mcp,
         ]
 
         if owner_mcp is not None:
@@ -1214,14 +1515,20 @@ class Mapper:
             dataset_edges=dataset_edges,
         )
 
-        # Now add MCPs in sequence
+        # Now add MCPs in sequence (excluding user MCPs which are handled separately)
         mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        return map(self._to_work_unit, mcps)
+        # Convert primary MCPs to work units
+        for mcp in mcps:
+            yield self._to_work_unit(mcp)
+
+        # Handle user MCPs separately with is_primary_source=False
+        # This prevents stateful ingestion from tracking/soft-deleting users
+        if self.__config.ownership.create_corp_user:
+            for mcp in user_mcps:
+                yield self._to_user_work_unit(mcp)
 
 
 @platform_name("PowerBI")
@@ -1293,6 +1600,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         self.mapper = Mapper(
             ctx, config, self.reporter, self.dataplatform_instance_resolver
         )
+
+        # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)
+        if self.source_config.ownership.create_corp_user:
+            logger.info(
+                "PowerBI user creation is ENABLED (create_corp_user=True). "
+                "User entities will be created with displayName and email from PowerBI. "
+                "Note: This may overwrite existing user profiles from LDAP/Okta/SCIM."
+            )
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(

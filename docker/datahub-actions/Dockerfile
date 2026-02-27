@@ -76,8 +76,14 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -301,6 +307,8 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 
 USER datahub
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
@@ -354,6 +362,8 @@ COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 
 USER datahub
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
@@ -431,7 +441,7 @@ CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_G
 # =============================================================================
 
 # Alpine runtime base - minimal packages for running the application
-FROM alpine:3.22 AS alpine-base
+FROM alpine:3.23 AS alpine-base
 
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
@@ -544,6 +554,8 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 USER datahub
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"

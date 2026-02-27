@@ -33,6 +33,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchDocumentSanitizer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
@@ -329,7 +330,9 @@ public class SearchDocumentTransformer {
         fieldValues
             .subList(0, Math.min(fieldValues.size(), maxArrayLength))
             .forEach(
-                value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+                value ->
+                    getNodeForValue(valueType, value, fieldType, fieldSpec)
+                        .ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
     } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
@@ -397,7 +400,7 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
-      getNodeForValue(valueType, fieldValues.get(0), fieldType)
+      getNodeForValue(valueType, fieldValues.get(0), fieldType, fieldSpec)
           .ifPresent(node -> searchDocument.set(fieldName, node));
     }
   }
@@ -444,7 +447,10 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForValue(
-      final DataSchema.Type schemaFieldType, final Object fieldValue, final FieldType fieldType) {
+      final DataSchema.Type schemaFieldType,
+      final Object fieldValue,
+      final FieldType fieldType,
+      final SearchableFieldSpec fieldSpec) {
     switch (schemaFieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
@@ -459,6 +465,12 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
+        // Sanitize text fields based on annotation flag
+        // This prevents OpenSearch indexing failures due to the 32KB term limit
+        if ((fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL)
+            && fieldSpec.getSearchableAnnotation().isSanitizeRichText()) {
+          value = SearchDocumentSanitizer.sanitizeForIndexing(value);
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));

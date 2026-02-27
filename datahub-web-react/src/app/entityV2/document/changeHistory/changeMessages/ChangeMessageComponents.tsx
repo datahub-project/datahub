@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useParentDocumentTitle } from '@app/entityV2/document/changeHistory/hooks/useParentDocumentTitle';
 import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/changeUtils';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Icon } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
@@ -13,10 +14,8 @@ import { DocumentChangeType, EntityType } from '@types';
 const ActionText = styled.div`
     font-size: 14px;
     line-height: 20px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
     color: ${colors.gray[600]};
+    overflow-wrap: break-word;
 `;
 
 const ActorName = styled.span`
@@ -209,6 +208,78 @@ export const DeletedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) =
     </ActionText>
 );
 
+export const RelatedAssetChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const entityRegistry = useEntityRegistry();
+    const { entityUrn, operation } = details;
+    const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
+    const entity = entities[0];
+
+    const action = operation === 'ADD' ? 'added related asset' : 'removed related asset';
+
+    // While loading, show action without the entity name
+    if (loading && entityUrn) {
+        return (
+            <ActionText>
+                <ActorDisplay actorName={actorName} actor={actor} /> {action}
+            </ActionText>
+        );
+    }
+
+    // If we found an entity, show clickable display name
+    if (entity && entityUrn) {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const entityUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        return (
+            <ActionText>
+                <ActorDisplay actorName={actorName} actor={actor} /> {action}{' '}
+                <ClickableText to={entityUrl}>{displayName}</ClickableText>
+            </ActionText>
+        );
+    }
+
+    return (
+        <ActionText>
+            <ActorDisplay actorName={actorName} actor={actor} /> {action}
+        </ActionText>
+    );
+};
+
+export const RelatedDocumentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const entityRegistry = useEntityRegistry();
+    const { entityUrn, operation } = details;
+    const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
+    const entity = entities[0];
+
+    const action = operation === 'ADD' ? 'added related document' : 'removed related document';
+
+    // While loading, show action without the entity name
+    if (loading && entityUrn) {
+        return (
+            <ActionText>
+                <ActorDisplay actorName={actorName} actor={actor} /> {action}
+            </ActionText>
+        );
+    }
+
+    // If we found an entity, show clickable display name
+    if (entity && entityUrn) {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const entityUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        return (
+            <ActionText>
+                <ActorDisplay actorName={actorName} actor={actor} /> {action}{' '}
+                <ClickableText to={entityUrl}>{displayName}</ClickableText>
+            </ActionText>
+        );
+    }
+
+    return (
+        <ActionText>
+            <ActorDisplay actorName={actorName} actor={actor} /> {action}
+        </ActionText>
+    );
+};
+
 interface DefaultMessageProps {
     actorName: string;
     actor: any;
@@ -268,6 +339,12 @@ export const ChangeMessage: React.FC<ChangeMessageProps> = ({
 
         case DocumentChangeType.Deleted:
             return <DeletedMessage actorName={actorName} actor={actor} />;
+
+        case DocumentChangeType.RelatedAssetsChanged:
+            return <RelatedAssetChangedMessage actorName={actorName} actor={actor} details={details} />;
+
+        case DocumentChangeType.RelatedDocumentsChanged:
+            return <RelatedDocumentChangedMessage actorName={actorName} actor={actor} details={details} />;
 
         default:
             return <DefaultMessage actorName={actorName} actor={actor} description={description} />;

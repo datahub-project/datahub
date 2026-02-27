@@ -36,38 +36,6 @@ describe('Filters utils', () => {
                 value: '',
             });
         });
-
-        it('should apply defaults when provided', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'include',
-                subtype: 'database',
-                value: 'test-value',
-            });
-        });
-
-        it('should merge defaults with existing properties', () => {
-            const defaults: Partial<Filter> = {
-                rule: 'exclude',
-            };
-
-            const result = getEmptyFilter(defaults);
-
-            expect(result).toEqual({
-                key: 'mocked-uuid',
-                rule: 'exclude',
-                subtype: undefined,
-                value: '',
-            });
-        });
     });
 
     describe('getInitialFilters', () => {
@@ -83,6 +51,7 @@ describe('Filters utils', () => {
                 fieldPath: 'source.config.database_pattern.allow',
                 rules: null,
                 section: 'Databases',
+                filteringResource: 'Database',
                 rule: FilterRule.INCLUDE,
                 setValueOnRecipeOverride: vi.fn(),
             },
@@ -97,6 +66,7 @@ describe('Filters utils', () => {
                 fieldPath: 'source.config.database_pattern.deny',
                 rules: null,
                 section: 'Databases',
+                filteringResource: 'Database',
                 rule: FilterRule.EXCLUDE,
                 setValueOnRecipeOverride: vi.fn(),
             },
@@ -117,19 +87,19 @@ source:
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db1',
             });
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db2',
             });
             expect(result).toContainEqual({
                 key: 'mocked-uuid',
                 rule: FilterRule.EXCLUDE,
-                subtype: 'Databases',
+                subtype: 'Database',
                 value: 'db3',
             });
         });
@@ -148,29 +118,6 @@ source:
                 key: 'mocked-uuid',
                 rule: undefined,
                 subtype: undefined,
-                value: '',
-            });
-        });
-
-        it('should return a single empty filter with defaults when no values are found in recipe and defaults are provided', () => {
-            const recipe = `
-source:
-  config:
-    other_config: true
-            `.trim();
-
-            const defaults = {
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
-            };
-
-            const result = getInitialFilters(mockFields, recipe, defaults);
-
-            expect(result).toHaveLength(1);
-            expect(result[0]).toEqual({
-                key: 'mocked-uuid',
-                rule: FilterRule.INCLUDE,
-                subtype: 'Databases',
                 value: '',
             });
         });
@@ -202,7 +149,7 @@ source:
     });
 
     describe('getSubtypeOptions', () => {
-        it('should return unique subtype options from fields and sort them alphabetically by label', () => {
+        it('should return unique subtype options from fields', () => {
             const fields: FilterRecipeField[] = [
                 {
                     name: 'field1',
@@ -213,7 +160,8 @@ source:
                     type: FieldType.LIST,
                     fieldPath: 'path1',
                     rules: null,
-                    section: 'Zoo', // Z comes last alphabetically
+                    section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -226,7 +174,8 @@ source:
                     type: FieldType.LIST,
                     fieldPath: 'path2',
                     rules: null,
-                    section: 'Alpha', // A comes first alphabetically
+                    section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -239,7 +188,8 @@ source:
                     type: FieldType.LIST,
                     fieldPath: 'path3',
                     rules: null,
-                    section: 'Database', // D comes in middle alphabetically
+                    section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -252,7 +202,8 @@ source:
                     type: FieldType.LIST,
                     fieldPath: 'path4',
                     rules: null,
-                    section: 'Zoo', // Duplicate section
+                    section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -261,73 +212,15 @@ source:
             const result = getSubtypeOptions(fields);
 
             expect(result).toEqual([
-                { label: 'Alpha', value: 'Alpha' },
                 { label: 'Database', value: 'Database' },
-                { label: 'Zoo', value: 'Zoo' },
+                { label: 'Schema', value: 'Schema' },
             ]);
-
-            // Verify that the results are indeed sorted alphabetically by label
-            const labels = result.map((option) => option.label);
-            const sortedLabels = [...labels].sort((a, b) => a.localeCompare(b));
-            expect(labels).toEqual(sortedLabels);
         });
 
         it('should return empty array when no fields provided', () => {
             const result = getSubtypeOptions([]);
 
             expect(result).toEqual([]);
-        });
-
-        it('should maintain correct alphabetical order with mixed casing', () => {
-            const fields: FilterRecipeField[] = [
-                {
-                    name: 'field1',
-                    label: 'Field 1',
-                    helper: 'Helper 1',
-                    tooltip: 'Tooltip 1',
-                    placeholder: 'placeholder1',
-                    type: FieldType.LIST,
-                    fieldPath: 'path1',
-                    rules: null,
-                    section: 'zebra', // lowercase z
-                    rule: FilterRule.INCLUDE,
-                    setValueOnRecipeOverride: vi.fn(),
-                },
-                {
-                    name: 'field2',
-                    label: 'Field 2',
-                    helper: 'Helper 2',
-                    tooltip: 'Tooltip 2',
-                    placeholder: 'placeholder2',
-                    type: FieldType.LIST,
-                    fieldPath: 'path2',
-                    rules: null,
-                    section: 'Apple', // capitalized A
-                    rule: FilterRule.EXCLUDE,
-                    setValueOnRecipeOverride: vi.fn(),
-                },
-                {
-                    name: 'field3',
-                    label: 'Field 3',
-                    helper: 'Helper 3',
-                    tooltip: 'Tooltip 3',
-                    placeholder: 'placeholder3',
-                    type: FieldType.LIST,
-                    fieldPath: 'path3',
-                    rules: null,
-                    section: 'banana', // lowercase b
-                    rule: FilterRule.INCLUDE,
-                    setValueOnRecipeOverride: vi.fn(),
-                },
-            ];
-
-            const result = getSubtypeOptions(fields);
-
-            expect(result).toEqual([
-                { label: 'Apple', value: 'Apple' },
-                { label: 'banana', value: 'banana' },
-                { label: 'zebra', value: 'zebra' },
-            ]);
         });
     });
 
@@ -344,6 +237,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -357,6 +251,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -384,6 +279,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -397,6 +293,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -429,6 +326,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -442,6 +340,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -477,6 +376,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -490,6 +390,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.EXCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -517,6 +418,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -530,6 +432,7 @@ source:
                     fieldPath: 'path2',
                     rules: null,
                     section: 'Schema',
+                    filteringResource: 'Schema',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },
@@ -563,6 +466,7 @@ source:
                     fieldPath: 'path1',
                     rules: null,
                     section: 'Database',
+                    filteringResource: 'Database',
                     rule: FilterRule.INCLUDE,
                     setValueOnRecipeOverride: vi.fn(),
                 },

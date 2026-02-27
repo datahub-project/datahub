@@ -3,8 +3,6 @@ title: Configuring Remote Executor
 description: Learn how to set up, deploy, and configure Remote Executors in your environment
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Configuring Remote Executor
@@ -46,7 +44,16 @@ Before deploying a Remote Executor, ensure you have the following:
    - Access to your deployment platform (AWS ECS or Kubernetes)
    - Necessary permissions to create resources
 
-3. **Registry Access**
+3. **Network Connectivity**
+
+   The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
+
+   - `https://<your-company>.acryl.io/*` — DataHub GMS API
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
+
+4. **Registry Access**
    - For AWS: Provide your AWS account ID to DataHub Cloud
    - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
 
@@ -80,9 +87,6 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
-<Tabs>
-<TabItem value="ecs" label="Amazon ECS">
-
 ### Deploy on Amazon ECS
 
 1. **AWS Account Configuration**
@@ -101,6 +105,7 @@ The DataHub Team will provide a [Cloudformation Template](https://raw.githubuser
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
 - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+- Executor Pool ID you set in the Datahub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
@@ -178,9 +183,6 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 :::note
 The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
 :::
-
-</TabItem>
-<TabItem value="k8s" label="Kubernetes">
 
 ### Deploy on Kubernetes
 
@@ -285,8 +287,7 @@ source:
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
-</TabItem>
-</Tabs>
+## Checking Remote Executor status
 
 Once you have successfully deployed the Executor in your environment, DataHub will automatically begin reporting Executor Status in the UI:
 
@@ -346,6 +347,7 @@ The following environment variables can be configured to manage memory-intensive
 
    - Verify network connectivity
    - Check DataHub URL configuration
+   - Validate Executor Pool ID
    - Validate access token
 
 2. **Secret Access Failed**

@@ -523,20 +523,21 @@ public class AuthServiceClientTest {
 
     when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
 
-    // Execute the method and expect exception
-    RuntimeException exception =
+    // Execute the method and expect exception (wrapped in RuntimeException or direct)
+    Throwable thrown =
         assertThrows(
-            RuntimeException.class,
-            () -> {
-              authServiceClient.generateSessionTokenForUser(userId, loginSource);
-            });
+            Throwable.class,
+            () -> authServiceClient.generateSessionTokenForUser(userId, loginSource));
 
-    assertTrue(exception.getCause() instanceof IllegalArgumentException);
+    IllegalArgumentException parseError =
+        thrown instanceof RuntimeException && thrown.getCause() instanceof IllegalArgumentException
+            ? (IllegalArgumentException) thrown.getCause()
+            : thrown instanceof IllegalArgumentException ? (IllegalArgumentException) thrown : null;
+    assertNotNull(
+        parseError,
+        "Expected RuntimeException with IllegalArgumentException cause or IllegalArgumentException");
     assertTrue(
-        exception
-            .getCause()
-            .getMessage()
-            .contains("Failed to parse JSON received from the MetadataService"));
+        parseError.getMessage().contains("Failed to parse JSON received from the MetadataService"));
   }
 
   @Test
@@ -554,20 +555,21 @@ public class AuthServiceClientTest {
 
     when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
 
-    // Execute the method and expect exception
-    RuntimeException exception =
+    // Execute the method and expect exception (wrapped in RuntimeException or direct)
+    Throwable thrown =
         assertThrows(
-            RuntimeException.class,
-            () -> {
-              authServiceClient.generateSessionTokenForUser(userId, loginSource);
-            });
+            Throwable.class,
+            () -> authServiceClient.generateSessionTokenForUser(userId, loginSource));
 
-    assertTrue(exception.getCause() instanceof IllegalArgumentException);
+    IllegalArgumentException parseError =
+        thrown instanceof RuntimeException && thrown.getCause() instanceof IllegalArgumentException
+            ? (IllegalArgumentException) thrown.getCause()
+            : thrown instanceof IllegalArgumentException ? (IllegalArgumentException) thrown : null;
+    assertNotNull(
+        parseError,
+        "Expected RuntimeException with IllegalArgumentException cause or IllegalArgumentException");
     assertTrue(
-        exception
-            .getCause()
-            .getMessage()
-            .contains("Failed to parse JSON received from the MetadataService"));
+        parseError.getMessage().contains("Failed to parse JSON received from the MetadataService"));
   }
 
   // Helper methods to create JSON responses

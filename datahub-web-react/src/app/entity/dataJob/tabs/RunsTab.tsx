@@ -13,7 +13,7 @@ import {
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { scrollToTop } from '@app/shared/searchUtils';
 
-import { useGetDataJobRunsQuery } from '@graphql/dataJob.generated';
+import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
 import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
@@ -119,10 +119,11 @@ export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
 
-    const { loading, data } = useGetDataJobRunsQuery({
+    const { loading, data } = useGetExecutionRunsQuery({
         variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE },
     });
-    const runs = data && data?.dataJob?.runs?.runs;
+    const runsData = data?.entity && ('runs' in data?.entity ? data?.entity?.runs : null);
+    const runs = runsData?.runs;
 
     const tableData = runs
         ?.filter((run) => run)
@@ -156,7 +157,7 @@ export const RunsTab = () => {
                 <Pagination
                     current={page}
                     pageSize={PAGE_SIZE}
-                    total={data?.dataJob?.runs?.total || 0}
+                    total={runsData?.total || 0}
                     showLessItems
                     onChange={onChangePage}
                     showSizeChanger={false}

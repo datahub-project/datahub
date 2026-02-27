@@ -25,7 +25,7 @@ export interface RecipeField {
     label: string;
     dynamicLabel?: (values: FieldsValues) => string;
     tooltip: string | React.ReactNode;
-    helper?: string;
+    helper?: string | React.ReactNode;
     type: FieldType;
     fieldPath: string | string[];
     rules: any[] | null;
@@ -52,6 +52,7 @@ export enum FilterRule {
 export interface FilterRecipeField extends RecipeField {
     rule: FilterRule;
     section: string;
+    filteringResource: string;
 }
 
 function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
@@ -124,6 +125,7 @@ export const DATABASE_ALLOW: FilterRecipeField = {
     fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Databases',
+    filteringResource: 'Database',
     rule: FilterRule.INCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, databaseAllowFieldPath),
@@ -142,6 +144,7 @@ export const DATABASE_DENY: FilterRecipeField = {
     fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Databases',
+    filteringResource: 'Database',
     rule: FilterRule.EXCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
@@ -160,6 +163,7 @@ export const DASHBOARD_ALLOW: FilterRecipeField = {
     fieldPath: dashboardAllowFieldPath,
     rules: null,
     section: 'Dashboards',
+    filteringResource: 'Dashboard',
     placeholder: 'my_dashboard',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
@@ -178,6 +182,7 @@ export const DASHBOARD_DENY: FilterRecipeField = {
     fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',
+    filteringResource: 'Dashboard',
     placeholder: 'my_dashboard',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
@@ -198,6 +203,7 @@ export const SCHEMA_ALLOW: FilterRecipeField = {
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Schemas',
+    filteringResource: 'Schema',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
@@ -216,6 +222,7 @@ export const SCHEMA_DENY: FilterRecipeField = {
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Schemas',
+    filteringResource: 'Schema',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
@@ -234,6 +241,7 @@ export const TABLE_ALLOW: FilterRecipeField = {
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
@@ -252,6 +260,7 @@ export const TABLE_DENY: FilterRecipeField = {
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };
@@ -270,6 +279,7 @@ export const VIEW_ALLOW: FilterRecipeField = {
     fieldPath: viewAllowFieldPath,
     rules: null,
     section: 'Views',
+    filteringResource: 'View',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
 };
@@ -288,6 +298,7 @@ export const VIEW_DENY: FilterRecipeField = {
     fieldPath: viewDenyFieldPath,
     rules: null,
     section: 'Views',
+    filteringResource: 'View',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
 };
@@ -316,7 +327,7 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
     helper: 'Extract Table-Level lineage',
-    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the sync.',
+    tooltip: 'Extract Table-Level lineage metadata. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_table_lineage',
     rules: null,

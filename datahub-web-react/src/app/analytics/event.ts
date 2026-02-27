@@ -178,7 +178,9 @@ export enum EventType {
     EnterIngestionFlowEvent,
     IngestionSelectSourceEvent,
     IngestionEnterConfigurationEvent,
+    IngestionEnterSyncScheduleEvent,
     IngestionExitConfigurationEvent,
+    CloseCreateSourceEducationModalEvent,
 }
 
 /**
@@ -689,7 +691,6 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     executionStatus: string;
     viewedSection: string;
     sourceType?: string;
-    recipeUrn?: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
@@ -751,15 +752,24 @@ export interface IngestionEnterConfigurationEvent extends BaseEvent {
     type: EventType.IngestionEnterConfigurationEvent;
     sourceType: string;
     sourceUrn?: string;
-    recipeUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionEnterSyncScheduleEvent extends BaseEvent {
+    type: EventType.IngestionEnterSyncScheduleEvent;
+    sourceType: string;
+    sourceUrn?: string;
     configurationType: 'create_new' | 'edit_existing';
 }
 
 export interface IngestionExitConfigurationEvent extends BaseEvent {
     type: EventType.IngestionExitConfigurationEvent;
     sourceType?: string;
-    recipeUrn?: string;
     exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
+}
+
+export interface CloseCreateSourceEducationModalEvent extends BaseEvent {
+    type: EventType.CloseCreateSourceEducationModalEvent;
 }
 
 // TODO: Find a way to use this event
@@ -1505,4 +1515,6 @@ export type Event =
     | EnterIngestionFlowEvent
     | IngestionSelectSourceEvent
     | IngestionEnterConfigurationEvent
-    | IngestionExitConfigurationEvent;
+    | IngestionEnterSyncScheduleEvent
+    | IngestionExitConfigurationEvent
+    | CloseCreateSourceEducationModalEvent;

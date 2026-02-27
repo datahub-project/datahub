@@ -143,6 +143,83 @@ public class V2MappingsBuilderTest {
     assertEquals(resultWithBothStructuredProps.size(), resultWithOnlyRelatedStructuredProp.size());
   }
 
+  /**
+   * Test that structured properties using the datahub. prefix format (e.g.,
+   * urn:li:entityType:datahub.dataset) are correctly matched to entities. This is the format used
+   * in production and documented in the API.
+   */
+  @Test
+  public void testGetIndexMappingsWithStructuredPropertyDatahubPrefix() throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+
+    // Test structured property with datahub. prefix format - this is the production format
+    StructuredPropertyDefinition structPropWithDatahubPrefix =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propWithDatahubPrefix")
+            .setDisplayName("propWithDatahubPrefix")
+            .setEntityTypes(
+                new UrnArray(
+                    // Use datahub. prefix format (production format)
+                    Urn.createFromString("urn:li:entityType:datahub.dataset"),
+                    Urn.createFromString("urn:li:entityType:datahub.testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+
+    Collection<IndexMapping> resultWithDatahubPrefix =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithDatahubPrefix"),
+                    structPropWithDatahubPrefix)));
+
+    assertNotNull(resultWithDatahubPrefix, "Result should not be null");
+
+    // Test structured property with legacy format (without datahub. prefix)
+    StructuredPropertyDefinition structPropWithLegacyFormat =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propWithLegacyFormat")
+            .setDisplayName("propWithLegacyFormat")
+            .setEntityTypes(
+                new UrnArray(
+                    // Legacy format without datahub. prefix
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+
+    Collection<IndexMapping> resultWithLegacyFormat =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithLegacyFormat"),
+                    structPropWithLegacyFormat)));
+
+    // Both formats should produce the same number of mappings
+    assertEquals(
+        resultWithDatahubPrefix.size(),
+        resultWithLegacyFormat.size(),
+        "Both URN formats should produce the same number of mappings");
+
+    // Test with mixed formats - both should be included
+    Collection<IndexMapping> resultWithMixedFormats =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithDatahubPrefix"),
+                    structPropWithDatahubPrefix),
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propWithLegacyFormat"),
+                    structPropWithLegacyFormat)));
+
+    assertEquals(
+        resultWithMixedFormats.size(),
+        resultWithDatahubPrefix.size(),
+        "Mixed format properties should produce same number of mappings");
+  }
+
   @Test
   public void testGetIndexMappingsWithStructuredPropertyV1() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
@@ -260,6 +337,103 @@ public class V2MappingsBuilderTest {
     assertEquals("testPropNumber", keyInMap);
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  /**
+   * Regression test for structured properties with valueType urn:li:dataType:datahub.urn. Without
+   * StructuredPropertyUtils.getLogicalValueType(), getId() returns "datahub.urn" and no branch
+   * matches, producing a mapping with no type and causing mapper_parsing_exception during reindex.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyWithDatahubUrnValueType()
+      throws URISyntaxException {
+    StructuredPropertyDefinition propWithUrnType =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataJob")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                    propWithUrnType)));
+
+    assertEquals(mappings.size(), 1, "Should have one mapping");
+    String fieldName = "com_example_domain_owner_urn";
+    assertTrue(mappings.containsKey(fieldName), "Should contain sanitized field name");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
+    assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+  }
+
+  /**
+   * Ensures every structured property field has a "type" so reindex/putMapping does not fail with
+   * mapper_parsing_exception.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyEveryFieldHasTypeForReindex()
+      throws URISyntaxException {
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("com.example.domain.owner_urn")
+                    .setDisplayName("Owner URN")
+                    .setEntityTypes(
+                        new UrnArray(
+                            Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataJob"),
+                            Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.urn"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:simpleString"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("simpleString")
+                    .setDisplayName("Simple")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:richTextProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("richTextProp")
+                    .setDisplayName("Rich Text")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(
+                        Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.rich_text"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:dateProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("dateProp")
+                    .setDisplayName("Date")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.date"))));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(mappings.size(), 4, "Should have four field mappings");
+    for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+      assertNotNull(
+          fieldMapping.get("type"),
+          "Every structured property field must have type for reindex: " + entry.getKey());
+    }
   }
 
   @Test

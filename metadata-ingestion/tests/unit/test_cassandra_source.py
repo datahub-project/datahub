@@ -34,7 +34,7 @@ def assert_field_paths_match(
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
 

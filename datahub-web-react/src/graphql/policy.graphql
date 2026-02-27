@@ -1,4 +1,4 @@
-query listPolicies($input: ListPoliciesInput!) {
+query listPolicies($input: ListPoliciesInput!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     listPolicies(input: $input) {
         start
         count

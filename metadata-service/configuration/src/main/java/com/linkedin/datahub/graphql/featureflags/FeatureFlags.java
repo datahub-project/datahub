@@ -48,12 +48,14 @@ public class FeatureFlags {
   private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
-  private String productUpdatesJsonFallbackResourceUrl;
+  private String productUpdatesJsonFallbackResource;
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
+  private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
+  private boolean glossaryBasedPoliciesEnabled = false;
 }

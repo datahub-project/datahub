@@ -10,6 +10,7 @@ This guide specifically covers how to use the [DataHub Cloud Python SDK](https:/
 - Smart Freshness Assertions
 - Smart Volume Assertions
 - Smart Column Metric Assertions
+- Smart SQL Assertions
 
 This is particularly useful for applying data quality checks across many tables and columns at scale.
 
@@ -151,6 +152,7 @@ critical_datasets = find_tables_by_tag(client, "critical")
 assertion_registry = {
     "freshness": {},
     "volume": {},
+    "smart_sql": {},
     "column_metrics": {}
 }
 
@@ -219,6 +221,55 @@ def create_volume_assertions(datasets, client, registry):
 
 # Create volume assertions for all datasets
 create_volume_assertions(datasets, client, assertion_registry)
+```
+
+### Smart SQL Assertions
+
+```python
+def create_smart_sql_assertions(datasets, client, registry):
+    """Create smart SQL assertions for multiple datasets."""
+
+    # Define SQL queries to run on each table
+    sql_queries = {
+        "row_count": "SELECT COUNT(*) FROM {table_name}",
+        "null_check": "SELECT COUNT(*) FROM {table_name} WHERE id IS NULL",
+        "active_records": "SELECT COUNT(*) FROM {table_name} WHERE status = 'active'",
+    }
+
+    for dataset_urn in datasets:
+        registry["smart_sql"][str(dataset_urn)] = {}
+
+        for query_name, query_template in sql_queries.items():
+            try:
+                # Build the query with the table name
+                table_name = dataset_urn.name
+                statement = query_template.format(table_name=table_name)
+
+                # Create smart SQL assertion
+                sql_assertion = client.assertions.sync_smart_sql_assertion(
+                    dataset_urn=dataset_urn,
+                    display_name=f"Smart SQL - {query_name}",
+                    statement=statement,
+                    # AI-powered sensitivity setting
+                    sensitivity="medium",  # options: "low", "medium", "high"
+                    # Tags for grouping
+                    tags=["automated", "smart_sql", query_name],
+                    # Schedule
+                    schedule="0 */6 * * *",  # Every 6 hours
+                    # Enable the assertion
+                    enabled=True
+                )
+
+                # Store the assertion URN
+                registry["smart_sql"][str(dataset_urn)][query_name] = str(sql_assertion.urn)
+
+                print(f"✅ Created smart SQL assertion '{query_name}' for {dataset_urn.name}: {sql_assertion.urn}")
+
+            except Exception as e:
+                print(f"❌ Failed to create smart SQL assertion '{query_name}' for {dataset_urn.name}: {e}")
+
+# Create smart SQL assertions for all datasets
+create_smart_sql_assertions(datasets, client, assertion_registry)
 ```
 
 ## Step 3: Get Column Information

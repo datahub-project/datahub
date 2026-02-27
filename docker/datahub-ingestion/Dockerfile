@@ -76,8 +76,14 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -172,11 +178,15 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 FROM add-code-slim AS final-slim
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
 FROM add-code-full AS final-full
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     UV_LINK_MODE=copy uv pip install \
@@ -184,6 +194,8 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     && datahub --version
 
 FROM add-code-locked AS final-locked
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
@@ -199,7 +211,7 @@ ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 # =============================================================================
 
 # Alpine runtime base - minimal packages for running the application
-FROM alpine:3.22 AS alpine-base
+FROM alpine:3.23 AS alpine-base
 
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
@@ -270,6 +282,8 @@ RUN uv venv --python "$PYTHON_VERSION"
 # (e.g., spacy/blis which don't have pre-built musl wheels)
 FROM alpine-build AS install-slim-alpine
 
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
@@ -284,6 +298,8 @@ RUN uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-s
 
 # Build venv for locked Alpine variant
 FROM alpine-build AS install-locked-alpine
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 
