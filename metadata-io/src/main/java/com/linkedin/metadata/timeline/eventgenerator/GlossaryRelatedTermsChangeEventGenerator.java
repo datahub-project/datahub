@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermUrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
@@ -170,6 +171,8 @@ public class GlossaryRelatedTermsChangeEventGenerator
         .operation(operation)
         .semVerChange(SemanticChangeType.MINOR)
         .description(String.format(format, relationshipName, termUrn.getNameEntity(), entityUrn))
+        .parameters(
+            ImmutableMap.of("termUrn", termUrn.toString(), "relationshipType", relationshipName))
         .auditStamp(auditStamp)
         .build();
   }

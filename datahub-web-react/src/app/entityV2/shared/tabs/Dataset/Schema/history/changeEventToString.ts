@@ -18,6 +18,19 @@ const SET_ASSET_DOC = (description) => `Set asset documentation to ${description
 const SET_FIELD_DOC = (fieldPath, description) =>
     `Set field documentation for ${downgradeV2FieldPath(fieldPath)} to ${description}`;
 
+// Maps backend relationship type strings to human-readable labels.
+// Uses the same vocabulary as the Glossary Term "Related Terms" tab in the UI.
+const RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
+    'Is A': 'inherited',
+    'Has A': 'contained',
+    'Has Value': 'value',
+    'Is Related To': 'related',
+};
+
+function getRelationshipLabel(relationshipType: string): string {
+    return RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
+}
+
 // function that iterates through array of key, value objects and returns the value associated with the key or default value
 // if the key is not found
 function getParameter(
@@ -66,6 +79,20 @@ function formatOwnerType(rawType: string): string {
         .join(' ');
 }
 
+/**
+ * Strip entity URN references from backend descriptions since they are redundant
+ * in the Change History sidebar (we're already viewing that entity's history).
+ * Handles patterns like: "for 'urn:li:...'", "of 'urn:li:...'", "to entity 'urn:li:...'"
+ */
+export function stripEntityUrns(text: string | undefined | null): string {
+    if (!text) return '';
+    return text
+        .replace(/ (?:to|from) entity 'urn:li:[^']*'/g, '')
+        .replace(/ (?:for|of|to|from) 'urn:li:[^']*'/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
 
 export function getChangeEventString(changeEvent: ChangeEvent) {
@@ -79,15 +106,19 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
             displayString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
         }
     } else if (changeEvent.category === CATEGORY_DOCUMENTATION) {
-        const description = getParameter(changeEvent.parameters, 'description', '');
+        const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === 'description');
 
-        if (!changeEvent.modifier) {
-            // Documentation at the entity level
-            displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
-        } else {
-            // Documentation at the field level
-            const fieldPath = changeEvent.modifier;
-            displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
+        // Only override when a description parameter is present (EditableDatasetProperties events).
+        // DomainProperties and GlossaryTermInfo events don't emit this parameter — fall through
+        // to the backend description which already contains a human-readable message.
+        if (hasDescriptionParam) {
+            const description = getParameter(changeEvent.parameters, 'description', '');
+            if (!changeEvent.modifier) {
+                displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
+            } else {
+                const fieldPath = changeEvent.modifier;
+                displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
+            }
         }
     } else if (changeEvent.category === CATEGORY_TAG) {
         const tagUrn = getParameter(changeEvent.parameters, 'tagUrn', '');
@@ -107,15 +138,25 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         const termUrn = getParameter(changeEvent.parameters, 'termUrn', '');
         const termName = termUrn ? extractNameFromUrn(termUrn) : 'Unknown';
         const fieldPath = getParameter(changeEvent.parameters, 'fieldPath');
+        const relationshipType = getParameter(changeEvent.parameters, 'relationshipType');
 
-        if (changeEvent.operation === OPERATION_ADD) {
-            displayString = fieldPath
-                ? `Added term "${termName}" to field ${downgradeV2FieldPath(fieldPath)}.`
-                : `Added term "${termName}".`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
-            displayString = fieldPath
-                ? `Removed term "${termName}" from field ${downgradeV2FieldPath(fieldPath)}.`
-                : `Removed term "${termName}".`;
+        if (relationshipType) {
+            const label = getRelationshipLabel(relationshipType);
+            if (changeEvent.operation === OPERATION_ADD) {
+                displayString = `Added ${label} term "${termName}".`;
+            } else if (changeEvent.operation === OPERATION_REMOVE) {
+                displayString = `Removed ${label} term "${termName}".`;
+            }
+        } else if (termUrn) {
+            if (changeEvent.operation === OPERATION_ADD) {
+                displayString = fieldPath
+                    ? `Added term "${termName}" to field ${downgradeV2FieldPath(fieldPath)}.`
+                    : `Added term "${termName}".`;
+            } else if (changeEvent.operation === OPERATION_REMOVE) {
+                displayString = fieldPath
+                    ? `Removed term "${termName}" from field ${downgradeV2FieldPath(fieldPath)}.`
+                    : `Removed term "${termName}".`;
+            }
         }
     } else if (changeEvent.category === CATEGORY_OWNERSHIP) {
         const ownerUrn = getParameter(changeEvent.parameters, 'ownerUrn', '');
@@ -167,7 +208,7 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
         }
     }
 
-    return displayString;
+    return stripEntityUrns(displayString);
 }
 
 /** @deprecated Use getChangeEventString instead */

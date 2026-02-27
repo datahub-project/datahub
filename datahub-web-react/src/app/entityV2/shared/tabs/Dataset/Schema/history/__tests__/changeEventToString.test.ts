@@ -1,6 +1,7 @@
 import {
     getChangeEventString,
     getDocumentationString,
+    stripEntityUrns,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
 import { ChangeCategoryType, ChangeEvent, ChangeOperationType } from '@src/types.generated';
 
@@ -217,6 +218,91 @@ describe('getChangeEventString', () => {
 
             const result = getChangeEventString(changeEvent);
             expect(result).toBe('Added term "email" to field user.email.');
+        });
+
+        it('should render "Is A" as inherited term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:TestTerm',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:glossaryTerm:AccountBalance',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:AccountBalance' },
+                    { key: 'relationshipType', value: 'Is A' },
+                ],
+                description: "'Is A' relationship 'AccountBalance' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added inherited term "AccountBalance".');
+        });
+
+        it('should render "Has A" as contained term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:TestTerm',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:glossaryTerm:Revenue',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:Revenue' },
+                    { key: 'relationshipType', value: 'Has A' },
+                ],
+                description: "'Has A' relationship 'Revenue' removed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed contained term "Revenue".');
+        });
+
+        it('should render "Has Value" as value term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:ColorEnum',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:glossaryTerm:RED',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:RED' },
+                    { key: 'relationshipType', value: 'Has Value' },
+                ],
+                description: "'Has Value' relationship 'RED' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added value term "RED".');
+        });
+
+        it('should render "Is Related To" as related term', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:TestTerm',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:glossaryTerm:DataQuality',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:DataQuality' },
+                    { key: 'relationshipType', value: 'Is Related To' },
+                ],
+                description: "'Is Related To' relationship 'DataQuality' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added related term "DataQuality".');
+        });
+
+        it('should safely handle unknown relationship types as "related"', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:TestTerm',
+                category: ChangeCategoryType.GlossaryTerm,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:glossaryTerm:SomeTerm',
+                parameters: [
+                    { key: 'termUrn', value: 'urn:li:glossaryTerm:SomeTerm' },
+                    { key: 'relationshipType', value: 'SomeNewRelationship' },
+                ],
+                description: 'Unknown relationship added.',
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added related term "SomeTerm".');
         });
     });
 
@@ -482,6 +568,48 @@ describe('getChangeEventString', () => {
 
             const result = getChangeEventString(changeEvent);
             expect(result).toBe('Application was modified.');
+        });
+    });
+
+    describe('Entity URN stripping', () => {
+        it('should strip entity URN from documentation fallthrough descriptions', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:glossaryTerm:AccountBalance',
+                category: ChangeCategoryType.Documentation,
+                operation: ChangeOperationType.Add,
+                description:
+                    "Documentation for 'urn:li:glossaryTerm:AccountBalance' has been added: 'amount of money'.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe("Documentation has been added: 'amount of money'.");
+        });
+
+        it('should strip entity URN from domain name change descriptions', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:li:domain:engineering',
+                category: ChangeCategoryType.Documentation,
+                operation: ChangeOperationType.Modify,
+                description: "Name of 'urn:li:domain:engineering' has been changed from 'Eng' to 'Engineering'.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe("Name has been changed from 'Eng' to 'Engineering'.");
+        });
+
+        it('should strip "to entity" URN pattern from backend descriptions', () => {
+            const result = stripEntityUrns("Term 'revenue' added to entity 'urn:li:dataset:foo'.");
+            expect(result).toBe("Term 'revenue' added.");
+        });
+
+        it('should handle descriptions without URNs unchanged', () => {
+            const result = stripEntityUrns('Added owner "jane".');
+            expect(result).toBe('Added owner "jane".');
+        });
+
+        it('should handle null/undefined safely', () => {
+            expect(stripEntityUrns(null)).toBe('');
+            expect(stripEntityUrns(undefined)).toBe('');
         });
     });
 
