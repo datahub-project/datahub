@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import GlossarySelector from '@app/permissions/policy/GlossarySelector';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,
@@ -20,6 +21,7 @@ import {
 } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
@@ -66,7 +68,7 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.borderDisabled};
     line-height: 16px;
 `;
 
@@ -87,6 +89,7 @@ export default function PolicyPrivilegeForm({
     focusPolicyUrn,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
     const [domainInputValue, setDomainInputValue] = useState('');
     const [containerInputValue, setContainerInputValue] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -702,6 +705,11 @@ export default function PolicyPrivilegeForm({
                             </Select.Option>
                         ))}
                     </Select>
+                </Form.Item>
+            )}
+            {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
+                <Form.Item label={<Typography.Text strong>Select Glossary Terms & Term Groups</Typography.Text>}>
+                    <GlossarySelector resources={resources} setResources={setResources} />
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>

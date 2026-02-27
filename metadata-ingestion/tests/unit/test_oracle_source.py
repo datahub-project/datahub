@@ -5,7 +5,9 @@ from unittest.mock import Mock, patch
 import pytest
 import sqlalchemy.exc
 from pydantic import ValidationError
+from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine import Inspector
+from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -17,6 +19,7 @@ from datahub.ingestion.source.sql.oracle import (
     OracleSource,
     ProcedureDependencies,
     VSqlPrerequisiteCheckResult,
+    extra_oracle_types,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -303,6 +306,54 @@ class TestOracleInspectorObjectWrapper:
         self.mock_inspector.bind.execute.assert_called_once()
         call_args = self.mock_inspector.bind.execute.call_args
         assert "dba_mviews" in str(call_args[0][0]).lower()
+
+    def test_get_columns_sdo_geometry(self):
+        """SDO_GEOMETRY columns must resolve to a non-null type when ischema_names is patched."""
+        self.mock_inspector.dialect.server_version_info = (19,)
+        self.mock_inspector.bind.execute.return_value = [
+            [
+                "GEOM_COLUMN",
+                "SDO_GEOMETRY",
+                0,
+                None,
+                None,
+                "Y",
+                None,
+                None,
+                "NO",
+                None,
+                None,
+            ]
+        ]
+
+        with patch.dict(
+            "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
+            {klass.__name__: klass for klass in extra_oracle_types},
+            clear=False,
+        ):
+            columns = self.wrapper.get_columns("TEST_TABLE", "TEST_SCHEMA")
+
+        assert len(columns) == 1
+        assert columns[0]["name"] == "geom_column"
+        assert not isinstance(columns[0]["type"], sqltypes.NullType)
+
+    def test_get_columns_xmltype(self):
+        """XMLTYPE columns must resolve to a non-null type when ischema_names is patched."""
+        self.mock_inspector.dialect.server_version_info = (19,)
+        self.mock_inspector.bind.execute.return_value = [
+            ["XML_COLUMN", "XMLTYPE", 0, None, None, "Y", None, None, "NO", None, None]
+        ]
+
+        with patch.dict(
+            "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
+            {klass.__name__: klass for klass in extra_oracle_types},
+            clear=False,
+        ):
+            columns = self.wrapper.get_columns("TEST_TABLE", "TEST_SCHEMA")
+
+        assert len(columns) == 1
+        assert columns[0]["name"] == "xml_column"
+        assert not isinstance(columns[0]["type"], sqltypes.NullType)
 
 
 class TestOracleSource:
@@ -1111,3 +1162,31 @@ class TestOracleProcedureLineage:
         assert dependencies.upstream_tables[0].table == "EMPLOYEES"
         assert dependencies.upstream_tables[0].type == OracleObjectType.TABLE
         assert dependencies.upstream_tables[1].type == OracleObjectType.VIEW
+
+
+def test_extra_oracle_types_registered_during_workunits_iteration():
+    """Regression: ischema_names patch must stay active while get_workunits is iterated."""
+    registered_during_iteration: list[bool] = []
+
+    def mock_parent_workunits():
+        for type_cls in extra_oracle_types:
+            registered_during_iteration.append(type_cls.__name__ in ischema_names)
+        return
+        yield  # make it a generator
+
+    config = OracleConfig(
+        username="user",
+        password="password",
+        host_port="host:1521",
+        service_name="svc01",
+    )
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, PipelineContext("test-extra-types"))
+        with patch(
+            "datahub.ingestion.source.sql.sql_common.SQLAlchemySource.get_workunits",
+            return_value=mock_parent_workunits(),
+        ):
+            list(source.get_workunits())
+
+    assert all(registered_during_iteration)

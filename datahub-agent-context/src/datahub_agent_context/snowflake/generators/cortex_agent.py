@@ -32,6 +32,7 @@ def generate_cortex_agent_sql(
       - Schema exploration (get_entities, list_schema_fields)
       - Lineage analysis (get_lineage, get_lineage_paths_between)
       - Query patterns (get_dataset_queries)
+      - Data quality (get_dataset_assertions)
       - Metadata management (tags, descriptions, owners, domains, glossary terms)
       - User information (get_me)"""
 
@@ -66,6 +67,12 @@ def generate_cortex_agent_sql(
       2. Use get_lineage_paths_between for detailed end-to-end transformations.
       3. Explain lineage in plain business terms plus technical dependencies.
 
+      For data quality questions:
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
+
       For metadata management:
       1. Search entities first and collect exact URNs.
       2. Propose the intended changes clearly.
@@ -80,6 +87,7 @@ def generate_cortex_agent_sql(
       - Schema exploration (get_entities, list_schema_fields)
       - Lineage analysis (get_lineage, get_lineage_paths_between)
       - Query patterns (get_dataset_queries)
+      - Data quality (get_dataset_assertions)
       - User information (get_me)"""
 
         orchestration_guidance = """You are an assistant for business analytics and operational data questions for analysts, data engineers, and decision makers.
@@ -112,6 +120,12 @@ def generate_cortex_agent_sql(
       1. Use get_lineage for upstream/downstream exploration.
       2. Use get_lineage_paths_between for detailed end-to-end transformations.
       3. Explain lineage in plain business terms plus technical dependencies.
+
+      For data quality questions:
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
 
       If DataHub search returns no useful results:
       - Say so explicitly.
@@ -413,7 +427,7 @@ def generate_cortex_agent_sql(
     )
 
     tool_count_note = (
-        "20 tools (read + write)" if include_mutations else "9 tools (read-only)"
+        "21 tools (read + write)" if include_mutations else "10 tools (read-only)"
     )
     query_description = " and manage metadata" if include_mutations else ""
     comment_suffix = " and metadata management" if include_mutations else ""
@@ -431,7 +445,9 @@ def generate_cortex_agent_sql(
       - question: "Add a description to the revenue column"
         answer: "I'll update the description for the revenue column."
       - question: "Who owns the analytics datasets?"
-        answer: "I'll search for analytics datasets and show their ownership information."'''
+        answer: "I'll search for analytics datasets and show their ownership information."
+      - question: "Are there any failing data quality checks on the orders table?"
+        answer: "I'll fetch the assertions for the orders table and check their status."'''
 
     sample_questions_readonly = '''
       - question: "What tables contain customer data?"
@@ -441,7 +457,9 @@ def generate_cortex_agent_sql(
       - question: "What queries use the users table?"
         answer: "I'll retrieve the SQL queries that reference the users table."
       - question: "Who owns the analytics datasets?"
-        answer: "I'll search for analytics datasets and show their ownership information."'''
+        answer: "I'll search for analytics datasets and show their ownership information."
+      - question: "Are there any failing data quality checks on the orders table?"
+        answer: "I'll fetch the assertions for the orders table and check their status."'''
 
     sample_questions = (
         sample_questions_with_mutations
@@ -622,6 +640,34 @@ CREATE OR REPLACE AGENT {agent_name}
               description: "Number of queries. Default: 10"
           required: [urn, column_name, source, count]
 
+    # Data Quality Tools
+    - tool_spec:
+        type: "generic"
+        name: "get_dataset_assertions"
+        description: "Get data quality assertions for a dataset with their latest run results (pass/fail). Filter by column, type, or status. Use search_datahub first to find the dataset URN."
+        input_schema:
+          type: "object"
+          properties:
+            urn:
+              type: "string"
+              description: "Dataset URN (from search_datahub results)"
+            column_name:
+              type: "string"
+              description: "Column/field path to filter assertions. Default: null (all assertions)"
+            assertion_type:
+              type: "string"
+              description: "'FRESHNESS', 'VOLUME', 'FIELD', 'SQL', 'DATASET', 'DATA_SCHEMA', 'CUSTOM', or null for all"
+            status:
+              type: "string"
+              description: "'PASSING', 'FAILING', 'ERROR', 'INIT', or null for all"
+            count:
+              type: "number"
+              description: "Number of assertions to return. Default: 5"
+            run_events_count:
+              type: "number"
+              description: "Recent run events per assertion (1-10). Default: 1"
+          required: [urn, column_name, assertion_type, status, count, run_events_count]
+
     # Document Search Tools
     - tool_spec:
         type: "generic"
@@ -727,6 +773,14 @@ CREATE OR REPLACE AGENT {agent_name}
         warehouse: {warehouse}
       identifier: {database}.{schema}.GET_DATASET_QUERIES
 
+    # Data Quality
+    get_dataset_assertions:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_DATASET_ASSERTIONS
+
     # Documents
     search_documents:
       type: "function"
@@ -766,7 +820,7 @@ GRANT USAGE ON AGENT {agent_name} TO ROLE IDENTIFIER($SF_ROLE);
 DESCRIBE AGENT {agent_name};
 
 SELECT
-    'Agent created successfully with {"20 DataHub tools (read + write)" if include_mutations else "9 DataHub tools (read-only)"}!' AS status,
+    'Agent created successfully with {"21 DataHub tools (read + write)" if include_mutations else "10 DataHub tools (read-only)"}!' AS status,
     '{agent_name}' AS agent_name,
     'You can now use this agent in Snowflake Intelligence UI for {"SQL generation and metadata management" if include_mutations else "SQL generation and metadata exploration"}' AS next_steps;
 """

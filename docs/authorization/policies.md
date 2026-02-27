@@ -55,17 +55,48 @@ A Metadata Policy can be broken down into 3 parts:
 
 #### Resources
 
-Resources can be associated with the policy in a number of ways.
+Resources can be associated with the policy in a number of ways:
 
-1. List of resource types - The entity's type for example: dataset, chart, dashboard
-2. List of resource URNs
-3. List of tags
-4. List of domains
+1. **Resource types** - The entity's type, for example: dataset, chart, dashboard
+2. **Resource URNs** - Specific entity URNs to target
+3. **Tags** - Assets tagged with specific tags
+4. **Domains** - Assets within specific domains
+5. **Containers** - Assets within specific containers (e.g., databases, schemas)
+6. **Glossary Terms or Term Groups** - Assets annotated with specific glossary terms or any term within a term group (see [Glossary-Based Policy Targeting](#glossary-based-policy-targeting) below)
 
 :::note Important Note
 The associations in the list above are an _intersection_ or an _AND_ operation. For example, if the policy targets
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
+
+##### Domain-Based Policy Targeting
+
+Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.
+
+When you target a policy by domain, the policy applies recursively to any asset that belongs to that domain as well as any assets in nested child domains.
+
+**Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
+
+##### Container-Based Policy Targeting
+
+Policies can be targeted to assets based on **Containers** (e.g., databases, schemas, projects). This allows you to apply permissions based on technical organization.
+
+When you target a policy by container, the policy applies recursively to all assets within that container as well as any assets in nested child containers.
+
+**Example**: A policy targeting a "production" database container will apply to all schemas within that database and all tables within those schemas.
+
+##### Glossary-Based Policy Targeting
+
+Policies can be targeted to assets based on **Glossary Terms** or **Glossary Term Groups**. This allows you to apply permissions based on business vocabulary rather than technical properties.
+
+When you target a policy by glossary terms or groups:
+
+- **Individual Terms**: The policy applies to any asset annotated with that specific glossary term
+- **Term Groups**: The policy applies recursively to assets annotated with any term within that group, including all nested child terms and groups
+
+This works similarly to domain and container-based policies, automatically covering assets as your glossary evolves.
+
+**Example**: A policy targeting the "Sensitive Data" term group will apply to all assets tagged with child terms like "PII", "PHI", or any terms in nested groups, without requiring policy updates when new terms are added to the hierarchy.
 
 #### Privileges
 
