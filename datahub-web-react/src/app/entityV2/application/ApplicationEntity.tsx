@@ -42,22 +42,12 @@ export class ApplicationEntity implements Entity<Application> {
     type: EntityType = EntityType.Application;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <AppWindow className={TYPE_ICON_CLASS_NAME} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <AppWindow className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
-        if (styleType === IconStyleType.SVG) {
-            return <AppWindow className={TYPE_ICON_CLASS_NAME} />;
-        }
-
         return (
             <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

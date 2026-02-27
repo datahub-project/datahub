@@ -1,4 +1,5 @@
-import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
+import { FileOutlined } from '@ant-design/icons';
+import { FileSql } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -23,11 +24,13 @@ import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 export class QueryEntity implements Entity<Query> {
     type: EntityType = EntityType.Query;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <ConsoleSqlOutlined
+            <FileSql
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
