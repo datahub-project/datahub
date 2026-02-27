@@ -620,6 +620,19 @@ class SnowflakeV2Config(
         return shares
 
     @model_validator(mode="after")
+    def validate_view_pattern_pushdown(self) -> "SnowflakeV2Config":
+        if (
+            self.push_down_metadata_patterns
+            and not self.fetch_views_from_information_schema
+        ):
+            logger.warning(
+                "push_down_metadata_patterns is enabled but fetch_views_from_information_schema is not. "
+                "view_pattern will NOT be pushed down to Snowflake and will fall back to Python re.match() filtering. "
+                "Enable fetch_views_from_information_schema to ensure consistent pushdown behavior for view patterns."
+            )
+        return self
+
+    @model_validator(mode="after")
     def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":
         if self.use_queries_v2:
             if (

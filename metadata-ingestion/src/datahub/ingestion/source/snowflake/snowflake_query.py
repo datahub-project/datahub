@@ -1,3 +1,4 @@
+import logging
 from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -8,6 +9,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
+logger = logging.getLogger(__name__)
+
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
@@ -15,19 +18,21 @@ SHOW_STREAM_MAX_PAGE_SIZE = 10000
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
 ) -> str:
-    upstream_sql_filter = (
-        " AND ".join(
-            [
-                (f"NOT RLIKE({col_name},'{regexp}','i')")
-                for col_name in filter_cols
-                for regexp in deny_pattern
-            ]
-        )
-        if deny_pattern
-        else ""
-    )
+    """Build a deny-only SQL filter across one or more columns.
 
-    return upstream_sql_filter
+    Delegates to SnowflakeQuery._build_pattern_filter for SQL generation,
+    ensuring a single code path for all RLIKE-based filtering.
+    """
+    if not deny_pattern:
+        return ""
+
+    pattern = AllowDenyPattern(deny=deny_pattern)
+    conditions = [
+        col_filter
+        for col in filter_cols
+        if (col_filter := SnowflakeQuery._build_pattern_filter(pattern, col))
+    ]
+    return " AND ".join(conditions)
 
 
 class SnowflakeQuery:
@@ -61,6 +66,12 @@ class SnowflakeQuery:
             return ""
 
         if pattern.allow == []:
+            logger.warning(
+                "Pattern has an empty allow list for column '%s'. "
+                "This will exclude all entities matching this filter, "
+                "which may result in zero ingested entities.",
+                column_expr,
+            )
             return "FALSE"
 
         if pattern.allow == [".*"] and not pattern.deny:
@@ -242,7 +253,7 @@ class SnowflakeQuery:
     def _build_table_type_conditions(
         table_types: AbstractSet[str],
         exclude_dynamic_tables: bool = False,
-    ) -> list:
+    ) -> List[str]:
         """Build WHERE conditions for table type filtering.
 
         Args:
