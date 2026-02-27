@@ -537,9 +537,17 @@ class DataStructureBuilder:
         )
 
         # Fetch using the /versions/{version} endpoint which returns full schema
-        full_structure = self.bdp_client.get_data_structure_version(
-            data_structure.hash, version, env
-        )
+        try:
+            full_structure = self.bdp_client.get_data_structure_version(
+                data_structure.hash, version, env
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch schema definition for {data_structure.vendor}/{data_structure.name} "
+                f"version {version}: {e}. Schema will be extracted without field-level metadata.",
+                exc_info=True,
+            )
+            return data_structure
 
         if full_structure and full_structure.data:
             logger.info(

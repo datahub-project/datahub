@@ -256,7 +256,24 @@ class SchemaProcessor(EntityProcessor):
         data_structures = self._get_data_structures_filtered()
 
         for data_structure in data_structures:
-            yield from self._process_data_structure(data_structure)
+            try:
+                yield from self._process_data_structure(data_structure)
+            except Exception as e:
+                schema_id = (
+                    f"{data_structure.vendor}/{data_structure.name}"
+                    if data_structure.vendor
+                    else data_structure.hash or "unknown"
+                )
+                logger.warning(
+                    f"Failed to process data structure {schema_id}: {e}",
+                    exc_info=True,
+                )
+                self.report.report_warning(
+                    title="Failed to process data structure",
+                    message=f"Skipping schema {schema_id}: {e}. "
+                    "Remaining schemas will still be processed.",
+                )
+                continue
 
     def _extract_schemas_from_iglu(self) -> Iterable[MetadataWorkUnit]:
         """
