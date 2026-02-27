@@ -35,7 +35,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryTableSnapshot,
     BigqueryView,
-    _parse_external_table_options,
+    ExternalTableOptions,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -1667,55 +1667,48 @@ def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
     assert match is not None
 
 
-def test_parse_external_table_options_parquet() -> None:
-    ddl = "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'PARQUET', uris = [\"gs://bucket/path/*\"])"
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt == "PARQUET"
-    assert uris == ["gs://bucket/path/*"]
-    assert compression is None
-    assert max_bad_records is None
-
-
-def test_parse_external_table_options_csv_multiple_uris() -> None:
-    ddl = 'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = \'CSV\', uris = ["gs://bucket/a.csv","gs://bucket/b.csv"])'
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt == "CSV"
-    assert uris == ["gs://bucket/a.csv", "gs://bucket/b.csv"]
-
-
-def test_parse_external_table_options_no_format() -> None:
-    ddl = 'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(uris = ["gs://bucket/path/*"])'
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt is None
-    assert uris == ["gs://bucket/path/*"]
-
-
-def test_parse_external_table_options_format_case_insensitive() -> None:
-    ddl = "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(FORMAT = 'orc', uris = [\"gs://bucket/path/*\"])"
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt == "ORC"
-
-
-def test_parse_external_table_options_compression_and_max_bad_records() -> None:
-    ddl = "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'CSV', uris = [\"gs://bucket/a.csv\"], compression = 'GZIP', max_bad_records = 10)"
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt == "CSV"
-    assert compression == "GZIP"
-    assert max_bad_records == 10
-
-
-def test_parse_external_table_options_no_compression_or_max_bad_records() -> None:
-    ddl = "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'PARQUET', uris = [\"gs://bucket/path/*\"])"
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt == "PARQUET"
-    assert compression is None
-    assert max_bad_records is None
-
-
-def test_parse_external_table_options_no_match() -> None:
-    ddl = "CREATE TABLE `p.d.t` (id INT64)"
-    fmt, uris, compression, max_bad_records = _parse_external_table_options(ddl)
-    assert fmt is None
-    assert uris is None
-    assert compression is None
-    assert max_bad_records is None
+@pytest.mark.parametrize(
+    "ddl, expected",
+    [
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'PARQUET', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="PARQUET",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = \'CSV\', uris = ["gs://bucket/a.csv","gs://bucket/b.csv"])',
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv", "gs://bucket/b.csv"],
+            ),
+        ),
+        (
+            'CREATE EXTERNAL TABLE `p.d.t` OPTIONS(uris = ["gs://bucket/path/*"])',
+            ExternalTableOptions(source_uris=["gs://bucket/path/*"]),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(FORMAT = 'orc', uris = [\"gs://bucket/path/*\"])",
+            ExternalTableOptions(
+                source_format="ORC",
+                source_uris=["gs://bucket/path/*"],
+            ),
+        ),
+        (
+            "CREATE EXTERNAL TABLE `p.d.t` OPTIONS(format = 'CSV', uris = [\"gs://bucket/a.csv\"], compression = 'GZIP', max_bad_records = 10)",
+            ExternalTableOptions(
+                source_format="CSV",
+                source_uris=["gs://bucket/a.csv"],
+                compression="GZIP",
+                max_bad_records=10,
+            ),
+        ),
+        (
+            "CREATE TABLE `p.d.t` (id INT64)",
+            ExternalTableOptions(),
+        ),
+    ],
+)
+def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) -> None:
+    assert ExternalTableOptions.from_ddl(ddl) == expected

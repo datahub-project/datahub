@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Iterable,
@@ -14,7 +15,6 @@ from typing import (
     List,
     Optional,
     Set,
-    Tuple,
 )
 
 from google.api_core import retry
@@ -50,47 +50,44 @@ from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_EXTERNAL_TABLE_DDL_FORMAT_RE = re.compile(
-    r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
-)
-_EXTERNAL_TABLE_DDL_URIS_RE = re.compile(r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE)
-_EXTERNAL_TABLE_DDL_URI_ITEM_RE = re.compile(r"['\"]([^'\"]+)['\"]")
-_EXTERNAL_TABLE_DDL_COMPRESSION_RE = re.compile(
-    r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
-)
-_EXTERNAL_TABLE_DDL_MAX_BAD_RECORDS_RE = re.compile(
-    r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
-)
 
+@dataclass
+class ExternalTableOptions:
+    _FORMAT_RE: ClassVar[re.Pattern] = re.compile(
+        r"format\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _URIS_RE: ClassVar[re.Pattern] = re.compile(
+        r"uris\s*=\s*\[([^\]]+)\]", re.IGNORECASE
+    )
+    _URI_ITEM_RE: ClassVar[re.Pattern] = re.compile(r"['\"]([^'\"]+)['\"]")
+    _COMPRESSION_RE: ClassVar[re.Pattern] = re.compile(
+        r"compression\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE
+    )
+    _MAX_BAD_RECORDS_RE: ClassVar[re.Pattern] = re.compile(
+        r"max_bad_records\s*=\s*(\d+)", re.IGNORECASE
+    )
 
-def _parse_external_table_options(
-    ddl: str,
-) -> Tuple[Optional[str], Optional[List[str]], Optional[str], Optional[int]]:
-    """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
     source_format: Optional[str] = None
     source_uris: Optional[List[str]] = None
     compression: Optional[str] = None
     max_bad_records: Optional[int] = None
 
-    format_match = _EXTERNAL_TABLE_DDL_FORMAT_RE.search(ddl)
-    if format_match:
-        source_format = format_match.group(1).upper()
+    @classmethod
+    def from_ddl(cls, ddl: str) -> "ExternalTableOptions":
+        """Parse source_format, source_uris, compression, and max_bad_records from a BigQuery external table DDL."""
+        opts = cls()
 
-    uris_match = _EXTERNAL_TABLE_DDL_URIS_RE.search(ddl)
-    if uris_match:
-        items = _EXTERNAL_TABLE_DDL_URI_ITEM_RE.findall(uris_match.group(1))
-        if items:
-            source_uris = items
+        if m := cls._FORMAT_RE.search(ddl):
+            opts.source_format = m.group(1).upper()
+        if m := cls._URIS_RE.search(ddl):
+            if items := cls._URI_ITEM_RE.findall(m.group(1)):
+                opts.source_uris = items
+        if m := cls._COMPRESSION_RE.search(ddl):
+            opts.compression = m.group(1).upper()
+        if m := cls._MAX_BAD_RECORDS_RE.search(ddl):
+            opts.max_bad_records = int(m.group(1))
 
-    compression_match = _EXTERNAL_TABLE_DDL_COMPRESSION_RE.search(ddl)
-    if compression_match:
-        compression = compression_match.group(1).upper()
-
-    max_bad_records_match = _EXTERNAL_TABLE_DDL_MAX_BAD_RECORDS_RE.search(ddl)
-    if max_bad_records_match:
-        max_bad_records = int(max_bad_records_match.group(1))
-
-    return source_format, source_uris, compression, max_bad_records
+        return opts
 
 
 @dataclass
@@ -504,17 +501,11 @@ class BigQuerySchemaApi:
 
         _, shard = BigqueryTableIdentifier.get_table_and_shard(table.table_name)
         external = table.table_type == BigqueryTableType.EXTERNAL
-        external_source_format = None
-        external_source_uris = None
-        external_compression = None
-        external_max_bad_records = None
-        if external and table.ddl:
-            (
-                external_source_format,
-                external_source_uris,
-                external_compression,
-                external_max_bad_records,
-            ) = _parse_external_table_options(table.ddl)
+        ext_opts = (
+            ExternalTableOptions.from_ddl(table.ddl)
+            if external and table.ddl
+            else ExternalTableOptions()
+        )
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
@@ -536,10 +527,10 @@ class BigQuerySchemaApi:
             active_billable_bytes=table.get("active_billable_bytes"),
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
             external=external,
-            external_source_format=external_source_format,
-            external_source_uris=external_source_uris,
-            external_compression=external_compression,
-            external_max_bad_records=external_max_bad_records,
+            external_source_format=ext_opts.source_format,
+            external_source_uris=ext_opts.source_uris,
+            external_compression=ext_opts.compression,
+            external_max_bad_records=ext_opts.max_bad_records,
         )
 
     def get_views_for_dataset(
