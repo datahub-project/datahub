@@ -9,6 +9,7 @@ on:
   workflow_run:
     workflows:
       # List to be updated after testing
+      - "Lint actions"
       - "Docker Build, Scan, Test"
       - "Metadata Ingestion"
     types:
