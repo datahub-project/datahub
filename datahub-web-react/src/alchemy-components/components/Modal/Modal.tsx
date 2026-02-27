@@ -9,7 +9,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: ${(props) => props.theme.colors.shadowLg};
+        box-shadow: ${(props) => props.theme?.colors?.shadowLg};
         border-radius: 12px;
     }
 
@@ -17,7 +17,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren, theme }) => (hasChildren ? `1px solid ${theme.colors.border}` : '0')};
+        border-bottom: ${({ hasChildren, theme }) => (hasChildren ? `1px solid ${theme?.colors?.border}` : '0')};
     }
 
     .ant-modal-body {

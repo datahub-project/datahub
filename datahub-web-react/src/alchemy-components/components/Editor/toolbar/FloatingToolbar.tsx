@@ -22,9 +22,9 @@ export const ToolbarContainer = styled.span`
     display: flex;
     align-items: center;
     padding: 2px;
-    background-color: ${(props) => props.theme.colors.bg};
+    background-color: ${(props) => props.theme?.colors?.bg};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.colors.shadowLg};
+    box-shadow: ${(props) => props.theme?.colors?.shadowLg};
     overflow: hidden;
     z-index: 300;
 `;
