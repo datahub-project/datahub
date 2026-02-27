@@ -444,6 +444,47 @@ describe('getChangeEventString', () => {
         });
     });
 
+    describe('Application Changes', () => {
+        it('should handle adding an application', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Application,
+                operation: ChangeOperationType.Add,
+                modifier: 'urn:li:application:data-platform',
+                description: "Application 'data-platform' added.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Added to application "data-platform".');
+        });
+
+        it('should handle removing an application', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Application,
+                operation: ChangeOperationType.Remove,
+                modifier: 'urn:li:application:analytics',
+                description: "Application 'analytics' removed.",
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Removed from application "analytics".');
+        });
+
+        it('should fall back to description for unknown operations', () => {
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Application,
+                operation: ChangeOperationType.Modify,
+                modifier: 'urn:li:application:test',
+                description: 'Application was modified.',
+            };
+
+            const result = getChangeEventString(changeEvent);
+            expect(result).toBe('Application was modified.');
+        });
+    });
+
     describe('Backward compatibility', () => {
         it('getDocumentationString should still work as an alias', () => {
             const changeEvent: ChangeEvent = {

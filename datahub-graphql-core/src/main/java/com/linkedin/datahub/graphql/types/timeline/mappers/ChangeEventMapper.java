@@ -29,7 +29,8 @@ public class ChangeEventMapper {
           ChangeCategory.PARENT, ChangeCategoryType.PARENT,
           ChangeCategory.RELATED_ENTITIES, ChangeCategoryType.RELATED_ENTITIES,
           ChangeCategory.DOMAIN, ChangeCategoryType.DOMAIN,
-          ChangeCategory.STRUCTURED_PROPERTY, ChangeCategoryType.STRUCTURED_PROPERTY);
+          ChangeCategory.STRUCTURED_PROPERTY, ChangeCategoryType.STRUCTURED_PROPERTY,
+          ChangeCategory.APPLICATION, ChangeCategoryType.APPLICATION);
 
   @Nullable
   static ChangeCategoryType mapCategory(@Nullable ChangeCategory backendCategory) {

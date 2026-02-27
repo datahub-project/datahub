@@ -15,13 +15,16 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.eventgenerator.ApplicationsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryRelatedTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
@@ -233,6 +236,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new GlossaryTermInfoChangeEventGenerator());
           }
           break;
+        case GLOSSARY_TERM:
+          {
+            aspects.add(GLOSSARY_RELATED_TERM_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                GLOSSARY_RELATED_TERM_ASPECT_NAME,
+                new GlossaryRelatedTermsChangeEventGenerator());
+          }
+          break;
         case DOMAIN:
           {
             aspects.add(DOMAINS_ASPECT_NAME);
@@ -251,6 +264,16 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 STRUCTURED_PROPERTIES_ASPECT_NAME,
                 new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case APPLICATION:
+          {
+            aspects.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                APPLICATION_MEMBERSHIP_ASPECT_NAME,
+                new ApplicationsChangeEventGenerator());
           }
           break;
         default:
@@ -283,6 +306,12 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 new InstitutionalMemoryChangeEventGenerator());
+            aspects.add(DOMAIN_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                DOMAIN_PROPERTIES_ASPECT_NAME,
+                new DomainPropertiesChangeEventGenerator());
           }
           break;
         case STRUCTURED_PROPERTY:

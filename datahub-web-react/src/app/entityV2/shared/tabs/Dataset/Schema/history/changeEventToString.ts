@@ -8,6 +8,7 @@ const CATEGORY_GLOSSARY_TERM = 'GLOSSARY_TERM';
 const CATEGORY_OWNERSHIP = 'OWNERSHIP';
 const CATEGORY_DOMAIN = 'DOMAIN';
 const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
+const CATEGORY_APPLICATION = 'APPLICATION';
 const OPERATION_ADD = 'ADD';
 const OPERATION_REMOVE = 'REMOVE';
 const DEFAULT_FIELD_PATH = 'A new field';
@@ -154,6 +155,15 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
             displayString = `Removed structured property "${propertyName}".`;
         } else if (changeEvent.operation === 'MODIFY') {
             displayString = `Updated structured property "${propertyName}"${valuesSuffix}.`;
+        }
+    } else if (changeEvent.category === CATEGORY_APPLICATION) {
+        const appUrn = changeEvent.modifier || '';
+        const appName = appUrn ? extractNameFromUrn(appUrn) : 'Unknown';
+
+        if (changeEvent.operation === OPERATION_ADD) {
+            displayString = `Added to application "${appName}".`;
+        } else if (changeEvent.operation === OPERATION_REMOVE) {
+            displayString = `Removed from application "${appName}".`;
         }
     }
 

@@ -5,24 +5,36 @@ import {
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
 
 describe('getCategoryOptions', () => {
-    it('returns all 7 categories for datasets', () => {
+    it('returns 7 dataset-relevant categories for datasets (no Applications)', () => {
         const options = getCategoryOptions(EntityType.Dataset);
-        expect(options).toEqual(ALL_CATEGORY_OPTIONS);
+        const values = options.map((o) => o.value);
+
+        expect(values).toEqual([
+            ChangeCategoryType.TechnicalSchema,
+            ChangeCategoryType.Documentation,
+            ChangeCategoryType.Tag,
+            ChangeCategoryType.GlossaryTerm,
+            ChangeCategoryType.Ownership,
+            ChangeCategoryType.Domain,
+            ChangeCategoryType.StructuredProperty,
+        ]);
+        expect(values).not.toContain(ChangeCategoryType.Application);
     });
 
-    it('returns only Documentation, Owners, Domains, Properties for glossary terms', () => {
+    it('returns Documentation, Terms, Owners, Domains, Properties, Applications for glossary terms', () => {
         const options = getCategoryOptions(EntityType.GlossaryTerm);
         const values = options.map((o) => o.value);
 
         expect(values).toEqual([
             ChangeCategoryType.Documentation,
+            ChangeCategoryType.GlossaryTerm,
             ChangeCategoryType.Ownership,
             ChangeCategoryType.Domain,
             ChangeCategoryType.StructuredProperty,
+            ChangeCategoryType.Application,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
         expect(values).not.toContain(ChangeCategoryType.Tag);
-        expect(values).not.toContain(ChangeCategoryType.GlossaryTerm);
     });
 
     it('returns only Documentation, Owners, Properties for domains', () => {
@@ -36,6 +48,7 @@ describe('getCategoryOptions', () => {
         ]);
         expect(values).not.toContain(ChangeCategoryType.Domain);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
+        expect(values).not.toContain(ChangeCategoryType.Application);
     });
 
     it('falls back to all categories for entity types without a mapping', () => {

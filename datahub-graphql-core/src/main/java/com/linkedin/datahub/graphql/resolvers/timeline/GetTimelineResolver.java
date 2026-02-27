@@ -42,7 +42,8 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
           ChangeCategoryType.PARENT, ChangeCategory.PARENT,
           ChangeCategoryType.RELATED_ENTITIES, ChangeCategory.RELATED_ENTITIES,
           ChangeCategoryType.DOMAIN, ChangeCategory.DOMAIN,
-          ChangeCategoryType.STRUCTURED_PROPERTY, ChangeCategory.STRUCTURED_PROPERTY);
+          ChangeCategoryType.STRUCTURED_PROPERTY, ChangeCategory.STRUCTURED_PROPERTY,
+          ChangeCategoryType.APPLICATION, ChangeCategory.APPLICATION);
 
   @Nonnull
   private static ChangeCategory mapToBackendCategory(

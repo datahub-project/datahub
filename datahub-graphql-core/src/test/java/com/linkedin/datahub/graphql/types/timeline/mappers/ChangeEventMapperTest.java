@@ -37,6 +37,7 @@ public class ChangeEventMapperTest {
       ChangeCategory.RELATED_ENTITIES,
       ChangeCategory.DOMAIN,
       ChangeCategory.STRUCTURED_PROPERTY,
+      ChangeCategory.APPLICATION,
     };
     for (ChangeCategory category : expectedMapped) {
       assertNotNull(

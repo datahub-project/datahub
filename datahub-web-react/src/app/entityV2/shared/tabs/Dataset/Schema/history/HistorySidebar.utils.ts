@@ -10,6 +10,7 @@ export const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: ChangeCategoryType.Ownership, label: 'Owners' },
     { value: ChangeCategoryType.Domain, label: 'Domains' },
     { value: ChangeCategoryType.StructuredProperty, label: 'Properties' },
+    { value: ChangeCategoryType.Application, label: 'Applications' },
 ];
 
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
@@ -25,9 +26,11 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
     ]),
     [EntityType.GlossaryTerm]: new Set([
         ChangeCategoryType.Documentation,
+        ChangeCategoryType.GlossaryTerm,
         ChangeCategoryType.Ownership,
         ChangeCategoryType.Domain,
         ChangeCategoryType.StructuredProperty,
+        ChangeCategoryType.Application,
     ]),
     [EntityType.Domain]: new Set([
         ChangeCategoryType.Documentation,

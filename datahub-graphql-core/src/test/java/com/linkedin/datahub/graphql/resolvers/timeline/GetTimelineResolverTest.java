@@ -54,7 +54,7 @@ public class GetTimelineResolverTest {
     // Update this count when new categories are added.
     assertEquals(
         GetTimelineResolver.CATEGORY_INPUT_MAP.size(),
-        9,
+        10,
         "CATEGORY_INPUT_MAP size changed — update this test and verify "
             + "ChangeEventMapper.CATEGORY_MAP is also updated");
   }

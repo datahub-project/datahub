@@ -75,6 +75,10 @@ enum ChangeCategoryType {
   When structured properties have been added, removed, or modified
   """
   STRUCTURED_PROPERTY
+  """
+  When application associations have been added or removed
+  """
+  APPLICATION
 }
 
 """
