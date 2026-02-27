@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from utils.clients.gh_client import GitHubAPIClient
+from utils.clients.github.gh_client import GitHubAPIClient
 from utils.workflow_metrics import JobMetrics, Metrics, WorkflowMetrics
 
 
