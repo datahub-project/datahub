@@ -31,7 +31,3 @@ source:
       emit_tags_and_structured_properties: true  # Emit both tags and structured properties
       pii_tags_only: true         # Only emit tags for PII fields (version/authorship only in structured properties)
 
-sink:
-  type: datahub-rest
-  config:
-    server: "http://localhost:8080"

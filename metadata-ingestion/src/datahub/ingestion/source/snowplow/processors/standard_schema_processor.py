@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
 
 import requests
 
-from datahub.emitter.mcp_builder import gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.builders.container_keys import (
     SnowplowOrganizationKey,
@@ -287,36 +287,59 @@ class StandardSchemaProcessor(EntityProcessor):
         )
 
     def _emit_vendor_container(self, vendor: str) -> Iterable[MetadataWorkUnit]:
-        """Emit a vendor container if not already emitted."""
-        if not self.config.bdp_connection or vendor in self._emitted_vendors:
+        """Emit nested vendor containers by splitting the vendor namespace on dots.
+
+        For example, 'com.snowplowanalytics.snowplow' emits three containers:
+          Organization → com → snowplowanalytics → snowplow
+        Shared prefixes (e.g., 'com') are emitted once and reused.
+        """
+        if not self.config.bdp_connection:
             return
 
-        self._emitted_vendors.add(vendor)
-
         org_id = self.config.bdp_connection.organization_id
-        org_key = SnowplowOrganizationKey(
-            organization_id=org_id,
-            platform=self.deps.platform,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-        vendor_key = SnowplowVendorKey(
-            organization_id=org_id,
-            vendor=vendor,
-            platform=self.deps.platform,
-            instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        segments = vendor.split(".")
 
-        yield from gen_containers(
-            container_key=vendor_key,
-            name=vendor,
-            sub_types=[DatasetSubtype.SCHEMA],
-            parent_container_key=org_key,
-            extra_properties={
-                "vendor": vendor,
-            },
-        )
+        for i in range(len(segments)):
+            vendor_path = ".".join(segments[: i + 1])
+
+            if vendor_path in self._emitted_vendors:
+                continue
+            self._emitted_vendors.add(vendor_path)
+
+            if i == 0:
+                parent_key: ContainerKey = SnowplowOrganizationKey(
+                    organization_id=org_id,
+                    platform=self.deps.platform,
+                    instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            else:
+                parent_path = ".".join(segments[:i])
+                parent_key = SnowplowVendorKey(
+                    organization_id=org_id,
+                    vendor=parent_path,
+                    platform=self.deps.platform,
+                    instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+
+            vendor_key = SnowplowVendorKey(
+                organization_id=org_id,
+                vendor=vendor_path,
+                platform=self.deps.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            yield from gen_containers(
+                container_key=vendor_key,
+                name=segments[i],
+                sub_types=[DatasetSubtype.SCHEMA],
+                parent_container_key=parent_key,
+                extra_properties={
+                    "vendor": vendor_path,
+                },
+            )
 
     def _parse_iglu_uri(self, iglu_uri: str) -> Optional[Dict[str, str]]:
         """
