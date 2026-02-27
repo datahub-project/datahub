@@ -68,9 +68,10 @@ def generate_cortex_agent_sql(
       3. Explain lineage in plain business terms plus technical dependencies.
 
       For data quality questions:
-      1. Use get_dataset_assertions to fetch assertions and their run results.
-      2. Summarize which checks are passing, failing, or erroring.
-      3. Explain what each assertion checks in plain terms.
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
 
       For metadata management:
       1. Search entities first and collect exact URNs.
@@ -121,9 +122,10 @@ def generate_cortex_agent_sql(
       3. Explain lineage in plain business terms plus technical dependencies.
 
       For data quality questions:
-      1. Use get_dataset_assertions to fetch assertions and their run results.
-      2. Summarize which checks are passing, failing, or erroring.
-      3. Explain what each assertion checks in plain terms.
+      1. Use search_datahub to find the dataset and get its URN.
+      2. Use get_dataset_assertions to fetch assertions and their run results.
+      3. Summarize which checks are passing, failing, or erroring.
+      4. Explain what each assertion checks in plain terms.
 
       If DataHub search returns no useful results:
       - Say so explicitly.
@@ -642,13 +644,13 @@ CREATE OR REPLACE AGENT {agent_name}
     - tool_spec:
         type: "generic"
         name: "get_dataset_assertions"
-        description: "Get data quality assertions for a dataset with their latest run results (pass/fail). Filter by column, type, or status."
+        description: "Get data quality assertions for a dataset with their latest run results (pass/fail). Filter by column, type, or status. Use search_datahub first to find the dataset URN."
         input_schema:
           type: "object"
           properties:
             urn:
               type: "string"
-              description: "Dataset URN"
+              description: "Dataset URN (from search_datahub results)"
             column_name:
               type: "string"
               description: "Column/field path to filter assertions. Default: null (all assertions)"
