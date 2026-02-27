@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -462,6 +463,9 @@ public class SearchClientShimUtil {
   @Nonnull
   private static SearchEngineType detectEngineType(
       @Nonnull ShimConfiguration config, ObjectMapper objectMapper) throws IOException {
+    List<String> failures = new ArrayList<>();
+    String endpoint = config.getHost() + ":" + config.getPort();
+
     // Try OpenSearch 2.x first (most commonly deployed currently)
     try {
       ShimConfiguration testConfig =
@@ -472,12 +476,15 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("2.")) {
+        if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
         }
+        failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x)");
       }
     } catch (Exception e) {
-      log.debug("OpenSearch detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("OpenSearch: " + msg);
+      log.debug("OpenSearch detection failed: {}", msg);
     }
 
     // Try Elasticsearch 7.x with high-level client
@@ -490,12 +497,15 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("7.")) {
+        if (version != null && version.startsWith("7.")) {
           return SearchEngineType.ELASTICSEARCH_7;
         }
+        failures.add("ES7: connected but version='" + version + "' (expected 7.x)");
       }
     } catch (Exception e) {
-      log.debug("Elasticsearch 7.x detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("ES7: " + msg);
+      log.debug("Elasticsearch 7.x detection failed: {}", msg);
     }
 
     // Try Elasticsearch 8.x/9.x with new Java client
@@ -508,18 +518,32 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("8.")) {
+        if (version != null && version.startsWith("8.")) {
           return SearchEngineType.ELASTICSEARCH_8;
-        } else if (version.startsWith("9.")) {
+        } else if (version != null && version.startsWith("9.")) {
           return SearchEngineType.ELASTICSEARCH_9;
         }
+        failures.add(
+            "ES8: connected but version='"
+                + version
+                + "' (expected 8.x/9.x). Misconfiguration? ES8 client may be talking to an ES7 cluster.");
       }
     } catch (Exception e) {
-      log.debug("Elasticsearch 8.x/9.x detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("ES8: " + msg);
+      log.debug("Elasticsearch 8.x/9.x detection failed: {}", msg);
     }
 
+    String detail = String.join("; ", failures);
+    log.warn(
+        "Search engine type detection failed for {} (no matching probe). Details: {}",
+        endpoint,
+        detail);
     throw new IOException(
-        "Unable to detect search engine type. Ensure the cluster is accessible and running a supported version.");
+        "Unable to detect search engine type for "
+            + endpoint
+            + ". Ensure the cluster is accessible and running a supported version. Details: "
+            + detail);
   }
 
   /** Builder class for creating ShimConfiguration instances */

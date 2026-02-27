@@ -133,6 +133,7 @@ public class SearchTestUtils {
                   .reindexBatchSize(5000)
                   .reindexMaxSlices(256)
                   .reindexNoProgressRetryMinutes(5)
+                  .createIndexRetryEnabled(true)
                   .build())
           .entityIndex(
               EntityIndexConfiguration.builder()

@@ -1,18 +1,13 @@
+import { ListDashes } from '@phosphor-icons/react';
 import * as React from 'react';
-import styled from 'styled-components';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import TableIcon from '@src/images/table-icon.svg?react';
 
 import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '@types';
-
-const PreviewPropIcon = styled(TableIcon)`
-    font-size: 20px;
-`;
 
 /**
  * Definition of the DataHub Structured Property entity.
@@ -21,18 +16,12 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
     type: EntityType = EntityType.StructuredProperty;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
-            <TableIcon
+            <ListDashes
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -64,7 +53,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
                 name={this.displayName(data)}
                 urn={data.urn}
                 url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-                logoComponent={<PreviewPropIcon />}
+                logoComponent={<ListDashes size={20} color="currentColor" />}
                 entityType={EntityType.StructuredProperty}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
