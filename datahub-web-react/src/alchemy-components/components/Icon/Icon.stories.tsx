@@ -4,16 +4,7 @@ import React from 'react';
 import { GridList } from '@components/.docs/mdx-components';
 import { ColorValues, FontSizeValues } from '@components/theme/config';
 
-import { AVAILABLE_ICONS, Icon, IconProps, iconDefaults } from '.';
-
-const storyMaterialDefaults: Pick<IconProps, 'icon' | 'source'> = {
-    icon: 'AccountCircle',
-    source: 'material',
-};
-const storyDefaults: Pick<IconProps, 'icon' | 'source'> = {
-    icon: 'Activity',
-    source: 'phosphor',
-};
+import { AVAILABLE_ICONS, Icon, iconDefaults } from '.';
 
 // Auto Docs
 const meta = {
@@ -45,12 +36,15 @@ const meta = {
                 type: 'select',
             },
         },
-        variant: {
-            description: 'The variant of the icon to display.',
-            defaultValue: 'outline',
-            options: ['outline', 'filled'],
+        weight: {
+            description: 'The weight of the Phosphor icon.',
+            defaultValue: 'regular',
+            options: ['thin', 'light', 'regular', 'bold', 'fill', 'duotone'],
             table: {
-                defaultValue: { summary: iconDefaults.variant },
+                defaultValue: { summary: iconDefaults.weight },
+            },
+            control: {
+                type: 'select',
             },
         },
         size: {
@@ -89,7 +83,6 @@ const meta = {
     // Define defaults for required args
     args: {
         icon: 'Activity',
-        source: 'phosphor',
     },
 } satisfies Meta<typeof Icon>;
 
@@ -108,47 +101,33 @@ export const sandbox: Story = {
 
 export const filled = () => (
     <GridList>
-        <Icon icon="AccountCircle" variant="filled" />
-        <Icon icon="AddHome" variant="filled" />
-        <Icon icon="AdminPanelSettings" variant="filled" />
+        <Icon icon="User" weight="fill" />
+        <Icon icon="House" weight="fill" />
+        <Icon icon="Gear" weight="fill" />
     </GridList>
 );
 
 export const sizes = () => (
-    <>
-        <GridList>
-            {Object.values(FontSizeValues).map((size) => (
-                <Icon key={size} {...storyDefaults} size={size} />
-            ))}
-        </GridList>
-        <GridList>
-            {Object.values(FontSizeValues).map((size) => (
-                <Icon key={size} {...storyMaterialDefaults} size={size} />
-            ))}
-        </GridList>
-    </>
+    <GridList>
+        {Object.values(FontSizeValues).map((size) => (
+            <Icon key={size} icon="Activity" size={size} />
+        ))}
+    </GridList>
 );
 
 export const colors = () => (
-    <>
-        <GridList>
-            {Object.values(ColorValues).map((color) => (
-                <Icon key={color} {...storyDefaults} color={color} />
-            ))}
-        </GridList>
-        <GridList>
-            {Object.values(ColorValues).map((color) => (
-                <Icon key={color} {...storyMaterialDefaults} color={color} />
-            ))}
-        </GridList>
-    </>
+    <GridList>
+        {Object.values(ColorValues).map((color) => (
+            <Icon key={color} icon="Activity" color={color} />
+        ))}
+    </GridList>
 );
 
 export const rotation = () => (
     <GridList>
-        <Icon icon="ChevronLeft" />
-        <Icon icon="ChevronLeft" rotate="90" />
-        <Icon icon="ChevronLeft" rotate="180" />
-        <Icon icon="ChevronLeft" rotate="270" />
+        <Icon icon="CaretLeft" />
+        <Icon icon="CaretLeft" rotate="90" />
+        <Icon icon="CaretLeft" rotate="180" />
+        <Icon icon="CaretLeft" rotate="270" />
     </GridList>
 );

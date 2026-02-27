@@ -3,74 +3,60 @@ import React from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
-import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
+import { getIconComponent } from '@components/components/Icon/utils';
 import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';
 
 export const iconDefaults: IconPropsDefaults = {
-    source: 'material',
-    variant: 'outline',
-    size: '4xl',
+    size: 'lg',
     color: 'inherit',
     rotate: '0',
     tooltipText: '',
 };
 
-const ICON_NAMES = getIconNames();
+export const Icon = React.forwardRef<HTMLSpanElement, IconProps>(
+    (
+        {
+            icon,
+            size = iconDefaults.size,
+            color = iconDefaults.color,
+            colorLevel,
+            rotate = iconDefaults.rotate,
+            weight,
+            tooltipText,
+            source: _source,
+            variant: _variant,
+            ...props
+        },
+        ref,
+    ) => {
+        const { theme } = useCustomTheme();
 
-export const Icon = ({
-    icon,
-    source = iconDefaults.source,
-    variant = iconDefaults.variant,
-    size = iconDefaults.size,
-    color = iconDefaults.color,
-    colorLevel,
-    rotate = iconDefaults.rotate,
-    weight,
-    tooltipText,
-    ...props
-}: IconProps) => {
-    const { filled, outlined } = ICON_NAMES;
-    const { theme } = useCustomTheme();
+        if (!icon) return null;
 
-    // Return early if no icon is provided
-    if (!icon) return null;
+        const IconComponent = getIconComponent(icon);
 
-    // Get outlined icon component name
-    const iconName = source === 'material' && variant === 'outline' ? `${icon}Outlined` : icon;
+        if (!IconComponent) {
+            console.warn(`Unknown icon: ${icon}`);
+            return null;
+        }
 
-    // Warn if the icon does not have the specified variant
-    if (source === 'material' && variant === 'outline' && !outlined.includes(iconName)) {
-        console.warn(`Icon "${icon}" does not have an outlined variant.`);
-        return null;
-    }
+        const fontSizeStr = getFontSize(size);
+        const resolvedSize = fontSizeStr === 'inherit' ? undefined : parseInt(fontSizeStr, 10) || undefined;
 
-    // Warn if the icon does not have the specified variant
-    if (source === 'material' && variant === 'filled' && !filled.includes(iconName)) {
-        console.warn(`Icon "${icon}" does not have a filled variant.`);
-        return null;
-    }
+        return (
+            <IconWrapper ref={ref} rotate={getRotationTransform(rotate)} {...props}>
+                <Tooltip title={tooltipText}>
+                    <IconComponent
+                        size={resolvedSize}
+                        style={{ color: getColor(color, colorLevel, theme) }}
+                        weight={weight}
+                    />
+                </Tooltip>
+            </IconWrapper>
+        );
+    },
+);
 
-    const IconComponent = getIconComponent(source, iconName);
-
-    if (!IconComponent) {
-        console.warn(`Unknown icon: ${source} / ${iconName}`);
-        return null;
-    }
-
-    return (
-        <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
-            <Tooltip title={tooltipText}>
-                <IconComponent
-                    sx={{
-                        fontSize: getFontSize(size),
-                        color: getColor(color, colorLevel, theme),
-                    }}
-                    style={{ color: getColor(color, colorLevel, theme) }}
-                    weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
-                />
-            </Tooltip>
-        </IconWrapper>
-    );
-};
+Icon.displayName = 'Icon';

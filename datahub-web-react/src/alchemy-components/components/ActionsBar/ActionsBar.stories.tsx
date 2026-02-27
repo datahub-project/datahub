@@ -7,7 +7,6 @@ import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/A
 import { Button } from '@components/components/Button';
 import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
-import colors from '@components/theme/foundations/colors';
 
 // Auto Docs
 const meta = {
@@ -38,8 +37,8 @@ type Story = StoryObj<typeof meta>;
 
 const Warning = styled.div`
     padding: 8pxs
-    background-color: ${colors.red[0]};
-    color: ${colors.red[1000]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
+    color: ${(props) => props.theme.colors.textError};
     display: flex;
     align-items: center;
     gap: 8px;
@@ -58,7 +57,7 @@ const WrappedActionsBar = ({ ...props }: ActionsBarProps) => {
         <Wrapper>
             <ActionsBar {...props}>
                 <Warning>
-                    <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
+                    <Icon icon="ExclamationMark" color="red" weight="fill" />
                     <span>Editing default user view</span>
                 </Warning>
                 <Button>Done</Button>

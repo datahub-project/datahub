@@ -21,7 +21,6 @@ function getIconProps(notificationType: NotificationType): IconProps | undefined
             color: 'red',
             colorLevel: 1200,
             weight: 'fill',
-            source: 'phosphor',
             icon: 'ExclamationMark',
         };
     }

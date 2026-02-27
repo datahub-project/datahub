@@ -25,7 +25,7 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange, 
             <Input
                 label=""
                 type="text"
-                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+                icon={{ icon: 'MagnifyingGlass' }}
                 placeholder={placeholder || 'Search...'}
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}

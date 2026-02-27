@@ -11,7 +11,7 @@ import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
 
 export const Breadcrumb = ({ items }: BreadcrumbProps) => {
-    const defaultSeparator = <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />;
+    const defaultSeparator = <Icon icon="CaretRight" color="gray" colorLevel={1800} size="sm" />;
 
     return (
         <Wrapper>

@@ -5,27 +5,27 @@ import { Button } from '@components/components/Button';
 import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
 
-import { colors, shadows } from '@src/alchemy-components/theme';
-
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
-})({
-    color: colors.gray[1800],
-    padding: '0px',
+})`
+    color: ${(props) => props.theme.colors.text};
+    padding: 0px;
 
-    '&:hover': {
-        border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
-        boxShadow: shadows.none,
-    },
+    &:hover {
+        border: none;
+        background-color: transparent;
+        border-color: transparent;
+        box-shadow: none;
+    }
 
-    '&:focus': {
-        border: 'none',
-        backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
-    },
-});
+    &:focus {
+        border: none;
+        background-color: transparent;
+        box-shadow:
+            0 0 0 2px ${(props) => props.theme.colors.bg},
+            0 0 0 4px ${(props) => props.theme.colors.bgSurfaceBrand};
+    }
+`;
 
 export default function SelectActionButtons({
     hasSelectedValues,
@@ -48,14 +48,14 @@ export default function SelectActionButtons({
         <ActionButtonsContainer>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
-                    icon={{ icon: 'X', source: 'phosphor', size: 'md' }}
+                    icon={{ icon: 'X', size: 'md' }}
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
                     data-testid="button-clear"
                 />
             )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
+            <StyledIcon icon="CaretDown" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
         </ActionButtonsContainer>
     );
 }

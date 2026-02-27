@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { Icon, Pill, colors } from '@components';
+import { Icon, Pill } from '@components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
@@ -59,7 +59,6 @@ const meta = {
         loading: false,
         type: EntityType.Dataset,
         name: 'Entity name',
-        nameHighlight: { text: 'name', color: colors.yellow[200] },
         platformIcons: ['assets/platforms/snowflakelogo.png', 'assets/platforms/dbtlogo.png'],
         properties: {
             type: EntityType.Dataset,
@@ -97,7 +96,7 @@ const meta = {
                 ]}
                 baseUrl=""
             />,
-            <StyledMenuIcon icon="DotsThreeVertical" source="phosphor" />,
+            <StyledMenuIcon icon="DotsThreeVertical" weight="bold" />,
         ],
         childrenText: (
             <ChildrenTextWrapper>

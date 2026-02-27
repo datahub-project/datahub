@@ -8,7 +8,6 @@ import type {
     RotationOptions,
 } from '@components/theme/config';
 
-// Utility function to create an enum from an array of strings
 function createEnum<T extends string>(values: T[]): { [K in T]: K } {
     return values.reduce((acc, value) => {
         acc[value] = value;
@@ -19,13 +18,9 @@ function createEnum<T extends string>(values: T[]): { [K in T]: K } {
 const names = createEnum(AVAILABLE_ICONS);
 export type IconNames = keyof typeof names;
 
-export type MaterialIconVariant = 'filled' | 'outline';
 export type PhosphorIconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
-export type IconSource = 'material' | 'phosphor';
 
 export interface IconPropsDefaults {
-    source: IconSource;
-    variant: MaterialIconVariant;
     weight?: PhosphorIconWeight;
     size: FontSizeOptions;
     color: FontColorOptions;
@@ -36,5 +31,9 @@ export interface IconPropsDefaults {
 
 export interface IconProps extends Partial<IconPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
     icon: IconNames;
+    /** @deprecated No longer needed — all icons are Phosphor. Kept for backwards compatibility. */
+    source?: string;
+    /** @deprecated No longer needed — Phosphor uses `weight` prop instead. */
+    variant?: string;
     className?: string;
 }

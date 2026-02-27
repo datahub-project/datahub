@@ -1,6 +1,7 @@
+import { CircleNotch } from '@phosphor-icons/react';
 import React from 'react';
 
-import { LoaderBackRing, LoaderWrapper, StyledLoadingOutlined } from '@components/components/Loader/components';
+import { LoaderBackRing, LoaderWrapper, StyledSpinner } from '@components/components/Loader/components';
 import { LoaderSizes, RingWidths } from '@components/components/Loader/constants';
 import { LoaderProps } from '@components/components/Loader/types';
 
@@ -26,7 +27,9 @@ export function Loader({
             $padding={padding}
         >
             <LoaderBackRing $height={loaderSize} $ringWidth={ringWidth} />
-            <StyledLoadingOutlined $height={loaderSize} />
+            <StyledSpinner $height={loaderSize}>
+                <CircleNotch size={loaderSize} />
+            </StyledSpinner>
         </LoaderWrapper>
     );
 }
