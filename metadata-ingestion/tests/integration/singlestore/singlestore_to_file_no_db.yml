@@ -6,7 +6,7 @@ source:
     username: root
     password: example
     host_port: localhost:53311
-    schema_pattern:
+    database_pattern:
       allow:
         - "^metagalaxy"
         - "^northwind"
