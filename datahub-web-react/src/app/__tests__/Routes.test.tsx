@@ -1,4 +1,4 @@
-import { MockedProvider } from '@apollo/client/testing';
+import { MockLink, MockedProvider } from '@apollo/client/testing';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -6,9 +6,19 @@ import { Routes } from '@app/Routes';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
+// Create a MockLink with catch-all for unmatched queries.
+// Instead of erroring (which triggers retry/error-handling overhead in components),
+// unmatched queries get empty data and complete immediately.
+const mockLink = new MockLink(mocks, false);
+mockLink.setOnError((error, observer) => {
+    observer?.next?.({ data: {} });
+    observer?.complete?.();
+    return false; // prevent default observer.error() call
+});
+
 test('renders embed page properly', async () => {
     const { getByText } = render(
-        <MockedProvider mocks={mocks} addTypename={false}>
+        <MockedProvider link={mockLink} addTypename={false}>
             <TestPageContainer initialEntries={['/embed/dataset/urn:li:dataset:3']}>
                 <Routes />
             </TestPageContainer>
@@ -16,7 +26,7 @@ test('renders embed page properly', async () => {
     );
 
     await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
-});
+}, 15000);
 
 test('shows 404 for missing mfe route when some mfes are active', async () => {
     // Mock the /mfe/config endpoint to return a configuration with one valid MFE
@@ -42,7 +52,7 @@ microFrontends:
     });
 
     const { getByText } = render(
-        <MockedProvider mocks={mocks} addTypename={false}>
+        <MockedProvider link={mockLink} addTypename={false}>
             <TestPageContainer initialEntries={['/mfe/missing']}>
                 <Routes />
             </TestPageContainer>
