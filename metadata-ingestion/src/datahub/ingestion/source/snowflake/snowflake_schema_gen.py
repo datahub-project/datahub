@@ -1011,12 +1011,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
         if self.config.extract_tags != TagOption.skip:
-            table.tags = self.tag_extractor.get_tags_on_object(
-                table_name=table.name,
-                schema_name=schema_name,
-                db_name=db_name,
-                domain="table",
-            )
+            try:
+                table.tags = self.tag_extractor.get_tags_on_object(
+                    table_name=table.name,
+                    schema_name=schema_name,
+                    db_name=db_name,
+                    domain="table",
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Failed to get tags for table", table_identifier, exc=e
+                )
 
         if self.config.include_technical_schema:
             if self.config.include_primary_keys:
@@ -1086,12 +1091,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
         if self.config.extract_tags != TagOption.skip:
-            view.tags = self.tag_extractor.get_tags_on_object(
-                table_name=view.name,
-                schema_name=schema_name,
-                db_name=db_name,
-                domain="table",
-            )
+            try:
+                view.tags = self.tag_extractor.get_tags_on_object(
+                    table_name=view.name,
+                    schema_name=schema_name,
+                    db_name=db_name,
+                    domain="table",
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Failed to get tags for view", view_name, exc=e
+                )
 
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
