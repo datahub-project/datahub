@@ -7,10 +7,13 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -337,8 +340,10 @@ public class DataHubViewTypeTest {
 
     // Create authorizer that allows all VIEW_ENTITY_PAGE requests
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    Mockito.when(mockAuthorizer.authorizeBatch(any(BatchAuthorizationRequest.class)))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
     // Create user context with view authorization enabled
     OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
@@ -371,8 +376,10 @@ public class DataHubViewTypeTest {
 
     // Create authorizer that denies all VIEW_ENTITY_PAGE requests
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    Mockito.when(mockAuthorizer.authorizeBatch(any(BatchAuthorizationRequest.class)))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
 
     // Create user context with view authorization enabled
     OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
@@ -430,16 +437,20 @@ public class DataHubViewTypeTest {
 
     // Create authorizer that allows view1 but denies view2
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+    Mockito.when(mockAuthorizer.authorizeBatch(any(BatchAuthorizationRequest.class)))
         .thenAnswer(
-            invocation -> {
-              AuthorizationRequest request = invocation.getArgument(0);
-              if (request.getResourceSpec().isPresent()
-                  && request.getResourceSpec().get().getEntity().equals(TEST_VIEW_URN)) {
-                return new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
-              }
-              return new AuthorizationResult(null, AuthorizationResult.Type.DENY, "");
-            });
+            invocation ->
+                new BatchAuthorizationResult(
+                    null,
+                    new ConstantAuthorizationResultMap(
+                        invocation
+                                .getArgument(0, BatchAuthorizationRequest.class)
+                                .getResourceSpec()
+                                .map(EntitySpec::getEntity)
+                                .map(TEST_VIEW_URN::equals)
+                                .orElse(false)
+                            ? AuthorizationResult.Type.ALLOW
+                            : AuthorizationResult.Type.DENY)));
 
     // Create user context with view authorization enabled
     OperationContext opContext = createUserContextWithViewAuth(mockAuthorizer);
