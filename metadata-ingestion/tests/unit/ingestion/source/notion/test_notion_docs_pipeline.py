@@ -56,7 +56,7 @@ FAKE_EMBEDDING: list[float] = [0.1, 0.2, 0.3] * 20  # 60-dim
 FAKE_EMBEDDINGS = [FAKE_EMBEDDING]  # one per chunk
 
 # Simulated embedding failure used in steps where credentials are absent
-_NO_CREDS = Exception("Simulated: embedding credentials unavailable")
+_NO_CREDS = RuntimeError("Simulated: embedding credentials unavailable")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -430,3 +430,42 @@ class TestNotionDocsPipeline:
             "If not skipped, rawChunks-only SemanticContent would overwrite the "
             "embeddings computed in step 2, breaking semantic search."
         )
+
+    def test_datahub_docs_source_raises_on_embedding_failure(
+        self, tmp_path: Path
+    ) -> None:
+        """DataHub documents source must raise (not silently degrade) when embedding fails.
+
+        Unlike Notion/Confluence (which fall back to raw-chunks mode), the DataHub
+        documents source exists solely to embed rawChunks. If its embedding provider
+        is broken, it must fail loudly so the operator knows embeddings were not produced.
+        """
+        from unittest.mock import MagicMock
+
+        mock_graph = MagicMock()
+        mock_graph.get_aspect.return_value = None
+
+        docs_config = DataHubDocumentsSourceConfig(
+            embedding={
+                "provider": "openai",
+                "model": "text-embedding-3-small",
+                "api_key": "fake-openai-key",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+            incremental={"enabled": False},
+        )
+
+        ctx = PipelineContext(run_id="run-fail", pipeline_name="test_pipeline")
+        ctx.graph = mock_graph
+
+        # Probe fails → DataHub docs source should raise, not silently degrade.
+        with (
+            patch.object(
+                DocumentChunkingSource,
+                "_generate_embeddings",
+                side_effect=_NO_CREDS,
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            DataHubDocumentsSource(ctx=ctx, config=docs_config)

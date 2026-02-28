@@ -198,22 +198,31 @@ class DocumentChunkingSource(Source):
                 )
 
         # Probe the embedding provider with a test call at startup.
-        # If it fails for any reason (expired credentials, wrong key, no network, etc.),
-        # degrade to raw-chunks mode so individual documents are never lost.
-        # Raw chunks can be embedded later by the DataHub documents source.
+        # Two different failure modes depending on the source type:
+        #
+        # - emit_chunks_without_embeddings=True (Notion, Confluence, etc.):
+        #   Degrade gracefully to raw-chunks mode. Documents are stored as rawChunks
+        #   and can be embedded later by the DataHub documents source.
+        #
+        # - emit_chunks_without_embeddings=False (DataHub documents source):
+        #   Re-raise — embedding is the whole point of this source; silent failure
+        #   would skip every document without any indication.
         if self.embedding_model:
             try:
                 self._generate_embeddings([{"text": "test"}])
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
-                logger.warning(
-                    f"Embedding provider '{self.config.embedding.provider}' probe failed at startup — "
-                    f"falling back to raw-chunks mode.\n"
-                    f"  Error: {short_error}\n"
-                    f"  Chunks will be stored as rawChunks and can be embedded later "
-                    f"by the DataHub documents source once credentials are available."
-                )
-                self.embedding_model = None
+                if self.config.emit_chunks_without_embeddings:
+                    logger.warning(
+                        f"Embedding provider '{self.config.embedding.provider}' probe failed at startup — "
+                        f"falling back to raw-chunks mode.\n"
+                        f"  Error: {short_error}\n"
+                        f"  Chunks will be stored as rawChunks and can be embedded later "
+                        f"by the DataHub documents source once credentials are available."
+                    )
+                    self.embedding_model = None
+                else:
+                    raise
 
         # Initialize rate limiter for embedding calls
         self.rate_limiter: Optional[RateLimiter] = (
