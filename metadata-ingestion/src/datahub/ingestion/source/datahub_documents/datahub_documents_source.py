@@ -997,7 +997,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
             embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
             yield from self.chunking_source._emit_semantic_content(
-                entity_urn, chunk_dicts, embeddings
+                entity_urn, chunk_dicts, embeddings, raw_chunks=raw
             )
             self.report.report_document_processed(len(chunk_dicts))
             self.report.report_embeddings_generated(len(embeddings))
@@ -1015,13 +1015,6 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             document_urn = doc["urn"]
             text = doc.get("text", "")
 
-            # Skip entirely when no embedding model is configured
-            if not self.chunking_source.embedding_model:
-                logger.debug(
-                    f"Skipping {document_urn}: no embedding provider configured"
-                )
-                return
-
             # Try to reuse pre-computed rawChunks (emitted by Notion/Confluence without embeddings)
             raw = self._get_raw_chunks(document_urn)
             if raw is not None:
@@ -1029,7 +1022,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if chunk_dicts:
                     embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
                     yield from self.chunking_source._emit_semantic_content(
-                        document_urn, chunk_dicts, embeddings
+                        document_urn, chunk_dicts, embeddings, raw_chunks=raw
                     )
                     self.report.report_document_processed(len(chunk_dicts))
                     self.report.report_embeddings_generated(len(embeddings))

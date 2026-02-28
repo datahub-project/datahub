@@ -891,12 +891,19 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             Dictionary of config values that affect processing output.
         """
         embedding_enabled = self.config.embedding.provider is not None
+        chunking_enabled = embedding_enabled
 
         return {
-            # Chunking now always runs (emit_chunks_without_embeddings=True)
-            "chunking_strategy": self.config.chunking.strategy,
-            "chunking_max_characters": self.config.chunking.max_characters,
-            "chunking_overlap": self.config.chunking.overlap,
+            "chunking_enabled": chunking_enabled,
+            "chunking_strategy": self.config.chunking.strategy
+            if chunking_enabled
+            else None,
+            "chunking_max_characters": self.config.chunking.max_characters
+            if chunking_enabled
+            else None,
+            "chunking_overlap": self.config.chunking.overlap
+            if chunking_enabled
+            else None,
             # Embedding
             "embedding_enabled": embedding_enabled,
             "embedding_provider": self.config.embedding.provider
