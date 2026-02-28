@@ -48,6 +48,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
+from datahub.metadata.schema_classes import RawChunksClass, SemanticContentClass
 
 logger = logging.getLogger(__name__)
 
@@ -949,16 +950,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "last_processed": last_processed,
             }
 
-    def _get_raw_chunks(self, urn: str) -> Optional[Any]:
+    def _get_raw_chunks(self, urn: str) -> Optional[RawChunksClass]:
         """Fetch rawChunks from SemanticContent aspect if present."""
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         semantic_content = self.graph.get_aspect(urn, SemanticContentClass)
         if semantic_content and semantic_content.rawChunks:
             return semantic_content.rawChunks
         return None
 
-    def _text_chunks_to_dicts(self, raw: Any) -> list[dict[str, Any]]:
+    def _text_chunks_to_dicts(self, raw: RawChunksClass) -> list[dict[str, Any]]:
         """Convert TextChunkClass list from RawChunks to chunk dicts for embedding."""
         return [
             {
