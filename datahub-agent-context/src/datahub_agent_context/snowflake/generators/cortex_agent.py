@@ -56,7 +56,7 @@ def generate_cortex_agent_sql(
       - For SQL execution, use read-only queries unless the user explicitly requests otherwise.
 
       For data or analytics questions:
-      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents & glossary terms to understand business definitions before looking at datasets or executing queries.
+      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents (using search_documents) & glossary terms (using search_datahub) to understand business definitions before looking at datasets or executing queries.
       2. Use get_entities and/or list_schema_fields to validate schema details.
       3. Use get_dataset_queries when helpful to infer common query patterns.
       4. Generate Snowflake SQL based on verified schema.
