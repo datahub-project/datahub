@@ -1,11 +1,17 @@
-"""Unit tests for DataHubDocumentsSource._process_document_for_raw_chunks.
+"""Unit tests for DataHubDocumentsSource internal event-processing methods.
 
-Covers every branch of the method:
+_process_document_for_raw_chunks — every branch:
   - happy path: embedding model present, rawChunks found → SemanticContent emitted
   - no embedding model → early return, nothing emitted
   - _get_raw_chunks returns None → early return, nothing emitted
   - rawChunks.chunks is empty → early return, nothing emitted
   - _generate_embeddings raises → error captured in report, nothing raised
+
+_process_single_event — routing logic (no Kafka/streaming required; method takes a plain dict):
+  - semanticContent event with rawChunks → delegates to _process_document_for_raw_chunks
+  - semanticContent event without rawChunks → returns silently, no delegation
+  - semanticContent event with malformed aspect data → parse error handled gracefully
+  - event missing entityUrn or aspectName → early return
 """
 
 from unittest.mock import MagicMock, patch
@@ -159,3 +165,96 @@ class TestProcessDocumentForRawChunks:
         assert len(source.report.processing_errors) == 1
         assert "embedding API down" in source.report.processing_errors[0]
         assert source.report.num_documents_processed == 0
+
+
+class TestProcessSingleEvent:
+    """Tests for the MCL event routing logic in _process_single_event.
+
+    The method takes a plain dict — no Kafka or streaming infrastructure needed.
+    The DocumentEventConsumer is just a thin wrapper that feeds such dicts in;
+    all the interesting routing logic lives here.
+    """
+
+    def test_semantic_content_with_raw_chunks_delegates_to_processor(self) -> None:
+        """A semanticContent MCL event carrying rawChunks routes to _process_document_for_raw_chunks."""
+        mock_graph = MagicMock()
+        source = _make_source(mock_graph)
+
+        event = {
+            "entityUrn": ENTITY_URN,
+            "aspectName": "semanticContent",
+            # _parse_mcl_aspect returns a plain dict as-is; _aspect_has_raw_chunks
+            # checks for a non-null/non-empty "rawChunks" key.
+            "aspect": {"rawChunks": {"totalChunks": 1, "chunks": []}},
+        }
+
+        fake_wu = MagicMock()
+        with patch.object(
+            source,
+            "_process_document_for_raw_chunks",
+            return_value=iter([fake_wu]),
+        ) as mock_processor:
+            workunits = list(source._process_single_event(event))
+
+        mock_processor.assert_called_once_with(ENTITY_URN)
+        assert workunits == [fake_wu]
+
+    def test_semantic_content_without_raw_chunks_returns_silently(self) -> None:
+        """A semanticContent event with no rawChunks is ignored — _process_document_for_raw_chunks not called."""
+        mock_graph = MagicMock()
+        source = _make_source(mock_graph)
+
+        event = {
+            "entityUrn": ENTITY_URN,
+            "aspectName": "semanticContent",
+            "aspect": {},  # no rawChunks key → _aspect_has_raw_chunks returns False
+        }
+
+        with patch.object(source, "_process_document_for_raw_chunks") as mock_processor:
+            workunits = list(source._process_single_event(event))
+
+        mock_processor.assert_not_called()
+        assert workunits == []
+
+    def test_semantic_content_malformed_aspect_handled_gracefully(self) -> None:
+        """A semanticContent event whose aspect cannot be parsed is silently skipped."""
+        mock_graph = MagicMock()
+        source = _make_source(mock_graph)
+
+        event = {
+            "entityUrn": ENTITY_URN,
+            "aspectName": "semanticContent",
+            "aspect": "not valid json {{{",  # _parse_mcl_aspect tries json.loads → raises
+        }
+
+        with patch.object(source, "_process_document_for_raw_chunks") as mock_processor:
+            workunits = list(source._process_single_event(event))
+
+        mock_processor.assert_not_called()
+        assert workunits == []
+
+    def test_missing_entity_urn_returns_early(self) -> None:
+        """Event without entityUrn is dropped before any processing."""
+        mock_graph = MagicMock()
+        source = _make_source(mock_graph)
+
+        event = {"aspectName": "semanticContent", "aspect": {"rawChunks": {}}}
+
+        with patch.object(source, "_process_document_for_raw_chunks") as mock_processor:
+            workunits = list(source._process_single_event(event))
+
+        mock_processor.assert_not_called()
+        assert workunits == []
+
+    def test_missing_aspect_name_returns_early(self) -> None:
+        """Event without aspectName is dropped before any processing."""
+        mock_graph = MagicMock()
+        source = _make_source(mock_graph)
+
+        event = {"entityUrn": ENTITY_URN, "aspect": {"rawChunks": {}}}
+
+        with patch.object(source, "_process_document_for_raw_chunks") as mock_processor:
+            workunits = list(source._process_single_event(event))
+
+        mock_processor.assert_not_called()
+        assert workunits == []
