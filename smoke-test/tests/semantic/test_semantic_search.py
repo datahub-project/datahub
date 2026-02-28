@@ -664,6 +664,25 @@ class TestSemanticSearchWithIngestion:
                         assert len(chunk["text"]) > 0, (
                             f"chunk[{i}].text is empty for {entity_urn}"
                         )
+                        # Verify the chunk text contains words from the document we
+                        # ingested. We don't do an exact substring match because the
+                        # chunking library normalizes whitespace (e.g. list-item newlines
+                        # become spaces). Instead we check for a few distinctive phrases
+                        # that must survive any reasonable normalization.
+                        doc_title = focused_docs[0]["title"]
+                        doc_text = focused_docs[0]["text"]
+                        distinctive_phrases = [
+                            w
+                            for w in doc_text.split()
+                            if len(w) > 6  # skip short/common words
+                        ]
+                        chunk_words = set(chunk["text"].split())
+                        overlap = [p for p in distinctive_phrases if p in chunk_words]
+                        assert len(overlap) >= 3, (
+                            f"chunk[{i}].text for {entity_urn} shares fewer than 3 words "
+                            f"with the ingested document '{doc_title}' — likely wrong content.\n"
+                            f"  chunk text (first 300): {chunk['text'][:300]!r}"
+                        )
 
                     if has_offset:
                         assert chunk.get("characterLength") is not None, (
