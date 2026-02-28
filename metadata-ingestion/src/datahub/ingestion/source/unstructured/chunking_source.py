@@ -197,6 +197,24 @@ class DocumentChunkingSource(Source):
                     f"Unsupported embedding provider: {self.config.embedding.provider}"
                 )
 
+        # Probe the embedding provider with a test call at startup.
+        # If it fails for any reason (expired credentials, wrong key, no network, etc.),
+        # degrade to raw-chunks mode so individual documents are never lost.
+        # Raw chunks can be embedded later by the DataHub documents source.
+        if self.embedding_model:
+            try:
+                self._generate_embeddings([{"text": "test"}])
+            except Exception as e:
+                short_error = str(e).split("\n")[0][:200]
+                logger.warning(
+                    f"Embedding provider '{self.config.embedding.provider}' probe failed at startup — "
+                    f"falling back to raw-chunks mode.\n"
+                    f"  Error: {short_error}\n"
+                    f"  Chunks will be stored as rawChunks and can be embedded later "
+                    f"by the DataHub documents source once credentials are available."
+                )
+                self.embedding_model = None
+
         # Initialize rate limiter for embedding calls
         self.rate_limiter: Optional[RateLimiter] = (
             RateLimiter(
@@ -783,6 +801,7 @@ class DocumentChunkingSource(Source):
         document_urn: str,
         chunks: list[dict[str, Any]],
         embeddings: list[list[float]],
+        raw_chunks: Optional[Any] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
         from datahub.metadata.schema_classes import (
@@ -835,7 +854,8 @@ class DocumentChunkingSource(Source):
             model_key = self.config.embedding.model.replace("-", "_").replace(".", "_")
 
         semantic_content = SemanticContentClass(
-            embeddings={model_key: embedding_model_data}
+            embeddings={model_key: embedding_model_data},
+            rawChunks=raw_chunks,
         )
 
         # Create MetadataWorkUnit
