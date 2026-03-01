@@ -120,7 +120,7 @@ class DataHubAPIValidator:
         response = self.auth_session.get(f"{self.gms_url}/dev/featureFlags")
         if response.status_code != 200:
             logger.warning(
-                "Dev API not available (status=%d). Is METADATA_TESTS_ENABLED=true?",
+                "Dev API not available (status=%d). Is DEV_TOOLING_ENABLED=true?",
                 response.status_code,
             )
             return False

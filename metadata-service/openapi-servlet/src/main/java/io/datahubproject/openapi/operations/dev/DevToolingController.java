@@ -23,12 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
  * Development tooling endpoints for agent-driven workflows. Provides runtime access to feature
  * flags (warm toggles) and configuration inspection.
  *
- * <p>Gated by metadataTests.enabled=true (set via METADATA_TESTS_ENABLED env var). This is already
- * true in all debug/quickstartDebug profiles.
+ * <p>Gated by devTooling.enabled=true (set via DEV_TOOLING_ENABLED env var). Enabled by default in
+ * all debug/quickstartDebug profiles.
  */
 @RestController
 @RequestMapping("/dev")
-@ConditionalOnProperty(name = "metadataTests.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "devTooling.enabled", havingValue = "true")
 @Slf4j
 @Tag(
     name = "DevTooling",

@@ -531,7 +531,7 @@ def cmd_flag_list(args: argparse.Namespace) -> int:
     """List all feature flags."""
     status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
     if status_code != 200:
-        _log(f"Failed to get feature flags (status={status_code}). Is GMS running with METADATA_TESTS_ENABLED=true?")
+        _log(f"Failed to get feature flags (status={status_code}). Is GMS running with DEV_TOOLING_ENABLED=true?")
         # Fallback: show dynamic flags from the generated manifest
         manifest = _load_flag_classification()
         print(json.dumps(manifest.get("dynamic", {}), indent=2))

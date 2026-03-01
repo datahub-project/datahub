@@ -463,7 +463,7 @@ The tool owns a branch-specific env file at `docker/datahub-dev-<branch-slug>.en
 
 ```bash
 # This is all you need — no export, no shell setup:
-scripts/datahub-dev.sh env set METADATA_TESTS_ENABLED=true
+scripts/datahub-dev.sh env set METADATA_SERVICE_AUTH_ENABLED=false
 scripts/datahub-dev.sh env restart
 ```
 
@@ -472,11 +472,10 @@ scripts/datahub-dev.sh env restart
 ### End-to-End Workflow
 
 1. **Start**: `./gradlew quickstartDebug` then `scripts/datahub-dev.sh wait`
-2. **Enable dev tooling** (once per branch): `scripts/datahub-dev.sh env set METADATA_TESTS_ENABLED=true && scripts/datahub-dev.sh env restart`
-3. **Code**: Make changes to Java/Python/frontend code
-4. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
-5. **Test**: `scripts/datahub-dev.sh test <test-path>`
-6. **Iterate**: Repeat steps 3-5
+2. **Code**: Make changes to Java/Python/frontend code
+3. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/datahub-dev.sh test <test-path>`
+5. **Iterate**: Repeat steps 2-4
 
 **Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal` to avoid git-related failures in worktrees.
 
@@ -516,7 +515,7 @@ All paths are **relative to `smoke-test/`**:
 - Accessed per-request via Lombok getters on the singleton `FeatureFlags` bean
 - Toggle instantly via `datahub-dev.sh flag set <name> <value>`
 - Transient — lost on container restart; set in env file for persistence
-- **Prerequisite**: `METADATA_TESTS_ENABLED=true` must be in the branch env file and containers restarted. Without it the `/dev/featureFlags` API returns 404 and `flag set` will fail.
+- Enabled by default in all `quickstartDebug` profiles via `DEV_TOOLING_ENABLED=true`.
 
 **Cold flags** (`@ConditionalOnProperty`, `@Value`, infrastructure) — **require restart**:
 

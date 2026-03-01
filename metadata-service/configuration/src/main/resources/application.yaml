@@ -801,6 +801,9 @@ springdoc:
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
 
+devTooling:
+  enabled: ${DEV_TOOLING_ENABLED:false}
+
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
