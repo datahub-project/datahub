@@ -20,9 +20,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
+from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import DataProductProperties
 from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ContainerClass,
+    DataProductAssociationClass,
+    DomainPropertiesClass,
     DomainsClass,
     EmbedClass,
     GlobalTagsClass,
@@ -184,6 +187,31 @@ class NotebookKey(DatahubKey):
         )
 
 
+class DataProductKey(DatahubKey):
+    platform: str
+    name: str
+    env: Optional[str] = None
+    instance: Optional[str] = None
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
+
+    def as_urn(self) -> str:
+        return f"urn:li:dataProduct:{self.guid()}"
+
+
+class DomainKey(DatahubKey):
+    name: str
+    platform: Optional[str] = None
+    instance: Optional[str] = None
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
+
+    def as_urn(self) -> str:
+        return f"urn:li:domain:{self.guid()}"
+
+
 KeyType = TypeVar("KeyType", bound=ContainerKey)
 
 
@@ -197,18 +225,34 @@ def add_domain_to_entity_wu(
 
 
 def add_owner_to_entity_wu(
-    entity_type: str, entity_urn: str, owner_urn: str
+    entity_type: str,
+    entity_urn: str,
+    owner_urn: str,
+    owner_type: str = OwnershipTypeClass.DATAOWNER,
 ) -> Iterable[MetadataWorkUnit]:
+    """
+    Add an owner to an entity.
+
+    Args:
+        entity_type: The type of entity (e.g., "dataset", "dataProduct")
+        entity_urn: The URN of the entity
+        owner_urn: The URN of the owner (corpuser or corpGroup)
+        owner_type: The ownership type. Can be a string constant (e.g., "TECHNICAL_OWNER")
+                    or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
+                    Defaults to DATAOWNER for backward compatibility.
+    """
+    owner_class = OwnerClass(
+        owner=owner_urn,
+        type=owner_type,
+    )
+
+    # If owner_type is a custom URN (starts with "urn:li:ownershipType:"), set typeUrn
+    if owner_type.startswith("urn:li:ownershipType:"):
+        owner_class.typeUrn = owner_type
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
-        aspect=OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner_urn,
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
-        ),
+        aspect=OwnershipClass(owners=[owner_class]),
     ).as_workunit()
 
 
@@ -370,6 +414,105 @@ def add_entity_to_container(
     ).as_workunit()
 
 
+def gen_data_product(
+    data_product_key: DataProductKey,
+    name: str,
+    description: Optional[str] = None,
+    external_url: Optional[str] = None,
+    custom_properties: Optional[Dict[str, str]] = None,
+    domain_urn: Optional[str] = None,
+    owner_urn: Optional[str] = None,
+    owner_urns: Optional[List[str]] = None,
+    owner_type: str = OwnershipTypeClass.DATAOWNER,
+    tags: Optional[List[str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    assets: Optional[List[str]] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Generate metadata workunits for a Data Product entity.
+
+    Args:
+        data_product_key: Key containing platform, name, env, and instance for generating a deterministic URN
+        name: Display name of the Data Product
+        description: Documentation describing the Data Product
+        external_url: URL to external documentation or resources
+        custom_properties: Custom key-value metadata properties
+        domain_urn: URN of the domain this Data Product belongs to
+        owner_urn: URN of a single owner (user or group). Deprecated - use owner_urns instead
+        owner_urns: List of owner URNs (users or groups). Preferred over owner_urn for multiple owners
+        owner_type: Ownership type for all owners. Can be a string constant (e.g., "TECHNICAL_OWNER")
+                    or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
+                    Defaults to DATAOWNER for backward compatibility.
+        tags: List of tag names to associate with the Data Product
+        structured_properties: Structured property URN to value mappings
+        assets: List of asset URNs (datasets, dashboards, charts, etc.) that are part of this Data Product.
+                Assets are converted to DataProductAssociation relationships.
+
+    Yields:
+        MetadataWorkUnit: Workunits for DataProductProperties, Status, Domain, Ownership, Tags, and StructuredProperties aspects
+    """
+    data_product_urn = data_product_key.as_urn()
+
+    # Convert asset URNs to DataProductAssociationClass if provided
+    asset_associations = None
+    if assets:
+        asset_associations = [
+            DataProductAssociationClass(destinationUrn=urn) for urn in assets
+        ]
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=DataProductProperties(
+            name=name,
+            description=description,
+            customProperties={
+                **data_product_key.property_dict(),
+                **(custom_properties or {}),
+            },
+            externalUrl=external_url,
+            assets=asset_associations,
+        ),
+    ).as_workunit()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=StatusClass(removed=False),
+    ).as_workunit()
+
+    if domain_urn:
+        yield from add_domain_to_entity_wu(
+            entity_urn=data_product_urn,
+            domain_urn=domain_urn,
+        )
+
+    # Handle owners - support both single owner_urn (backward compat) and owner_urns (preferred)
+    owners_to_emit: List[str] = []
+    if owner_urns:
+        owners_to_emit.extend(owner_urns)
+    elif owner_urn:
+        owners_to_emit.append(owner_urn)
+
+    for owner in owners_to_emit:
+        yield from add_owner_to_entity_wu(
+            entity_type="dataProduct",
+            entity_urn=data_product_urn,
+            owner_urn=owner,
+            owner_type=owner_type,
+        )
+
+    if tags:
+        yield from add_tags_to_entity_wu(
+            entity_type="dataProduct",
+            entity_urn=data_product_urn,
+            tags=sorted(tags),
+        )
+
+    if structured_properties:
+        yield from add_structured_properties_to_entity_wu(
+            entity_urn=data_product_urn, structured_properties=structured_properties
+        )
+
+
 def mcps_from_mce(
     mce: MetadataChangeEventClass,
 ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -379,6 +522,43 @@ def mcps_from_mce(
             auditHeader=mce.auditHeader,
             aspect=aspect,
             systemMetadata=mce.systemMetadata,
+        )
+
+
+def gen_domain(
+    domain_key: DomainKey,
+    name: str,
+    description: Optional[str] = None,
+    parent_domain_urn: Optional[str] = None,
+    owner_urn: Optional[str] = None,
+    owner_urns: Optional[List[str]] = None,
+    owner_type: str = OwnershipTypeClass.DATAOWNER,
+) -> Iterable[MetadataWorkUnit]:
+    domain_urn = domain_key.as_urn()
+
+    # Emit Domain Properties
+    yield MetadataChangeProposalWrapper(
+        entityUrn=domain_urn,
+        aspect=DomainPropertiesClass(
+            name=name,
+            description=description,
+            parentDomain=parent_domain_urn,
+        ),
+    ).as_workunit()
+
+    # Handle owners - support both single owner_urn (backward compat) and owner_urns (preferred)
+    owners_to_emit: List[str] = []
+    if owner_urns:
+        owners_to_emit.extend(owner_urns)
+    elif owner_urn:
+        owners_to_emit.append(owner_urn)
+
+    for owner in owners_to_emit:
+        yield from add_owner_to_entity_wu(
+            entity_type="domain",
+            entity_urn=domain_urn,
+            owner_urn=owner,
+            owner_type=owner_type,
         )
 
 

@@ -61,6 +61,19 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    -- Assign privileges to extract lineage and usage statistics from Snowflake by executing the below query.
    grant imported privileges on database snowflake to role datahub_role;
 
+   -- Optional: If you want to ingest Snowflake internal marketplace listings as Data Products
+   -- Grant IMPORT SHARE for consumer mode (requires ACCOUNTADMIN to grant account-level privileges)
+   use role accountadmin;
+   grant import share on account to role datahub_role;  -- For INBOUND shares
+
+   -- For provider mode (OUTBOUND shares), grant SYSADMIN role (use SECURITYADMIN to grant roles)
+   -- Note: Only needed if shares are owned by ACCOUNTADMIN/SYSADMIN
+   -- If datahub_role creates/owns the shares, no additional grant needed
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;  -- Allows seeing shares owned by SYSADMIN/ACCOUNTADMIN
+
+   -- Alternatively, use role: SYSADMIN directly in your recipe
+
    ```
 
    If you have imported databases in your Snowflake instance that you wish to integrate with DataHub, you'll need to use the below query for them.
