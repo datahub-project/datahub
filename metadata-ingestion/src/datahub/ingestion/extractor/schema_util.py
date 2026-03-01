@@ -412,6 +412,7 @@ class AvroToMceSchemaConverter:
                     # bare logicalType
                     or self._actual_schema.props.get("logicalType"),
                 )
+                json_props: Optional[Dict[str, Any]] = {k: v for k, v in merged_props.items() if k not in ['_nullable', 'native_data_type']} if merged_props else None
 
                 json_props: Optional[Dict[str, Any]] = (
                     {
