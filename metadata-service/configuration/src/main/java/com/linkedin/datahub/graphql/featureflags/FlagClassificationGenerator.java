@@ -21,8 +21,9 @@ import java.util.regex.Pattern;
  * Generates scripts/generated/flag-classification.json from two sources of truth:
  *
  * <ul>
- *   <li><b>Dynamic flags</b> — reflected from {@link FeatureFlags} boolean fields. These can be
- *       toggled at runtime via the /dev/featureFlags API (no container restart needed).
+ *   <li><b>Dynamic flags</b> — reflected from {@link FeatureFlags} boolean fields. Inspectable via
+ *       the /dev/featureFlags API. All changes require a container restart via {@code env set} +
+ *       {@code env restart}.
  *   <li><b>Static flags</b> — env vars found in application.yaml outside the featureFlags section.
  *       These require a container restart to take effect.
  * </ul>
