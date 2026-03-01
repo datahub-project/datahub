@@ -1,9 +1,5 @@
 # DataHub — Agent Workflow Guide
 
-This file is picked up automatically by OpenAI Codex CLI, Devin, and other agents that scan the
-repo root. It is self-contained — reading it alone gives a complete picture of how to build, test,
-and iterate on DataHub.
-
 ## `datahub-dev` CLI Tool
 
 A stdlib-only Python CLI for agent-driven development. No venv needed — runs with system `python3`.
