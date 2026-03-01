@@ -31,7 +31,7 @@ For **Production**:
 DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/graphiql` (e.g. `https://my-company.datahub.com/api/graphiql`)
 This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment.
 
-To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahub.com/api/graphiql.
+To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahubproject.io/api/graphiql.
 
 For instance, you can create a tag by posting the following query:
 
