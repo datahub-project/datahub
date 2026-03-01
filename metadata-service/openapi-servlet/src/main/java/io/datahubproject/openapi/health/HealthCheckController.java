@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -95,6 +96,36 @@ public class HealthCheckController {
   public ResponseEntity<Void> getLivenessCheck() {
     // Always return 200 if we can process the request - process is alive
     return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Detailed health endpoint that consolidates all health checks into a single JSON response.
+   * Designed for agent tooling (datahub-dev status) to get a comprehensive view in one call.
+   *
+   * <p>Returns a JSON object with bootstrap status, elasticsearch health, and overall readiness.
+   * Always returns HTTP 200 with the status in the body (so agents can parse the response even when
+   * unhealthy).
+   */
+  @GetMapping(path = "/health/detailed", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, Object>> getDetailedHealth() {
+    Map<String, Object> result = new LinkedHashMap<>();
+
+    boolean bootstrapped = bootstrapManager.areBlockingStepsComplete();
+    result.put("bootstrapped", bootstrapped);
+
+    // Elasticsearch health
+    ResponseEntity<String> esHealth = getElasticDebugWithCache();
+    boolean esHealthy = esHealth.getStatusCode() == HttpStatus.OK;
+    String esStatus = esHealthy ? "green" : "unhealthy";
+    result.put("elasticsearch", esStatus);
+    result.put("elasticsearch_detail", esHealth.getBody());
+
+    boolean ready = bootstrapped && esHealthy;
+    result.put("ready", ready);
+    result.put("timestamp", System.currentTimeMillis());
+    result.put("devToolVersion", "0.2.0");
+
+    return ResponseEntity.ok(result);
   }
 
   /**
