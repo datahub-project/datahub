@@ -7,6 +7,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,7 +43,10 @@ public class FlagClassificationGenerator {
     }
 
     Path outputPath = Paths.get(args[0]);
-    Files.createDirectories(outputPath.getParent());
+    Path parent = outputPath.getParent();
+    if (parent != null) {
+      Files.createDirectories(parent);
+    }
 
     Map<String, Object> dynamicFlags = extractDynamicFlags();
     Map<String, Object> staticFlags = extractStaticFlags(dynamicFlags.keySet());
@@ -121,42 +125,43 @@ public class FlagClassificationGenerator {
         System.err.println("WARNING: application.yaml not found on classpath");
         return flags;
       }
+      try (BufferedReader reader =
+          new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+        String line;
+        boolean inFeatureFlagsSection = false;
+        int featureFlagsIndent = -1;
 
-      BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-      String line;
-      boolean inFeatureFlagsSection = false;
-      int featureFlagsIndent = -1;
+        while ((line = reader.readLine()) != null) {
+          String trimmed = line.stripLeading();
+          int currentIndent = line.length() - trimmed.length();
 
-      while ((line = reader.readLine()) != null) {
-        String trimmed = line.stripLeading();
-        int currentIndent = line.length() - trimmed.length();
-
-        if (trimmed.startsWith("featureFlags:")) {
-          inFeatureFlagsSection = true;
-          featureFlagsIndent = currentIndent;
-          continue;
-        }
-
-        if (inFeatureFlagsSection) {
-          // Exit featureFlags section when we see a non-empty, non-comment line at the same or
-          // lower indentation level as the featureFlags: key itself.
-          if (!trimmed.isEmpty()
-              && !trimmed.startsWith("#")
-              && currentIndent <= featureFlagsIndent) {
-            inFeatureFlagsSection = false;
-          } else {
+          if (trimmed.startsWith("featureFlags:")) {
+            inFeatureFlagsSection = true;
+            featureFlagsIndent = currentIndent;
             continue;
           }
-        }
 
-        Matcher m = ENV_VAR_PATTERN.matcher(line);
-        while (m.find()) {
-          String envVar = m.group(1);
-          if (!excludeEnvVars.contains(envVar)) {
-            Map<String, Object> info = new LinkedHashMap<>();
-            info.put("reason", "startup configuration (@Value / infrastructure)");
-            info.put("restart_required", true);
-            flags.putIfAbsent(envVar, info);
+          if (inFeatureFlagsSection) {
+            // Exit featureFlags section when we see a non-empty, non-comment line at the same or
+            // lower indentation level as the featureFlags: key itself.
+            if (!trimmed.isEmpty()
+                && !trimmed.startsWith("#")
+                && currentIndent <= featureFlagsIndent) {
+              inFeatureFlagsSection = false;
+            } else {
+              continue;
+            }
+          }
+
+          Matcher m = ENV_VAR_PATTERN.matcher(line);
+          while (m.find()) {
+            String envVar = m.group(1);
+            if (!excludeEnvVars.contains(envVar)) {
+              Map<String, Object> info = new LinkedHashMap<>();
+              info.put("reason", "startup configuration (@Value / infrastructure)");
+              info.put("restart_required", true);
+              flags.putIfAbsent(envVar, info);
+            }
           }
         }
       }

@@ -13,7 +13,6 @@ Usage:
     python3 scripts/datahub_dev.py test <path> [pytest-args...]
     python3 scripts/datahub_dev.py flag list
     python3 scripts/datahub_dev.py flag get <name>
-    python3 scripts/datahub_dev.py flag set <name> <value>
     python3 scripts/datahub_dev.py env set KEY=VALUE
     python3 scripts/datahub_dev.py env restart
     python3 scripts/datahub_dev.py sync-flags
@@ -445,6 +444,12 @@ def cmd_test(args: argparse.Namespace) -> int:
     test_path = args.path
     extra_args = args.pytest_args or []
 
+    # Reject paths that escape the smoke-test directory (path traversal guard)
+    resolved = (SMOKE_TEST_DIR / test_path).resolve()
+    if not str(resolved).startswith(str(SMOKE_TEST_DIR.resolve())):
+        _log(f"ERROR: test path '{test_path}' escapes the smoke-test directory.")
+        return 1
+
     # Pre-check: is the stack ready?
     _log("Checking stack health...")
     gms_status, _ = _http_get(f"{GMS_URL}/health", timeout=3)
@@ -522,7 +527,7 @@ def cmd_test(args: argparse.Namespace) -> int:
     pytest_cmd.extend(extra_args)
 
     _log(f"Running: {' '.join(pytest_cmd)}")
-    result = subprocess.run(pytest_cmd, cwd=SMOKE_TEST_DIR, env=env)
+    result = _run(pytest_cmd, capture=False, cwd=SMOKE_TEST_DIR, env=env)
 
     # If agent mode, print the JSON report path
     if env.get("AGENT_MODE") == "1":
@@ -614,6 +619,9 @@ def cmd_env_set(args: argparse.Namespace) -> int:
         return 1
 
     key, value = key_value.split("=", 1)
+    if "\n" in key or "\n" in value:
+        _log("ERROR: Key and value must not contain newlines.")
+        return 1
 
     if not DEV_ENV_FILE.exists():
         DEV_ENV_FILE.touch()

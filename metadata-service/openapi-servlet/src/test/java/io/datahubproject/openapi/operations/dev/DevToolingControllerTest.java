@@ -44,10 +44,10 @@ public class DevToolingControllerTest {
   }
 
   @Test
-  public void testGetUnknownFlag_returns400WithError() throws Exception {
+  public void testGetUnknownFlag_returns404WithError() throws Exception {
     mockMvc
         .perform(get("/dev/featureFlags/doesNotExist"))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").exists());
   }
 }

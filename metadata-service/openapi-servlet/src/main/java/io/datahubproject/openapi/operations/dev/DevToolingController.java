@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/dev")
 @ConditionalOnProperty(name = "devTooling.enabled", havingValue = "true")
-@Slf4j
 @Tag(
     name = "DevTooling",
     description = "Development tooling for agent-driven workflows (feature flag inspection)")
@@ -49,7 +48,7 @@ public class DevToolingController {
   public ResponseEntity<Map<String, Object>> getFeatureFlag(@PathVariable("name") String name) {
     Map<String, Object> flags = serializeFeatureFlags();
     if (!flags.containsKey(name)) {
-      return ResponseEntity.badRequest()
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
           .body(
               Map.of(
                   "error",
