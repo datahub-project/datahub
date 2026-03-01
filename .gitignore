@@ -102,6 +102,10 @@ coverage*.xml
 # Local dev environment overrides (user-specific GMS/Kafka settings)
 docker/profiles/my-settings.env
 
+# Agents Skills
+.agents/
+skills-lock.json
+
 # Claude ignores
 .claude/
 **/.claude/settings.local.json
