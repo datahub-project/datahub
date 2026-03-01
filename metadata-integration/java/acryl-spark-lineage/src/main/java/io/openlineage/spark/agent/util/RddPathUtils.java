@@ -5,6 +5,7 @@
 
 package io.openlineage.spark.agent.util;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -14,11 +15,14 @@ import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.spark.package$;
 import org.apache.spark.rdd.HadoopRDD;
 import org.apache.spark.rdd.MapPartitionsRDD;
+import org.apache.spark.rdd.NewHadoopRDD;
 import org.apache.spark.rdd.ParallelCollectionRDD;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.rdd.UnionRDD;
 import org.apache.spark.sql.execution.datasources.FilePartition;
 import org.apache.spark.sql.execution.datasources.FileScanRDD;
 import scala.Tuple2;
@@ -34,12 +38,28 @@ public class RddPathUtils {
             new HadoopRDDExtractor(),
             new FileScanRDDExtractor(),
             new MapPartitionsRDDExtractor(),
+            new UnionRddExctractor(),
+            new NewHadoopRDDExtractor(),
             new ParallelCollectionRDDExtractor())
         .filter(e -> e.isDefinedAt(rdd))
         .findFirst()
         .orElse(new UnknownRDDExtractor())
         .extract(rdd)
         .filter(p -> p != null);
+  }
+
+  static class UnionRddExctractor implements RddPathExtractor<RDD> {
+    @Override
+    public boolean isDefinedAt(Object rdd) {
+      return rdd instanceof UnionRDD;
+    }
+
+    @Override
+    public Stream<Path> extract(RDD rdd) {
+      return ScalaConversionUtils.<RDD>fromSeq(((UnionRDD) rdd).rdds()).stream()
+          .map(RDD.class::cast)
+          .flatMap(r -> findRDDPaths((RDD) r));
+    }
   }
 
   static class UnknownRDDExtractor implements RddPathExtractor<RDD> {
@@ -71,7 +91,28 @@ public class RddPathUtils {
         log.debug("Hadoop RDD input paths {}", Arrays.toString(inputPaths));
         log.debug("Hadoop RDD job conf {}", rdd.getJobConf());
       }
-      return Arrays.stream(inputPaths).map(p -> PlanUtils.getDirectoryPath(p, hadoopConf));
+      return PlanUtils.getDirectoryPaths(Arrays.asList(inputPaths), hadoopConf).stream();
+    }
+  }
+
+  static class NewHadoopRDDExtractor implements RddPathExtractor<NewHadoopRDD> {
+    @Override
+    public boolean isDefinedAt(Object rdd) {
+      return rdd instanceof NewHadoopRDD;
+    }
+
+    @Override
+    public Stream<Path> extract(NewHadoopRDD rdd) {
+      try {
+        org.apache.hadoop.fs.Path[] inputPaths =
+            org.apache.hadoop.mapreduce.lib.input.FileInputFormat.getInputPaths(
+                new Job(((NewHadoopRDD<?, ?>) rdd).getConf()));
+
+        return PlanUtils.getDirectoryPaths(Arrays.asList(inputPaths), rdd.getConf()).stream();
+      } catch (IOException e) {
+        log.error("Openlineage spark agent could not get input paths", e);
+      }
+      return Stream.empty();
     }
   }
 

@@ -16,6 +16,7 @@ import io.openlineage.client.OpenLineage.OutputDataset;
 import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.client.utils.jdbc.JdbcDatasetUtils;
 import io.openlineage.spark.agent.util.DatasetFacetsUtils;
+import io.openlineage.spark.agent.util.LogicalRelationFactory;
 import io.openlineage.spark.agent.util.PathUtils;
 import io.openlineage.spark.agent.util.PlanUtils;
 import io.openlineage.spark.agent.util.ScalaConversionUtils;
@@ -142,39 +143,11 @@ public class SaveIntoDataSourceCommandVisitor
         (SaveMode.Overwrite == command.mode()) ? OVERWRITE : CREATE;
 
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")) {
-      // Handle path-based Delta tables
       if (command.options().contains("path")) {
         URI uri = URI.create(command.options().get("path").get());
         return Collections.singletonList(
             outputDataset().getDataset(PathUtils.fromURI(uri), schema, lifecycleStateChange));
       }
-
-      // Handle catalog-based Delta tables (saveAsTable scenarios)
-      if (command.options().contains("table")) {
-        String tableName = command.options().get("table").get();
-        // For catalog tables, use the default namespace or catalog
-        String namespace = "spark_catalog"; // Default Spark catalog namespace
-        DatasetIdentifier identifier = new DatasetIdentifier(tableName, namespace);
-        return Collections.singletonList(
-            outputDataset().getDataset(identifier, schema, lifecycleStateChange));
-      }
-
-      // Handle saveAsTable without explicit table option - check for table info in query execution
-      if (context.getQueryExecution().isPresent()) {
-        QueryExecution qe = context.getQueryExecution().get();
-        // Try to extract table name from query execution context
-        String extractedTableName = extractTableNameFromContext(qe);
-        if (extractedTableName != null) {
-          String namespace = "spark_catalog";
-          DatasetIdentifier identifier = new DatasetIdentifier(extractedTableName, namespace);
-          return Collections.singletonList(
-              outputDataset().getDataset(identifier, schema, lifecycleStateChange));
-        }
-      }
-
-      log.debug(
-          "Delta table detected but could not determine path or table name from options: {}",
-          command.options());
     }
 
     if (command
@@ -212,11 +185,12 @@ public class SaveIntoDataSourceCommandVisitor
       throw ex;
     }
     LogicalRelation logicalRelation =
-        new LogicalRelation(
-            relation,
-            ScalaConversionUtils.asScalaSeqEmpty(),
-            Option.empty(),
-            command.isStreaming());
+        LogicalRelationFactory.create(
+                relation,
+                ScalaConversionUtils.asScalaSeqEmpty(),
+                Option.empty(),
+                command.isStreaming())
+            .orElseThrow(() -> new RuntimeException("Failed to create LogicalRelation"));
     return delegate(
             context.getOutputDatasetQueryPlanVisitors(), context.getOutputDatasetBuilders(), event)
         .applyOrElse(
@@ -264,57 +238,6 @@ public class SaveIntoDataSourceCommandVisitor
       schema = PlanUtils.toStructType(ScalaConversionUtils.fromSeq(command.query().output()));
     }
     return schema;
-  }
-
-  /**
-   * Attempts to extract table name from QueryExecution context for saveAsTable operations. This
-   * handles cases where the table name isn't explicitly in the command options.
-   */
-  private String extractTableNameFromContext(QueryExecution qe) {
-    try {
-      // Try to get table name from SQL text if available
-      // Note: sqlText() is not available in all Spark versions, use reflection
-      try {
-        java.lang.reflect.Method sqlTextMethod = qe.getClass().getMethod("sqlText");
-        Object sqlOption = sqlTextMethod.invoke(qe);
-        if (sqlOption != null && ((Option<?>) sqlOption).isDefined()) {
-          String sql = (String) ((Option<?>) sqlOption).get();
-          log.debug("Attempting to extract table name from SQL: {}", sql);
-
-          // Look for saveAsTable pattern which typically generates CREATE TABLE statements
-          if (sql.toLowerCase().contains("create table")) {
-            // Extract table name using regex pattern matching
-            String[] tokens = sql.split("\\s+");
-            for (int i = 0; i < tokens.length - 1; i++) {
-              if (tokens[i].toLowerCase().equals("table")) {
-                String candidateTableName = tokens[i + 1];
-                // Clean up table name (remove backticks, quotes, database prefix)
-                candidateTableName = candidateTableName.replaceAll("[`'\"]", "");
-                // Handle database.table format by taking just the table name
-                if (candidateTableName.contains(".")) {
-                  String[] parts = candidateTableName.split("\\.");
-                  candidateTableName = parts[parts.length - 1]; // Take the last part (table name)
-                }
-                if (!candidateTableName.isEmpty()
-                    && !candidateTableName.toLowerCase().equals("if")) {
-                  log.debug("Extracted table name from SQL: {}", candidateTableName);
-                  return candidateTableName;
-                }
-              }
-            }
-          }
-        }
-      } catch (Exception reflectionEx) {
-        log.debug(
-            "sqlText() method not available in this Spark version: {}", reflectionEx.getMessage());
-      }
-
-      log.debug("Could not extract table name from QueryExecution SQL text");
-    } catch (Exception e) {
-      log.debug("Error extracting table name from QueryExecution: {}", e.getMessage());
-    }
-
-    return null;
   }
 
   @Override

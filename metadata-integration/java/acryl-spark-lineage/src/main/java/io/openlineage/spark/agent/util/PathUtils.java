@@ -41,11 +41,7 @@ public class PathUtils {
   public static DatasetIdentifier fromCatalogTable(
       CatalogTable catalogTable, SparkSession sparkSession) {
     URI locationUri;
-    if (catalogTable.storage() != null && catalogTable.storage().locationUri().isDefined()) {
-      locationUri = catalogTable.storage().locationUri().get();
-    } else {
-      locationUri = getDefaultLocationUri(sparkSession, catalogTable.identifier());
-    }
+    locationUri = getLocationUri(catalogTable, sparkSession);
     return fromCatalogTable(catalogTable, sparkSession, locationUri);
   }
 
@@ -142,13 +138,24 @@ public class PathUtils {
     return new Path(warehouse, database + ".db", name);
   }
 
+  public static Optional<URI> getMetastoreUri(SparkContext context) {
+    // make sure enableHiveSupport is called
+    Optional<String> setting =
+        SparkConfUtils.findSparkConfigKey(
+            context.getConf(), StaticSQLConf.CATALOG_IMPLEMENTATION().key());
+    if (!setting.isPresent() || !"hive".equals(setting.get())) {
+      return Optional.empty();
+    }
+    return SparkConfUtils.getMetastoreUri(context);
+  }
+
   @SneakyThrows
   public static URI prepareHiveUri(URI uri) {
     return new URI("hive", uri.getAuthority(), null, null, null);
   }
 
   @SneakyThrows
-  private static Optional<URI> getWarehouseLocation(SparkConf sparkConf, Configuration hadoopConf) {
+  public static Optional<URI> getWarehouseLocation(SparkConf sparkConf, Configuration hadoopConf) {
     Optional<String> warehouseLocation =
         SparkConfUtils.findSparkConfigKey(sparkConf, StaticSQLConf.WAREHOUSE_PATH().key());
     if (!warehouseLocation.isPresent()) {
@@ -158,15 +165,14 @@ public class PathUtils {
     return warehouseLocation.map(URI::create);
   }
 
-  private static Optional<URI> getMetastoreUri(SparkContext context) {
-    // make sure enableHiveSupport is called
-    Optional<String> setting =
-        SparkConfUtils.findSparkConfigKey(
-            context.getConf(), StaticSQLConf.CATALOG_IMPLEMENTATION().key());
-    if (!setting.isPresent() || !"hive".equals(setting.get())) {
-      return Optional.empty();
+  private static URI getLocationUri(CatalogTable catalogTable, SparkSession sparkSession) {
+    URI locationUri;
+    if (catalogTable.storage() != null && catalogTable.storage().locationUri().isDefined()) {
+      locationUri = catalogTable.storage().locationUri().get();
+    } else {
+      locationUri = getDefaultLocationUri(sparkSession, catalogTable.identifier());
     }
-    return SparkConfUtils.getMetastoreUri(context);
+    return locationUri;
   }
 
   /** Get DatasetIdentifier name in format database.table or table */
