@@ -420,11 +420,11 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/datahub-dev.sh <command>
 ```
 
-Run `scripts/datahub-dev.sh --help` to see all available subcommands (`status`, `wait`, `rebuild`, `test`, `flag`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`, `rebuild`, `test`, `flag`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 
-1. **Start**: `./gradlew quickstartDebug` then `scripts/datahub-dev.sh wait`
+1. **Start**: `scripts/datahub-dev.sh start`
 2. **Code**: Make changes to Java/Python/frontend code
 3. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
 4. **Test**: `scripts/datahub-dev.sh test <test-path>`

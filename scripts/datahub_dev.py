@@ -86,8 +86,14 @@ MODULE_TO_CONTAINER = {
     "datahub-frontend/": (":datahub-frontend:dist", "datahub-frontend-react"),
     "datahub-web-react/": (":datahub-web-react:distZip", "datahub-frontend-react"),
     "datahub-graphql-core/": (":metadata-service:war:bootJar", "datahub-gms"),
-    "metadata-jobs/mce-consumer-job/": (":metadata-jobs:mce-consumer-job:bootJar", "datahub-mce-consumer"),
-    "metadata-jobs/mae-consumer-job/": (":metadata-jobs:mae-consumer-job:bootJar", "datahub-mae-consumer"),
+    "metadata-jobs/mce-consumer-job/": (
+        ":metadata-jobs:mce-consumer-job:bootJar",
+        "datahub-mce-consumer",
+    ),
+    "metadata-jobs/mae-consumer-job/": (
+        ":metadata-jobs:mae-consumer-job:bootJar",
+        "datahub-mae-consumer",
+    ),
     "metadata-io/": (":metadata-service:war:bootJar", "datahub-gms"),
 }
 
@@ -95,6 +101,7 @@ MODULE_TO_CONTAINER = {
 # ---------------------------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------------------------
+
 
 def _log(msg: str) -> None:
     """Log to stderr so stdout stays clean for JSON output."""
@@ -141,8 +148,13 @@ def _dev_env() -> Dict[str, str]:
     return env
 
 
-def _run(cmd: List[str], capture: bool = True, cwd: Optional[Path] = None,
-         timeout: int = 600, env: Optional[Dict[str, str]] = None) -> subprocess.CompletedProcess:
+def _run(
+    cmd: List[str],
+    capture: bool = True,
+    cwd: Optional[Path] = None,
+    timeout: int = 600,
+    env: Optional[Dict[str, str]] = None,
+) -> subprocess.CompletedProcess:
     """Run a subprocess command with DATAHUB_LOCAL_COMMON_ENV injected."""
     return subprocess.run(
         cmd,
@@ -156,7 +168,9 @@ def _run(cmd: List[str], capture: bool = True, cwd: Optional[Path] = None,
 
 def _run_docker_compose_ps() -> List[Dict[str, Any]]:
     """Get docker compose container info as JSON list."""
-    result = _run(["docker", "compose", "-p", COMPOSE_PROJECT, "ps", "--format", "json", "-a"])
+    result = _run(
+        ["docker", "compose", "-p", COMPOSE_PROJECT, "ps", "--format", "json", "-a"]
+    )
     if result.returncode != 0:
         return []
     containers = []
@@ -199,9 +213,13 @@ def _get_container_info(containers: List[Dict[str, Any]]) -> Dict[str, Dict[str,
     return services
 
 
-def _suggest_recovery(services: Dict[str, Dict[str, Any]], gms_ok: bool) -> Optional[str]:
+def _suggest_recovery(
+    services: Dict[str, Dict[str, Any]], gms_ok: bool
+) -> Optional[str]:
     """Analyze service state and suggest recovery action."""
-    all_down = all(s["state"] != "running" for s in services.values()) if services else True
+    all_down = (
+        all(s["state"] != "running" for s in services.values()) if services else True
+    )
     any_crash_loop = any(s["restart_count"] > 3 for s in services.values())
     # Only flag exits with non-zero codes as problems. Containers like system-update
     # exit with code 0 normally (one-shot init containers).
@@ -226,6 +244,7 @@ def _suggest_recovery(services: Dict[str, Dict[str, Any]], gms_ok: bool) -> Opti
 # ---------------------------------------------------------------------------
 # Command: status
 # ---------------------------------------------------------------------------
+
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Check environment status and output structured JSON."""
@@ -278,6 +297,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 # Command: wait
 # ---------------------------------------------------------------------------
 
+
 def cmd_wait(args: argparse.Namespace) -> int:
     """Block until the DataHub stack is ready or timeout."""
     timeout = args.timeout
@@ -314,6 +334,7 @@ def cmd_wait(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Command: rebuild
 # ---------------------------------------------------------------------------
+
 
 def _detect_changed_modules() -> List[Tuple[str, str, str]]:
     """Use git diff to detect which modules changed, return list of (module_path, gradle_task, container)."""
@@ -380,7 +401,9 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
             "mae": "datahub-mae-consumer",
         }
         if args.module not in module_names:
-            _log(f"Unknown module: {args.module}. Valid: {', '.join(module_names.keys())}")
+            _log(
+                f"Unknown module: {args.module}. Valid: {', '.join(module_names.keys())}"
+            )
             return 1
         _log(f"Rebuilding: {module_names[args.module]}")
     else:
@@ -396,8 +419,14 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     # the build, then inspects which dockerPrepare tasks were not
     # up-to-date to decide which containers to restart.
     gradle_cmd = [
-        "./gradlew", ":docker:reload",
-        "-x", "test", "-x", "check", "-x", "generateGitPropertiesGlobal",
+        "./gradlew",
+        ":docker:reload",
+        "-x",
+        "test",
+        "-x",
+        "check",
+        "-x",
+        "generateGitPropertiesGlobal",
     ]
     _log(f"Running: {' '.join(gradle_cmd)}")
     build_start = time.time()
@@ -424,6 +453,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
 # Command: test
 # ---------------------------------------------------------------------------
 
+
 def cmd_test(args: argparse.Namespace) -> int:
     """Run targeted smoke tests."""
     test_path = args.path
@@ -442,7 +472,12 @@ def cmd_test(args: argparse.Namespace) -> int:
     if not venv_python.exists() or not sentinel.exists():
         _log("Smoke test venv not found. Setting it up...")
         setup_result = _run(
-            ["./gradlew", ":smoke-test:installDev", "-x", "generateGitPropertiesGlobal"],
+            [
+                "./gradlew",
+                ":smoke-test:installDev",
+                "-x",
+                "generateGitPropertiesGlobal",
+            ],
             capture=False,
             timeout=300,
         )
@@ -454,10 +489,16 @@ def cmd_test(args: argparse.Namespace) -> int:
     env = _dev_env()
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     if gms_base_path == "/" or not gms_base_path:
-        env.setdefault("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL", "http://localhost:8080/schema-registry/api")
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            "http://localhost:8080/schema-registry/api",
+        )
         env.setdefault("DATAHUB_GMS_URL", "http://localhost:8080")
     else:
-        env.setdefault("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL", f"http://localhost:8080{gms_base_path}/schema-registry/api")
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            f"http://localhost:8080{gms_base_path}/schema-registry/api",
+        )
         env.setdefault("DATAHUB_GMS_URL", f"http://localhost:8080{gms_base_path}")
 
     # Cypress creds (used by some test fixtures)
@@ -472,7 +513,9 @@ def cmd_test(args: argparse.Namespace) -> int:
 
     # Build pytest command
     pytest_cmd = [
-        str(venv_python), "-m", "pytest",
+        str(venv_python),
+        "-m",
+        "pytest",
         test_path,
         "-vv",
         "--tb=short",
@@ -484,9 +527,11 @@ def cmd_test(args: argparse.Namespace) -> int:
     if env.get("AGENT_MODE") == "1":
         report_path = SMOKE_TEST_DIR / "build" / "test-report.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        pytest_cmd.extend([
-            f"--agent-report={report_path}",
-        ])
+        pytest_cmd.extend(
+            [
+                f"--agent-report={report_path}",
+            ]
+        )
 
     pytest_cmd.extend(extra_args)
 
@@ -531,7 +576,9 @@ def cmd_flag_list(args: argparse.Namespace) -> int:
     """List all feature flags."""
     status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
     if status_code != 200:
-        _log(f"Failed to get feature flags (status={status_code}). Is GMS running with DEV_TOOLING_ENABLED=true?")
+        _log(
+            f"Failed to get feature flags (status={status_code}). Is GMS running with DEV_TOOLING_ENABLED=true?"
+        )
         # Fallback: show dynamic flags from the generated manifest
         manifest = _load_flag_classification()
         print(json.dumps(manifest.get("dynamic", {}), indent=2))
@@ -557,7 +604,9 @@ def cmd_flag_get(args: argparse.Namespace) -> int:
             print(json.dumps({args.name: flags[args.name]}, indent=2))
             return 0
         else:
-            _log(f"Flag '{args.name}' not found. Available: {', '.join(sorted(flags.keys()))}")
+            _log(
+                f"Flag '{args.name}' not found. Available: {', '.join(sorted(flags.keys()))}"
+            )
             return 1
     except json.JSONDecodeError:
         _log(f"Invalid response: {body}")
@@ -578,7 +627,7 @@ def cmd_flag_set(args: argparse.Namespace) -> int:
             _log(f"'{flag_name}' is a static flag ({reason}).")
             _log("Container restart required (~60-90s).")
             _log(f"Use: scripts/datahub-dev.sh env set {env_name}={args.value}")
-            _log(f"Then: scripts/datahub-dev.sh env restart")
+            _log("Then: scripts/datahub-dev.sh env restart")
             return 1
 
     # Parse value
@@ -609,6 +658,7 @@ def cmd_flag_set(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Command: env
 # ---------------------------------------------------------------------------
+
 
 def cmd_env_set(args: argparse.Namespace) -> int:
     """Set an environment variable for DataHub containers.
@@ -671,7 +721,15 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
     if result.returncode != 0:
         _log("Gradle reloadEnv failed. Falling back to docker compose recreate...")
         _run(
-            ["docker", "compose", "-p", COMPOSE_PROJECT, "up", "-d", "--force-recreate"],
+            [
+                "docker",
+                "compose",
+                "-p",
+                COMPOSE_PROJECT,
+                "up",
+                "-d",
+                "--force-recreate",
+            ],
             capture=False,
             timeout=120,
         )
@@ -735,6 +793,7 @@ def cmd_env_clean(args: argparse.Namespace) -> int:
 # Command: reset
 # ---------------------------------------------------------------------------
 
+
 def cmd_reset(args: argparse.Namespace) -> int:
     """Soft reset: restart services without losing data."""
     _log("Performing soft reset (no data loss)...")
@@ -765,6 +824,7 @@ def cmd_reset(args: argparse.Namespace) -> int:
 # Command: nuke
 # ---------------------------------------------------------------------------
 
+
 def cmd_nuke(args: argparse.Namespace) -> int:
     """Hard reset: remove containers (and optionally volumes) and restart from scratch."""
     keep_data = args.keep_data
@@ -773,12 +833,21 @@ def cmd_nuke(args: argparse.Namespace) -> int:
         _log("Nuking containers (keeping data volumes)...")
     else:
         _log("NUCLEAR OPTION: Removing ALL containers AND data volumes...")
-        _log("WARNING: This will destroy all local metadata. Recovery takes 10-20 minutes.")
+        _log(
+            "WARNING: This will destroy all local metadata. Recovery takes 10-20 minutes."
+        )
 
     # Step 1: Find and remove containers
     _log("Removing containers...")
     result = _run(
-        ["docker", "ps", "-a", "--filter", f"label=com.docker.compose.project={COMPOSE_PROJECT}", "-q"],
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            f"label=com.docker.compose.project={COMPOSE_PROJECT}",
+            "-q",
+        ],
     )
     container_ids = result.stdout.strip().splitlines() if result.stdout.strip() else []
     if container_ids:
@@ -791,9 +860,18 @@ def cmd_nuke(args: argparse.Namespace) -> int:
     if not keep_data:
         _log("Removing volumes...")
         vol_result = _run(
-            ["docker", "volume", "ls", "--filter", f"label=com.docker.compose.project={COMPOSE_PROJECT}", "-q"],
+            [
+                "docker",
+                "volume",
+                "ls",
+                "--filter",
+                f"label=com.docker.compose.project={COMPOSE_PROJECT}",
+                "-q",
+            ],
         )
-        volume_ids = vol_result.stdout.strip().splitlines() if vol_result.stdout.strip() else []
+        volume_ids = (
+            vol_result.stdout.strip().splitlines() if vol_result.stdout.strip() else []
+        )
         if volume_ids:
             _run(["docker", "volume", "rm", "-f"] + volume_ids, capture=False)
             _log(f"Removed {len(volume_ids)} volumes.")
@@ -801,33 +879,54 @@ def cmd_nuke(args: argparse.Namespace) -> int:
     # Step 3: Remove networks
     _log("Removing networks...")
     net_result = _run(
-        ["docker", "network", "ls", "--filter", f"label=com.docker.compose.project={COMPOSE_PROJECT}", "-q"],
+        [
+            "docker",
+            "network",
+            "ls",
+            "--filter",
+            f"label=com.docker.compose.project={COMPOSE_PROJECT}",
+            "-q",
+        ],
     )
-    network_ids = net_result.stdout.strip().splitlines() if net_result.stdout.strip() else []
+    network_ids = (
+        net_result.stdout.strip().splitlines() if net_result.stdout.strip() else []
+    )
     if network_ids:
         for nid in network_ids:
             _run(["docker", "network", "rm", nid], capture=False)
 
     # Step 4: Restart from scratch
     _log("Restarting DataHub from scratch via Gradle...")
-    rebuild_result = _run(
+    start_args = argparse.Namespace(timeout=600)
+    return cmd_start(start_args)
+
+
+# ---------------------------------------------------------------------------
+# Command: start
+# ---------------------------------------------------------------------------
+
+
+def cmd_start(args: argparse.Namespace) -> int:
+    """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
+    _log("Starting DataHub via quickstartDebug...")
+    result = _run(
         ["./gradlew", "quickstartDebug", "-x", "generateGitPropertiesGlobal"],
         capture=False,
         timeout=1200,
     )
-
-    if rebuild_result.returncode != 0:
+    if result.returncode != 0:
         _log("quickstartDebug failed. Check the output above for errors.")
         return 1
 
     _log("Waiting for services to become ready...")
-    wait_args = argparse.Namespace(timeout=600)
+    wait_args = argparse.Namespace(timeout=args.timeout)
     return cmd_wait(wait_args)
 
 
 # ---------------------------------------------------------------------------
 # Command: sync-flags
 # ---------------------------------------------------------------------------
+
 
 def cmd_sync_flags(args: argparse.Namespace) -> int:
     """Regenerate scripts/generated/flag-classification.json from FeatureFlags.java."""
@@ -836,7 +935,8 @@ def cmd_sync_flags(args: argparse.Namespace) -> int:
         [
             "./gradlew",
             ":metadata-service:configuration:generateFlagClassification",
-            "-x", "generateGitPropertiesGlobal",
+            "-x",
+            "generateGitPropertiesGlobal",
         ],
         capture=False,
         timeout=300,
@@ -853,6 +953,7 @@ def cmd_sync_flags(args: argparse.Namespace) -> int:
 # Argument parser
 # ---------------------------------------------------------------------------
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="datahub-dev",
@@ -863,15 +964,43 @@ def build_parser() -> argparse.ArgumentParser:
     # status
     subparsers.add_parser("status", help="Check environment status (JSON output)")
 
+    # start
+    start_p = subparsers.add_parser(
+        "start", help="Start DataHub (quickstartDebug) and wait for readiness"
+    )
+    start_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        help=f"Timeout for readiness wait (default: {DEFAULT_TIMEOUT})",
+    )
+
     # wait
     wait_p = subparsers.add_parser("wait", help="Block until DataHub is ready")
-    wait_p.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"Timeout in seconds (default: {DEFAULT_TIMEOUT})")
+    wait_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        help=f"Timeout in seconds (default: {DEFAULT_TIMEOUT})",
+    )
 
     # rebuild
     rebuild_p = subparsers.add_parser("rebuild", help="Smart incremental rebuild")
-    rebuild_p.add_argument("--wait", action="store_true", help="Wait for readiness after rebuild")
-    rebuild_p.add_argument("--module", type=str, choices=["gms", "frontend", "mce", "mae"], help="Explicitly specify module to rebuild")
-    rebuild_p.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout for wait (default: 300s)")
+    rebuild_p.add_argument(
+        "--wait", action="store_true", help="Wait for readiness after rebuild"
+    )
+    rebuild_p.add_argument(
+        "--module",
+        type=str,
+        choices=["gms", "frontend", "mce", "mae"],
+        help="Explicitly specify module to rebuild",
+    )
+    rebuild_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        help="Timeout for wait (default: 300s)",
+    )
 
     # test
     test_p = subparsers.add_parser("test", help="Run targeted smoke tests")
@@ -894,8 +1023,14 @@ def build_parser() -> argparse.ArgumentParser:
     env_set_p = env_sub.add_parser("set", help="Set an env var for containers")
     env_set_p.add_argument("assignment", help="KEY=VALUE")
     env_sub.add_parser("restart", help="Restart containers with new env vars")
-    env_clean_p = env_sub.add_parser("clean", help="Remove env files for deleted branches")
-    env_clean_p.add_argument("--dry-run", action="store_true", help="Show what would be removed without deleting")
+    env_clean_p = env_sub.add_parser(
+        "clean", help="Remove env files for deleted branches"
+    )
+    env_clean_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be removed without deleting",
+    )
 
     # sync-flags
     subparsers.add_parser(
@@ -907,7 +1042,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("reset", help="Soft reset (restart without data loss)")
 
     # nuke
-    nuke_p = subparsers.add_parser("nuke", help="Hard reset (remove containers, optionally data)")
+    nuke_p = subparsers.add_parser(
+        "nuke", help="Hard reset (remove containers, optionally data)"
+    )
     nuke_p.add_argument("--keep-data", action="store_true", help="Keep data volumes")
 
     return parser
@@ -923,6 +1060,7 @@ def main() -> int:
 
     command_map = {
         "status": cmd_status,
+        "start": cmd_start,
         "wait": cmd_wait,
         "rebuild": cmd_rebuild,
         "test": cmd_test,

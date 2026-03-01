@@ -729,6 +729,7 @@ tasks.register('format') {
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
   dependsOn('spotlessApply')
+  dependsOn(':scripts:lintFix')
 }
 
 tasks.register('formatChanged') {
@@ -736,6 +737,7 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
   dependsOn('spotlessApply')
+  dependsOn(':scripts:lintFix')
 }
 
 tasks.register('resolveAndLockAll') {
