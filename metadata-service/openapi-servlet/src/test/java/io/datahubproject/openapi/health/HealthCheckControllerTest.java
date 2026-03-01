@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -216,6 +217,32 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
         .perform(get("/health"))
         // Then: Should now return 200
         .andExpect(status().isOk());
+  }
+
+  /** Test /health/detailed returns 200 with structured JSON regardless of health state. */
+  @Test
+  public void testDetailedHealthEndpointStructure() throws Exception {
+    when(bootstrapManager.areBlockingStepsComplete()).thenReturn(true);
+
+    mockMvc
+        .perform(get("/health/detailed"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.bootstrapped").value(true))
+        .andExpect(jsonPath("$.elasticsearch").exists())
+        .andExpect(jsonPath("$.ready").exists())
+        .andExpect(jsonPath("$.timestamp").exists());
+  }
+
+  /** Test /health/detailed correctly reflects not-ready state in body while still returning 200. */
+  @Test
+  public void testDetailedHealthEndpointAlwaysReturns200() throws Exception {
+    when(bootstrapManager.areBlockingStepsComplete()).thenReturn(false);
+
+    mockMvc
+        .perform(get("/health/detailed"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.bootstrapped").value(false))
+        .andExpect(jsonPath("$.ready").value(false));
   }
 
   /**
