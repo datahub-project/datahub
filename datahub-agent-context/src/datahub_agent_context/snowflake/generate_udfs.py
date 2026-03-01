@@ -18,6 +18,9 @@ from datahub_agent_context.snowflake.udfs.add_structured_properties import (
     generate_add_structured_properties_udf,
 )
 from datahub_agent_context.snowflake.udfs.add_tags import generate_add_tags_udf
+from datahub_agent_context.snowflake.udfs.get_dataset_assertions import (
+    generate_get_dataset_assertions_udf,
+)
 from datahub_agent_context.snowflake.udfs.get_dataset_queries import (
     generate_get_dataset_queries_udf,
 )
@@ -99,7 +102,7 @@ def extract_function_signature(udf_sql: str) -> str:
 def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
     """Generate all DataHub UDFs from datahub-agent-context tools.
 
-    Returns all 20 tools from datahub-agent-context as Snowflake UDFs, including
+    Returns all 21 tools from datahub-agent-context as Snowflake UDFs, including
     both read operations (search, get_entities, etc.) and write operations (add_tags,
     update_description, etc.).
 
@@ -124,6 +127,8 @@ def generate_all_udfs(include_mutations: bool = True) -> dict[str, str]:
         "GET_LINEAGE_PATHS_BETWEEN": generate_get_lineage_paths_between_udf(),
         # Query analysis tools (read-only)
         "GET_DATASET_QUERIES": generate_get_dataset_queries_udf(),
+        # Data quality tools (read-only)
+        "GET_DATASET_ASSERTIONS": generate_get_dataset_assertions_udf(),
         # Document search tools (read-only)
         "SEARCH_DOCUMENTS": generate_search_documents_udf(),
         "GREP_DOCUMENTS": generate_grep_documents_udf(),
@@ -227,6 +232,7 @@ def generate_datahub_udfs_sql(include_mutations: bool = True) -> str:
 --   - GET_LINEAGE: Get upstream/downstream lineage
 --   - GET_LINEAGE_PATHS_BETWEEN: Get detailed transformation paths
 --   - GET_DATASET_QUERIES: Get SQL queries using a dataset
+--   - GET_DATASET_ASSERTIONS: Get data quality assertions for a dataset
 --   - SEARCH_DOCUMENTS: Search organization documents
 --   - GREP_DOCUMENTS: Regex search within documents
 --   - GET_ME: Get authenticated user information

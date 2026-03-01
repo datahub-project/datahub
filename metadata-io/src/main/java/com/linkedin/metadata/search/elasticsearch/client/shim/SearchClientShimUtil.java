@@ -559,6 +559,7 @@ public class SearchClientShimUtil {
     private String region;
     private Integer threadCount = 1;
     private Integer connectionRequestTimeout = 5000;
+    private Integer socketTimeout = 30000;
     private SSLContext sSLContext;
 
     public ShimConfigurationBuilder() {}
@@ -575,6 +576,7 @@ public class SearchClientShimUtil {
       this.region = existing.getRegion();
       this.threadCount = existing.getThreadCount();
       this.connectionRequestTimeout = existing.getConnectionRequestTimeout();
+      this.socketTimeout = existing.getSocketTimeout();
       this.sSLContext = existing.getSSLContext();
     }
 
@@ -625,6 +627,11 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withSocketTimeout(Integer socketTimeout) {
+      this.socketTimeout = socketTimeout;
+      return this;
+    }
+
     public ShimConfigurationBuilder withSSLContext(SSLContext sSLContext) {
       this.sSLContext = sSLContext;
       return this;
@@ -643,6 +650,7 @@ public class SearchClientShimUtil {
           region,
           threadCount,
           connectionRequestTimeout,
+          socketTimeout,
           sSLContext);
     }
   }
@@ -661,6 +669,7 @@ public class SearchClientShimUtil {
     private final String region;
     private final Integer threadCount;
     private final Integer connectionRequestTimeout;
+    private final Integer socketTimeout;
     private final SSLContext sSLContext;
 
     public ShimConfigurationImpl(
@@ -675,6 +684,7 @@ public class SearchClientShimUtil {
         String region,
         Integer threadCount,
         Integer connectionRequestTimeout,
+        Integer socketTimeout,
         SSLContext sslContext) {
       this.engineType = engineType;
       this.host = host;
@@ -687,6 +697,7 @@ public class SearchClientShimUtil {
       this.region = region;
       this.threadCount = threadCount;
       this.connectionRequestTimeout = connectionRequestTimeout;
+      this.socketTimeout = socketTimeout;
       this.sSLContext = sslContext;
     }
   }

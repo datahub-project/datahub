@@ -365,6 +365,7 @@ elasticsearch:
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
@@ -1015,6 +1016,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
