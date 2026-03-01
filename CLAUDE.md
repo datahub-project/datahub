@@ -506,7 +506,7 @@ All paths are **relative to `smoke-test/`**:
 | Lineage                          | `tests/lineage/`                                  |
 | OpenAPI v3                       | `tests/openapi/`                                  |
 | Ingestion                        | `tests/ingestion/`                                |
-| Ad-hoc GraphQL/entity validation | `tests/test_validate.py` (configure via env vars) |
+
 
 ### Feature Flag Lifecycle
 
