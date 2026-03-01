@@ -493,21 +493,6 @@ scripts/datahub-dev.sh env restart
 
 `rebuild` detects which modules changed via `git diff` and only rebuilds those. Use `--module gms/frontend/mce/mae` to override.
 
-### Test Paths by Feature Area
-
-All paths are **relative to `smoke-test/`**:
-
-| Feature                          | Test path                                         |
-| -------------------------------- | ------------------------------------------------- |
-| System info                      | `tests/test_system_info.py`                       |
-| Domains                          | `tests/domains/test_domains.py`                   |
-| Tags & Terms                     | `tests/tags_and_terms/`                           |
-| Search                           | `tests/search/`                                   |
-| Lineage                          | `tests/lineage/`                                  |
-| OpenAPI v3                       | `tests/openapi/`                                  |
-| Ingestion                        | `tests/ingestion/`                                |
-
-
 ### Feature Flag Lifecycle
 
 **Warm flags** (FeatureFlags.java booleans) — toggleable at runtime, **no restart**:
