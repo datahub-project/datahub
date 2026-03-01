@@ -1,5 +1,4 @@
 import threading
-import unittest
 from typing import Union
 from unittest.mock import MagicMock, call, patch
 
@@ -25,7 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 
 
-class KafkaSinkTest(unittest.TestCase):
+class TestKafkaSink:
     @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_config(self, mock_producer, mock_context):
@@ -493,3 +492,39 @@ def test_enhance_schema_registry_error_non_404():
     # Should be unchanged
     assert enhanced == error_str
     assert "HINT:" not in enhanced
+
+
+class TestKafkaEmitterTopicConfiguration:
+    """Test topic configuration validation in kafka_emitter."""
+
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_emit_mce_async_raises_when_topic_not_configured(self, mock_producer_class):
+        """Test that MCE emission raises ValueError when MCE topic is not configured."""
+        from datahub.emitter.kafka_emitter import (
+            DEFAULT_MCP_KAFKA_TOPIC,
+            MCP_KEY,
+            DatahubKafkaEmitter,
+            KafkaEmitterConfig,
+        )
+
+        # Create config WITHOUT MCE_KEY in topic_routes (only MCP configured)
+        config = KafkaEmitterConfig.model_validate(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+                "topic_routes": {MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC},
+            }
+        )
+        emitter = DatahubKafkaEmitter(config)
+
+        # Create a simple MCE
+        mce = builder.make_lineage_mce(
+            [builder.make_dataset_urn("bigquery", "upstream")],
+            builder.make_dataset_urn("bigquery", "downstream"),
+        )
+
+        # Call emit_mce_async - should raise ValueError
+        with pytest.raises(ValueError, match="topic not configured"):
+            emitter.emit_mce_async(mce, lambda err, msg: None)
+
+        # Verify MCE producer was never created
+        assert "MetadataChangeEvent" not in emitter.producers
