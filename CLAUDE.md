@@ -420,7 +420,7 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/datahub-dev.sh <command>
 ```
 
-Run `scripts/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`, `rebuild`, `test`, `flag`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ### End-to-End Workflow
 
@@ -446,21 +446,19 @@ Run `scripts/datahub-dev.sh --help` to see all available subcommands (`start`, `
 
 ### Feature Flag Lifecycle
 
-**Warm flags** (FeatureFlags.java booleans) — toggleable at runtime, **no restart**:
+**All flag changes require a container restart.** Use `env set` + `env restart`:
 
-- Toggle instantly via `datahub-dev.sh flag set <name> <value>`
-- Transient — lost on container restart; set in env file for persistence
-- Enabled by default in all `quickstartDebug` profiles via `DEV_TOOLING_ENABLED=true`.
+```
+scripts/datahub-dev.sh env set SHOW_BROWSE_V2=true
+scripts/datahub-dev.sh env restart
+```
 
-**Cold flags** (`@ConditionalOnProperty`, `@Value`, infrastructure) — **require restart**:
+`flag list` and `flag get` are read-only inspection tools — they show the current live values from
+the running server but do not change anything.
 
-- Determine whether Spring beans exist; cached at startup, never re-read
-- Use `datahub-dev.sh env set <KEY>=<VALUE>` then `datahub-dev.sh env restart`
-- The CLI will tell you if a flag is cold when you try `flag set`
-
-The flag classification manifest at `scripts/generated/flag-classification.json` is
-**auto-generated** (gitignored). Run `scripts/datahub-dev.sh sync-flags` to regenerate it — required
-after adding or removing boolean fields in `FeatureFlags.java` or after a fresh clone.
+The flag manifest at `scripts/generated/flag-classification.json` is **auto-generated**
+(gitignored). Run `scripts/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
+or after a fresh clone.
 
 ### Recovery Escalation
 

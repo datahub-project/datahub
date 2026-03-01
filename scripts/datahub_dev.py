@@ -120,20 +120,6 @@ def _http_get(url: str, timeout: int = 5) -> Tuple[int, str]:
         return -1, str(e)
 
 
-def _http_put_json(url: str, data: Any, timeout: int = 5) -> Tuple[int, str]:
-    """Make an HTTP PUT with JSON body."""
-    try:
-        body = json.dumps(data).encode("utf-8")
-        req = urllib.request.Request(url, data=body, method="PUT")
-        req.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, resp.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", errors="replace") if e.fp else ""
-    except Exception as e:
-        return -1, str(e)
-
-
 def _dev_env() -> Dict[str, str]:
     """Return a copy of os.environ with DATAHUB_LOCAL_COMMON_ENV injected.
 
@@ -573,15 +559,12 @@ def _load_flag_classification() -> Dict[str, Any]:
 
 
 def cmd_flag_list(args: argparse.Namespace) -> int:
-    """List all feature flags."""
+    """List all feature flags and their current live values."""
     status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
     if status_code != 200:
         _log(
             f"Failed to get feature flags (status={status_code}). Is GMS running with DEV_TOOLING_ENABLED=true?"
         )
-        # Fallback: show dynamic flags from the generated manifest
-        manifest = _load_flag_classification()
-        print(json.dumps(manifest.get("dynamic", {}), indent=2))
         return 1
 
     try:
@@ -610,48 +593,6 @@ def cmd_flag_get(args: argparse.Namespace) -> int:
             return 1
     except json.JSONDecodeError:
         _log(f"Invalid response: {body}")
-        return 1
-
-
-def cmd_flag_set(args: argparse.Namespace) -> int:
-    """Set a feature flag value (warm flags only)."""
-    # Check classification
-    manifest = _load_flag_classification()
-    flag_name = args.name
-
-    # Check if it's a static flag (requires container restart — cannot be hot-toggled)
-    static_flags = manifest.get("static", {})
-    for env_name, info in static_flags.items():
-        if env_name.lower() == flag_name.lower():
-            reason = info.get("reason", "requires restart")
-            _log(f"'{flag_name}' is a static flag ({reason}).")
-            _log("Container restart required (~60-90s).")
-            _log(f"Use: scripts/datahub-dev.sh env set {env_name}={args.value}")
-            _log("Then: scripts/datahub-dev.sh env restart")
-            return 1
-
-    # Parse value
-    value = args.value.lower()
-    if value in ("true", "1", "yes"):
-        typed_value = True
-    elif value in ("false", "0", "no"):
-        typed_value = False
-    else:
-        typed_value = args.value
-
-    status_code, body = _http_put_json(
-        f"{GMS_URL}/dev/featureFlags/{flag_name}",
-        {"value": typed_value},
-    )
-    if status_code == 200:
-        _log(f"Set {flag_name}={typed_value} (warm toggle, takes effect immediately)")
-        try:
-            print(json.dumps(json.loads(body), indent=2))
-        except json.JSONDecodeError:
-            print(body)
-        return 0
-    else:
-        _log(f"Failed to set flag (status={status_code}): {body}")
         return 1
 
 
@@ -695,18 +636,8 @@ def cmd_env_set(args: argparse.Namespace) -> int:
 
     DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
 
-    # Check if this is a static flag (requires restart)
-    manifest = _load_flag_classification()
-    static_flags = manifest.get("static", {})
-    if key in static_flags:
-        reason = static_flags[key].get("reason", "requires restart")
-        _log(f"Set {key}={value} in {DEV_ENV_FILE}")
-        _log(f"This is a static flag ({reason}). Container restart required.")
-        _log("Run: scripts/datahub-dev.sh env restart")
-    else:
-        _log(f"Set {key}={value} in {DEV_ENV_FILE}")
-        _log("Run: scripts/datahub-dev.sh env restart  (to apply)")
-
+    _log(f"Set {key}={value} in {DEV_ENV_FILE}")
+    _log("Run: scripts/datahub-dev.sh env restart  (to apply)")
     return 0
 
 
@@ -1008,14 +939,11 @@ def build_parser() -> argparse.ArgumentParser:
     test_p.add_argument("pytest_args", nargs="*", help="Additional pytest arguments")
 
     # flag
-    flag_p = subparsers.add_parser("flag", help="Feature flag management")
+    flag_p = subparsers.add_parser("flag", help="Feature flag inspection (read-only)")
     flag_sub = flag_p.add_subparsers(dest="flag_command")
-    flag_sub.add_parser("list", help="List all feature flags")
+    flag_sub.add_parser("list", help="List all feature flags and their current values")
     flag_get_p = flag_sub.add_parser("get", help="Get a flag value")
     flag_get_p.add_argument("name", help="Flag name (camelCase)")
-    flag_set_p = flag_sub.add_parser("set", help="Set a warm flag value")
-    flag_set_p.add_argument("name", help="Flag name (camelCase)")
-    flag_set_p.add_argument("value", help="Flag value")
 
     # env
     env_p = subparsers.add_parser("env", help="Environment variable management")
@@ -1073,7 +1001,6 @@ def main() -> int:
         flag_map = {
             "list": cmd_flag_list,
             "get": cmd_flag_get,
-            "set": cmd_flag_set,
         }
         if not args.flag_command:
             parser.parse_args(["flag", "--help"])
