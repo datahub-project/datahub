@@ -16,6 +16,7 @@ Usage:
     python3 scripts/datahub_dev.py flag set <name> <value>
     python3 scripts/datahub_dev.py env set KEY=VALUE
     python3 scripts/datahub_dev.py env restart
+    python3 scripts/datahub_dev.py sync-flags
     python3 scripts/datahub_dev.py reset
     python3 scripts/datahub_dev.py nuke [--keep-data]
 """
@@ -505,12 +506,24 @@ def cmd_test(args: argparse.Namespace) -> int:
 # Command: flag
 # ---------------------------------------------------------------------------
 
+GENERATED_MANIFEST = REPO_ROOT / "scripts" / "generated" / "flag-classification.json"
+
+
 def _load_flag_classification() -> Dict[str, Any]:
-    """Load the flag classification manifest."""
-    manifest_path = REPO_ROOT / "scripts" / "flag-classification.json"
-    if not manifest_path.exists():
-        return {"warm": {}, "cold": {}}
-    with open(manifest_path) as f:
+    """Load the auto-generated flag classification manifest.
+
+    The manifest is produced by the generateFlagClassification Gradle task.
+    If missing, returns an empty structure and logs a hint to regenerate.
+    """
+    if not GENERATED_MANIFEST.exists():
+        _log("WARNING: flag-classification.json not generated yet.")
+        _log(
+            "Run: ./gradlew :metadata-service:configuration:generateFlagClassification"
+            " -x generateGitPropertiesGlobal"
+        )
+        _log("Or:  scripts/datahub-dev.sh sync-flags")
+        return {"dynamic": {}, "static": {}}
+    with open(GENERATED_MANIFEST) as f:
         return json.load(f)
 
 
@@ -519,9 +532,9 @@ def cmd_flag_list(args: argparse.Namespace) -> int:
     status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
     if status_code != 200:
         _log(f"Failed to get feature flags (status={status_code}). Is GMS running with METADATA_TESTS_ENABLED=true?")
-        # Fallback: show classification manifest
+        # Fallback: show dynamic flags from the generated manifest
         manifest = _load_flag_classification()
-        print(json.dumps(manifest, indent=2))
+        print(json.dumps(manifest.get("dynamic", {}), indent=2))
         return 1
 
     try:
@@ -557,18 +570,15 @@ def cmd_flag_set(args: argparse.Namespace) -> int:
     manifest = _load_flag_classification()
     flag_name = args.name
 
-    # Convert env-style name to camelCase field name if needed
-    cold_flags = manifest.get("cold", {})
-    warm_flags = manifest.get("warm", {})
-
-    # Check if it's a cold flag
-    for env_name, info in cold_flags.items():
-        if env_name.lower() == flag_name.lower() or info.get("field", "").lower() == flag_name.lower():
+    # Check if it's a static flag (requires container restart — cannot be hot-toggled)
+    static_flags = manifest.get("static", {})
+    for env_name, info in static_flags.items():
+        if env_name.lower() == flag_name.lower():
             reason = info.get("reason", "requires restart")
-            _log(f"'{flag_name}' is a COLD flag ({reason}).")
+            _log(f"'{flag_name}' is a static flag ({reason}).")
             _log("Container restart required (~60-90s).")
-            _log(f"Use: python3 scripts/datahub_dev.py env set {env_name}={args.value}")
-            _log(f"Then: python3 scripts/datahub_dev.py env restart")
+            _log(f"Use: scripts/datahub-dev.sh env set {env_name}={args.value}")
+            _log(f"Then: scripts/datahub-dev.sh env restart")
             return 1
 
     # Parse value
@@ -635,17 +645,17 @@ def cmd_env_set(args: argparse.Namespace) -> int:
 
     DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
 
-    # Check if this is a cold flag
+    # Check if this is a static flag (requires restart)
     manifest = _load_flag_classification()
-    cold_flags = manifest.get("cold", {})
-    if key in cold_flags:
-        reason = cold_flags[key].get("reason", "requires restart")
+    static_flags = manifest.get("static", {})
+    if key in static_flags:
+        reason = static_flags[key].get("reason", "requires restart")
         _log(f"Set {key}={value} in {DEV_ENV_FILE}")
-        _log(f"This is a COLD flag ({reason}). Container restart required.")
-        _log("Run: python3 scripts/datahub_dev.py env restart")
+        _log(f"This is a static flag ({reason}). Container restart required.")
+        _log("Run: scripts/datahub-dev.sh env restart")
     else:
         _log(f"Set {key}={value} in {DEV_ENV_FILE}")
-        _log("Run: python3 scripts/datahub_dev.py env restart  (to apply)")
+        _log("Run: scripts/datahub-dev.sh env restart  (to apply)")
 
     return 0
 
@@ -816,6 +826,30 @@ def cmd_nuke(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Command: sync-flags
+# ---------------------------------------------------------------------------
+
+def cmd_sync_flags(args: argparse.Namespace) -> int:
+    """Regenerate scripts/generated/flag-classification.json from FeatureFlags.java."""
+    _log("Regenerating flag-classification.json...")
+    result = _run(
+        [
+            "./gradlew",
+            ":metadata-service:configuration:generateFlagClassification",
+            "-x", "generateGitPropertiesGlobal",
+        ],
+        capture=False,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        _log("Failed to generate flag-classification.json.")
+        return 1
+    if GENERATED_MANIFEST.exists():
+        _log(f"Generated: {GENERATED_MANIFEST}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -863,6 +897,12 @@ def build_parser() -> argparse.ArgumentParser:
     env_clean_p = env_sub.add_parser("clean", help="Remove env files for deleted branches")
     env_clean_p.add_argument("--dry-run", action="store_true", help="Show what would be removed without deleting")
 
+    # sync-flags
+    subparsers.add_parser(
+        "sync-flags",
+        help="Regenerate scripts/generated/flag-classification.json from source",
+    )
+
     # reset
     subparsers.add_parser("reset", help="Soft reset (restart without data loss)")
 
@@ -886,6 +926,7 @@ def main() -> int:
         "wait": cmd_wait,
         "rebuild": cmd_rebuild,
         "test": cmd_test,
+        "sync-flags": cmd_sync_flags,
         "reset": cmd_reset,
         "nuke": cmd_nuke,
     }

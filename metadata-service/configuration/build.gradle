@@ -26,3 +26,15 @@ dependencies {
 processResources.configure {
   finalizedBy printVersionDetails // always print version details
 }
+
+task generateFlagClassification(type: JavaExec, dependsOn: classes) {
+  def outputFile = rootProject.file("scripts/generated/flag-classification.json")
+  inputs.file("src/main/java/com/linkedin/datahub/graphql/featureflags/FeatureFlags.java")
+  inputs.file("src/main/resources/application.yaml")
+  outputs.file(outputFile)
+
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = "com.linkedin.datahub.graphql.featureflags.FlagClassificationGenerator"
+  args = [outputFile.absolutePath]
+  doFirst { outputFile.parentFile.mkdirs() }
+}

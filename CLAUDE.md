@@ -408,6 +408,166 @@ Example: `feat(parser): add ability to parse arrays`
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
+## Agent Development Workflow
+
+### `datahub-dev` CLI Tool
+
+A stdlib-only Python CLI for agent-driven development. No venv needed — runs with system `python3`.
+
+**Always use the shell wrapper as the entry point:**
+
+```bash
+scripts/datahub-dev.sh <command>
+```
+
+This is equivalent to `python3 scripts/datahub_dev.py <command>` but is the canonical form referenced throughout this document.
+
+```bash
+# Environment status (JSON output on stdout, exit 0 if ready)
+scripts/datahub-dev.sh status
+
+# Wait for stack readiness (blocks until ready or timeout)
+scripts/datahub-dev.sh wait --timeout 300
+
+# Smart incremental rebuild (single Gradle invocation: build + restart affected containers)
+scripts/datahub-dev.sh rebuild --wait
+scripts/datahub-dev.sh rebuild --module gms --wait   # explicit module override
+
+# Run targeted smoke tests (paths relative to smoke-test/)
+scripts/datahub-dev.sh test tests/test_system_info.py
+scripts/datahub-dev.sh test tests/domains/test_domains.py -k test_create_domain
+
+# Warm feature flag management (instant, no restart)
+scripts/datahub-dev.sh flag list
+scripts/datahub-dev.sh flag get showBrowseV2
+scripts/datahub-dev.sh flag set entityVersioning true
+
+# Environment variable management (cold flags — requires container restart)
+scripts/datahub-dev.sh env set METADATA_SERVICE_AUTH_ENABLED=false
+scripts/datahub-dev.sh env restart
+scripts/datahub-dev.sh env clean            # remove env files for deleted branches
+scripts/datahub-dev.sh env clean --dry-run  # preview what would be removed
+
+# Regenerate flag classification manifest (run after adding fields to FeatureFlags.java)
+scripts/datahub-dev.sh sync-flags
+
+# Recovery
+scripts/datahub-dev.sh reset
+scripts/datahub-dev.sh nuke --keep-data
+scripts/datahub-dev.sh nuke
+```
+
+### Managed Env File — No Manual `DATAHUB_LOCAL_COMMON_ENV` Needed
+
+The tool owns a branch-specific env file at `docker/datahub-dev-<branch-slug>.env`. It automatically injects `DATAHUB_LOCAL_COMMON_ENV` pointing to this file into **every subprocess it spawns** (Gradle, docker compose, pytest). You never need to export `DATAHUB_LOCAL_COMMON_ENV` manually.
+
+```bash
+# This is all you need — no export, no shell setup:
+scripts/datahub-dev.sh env set METADATA_TESTS_ENABLED=true
+scripts/datahub-dev.sh env restart
+```
+
+**Branch isolation:** each branch gets its own env file (`datahub-dev-feature-foo.env`), so settings don't bleed across branches. Worktrees are isolated automatically since each has its own `docker/` directory. Run `env clean` periodically to remove files for deleted branches.
+
+### End-to-End Workflow
+
+1. **Start**: `./gradlew quickstartDebug` then `scripts/datahub-dev.sh wait`
+2. **Enable dev tooling** (once per branch): `scripts/datahub-dev.sh env set METADATA_TESTS_ENABLED=true && scripts/datahub-dev.sh env restart`
+3. **Code**: Make changes to Java/Python/frontend code
+4. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
+5. **Test**: `scripts/datahub-dev.sh test <test-path>`
+6. **Iterate**: Repeat steps 3-5
+
+**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal` to avoid git-related failures in worktrees.
+
+### Module-to-Container Mapping
+
+| Source directory                  | Container                                     |
+| --------------------------------- | --------------------------------------------- |
+| `metadata-service/`               | `datahub-gms`                                 |
+| `datahub-graphql-core/`           | `datahub-gms`                                 |
+| `metadata-io/`                    | `datahub-gms`                                 |
+| `datahub-frontend/`               | `datahub-frontend-react`                      |
+| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
+| `metadata-models/`                | All (triggers full rebuild + code generation) |
+
+`rebuild` detects which modules changed via `git diff` and only rebuilds those. Use `--module gms/frontend/mce/mae` to override.
+
+### Test Paths by Feature Area
+
+All paths are **relative to `smoke-test/`**:
+
+| Feature                          | Test path                                         |
+| -------------------------------- | ------------------------------------------------- |
+| System info                      | `tests/test_system_info.py`                       |
+| Domains                          | `tests/domains/test_domains.py`                   |
+| Tags & Terms                     | `tests/tags_and_terms/`                           |
+| Search                           | `tests/search/`                                   |
+| Lineage                          | `tests/lineage/`                                  |
+| OpenAPI v3                       | `tests/openapi/`                                  |
+| Ingestion                        | `tests/ingestion/`                                |
+| Ad-hoc GraphQL/entity validation | `tests/test_validate.py` (configure via env vars) |
+
+### Feature Flag Lifecycle
+
+**Warm flags** (FeatureFlags.java booleans) — toggleable at runtime, **no restart**:
+
+- Accessed per-request via Lombok getters on the singleton `FeatureFlags` bean
+- Toggle instantly via `datahub-dev.sh flag set <name> <value>`
+- Transient — lost on container restart; set in env file for persistence
+- **Prerequisite**: `METADATA_TESTS_ENABLED=true` must be in the branch env file and containers restarted. Without it the `/dev/featureFlags` API returns 404 and `flag set` will fail.
+
+**Cold flags** (`@ConditionalOnProperty`, `@Value`, infrastructure) — **require restart**:
+
+- Determine whether Spring beans exist; cached at startup, never re-read
+- Use `datahub-dev.sh env set <KEY>=<VALUE>` then `datahub-dev.sh env restart`
+- The CLI will tell you if a flag is cold when you try `flag set`
+
+The flag classification manifest at `scripts/generated/flag-classification.json` is
+**auto-generated** (gitignored). Run `scripts/datahub-dev.sh sync-flags` to regenerate it — required
+after adding or removing boolean fields in `FeatureFlags.java` or after a fresh clone.
+
+### Recovery Escalation
+
+```
+scripts/datahub-dev.sh reset              → Soft reset (stop/start, no data loss, ~60s)
+scripts/datahub-dev.sh nuke --keep-data   → Remove containers, keep volumes (~90s)
+scripts/datahub-dev.sh nuke               → Nuclear: remove everything, rebuild from scratch (~20min)
+```
+
+**When to use each:**
+
+- `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail with connection errors
+- `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it
+- `nuke`: ES index corruption, MySQL schema issues after model changes, PDL model changes needing clean slate, `nuke --keep-data` didn't fix it
+
+### Structured Test Output
+
+Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
+
+```bash
+AGENT_MODE=1 scripts/datahub-dev.sh test tests/test_system_info.py
+```
+
+## Python Virtual Environments
+
+**Never create venvs manually** — always use Gradle tasks. **Never activate venvs** — Gradle handles this transparently. **Never run `pip install` directly** — use `./gradlew :module:installDev`.
+
+| Venv                                | Purpose                                  | Created by                                 |
+| ----------------------------------- | ---------------------------------------- | ------------------------------------------ |
+| `metadata-ingestion/venv`           | `datahub` CLI, ingestion dev, linting    | `./gradlew :metadata-ingestion:installDev` |
+| `smoke-test/venv`                   | Smoke tests (pytest, DataHub client)     | `./gradlew :smoke-test:installDev`         |
+| `metadata-ingestion-modules/*/venv` | Plugin-specific (airflow, dagster, etc.) | Per-module Gradle tasks                    |
+
+**Key rules:**
+
+- `./gradlew :metadata-ingestion:lintFix` → uses `metadata-ingestion/venv` automatically
+- `./gradlew :smoke-test:pytest` → uses `smoke-test/venv` automatically
+- `python3 scripts/datahub_dev.py` → uses system Python (no venv needed)
+- When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
+- Never run `python3 -m venv`, `source venv/bin/activate`, or `pip install` directly
+
 ## Important Notes
 
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
