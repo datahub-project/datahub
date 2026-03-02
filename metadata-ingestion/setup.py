@@ -56,6 +56,9 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
+    # (not enforced here due to Airflow constraint file conflicts in CI)
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -107,8 +110,12 @@ usage_common = {
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but not longer do.
-    "sqlglot[rs]==27.27.0",
+    # but no longer do.
+    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
+    # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
+    # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
+    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
+    "sqlglot[c]==29.0.1",
     "patchy==2.8.0",
 }
 
@@ -382,7 +389,9 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core>=1.31.0,<2.0.0",
+    # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
+    # redirect handling in the pipeline transport layer, fixed in 1.38.0.
+    "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
@@ -837,6 +846,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "freezegun<2.0.0",  # TODO: fully remove and use time-machine
     "time-machine<4.0.0",  # better Pydantic v2 compatibility
