@@ -27,6 +27,9 @@ public class DataHubTokenServiceFactory {
   @Value("${authentication.tokenService.issuer:datahub-metadata-service}")
   private String issuer;
 
+  @Value("${authentication.enabled:true}")
+  private boolean authenticationEnabled;
+
   /** + @Inject + @Named("entityService") + private EntityService<?> _entityService; + */
   @Autowired
   @Qualifier("entityService")
@@ -43,6 +46,9 @@ public class DataHubTokenServiceFactory {
 
   @PostConstruct
   public void validate() {
+    if (!authenticationEnabled) {
+      return;
+    }
     if (signingKey == null || signingKey.isEmpty()) {
       throw new IllegalStateException("DATAHUB_TOKEN_SERVICE_SIGNING_KEY must be set as env var");
     }
