@@ -50,6 +50,14 @@ DEFAULT_REST_RETRY_POLICY = {"total": 3, "backoff_factor": 0.1}
 
 GLUE_ROLE_ARN = "glue.role-arn"
 
+# S3 FileIO credential property keys.
+# Defined inline because pyiceberg does not export these as public constants
+# in all versions supported by DataHub.
+S3_ACCESS_KEY_ID = "s3.access-key-id"
+S3_SECRET_ACCESS_KEY = "s3.secret-access-key"
+S3_SESSION_TOKEN = "s3.session-token"
+S3_ROLE_ARN = "s3.role-arn"
+
 
 class TimeoutHTTPAdapter(HTTPAdapter):
     def __init__(self, *args, **kwargs):
@@ -174,7 +182,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
     def _custom_glue_catalog_handling(self, catalog_config: Dict[str, Any]) -> None:
         role_to_assume = get_first_property_value(
-            catalog_config, GLUE_ROLE_ARN, AWS_ROLE_ARN
+            catalog_config, GLUE_ROLE_ARN, AWS_ROLE_ARN, S3_ROLE_ARN
         )
         if role_to_assume:
             logger.debug(
@@ -241,6 +249,31 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 catalog_config[GLUE_ACCESS_KEY_ID] = creds["AccessKeyId"]
                 catalog_config[GLUE_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
                 catalog_config[GLUE_SESSION_TOKEN] = creds["SessionToken"]
+
+                # Also inject credentials for S3 FileIO so that cross-account
+                # data/metadata file access works with the same assumed role.
+                # Only set S3 credentials if the user hasn't explicitly configured
+                # separate S3 credentials or a different S3 role.
+                s3_has_own_creds = any(
+                    k in catalog_config
+                    for k in (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_SESSION_TOKEN)
+                )
+                s3_has_own_role = (
+                    S3_ROLE_ARN in catalog_config
+                    and catalog_config[S3_ROLE_ARN] != role_to_assume
+                )
+                if not s3_has_own_creds and not s3_has_own_role:
+                    catalog_config[S3_ACCESS_KEY_ID] = creds["AccessKeyId"]
+                    catalog_config[S3_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
+                    catalog_config[S3_SESSION_TOKEN] = creds["SessionToken"]
+                    logger.debug(
+                        "Also injected assumed-role credentials for S3 FileIO"
+                    )
+
+            # Remove role-arn keys so pyiceberg doesn't attempt its own
+            # (broken) role assumption on top of our credentials
+            for key in (GLUE_ROLE_ARN, AWS_ROLE_ARN, S3_ROLE_ARN):
+                catalog_config.pop(key, None)
 
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.

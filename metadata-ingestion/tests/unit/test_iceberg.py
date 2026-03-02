@@ -2063,3 +2063,230 @@ class TestGlueCatalogRoleAssumption:
             == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY2"
         )
         assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH2..."
+
+    def test_s3_credentials_injected_alongside_glue(self, mock_boto3_session):
+        """Test that when glue.role-arn is set, both Glue and S3 credentials are injected."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        mock_sts.get_caller_identity.return_value = {
+            "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+        }
+
+        mock_sts.assume_role.return_value = {
+            "Credentials": {
+                "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
+                "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY",
+                "SessionToken": "FwoGZXIvYXdzEBYaDH...",
+                "Expiration": "2024-01-01T00:00:00Z",
+            },
+            "AssumedRoleUser": {
+                "AssumedRoleId": "AROA3XFRBF535PLBIFPI4:session",
+                "Arn": "arn:aws:sts::123456789012:assumed-role/TargetRole/session",
+            },
+        }
+
+        config.get_catalog()
+
+        updated_config = config.catalog["test_glue"]
+        # Glue credentials should be injected
+        assert updated_config["glue.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        assert (
+            updated_config["glue.secret-access-key"]
+            == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY"
+        )
+        assert updated_config["glue.session-token"] == "FwoGZXIvYXdzEBYaDH..."
+        # S3 credentials should also be injected
+        assert updated_config["s3.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        assert (
+            updated_config["s3.secret-access-key"]
+            == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY"
+        )
+        assert updated_config["s3.session-token"] == "FwoGZXIvYXdzEBYaDH..."
+
+    def test_s3_credentials_not_overwritten_when_explicit(self, mock_boto3_session):
+        """Test that explicit S3 credentials are not overwritten by role assumption."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+                "s3.access-key-id": "USER_PROVIDED_KEY",
+                "s3.secret-access-key": "USER_PROVIDED_SECRET",
+                "s3.session-token": "USER_PROVIDED_TOKEN",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        mock_sts.get_caller_identity.return_value = {
+            "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+        }
+
+        mock_sts.assume_role.return_value = {
+            "Credentials": {
+                "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
+                "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY",
+                "SessionToken": "FwoGZXIvYXdzEBYaDH...",
+                "Expiration": "2024-01-01T00:00:00Z",
+            },
+            "AssumedRoleUser": {
+                "AssumedRoleId": "AROA3XFRBF535PLBIFPI4:session",
+                "Arn": "arn:aws:sts::123456789012:assumed-role/TargetRole/session",
+            },
+        }
+
+        config.get_catalog()
+
+        updated_config = config.catalog["test_glue"]
+        # Glue credentials should be injected from assumed role
+        assert updated_config["glue.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        # S3 credentials should NOT be overwritten
+        assert updated_config["s3.access-key-id"] == "USER_PROVIDED_KEY"
+        assert updated_config["s3.secret-access-key"] == "USER_PROVIDED_SECRET"
+        assert updated_config["s3.session-token"] == "USER_PROVIDED_TOKEN"
+
+    def test_s3_credentials_not_overwritten_when_different_s3_role(
+        self, mock_boto3_session
+    ):
+        """Test that S3 credentials are not injected when s3.role-arn differs from assumed role."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/GlueRole",
+                "s3.role-arn": "arn:aws:iam::999999999999:role/SeparateS3Role",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        mock_sts.get_caller_identity.return_value = {
+            "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+        }
+
+        mock_sts.assume_role.return_value = {
+            "Credentials": {
+                "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
+                "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY",
+                "SessionToken": "FwoGZXIvYXdzEBYaDH...",
+                "Expiration": "2024-01-01T00:00:00Z",
+            },
+            "AssumedRoleUser": {
+                "AssumedRoleId": "AROA3XFRBF535PLBIFPI4:session",
+                "Arn": "arn:aws:sts::123456789012:assumed-role/GlueRole/session",
+            },
+        }
+
+        config.get_catalog()
+
+        updated_config = config.catalog["test_glue"]
+        # Glue credentials should be injected
+        assert updated_config["glue.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        # S3 credentials should NOT be injected because s3.role-arn is different
+        assert "s3.access-key-id" not in updated_config
+        assert "s3.secret-access-key" not in updated_config
+        assert "s3.session-token" not in updated_config
+
+    def test_role_arn_keys_cleaned_up_after_assumption(self, mock_boto3_session):
+        """Test that role-arn keys are removed after assumption to prevent pyiceberg's broken handling."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "glue.role-arn": "arn:aws:iam::123456789012:role/TargetRole",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        mock_sts.get_caller_identity.return_value = {
+            "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+        }
+
+        mock_sts.assume_role.return_value = {
+            "Credentials": {
+                "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
+                "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY",
+                "SessionToken": "FwoGZXIvYXdzEBYaDH...",
+                "Expiration": "2024-01-01T00:00:00Z",
+            },
+            "AssumedRoleUser": {
+                "AssumedRoleId": "AROA3XFRBF535PLBIFPI4:session",
+                "Arn": "arn:aws:sts::123456789012:assumed-role/TargetRole/session",
+            },
+        }
+
+        config.get_catalog()
+
+        updated_config = config.catalog["test_glue"]
+        assert "glue.role-arn" not in updated_config
+        assert "client.role-arn" not in updated_config
+        assert "s3.role-arn" not in updated_config
+
+    def test_s3_role_arn_triggers_assumption(self, mock_boto3_session):
+        """Test that s3.role-arn alone can trigger role assumption."""
+        mock_session, mock_sts = mock_boto3_session
+
+        catalog_config = {
+            "test_glue": {
+                "type": "glue",
+                "s3.role-arn": "arn:aws:iam::123456789012:role/S3OnlyRole",
+                "s3.region": "us-west-2",
+            }
+        }
+        config = IcebergSourceConfig(catalog=catalog_config)
+
+        mock_sts.get_caller_identity.return_value = {
+            "Arn": "arn:aws:sts::123456789012:assumed-role/CurrentRole/session",
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+        }
+
+        mock_sts.assume_role.return_value = {
+            "Credentials": {
+                "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
+                "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY",
+                "SessionToken": "FwoGZXIvYXdzEBYaDH...",
+                "Expiration": "2024-01-01T00:00:00Z",
+            },
+            "AssumedRoleUser": {
+                "AssumedRoleId": "AROA3XFRBF535PLBIFPI4:session",
+                "Arn": "arn:aws:sts::123456789012:assumed-role/S3OnlyRole/session",
+            },
+        }
+
+        config.get_catalog()
+
+        mock_sts.assume_role.assert_called_once()
+
+        updated_config = config.catalog["test_glue"]
+        # Both Glue and S3 credentials should be injected
+        assert updated_config["glue.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        assert updated_config["s3.access-key-id"] == "ASIAIOSFODNN7EXAMPLE"
+        assert (
+            updated_config["s3.secret-access-key"]
+            == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYZEXAMPLEKEY"
+        )
+        assert updated_config["s3.session-token"] == "FwoGZXIvYXdzEBYaDH..."
+        # Role ARN keys should be cleaned up
+        assert "s3.role-arn" not in updated_config
