@@ -1,7 +1,19 @@
+from unittest.mock import create_autospec
+
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDataDictionary,
     SnowflakeTag,
     _SnowflakeTagCache,
+)
+from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
 )
 
 
@@ -171,42 +183,159 @@ class TestTableTagsWithInheritance:
         assert tag_map["env"].inherited_from == SnowflakeObjectDomain.DATABASE
 
 
-class TestColumnTagsWithInheritance:
-    def test_inherits_from_all_levels(self):
-        cache = _build_cache()
-        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+class TestColumnTagsDirectOnly:
+    """Column tags are always direct-only — no inheritance from table/schema/database."""
 
-        assert "COL" in col_tags
-        tag_map = {t.name: t for t in col_tags["COL"]}
-        assert tag_map["sensitivity"].value == "high"
-        assert tag_map["sensitivity"].is_inherited is False  # direct column tag
-        assert tag_map["sensitivity"].inherited_from is None
-        assert tag_map["pii"].value == "true"
-        assert tag_map["pii"].is_inherited is True  # from table
-        assert tag_map["pii"].inherited_from == SnowflakeObjectDomain.TABLE
-        assert tag_map["team"].value == "data-eng"
-        assert tag_map["team"].is_inherited is True  # from schema
-        assert tag_map["team"].inherited_from == SnowflakeObjectDomain.SCHEMA
-        assert tag_map["env"].value == "staging"
-        assert tag_map["env"].is_inherited is True  # from table (not db)
-        assert tag_map["env"].inherited_from == SnowflakeObjectDomain.TABLE
-
-    def test_no_column_tags_no_parent_tags(self):
-        cache = _SnowflakeTagCache()
-        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
-        assert col_tags == {}
-
-    def test_no_column_tags_but_has_parent_tags(self):
-        """Columns without direct tags should NOT appear — we don't know column names."""
-        cache = _build_cache()
-        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
-        assert "OTHER_COL" not in col_tags
-
-    def test_without_inheritance_only_returns_direct(self):
-        """Verify the non-inheritance method still works as before."""
+    def test_only_direct_column_tags_returned(self):
         cache = _build_cache()
         col_tags = cache.get_column_tags_for_table("TBL", "SCH", "DB")
         assert "COL" in col_tags
         assert len(col_tags["COL"]) == 1
         assert col_tags["COL"][0].name == "sensitivity"
         assert col_tags["COL"][0].is_inherited is False
+
+    def test_no_column_tags_returns_empty(self):
+        cache = _SnowflakeTagCache()
+        col_tags = cache.get_column_tags_for_table("TBL", "SCH", "DB")
+        assert col_tags == {}
+
+
+def _make_extractor(
+    extract_tags: TagOption = TagOption.with_lineage,
+) -> SnowflakeTagExtractor:
+    config = SnowflakeV2Config(  # type: ignore[call-arg]
+        account_id="test_account",
+        extract_tags=extract_tags,
+    )
+    report = SnowflakeV2Report()
+    data_dictionary = create_autospec(SnowflakeDataDictionary)
+    data_dictionary.get_tags_for_database_without_propagation.return_value = (
+        _build_cache()
+    )
+    identifiers = SnowflakeIdentifierBuilder(config, report)
+    return SnowflakeTagExtractor(
+        config=config,
+        data_dictionary=data_dictionary,
+        report=report,
+        snowflake_identifiers=identifiers,
+    )
+
+
+class TestSnowflakeTagExtractorRouting:
+    """Tests for the orchestration layer: routing, caching, and filtering."""
+
+    def test_with_lineage_returns_inherited_tags(self):
+        extractor = _make_extractor(TagOption.with_lineage)
+        tags = extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        tag_map = {t.name: t for t in tags}
+        # Direct table tags
+        assert "pii" in tag_map
+        assert tag_map["pii"].is_inherited is False
+        # Inherited from schema
+        assert "team" in tag_map
+        assert tag_map["team"].is_inherited is True
+        # Direct table override of database tag
+        assert tag_map["env"].value == "staging"
+
+    def test_without_lineage_returns_only_direct_tags(self):
+        extractor = _make_extractor(TagOption.without_lineage)
+        tags = extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        tag_names = {t.name for t in tags}
+        # Only direct table tags, no inherited
+        assert "pii" in tag_names
+        assert "env" in tag_names
+        assert "team" not in tag_names  # schema-level, not inherited
+
+    def test_skip_returns_empty(self):
+        extractor = _make_extractor(TagOption.skip)
+        tags = extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        assert tags == []
+        # Should not even load the cache
+        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_not_called()
+
+    def test_column_tags_always_direct_only(self):
+        """Column tags never inherit from parent objects, even with_lineage."""
+        for mode in (TagOption.with_lineage, TagOption.without_lineage):
+            extractor = _make_extractor(mode)
+            col_tags = extractor.get_column_tags_for_table(
+                table_name="TBL", schema_name="SCH", db_name="DB"
+            )
+            assert "COL" in col_tags
+            assert len(col_tags["COL"]) == 1
+            assert col_tags["COL"][0].name == "sensitivity"
+
+    def test_cache_loaded_once_per_database(self):
+        extractor = _make_extractor(TagOption.with_lineage)
+        # Call twice for same database
+        extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.DATABASE, db_name="DB"
+        )
+        extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        # Should only query Snowflake once
+        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_called_once_with(
+            "DB"
+        )
+
+    def test_cache_load_failure_reports_warning_and_returns_empty(self):
+        extractor = _make_extractor(TagOption.with_lineage)
+        extractor.data_dictionary.get_tags_for_database_without_propagation.side_effect = Exception(
+            "Permission denied"
+        )
+        tags = extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        assert tags == []
+        # Empty cache inserted — second call should not retry
+        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_called_once()
+
+    def test_filter_denies_inherited_tag(self):
+        config = SnowflakeV2Config(  # type: ignore[call-arg]
+            account_id="test_account",
+            extract_tags=TagOption.with_lineage,
+            tag_pattern={"deny": [".*env.*"]},
+        )
+        report = SnowflakeV2Report()
+        data_dictionary = create_autospec(SnowflakeDataDictionary)
+        data_dictionary.get_tags_for_database_without_propagation.return_value = (
+            _build_cache()
+        )
+        identifiers = SnowflakeIdentifierBuilder(config, report)
+        extractor = SnowflakeTagExtractor(
+            config=config,
+            data_dictionary=data_dictionary,
+            report=report,
+            snowflake_identifiers=identifiers,
+        )
+        tags = extractor.get_tags_on_object(
+            domain=SnowflakeObjectDomain.TABLE,
+            db_name="DB",
+            schema_name="SCH",
+            table_name="TBL",
+        )
+        tag_names = {t.name for t in tags}
+        assert "env" not in tag_names  # filtered by deny pattern
+        assert "pii" in tag_names  # still present
+        assert "team" in tag_names  # inherited, not filtered
