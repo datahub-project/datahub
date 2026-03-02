@@ -491,6 +491,38 @@ class _SnowflakeTagCache:
         )
         return self._deduplicate_tags(direct + schema_inherited + db_inherited)
 
+    def get_column_tags_for_table_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeTag]]:
+        """Return column tags with inheritance from table, schema, and database levels."""
+        direct_column_tags = self.get_column_tags_for_table(
+            table_name, schema_name, db_name
+        )
+
+        # Tags inherited by every column in this table
+        parent_tags = (
+            self._mark_inherited(
+                self.get_table_tags(table_name, schema_name, db_name),
+                SnowflakeObjectDomain.TABLE,
+            )
+            + self._mark_inherited(
+                self.get_schema_tags(schema_name, db_name),
+                SnowflakeObjectDomain.SCHEMA,
+            )
+            + self._mark_inherited(
+                self.get_database_tags(db_name),
+                SnowflakeObjectDomain.DATABASE,
+            )
+        )
+
+        if not parent_tags:
+            return dict(direct_column_tags)
+
+        result: Dict[str, List[SnowflakeTag]] = {}
+        for col_name, col_tags in direct_column_tags.items():
+            result[col_name] = self._deduplicate_tags(list(col_tags) + parent_tags)
+        return result
+
 
 class SnowflakeDataDictionary(SupportsAsObj):
     def __init__(

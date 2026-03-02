@@ -183,8 +183,8 @@ class TestTableTagsWithInheritance:
         assert tag_map["env"].inherited_from == SnowflakeObjectDomain.DATABASE
 
 
-class TestColumnTagsDirectOnly:
-    """Column tags are always direct-only — no inheritance from table/schema/database."""
+class TestColumnTagsDirect:
+    """Column tags without inheritance — direct-only."""
 
     def test_only_direct_column_tags_returned(self):
         cache = _build_cache()
@@ -197,6 +197,43 @@ class TestColumnTagsDirectOnly:
     def test_no_column_tags_returns_empty(self):
         cache = _SnowflakeTagCache()
         col_tags = cache.get_column_tags_for_table("TBL", "SCH", "DB")
+        assert col_tags == {}
+
+
+class TestColumnTagsWithInheritance:
+    """Column tags with inheritance from table/schema/database levels."""
+
+    def test_inherits_from_all_levels(self):
+        cache = _build_cache()
+        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+        assert "COL" in col_tags
+        tag_map = {t.name: t for t in col_tags["COL"]}
+        # Direct column tag
+        assert tag_map["sensitivity"].value == "high"
+        assert tag_map["sensitivity"].is_inherited is False
+        # Inherited from table
+        assert tag_map["pii"].value == "true"
+        assert tag_map["pii"].inherited_from == SnowflakeObjectDomain.TABLE
+        # Inherited from schema
+        assert tag_map["team"].value == "data-eng"
+        assert tag_map["team"].inherited_from == SnowflakeObjectDomain.SCHEMA
+        # Table-level env overrides database-level env
+        assert tag_map["env"].value == "staging"
+        assert tag_map["env"].inherited_from == SnowflakeObjectDomain.TABLE
+
+    def test_no_parent_tags_returns_direct_only(self):
+        cache = _SnowflakeTagCache()
+        cache.add_column_tag("COL", "TBL", "SCH", "DB", _tag("D", "S", "x", "1"))
+        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+        assert len(col_tags["COL"]) == 1
+        assert col_tags["COL"][0].name == "x"
+        assert col_tags["COL"][0].is_inherited is False
+
+    def test_no_column_tags_returns_empty(self):
+        cache = _SnowflakeTagCache()
+        # Even with database tags, no columns → empty
+        cache.add_database_tag("DB", _tag("D", "S", "env", "prod"))
+        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
         assert col_tags == {}
 
 
@@ -276,16 +313,28 @@ class TestSnowflakeTagExtractorRouting:
         mock_method = _get_tags_mock(extractor)
         mock_method.assert_not_called()
 
-    def test_column_tags_always_direct_only(self):
-        """Column tags never inherit from parent objects, even with_lineage."""
-        for mode in (TagOption.with_lineage, TagOption.without_lineage):
-            extractor = _make_extractor(mode)
-            col_tags = extractor.get_column_tags_for_table(
-                table_name="TBL", schema_name="SCH", db_name="DB"
-            )
-            assert "COL" in col_tags
-            assert len(col_tags["COL"]) == 1
-            assert col_tags["COL"][0].name == "sensitivity"
+    def test_column_tags_with_lineage_inherits(self):
+        """Column tags inherit from table/schema/database in with_lineage mode."""
+        extractor = _make_extractor(TagOption.with_lineage)
+        col_tags = extractor.get_column_tags_for_table(
+            table_name="TBL", schema_name="SCH", db_name="DB"
+        )
+        assert "COL" in col_tags
+        tag_map = {t.name: t for t in col_tags["COL"]}
+        assert "sensitivity" in tag_map  # direct column tag
+        assert "pii" in tag_map  # inherited from table
+        assert "team" in tag_map  # inherited from schema
+        assert "env" in tag_map  # inherited from table (overrides database)
+
+    def test_column_tags_without_lineage_direct_only(self):
+        """Column tags are direct-only in without_lineage mode."""
+        extractor = _make_extractor(TagOption.without_lineage)
+        col_tags = extractor.get_column_tags_for_table(
+            table_name="TBL", schema_name="SCH", db_name="DB"
+        )
+        assert "COL" in col_tags
+        assert len(col_tags["COL"]) == 1
+        assert col_tags["COL"][0].name == "sensitivity"
 
     def test_cache_loaded_once_per_database(self):
         extractor = _make_extractor(TagOption.with_lineage)

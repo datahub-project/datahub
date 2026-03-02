@@ -194,11 +194,14 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self._ensure_cache_loaded(db_name)
         cache = self.tag_cache[db_name]
 
-        # Column tags are always direct-only; Snowflake does not propagate
-        # table/schema/database tags to columns in its UI, so we don't either.
-        temp_column_tags = cache.get_column_tags_for_table(
-            table_name, schema_name, db_name
-        )
+        if self.config.extract_tags == TagOption.with_lineage:
+            temp_column_tags = cache.get_column_tags_for_table_with_inheritance(
+                table_name, schema_name, db_name
+            )
+        else:
+            temp_column_tags = cache.get_column_tags_for_table(
+                table_name, schema_name, db_name
+            )
 
         column_tags: Dict[str, List[SnowflakeTag]] = {}
         for column_name, tags in temp_column_tags.items():
