@@ -60,7 +60,7 @@ class TestSearchDatahubUdf:
         result = generate_search_datahub_udf()
 
         assert (
-            "CREATE OR REPLACE FUNCTION SEARCH_DATAHUB(search_query STRING, entity_type STRING)"
+            "CREATE OR REPLACE FUNCTION SEARCH_DATAHUB(search_query STRING, filter STRING)"
             in result
         )
         assert "RETURNS VARIANT" in result
@@ -72,12 +72,11 @@ class TestSearchDatahubUdf:
         assert "from datahub_agent_context.mcp_tools import search" in result
         assert "return search(" in result
 
-    def test_handles_entity_type_filter(self) -> None:
-        """Test that entity_type filtering is implemented."""
+    def test_passes_filter_to_search(self) -> None:
+        """Test that the SQL filter string is passed to search()."""
         result = generate_search_datahub_udf()
 
-        assert "if entity_type:" in result
-        assert 'filters["entity_type"]' in result
+        assert "filter=filter" in result
 
 
 class TestGetEntitiesUdf:
@@ -197,7 +196,7 @@ class TestSearchDocumentsUdf:
         result = generate_search_documents_udf()
 
         assert (
-            "CREATE OR REPLACE FUNCTION SEARCH_DOCUMENTS(search_query STRING, num_results NUMBER)"
+            "CREATE OR REPLACE FUNCTION SEARCH_DOCUMENTS(search_query STRING, num_results NUMBER, filter STRING)"
             in result
         )
         assert "RETURNS VARIANT" in result
