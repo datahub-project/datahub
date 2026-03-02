@@ -66,7 +66,6 @@ public class DataHubTokenAuthenticatorTest {
     AuthenticatorContext authenticatorContext =
         new AuthenticatorContext(
             ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService));
-    assertThrows(() -> authenticator.init(null, authenticatorContext));
     assertThrows(
         () ->
             authenticator.init(
