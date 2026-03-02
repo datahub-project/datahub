@@ -3062,26 +3062,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
     def _should_create_sibling_relationships(self, node: DBTNode) -> bool:
+        """Whether to emit sibling relationships for a dbt node.
+
+        Always emits for entities that exist in the target platform, rather than
+        relying on the SiblingAssociationHook which only handles the "source"
+        subtype and misses semantic views and other model types.
+        The hook skips when siblings already exist, so there is no conflict.
         """
-        Determines whether to emit sibling relationships for a dbt node.
-
-        Sibling relationships (both dbt entity's aspect and target entity's patch) are only
-        emitted when dbt_is_primary_sibling=False to establish explicit primary/secondary
-        relationships. When dbt_is_primary_sibling=True,
-        the SiblingAssociationHook handles sibling creation automatically.
-
-        Args:
-            node: The dbt node to evaluate
-
-        Returns:
-            True if sibling patches should be emitted for this node
-        """
-        # Only create siblings for entities that exist in target platform
-        if not node.exists_in_target_platform:
-            return False
-
-        # Only emit patches when explicit primary/secondary control is needed
-        return self.config.dbt_is_primary_sibling is False
+        return node.exists_in_target_platform
 
     def get_report(self):
         return self.report
