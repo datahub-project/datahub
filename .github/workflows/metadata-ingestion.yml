@@ -112,14 +112,13 @@ jobs:
           df -hl
           docker image ls
           docker system df
-      - uses: actions/upload-artifact@v4
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (metadata ingestion ${{ matrix.python-version }} ${{ matrix.command }})
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
-            !**/binary/**
+          artifact-name: metadata-ingestion-test-results-${{ strategy.job-index }}
+          test-results-paths: "metadata-ingestion/test-results/**"
+          junit-file-globs: "metadata-ingestion/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@v5
@@ -128,7 +127,7 @@ jobs:
           directory: ./build/coverage-reports/metadata-ingestion/
           fail_ci_if_error: false
           flags: ingestion
-          name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
+          name: metadata-ingestion-pytest-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
@@ -158,25 +157,25 @@ jobs:
         id: check-changes
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
             echo "Running due to manual workflow dispatch"
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
             # Check if any Python file in metadata-ingestion is in the changed files
-            git fetch origin ${{ github.base_ref }}
-            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^metadata-ingestion/.*\.py$'; then
-              echo "should_run=true" >> $GITHUB_OUTPUT
+            git fetch origin "${{ github.base_ref }}"
+            if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^metadata-ingestion/.*\.py$'; then
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Python files were modified in metadata-ingestion, running plugin validation"
             else
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           else
             # For push events, check the commit
             if git diff --name-only HEAD~1 HEAD | grep -q '^metadata-ingestion/.*\.py$'; then
-              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
               echo "Python files were modified in metadata-ingestion"
             else
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi

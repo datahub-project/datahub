@@ -1,3 +1,7 @@
+:::caution Not Supported with Remote Executor
+This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
+:::
+
 ## Overview
 
 The Notion source ingests pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings for semantic search.

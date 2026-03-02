@@ -81,6 +81,7 @@ export const UNITY_METASTORE_ID_ALLOW: FilterRecipeField = {
     fieldPath: metastoreIdAllowFieldPath,
     rules: null,
     section: 'Metastores',
+    filteringResource: 'Metastore',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, metastoreIdAllowFieldPath),
 };
@@ -99,6 +100,7 @@ export const UNITY_METASTORE_ID_DENY: FilterRecipeField = {
     fieldPath: metastoreIdDenyFieldPath,
     rules: null,
     section: 'Metastores',
+    filteringResource: 'Metastore',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, metastoreIdDenyFieldPath),
 };
@@ -117,6 +119,7 @@ export const UNITY_CATALOG_ALLOW: FilterRecipeField = {
     fieldPath: catalogAllowFieldPath,
     rules: null,
     section: 'Catalogs',
+    filteringResource: 'Catalog',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, catalogAllowFieldPath),
 };
@@ -135,6 +138,7 @@ export const UNITY_CATALOG_DENY: FilterRecipeField = {
     fieldPath: catalogDenyFieldPath,
     rules: null,
     section: 'Catalogs',
+    filteringResource: 'Catalog',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, catalogDenyFieldPath),
 };
@@ -153,6 +157,7 @@ export const UNITY_TABLE_ALLOW: FilterRecipeField = {
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
@@ -171,6 +176,7 @@ export const UNITY_TABLE_DENY: FilterRecipeField = {
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
+    filteringResource: 'Table',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };

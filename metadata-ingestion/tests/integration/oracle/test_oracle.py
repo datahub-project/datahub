@@ -6,7 +6,7 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from sqlalchemy import exc
 
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -117,7 +117,7 @@ config_files = [f for f in os.listdir(SOURCE_FILES_PATH) if f.endswith(".yml")]
 
 
 @pytest.mark.parametrize("config_file", config_files)
-@freeze_time(FROZEN_TIME, ignore=["oracledb", "oracledb.thin_impl"])
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_file):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
@@ -133,19 +133,20 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
     )
 
-    # For query usage tests, filter out volatile V$SQL entities before comparison
+    # auditStamp.time comes from V$SQL LAST_ACTIVE_TIME, not Python's clock
+    ignore_paths = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+    ]
+
     if "query_usage" in config_file:
-        # Load both files
         with open(output_path) as f:
             output_data = json.load(f)
         with open(golden_path) as f:
             golden_data = json.load(f)
 
-        # Filter volatile queries from both
         output_filtered = filter_volatile_vsql_queries(output_data)
         golden_filtered = filter_volatile_vsql_queries(golden_data)
 
-        # Write filtered output to temp file for comparison
         filtered_output_path = tmp_path / "oracle_mces_filtered.json"
         with open(filtered_output_path, "w") as f:
             json.dump(output_filtered, f, indent=4)
@@ -154,18 +155,18 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         with open(filtered_golden_path, "w") as f:
             json.dump(golden_filtered, f, indent=4)
 
-        # Compare filtered versions
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
+            ignore_paths=ignore_paths,
         )
     else:
-        # Normal comparison for non-query-usage tests
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=output_path,
             golden_path=golden_path,
+            ignore_paths=ignore_paths,
         )
 
 
@@ -315,7 +316,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         assert "CAST(:schema_name AS VARCHAR(128))" in sql_text
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
@@ -328,7 +329,7 @@ def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test.apply()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
@@ -341,7 +342,7 @@ def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test.apply()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_error_handling(pytestconfig, tmp_path):
     test_case = TestOracleSourceErrorHandling(

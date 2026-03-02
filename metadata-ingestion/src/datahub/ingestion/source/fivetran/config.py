@@ -11,6 +11,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationWarning,
+    TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -112,8 +113,8 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
 
 
 class FivetranAPIConfig(ConfigModel):
-    api_key: str = Field(description="Fivetran API key")
-    api_secret: str = Field(description="Fivetran API secret")
+    api_key: TransparentSecretStr = Field(description="Fivetran API key")
+    api_secret: TransparentSecretStr = Field(description="Fivetran API secret")
     base_url: str = Field(
         default="https://api.fivetran.com", description="Fivetran API base URL"
     )

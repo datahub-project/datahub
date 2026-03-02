@@ -8,7 +8,11 @@ from urllib.parse import urlparse
 import requests
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -78,7 +82,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The dbt Cloud metadata API endpoint. If not provided, we will try to infer it from the access_url.",
     )
 
-    token: str = Field(
+    token: TransparentSecretStr = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
 
@@ -368,7 +372,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 # Test auto-discovery: verify we can fetch environments
                 DBTCloudSource._get_environments_for_project(
                     source_config.access_url,
-                    source_config.token,
+                    source_config.token.get_secret_value(),
                     source_config.account_id,
                     source_config.project_id,
                 )
@@ -376,7 +380,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 # Test explicit mode: verify we can query the job
                 DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
-                    source_config.token,
+                    source_config.token.get_secret_value(),
                     _DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
@@ -566,7 +570,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             environments: List[DBTCloudEnvironment] = (
                 self._get_environments_for_project(
                     self.config.access_url,
-                    self.config.token,
+                    self.config.token.get_secret_value(),
                     self.config.account_id,
                     self.config.project_id,
                 )
@@ -598,7 +602,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         try:
             all_jobs: List[DBTCloudJob] = self._get_jobs_for_project(
                 self.config.access_url,
-                self.config.token,
+                self.config.token.get_secret_value(),
                 self.config.account_id,
                 self.config.project_id,
                 production_env.id,
@@ -671,7 +675,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
                     data = self._send_graphql_query(
                         metadata_endpoint=self.config.metadata_endpoint,
-                        token=self.config.token,
+                        token=self.config.token.get_secret_value(),
                         query=_DBT_GRAPHQL_QUERY.format(type=node_type, fields=fields),
                         variables={
                             "jobId": job_id,

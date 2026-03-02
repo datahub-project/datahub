@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
@@ -23,6 +24,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -157,6 +159,104 @@ public class MultiEntityMappingsBuilderTest {
     String expectedFieldName = "test_property";
     assertTrue(
         mappings.containsKey(expectedFieldName), "Should contain properly formatted field name");
+  }
+
+  /**
+   * Regression test: valueType urn:li:dataType:datahub.urn must resolve to URN mapping so the field
+   * has a type and reindex (BuildIndicesStep) does not fail with mapper_parsing_exception.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyWithDatahubUrnValueType()
+      throws URISyntaxException {
+    StructuredPropertyDefinition propWithUrnType =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataJob")))
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        Collections.singletonList(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                propWithUrnType));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(structuredProperties);
+
+    assertFalse(mappings.isEmpty(), "Should have mappings for URN structured property");
+    String fieldName = "com_example_domain_owner_urn";
+    assertTrue(mappings.containsKey(fieldName), "Should contain sanitized field name");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
+    assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+  }
+
+  /**
+   * Ensures every structured property field has a "type" so reindex/putMapping does not fail with
+   * mapper_parsing_exception. Covers STRING, URN, RICH_TEXT, DATE to meet coverage of
+   * getIndexMappingsForStructuredProperty branches.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyEveryFieldHasTypeForReindex()
+      throws URISyntaxException {
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("com.example.domain.owner_urn")
+                    .setDisplayName("Owner URN")
+                    .setEntityTypes(
+                        new UrnArray(
+                            UrnUtils.getUrn("urn:li:entityType:datahub.dataJob"),
+                            UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:simpleString"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("simpleString")
+                    .setDisplayName("Simple")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.string"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:richTextProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("richTextProp")
+                    .setDisplayName("Rich Text")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.rich_text"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:dateProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("dateProp")
+                    .setDisplayName("Date")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.date"))));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(mappings.size(), 4, "Should have four field mappings");
+    for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+      assertNotNull(
+          fieldMapping.get("type"),
+          "Every structured property field must have type for reindex: " + entry.getKey());
+    }
   }
 
   @Test

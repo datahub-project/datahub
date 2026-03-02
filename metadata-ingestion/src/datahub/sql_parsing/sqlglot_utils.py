@@ -47,6 +47,36 @@ def _parse_statement(
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
+
+    # Handle Block statements from sqlglot v29+
+    # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
+    # We only process the non None statement, if there is 1 and only 1.
+    if isinstance(statement, sqlglot.exp.Block):
+        if not statement.expressions:
+            raise sqlglot.errors.ParseError(
+                "Block statement must have at least one expression"
+            )
+
+        # Filter out None expressions (empty statements from double semicolons)
+        non_none_expressions = [e for e in statement.expressions if e is not None]
+
+        if not non_none_expressions:
+            raise sqlglot.errors.ParseError(
+                "Block contains only None expressions - no valid SQL statement found"
+            )
+
+        if len(non_none_expressions) > 1:
+            # parse_statement expects a single statement, not multiple
+            raise sqlglot.errors.ParseError(
+                f"Block contains {len(non_none_expressions)} statements: "
+                f"{[type(e).__name__ for e in non_none_expressions]}. "
+                f"Use parse_statements_and_pick() for multi-statement SQL."
+            )
+
+        # Return the single non-None statement
+        statement = non_none_expressions[0]
+
     return statement
 
 

@@ -106,6 +106,14 @@ interface Props {
 
 function FormField(props: Props) {
     const { field, secrets, refetchSecrets, removeMargin, updateFormValue } = props;
+    const form = Form.useFormInstance();
+    const values = Form.useWatch([], form) || {};
+
+    // Handle dynamic visibility - check both static hidden and dynamic callback
+    const isHidden = field.hidden || (field.dynamicHidden && field.dynamicHidden(values));
+    if (isHidden) {
+        return null;
+    }
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 

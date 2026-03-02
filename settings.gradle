@@ -127,25 +127,28 @@ def installPreCommitHooks() {
                 return
             }
             println "Install output: ${stdout}"
+            preCommitInstalled = true
         } catch (Exception e) {
             println "Error installing pre-commit: ${e.message}"
             return
         }
     }
 
-    try {
-        def installHooksProcess = ["python", "-m", "pre_commit", "install"].execute()
-        def stdout = new StringBuilder()
-        def stderr = new StringBuilder()
-        installHooksProcess.waitForProcessOutput(stdout, stderr)
-        if (installHooksProcess.exitValue() != 0) {
-            println "Failed to install hooks: ${stdout}"
+    if(preCommitInstalled) {
+        try {
+            def installHooksProcess = ["pre-commit", "install"].execute()
+            def stdout = new StringBuilder()
+            def stderr = new StringBuilder()
+            installHooksProcess.waitForProcessOutput(stdout, stderr)
+            if (installHooksProcess.exitValue() != 0) {
+                println "Failed to install hooks: ${stdout}"
+                return
+            }
+            println "Hooks output: ${stdout}"
+        } catch (Exception e) {
+            println "Error installing hooks: ${e.message}"
             return
         }
-        println "Hooks output: ${stdout}"
-    } catch (Exception e) {
-        println "Error installing hooks: ${e.message}"
-        return
     }
 }
 

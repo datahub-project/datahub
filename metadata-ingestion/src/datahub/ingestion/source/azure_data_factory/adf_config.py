@@ -88,8 +88,9 @@ class AzureDataFactoryConfig(
     include_column_lineage: bool = Field(
         default=True,
         description=(
-            "Extract column-level lineage from Data Flow activities. "
-            "Requires parsing Data Flow definitions."
+            "Extract column-level lineage from Copy activities. "
+            "Supports explicit column mappings (translator configuration) "
+            "and auto-mapping inference from source dataset schema."
         ),
     )
 

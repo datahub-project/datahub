@@ -86,7 +86,8 @@ public class EntitiesControllerTest {
             any(OperationContext.class),
             any(TransactionContext.class),
             nullable(SystemAspect.class),
-            any(SystemAspect.class));
+            any(SystemAspect.class),
+            anyInt());
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

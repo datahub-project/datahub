@@ -1,5 +1,4 @@
-import { TreeStructure } from '@phosphor-icons/react';
-import { ArrowsClockwise } from 'phosphor-react';
+import { ArrowsClockwise, TreeStructure } from '@phosphor-icons/react';
 import React from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
@@ -7,6 +6,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import Preview from '@app/entityV2/dataProcessInstance/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -38,15 +38,14 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     type: EntityType = EntityType.DataProcessInstance;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ArrowsClockwise style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
-        return <ArrowsClockwise style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <ArrowsClockwise
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+            />
+        );
     };
 
     isSearchEnabled = () => false;
