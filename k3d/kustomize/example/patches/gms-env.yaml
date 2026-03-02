@@ -1,0 +1,14 @@
+# Example: add an extra environment variable to the GMS deployment.
+# Adjust the deployment name to match your release (datahub-<worktree>-datahub-gms).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datahub-gms  # will be matched by name prefix
+spec:
+  template:
+    spec:
+      containers:
+        - name: datahub-gms
+          env:
+            - name: SHOW_BROWSE_V2
+              value: "true"

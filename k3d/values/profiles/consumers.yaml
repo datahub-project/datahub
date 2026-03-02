@@ -1,0 +1,6 @@
+global:
+  datahub_standalone_consumers_enabled: true
+datahub-mae-consumer:
+  enabled: true
+datahub-mce-consumer:
+  enabled: true

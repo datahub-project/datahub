@@ -1,0 +1,92 @@
+# Helm values for the datahub-prerequisites chart (shared infrastructure).
+# Aggressive resource minimization for local dev — fits within ~1.15Gi request.
+
+# ── MySQL ───────────────────────────────────────────────────────────────────
+mysql:
+  enabled: true
+  auth:
+    # Override existingSecret from chart defaults — use explicit passwords instead
+    existingSecret: ""
+    rootPassword: datahub
+    database: datahub
+    username: datahub
+    password: datahub
+  primary:
+    extraFlags: "--character-set-server=utf8mb4 --collation-server=utf8mb4_bin"
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+    persistence:
+      size: 2Gi
+  initdbScripts:
+    # Grant ALL on datahub_* so per-worktree DBs can be created at deploy time.
+    grant-wildcard.sql: |
+      GRANT ALL PRIVILEGES ON `datahub\_%`.* TO 'datahub'@'%';
+      FLUSH PRIVILEGES;
+
+# ── Elasticsearch ───────────────────────────────────────────────────────────
+elasticsearch:
+  enabled: true
+  replicas: 1
+  minimumMasterNodes: 1
+  # Use chart default (7.17.x) — 7.10.1 is incompatible with chart-injected settings
+  antiAffinity: "soft"
+  clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
+  esJavaOpts: "-Xms384m -Xmx384m"
+  resources:
+    requests:
+      memory: 768Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+  volumeClaimTemplate:
+    resources:
+      requests:
+        storage: 2Gi
+
+# ── Kafka (Bitnami subchart — Zookeeper mode, matching chart defaults) ─────
+kafka:
+  enabled: true
+  kraft:
+    enabled: false
+  zookeeper:
+    enabled: true
+  controller:
+    replicaCount: 0
+  broker:
+    replicaCount: 1
+    minId: 0
+    extraConfig: |
+      message.max.bytes=5242880
+      default.replication.factor=1
+      offsets.topic.replication.factor=1
+      transaction.state.log.replication.factor=1
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+    persistence:
+      size: 2Gi
+  listeners:
+    client:
+      protocol: PLAINTEXT
+    interbroker:
+      protocol: PLAINTEXT
+  provisioning:
+    enabled: false
+
+# ── Disabled services ──────────────────────────────────────────────────────
+# Schema Registry is NOT needed — GMS has an internal schema registry.
+# DataHub chart will use: http://<gms-svc>:8080/schema-registry/api/
+cp-helm-charts:
+  enabled: false
+
+neo4j:
+  enabled: false
+opensearch:
+  enabled: false

@@ -1,0 +1,13 @@
+# Example kustomize overlay for DataHub on k3d.
+# Usage: dh deploy --kustomize k3d/kustomize/example/
+#
+# The "resources:" list below will be augmented automatically at deploy time
+# with the rendered Helm manifests (all.yaml). You can add your own resources
+# here too.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources: []
+
+patches:
+  - path: patches/gms-env.yaml
