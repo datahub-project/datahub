@@ -49,7 +49,7 @@ class LineageEdge:
     - eq=True: Enables equality comparison to detect and prevent duplicate edges in sets
     - order=True: Provides consistent ordering for deterministic iteration and sorting
 
-    LineageEdge instances are stored in Set[LineageEdge] (see lineage_map), requiring
+    LineageEdge instances are stored in Set[LineageEdge] (see lineage_by_full_dataset_id), requiring
     immutability and hashability.
 
     Attributes:
@@ -94,7 +94,9 @@ class DataplexLineageExtractor:
 
         # Map entry IDs to their upstream dependencies to enable efficient lineage lookups
         # during workunit generation without re-querying the Lineage API
-        self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
+        self.lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
+            collections.defaultdict(set)
+        )
 
     def get_lineage_for_entry(
         self, project_id: str, entry: EntryDataTuple
@@ -322,7 +324,9 @@ class DataplexLineageExtractor:
             Dictionary mapping dataset IDs (full paths) to sets of LineageEdge objects
         """
         logger.info(f"Starting lineage map build for project {project_id}")
-        lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
+        lineage_by_full_dataset_id: Dict[str, Set[LineageEdge]] = (
+            collections.defaultdict(set)
+        )
         entry_count = 0
 
         for entry in entry_data:
@@ -347,21 +351,21 @@ class DataplexLineageExtractor:
                         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
                     )
                     # Use full dataset_id as key to avoid collisions between tables with same name
-                    lineage_map[entry.dataset_id].add(edge)
+                    lineage_by_full_dataset_id[entry.dataset_id].add(edge)
                     logger.debug(
                         f"  Added lineage edge: {entry.dataset_id} <- {upstream_dataset_id}"
                     )
 
-        self.lineage_map = lineage_map
+        self.lineage_by_full_dataset_id = lineage_by_full_dataset_id
 
         # Summary logging
-        total_edges = sum(len(edges) for edges in lineage_map.values())
-        entries_with_lineage = len(lineage_map)
+        total_edges = sum(len(edges) for edges in lineage_by_full_dataset_id.values())
+        entries_with_lineage = len(lineage_by_full_dataset_id)
         logger.info(
             f"Lineage map complete: {entries_with_lineage} entries with lineage, {total_edges} total edges"
         )
 
-        return lineage_map
+        return lineage_by_full_dataset_id
 
     def _extract_entry_id_from_fqn(self, fqn: str) -> Optional[str]:
         """
@@ -409,12 +413,12 @@ class DataplexLineageExtractor:
         Returns:
             UpstreamLineageClass object or None if no lineage exists
         """
-        if dataset_id not in self.lineage_map:
+        if dataset_id not in self.lineage_by_full_dataset_id:
             return None
 
         upstream_list: list[UpstreamClass] = []
 
-        for lineage_edge in self.lineage_map[dataset_id]:
+        for lineage_edge in self.lineage_by_full_dataset_id[dataset_id]:
             # Generate URN for the upstream entry using the full dataset_id
             upstream_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=platform,
@@ -573,7 +577,7 @@ class DataplexLineageExtractor:
                         )
 
                 # Clear lineage map after processing batch to free memory
-                self.lineage_map.clear()
+                self.lineage_by_full_dataset_id.clear()
                 logger.debug(f"Cleared lineage map after batch {batch_idx + 1}")
 
             logger.info(f"Completed lineage extraction for all {num_batches} batches")

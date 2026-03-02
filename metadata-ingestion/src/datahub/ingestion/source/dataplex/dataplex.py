@@ -204,15 +204,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         cached_mcps: list[MetadataChangeProposalWrapper],
         total_emitted: int,
         project_id: str,
-        resource_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the final batch of MCPs for a resource type.
+        """Emit the final batch of entry MCPs.
 
         Args:
             cached_mcps: List of cached MCPs to emit
             total_emitted: Total count of MCPs emitted so far
             project_id: GCP project ID
-            resource_type: Type of resource being emitted
 
         Yields:
             MetadataWorkUnit objects
@@ -221,7 +219,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             yield from auto_workunit(cached_mcps)
             total_emitted += len(cached_mcps)
             logger.info(
-                f"Emitted final batch of {len(cached_mcps)} {resource_type} ({total_emitted} total) for project {project_id}"
+                f"Emitted final batch of {len(cached_mcps)} entries ({total_emitted} total) for project {project_id}"
             )
 
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
@@ -261,7 +259,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         # Emit remaining cached entries MCPs
         yield from self._emit_final_batch(
-            cached_entries_mcps, entries_emitted, project_id, "entries"
+            cached_entries_mcps, entries_emitted, project_id
         )
 
         # Emit BigQuery containers (so entries can reference them)

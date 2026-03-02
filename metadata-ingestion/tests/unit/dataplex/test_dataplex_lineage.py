@@ -58,7 +58,7 @@ def test_lineage_extractor_initialization(
     assert lineage_extractor.config is not None
     assert lineage_extractor.report is not None
     assert lineage_extractor.lineage_client is not None
-    assert isinstance(lineage_extractor.lineage_map, dict)
+    assert isinstance(lineage_extractor.lineage_by_full_dataset_id, dict)
 
 
 def test_lineage_extraction_disabled(
@@ -257,9 +257,11 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
     ]
 
     # Build lineage map
-    lineage_map = lineage_extractor.build_lineage_map("test-project", entry_data)
+    lineage_by_full_dataset_id = lineage_extractor.build_lineage_map(
+        "test-project", entry_data
+    )
 
-    assert isinstance(lineage_map, dict)
+    assert isinstance(lineage_by_full_dataset_id, dict)
     # The map should have entries for entries that have lineage
     assert lineage_extractor.report.num_lineage_entries_scanned >= 0
 
@@ -289,7 +291,9 @@ def test_get_lineage_for_table_with_lineage(
     )
 
     # Key is now full dataset_id, not just entry name
-    lineage_extractor.lineage_map["test-project.test-dataset.test-entry"] = {edge}
+    lineage_extractor.lineage_by_full_dataset_id[
+        "test-project.test-dataset.test-entry"
+    ] = {edge}
 
     # Get lineage using full dataset_id
     result = lineage_extractor.get_lineage_for_table(
@@ -313,7 +317,9 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     )
 
     # Key is now full dataset_id, not just entry name
-    lineage_extractor.lineage_map["test-project.test-dataset.test-entry"] = {edge}
+    lineage_extractor.lineage_by_full_dataset_id[
+        "test-project.test-dataset.test-entry"
+    ] = {edge}
 
     # Generate workunits using full dataset_id
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entry,PROD)"
@@ -402,7 +408,9 @@ def test_workunit_urn_structure_validation(
     )
 
     # Key is now full dataset_id
-    lineage_extractor.lineage_map["my-project.my-dataset.downstream-table"] = {edge}
+    lineage_extractor.lineage_by_full_dataset_id[
+        "my-project.my-dataset.downstream-table"
+    ] = {edge}
 
     # Generate workunit using full dataset_id
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.downstream-table,PROD)"
@@ -444,7 +452,9 @@ def test_workunit_aspect_completeness(
     )
 
     # Key is now full dataset_id
-    lineage_extractor.lineage_map["my-project.my-dataset.target-table"] = {edge1, edge2}
+    lineage_extractor.lineage_by_full_dataset_id[
+        "my-project.my-dataset.target-table"
+    ] = {edge1, edge2}
 
     # Generate workunit using full dataset_id
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.target-table,PROD)"
@@ -494,9 +504,9 @@ def test_workunit_upstream_urn_format(
     )
 
     # Key is now full dataset_id
-    lineage_extractor.lineage_map["test-project.analytics_dataset.analytics_table"] = {
-        edge
-    }
+    lineage_extractor.lineage_by_full_dataset_id[
+        "test-project.analytics_dataset.analytics_table"
+    ] = {edge}
     lineage_extractor.config.env = "PROD"
 
     # Generate workunit using full dataset_id
@@ -782,11 +792,13 @@ def test_batched_lineage_memory_cleanup() -> None:
     mock_client = MagicMock()
 
     # Track lineage map size during processing
-    lineage_map_sizes = []
+    lineage_by_full_dataset_id_sizes = []
 
     def mock_search_links(request):
         # Record the current lineage map size
-        lineage_map_sizes.append(len(extractor.lineage_map))
+        lineage_by_full_dataset_id_sizes.append(
+            len(extractor.lineage_by_full_dataset_id)
+        )
         mock_link = MagicMock()
         mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
         return [mock_link]
@@ -814,7 +826,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     assert len(workunits) == 6
 
     # After processing, lineage map should be empty (cleared after last batch)
-    assert len(extractor.lineage_map) == 0
+    assert len(extractor.lineage_by_full_dataset_id) == 0
 
 
 class TestLineageMapKeyCollision:
@@ -833,7 +845,7 @@ class TestLineageMapKeyCollision:
     test-project.sales.customers should NOT get lineage from test-project.abc.users
     """
 
-    def test_lineage_map_uses_full_dataset_id_as_key(self) -> None:
+    def test_lineage_by_full_dataset_id_uses_full_dataset_id_as_key(self) -> None:
         """Test that lineage map keys use full dataset_id, not table name.
 
         This is the core test for the collision bug fix. The lineage map
@@ -887,20 +899,22 @@ class TestLineageMapKeyCollision:
         ]
 
         # Build lineage map
-        lineage_map = extractor.build_lineage_map("test-project", entries)
+        lineage_by_full_dataset_id = extractor.build_lineage_map(
+            "test-project", entries
+        )
 
         # KEY ASSERTION: Lineage map should have full dataset_id as key
-        assert "test-project.analytics.customers" in lineage_map, (
+        assert "test-project.analytics.customers" in lineage_by_full_dataset_id, (
             "Lineage map should use full dataset_id 'test-project.analytics.customers' as key"
         )
 
         # sales.customers should NOT be in the map (no lineage)
-        assert "test-project.sales.customers" not in lineage_map, (
+        assert "test-project.sales.customers" not in lineage_by_full_dataset_id, (
             "test-project.sales.customers should not have lineage"
         )
 
         # Verify analytics.customers has correct upstream
-        analytics_edges = lineage_map["test-project.analytics.customers"]
+        analytics_edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(analytics_edges) == 1
         edge = next(iter(analytics_edges))
         assert edge.entry_id == "test-project.abc.users"
@@ -1003,7 +1017,9 @@ class TestLineageMapKeyCollision:
             audit_stamp=datetime.datetime.now(datetime.timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
         )
-        extractor.lineage_map["test-project.analytics.customers"] = {edge}
+        extractor.lineage_by_full_dataset_id["test-project.analytics.customers"] = {
+            edge
+        }
 
         # Lookup with full dataset_id should find lineage
         result = extractor.get_lineage_for_table(
@@ -1071,17 +1087,19 @@ class TestLineageMapKeyCollision:
             ),
         ]
 
-        lineage_map = extractor.build_lineage_map("test-project", entries)
+        lineage_by_full_dataset_id = extractor.build_lineage_map(
+            "test-project", entries
+        )
 
         # Verify the key format
-        keys = list(lineage_map.keys())
+        keys = list(lineage_by_full_dataset_id.keys())
         assert len(keys) == 1
         assert keys[0] == "test-project.analytics.customers", (
             f"Key should be full path 'test-project.analytics.customers', got '{keys[0]}'"
         )
 
         # Verify the value (upstream entry)
-        edges = lineage_map["test-project.analytics.customers"]
+        edges = lineage_by_full_dataset_id["test-project.analytics.customers"]
         assert len(edges) == 1
         edge = next(iter(edges))
         assert edge.entry_id == "test-project.abc.users", (
