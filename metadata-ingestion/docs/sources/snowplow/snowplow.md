@@ -69,12 +69,12 @@ To extract basic schema metadata:
 
 #### Permissions by Capability
 
-| Capability               | Required Permissions      | Configuration                                |
-| ------------------------ | ------------------------- | -------------------------------------------- |
-| **Schema Metadata**      | `read:data-structures`    | Enabled by default                           |
-| **Event Specifications** | `read:event-specs`        | `extract_event_specifications: true`         |
-| **Tracking Scenarios**   | `read:tracking-scenarios` | `extract_tracking_scenarios: true`           |
-| **Tracking Plans**       | `read:data-products`      | `extract_tracking_plans: true`               |
+| Capability               | Required Permissions      | Configuration                        |
+| ------------------------ | ------------------------- | ------------------------------------ |
+| **Schema Metadata**      | `read:data-structures`    | Enabled by default                   |
+| **Event Specifications** | `read:event-specs`        | `extract_event_specifications: true` |
+| **Tracking Scenarios**   | `read:tracking-scenarios` | `extract_tracking_scenarios: true`   |
+| **Tracking Plans**       | `read:data-products`      | `extract_tracking_plans: true`       |
 
 #### Permission Testing
 
