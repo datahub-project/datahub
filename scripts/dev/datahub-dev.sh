@@ -3,4 +3,4 @@
 #   scripts/datahub-dev.sh status
 #   scripts/datahub-dev.sh rebuild --wait
 # etc.
-exec python3 "$(dirname "$0")/datahub_dev.py" "$@"
+exec uv run --python 3.11 --no-project "$(dirname "$0")/datahub_dev.py" "$@"
