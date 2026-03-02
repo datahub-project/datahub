@@ -210,6 +210,85 @@ The older approach that will be deprecated in future versions:
 
 Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
 
+### Metadata Pattern Pushdown
+
+When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
+
+> **Note:** This option applies only to **metadata extraction** queries (`information_schema.databases`, `schemata`, `tables`, `views`). For pushing down filters on **lineage/usage** queries (`account_usage.access_history`), use `push_down_database_pattern_access_history` instead. These two options are independent and target completely separate query paths.
+
+#### Configuration
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # Enable pattern pushdown for improved performance
+    push_down_metadata_patterns: true
+
+    # Your existing patterns - MUST follow Snowflake RLIKE syntax
+    database_pattern:
+      allow:
+        - "PROD_.*" # Matches databases starting with PROD_
+        - "ANALYTICS.*" # Matches databases starting with ANALYTICS
+      deny:
+        - ".*_TEMP$" # Excludes databases ending with _TEMP
+
+    table_pattern:
+      allow:
+        - ".*" # Allow all tables
+      deny:
+        - ".*_BACKUP$" # Exclude tables ending with _BACKUP
+```
+
+#### View Pattern Limitation
+
+By default, Snowflake views are fetched using `SHOW VIEWS`, which does **not** support SQL-level filtering. When `push_down_metadata_patterns: true`, the `view_pattern` is pushed down **only** if `fetch_views_from_information_schema: true` is also set. Otherwise, view filtering falls back to Python's `re.match()`, even with pushdown enabled.
+
+This means if you write patterns in Snowflake RLIKE syntax (e.g., `PROD.*` for prefix matching), they will still work correctly with Python filtering since `PROD.*` is valid in both. However, patterns that rely on RLIKE's full-string matching semantics (e.g., exact match `PROD_DB` without `.*`) will behave differently — Python `re.match()` treats it as a prefix match.
+
+**Recommendation**: If you enable `push_down_metadata_patterns`, also enable `fetch_views_from_information_schema: true` to ensure consistent behavior for view patterns.
+
+#### Important: Snowflake RLIKE Syntax Differences
+
+When `push_down_metadata_patterns: true`, patterns are executed in Snowflake using the `RLIKE` operator instead of Python's `re.match()`. These have **different matching behaviors**:
+
+| Behavior             | Python `re.match()`                       | Snowflake `RLIKE`                   | Fix for Snowflake     |
+| -------------------- | ----------------------------------------- | ----------------------------------- | --------------------- |
+| **Prefix match**     | `'PROD'` matches `'PROD_DB'`              | `'PROD'` does NOT match `'PROD_DB'` | Use `PROD.*`          |
+| **Suffix match**     | `'.*_BACKUP'` matches `'TABLE_BACKUP_V2'` | Does NOT match                      | Use `.*_BACKUP$`      |
+| **Start anchor**     | `'^PROD'` matches `'PROD_DB'`             | Does NOT match                      | Use `PROD.*`          |
+| **Alternation**      | `'PROD\|DEV'` matches `'PROD_DB'`         | Does NOT match                      | Use `(PROD\|DEV).*`   |
+| **Case sensitivity** | Case-insensitive by default               | Case-sensitive by default           | Handled automatically |
+
+**Key difference**: Python `re.match()` anchors at the START only (prefix matching), while Snowflake `RLIKE` requires a FULL STRING match.
+
+#### Pattern Conversion Examples
+
+| Intent                       | Without Pushdown (Python) | With Pushdown (Snowflake RLIKE) |
+| ---------------------------- | ------------------------- | ------------------------------- |
+| Starts with `PROD`           | `PROD`                    | `PROD.*`                        |
+| Ends with `_BACKUP`          | `.*_BACKUP`               | `.*_BACKUP$`                    |
+| Contains `TEMP`              | `.*TEMP.*`                | `.*TEMP.*` (same)               |
+| Exact match                  | `PROD_DB`                 | `PROD_DB` (same)                |
+| Match `PROD` or `DEV` prefix | `PROD\|DEV`               | `(PROD\|DEV).*`                 |
+
+#### Testing Your Patterns
+
+Before enabling pushdown in production, test your patterns in Snowflake:
+
+```sql
+-- Test prefix matching
+SELECT 'PROD_DB' RLIKE 'PROD';      -- FALSE (needs .*)
+SELECT 'PROD_DB' RLIKE 'PROD.*';    -- TRUE
+
+-- Test suffix matching
+SELECT 'TABLE_BACKUP_V2' RLIKE '.*_BACKUP';    -- FALSE (needs $)
+SELECT 'TABLE_BACKUP' RLIKE '.*_BACKUP$';      -- TRUE
+
+-- Test FQN with escaped dots
+SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
+```
+
 ### Semantic Views
 
 DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
