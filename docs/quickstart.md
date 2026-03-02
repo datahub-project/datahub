@@ -101,7 +101,9 @@ or head to http://localhost:9002 (username: datahub, password: datahub) to play 
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
 
-:::note Breaking change
+:::note Breaking changes
+
+### Docker Compose File version change
 
 From version 1.2 onwards, the `datahub docker quickstart` command uses a version of docker-compose file that is incompatible with datahub that was installed using earlier versions of the CLI.
 
@@ -118,6 +120,28 @@ Required steps to upgrade:
 3. Start fresh installation: datahub docker quickstart
 
 ⚠️ Without backup, all existing data will be lost.
+
+### Datahub Authentication Changes in default
+
+From version 1.5 Datahub quickstart now generates a random signing key and salt for use when
+generating and validating authentication tokens instead of a hardcoded default key.
+If no values are provided, a new key is generated each time quickstart is run,
+which will invalidate any Personal Access Tokens (PATs) created in a previous session.
+It is recommended that users provide their own stable values for these.
+
+To generate random values to use, you can use the output of the following
+
+```
+openssl rand -base64 32
+```
+
+To provide your own values set the following environment variables before running quickstart.
+
+```
+export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
+export DATAHUB_TOKEN_SERVICE_SALT=<value>
+```
+
 :::
 
 ### Sign In
