@@ -138,7 +138,7 @@ datahub-gms:
     - name: ENTITY_SERVICE_ENABLE_RETENTION
       value: "true"
     - name: ES_BULK_REFRESH_POLICY
-      value: "WAIT_UNTIL"
+      value: "NONE"
     - name: JAVA_OPTS
       value: "-Xms512m -Xmx512m"
     - name: DATAHUB_SYSTEM_CLIENT_ID
