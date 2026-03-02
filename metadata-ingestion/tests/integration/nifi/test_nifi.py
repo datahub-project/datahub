@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import time
 
 import pytest
@@ -115,18 +116,50 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
     # Wait for nifi cluster to execute all lineage processors, max wait time 120 seconds
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"
     for i in range(23):
-        logging.info("waiting...")
+        logging.info(f"waiting... iteration {i}")
         time.sleep(5)
         resp = requests.get(url)
         if resp.status_code != 200:
+            logging.warning(f"API request failed with status {resp.status_code}")
             continue
         else:
             pgs = resp.json()["processGroupFlow"]["flow"]["processGroups"]
             statuses = [pg["status"] for pg in pgs]
             status = next(s for s in statuses if s["name"] == "Cluster_Site_S3_to_S3")
-            if status["aggregateSnapshot"]["flowFilesSent"] >= 1:
+            flow_files_sent = status["aggregateSnapshot"]["flowFilesSent"]
+            logging.info(
+                f"Cluster_Site_S3_to_S3 status: flowFilesSent={flow_files_sent}, "
+                f"snapshot={status['aggregateSnapshot']}"
+            )
+            if flow_files_sent >= 1:
                 logging.info(f"Waited for time {i * 5} seconds")
                 break
+    else:
+        logging.error(
+            f"NiFi cluster flow did not complete after {23 * 5} seconds. "
+            f"Final flowFilesSent: {flow_files_sent if 'flow_files_sent' in locals() else 'unknown'}"
+        )
+        # Capture Docker logs for debugging
+        containers = [
+            "nifi01",
+            "nifi02",
+            "nifi03",
+            "sftp_public_host",
+            "nifi_zookeeper",
+        ]
+        for container in containers:
+            try:
+                logs = subprocess.check_output(
+                    ["docker", "logs", "--tail", "50", container],
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    timeout=5,
+                )
+                logging.error(f"Docker logs for {container}:\n{logs}")
+            except subprocess.TimeoutExpired:
+                logging.warning(f"Timeout getting logs for {container}")
+            except subprocess.CalledProcessError as e:
+                logging.warning(f"Failed to get logs for {container}: {e}")
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
