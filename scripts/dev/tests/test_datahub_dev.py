@@ -4,6 +4,7 @@ import argparse
 import importlib
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -68,6 +69,100 @@ def test_plugin_loading_extend_config(tmp_path, monkeypatch):
     assert "integrations" in config.rebuild_module_aliases
     assert config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
     assert any(svc.name == "integrations" for svc in config.services)
+
+
+def test_env_list_pending_restart_no_sentinel(tmp_path, monkeypatch, capsys):
+    """pending_restart=true when vars exist but sentinel has never been written."""
+    env_file = tmp_path / "test.env"
+    sentinel = tmp_path / "test.applied.env"
+    env_file.write_text("FOO=bar\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_SENTINEL", sentinel)
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+
+    result = datahub_dev.cmd_env_list(argparse.Namespace())
+    assert result == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["pending_restart"] is True
+    assert out["vars"] == {"FOO": "bar"}
+
+
+def test_env_list_pending_restart_false_after_sentinel(tmp_path, monkeypatch, capsys):
+    """pending_restart=false when sentinel is newer than env file."""
+    env_file = tmp_path / "test.env"
+    sentinel = tmp_path / "test.applied.env"
+    env_file.write_text("FOO=bar\n")
+    # Write sentinel after env file so its mtime is newer
+    sentinel.write_text(str(time.time()))
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_SENTINEL", sentinel)
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+
+    result = datahub_dev.cmd_env_list(argparse.Namespace())
+    assert result == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["pending_restart"] is False
+    assert out["vars"] == {"FOO": "bar"}
+
+
+def test_env_list_pending_restart_true_after_newer_env(tmp_path, monkeypatch, capsys):
+    """pending_restart=true when env file is newer than sentinel."""
+    import os
+
+    sentinel = tmp_path / "test.applied.env"
+    env_file = tmp_path / "test.env"
+    # Write sentinel first (older mtime), then env file (newer mtime)
+    sentinel.write_text("0")
+    env_file.write_text("FOO=bar\n")
+    # Ensure env file mtime > sentinel mtime
+    os.utime(sentinel, (0, 0))
+
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_SENTINEL", sentinel)
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+
+    result = datahub_dev.cmd_env_list(argparse.Namespace())
+    assert result == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["pending_restart"] is True
+
+
+def test_env_list_empty_no_pending(tmp_path, monkeypatch, capsys):
+    """pending_restart=false when no vars are set (nothing to apply)."""
+    env_file = tmp_path / "test.env"
+    sentinel = tmp_path / "test.applied.env"
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_SENTINEL", sentinel)
+    monkeypatch.setattr(datahub_dev, "REPO_ROOT", tmp_path)
+
+    result = datahub_dev.cmd_env_list(argparse.Namespace())
+    assert result == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["pending_restart"] is False
+    assert out["vars"] == {}
+
+
+def test_env_clean_removes_sentinel(tmp_path, monkeypatch):
+    """env clean removes sentinel alongside stale env file."""
+    # Create a stale env file + sentinel for a branch that doesn't exist
+    stale_env = tmp_path / "datahub-dev-old-branch.env"
+    stale_sentinel = tmp_path / "datahub-dev-old-branch.applied.env"
+    stale_env.write_text("OLD=1\n")
+    stale_sentinel.write_text("12345")
+
+    monkeypatch.setattr(datahub_dev, "DOCKER_DIR", tmp_path)
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "datahub-dev-current.env")
+    # No local branches → only 'local' fallback is active
+    monkeypatch.setattr(
+        datahub_dev,
+        "_run",
+        lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": ""})(),
+    )
+
+    result = datahub_dev.cmd_env_clean(argparse.Namespace(dry_run=False))
+    assert result == 0
+    assert not stale_env.exists()
+    assert not stale_sentinel.exists()
 
 
 def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):

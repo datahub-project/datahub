@@ -27,7 +27,7 @@ All fields of ``DevToolingConfig`` are mutable inside ``extend_config``:
       ``cmd_wait`` iterate this list.  Each entry has:
         name       str         label in JSON output
         health_url str         must return HTTP 200 to be considered healthy
-        debug_url  str | None  optional URL whose JSON body is shown in status
+        status_url str | None  optional URL whose JSON body is shown in status output
         required   bool        if True, must be up for overall ready=True
 
   config.gradle_reload_task          str   default ":docker:reload"

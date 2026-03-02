@@ -43,7 +43,7 @@ from typing import Any, Dict, List, Optional, Tuple
 class ServiceConfig:
     name: str  # short label used in JSON output
     health_url: str  # URL that must return 200 for "healthy"
-    debug_url: Optional[str] = None  # if set, JSON body shown in status output
+    status_url: Optional[str] = None  # if set, JSON body shown in status output
     required: bool = True  # if True, must be up for overall ready=True
 
 
@@ -105,6 +105,10 @@ def _get_branch_slug() -> str:
 # Each branch gets its own isolated config. Computed once at startup.
 DEV_ENV_FILE = DOCKER_DIR / f"datahub-dev-{_get_branch_slug()}.env"
 
+# Sentinel file written by cmd_env_restart on success. Ends in .env so it's
+# covered by the *.env entry in .gitignore — no new gitignore rules needed.
+DEV_ENV_SENTINEL = DEV_ENV_FILE.with_name(DEV_ENV_FILE.stem + ".applied.env")
+
 GMS_URL = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
 FRONTEND_URL = os.environ.get("DATAHUB_FRONTEND_URL", "http://localhost:9002")
 COMPOSE_PROJECT = os.environ.get("DOCKER_COMPOSE_PROJECT_NAME", "datahub")
@@ -152,7 +156,7 @@ def _default_config() -> DevToolingConfig:
             ServiceConfig(
                 "gms",
                 f"{GMS_URL}/health",
-                debug_url=f"{GMS_URL}/debug/ready",
+                status_url=f"{GMS_URL}/health/detailed",
                 required=True,
             ),
             ServiceConfig("frontend", f"{FRONTEND_URL}/admin", required=True),
@@ -337,11 +341,11 @@ def cmd_status(args: argparse.Namespace) -> int:
         status_code, _ = _http_get(svc.health_url)
         healthy = status_code == 200
         entry: Dict[str, Any] = {"healthy": healthy, "status_code": status_code}
-        if svc.debug_url:
-            debug_status, debug_body = _http_get(svc.debug_url)
-            if debug_status == 200:
+        if svc.status_url:
+            status_detail_code, status_detail_body = _http_get(svc.status_url)
+            if status_detail_code == 200:
                 try:
-                    entry["debug"] = json.loads(debug_body)
+                    entry["status_detail"] = json.loads(status_detail_body)
                 except json.JSONDecodeError:
                     pass
         service_health[svc.name] = entry
@@ -746,6 +750,36 @@ def cmd_env_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_env_list(args: argparse.Namespace) -> int:
+    """List env vars and whether a restart is needed to apply them."""
+    vars_dict: Dict[str, str] = {}
+    if DEV_ENV_FILE.exists():
+        lines = [line for line in DEV_ENV_FILE.read_text().splitlines() if line.strip()]
+        vars_dict = dict(line.split("=", 1) for line in lines if "=" in line)
+
+    # pending_restart: true if env file is newer than the sentinel (or sentinel absent)
+    if DEV_ENV_SENTINEL.exists() and DEV_ENV_FILE.exists():
+        pending_restart = (
+            DEV_ENV_FILE.stat().st_mtime > DEV_ENV_SENTINEL.stat().st_mtime
+        )
+    elif not vars_dict:
+        pending_restart = False  # nothing set, nothing pending
+    else:
+        pending_restart = True  # vars exist but no successful restart recorded
+
+    print(
+        json.dumps(
+            {
+                "file": str(DEV_ENV_FILE.relative_to(REPO_ROOT)),
+                "pending_restart": pending_restart,
+                "vars": vars_dict,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def cmd_env_restart(args: argparse.Namespace) -> int:
     """Restart containers to pick up new environment variables."""
     _log("Restarting containers with new environment via Gradle reloadEnv...")
@@ -778,6 +812,7 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
             _log("ERROR: Both Gradle reloadEnv and docker compose recreate failed.")
             return 1
 
+    DEV_ENV_SENTINEL.write_text(str(time.time()))
     _log("Containers restarting. Waiting for readiness...")
     wait_args = argparse.Namespace(timeout=DEFAULT_TIMEOUT)
     return cmd_wait(wait_args)
@@ -790,7 +825,12 @@ def cmd_env_clean(args: argparse.Namespace) -> int:
     slug doesn't match a current local branch. The 'local' fallback file
     (detached HEAD / CI) is always kept.
     """
-    env_files = sorted(DOCKER_DIR.glob("datahub-dev-*.env"))
+    # Exclude sentinel files (*.applied.env) — those are handled alongside their env files
+    env_files = sorted(
+        f
+        for f in DOCKER_DIR.glob("datahub-dev-*.env")
+        if not f.name.endswith(".applied.env")
+    )
     if not env_files:
         _log("No datahub-dev-*.env files found.")
         return 0
@@ -829,6 +869,9 @@ def cmd_env_clean(args: argparse.Namespace) -> int:
 
     for f in to_remove:
         f.unlink()
+        sentinel = f.with_name(f.stem + ".applied.env")
+        if sentinel.exists():
+            sentinel.unlink()
     _log("Done.")
     return 0
 
@@ -1068,6 +1111,7 @@ def build_parser() -> argparse.ArgumentParser:
     # env
     env_p = subparsers.add_parser("env", help="Environment variable management")
     env_sub = env_p.add_subparsers(dest="env_command")
+    env_sub.add_parser("list", help="List env vars currently set for containers")
     env_set_p = env_sub.add_parser("set", help="Set an env var for containers")
     env_set_p.add_argument("assignment", help="KEY=VALUE")
     env_sub.add_parser("restart", help="Restart containers with new env vars")
@@ -1129,6 +1173,7 @@ def main() -> int:
 
     if args.command == "env":
         env_map = {
+            "list": cmd_env_list,
             "set": cmd_env_set,
             "restart": cmd_env_restart,
             "clean": cmd_env_clean,
