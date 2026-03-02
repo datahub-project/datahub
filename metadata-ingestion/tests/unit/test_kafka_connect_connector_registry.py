@@ -254,6 +254,25 @@ class TestConnectorRegistrySinkConnectors:
         assert isinstance(connector, JdbcSinkConnector)
         assert connector.get_platform() == "mysql"
 
+    def test_clickhouse_sink_connector(self) -> None:
+        """Test routing for ClickHouse sink connector."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            CLICKHOUSE_SINK_CONNECTOR_CLASS,
+            ClickHouseSinkConnector,
+        )
+
+        manifest = create_manifest(SINK, CLICKHOUSE_SINK_CONNECTOR_CLASS)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, ClickHouseSinkConnector)
+        assert connector.get_platform() == "clickhouse"
+
     def test_unknown_sink_connector(self) -> None:
         """Test routing for unknown sink connector class."""
         manifest = create_manifest(SINK, "com.example.UnknownSinkConnector")

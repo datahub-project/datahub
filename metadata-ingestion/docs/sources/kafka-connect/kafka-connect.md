@@ -118,7 +118,7 @@ DataHub now provides intelligent topic resolution that works reliably across all
 - When Kafka API is available: Filter to only topics that exist in Kafka
 - When Kafka API is unavailable (Confluent Cloud): Create lineages for all configured tables without filtering
 
-**Sink Connectors** (S3, Snowflake, BigQuery, JDBC):
+**Sink Connectors** (S3, Snowflake, BigQuery, JDBC, ClickHouse):
 
 - Support both explicit topic lists (`topics` field) and regex patterns (`topics.regex` field)
 - When `topics.regex` is used:
