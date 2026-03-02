@@ -33,6 +33,10 @@ def load_setup_py_variables() -> Dict:
         code = f.read()
     code = code.replace("setuptools.setup(", "_setup_args = dict(")
     exec(code, namespace)
+    assert "_setup_args" in namespace, (
+        "setup.py did not produce _setup_args — the setuptools.setup() replacement failed. "
+        "Check if setup.py changed its calling convention."
+    )
     return namespace
 
 

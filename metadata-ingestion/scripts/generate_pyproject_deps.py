@@ -85,6 +85,10 @@ def load_setup_py_variables() -> Dict:
         code = f.read()
     code = code.replace("setuptools.setup(", "_setup_args = dict(")
     exec(code, namespace)
+    assert "_setup_args" in namespace, (
+        "setup.py did not produce _setup_args — the setuptools.setup() replacement failed. "
+        "Check if setup.py changed its calling convention."
+    )
     return namespace
 
 
@@ -118,15 +122,21 @@ def decompose_plugin(
     Returns (extra_refs, unique_deps) where extra_refs are like
     "acryl-datahub[sql-common]" and unique_deps are individual packages.
     """
-    remaining = plugin_deps - framework_common
+    plugin_unique = plugin_deps - framework_common
+    remaining = set(plugin_unique)
     refs: List[str] = []
 
     for var_name, shared_deps in shared_sets:
-        # Only match if the shared set contributes something not already covered
         overlap = shared_deps - framework_common
-        if overlap and overlap <= remaining:
-            refs.append(to_extra_name(var_name))
-            remaining -= overlap
+        # Shared set's deps must all be within the plugin's full dep set
+        # (don't reference a shared set that would add unwanted deps).
+        # But only require it to contribute at least one dep still in remaining
+        # (other deps may already be covered by an earlier shared set reference).
+        if overlap and overlap <= plugin_unique:
+            contribution = overlap & remaining
+            if contribution:
+                refs.append(to_extra_name(var_name))
+                remaining -= contribution
 
     extra_refs = []
     if refs:
