@@ -1,5 +1,5 @@
 import { print } from 'graphql';
-import { GetGlossaryTermDocument } from '../glossaryTerm.generated';
+import { GetGlossaryTermDocument } from '@graphql/glossaryTerm.generated';
 
 describe('glossaryTerm query includes applications field', () => {
     it('should request the applications field with entityApplication fragment', () => {
