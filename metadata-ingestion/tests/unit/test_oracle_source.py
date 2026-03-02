@@ -1,6 +1,6 @@
 import unittest.mock
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import sqlalchemy.exc
@@ -21,6 +21,7 @@ from datahub.ingestion.source.sql.oracle import (
     VSqlPrerequisiteCheckResult,
     extra_oracle_types,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -274,7 +275,18 @@ class TestOracleInspectorObjectWrapper:
         )
         self.mock_inspector.dialect.default_schema_name = "TEST_SCHEMA"
 
-        self.wrapper = OracleInspectorObjectWrapper(self.mock_inspector)
+        self.mock_report = Mock(spec=SQLSourceReport)
+        self.wrapper = OracleInspectorObjectWrapper(
+            self.mock_inspector, self.mock_report
+        )
+
+    def test_get_db_name_reports_failure_on_database_error(self):
+        self.mock_inspector.bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            "Connection failed", None, None
+        )
+        result = self.wrapper.get_db_name()
+        assert result == ""
+        self.mock_report.failure.assert_called_once()
 
     def test_get_materialized_view_names(self):
         """Test getting materialized view names."""
@@ -1162,6 +1174,25 @@ class TestOracleProcedureLineage:
         assert dependencies.upstream_tables[0].table == "EMPLOYEES"
         assert dependencies.upstream_tables[0].type == OracleObjectType.TABLE
         assert dependencies.upstream_tables[1].type == OracleObjectType.VIEW
+
+
+def test_oracle_sample_query_uses_where_rownum():
+    from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
+        SqlAlchemyTableDataReader,
+    )
+
+    mock_conn = MagicMock()
+    mock_conn.dialect.name = "oracle"
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("datahub.ingestion.source.sql.sqlalchemy_data_reader.sa"):
+        reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
+        reader.connection = mock_conn
+        reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
+
+    executed_query = mock_conn.execute.call_args[0][0]
+    assert "WHERE ROWNUM <= 100" in executed_query
+    assert "AND ROWNUM" not in executed_query
 
 
 def test_extra_oracle_types_registered_during_workunits_iteration():

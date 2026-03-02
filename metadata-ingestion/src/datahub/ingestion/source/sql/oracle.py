@@ -62,6 +62,7 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     gen_database_key,
     gen_schema_key,
@@ -307,8 +308,8 @@ PROFILE_CANDIDATES_QUERY = """
         COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) AS SIZE_GB
     FROM {tables_table_name} t
     WHERE t.OWNER = :owner
-    AND (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
-    AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
+    AND (:table_row_limit IS NULL OR t.NUM_ROWS IS NULL OR t.NUM_ROWS < :table_row_limit)
+    AND (:table_size_limit IS NULL OR COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit)
 """
 
 VSQL_PREREQUISITES_QUERY = "SELECT COUNT(*) FROM V$SQL WHERE ROWNUM = 1"
@@ -572,8 +573,9 @@ class OracleInspectorObjectWrapper:
     Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
     """
 
-    def __init__(self, inspector_instance: Inspector):
+    def __init__(self, inspector_instance: Inspector, report: SQLSourceReport):
         self._inspector_instance = inspector_instance
+        self.report = report
         self.log = logging.getLogger(__name__)
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
@@ -973,7 +975,7 @@ class OracleInspectorObjectWrapper:
                 title="Failed to Process Primary Keys",
                 message=(
                     f"Unable to process primary key constraints for {schema}.{table_name}. "
-                    "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS.",
+                    "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS."
                 ),
                 context=f"{schema}.{table_name}",
                 exc=e,
@@ -1338,7 +1340,9 @@ class OracleSource(SQLAlchemySource):
             # SQLAlchemy inspector uses ALL_* tables; OracleInspectorObjectWrapper uses DBA_* tables
             if self.config.data_dictionary_mode != DataDictionaryMode.ALL:
                 # OracleInspectorObjectWrapper uses __getattr__ to proxy to Inspector
-                yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
+                yield cast(
+                    Inspector, OracleInspectorObjectWrapper(inspector, self.report)
+                )
             else:
                 yield inspector
 
