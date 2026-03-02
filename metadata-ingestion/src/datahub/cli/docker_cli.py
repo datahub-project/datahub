@@ -1,3 +1,4 @@
+import base64
 import datetime
 import functools
 import itertools
@@ -5,6 +6,7 @@ import logging
 import os
 import pathlib
 import platform
+import secrets
 import signal
 import subprocess
 import sys
@@ -196,6 +198,15 @@ def _set_environment_variables(
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
 
     os.environ["METADATA_SERVICE_AUTH_ENABLED"] = "false"
+
+    if not os.environ.get("DATAHUB_TOKEN_SERVICE_SIGNING_KEY"):
+        os.environ["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"] = base64.b64encode(
+            secrets.token_bytes(32)
+        ).decode()
+    if not os.environ.get("DATAHUB_TOKEN_SERVICE_SALT"):
+        os.environ["DATAHUB_TOKEN_SERVICE_SALT"] = base64.b64encode(
+            secrets.token_bytes(32)
+        ).decode()
 
     cliVersion = nice_version_name()
     if is_dev_mode():  # This should only happen during development/CI.
