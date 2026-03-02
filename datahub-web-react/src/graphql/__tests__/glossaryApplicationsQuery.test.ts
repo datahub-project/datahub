@@ -1,4 +1,5 @@
 import { print } from 'graphql';
+
 import { GetGlossaryTermDocument } from '@graphql/glossaryTerm.generated';
 
 describe('glossaryTerm query includes applications field', () => {
