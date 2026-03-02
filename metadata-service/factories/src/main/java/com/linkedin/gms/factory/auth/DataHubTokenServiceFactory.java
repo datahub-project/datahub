@@ -50,10 +50,12 @@ public class DataHubTokenServiceFactory {
       return;
     }
     if (signingKey == null || signingKey.isEmpty()) {
-      throw new IllegalStateException("DATAHUB_TOKEN_SERVICE_SIGNING_KEY must be set as env var");
+      throw new IllegalStateException(
+          "authentication.tokenService.signingKey must be set and not be empty");
     }
     if (saltingKey == null || saltingKey.isEmpty()) {
-      throw new IllegalStateException("DATAHUB_TOKEN_SERVICE_SALT must be set as env var");
+      throw new IllegalStateException(
+          "authentication.tokenService.salt must be set must be set and not be empty");
     }
   }
 }
