@@ -348,9 +348,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     # Overall readiness: all required services must be healthy
     ready = all(
-        service_health[svc.name]["healthy"]
-        for svc in CONFIG.services
-        if svc.required
+        service_health[svc.name]["healthy"] for svc in CONFIG.services if svc.required
     )
 
     gms_ok = service_health.get("gms", {}).get("healthy", False)
