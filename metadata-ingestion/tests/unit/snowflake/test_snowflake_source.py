@@ -643,24 +643,24 @@ def test_snowflake_query_create_deny_regex_sql():
     assert create_deny_regex_sql_filter([], ["col"]) == ""
     assert (
         create_deny_regex_sql_filter([".*tmp.*"], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i')"
+        == "UPPER(col) NOT RLIKE '.*TMP.*'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col) NOT RLIKE '.*TMP.*' AND UPPER(col) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
-        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col1) NOT RLIKE '.*TMP.*' AND UPPER(col1) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}') AND (UPPER(col2) NOT RLIKE '.*TMP.*' AND UPPER(col2) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter(
             DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
         )
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i') AND NOT RLIKE(upstream_table_name,'.*\.SNOWPARK_TEMP_TABLE_.+','i')"
+        == r"(UPPER(upstream_table_name) NOT RLIKE '.*\\.FIVETRAN_.*_STAGING\\..*' AND UPPER(upstream_table_name) NOT RLIKE '.*__DBT_TMP$' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SNOWPARK_TEMP_TABLE_.+')"
     )
 
 
@@ -1073,3 +1073,52 @@ def test_process_upstream_lineage_row_dynamic_table_moved(mock_extractor_class):
 
     # Restore the original method (cleanup)
     mock_extractor_class._process_upstream_lineage_row = original_method
+
+
+class TestSnowflakeIdentifierQuoting:
+    """Tests for proper escaping of embedded double-quotes in Snowflake identifiers."""
+
+    def test_get_quoted_identifier_for_table_simple(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_with_embedded_quotes(self):
+        # Table name contains embedded double-quotes (e.g. from information_schema)
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", '"Sales.Q1"."Summary"'
+        )
+        # Each embedded " becomes "" inside the outer quotes
+        assert result == '"WAREHOUSE_DB"."REPORTING"."""Sales.Q1"".""Summary"""'
+
+    def test_get_quoted_identifier_for_table_with_dots_only(self):
+        # Table name has dots but no embedded quotes
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "sales.q1.summary"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."sales.q1.summary"'
+
+    def test_get_quoted_identifier_for_database_with_embedded_quote(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database('MY"DB')
+        assert result == '"MY""DB"'
+
+    def test_get_quoted_identifier_for_schema_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            'MY"DB', 'TEST"SCHEMA'
+        )
+        assert result == '"MY""DB"."TEST""SCHEMA"'
+
+    def test_escape_identifier_no_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier("NORMAL_NAME")
+            == "NORMAL_NAME"
+        )
+
+    def test_escape_identifier_with_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier('has"quote') == 'has""quote'
+        )
+
+    def test_escape_identifier_multiple_quotes(self):
+        assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
