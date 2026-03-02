@@ -1,0 +1,6 @@
+acryl-datahub-actions:
+  enabled: false
+global:
+  datahub:
+    managed_ingestion:
+      enabled: false

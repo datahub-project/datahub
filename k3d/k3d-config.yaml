@@ -1,0 +1,23 @@
+# k3d cluster configuration for local DataHub development.
+# Docs: https://k3d.io/v5.7.5/usage/configfile/
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: datahub-dev
+servers: 1
+agents: 0
+ports:
+  # Traefik ingress — *.datahub.localhost resolves to 127.0.0.1 natively on macOS
+  - port: "${K3D_HTTP_PORT}:80"
+    nodeFilters: [loadbalancer]
+  - port: "${K3D_HTTPS_PORT}:443"
+    nodeFilters: [loadbalancer]
+options:
+  k3s:
+    extraArgs:
+      # metrics-server is unnecessary for local dev
+      - arg: --disable=metrics-server
+        nodeFilters: [server:*]
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
