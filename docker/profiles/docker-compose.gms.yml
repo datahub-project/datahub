@@ -495,6 +495,7 @@ services:
       <<: *datahub-gms-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
+      DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
