@@ -1,4 +1,4 @@
-from unittest.mock import create_autospec
+from unittest.mock import Mock, create_autospec
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -200,6 +200,13 @@ class TestColumnTagsDirectOnly:
         assert col_tags == {}
 
 
+def _get_tags_mock(extractor: SnowflakeTagExtractor) -> Mock:
+    """Get the mock for get_tags_for_database_without_propagation in a mypy-safe way."""
+    mock = extractor.data_dictionary.get_tags_for_database_without_propagation
+    assert isinstance(mock, Mock)
+    return mock
+
+
 def _make_extractor(
     extract_tags: TagOption = TagOption.with_lineage,
 ) -> SnowflakeTagExtractor:
@@ -266,7 +273,8 @@ class TestSnowflakeTagExtractorRouting:
         )
         assert tags == []
         # Should not even load the cache
-        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_not_called()
+        mock_method = _get_tags_mock(extractor)
+        mock_method.assert_not_called()
 
     def test_column_tags_always_direct_only(self):
         """Column tags never inherit from parent objects, even with_lineage."""
@@ -292,15 +300,13 @@ class TestSnowflakeTagExtractorRouting:
             table_name="TBL",
         )
         # Should only query Snowflake once
-        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_called_once_with(
-            "DB"
-        )
+        mock_method = _get_tags_mock(extractor)
+        mock_method.assert_called_once_with("DB")
 
     def test_cache_load_failure_reports_warning_and_returns_empty(self):
         extractor = _make_extractor(TagOption.with_lineage)
-        extractor.data_dictionary.get_tags_for_database_without_propagation.side_effect = Exception(
-            "Permission denied"
-        )
+        mock_method = _get_tags_mock(extractor)
+        mock_method.side_effect = Exception("Permission denied")
         tags = extractor.get_tags_on_object(
             domain=SnowflakeObjectDomain.TABLE,
             db_name="DB",
@@ -309,7 +315,7 @@ class TestSnowflakeTagExtractorRouting:
         )
         assert tags == []
         # Empty cache inserted — second call should not retry
-        extractor.data_dictionary.get_tags_for_database_without_propagation.assert_called_once()
+        mock_method.assert_called_once()
 
     def test_filter_denies_inherited_tag(self):
         config = SnowflakeV2Config(  # type: ignore[call-arg]
