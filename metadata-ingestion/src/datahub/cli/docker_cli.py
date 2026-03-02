@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from enum import Enum
 from pathlib import Path
@@ -36,7 +37,7 @@ from datahub.cli.docker_check import (
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
-from datahub.configuration.env_vars import get_docker_compose_base
+from datahub.configuration.env_vars import get_docker_compose_base, get_quickstart_max_wait_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -48,9 +49,13 @@ _ClickPositiveInt = click.IntRange(min=1)
 
 QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart-profile.yml"
 
-_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(seconds=get_quickstart_max_wait_time())
 _QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
+
+_DOCKER_ERROR_HINTS: Dict[str, str] = {
+    "all predefined address pools have been fully subnetted": "Docker network exhausted. Consider running 'docker network prune' and retry."
+}
 
 MIGRATION_REQUIRED_INSTRUCTIONS = f"""
 Your existing DataHub server was installed with an \
@@ -719,33 +724,57 @@ def quickstart(
     status: Optional[QuickstartStatus] = None
     up_attempts = 0
     while (datetime.datetime.now() - start_time) < _QUICKSTART_MAX_WAIT_TIME:
-        # We must run docker-compose up at least once.
-        # Beyond that, we should run it again if something goes wrong.
         if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
             up_attempts += 1
 
             logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
-            up_process = subprocess.Popen(
-                base_command + ["up", "-d", "--remove-orphans"],
-                env=_docker_subprocess_env(),
-            )
             try:
-                up_process.wait(timeout=_QUICKSTART_UP_TIMEOUT.total_seconds())
+                # up_process = subprocess.run(
+                #     base_command + ["up", "-d", "--remove-orphans"],
+                #     env=_docker_subprocess_env(),
+                #     capture_output=True,
+                #     text=True,
+                #     stdin=subprocess.DEVNULL,
+                #     timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                # )
+                # up_process = subprocess.run(
+                #     base_command + ["up", "-d", "--remove-orphans"],
+                #     env=_docker_subprocess_env(),
+                #     stdin=subprocess.DEVNULL,
+                #     timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                # )
+                up_process = subprocess.run(
+                    base_command + ["up", "-d", "--remove-orphans"],
+                    env=_docker_subprocess_env(),
+                    stdin=subprocess.DEVNULL,
+                )
             except subprocess.TimeoutExpired:
                 logger.debug("docker compose up timed out, sending SIGTERM")
                 up_process.terminate()
-                try:
-                    up_process.wait(timeout=8)
-                except subprocess.TimeoutExpired:
-                    logger.debug("docker compose up still running, sending SIGKILL")
-                    up_process.kill()
-                    up_process.wait()
             else:
-                # If the docker process got a keyboard interrupt, raise one here.
+                # Check for keyboard interrupt
                 if up_process.returncode in {128 + signal.SIGINT, -signal.SIGINT}:
                     raise KeyboardInterrupt
+
+                # Check for known errors
+                if up_process.returncode != 0:
+                    up_process = subprocess.run(
+                        base_command + ["up", "-d", "--remove-orphans"],
+                        env=_docker_subprocess_env(),
+                        capture_output=True,
+                        text=True,
+                        timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                        stdin=subprocess.DEVNULL,
+                        start_new_session=True,  # Prevents child processes from inheriting pipes
+                    )
+
+                    for pattern, hint in _DOCKER_ERROR_HINTS.items():
+                        if pattern in up_process.stdout or pattern in up_process.stderr:
+                            raise click.ClickException(hint)
+                    # Log unknown errors for debugging
+                    logger.debug(f"docker compose up failed: {up_process.stdout}")
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
