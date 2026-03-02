@@ -83,11 +83,15 @@ class AgentReporter:
             "all_results": self.results,
         }
 
-        self.report_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.report_path, "w") as f:
-            json.dump(report, f, indent=2)
-
-        logger.info("Agent report written to %s", self.report_path)
+        try:
+            self.report_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.report_path, "w") as f:
+                json.dump(report, f, indent=2)
+            logger.info("Agent report written to %s", self.report_path)
+        except Exception as e:
+            logger.warning(
+                "Failed to write agent report to %s: %s", self.report_path, e
+            )
 
 
 def _extract_error_message(report) -> str:

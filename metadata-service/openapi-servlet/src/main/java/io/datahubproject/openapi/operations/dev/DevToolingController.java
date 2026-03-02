@@ -5,8 +5,11 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.lang.reflect.Field;
+import java.lang.reflect.InaccessibleObjectException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,10 +34,17 @@ import org.springframework.web.bind.annotation.RestController;
     description = "Development tooling for agent-driven workflows (feature flag inspection)")
 public class DevToolingController {
 
+  private static final Logger log = LoggerFactory.getLogger(DevToolingController.class);
+
   private final FeatureFlags featureFlags;
 
   public DevToolingController(ConfigurationProvider configProvider) {
-    this.featureFlags = configProvider.getFeatureFlags();
+    FeatureFlags flags = configProvider.getFeatureFlags();
+    if (flags == null) {
+      throw new IllegalStateException(
+          "ConfigurationProvider.getFeatureFlags() returned null — check Spring configuration");
+    }
+    this.featureFlags = flags;
   }
 
   @GetMapping(path = "/featureFlags", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -62,11 +72,16 @@ public class DevToolingController {
   private Map<String, Object> serializeFeatureFlags() {
     Map<String, Object> result = new LinkedHashMap<>();
     for (Field field : FeatureFlags.class.getDeclaredFields()) {
-      field.setAccessible(true);
+      if (field.getType() != boolean.class) continue;
       try {
+        field.setAccessible(true);
         result.put(field.getName(), field.get(featureFlags));
       } catch (IllegalAccessException e) {
+        log.error("Cannot read feature flag field: {}", field.getName(), e);
         result.put(field.getName(), "ERROR: " + e.getMessage());
+      } catch (InaccessibleObjectException e) {
+        log.error("Module access blocked for field: {}", field.getName(), e);
+        result.put(field.getName(), "ERROR: module access blocked");
       }
     }
     return result;

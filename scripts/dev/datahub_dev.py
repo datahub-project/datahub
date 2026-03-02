@@ -560,7 +560,15 @@ def _load_flag_classification() -> Dict[str, Any]:
         _log("Or:  scripts/datahub-dev.sh sync-flags")
         return {"dynamic": {}, "static": {}}
     with open(GENERATED_MANIFEST) as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            _log("ERROR: flag-classification.json is corrupted (partial write?).")
+            _log(
+                "Re-run: ./gradlew :metadata-service:configuration:generateFlagClassification"
+                " -x generateGitPropertiesGlobal"
+            )
+            return {"dynamic": {}, "static": {}}
 
 
 def cmd_flag_list(args: argparse.Namespace) -> int:
@@ -623,6 +631,10 @@ def cmd_env_set(args: argparse.Namespace) -> int:
         _log("ERROR: Key and value must not contain newlines.")
         return 1
 
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
+        _log(f"ERROR: Invalid key '{key}'. Keys must match [A-Za-z_][A-Za-z0-9_]*")
+        return 1
+
     if not DEV_ENV_FILE.exists():
         DEV_ENV_FILE.touch()
 
@@ -659,7 +671,7 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
     )
     if result.returncode != 0:
         _log("Gradle reloadEnv failed. Falling back to docker compose recreate...")
-        _run(
+        fallback = _run(
             [
                 "docker",
                 "compose",
@@ -672,6 +684,9 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
             capture=False,
             timeout=120,
         )
+        if fallback.returncode != 0:
+            _log("ERROR: Both Gradle reloadEnv and docker compose recreate failed.")
+            return 1
 
     _log("Containers restarting. Waiting for readiness...")
     wait_args = argparse.Namespace(timeout=DEFAULT_TIMEOUT)

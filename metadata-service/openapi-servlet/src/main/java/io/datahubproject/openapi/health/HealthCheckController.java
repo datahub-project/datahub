@@ -16,6 +16,8 @@ import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/")
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
+
+  private static final Logger log = LoggerFactory.getLogger(HealthCheckController.class);
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
@@ -114,7 +119,13 @@ public class HealthCheckController {
     result.put("bootstrapped", bootstrapped);
 
     // Elasticsearch health
-    ResponseEntity<String> esHealth = getElasticDebugWithCache();
+    ResponseEntity<String> esHealth;
+    try {
+      esHealth = getElasticDebugWithCache();
+    } catch (Exception e) {
+      log.error("Unexpected error getting Elasticsearch health", e);
+      esHealth = ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
+    }
     boolean esHealthy = esHealth.getStatusCode() == HttpStatus.OK;
     String esStatus = esHealthy ? "green" : "unhealthy";
     result.put("elasticsearch", esStatus);
@@ -123,7 +134,6 @@ public class HealthCheckController {
     boolean ready = bootstrapped && esHealthy;
     result.put("ready", ready);
     result.put("timestamp", System.currentTimeMillis());
-    result.put("devToolVersion", "0.2.0");
 
     return ResponseEntity.ok(result);
   }

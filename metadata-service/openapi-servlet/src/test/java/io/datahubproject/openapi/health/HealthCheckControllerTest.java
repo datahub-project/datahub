@@ -245,6 +245,21 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
         .andExpect(jsonPath("$.ready").value(false));
   }
 
+  /** Test /health/detailed reports ready=false when bootstrapped but ES is unavailable. */
+  @Test
+  public void testDetailedHealthEndpoint_notReady_when_bootstrapped_but_ES_unhealthy()
+      throws Exception {
+    // Bootstrap is complete but ES is unavailable (elasticClient throws by default mock)
+    when(bootstrapManager.areBlockingStepsComplete()).thenReturn(true);
+
+    mockMvc
+        .perform(get("/health/detailed"))
+        .andExpect(status().isOk()) // always 200
+        .andExpect(jsonPath("$.bootstrapped").value(true))
+        .andExpect(jsonPath("$.elasticsearch").value("unhealthy"))
+        .andExpect(jsonPath("$.ready").value(false));
+  }
+
   /**
    * Test that liveness endpoint is unaffected by bootstrap state changes. Verifies liveness remains
    * consistent regardless of readiness state.
