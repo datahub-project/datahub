@@ -65,6 +65,7 @@ export const getAvatarSizes = (size) => {
         lg: { width: '28px', height: '28px', fontSize: '14px' },
         xl: { width: '32px', height: '32px', fontSize: '14px' },
         xxl: { width: '100px', height: '100px', fontSize: '36px' },
+        xxxl: { width: '116px', height: '116px', fontSize: '42px' },
         default: { width: '20px', height: '20px', fontSize: '10px' },
     };
 

@@ -69,7 +69,7 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
                 <UserInfo>
                     <Col xxl={8} xl={10} lg={24} md={24} sm={24} xs={24}>
                         <ProfileAvatarWrapper>
-                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="xxl" />
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="xxxl" />
                         </ProfileAvatarWrapper>
                     </Col>
                     <Col xxl={14} xl={10} lg={18} md={18} sm={18} xs={18}>
