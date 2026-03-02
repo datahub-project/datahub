@@ -28,7 +28,7 @@ public class DevToolingControllerTest {
   @Test
   public void testGetAllFeatureFlags_returnsAllFlags() throws Exception {
     mockMvc
-        .perform(get("/dev/featureFlags"))
+        .perform(get("/openapi/operations/dev/featureFlags"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.showBrowseV2").exists())
         .andExpect(jsonPath("$.entityVersioning").exists())
@@ -38,7 +38,7 @@ public class DevToolingControllerTest {
   @Test
   public void testGetSpecificFlag_returnsValue() throws Exception {
     mockMvc
-        .perform(get("/dev/featureFlags/showBrowseV2"))
+        .perform(get("/openapi/operations/dev/featureFlags/showBrowseV2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.showBrowseV2").value(false));
   }
@@ -46,7 +46,7 @@ public class DevToolingControllerTest {
   @Test
   public void testGetUnknownFlag_returns404WithError() throws Exception {
     mockMvc
-        .perform(get("/dev/featureFlags/doesNotExist"))
+        .perform(get("/openapi/operations/dev/featureFlags/doesNotExist"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").exists());
   }

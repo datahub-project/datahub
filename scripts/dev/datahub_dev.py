@@ -565,7 +565,7 @@ def _load_flag_classification() -> Dict[str, Any]:
 
 def cmd_flag_list(args: argparse.Namespace) -> int:
     """List all feature flags and their current live values."""
-    status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
+    status_code, body = _http_get(f"{GMS_URL}/openapi/operations/dev/featureFlags")
     if status_code != 200:
         _log(
             f"Failed to get feature flags (status={status_code}). Is GMS running with DEV_TOOLING_ENABLED=true?"
@@ -582,7 +582,7 @@ def cmd_flag_list(args: argparse.Namespace) -> int:
 
 def cmd_flag_get(args: argparse.Namespace) -> int:
     """Get a specific feature flag value."""
-    status_code, body = _http_get(f"{GMS_URL}/dev/featureFlags")
+    status_code, body = _http_get(f"{GMS_URL}/openapi/operations/dev/featureFlags")
     if status_code != 200:
         _log(f"Failed to get feature flags (status={status_code})")
         return 1

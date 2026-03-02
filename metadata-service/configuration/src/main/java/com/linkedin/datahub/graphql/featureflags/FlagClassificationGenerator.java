@@ -23,8 +23,8 @@ import java.util.regex.Pattern;
  *
  * <ul>
  *   <li><b>Dynamic flags</b> — reflected from {@link FeatureFlags} boolean fields. Inspectable via
- *       the /dev/featureFlags API. All changes require a container restart via {@code env set} +
- *       {@code env restart}.
+ *       the /openapi/operations/dev/featureFlags API. All changes require a container restart via
+ *       {@code env set} + {@code env restart}.
  *   <li><b>Static flags</b> — env vars found in application.yaml outside the featureFlags section.
  *       These require a container restart to take effect.
  * </ul>

@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * all debug/quickstartDebug profiles.
  */
 @RestController
-@RequestMapping("/dev")
+@RequestMapping("/openapi/operations/dev")
 @ConditionalOnProperty(name = "devTooling.enabled", havingValue = "true")
 @Tag(
     name = "DevTooling",
