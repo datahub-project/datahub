@@ -850,6 +850,11 @@ type FeatureFlagsConfig {
   documentationFileUploadV1: Boolean!
 
   """
+  If enabled, allows glossary-based policies to be created.
+  """
+  glossaryBasedPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!

@@ -147,6 +147,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
           httpAsyncClientBuilder.setDefaultIOReactorConfig(
               IOReactorConfig.custom()
                   .setIoThreadCount(shimConfiguration.getThreadCount())
+                  .setSoTimeout(shimConfiguration.getSocketTimeout())
                   .build());
 
           setCredentials(httpAsyncClientBuilder);
@@ -170,8 +171,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder.setConnectionRequestTimeout(
-                shimConfiguration.getConnectionRequestTimeout()));
+            requestConfigBuilder
+                .setConnectionRequestTimeout(shimConfiguration.getConnectionRequestTimeout())
+                .setSocketTimeout(shimConfiguration.getSocketTimeout()));
 
     return builder;
   }
@@ -193,9 +195,15 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info("Creating IOReactorConfig with threadCount: {}", shimConfiguration.getThreadCount());
+    log.info(
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        shimConfiguration.getThreadCount(),
+        shimConfiguration.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom().setIoThreadCount(shimConfiguration.getThreadCount()).build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(shimConfiguration.getThreadCount())
+            .setSoTimeout(shimConfiguration.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
