@@ -11,13 +11,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -61,12 +60,10 @@ import org.jetbrains.annotations.Nullable;
  * generate the other aspects in the future (v2).
  */
 @Slf4j
-public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
+public class GenerateSchemaFieldsFromSchemaMetadataStep extends AbstractPersistentUpgradeStep {
   private static final List<String> REQUIRED_ASPECTS =
       List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   private final AspectDao aspectDao;
 
   private final int batchSize;
@@ -80,8 +77,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
       Integer batchSize,
       Integer batchDelayMs,
       Integer limit) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this.aspectDao = aspectDao;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
@@ -104,6 +100,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
    * variable SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA to determine whether to skip.
    */
+  @Override
   public boolean skip(UpgradeContext context) {
     if (Boolean.parseBoolean(System.getenv("SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA"))) {
       log.info(
@@ -111,19 +108,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
       return true;
     }
 
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    return prevResult
-        .filter(
-            result ->
-                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
-        .isPresent();
-  }
-
-  protected Urn getUpgradeIdUrn() {
-    return BootstrapStep.getUpgradeUrn(id());
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 
   @Override
@@ -132,7 +117,9 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
     return (context) -> {
       // Resume state
       Optional<DataHubUpgradeResult> prevResult =
-          context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
+          context
+              .upgrade()
+              .getUpgradeResult(getSystemOpContext(), getUpgradeIdUrn(), getEntityService());
       String resumeUrn =
           prevResult
               .filter(
@@ -168,13 +155,13 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
                   AspectsBatch aspectsBatch =
                       AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext())
+                          .retrieverContext(getSystemOpContext().getRetrieverContext())
                           .items(
                               batch
                                   .flatMap(
                                       ebeanAspectV2 ->
                                           EntityUtils.toSystemAspectFromEbeanAspects(
-                                              opContext.getRetrieverContext(),
+                                              getSystemOpContext().getRetrieverContext(),
                                               Set.of(ebeanAspectV2))
                                               .stream())
                                   .map(
@@ -189,12 +176,12 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                               .auditStamp(systemAspect.getAuditStamp())
                                               .systemMetadata(
                                                   withAppSource(systemAspect.getSystemMetadata()))
-                                              .build(opContext.getAspectRetriever()))
+                                              .build(getSystemOpContext().getAspectRetriever()))
                                   .collect(Collectors.toList()))
-                          .build(opContext);
+                          .build(getSystemOpContext());
 
                   // re-ingest the aspects to trigger side effects
-                  entityService.ingestAspects(opContext, aspectsBatch, true, false);
+                  getEntityService().ingestAspects(getSystemOpContext(), aspectsBatch, true, false);
 
                   // record progress
                   Urn lastUrn =
@@ -207,9 +194,9 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                     context
                         .upgrade()
                         .setUpgradeResult(
-                            opContext,
+                            getSystemOpContext(),
                             getUpgradeIdUrn(),
-                            entityService,
+                            getEntityService(),
                             DataHubUpgradeState.IN_PROGRESS,
                             Map.of(LAST_URN_KEY, lastUrn.toString()));
                   }
@@ -225,7 +212,6 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                 });
       }
 
-      BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);

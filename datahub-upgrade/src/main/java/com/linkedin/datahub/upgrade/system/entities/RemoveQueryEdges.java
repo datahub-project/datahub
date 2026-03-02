@@ -1,17 +1,15 @@
 package com.linkedin.datahub.upgrade.system.entities;
 
-import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -53,12 +51,9 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     return steps;
   }
 
-  public static class RemoveQueryEdgesStep implements UpgradeStep {
+  public static class RemoveQueryEdgesStep extends AbstractPersistentUpgradeStep {
     private static final String UPGRADE_ID = "RemoveQueryEdges_V1";
-    private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-    private final OperationContext opContext;
-    private final EntityService<?> entityService;
     private final ESWriteDAO esWriteDAO;
     private final BulkDeleteConfiguration deleteConfig;
 
@@ -67,9 +62,8 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
         ESWriteDAO esWriteDAO,
         EntityService<?> entityService,
         BulkDeleteConfiguration deleteConfig) {
-      this.opContext = opContext;
+      super(opContext, entityService);
       this.esWriteDAO = esWriteDAO;
-      this.entityService = entityService;
       this.deleteConfig = deleteConfig;
     }
 
@@ -81,7 +75,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     @Override
     public Function<UpgradeContext, UpgradeStepResult> executable() {
       final String indexName =
-          opContext
+          getSystemOpContext()
               .getSearchContext()
               .getIndexConvention()
               .getIndexName(ElasticSearchGraphService.INDEX_NAME);
@@ -93,7 +87,6 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
 
         try {
           esWriteDAO.deleteByQuerySync(indexName, deleteQuery, deleteConfig);
-          BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } catch (Exception e) {
           log.error("Failed to execute query edge delete.", e);
@@ -109,23 +102,6 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
     @Override
     public boolean isOptional() {
       return true;
-    }
-
-    /**
-     * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-     * variables REPROCESS_DEFAULT_POLICY_FIELDS & BACKFILL_BROWSE_PATHS_V2 to determine whether to
-     * skip.
-     */
-    @Override
-    public boolean skip(UpgradeContext context) {
-
-      boolean previouslyRun =
-          entityService.exists(
-              context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-      if (previouslyRun) {
-        log.info("{} was already run. Skipping.", id());
-      }
-      return previouslyRun;
     }
   }
 }

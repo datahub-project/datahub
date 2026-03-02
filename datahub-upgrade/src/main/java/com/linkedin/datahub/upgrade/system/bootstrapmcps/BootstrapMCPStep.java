@@ -1,15 +1,11 @@
 package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 
-import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
-
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.AbstractPersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.model.BootstrapMCPConfigFile;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,24 +20,19 @@ import lombok.extern.slf4j.Slf4j;
  * fields in ES
  */
 @Slf4j
-public class BootstrapMCPStep implements UpgradeStep {
+public class BootstrapMCPStep extends AbstractPersistentUpgradeStep {
   private final String upgradeId;
-  private final Urn upgradeIdUrn;
 
-  private final OperationContext opContext;
-  private final EntityService<?> entityService;
   @Getter private final BootstrapMCPConfigFile.MCPTemplate mcpTemplate;
 
   public BootstrapMCPStep(
       OperationContext opContext,
       EntityService<?> entityService,
       BootstrapMCPConfigFile.MCPTemplate mcpTemplate) {
-    this.opContext = opContext;
-    this.entityService = entityService;
+    super(opContext, entityService);
     this.mcpTemplate = mcpTemplate;
     this.upgradeId =
         String.join("-", List.of("bootstrap", mcpTemplate.getName(), mcpTemplate.getVersion()));
-    this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(this.upgradeId);
   }
 
   @Override
@@ -50,18 +41,22 @@ public class BootstrapMCPStep implements UpgradeStep {
   }
 
   @Override
+  public boolean isReprocessEnabled() {
+    return false;
+  }
+
+  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        AspectsBatch batch = BootstrapMCPUtil.generateAspectBatch(opContext, mcpTemplate, id());
+        AspectsBatch batch =
+            BootstrapMCPUtil.generateAspectBatch(getSystemOpContext(), mcpTemplate, id());
         log.info("Ingesting {} MCPs", batch.getItems().size());
-        entityService.ingestProposal(opContext, batch, mcpTemplate.isAsync());
+        getEntityService().ingestProposal(getSystemOpContext(), batch, mcpTemplate.isAsync());
       } catch (IOException e) {
         log.error("Error bootstrapping MCPs", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-
-      BootstrapStep.setUpgradeResult(context.opContext(), upgradeIdUrn, entityService);
 
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
@@ -79,17 +74,10 @@ public class BootstrapMCPStep implements UpgradeStep {
   /** Returns whether the upgrade should be skipped. */
   @Override
   public boolean skip(UpgradeContext context) {
-    if (!mcpTemplate.isForce()) {
-      boolean previouslyRun =
-          entityService.exists(
-              context.opContext(), upgradeIdUrn, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
-      if (previouslyRun) {
-        log.info("{} was already run. Skipping.", id());
-      }
-      return previouslyRun;
-    } else {
+    if (mcpTemplate.isForce()) {
       log.info("{} forced run.", id());
-      return false;
+      return false; // Force run even if previously completed
     }
+    return PersistentUpgradeStep.super.skip(context); // Use interface default
   }
 }

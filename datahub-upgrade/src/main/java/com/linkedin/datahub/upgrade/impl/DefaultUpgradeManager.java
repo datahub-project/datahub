@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.impl;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.datahub.upgrade.PersistentUpgradeStep;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeResult;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -153,6 +155,22 @@ public class DefaultUpgradeManager implements UpgradeManager {
                   }
 
                   if (DataHubUpgradeState.SUCCEEDED.equals(result.result())) {
+                    // Automatically persist completion state for PersistentUpgradeStep
+                    if (step instanceof PersistentUpgradeStep) {
+                      PersistentUpgradeStep persistentStep = (PersistentUpgradeStep) step;
+                      try {
+                        BootstrapStep.setUpgradeResult(
+                            persistentStep.getSystemOpContext(),
+                            persistentStep.getUpgradeIdUrn(),
+                            persistentStep.getEntityService());
+                        log.info("Auto-persisted completion state for step: {}", step.id());
+                      } catch (Exception e) {
+                        log.error(
+                            "Failed to auto-persist completion state for step: {}", step.id(), e);
+                        // Don't fail the upgrade if persistence fails - just log it
+                      }
+                    }
+
                     opContext
                         .getMetricUtils()
                         .ifPresent(
