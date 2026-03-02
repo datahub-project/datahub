@@ -964,8 +964,8 @@ ORDER by DataBaseName, TableName;
             # The database IS the schema in Teradata
             return None, parts[0]
         elif len(parts) == 1:
-            # Unqualified table name → return (None, None)
-            return None, None
+            # Unqualified table name — no schema context available
+            return None, ""
         else:
             # Shouldn't happen, but log a warning and fall back to parent
             logger.warning(
