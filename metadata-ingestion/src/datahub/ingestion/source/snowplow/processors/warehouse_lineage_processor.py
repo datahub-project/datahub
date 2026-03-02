@@ -88,7 +88,19 @@ class WarehouseLineageProcessor(EntityProcessor):
 
             for plan in tracking_plans:
                 # Get data models for this tracking plan
-                data_models = self.deps.bdp_client.get_data_models(plan.id)
+                try:
+                    data_models = self.deps.bdp_client.get_data_models(plan.id)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch data models for tracking plan '{plan.name}': {e}",
+                        exc_info=True,
+                    )
+                    self.report.report_warning(
+                        title="Failed to fetch data models for tracking plan",
+                        message=f"Skipping tracking plan '{plan.name}': {e}. "
+                        "Lineage from remaining tracking plans will still be processed.",
+                    )
+                    continue
 
                 if not data_models:
                     logger.debug(

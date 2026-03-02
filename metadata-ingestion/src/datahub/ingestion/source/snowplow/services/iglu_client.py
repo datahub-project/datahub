@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
+from typing_extensions import TypedDict
 from urllib3.util.retry import Retry
 
 if TYPE_CHECKING:
@@ -23,6 +24,15 @@ from datahub.ingestion.source.snowplow.models.snowplow_models import IgluSchema
 from datahub.ingestion.source.snowplow.snowplow_config import IgluConnectionConfig
 
 logger = logging.getLogger(__name__)
+
+
+class IgluUriComponents(TypedDict):
+    """Parsed components of an Iglu URI."""
+
+    vendor: str
+    name: str
+    format: str
+    version: str
 
 
 class IgluClient:
@@ -264,7 +274,7 @@ class IgluClient:
             self._record_api_call("list_schemas", latency_ms, is_error)
 
     @staticmethod
-    def parse_iglu_uri(iglu_uri: str) -> Optional[dict]:
+    def parse_iglu_uri(iglu_uri: str) -> Optional[IgluUriComponents]:
         """
         Parse Iglu URI into components.
 
@@ -273,7 +283,7 @@ class IgluClient:
                      Example: 'iglu:com.acme/page_view/jsonschema/1-0-0'
 
         Returns:
-            Dict with keys: vendor, name, format, version
+            IgluUriComponents with keys: vendor, name, format, version
             Or None if URI format is invalid
         """
         try:
@@ -288,12 +298,12 @@ class IgluClient:
                 )
                 return None
 
-            return {
-                "vendor": parts[0],
-                "name": parts[1],
-                "format": parts[2],
-                "version": parts[3],
-            }
+            return IgluUriComponents(
+                vendor=parts[0],
+                name=parts[1],
+                format=parts[2],
+                version=parts[3],
+            )
         except Exception as e:
             logger.warning(f"Failed to parse Iglu URI '{iglu_uri}': {e}")
             return None

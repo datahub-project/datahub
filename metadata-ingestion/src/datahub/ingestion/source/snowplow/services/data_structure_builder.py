@@ -9,7 +9,17 @@ Handles processing of individual data structures (schemas) including:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -23,12 +33,17 @@ from datahub.ingestion.source.snowplow.constants import (
     SchemaType,
     get_schema_subtype,
 )
-from datahub.ingestion.source.snowplow.models.snowplow_models import DataStructure
+from datahub.ingestion.source.snowplow.models.snowplow_models import (
+    DataStructure,
+    DataStructureDeployment,
+    SchemaMetadata as SnowplowSchemaMetadata,
+)
 from datahub.ingestion.source.snowplow.utils.schema_parser import SnowplowSchemaParser
 from datahub.metadata.schema_classes import (
     ContainerClass,
     GlobalTagsClass,
     OwnerClass,
+    SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
     TagAssociationClass,
@@ -46,6 +61,17 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.services.field_tagging import FieldTagContext
 
 logger = logging.getLogger(__name__)
+
+
+class DataStructureBasicInfo(NamedTuple):
+    """Validated basic information extracted from a DataStructure."""
+
+    vendor: str
+    name: str
+    schema_meta: SnowplowSchemaMetadata
+    schema_type: str
+    version: str
+    schema_identifier: str
 
 
 class DataStructureBuilder:
@@ -178,7 +204,7 @@ class DataStructureBuilder:
 
     def _validate_and_extract_basic_info(
         self, data_structure: DataStructure
-    ) -> Optional[tuple]:
+    ) -> Optional[DataStructureBasicInfo]:
         """Validate and extract basic information from data structure."""
         if (
             not data_structure.vendor
@@ -201,10 +227,20 @@ class DataStructureBuilder:
             return None
 
         schema_identifier = f"{vendor}/{name}"
-        return vendor, name, schema_meta, schema_type, version, schema_identifier
+        return DataStructureBasicInfo(
+            vendor=vendor,
+            name=name,
+            schema_meta=schema_meta,
+            schema_type=schema_type,
+            version=version,
+            schema_identifier=schema_identifier,
+        )
 
     def _should_process_schema(
-        self, schema_identifier: str, schema_type: str, schema_meta: Any
+        self,
+        schema_identifier: str,
+        schema_type: str,
+        schema_meta: SnowplowSchemaMetadata,
     ) -> bool:
         """Check if schema should be processed based on filters."""
         if not self.config.schema_pattern.allowed(schema_identifier):
@@ -251,7 +287,7 @@ class DataStructureBuilder:
         name: str,
         version: str,
         schema_type: str,
-        schema_meta: Any,
+        schema_meta: SnowplowSchemaMetadata,
     ) -> Dict[str, str]:
         """Build custom properties for dataset."""
         custom_properties = {
@@ -702,7 +738,7 @@ class DataStructureBuilder:
 
     def _update_field_descriptions_with_versions(
         self,
-        fields: List[Any],
+        fields: List[SchemaFieldClass],
         schema_key: str,
         field_version_map: Dict[str, str],
     ) -> None:
@@ -737,8 +773,8 @@ class DataStructureBuilder:
                 field.description = f"Added in version {field_added_version}"
 
     def _get_field_deployment_info(
-        self, deployments: Optional[List[Any]], field_version: str
-    ) -> tuple:
+        self, deployments: Optional[List[DataStructureDeployment]], field_version: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get deployment info for a specific field version.
 
@@ -763,7 +799,7 @@ class DataStructureBuilder:
 
     def _build_field_context(
         self,
-        field: Any,
+        field: SchemaFieldClass,
         data_structure: DataStructure,
         version: str,
         field_version_map: Dict[str, str],
