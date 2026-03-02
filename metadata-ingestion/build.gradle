@@ -225,13 +225,9 @@ integrationBatchIds.each { batchId ->
         inputs.file file("pyproject.toml")
         inputs.file file("setup.cfg")
         inputs.file file("setup.py")
-
-        // TEMPORARY: Run only NiFi tests for batch 2 debugging
-        def testPath = (batchId == "2") ? "tests/integration/nifi/" : "-m '${markerName}'"
-
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} pytest ${cvgArg} ${testPath} --junit-xml=${junitXml}"
+            "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
