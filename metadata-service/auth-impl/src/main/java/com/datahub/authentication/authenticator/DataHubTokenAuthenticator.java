@@ -37,7 +37,6 @@ public class DataHubTokenAuthenticator implements Authenticator {
 
   @Override
   public void init(@Nonnull final Map<String, Object> config, final AuthenticatorContext context) {
-    Objects.requireNonNull(config, "Config parameter cannot be null");
     Objects.requireNonNull(context, "Context parameter cannot be null");
     log.debug("Initializing DataHubTokenAuthenticator");
     if (!context.data().containsKey(AuthenticationConstants.ENTITY_SERVICE)) {
