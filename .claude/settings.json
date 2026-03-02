@@ -20,7 +20,14 @@
       "Bash(yarn:*)",
       "Bash(./gradlew:*)",
       "Bash(../gradlew :metadata-ingestion:lintFix:*)",
-      "Bash(gw:*)"
+      "Bash(gw:*)",
+      "Bash(k3d/dh:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl config use-context:*)",
+      "Bash(kubectl rollout:*)",
+      "Bash(curl -sf http://*.datahub.localhost:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(npx cypress:*)"
     ],
     "deny": []
   }
