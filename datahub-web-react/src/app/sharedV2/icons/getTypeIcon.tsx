@@ -2,27 +2,29 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';
 
 const StyledTooltip = styled(Tooltip)`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: currentColor;
 `;
+
+const DEFAULT_ICON_SIZE = 14;
 
 export default function getTypeIcon(
     entityRegistry: EntityRegistry,
     type: EntityType,
     subtype?: string,
     includeTitle?: boolean,
+    size?: number,
 ) {
-    // TODO: Remove type ignore once EntityRegistry V1 icon method has optional arguments
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const icon = (subtype && getSubTypeIcon(subtype)) || entityRegistry.getIcon(type, '1em');
+    const iconSize = size || DEFAULT_ICON_SIZE;
+    const icon =
+        (subtype && getSubTypeIcon(subtype, iconSize)) || entityRegistry.getIcon(type, iconSize, IconStyleType.ACCENT);
     if (includeTitle) {
         return (
             <StyledTooltip

@@ -48,6 +48,7 @@ public class Es8SearchClientShimConversionTest {
     when(mockConfig.isUseAwsIamAuth()).thenReturn(false);
     when(mockConfig.getThreadCount()).thenReturn(1);
     when(mockConfig.getConnectionRequestTimeout()).thenReturn(5000);
+    when(mockConfig.getSocketTimeout()).thenReturn(30000);
 
     ObjectMapper objectMapper = new ObjectMapper();
 

@@ -12,6 +12,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.snowflake_config import (
     QueryDedupStrategyType,
     SnowflakeIdentifierConfig,
@@ -28,7 +29,12 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery, PreparsedQuery
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    PreparsedQuery,
+    TableRename,
+    TableSwap,
+)
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -771,6 +777,257 @@ class TestSnowflakeQueryParser:
             f"Expected PreparsedQuery but got {type(result)}"
         )
         assert result.query_text == "SELECT id, name FROM test_table"
+
+
+class TestParseDdlQuery:
+    """Tests for parse_ddl_query handling of Snowflake access_history DDL payloads.
+
+    Snowflake's 2026_01 BCR bundle (which includes BCR-2178) changed the format
+    of object_modified_by_ddl properties from {"key": {"value": "..."}} to
+    {"key": "..."}. parse_ddl_query must handle both formats.
+
+    All test payloads are from real Snowflake access_history rows observed on a
+    test instance before and after enabling the 2026_01 BCR bundle.
+    """
+
+    @staticmethod
+    def _create_extractor() -> SnowflakeQueriesExtractor:
+        mock_connection = Mock()
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+        structured_report = SourceReport()
+        mock_filters = Mock()
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.gen_dataset_urn = Mock(
+            side_effect=lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+        )
+        mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
+            side_effect=lambda x: x.lower()
+        )
+        mock_identifiers.snowflake_identifier = Mock(side_effect=lambda x: x)
+        mock_identifiers.get_user_identifier = Mock(return_value="test_user")
+
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=structured_report,
+            filters=mock_filters,
+            identifiers=mock_identifiers,
+        )
+
+    def test_rename_table_pre_2026_01_bcr(self):
+        """Pre-BCR RENAME_TABLE: properties use {"value": ...} wrapper."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6307261,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": {"value": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"}},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE RENAME TO TEST_DDL_RENAMED",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="RENAME_TABLE",
+        )
+
+        assert isinstance(result, TableRename)
+        assert "test_ddl_clone" in result.original_urn
+        assert "test_ddl_renamed" in result.new_urn
+
+    def test_rename_table_post_2026_01_bcr(self):
+        """Post-BCR RENAME_TABLE: properties are flattened strings."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6311319,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE RENAME TO TEST_DDL_RENAMED",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="RENAME_TABLE",
+        )
+
+        assert isinstance(result, TableRename)
+        assert "test_ddl_clone" in result.original_urn
+        assert "test_ddl_renamed" in result.new_urn
+
+    def test_swap_table_pre_2026_01_bcr(self):
+        """Pre-BCR SWAP: properties use {"value": ...} wrapper."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6321270,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {
+                "swapTargetDomain": {"value": "Table"},
+                "swapTargetId": {"value": 6321270},
+                "swapTargetName": {"value": "MAX_TEST.PUBLIC.TEST_DDL_REPRO"},
+            },
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE SWAP WITH TEST_DDL_REPRO",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="ALTER",
+        )
+
+        assert isinstance(result, TableSwap)
+        assert "test_ddl_clone" in result.urn1
+        assert "test_ddl_repro" in result.urn2
+
+    def test_swap_table_post_2026_01_bcr(self):
+        """Post-BCR SWAP: properties are flattened strings."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6290396,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {
+                "swapTargetDomain": "Table",
+                "swapTargetId": 6290396,
+                "swapTargetName": "MAX_TEST.PUBLIC.TEST_DDL_REPRO",
+            },
+        }
+
+        result = extractor.parse_ddl_query(
+            query="ALTER TABLE TEST_DDL_CLONE SWAP WITH TEST_DDL_REPRO",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="ALTER",
+        )
+
+        assert isinstance(result, TableSwap)
+        assert "test_ddl_clone" in result.urn1
+        assert "test_ddl_repro" in result.urn2
+
+    def test_non_dict_ddl_returns_none(self):
+        """Non-dict object_modified_by_ddl (e.g. a plain string from
+        json.loads of a JSON string value) is gracefully dropped."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        result = extractor.parse_ddl_query(
+            query="ALTER SESSION SET QUERY_TAG = 'test'",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl="ALTER SESSION SET QUERY_TAG = 'test'",  # type: ignore[arg-type]
+            query_type="ALTER_SESSION",
+        )
+        assert result is None
+
+    def test_non_alter_ddl_dropped(self):
+        """A well-formed CREATE DDL is dropped — parse_ddl_query only handles
+        ALTER RENAME/SWAP."""
+        extractor = self._create_extractor()
+        ts = datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc)
+
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 12345,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_REPRO",
+            "operationType": "CREATE",
+            "properties": {},
+        }
+
+        result = extractor.parse_ddl_query(
+            query="CREATE TABLE TEST_DDL_REPRO (id INT)",
+            session_id="session-1",
+            timestamp=ts,
+            object_modified_by_ddl=ddl,
+            query_type="CREATE",
+        )
+        assert result is None
+
+    # -- _parse_audit_log_row integration tests --
+
+    @staticmethod
+    def _make_row(
+        object_modified_by_ddl_json: str,
+        query_text: str = "ALTER TABLE T RENAME TO T2",
+        query_type: str = "RENAME_TABLE",
+    ) -> dict:
+        """Build a minimal access_history row."""
+        return {
+            "QUERY_ID": "test-query-1",
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": query_text,
+            "QUERY_TYPE": query_type,
+            "SESSION_ID": "session-1",
+            "USER_NAME": "SVC_DATAHUB",
+            "ROLE_NAME": "DATAHUB_ROLE",
+            "QUERY_START_TIME": datetime(2026, 2, 25, 12, 0, 0, tzinfo=timezone.utc),
+            "END_TIME": datetime(2026, 2, 25, 12, 0, 1, tzinfo=timezone.utc),
+            "QUERY_DURATION": 100,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "MAX_TEST",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": "fp-1",
+            "DIRECT_OBJECTS_ACCESSED": json.dumps([]),
+            "OBJECTS_MODIFIED": json.dumps([]),
+            "OBJECT_MODIFIED_BY_DDL": object_modified_by_ddl_json,
+        }
+
+    def test_audit_log_row_string_ddl_no_failures(self):
+        """_parse_audit_log_row gracefully handles a string-valued
+        object_modified_by_ddl without accumulating report failures."""
+        extractor = self._create_extractor()
+        row = self._make_row(
+            json.dumps("ALTER SESSION SET QUERY_TAG = 'test'"),
+            query_text="ALTER SESSION SET QUERY_TAG = 'test'",
+            query_type="ALTER_SESSION",
+        )
+
+        result = extractor._parse_audit_log_row(row, {})
+        assert result is None
+        assert not extractor.structured_reporter.failures
+
+    def test_audit_log_row_rename_post_2026_01_bcr(self):
+        """End-to-end: _parse_audit_log_row correctly produces a TableRename
+        from a post-BCR RENAME_TABLE payload."""
+        extractor = self._create_extractor()
+        ddl = {
+            "objectDomain": "Table",
+            "objectId": 6311319,
+            "objectName": "MAX_TEST.PUBLIC.TEST_DDL_CLONE",
+            "operationType": "ALTER",
+            "properties": {"objectName": "MAX_TEST.PUBLIC.TEST_DDL_RENAMED"},
+        }
+        row = self._make_row(json.dumps(ddl))
+
+        result = extractor._parse_audit_log_row(row, {})
+        assert isinstance(result, TableRename)
 
 
 class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:

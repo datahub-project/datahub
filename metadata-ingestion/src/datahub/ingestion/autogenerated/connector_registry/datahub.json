@@ -147,6 +147,14 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extracts column-level lineage from Copy activities",
+          "subtype_modifier": [
+            "Copy Activity"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -917,7 +925,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.doris.DorisSource",
+      "classname": "datahub.ingestion.source.sql.doris.doris_source.DorisSource",
       "platform_id": "doris",
       "platform_name": "Apache Doris",
       "support_status": "INCUBATING"
@@ -2508,7 +2516,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "description": "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3942,8 +3950,32 @@
     "vertexai": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default: Experiments are modeled as Container entities; model groups and pipeline templates create folder containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for Vertex AI Registered Models and Model Versions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Optionally set via the `platform_instance` config field to namespace resources when ingesting from multiple Vertex AI setups",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default: training job \u2192 model, dataset \u2192 training job, and cross-platform lineage to GCS, BigQuery, S3, Snowflake, and Azure Blob Storage",
           "subtype_modifier": null,
           "supported": true
         }

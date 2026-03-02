@@ -117,7 +117,10 @@ def _restore_mssql_temp_table_prefix(
 
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
-    is_global_temp = identifier.args.get("global", False)
+    # Note: sqlglot v28+ uses "global_" instead of "global"
+    is_global_temp = identifier.args.get("global_", False) or identifier.args.get(
+        "global", False
+    )
     is_local_temp = identifier.args.get("temporary", False)
 
     if is_global_temp and not table_name.startswith("##"):
@@ -148,6 +151,26 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
+    # In this case, table.this is a SemanticView expression, and we need to
+    # extract the actual table from within it.
+    if isinstance(table.this, sqlglot.exp.SemanticView):
+        # The SemanticView.this contains the actual table reference
+        inner_table = table.this.this
+        if isinstance(inner_table, sqlglot.exp.Table):
+            # Recursively extract from the inner table
+            return _table_name_from_sqlglot_table(
+                inner_table, dialect, default_db, default_schema
+            )
+        elif isinstance(inner_table, sqlglot.exp.Identifier):
+            # Simple table name
+            return _TableName(
+                database=table.catalog or default_db,
+                db_schema=table.db or default_schema,
+                table=inner_table.name,
+                parts=None,
+            )
+
     # Handle Dot expressions (more than 3-part names)
     if isinstance(table.this, sqlglot.exp.Dot):
         parts = []
@@ -158,7 +181,10 @@ def _table_name_from_sqlglot_table(
         # Only restore prefix on the final part (the actual table name)
         final_part = exp.name
         if is_dialect_instance(dialect, ["mssql"]) and hasattr(exp, "args"):
-            is_global_temp = exp.args.get("global", False)
+            # Note: sqlglot v28+ uses "global_" instead of "global"
+            is_global_temp = exp.args.get("global_", False) or exp.args.get(
+                "global", False
+            )
             is_local_temp = exp.args.get("temporary", False)
             if is_global_temp and not final_part.startswith("##"):
                 final_part = f"##{final_part}"
@@ -1600,8 +1626,9 @@ def _extract_select_from_update(
             new_expressions.append(expr)
 
     # Special translation for the `from` clause.
+    # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
     extra_args: dict = {}
-    original_from = statement.args.get("from")
+    original_from = statement.args.get("from_") or statement.args.get("from")
     if original_from and isinstance(original_from.this, sqlglot.exp.Table):
         # Move joins, laterals, and pivots from the Update->From->Table->field
         # to the top-level Select->field.
@@ -1626,7 +1653,8 @@ def _extract_select_from_update(
 
     # Update statements always implicitly have the updated table in context.
     # TODO: Retain table name alias, if one was present.
-    if select_statement.args.get("from"):
+    # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
+    if select_statement.args.get("from_") or select_statement.args.get("from"):
         select_statement = select_statement.join(
             statement.this, append=True, join_kind="cross"
         )
@@ -1878,6 +1906,7 @@ def _sqlglot_lineage_inner(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     if override_dialect:
         dialect = get_dialect(override_dialect)
@@ -1989,31 +2018,32 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    try:
-        with cooperative_timeout(
-            timeout=(
-                SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
-            )
-        ):
-            column_lineage_debug_info = _column_level_lineage(
-                statement,
-                dialect=dialect,
-                downstream_table=downstream_table,
-                table_name_schema_mapping=table_name_schema_mapping,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
-            column_lineage = column_lineage_debug_info.column_lineage
-            joins = column_lineage_debug_info.joins
-    except CooperativeTimeoutError as e:
-        logger.debug(f"Timed out while generating column-level lineage: {e}")
-        debug_info.column_error = e
-    except UnsupportedStatementTypeError as e:
-        # For this known exception type, we assume the error is logged at the point of failure.
-        debug_info.column_error = e
-    except Exception as e:
-        logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
-        debug_info.column_error = e
+    if generate_column_lineage:
+        try:
+            with cooperative_timeout(
+                timeout=(
+                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+                )
+            ):
+                column_lineage_debug_info = _column_level_lineage(
+                    statement,
+                    dialect=dialect,
+                    downstream_table=downstream_table,
+                    table_name_schema_mapping=table_name_schema_mapping,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
+                column_lineage = column_lineage_debug_info.column_lineage
+                joins = column_lineage_debug_info.joins
+        except CooperativeTimeoutError as e:
+            logger.debug(f"Timed out while generating column-level lineage: {e}")
+            debug_info.column_error = e
+        except UnsupportedStatementTypeError as e:
+            # For this known exception type, we assume the error is logged at the point of failure.
+            debug_info.column_error = e
+        except Exception as e:
+            logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
+            debug_info.column_error = e
 
     # TODO: Can we generate a common JOIN tables / keys section?
     # TODO: Can we generate a common WHERE clauses section?
@@ -2075,6 +2105,7 @@ def _sqlglot_lineage_nocache(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -2134,6 +2165,7 @@ def _sqlglot_lineage_nocache(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -2172,14 +2204,25 @@ def sqlglot_lineage(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     if schema_resolver.includes_temp_tables():
         return _sqlglot_lineage_nocache(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+            override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     else:
         return _sqlglot_lineage_cached(
-            sql, schema_resolver, default_db, default_schema, override_dialect
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+            override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
 
 
@@ -2232,6 +2275,7 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
     override_dialect: Optional[DialectOrStr] = None,
+    generate_column_lineage: bool = True,
 ) -> SqlParsingResult:
     schema_resolver = create_schema_resolver(
         platform=platform,
@@ -2252,6 +2296,7 @@ def create_lineage_sql_parsed_result(
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            generate_column_lineage=generate_column_lineage,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
