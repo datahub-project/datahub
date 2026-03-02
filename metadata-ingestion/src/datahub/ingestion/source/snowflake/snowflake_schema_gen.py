@@ -260,10 +260,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.filters.filter_config.database_pattern.allowed(database.name):
-                self.report.report_dropped(f"{database.name}.*")
-            else:
+
+            if self.config.push_down_metadata_patterns:
                 self.databases.append(database)
+            else:
+                # Filter in Python when pushdown is disabled
+                if not self.filters.filter_config.database_pattern.allowed(
+                    database.name
+                ):
+                    self.report.report_dropped(f"{database.name}.*")
+                else:
+                    self.databases.append(database)
 
         if len(self.databases) == 0:
             return
@@ -275,18 +282,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ):
                     yield from self._process_database(snowflake_db)
 
-            with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
-                discovered_tables: List[str] = [
-                    self.identifiers.get_dataset_identifier(
-                        table_name, schema.name, db.name
-                    )
-                    for db in self.databases
-                    for schema in db.schemas
-                    for table_name in schema.tables
-                ]
-                if self.aggregator:
-                    for entry in self._external_tables_ddl_lineage(discovered_tables):
-                        self.aggregator.add(entry)
+            # Only extract external table DDL lineage if external tables are included
+            if "EXTERNAL TABLE" in self.config.table_types:
+                with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
+                    discovered_tables: List[str] = [
+                        self.identifiers.get_dataset_identifier(
+                            table_name, schema.name, db.name
+                        )
+                        for db in self.databases
+                        for schema in db.schemas
+                        for table_name in schema.tables
+                    ]
+                    if self.aggregator:
+                        for entry in self._external_tables_ddl_lineage(
+                            discovered_tables
+                        ):
+                            self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
@@ -307,8 +318,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return None
         else:
+            database_filter = ""
+            if self.config.push_down_metadata_patterns:
+                database_filter = SnowflakeQuery.build_database_filter(
+                    self.filters.filter_config.database_pattern
+                )
+
             ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
+                self.get_databases_from_ischema(databases, database_filter)
             )
 
             if len(ischema_databases) == 0:
@@ -319,12 +336,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return ischema_databases
 
     def get_databases_from_ischema(
-        self, databases: List[SnowflakeDatabase]
+        self, databases: List[SnowflakeDatabase], database_filter: str = ""
     ) -> List[SnowflakeDatabase]:
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
-                ischema_databases = self.data_dictionary.get_databases(database.name)
+                ischema_databases = self.data_dictionary.get_databases(
+                    database.name, database_filter
+                )
                 break
             except Exception:
                 # query fails if "USAGE" access is not granted for database
@@ -417,18 +436,34 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, snowflake_db: SnowflakeDatabase, db_name: str
     ) -> None:
         schemas: List[SnowflakeSchema] = []
+
+        schema_filter = ""
+        if self.config.push_down_metadata_patterns:
+            schema_filter = SnowflakeQuery.build_schema_filter(
+                self.filters.filter_config.schema_pattern,
+                db_name,
+                self.filters.filter_config.match_fully_qualified_names,
+            )
+
         try:
-            for schema in self.data_dictionary.get_schemas_for_database(db_name):
+            for schema in self.data_dictionary.get_schemas_for_database(
+                db_name, schema_filter
+            ):
                 self.report.report_entity_scanned(schema.name, "schema")
-                if not is_schema_allowed(
-                    self.filters.filter_config.schema_pattern,
-                    schema.name,
-                    db_name,
-                    self.filters.filter_config.match_fully_qualified_names,
-                ):
-                    self.report.report_dropped(f"{db_name}.{schema.name}.*")
-                else:
+
+                if self.config.push_down_metadata_patterns:
                     schemas.append(schema)
+                else:
+                    # Filter in Python when pushdown is disabled
+                    if not is_schema_allowed(
+                        self.filters.filter_config.schema_pattern,
+                        schema.name,
+                        db_name,
+                        self.filters.filter_config.match_fully_qualified_names,
+                    ):
+                        self.report.report_dropped(f"{db_name}.{schema.name}.*")
+                    else:
+                        schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."
@@ -824,10 +859,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.filters.filter_config.view_pattern.allowed(view_name):
-                    self.report.report_dropped(view_name)
-                else:
+                sql_pushdown_applied = (
+                    self.config.push_down_metadata_patterns
+                    and self.config.fetch_views_from_information_schema
+                )
+                if sql_pushdown_applied:
                     views.append(view)
+                else:
+                    if not self.filters.filter_config.view_pattern.allowed(view_name):
+                        self.report.report_dropped(view_name)
+                    else:
+                        views.append(view)
             snowflake_schema.views = [view.name for view in views]
             return views
         except Exception as e:
@@ -909,12 +951,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table.name, schema_name, db_name
                 )
                 self.report.report_entity_scanned(table_identifier)
-                if not self.filters.filter_config.table_pattern.allowed(
-                    table_identifier
-                ):
-                    self.report.report_dropped(table_identifier)
-                else:
+
+                if self.config.push_down_metadata_patterns:
                     tables.append(table)
+                else:
+                    # Filter in Python when pushdown is disabled
+                    if not self.filters.filter_config.table_pattern.allowed(
+                        table_identifier
+                    ):
+                        self.report.report_dropped(table_identifier)
+                    else:
+                        tables.append(table)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -2463,7 +2510,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_tables_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
-        tables = self.data_dictionary.get_tables_for_database(db_name)
+        table_filter = ""
+        if self.config.push_down_metadata_patterns:
+            table_filter = SnowflakeQuery.build_table_filter(
+                self.filters.filter_config.table_pattern
+            )
+
+        tables = self.data_dictionary.get_tables_for_database(
+            db_name,
+            table_types=frozenset(self.config.table_types),
+            table_filter=table_filter,
+            exclude_dynamic_tables=self.config.exclude_dynamic_tables,
+        )
 
         # get all tables for database failed,
         # falling back to get tables for schema
@@ -2472,6 +2530,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return self.data_dictionary.get_tables_for_schema(
                 db_name=db_name,
                 schema_name=schema_name,
+                table_types=self.config.table_types,
+                table_filter=table_filter,
+                exclude_dynamic_tables=self.config.exclude_dynamic_tables,
             )
 
         # Some schema may not have any table
@@ -2480,7 +2541,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def get_views_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-        views = self.data_dictionary.get_views_for_database(db_name)
+        view_filter = ""
+        if self.config.push_down_metadata_patterns:
+            view_filter = SnowflakeQuery.build_view_filter(
+                self.filters.filter_config.view_pattern
+            )
+
+        views = self.data_dictionary.get_views_for_database(db_name, view_filter)
 
         if views is not None:
             # Some schemas may not have any views
@@ -2492,6 +2559,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         return self.data_dictionary.get_views_for_schema_using_information_schema(
             db_name=db_name,
             schema_name=schema_name,
+            view_filter=view_filter,
         )
 
     def get_semantic_views_for_schema(

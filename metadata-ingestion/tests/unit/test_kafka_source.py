@@ -761,6 +761,106 @@ def test_kafka_source_topic_meta_mappings(
     assert len(tag_key_mcps) == 2  # 2 tags
 
 
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_with_hyphenated_namespace_schema(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    """Test that schemas with hyphens in namespace (e.g., from Debezium CDC)
+    are ingested successfully by default, matching Java Schema Registry client behavior."""
+    # Debezium-style schemas where the topic name (with hyphens) is used as namespace
+    topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
+        "my-debezium-topic": (
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_key",
+                schema=Schema(
+                    schema_str=json.dumps(
+                        {
+                            "type": "record",
+                            "name": "Key",
+                            "namespace": "my-debezium-topic.public.users",
+                            "fields": [{"name": "id", "type": "int"}],
+                        }
+                    ),
+                    schema_type="AVRO",
+                ),
+                subject="my-debezium-topic-key",
+                version=1,
+            ),
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_value",
+                schema=Schema(
+                    schema_str=json.dumps(
+                        {
+                            "type": "record",
+                            "name": "Value",
+                            "namespace": "my-debezium-topic.public.users",
+                            "fields": [
+                                {"name": "id", "type": "int"},
+                                {"name": "name", "type": "string"},
+                            ],
+                            "doc": "Debezium CDC event for users table",
+                        }
+                    ),
+                    schema_type="AVRO",
+                ),
+                subject="my-debezium-topic-value",
+                version=1,
+            ),
+        ),
+    }
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock the schema registry client
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        v.subject for v in chain(*topic_subject_schema_map.values())
+    ]
+
+    def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+        for registered_schema in chain(*topic_subject_schema_map.values()):
+            if registered_schema.subject == subject_name:
+                return registered_schema
+        return None
+
+    mock_schema_registry_client.return_value.get_latest_version = (
+        mock_get_latest_version
+    )
+
+    ctx = PipelineContext(run_id="test_hyphen")
+    kafka_source = KafkaSource.create(
+        {
+            "connection": {"bootstrap": "localhost:9092"},
+        },
+        ctx,
+    )
+    workunits = list(kafka_source.get_workunits())
+
+    # Verify schema was parsed and fields were extracted successfully
+    schema_metadata_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "schemaMetadata"
+    ]
+    assert len(schema_metadata_mcps) == 1
+    schema_metadata = schema_metadata_mcps[0].aspect
+    assert isinstance(schema_metadata, SchemaMetadataClass)
+    # Key schema has 1 field, value schema has 2 fields
+    assert len(schema_metadata.fields) == 3
+    # Verify the schema name contains the topic name
+    assert schema_metadata.schemaName == "my-debezium-topic"
+
+
 def test_kafka_source_oauth_cb_configuration():
     with pytest.raises(
         ConfigurationError,

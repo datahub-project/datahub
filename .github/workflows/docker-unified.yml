@@ -15,6 +15,16 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/docker-unified.yml"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
+      - "!.github/scripts/docker_helpers.sh"
+      - "!.github/actions/ci-optimization"
+      - "!.github/scripts/check_python_package.py"
+      - "!.github/scripts/parse_failed_cypress_tests.py"
+      - "!.github/scripts/parse_failed_pytest_tests.py"
+      - "!.github/scripts/docker_logs.sh"
   release:
     types: [published]
 
@@ -372,7 +382,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2

@@ -643,24 +643,24 @@ def test_snowflake_query_create_deny_regex_sql():
     assert create_deny_regex_sql_filter([], ["col"]) == ""
     assert (
         create_deny_regex_sql_filter([".*tmp.*"], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i')"
+        == "UPPER(col) NOT RLIKE '.*TMP.*'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col) NOT RLIKE '.*TMP.*' AND UPPER(col) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
-        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "(UPPER(col1) NOT RLIKE '.*TMP.*' AND UPPER(col1) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}') AND (UPPER(col2) NOT RLIKE '.*TMP.*' AND UPPER(col2) NOT RLIKE '[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}')"
     )
 
     assert (
         create_deny_regex_sql_filter(
             DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
         )
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i') AND NOT RLIKE(upstream_table_name,'.*\.SNOWPARK_TEMP_TABLE_.+','i')"
+        == r"(UPPER(upstream_table_name) NOT RLIKE '.*\\.FIVETRAN_.*_STAGING\\..*' AND UPPER(upstream_table_name) NOT RLIKE '.*__DBT_TMP$' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}' AND UPPER(upstream_table_name) NOT RLIKE '.*\\.SNOWPARK_TEMP_TABLE_.+')"
     )
 
 

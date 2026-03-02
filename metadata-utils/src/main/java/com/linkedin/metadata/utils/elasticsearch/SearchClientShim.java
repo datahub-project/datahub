@@ -146,6 +146,8 @@ public interface SearchClientShim<T> extends Closeable {
 
     Integer getConnectionRequestTimeout();
 
+    Integer getSocketTimeout();
+
     SSLContext getSSLContext();
   }
 

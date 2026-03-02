@@ -479,4 +479,220 @@ public class MetricUtilsTest {
     Counter counter = meterRegistry.counter(metricName, "type", "request");
     assertEquals(counter.count(), 6.0); // 1.0 + 3.0 + 2.0
   }
+
+  @Test
+  public void testRecordTimerBasicFunctionality() {
+    String metricName = "test.micrometer.timer";
+    long durationNanos = TimeUnit.MILLISECONDS.toNanos(100);
+
+    metricUtils.recordTimer(metricName, durationNanos);
+
+    Timer timer = meterRegistry.timer(metricName);
+    assertNotNull(timer);
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) durationNanos);
+  }
+
+  @Test
+  public void testRecordTimerWithTags() {
+    String metricName = "test.micrometer.timer.tagged";
+    long durationNanos = TimeUnit.MILLISECONDS.toNanos(50);
+
+    metricUtils.recordTimer(metricName, durationNanos, "operation", "query", "status", "success");
+
+    Timer timer = meterRegistry.timer(metricName, "operation", "query", "status", "success");
+    assertNotNull(timer);
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.totalTime(TimeUnit.NANOSECONDS), (double) durationNanos);
+  }
+
+  @Test
+  public void testRecordTimerCachingBehavior() {
+    String metricName = "test.timer.cache";
+    long duration1 = TimeUnit.MILLISECONDS.toNanos(100);
+    long duration2 = TimeUnit.MILLISECONDS.toNanos(200);
+
+    metricUtils.recordTimer(metricName, duration1);
+    Timer timer1 = meterRegistry.timer(metricName);
+    assertEquals(timer1.count(), 1);
+
+    metricUtils.recordTimer(metricName, duration2);
+    Timer timer2 = meterRegistry.timer(metricName);
+    assertSame(timer1, timer2);
+    assertEquals(timer2.count(), 2);
+    assertEquals(timer2.totalTime(TimeUnit.NANOSECONDS), (double) (duration1 + duration2));
+  }
+
+  @Test
+  public void testRecordTimerDifferentTagsCacheSeparately() {
+    String metricName = "test.timer.tags";
+    long duration = TimeUnit.MILLISECONDS.toNanos(100);
+
+    metricUtils.recordTimer(metricName, duration, "env", "prod");
+    metricUtils.recordTimer(metricName, duration, "env", "dev");
+
+    Timer prodTimer = meterRegistry.timer(metricName, "env", "prod");
+    Timer devTimer = meterRegistry.timer(metricName, "env", "dev");
+
+    assertNotSame(prodTimer, devTimer);
+    assertEquals(prodTimer.count(), 1);
+    assertEquals(devTimer.count(), 1);
+  }
+
+  @Test
+  public void testRecordTimerMultipleRecordings() {
+    String metricName = "test.timer.multiple";
+
+    metricUtils.recordTimer(metricName, TimeUnit.MILLISECONDS.toNanos(100), "type", "request");
+    metricUtils.recordTimer(metricName, TimeUnit.MILLISECONDS.toNanos(200), "type", "request");
+    metricUtils.recordTimer(metricName, TimeUnit.MILLISECONDS.toNanos(300), "type", "request");
+
+    Timer timer = meterRegistry.timer(metricName, "type", "request");
+    assertEquals(timer.count(), 3);
+    assertEquals(
+        timer.totalTime(TimeUnit.NANOSECONDS), (double) TimeUnit.MILLISECONDS.toNanos(600));
+    assertEquals(timer.mean(TimeUnit.NANOSECONDS), (double) TimeUnit.MILLISECONDS.toNanos(200));
+  }
+
+  @Test
+  public void testRecordTimerDoesNotHaveDropwizardTag() {
+    String metricName = "test.timer.no.dropwizard";
+
+    metricUtils.recordTimer(metricName, TimeUnit.MILLISECONDS.toNanos(100));
+
+    Timer timer = meterRegistry.timer(metricName);
+    assertNotNull(timer);
+    assertNull(timer.getId().getTag(MetricUtils.DROPWIZARD_METRIC));
+  }
+
+  @Test
+  public void testRecordDistributionBasicFunctionality() {
+    String metricName = "test.micrometer.distribution";
+    long value = 100L;
+
+    metricUtils.recordDistribution(metricName, value);
+
+    DistributionSummary summary = meterRegistry.summary(metricName);
+    assertNotNull(summary);
+    assertEquals(summary.count(), 1);
+    assertEquals(summary.totalAmount(), (double) value);
+  }
+
+  @Test
+  public void testRecordDistributionWithTags() {
+    String metricName = "test.micrometer.distribution.tagged";
+    long value = 50L;
+
+    metricUtils.recordDistribution(metricName, value, "operation", "batch", "status", "success");
+
+    DistributionSummary summary =
+        meterRegistry.summary(metricName, "operation", "batch", "status", "success");
+    assertNotNull(summary);
+    assertEquals(summary.count(), 1);
+    assertEquals(summary.totalAmount(), (double) value);
+  }
+
+  @Test
+  public void testRecordDistributionCachingBehavior() {
+    String metricName = "test.distribution.cache";
+
+    metricUtils.recordDistribution(metricName, 10L);
+    DistributionSummary summary1 = meterRegistry.summary(metricName);
+    assertEquals(summary1.count(), 1);
+
+    metricUtils.recordDistribution(metricName, 20L);
+    DistributionSummary summary2 = meterRegistry.summary(metricName);
+    assertSame(summary1, summary2);
+    assertEquals(summary2.count(), 2);
+    assertEquals(summary2.totalAmount(), 30.0);
+  }
+
+  @Test
+  public void testRecordDistributionDifferentTagsCacheSeparately() {
+    String metricName = "test.distribution.tags";
+    long value = 100L;
+
+    metricUtils.recordDistribution(metricName, value, "env", "prod");
+    metricUtils.recordDistribution(metricName, value, "env", "dev");
+
+    DistributionSummary prodSummary = meterRegistry.summary(metricName, "env", "prod");
+    DistributionSummary devSummary = meterRegistry.summary(metricName, "env", "dev");
+
+    assertNotSame(prodSummary, devSummary);
+    assertEquals(prodSummary.count(), 1);
+    assertEquals(devSummary.count(), 1);
+  }
+
+  @Test
+  public void testRecordDistributionMultipleValues() {
+    String metricName = "test.distribution.multiple";
+
+    metricUtils.recordDistribution(metricName, 10L, "type", "ratio");
+    metricUtils.recordDistribution(metricName, 20L, "type", "ratio");
+    metricUtils.recordDistribution(metricName, 30L, "type", "ratio");
+
+    DistributionSummary summary = meterRegistry.summary(metricName, "type", "ratio");
+    assertEquals(summary.count(), 3);
+    assertEquals(summary.totalAmount(), 60.0);
+    assertEquals(summary.mean(), 20.0);
+  }
+
+  @Test
+  public void testRecordDistributionDoesNotHaveDropwizardTag() {
+    String metricName = "test.distribution.no.dropwizard";
+
+    metricUtils.recordDistribution(metricName, 100L);
+
+    DistributionSummary summary = meterRegistry.summary(metricName);
+    assertNotNull(summary);
+    assertNull(summary.getId().getTag(MetricUtils.DROPWIZARD_METRIC));
+  }
+
+  @Test
+  public void testMicrometerMetricsDoNotAppearInDropwizardFilter() {
+    metricUtils.recordTimer("micrometer.timer", TimeUnit.MILLISECONDS.toNanos(100));
+    metricUtils.recordDistribution("micrometer.distribution", 100L);
+    metricUtils.incrementMicrometer("micrometer.counter", 1);
+
+    metricUtils.time("legacy.timer", TimeUnit.MILLISECONDS.toNanos(100));
+    metricUtils.histogram(this.getClass(), "legacy.histogram", 100L);
+    metricUtils.increment("legacy.counter", 1);
+
+    int micrometerMetricsCount = 0;
+    int legacyMetricsCount = 0;
+
+    for (Meter meter : meterRegistry.getMeters()) {
+      if (meter.getId().getTag(MetricUtils.DROPWIZARD_METRIC) == null) {
+        micrometerMetricsCount++;
+      } else {
+        legacyMetricsCount++;
+      }
+    }
+
+    assertEquals(micrometerMetricsCount, 3);
+    assertEquals(legacyMetricsCount, 3);
+  }
+
+  @Test
+  public void testRecordTimerWithNoTags() {
+    String metricName = "test.timer.no.tags";
+    long duration = TimeUnit.MILLISECONDS.toNanos(100);
+
+    metricUtils.recordTimer(metricName, duration);
+
+    Timer timer = meterRegistry.timer(metricName);
+    assertNotNull(timer);
+    assertEquals(timer.getId().getTags().size(), 0);
+  }
+
+  @Test
+  public void testRecordDistributionWithNoTags() {
+    String metricName = "test.distribution.no.tags";
+
+    metricUtils.recordDistribution(metricName, 100L);
+
+    DistributionSummary summary = meterRegistry.summary(metricName);
+    assertNotNull(summary);
+    assertEquals(summary.getId().getTags().size(), 0);
+  }
 }

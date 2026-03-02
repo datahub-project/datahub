@@ -1,4 +1,5 @@
-from typing import List, Optional
+import logging
+from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -8,6 +9,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
+logger = logging.getLogger(__name__)
+
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
@@ -15,22 +18,141 @@ SHOW_STREAM_MAX_PAGE_SIZE = 10000
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
 ) -> str:
-    upstream_sql_filter = (
-        " AND ".join(
-            [
-                (f"NOT RLIKE({col_name},'{regexp}','i')")
-                for col_name in filter_cols
-                for regexp in deny_pattern
-            ]
-        )
-        if deny_pattern
-        else ""
-    )
+    """Build a deny-only SQL filter across one or more columns.
 
-    return upstream_sql_filter
+    Delegates to SnowflakeQuery._build_pattern_filter for SQL generation,
+    ensuring a single code path for all RLIKE-based filtering.
+    """
+    if not deny_pattern:
+        return ""
+
+    pattern = AllowDenyPattern(deny=deny_pattern)
+    conditions = [
+        col_filter
+        for col in filter_cols
+        if (col_filter := SnowflakeQuery._build_pattern_filter(pattern, col))
+    ]
+    return " AND ".join(conditions)
 
 
 class SnowflakeQuery:
+    @staticmethod
+    def _build_pattern_filter(
+        pattern: Optional[AllowDenyPattern],
+        column_expr: str,
+    ) -> str:
+        """
+        Build SQL WHERE clause from AllowDenyPattern.
+
+        Behavior mirrors Python AllowDenyPattern.allowed():
+        - Deny patterns checked first (if any match → excluded)
+        - Then allow patterns checked (if any match → included)
+        - ".*" in allow list means "allow all" (other allow patterns are redundant)
+
+        Implementation:
+        - ALL patterns use Snowflake RLIKE operator (both allow and deny)
+        - Handles ignoreCase flag via UPPER() wrapper
+        - Patterns must follow Snowflake's regex syntax
+
+        Args:
+            pattern: The AllowDenyPattern to convert
+            column_expr: SQL expression for the column (e.g., "database_name",
+                         "CONCAT(table_catalog, '.', table_schema, '.', table_name)")
+
+        Returns:
+            SQL WHERE clause string, or empty string if no filtering needed
+        """
+        if not pattern:
+            return ""
+
+        if pattern.allow == []:
+            logger.warning(
+                "Pattern has an empty allow list for column '%s'. "
+                "This will exclude all entities matching this filter, "
+                "which may result in zero ingested entities.",
+                column_expr,
+            )
+            return "FALSE"
+
+        if pattern.allow == [".*"] and not pattern.deny:
+            return ""
+
+        def transform(v: str) -> str:
+            return v.upper() if pattern.ignoreCase else v
+
+        col_expr = f"UPPER({column_expr})" if pattern.ignoreCase else column_expr
+
+        conditions: List[str] = []
+
+        has_allow_all = ".*" in pattern.allow
+
+        if not has_allow_all and pattern.allow:
+            allow_conditions: List[str] = []
+
+            for p in pattern.allow:
+                # Escape backslashes and single quotes for SQL string literal
+                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
+                allow_conditions.append(f"{col_expr} RLIKE '{escaped}'")
+
+            if allow_conditions:
+                if len(allow_conditions) == 1:
+                    conditions.append(allow_conditions[0])
+                else:
+                    conditions.append(f"({' OR '.join(allow_conditions)})")
+
+        if pattern.deny:
+            deny_conditions: List[str] = []
+            for p in pattern.deny:
+                # Escape backslashes and single quotes for SQL string literal
+                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
+                deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
+
+            if len(deny_conditions) == 1:
+                conditions.append(deny_conditions[0])
+            else:
+                conditions.append(f"({' AND '.join(deny_conditions)})")
+
+        return " AND ".join(conditions) if conditions else ""
+
+    @staticmethod
+    def build_database_filter(database_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for database_pattern filtering."""
+        return SnowflakeQuery._build_pattern_filter(database_pattern, "database_name")
+
+    @staticmethod
+    def build_schema_filter(
+        schema_pattern: Optional[AllowDenyPattern],
+        db_name: str,
+        match_fully_qualified_names: bool,
+    ) -> str:
+        """Build SQL WHERE clause for schema_pattern filtering."""
+        if match_fully_qualified_names:
+            escaped_db = db_name.replace("'", "''")
+            column_expr = f"CONCAT('{escaped_db}', '.', schema_name)"
+        else:
+            column_expr = "schema_name"
+
+        return SnowflakeQuery._build_pattern_filter(schema_pattern, column_expr)
+
+    @staticmethod
+    def build_table_filter(table_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for table_pattern filtering.
+
+        Table patterns always match against full qualified name: DATABASE.SCHEMA.TABLE
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(table_pattern, column_expr)
+
+    @staticmethod
+    def build_view_filter(view_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for view_pattern filtering.
+
+        View patterns always match against full qualified name: DATABASE.SCHEMA.VIEW
+        Views use same column names (table_catalog, table_schema, table_name) in information_schema.
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(view_pattern, column_expr)
+
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
@@ -92,38 +214,94 @@ class SnowflakeQuery:
         return f'use schema "{schema_name}"'
 
     @staticmethod
-    def get_databases(db_name: Optional[str]) -> str:
+    def get_databases(db_name: Optional[str], database_filter: str = "") -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
+
+        where_clause = ""
+        if database_filter:
+            where_clause = f"WHERE {database_filter}"
+
         return f"""
         SELECT database_name AS "DATABASE_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.databases
-        order by database_name"""
+        FROM {db_clause}information_schema.databases
+        {where_clause}
+        ORDER BY database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: str) -> str:
+    def schemas_for_database(db_name: str, schema_filter: str = "") -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = ["schema_name != 'INFORMATION_SCHEMA'"]
+        if schema_filter:
+            where_conditions.append(schema_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.schemata
-        WHERE schema_name != 'INFORMATION_SCHEMA'
-        order by schema_name"""
+        FROM {db_clause}information_schema.schemata
+        WHERE {where_clause}
+        ORDER BY schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: str) -> str:
+    def _build_table_type_conditions(
+        table_types: AbstractSet[str],
+        exclude_dynamic_tables: bool = False,
+    ) -> List[str]:
+        """Build WHERE conditions for table type filtering.
+
+        Args:
+            table_types: Set of TABLE_TYPE values to include (e.g., {"BASE TABLE", "EXTERNAL TABLE"}).
+            exclude_dynamic_tables: If True, excludes dynamic tables from results.
+
+        Returns:
+            List of SQL WHERE conditions for table type filtering
+        """
+        conditions = []
+
+        type_list = ", ".join(f"'{t}'" for t in sorted(table_types))
+        conditions.append(f"table_type in ({type_list})")
+
+        # Filter out dynamic tables if excluded
+        if exclude_dynamic_tables:
+            conditions.append("COALESCE(is_dynamic, 'NO') = 'NO'")
+
+        return conditions
+
+    @staticmethod
+    def tables_for_database(
+        db_name: str,
+        table_types: AbstractSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
+    ) -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            "table_schema != 'INFORMATION_SCHEMA'",
+            *SnowflakeQuery._build_table_type_conditions(
+                table_types, exclude_dynamic_tables
+            ),
+        ]
+
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -134,20 +312,38 @@ class SnowflakeQuery:
         is_hybrid AS "IS_HYBRID",
         retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
-    def tables_for_schema(schema_name: str, db_name: str) -> str:
+    def tables_for_schema(
+        schema_name: str,
+        db_name: str,
+        table_types: AbstractSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
+    ) -> str:
         db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            f"table_schema='{schema_name}'",
+            *SnowflakeQuery._build_table_type_conditions(
+                table_types, exclude_dynamic_tables
+            ),
+        ]
+
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -158,9 +354,8 @@ class SnowflakeQuery:
         is_hybrid AS "IS_HYBRID",
         retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
-        where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
     def procedures_for_database(db_name: str) -> str:
@@ -273,10 +468,19 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
-    def get_views_for_database(db_name: str) -> str:
+    def get_views_for_database(db_name: str, view_filter: str = "") -> str:
         # We've seen some issues with the `SHOW VIEWS` query,
         # particularly when it requires pagination.
         # This is an experimental alternative query that might be more reliable.
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
         return f"""\
 SELECT
   TABLE_CATALOG as "VIEW_CATALOG",
@@ -288,15 +492,35 @@ SELECT
   LAST_ALTERED,
   IS_SECURE
 FROM "{db_name}".information_schema.views
-WHERE TABLE_CATALOG = '{db_name}'
-  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+WHERE {where_clause}
 """
 
     @staticmethod
-    def get_views_for_schema(db_name: str, schema_name: str) -> str:
+    def get_views_for_schema(
+        db_name: str, schema_name: str, view_filter: str = ""
+    ) -> str:
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+            f"TABLE_SCHEMA = '{schema_name}'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
         return f"""\
-{SnowflakeQuery.get_views_for_database(db_name).rstrip()}
-  AND TABLE_SCHEMA = '{schema_name}'
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE {where_clause}
 """
 
     @staticmethod

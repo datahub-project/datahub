@@ -150,7 +150,13 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(
@@ -190,7 +196,13 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(

@@ -194,6 +194,20 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    push_down_metadata_patterns: bool = Field(
+        default=False,
+        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
+        "filtering to Snowflake information_schema metadata queries using the RLIKE operator for improved performance. "
+        "This applies only to metadata extraction queries (information_schema.databases, schemata, tables, views) — "
+        "NOT to lineage/usage queries (for those, see push_down_database_pattern_access_history). "
+        "NOTE: view_pattern pushdown only works when fetch_views_from_information_schema is also enabled. "
+        "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
+        "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
+        "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
+        "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
+    )
+
     @model_validator(mode="after")
     def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
         schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
@@ -382,6 +396,19 @@ class SnowflakeV2Config(
     include_streams: bool = Field(
         default=True,
         description="If enabled, streams will be ingested as separate entities from tables/views.",
+    )
+
+    table_types: Set[str] = Field(
+        default={"BASE TABLE", "EXTERNAL TABLE"},
+        description="Set of Snowflake TABLE_TYPE values to include in ingestion. "
+        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE'. "
+        "Remove 'EXTERNAL TABLE' to exclude external tables from ingestion.",
+    )
+
+    exclude_dynamic_tables: bool = Field(
+        default=False,
+        description="If enabled, dynamic tables will be excluded from ingestion. "
+        "Use this to speed up ingestion if you don't need dynamic tables in DataHub.",
     )
 
     include_procedures: bool = Field(
@@ -591,6 +618,19 @@ class SnowflakeV2Config(
                 )
 
         return shares
+
+    @model_validator(mode="after")
+    def validate_view_pattern_pushdown(self) -> "SnowflakeV2Config":
+        if (
+            self.push_down_metadata_patterns
+            and not self.fetch_views_from_information_schema
+        ):
+            logger.warning(
+                "push_down_metadata_patterns is enabled but fetch_views_from_information_schema is not. "
+                "view_pattern will NOT be pushed down to Snowflake and will fall back to Python re.match() filtering. "
+                "Enable fetch_views_from_information_schema to ensure consistent pushdown behavior for view patterns."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":

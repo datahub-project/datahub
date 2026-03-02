@@ -316,7 +316,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         fields: List[SchemaField] = []
         if schema.schema_type == "AVRO":
             cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
-            avro_schema = avro.schema.parse(cleaned_str)
+            avro_schema = avro.schema.parse(
+                cleaned_str,
+                validate_names=False,
+            )
 
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
