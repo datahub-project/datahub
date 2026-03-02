@@ -50,7 +50,7 @@
     "react-use-draggable-scroll": "^0.4.7",
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
-    "swiper": "^11.1.4",
+    "swiper": "^12.1.2",
     "uuid": "^9.0.0"
   },
   "browserslist": {

@@ -132,6 +132,14 @@ public class AuthenticationController extends Controller {
       redirectPath = BasePathUtils.addBasePath("/logOut", this.basePath);
     }
     try {
+      // Reject protocol-relative URLs (e.g. ///google.com) which browsers resolve to
+      // https://host; the URI parser may not set scheme/authority for these.
+      if (redirectPath.trim().startsWith("//")) {
+        throw new RedirectException(
+            "Redirect location must be relative to the base url, cannot "
+                + "use protocol-relative URL: "
+                + redirectPath);
+      }
       URI redirectUri = new URI(redirectPath);
       if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
         throw new RedirectException(

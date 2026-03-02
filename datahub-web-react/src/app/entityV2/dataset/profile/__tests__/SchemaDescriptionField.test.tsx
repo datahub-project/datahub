@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -69,12 +70,14 @@ describe('SchemaDescriptionField', () => {
 
     it('renders short messages without show more / show less', () => {
         const { getByText, queryByText } = render(
-            <SchemaDescriptionField
-                expanded
-                onExpanded={() => {}}
-                description="short description"
-                onUpdate={() => Promise.resolve()}
-            />,
+            <CustomThemeProvider>
+                <SchemaDescriptionField
+                    expanded
+                    onExpanded={() => {}}
+                    description="short description"
+                    onUpdate={() => Promise.resolve()}
+                />
+            </CustomThemeProvider>,
         );
         expect(getByText('short description')).toBeInTheDocument();
         expect(queryByText('Read Less')).not.toBeInTheDocument();

@@ -3246,9 +3246,38 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             aspectDao.getValidationConfig(),
             opContext);
 
+    // Resolve maxVersionsToKeep from retention policy (per aspect): <= 1 means do not write a new
+    // history row (version != 0); we still update the existing version 0 row. When retention
+    // service is not enabled, we retain only the current version (1).
+    int maxVersionsToKeep;
+    if (retentionService != null) {
+      try {
+        maxVersionsToKeep =
+            retentionService.getMaxVersionsToKeepForWrite(
+                opContext, writeItem.getUrn().getEntityType(), writeItem.getAspectName());
+      } catch (Exception e) {
+        log.warn(
+            "Failed to resolve retention for urn={} aspect={}, retaining only current version",
+            writeItem.getUrn(),
+            writeItem.getAspectName(),
+            e);
+        maxVersionsToKeep = 1;
+      }
+    } else {
+      maxVersionsToKeep = 1;
+    }
+    if (maxVersionsToKeep <= 1) {
+      log.debug(
+          "No version history for urn={} aspect={} (maxVersions={})",
+          writeItem.getUrn(),
+          writeItem.getAspectName(),
+          maxVersionsToKeep);
+    }
+
     // save to database
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, latestAspect, upsertAspect);
+        aspectDao.saveLatestAspect(
+            opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
     Optional<EntityAspect> versionN = result.getFirst();
     Optional<EntityAspect> version0 = result.getSecond();
 

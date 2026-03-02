@@ -23,20 +23,46 @@ export const goToIngestionPage = () => {
 };
 
 const clickIfTestIdPresent = (dataTestId) => {
-  cy.get("body").then(($body) => {
+  cy.get("body", { timeout: 2000 }).then(($body) => {
     if ($body.find(`[data-testid="${dataTestId}"]`).length) {
       cy.get(`[data-testid="${dataTestId}"]`).click();
     }
   });
 };
 
-export const verifySourceDetails = (source) => {
+export const fillSourceDetails = (source) => {
   cy.get("#account_id").type(source.accound_id);
   cy.get("#warehouse").type(source.warehouse_id);
   cy.get("#username").type(source.username);
-  cy.get("#password").type(source.password);
+
+  // Select authentication type if provided, otherwise default to Username & Password
+  if (source.authentication_type) {
+    cy.get("#authentication_type").click({ force: true });
+    cy.clickOptionWithTestId("option-DEFAULT_AUTHENTICATOR").click({
+      force: true,
+      multiple: true,
+    });
+  }
+
+  // Fill in credentials based on authentication type
+  if (source.authentication_type === "Private Key") {
+    if (source.private_key) {
+      cy.get("#private_key").type(source.private_key);
+    }
+    if (source.private_key_password) {
+      cy.get("#private_key_password").type(source.private_key_password);
+    }
+  } else {
+    // Default to Username & Password
+    cy.get("#password").type(source.password);
+  }
+
   cy.get("body").click(0, 0);
   cy.get("#role").type(source.role);
+};
+
+export const verifySourceDetails = (source) => {
+  fillSourceDetails(source);
 
   // Verify yaml recipe is generated correctly
   cy.clickOptionWithTestId("yaml-editor-tab");
@@ -44,7 +70,15 @@ export const verifySourceDetails = (source) => {
   cy.waitTextVisible(source.accound_id);
   cy.waitTextVisible(source.warehouse_id);
   cy.waitTextVisible(source.username);
-  cy.waitTextVisible(source.password);
+
+  // Verify credentials in YAML based on auth type
+  if (source.authentication_type === "Private Key" && source.private_key) {
+    // For private key, just verify it contains the key content (not exact format with newlines)
+    cy.waitTextVisible("private_key");
+    cy.waitTextVisible("BEGIN PRIVATE KEY");
+  } else {
+    cy.waitTextVisible(source.password);
+  }
 };
 
 export const changeSchedule = (values) => {
@@ -72,6 +106,7 @@ export const changeSchedule = (values) => {
 
 export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
   cy.getWithTestId(`row-${sourceName}`)
+    .first()
     .scrollIntoView()
     .within(() => {
       cy.getWithTestId("schedule").should("contain", scheduleText);
@@ -84,8 +119,22 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   cy.clickOptionWithTextToScrollintoView("Snowflake");
   cy.waitTextVisible("Snowflake Connection Details");
 
+  // Provide default source details if none specified
+  // Must specify authentication_type since we changed the default to KEY_PAIR
+  const defaultSourceDetails = {
+    accound_id: "test_account",
+    warehouse_id: "test_warehouse",
+    username: "test_user",
+    password: "test_password",
+    role: "test_role",
+    authentication_type: "Username & Password", // Explicitly use password auth for tests
+  };
+
   if (options?.sourceDetails) {
     verifySourceDetails(options.sourceDetails);
+  } else {
+    // Just fill in minimal details without verification
+    fillSourceDetails(defaultSourceDetails);
   }
 
   cy.get('[data-testid="data-source-name"]').clear();
@@ -99,7 +148,10 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   }
 
   cy.clickOptionWithTestId("save-button");
+  cy.interceptGraphQLOperation("getIngestionSource");
+
   cy.waitTextVisible("Successfully created ingestion source!");
+  cy.waitForGraphQLOperation("getIngestionSource");
 };
 
 export const updateIngestionSource = (
@@ -144,7 +196,15 @@ export const createAndRunIngestionSource = (sourceName) => {
   cy.clickOptionWithTestId("create-ingestion-source-button");
   clickIfTestIdPresent("modal-confirm-button");
 
-  cy.get('[data-testid="search-bar-input"]').type("other");
+  // Wait for the source selection modal to appear and any loading to finish
+  // Multi-step builder uses "Search..." while old builder uses "Search data sources..."
+  cy.wait(1000); // Wait for modal animations to complete
+  cy.get('[placeholder="Search..."], [placeholder="Search data sources..."]', {
+    timeout: 10000,
+  })
+    .first()
+    .should("be.visible")
+    .type("custom", { force: true });
   cy.clickOptionWithTextToScrollintoView("Custom");
 
   cy.waitTextVisible("source-type");

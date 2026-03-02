@@ -90,11 +90,25 @@ repos:
         files: ^metadata-dao-impl/kafka-producer/.*\.java$
         pass_filenames: false
 
+      - id: metadata-events-mxe-avro-spotless
+        name: metadata-events/mxe-avro Spotless Apply
+        entry: ./gradlew :metadata-events:mxe-avro:spotlessApply -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-events/mxe-avro/.*\.java$
+        pass_filenames: false
+
       - id: metadata-events-mxe-registration-spotless
         name: metadata-events/mxe-registration Spotless Apply
         entry: ./gradlew :metadata-events:mxe-registration:spotlessApply -x generateGitPropertiesGlobal
         language: system
         files: ^metadata-events/mxe-registration/.*\.java$
+        pass_filenames: false
+
+      - id: metadata-events-mxe-schemas-spotless
+        name: metadata-events/mxe-schemas Spotless Apply
+        entry: ./gradlew :metadata-events:mxe-schemas:spotlessApply -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-events/mxe-schemas/.*\.java$
         pass_filenames: false
 
       - id: metadata-events-mxe-utils-avro-spotless
@@ -530,13 +544,13 @@ repos:
         language: system
         files: ^docker/.*$
         pass_filenames: false
-  - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.11
-    hooks:
 
-      - id: actionlint
+      - id: actionlint-docker
         name: Lint GitHub Actions workflow files
-        description: Runs actionlint to lint GitHub Actions workflow files
+        description: Runs actionlint Docker image to lint GitHub Actions workflow
+          files
+        language: docker_image
         types:
           - yaml
         files: ^\.github/workflows/
+        entry: docker.io/rhysd/actionlint:1.7.11
