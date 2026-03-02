@@ -31,8 +31,11 @@ task printVersionDetails() {
   println("version=" +  version)
 }
 
-processResources {
-  filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
-  filter(ReplaceTokens, tokens:[cliVersion: cliVersion])
+// Only configure processResources if a JVM plugin provides it
+plugins.withType(JavaPlugin) {
+    processResources {
+        filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
+        filter(ReplaceTokens, tokens:[cliVersion: cliVersion])
+    }
 }
 

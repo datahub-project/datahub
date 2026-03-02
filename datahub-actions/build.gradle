@@ -13,10 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-plugins {
-  id 'scala'
-  id 'org.gradle.playframework'
-}
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
@@ -106,10 +102,13 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
 task testFull(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
-          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+          "pytest -vv ${get_coverage_args('full')} --continue-on-collection-errors"
 }
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {

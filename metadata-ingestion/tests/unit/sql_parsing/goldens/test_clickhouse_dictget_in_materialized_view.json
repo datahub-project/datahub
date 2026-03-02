@@ -1,0 +1,62 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "625135a82985aa234f026f0f11931f54aafde453d419eb978762033ab9cf354e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.my_dict,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events_enriched,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.mv_enriched,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "event_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
+                    "column": "event_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"raw_events\".\"event_id\" AS \"event_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "category_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
+                    "column": "category_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.raw_events,PROD)",
+                    "column": "default.my_dict"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "DICTGET(\"raw_events\".\"default\".\"my_dict\", 'name', \"raw_events\".\"category_id\") AS \"category_name\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE MATERIALIZED VIEW db1.mv_enriched TO db1.events_enriched AS SELECT event_id, DICTGET(default.my_dict, {?: }, category_id) AS category_name FROM db1.raw_events"
+    }
+}

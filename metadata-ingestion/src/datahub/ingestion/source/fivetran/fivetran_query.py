@@ -1,11 +1,11 @@
 import re
 from typing import List
 
-# Safeguards to prevent fetching massive amounts of data.
-MAX_TABLE_LINEAGE_PER_CONNECTOR = 120
-MAX_COLUMN_LINEAGE_PER_CONNECTOR = 1000
-MAX_JOBS_PER_CONNECTOR = 500
-
+from datahub.ingestion.source.fivetran.config import (
+    MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
+    MAX_JOBS_PER_CONNECTOR_DEFAULT,
+    MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
+)
 
 """
 ------------------------------------------------------------------------------------------------------------
@@ -26,9 +26,18 @@ class FivetranLogQuery:
     # Note: All queries are written in Snowflake SQL.
     # They will be transpiled to the target database's SQL dialect at runtime.
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        max_jobs_per_connector: int = MAX_JOBS_PER_CONNECTOR_DEFAULT,
+        max_table_lineage_per_connector: int = MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
+        max_column_lineage_per_connector: int = MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
+    ) -> None:
         # Select query db clause
         self.schema_clause: str = ""
+        # Configurable limits
+        self.max_jobs_per_connector = max_jobs_per_connector
+        self.max_table_lineage_per_connector = max_table_lineage_per_connector
+        self.max_column_lineage_per_connector = max_column_lineage_per_connector
 
     @staticmethod
     def _is_valid_unquoted_identifier(identifier: str) -> bool:
@@ -141,7 +150,7 @@ SELECT
     end_time,
     end_message_data
 FROM ranked_syncs
-WHERE rn <= {MAX_JOBS_PER_CONNECTOR}
+WHERE rn <= {self.max_jobs_per_connector}
     AND start_time IS NOT NULL
     AND end_time IS NOT NULL
 ORDER BY connection_id, end_time DESC
@@ -174,7 +183,7 @@ FROM (
 )
 -- Ensure that we only get back one entry per source and destination pair.
 WHERE table_combo_rn = 1
-QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {MAX_TABLE_LINEAGE_PER_CONNECTOR}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {self.max_table_lineage_per_connector}
 ORDER BY connection_id, created_at DESC
 """
 
@@ -209,6 +218,6 @@ FROM (
 )
 -- Ensure that we only get back one entry per (connector, source column, destination column) pair.
 WHERE column_combo_rn = 1
-QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {MAX_COLUMN_LINEAGE_PER_CONNECTOR}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY connection_id ORDER BY created_at DESC) <= {self.max_column_lineage_per_connector}
 ORDER BY connection_id, created_at DESC
 """

@@ -4,7 +4,8 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration import env_vars
+from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -45,9 +46,9 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere"]] = Field(
+    provider: Optional[Literal["bedrock", "cohere", "openai"]] = Field(
         default=None,
-        description="Embedding provider (bedrock uses AWS, cohere uses API key). If not set, loads from server.",
+        description="Embedding provider (bedrock uses AWS, cohere/openai use API key). If not set, loads from server.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -63,7 +64,7 @@ class EmbeddingConfig(ConfigModel):
     )
 
     # Credentials (can be provided locally even when using server config)
-    api_key: Optional[str] = Field(
+    api_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description="API key for Cohere (not needed for Bedrock with IAM roles)",
     )
@@ -75,6 +76,17 @@ class EmbeddingConfig(ConfigModel):
     input_type: Optional[str] = Field(
         default="search_document",
         description="Input type for Cohere embeddings",
+    )
+
+    # Rate limiting configuration
+    rate_limit: bool = Field(
+        default=True,
+        description="Enable rate limiting for embedding API calls.",
+    )
+    documents_per_minute: int = Field(
+        default=300,
+        gt=0,
+        description="Maximum number of documents to embed per minute when rate_limit is enabled.",
     )
 
     # Break-glass override flag
@@ -107,7 +119,9 @@ class EmbeddingConfig(ConfigModel):
 
     @classmethod
     def from_server(
-        cls, server_config: ServerEmbeddingConfig, api_key: Optional[str] = None
+        cls,
+        server_config: ServerEmbeddingConfig,
+        api_key: Optional[TransparentSecretStr] = None,
     ) -> "EmbeddingConfig":
         """Create EmbeddingConfig from server configuration.
 
@@ -202,18 +216,22 @@ class EmbeddingConfig(ConfigModel):
             return "bedrock"
         if "cohere" in provider_lower:
             return "cohere"
+        if "openai" in provider_lower:
+            return "openai"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
             return "bedrock"
         elif normalized == "cohere":
             return "cohere"
+        elif normalized == "openai":
+            return "openai"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -237,14 +255,94 @@ class EmbeddingConfig(ConfigModel):
         )
 
 
+def _get_default_gms_server() -> str:
+    """Get default GMS server URL with fallback to ~/.datahubenv.
+
+    Priority:
+    1. DATAHUB_GMS_URL environment variable
+    2. ~/.datahubenv file (via load_client_config)
+    3. http://localhost:8080 (hardcoded default)
+
+    Returns:
+        GMS server URL
+    """
+    # First try env var directly
+    url = env_vars.get_gms_url()
+    if url:
+        return url
+
+    # Fall back to load_client_config which reads from ~/.datahubenv
+    try:
+        from datahub.cli import config_utils
+
+        # Don't fail if config file doesn't exist - just use localhost
+        if not env_vars.get_skip_config():
+            try:
+                client_config = config_utils.load_client_config()
+                return client_config.server
+            except config_utils.MissingConfigError:
+                # Config file doesn't exist, use default
+                pass
+    except Exception:
+        # If anything goes wrong, fall back to default
+        pass
+
+    return "http://localhost:8080"
+
+
+def _get_default_gms_token() -> Optional[TransparentSecretStr]:
+    """Get default GMS token with fallback to ~/.datahubenv.
+
+    Priority:
+    1. DATAHUB_GMS_TOKEN environment variable
+    2. ~/.datahubenv file (via load_client_config)
+    3. None (no token)
+
+    Returns:
+        GMS token or None
+    """
+    # First try env var directly
+    token = env_vars.get_gms_token()
+    if token:
+        return TransparentSecretStr(token)
+
+    # Fall back to load_client_config which reads from ~/.datahubenv
+    try:
+        from datahub.cli import config_utils
+
+        # Don't fail if config file doesn't exist - just return None
+        if not env_vars.get_skip_config():
+            try:
+                client_config = config_utils.load_client_config()
+                if client_config.token:
+                    return TransparentSecretStr(client_config.token)
+            except config_utils.MissingConfigError:
+                # Config file doesn't exist, no token
+                pass
+    except Exception:
+        # If anything goes wrong, return None
+        pass
+
+    return None
+
+
 class DataHubConnectionConfig(ConfigModel):
-    """DataHub connection configuration."""
+    """DataHub connection configuration.
+
+    Defaults are loaded in this priority:
+    1. Explicitly configured values in the recipe
+    2. Environment variables (DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN)
+    3. ~/.datahubenv file (created by `datahub init`)
+    4. Hardcoded defaults (http://localhost:8080, no token)
+    """
 
     server: str = Field(
-        default="http://localhost:8080", description="DataHub GMS server URL"
+        default_factory=_get_default_gms_server,
+        description="DataHub GMS server URL (defaults to DATAHUB_GMS_URL env var, ~/.datahubenv, or localhost:8080)",
     )
-    token: Optional[str] = Field(
-        default=None, description="DataHub API token for authentication"
+    token: Optional[TransparentSecretStr] = Field(
+        default_factory=_get_default_gms_token,
+        description="DataHub API token for authentication (defaults to DATAHUB_GMS_TOKEN env var or ~/.datahubenv)",
     )
 
 
@@ -317,6 +415,13 @@ class DocumentChunkingSourceConfig(ConfigModel):
     )
 
     # Processing options
+    max_documents: int = Field(
+        default=10000,
+        ge=-1,
+        description="Maximum number of documents to process per ingestion run. "
+        "The job will stop and fail with an error once this limit is reached. "
+        "Set to 0 or -1 to disable the limit.",
+    )
     batch_size: int = Field(
         default=10, description="Number of documents to process in parallel"
     )

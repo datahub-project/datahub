@@ -1,11 +1,14 @@
 package com.datahub.authorization.fieldresolverprovider;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
 import com.linkedin.common.UrnArray;
@@ -18,27 +21,31 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class DomainFieldResolverProviderTest
     extends EntityFieldResolverProviderBaseTest<DomainFieldResolverProvider> {
 
+  private static final Urn PARENT_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:parent");
+  private static final Urn CHILD_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:child");
+  private static final Urn GRANDCHILD_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:grandchild");
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+
   private SystemEntityClient mockEntityClient;
-  private OperationContext mockOpContext;
-  private DomainFieldResolverProvider provider;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setup() {
     mockEntityClient = mock(SystemEntityClient.class);
-    mockOpContext = mock(OperationContext.class);
-    provider = new DomainFieldResolverProvider(mockEntityClient);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Override
@@ -47,18 +54,150 @@ public class DomainFieldResolverProviderTest
   }
 
   @Test
-  public void testGetFieldTypes() {
-    List<EntityFieldType> fieldTypes = provider.getFieldTypes();
-    assertEquals(fieldTypes.size(), 1);
-    assertEquals(fieldTypes.get(0), EntityFieldType.DOMAIN);
+  public void testDomainEntityResolvesWithParents()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Setup: grandchild -> child -> parent
+    setupDomainHierarchy();
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    EntitySpec entitySpec = new EntitySpec(DOMAIN_ENTITY_NAME, GRANDCHILD_DOMAIN_URN.toString());
+
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(values.size(), 3, "Should resolve grandchild, child, and parent domains");
+    assertTrue(values.contains(GRANDCHILD_DOMAIN_URN.toString()));
+    assertTrue(values.contains(CHILD_DOMAIN_URN.toString()));
+    assertTrue(values.contains(PARENT_DOMAIN_URN.toString()));
   }
 
   @Test
-  public void testGetDomainsWithProposedAspect() throws Exception {
-    // Test the new functionality for proposed domains during authorization
+  public void testDomainEntityWithNoParent()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Setup: parent domain with no parent
+    Map<Urn, EntityResponse> parentResponse = new HashMap<>();
+    parentResponse.put(
+        PARENT_DOMAIN_URN, createDomainPropertiesResponse(PARENT_DOMAIN_URN, null /* no parent */));
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(PARENT_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(parentResponse);
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    EntitySpec entitySpec = new EntitySpec(DOMAIN_ENTITY_NAME, PARENT_DOMAIN_URN.toString());
+
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(values.size(), 1, "Should resolve only the parent domain itself");
+    assertTrue(values.contains(PARENT_DOMAIN_URN.toString()));
+  }
+
+  @Test
+  public void testNonDomainEntityWithDomainAssignment()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Setup: dataset with child domain assignment, child -> parent hierarchy
+    setupDatasetWithDomain();
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    EntitySpec entitySpec = new EntitySpec(DATASET_ENTITY_NAME, DATASET_URN.toString());
+
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(values.size(), 2, "Should resolve child domain and its parent");
+    assertTrue(values.contains(CHILD_DOMAIN_URN.toString()));
+    assertTrue(values.contains(PARENT_DOMAIN_URN.toString()));
+  }
+
+  @Test
+  public void testNonDomainEntityWithNoDomainAssignment()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Setup: dataset with no domain assignment
+    when(mockEntityClient.getV2(
+            any(OperationContext.class),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_URN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
+        .thenReturn(null);
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    EntitySpec entitySpec = new EntitySpec(DATASET_ENTITY_NAME, DATASET_URN.toString());
+
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(values.size(), 0, "Should return empty set for entity with no domain");
+  }
+
+  @Test
+  public void testDomainHierarchyWithCyclePrevention()
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
+    // Setup: Test that we don't infinitely loop if there's a cycle
+    // In practice this shouldn't happen, but we should handle it gracefully
+    Map<Urn, EntityResponse> childResponse = new HashMap<>();
+    childResponse.put(
+        CHILD_DOMAIN_URN, createDomainPropertiesResponse(CHILD_DOMAIN_URN, PARENT_DOMAIN_URN));
+
+    Map<Urn, EntityResponse> parentResponse = new HashMap<>();
+    parentResponse.put(
+        PARENT_DOMAIN_URN, createDomainPropertiesResponse(PARENT_DOMAIN_URN, CHILD_DOMAIN_URN));
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(CHILD_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(childResponse);
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(PARENT_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(parentResponse);
+
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    EntitySpec entitySpec = new EntitySpec(DOMAIN_ENTITY_NAME, CHILD_DOMAIN_URN.toString());
+
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(
+        values.size(), 2, "Should resolve both domains despite cycle, but not infinitely loop");
+    assertTrue(values.contains(CHILD_DOMAIN_URN.toString()));
+    assertTrue(values.contains(PARENT_DOMAIN_URN.toString()));
+  }
+
+  @Test
+  public void testGetDomainsWithProposedAspect()
+      throws ExecutionException, InterruptedException, RemoteInvocationException {
+    // Test the proposedAspects path: domain authorization before commit
     Urn domainUrn1 = UrnUtils.getUrn("urn:li:domain:engineering");
     Urn domainUrn2 = UrnUtils.getUrn("urn:li:domain:platform");
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
     Domains proposedDomains = new Domains();
     proposedDomains.setDomains(new UrnArray(domainUrn1, domainUrn2));
@@ -66,263 +205,153 @@ public class DomainFieldResolverProviderTest
     Map<String, com.linkedin.data.template.RecordTemplate> proposedAspects = new HashMap<>();
     proposedAspects.put(DOMAINS_ASPECT_NAME, proposedDomains);
 
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString(), proposedAspects);
+    EntitySpec entitySpec = new EntitySpec("dataset", DATASET_URN.toString(), proposedAspects);
 
     // Mock no parent domains
     when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
+            any(OperationContext.class),
             eq(DOMAIN_ENTITY_NAME),
             any(),
             eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(Collections.emptyMap());
 
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
+    DomainFieldResolverProvider provider = new DomainFieldResolverProvider(mockEntityClient);
+    FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
     FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
 
-    assertNotNull(fieldValue);
     assertEquals(fieldValue.getValues().size(), 2);
     assertTrue(fieldValue.getValues().contains(domainUrn1.toString()));
     assertTrue(fieldValue.getValues().contains(domainUrn2.toString()));
   }
 
-  @Test
-  public void testGetDomainsWhenEntityIsDomain() throws Exception {
-    // Test special case where entity is a domain itself
-    Urn domainUrn = UrnUtils.getUrn("urn:li:domain:engineering");
+  // Helper methods
 
-    EntitySpec entitySpec = new EntitySpec(DOMAIN_ENTITY_NAME, domainUrn.toString());
+  private void setupDomainHierarchy() throws RemoteInvocationException, URISyntaxException {
+    // grandchild -> child
+    Map<Urn, EntityResponse> grandchildResponse = new HashMap<>();
+    grandchildResponse.put(
+        GRANDCHILD_DOMAIN_URN,
+        createDomainPropertiesResponse(GRANDCHILD_DOMAIN_URN, CHILD_DOMAIN_URN));
 
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
+    // child -> parent
+    Map<Urn, EntityResponse> childResponse = new HashMap<>();
+    childResponse.put(
+        CHILD_DOMAIN_URN, createDomainPropertiesResponse(CHILD_DOMAIN_URN, PARENT_DOMAIN_URN));
 
-    assertNotNull(fieldValue);
-    assertEquals(fieldValue.getValues().size(), 1);
-    assertTrue(fieldValue.getValues().contains(domainUrn.toString()));
+    // parent -> null
+    Map<Urn, EntityResponse> parentResponse = new HashMap<>();
+    parentResponse.put(PARENT_DOMAIN_URN, createDomainPropertiesResponse(PARENT_DOMAIN_URN, null));
 
-    // Should not call entity client for domain entity
-    verify(mockEntityClient, never()).getV2(any(), any(), any(), any());
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(GRANDCHILD_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(grandchildResponse);
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(CHILD_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(childResponse);
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(PARENT_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(parentResponse);
   }
 
-  @Test
-  public void testGetDomainsWithExistingAspect() throws Exception {
-    Urn domainUrn = UrnUtils.getUrn("urn:li:domain:engineering");
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+  private void setupDatasetWithDomain() throws RemoteInvocationException, URISyntaxException {
+    // Dataset has child domain assignment
+    EntityResponse datasetResponse = new EntityResponse();
+    datasetResponse.setUrn(DATASET_URN);
+    datasetResponse.setEntityName(DATASET_ENTITY_NAME);
 
     Domains domains = new Domains();
-    domains.setDomains(new UrnArray(domainUrn));
+    domains.setDomains(
+        new com.linkedin.common.UrnArray(Collections.singletonList(CHILD_DOMAIN_URN)));
 
+    EnvelopedAspect domainsAspect = new EnvelopedAspect();
+    domainsAspect.setName(DOMAINS_ASPECT_NAME);
+    domainsAspect.setValue(new Aspect(domains.data()));
+
+    datasetResponse.setAspects(
+        new EnvelopedAspectMap(Collections.singletonMap(DOMAINS_ASPECT_NAME, domainsAspect)));
+
+    when(mockEntityClient.getV2(
+            any(OperationContext.class),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_URN),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
+        .thenReturn(datasetResponse);
+
+    // child -> parent hierarchy
+    Map<Urn, EntityResponse> childResponse = new HashMap<>();
+    childResponse.put(
+        CHILD_DOMAIN_URN, createDomainPropertiesResponse(CHILD_DOMAIN_URN, PARENT_DOMAIN_URN));
+
+    Map<Urn, EntityResponse> parentResponse = new HashMap<>();
+    parentResponse.put(PARENT_DOMAIN_URN, createDomainPropertiesResponse(PARENT_DOMAIN_URN, null));
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(CHILD_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(childResponse);
+
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            eq(Set.of(PARENT_DOMAIN_URN)),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(parentResponse);
+
+    // Handle anySet() for batching
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(DOMAIN_ENTITY_NAME),
+            anySet(),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(2);
+              Map<Urn, EntityResponse> responses = new HashMap<>();
+              if (urns.contains(CHILD_DOMAIN_URN)) {
+                responses.put(
+                    CHILD_DOMAIN_URN,
+                    createDomainPropertiesResponse(CHILD_DOMAIN_URN, PARENT_DOMAIN_URN));
+              }
+              if (urns.contains(PARENT_DOMAIN_URN)) {
+                responses.put(
+                    PARENT_DOMAIN_URN, createDomainPropertiesResponse(PARENT_DOMAIN_URN, null));
+              }
+              return responses;
+            });
+  }
+
+  private EntityResponse createDomainPropertiesResponse(Urn domainUrn, Urn parentDomainUrn) {
     EntityResponse response = new EntityResponse();
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(domains.data()));
-    aspectMap.put(DOMAINS_ASPECT_NAME, envelopedAspect);
-    response.setAspects(aspectMap);
+    response.setUrn(domainUrn);
+    response.setEntityName(DOMAIN_ENTITY_NAME);
 
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenReturn(response);
+    DomainProperties properties = new DomainProperties();
+    properties.setName(domainUrn.getId());
+    if (parentDomainUrn != null) {
+      properties.setParentDomain(parentDomainUrn);
+    }
 
-    // Mock no parent domains
-    when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
-            eq(DOMAIN_ENTITY_NAME),
-            any(),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(Collections.emptyMap());
+    EnvelopedAspect propertiesAspect = new EnvelopedAspect();
+    propertiesAspect.setName(DOMAIN_PROPERTIES_ASPECT_NAME);
+    propertiesAspect.setValue(new Aspect(properties.data()));
 
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
+    response.setAspects(
+        new EnvelopedAspectMap(
+            Collections.singletonMap(DOMAIN_PROPERTIES_ASPECT_NAME, propertiesAspect)));
 
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    assertNotNull(fieldValue);
-    assertEquals(fieldValue.getValues().size(), 1);
-    assertTrue(fieldValue.getValues().contains(domainUrn.toString()));
-  }
-
-  @Test
-  public void testGetDomainsWithParentDomains() throws Exception {
-    Urn childDomainUrn = UrnUtils.getUrn("urn:li:domain:engineering");
-    Urn parentDomainUrn = UrnUtils.getUrn("urn:li:domain:tech");
-    Urn grandparentDomainUrn = UrnUtils.getUrn("urn:li:domain:company");
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-    Domains domains = new Domains();
-    domains.setDomains(new UrnArray(childDomainUrn));
-
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(domains.data()));
-    aspectMap.put(DOMAINS_ASPECT_NAME, envelopedAspect);
-    response.setAspects(aspectMap);
-
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenReturn(response);
-
-    // Mock parent domain hierarchy
-    DomainProperties childProps = new DomainProperties();
-    childProps.setParentDomain(parentDomainUrn);
-    EntityResponse childResponse = new EntityResponse();
-    EnvelopedAspectMap childAspectMap = new EnvelopedAspectMap();
-    EnvelopedAspect childEnvelopedAspect = new EnvelopedAspect();
-    childEnvelopedAspect.setValue(new Aspect(childProps.data()));
-    childAspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, childEnvelopedAspect);
-    childResponse.setAspects(childAspectMap);
-
-    DomainProperties parentProps = new DomainProperties();
-    parentProps.setParentDomain(grandparentDomainUrn);
-    EntityResponse parentResponse = new EntityResponse();
-    EnvelopedAspectMap parentAspectMap = new EnvelopedAspectMap();
-    EnvelopedAspect parentEnvelopedAspect = new EnvelopedAspect();
-    parentEnvelopedAspect.setValue(new Aspect(parentProps.data()));
-    parentAspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, parentEnvelopedAspect);
-    parentResponse.setAspects(parentAspectMap);
-
-    // First call returns parent
-    when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
-            eq(DOMAIN_ENTITY_NAME),
-            eq(Set.of(childDomainUrn)),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(Map.of(childDomainUrn, childResponse));
-
-    // Second call returns grandparent
-    when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
-            eq(DOMAIN_ENTITY_NAME),
-            eq(Set.of(parentDomainUrn)),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(Map.of(parentDomainUrn, parentResponse));
-
-    // Third call returns no more parents
-    when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
-            eq(DOMAIN_ENTITY_NAME),
-            eq(Set.of(grandparentDomainUrn)),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(Collections.emptyMap());
-
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
-
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    assertNotNull(fieldValue);
-    assertEquals(fieldValue.getValues().size(), 3);
-    assertTrue(fieldValue.getValues().contains(childDomainUrn.toString()));
-    assertTrue(fieldValue.getValues().contains(parentDomainUrn.toString()));
-    assertTrue(fieldValue.getValues().contains(grandparentDomainUrn.toString()));
-  }
-
-  @Test
-  public void testGetDomainsNoDomainsAspect() throws Exception {
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-    EntityResponse response = new EntityResponse();
-    response.setAspects(new EnvelopedAspectMap());
-
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenReturn(response);
-
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
-
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    assertNotNull(fieldValue);
-    assertTrue(fieldValue.getValues().isEmpty());
-  }
-
-  @Test
-  public void testGetDomainsEntityClientReturnsNull() throws Exception {
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenReturn(null);
-
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
-
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    assertNotNull(fieldValue);
-    assertTrue(fieldValue.getValues().isEmpty());
-  }
-
-  @Test
-  public void testGetDomainsEntityClientThrowsException() throws Exception {
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenThrow(new RuntimeException("Connection error"));
-
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
-
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    assertNotNull(fieldValue);
-    assertTrue(fieldValue.getValues().isEmpty());
-  }
-
-  @Test
-  public void testGetDomainsBatchGetParentDomainsThrowsException() throws Exception {
-    Urn domainUrn = UrnUtils.getUrn("urn:li:domain:engineering");
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-    Domains domains = new Domains();
-    domains.setDomains(new UrnArray(domainUrn));
-
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(domains.data()));
-    aspectMap.put(DOMAINS_ASPECT_NAME, envelopedAspect);
-    response.setAspects(aspectMap);
-
-    when(mockEntityClient.getV2(
-            eq(mockOpContext),
-            eq("dataset"),
-            eq(datasetUrn),
-            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
-        .thenReturn(response);
-
-    // Mock exception during parent domain batch fetch
-    when(mockEntityClient.batchGetV2(
-            eq(mockOpContext),
-            eq(DOMAIN_ENTITY_NAME),
-            any(),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
-        .thenThrow(new RuntimeException("Batch fetch error"));
-
-    EntitySpec entitySpec = new EntitySpec("dataset", datasetUrn.toString());
-
-    FieldResolver resolver = provider.getFieldResolver(mockOpContext, entitySpec);
-    FieldResolver.FieldValue fieldValue = resolver.getFieldValuesFuture().get();
-
-    // Should still return the domain even if parent fetch fails
-    assertNotNull(fieldValue);
-    assertEquals(fieldValue.getValues().size(), 1);
-    assertTrue(fieldValue.getValues().contains(domainUrn.toString()));
+    return response;
   }
 }

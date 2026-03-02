@@ -21,10 +21,10 @@ const urlFieldPath = 'source.config.url';
 const usernameFieldPath = 'source.config.username';
 const apiTokenFieldPath = 'source.config.api_token';
 const personalAccessTokenFieldPath = 'source.config.personal_access_token';
-const spaceAllowFieldPath = 'source.config.space_allow';
-const spaceDenyFieldPath = 'source.config.space_deny';
-const pageAllowFieldPath = 'source.config.page_allow';
-const pageDenyFieldPath = 'source.config.page_deny';
+const spaceAllowFieldPath = 'source.config.spaces.allow';
+const spaceDenyFieldPath = 'source.config.spaces.deny';
+const pageAllowFieldPath = 'source.config.pages.allow';
+const pageDenyFieldPath = 'source.config.pages.deny';
 
 // Helper functions for deployment type
 function setDeploymentTypeOnRecipe(recipe: any, value: string): any {
@@ -190,6 +190,7 @@ export const CONFLUENCE_SPACE_ALLOW: FilterRecipeField = {
     buttonLabel: 'Add space',
     rules: null,
     section: 'Spaces',
+    filteringResource: 'Space',
     rule: FilterRule.INCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, spaceAllowFieldPath),
@@ -212,6 +213,7 @@ export const CONFLUENCE_SPACE_DENY: FilterRecipeField = {
     buttonLabel: 'Add space',
     rules: null,
     section: 'Spaces',
+    filteringResource: 'Space',
     rule: FilterRule.EXCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, spaceDenyFieldPath),
@@ -239,6 +241,7 @@ export const CONFLUENCE_PAGE_ALLOW: FilterRecipeField = {
     buttonLabel: 'Add page',
     rules: null,
     section: 'Pages',
+    filteringResource: 'Page',
     rule: FilterRule.INCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, pageAllowFieldPath),
@@ -261,6 +264,7 @@ export const CONFLUENCE_PAGE_DENY: FilterRecipeField = {
     buttonLabel: 'Add page',
     rules: null,
     section: 'Pages',
+    filteringResource: 'Page',
     rule: FilterRule.EXCLUDE,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, pageDenyFieldPath),

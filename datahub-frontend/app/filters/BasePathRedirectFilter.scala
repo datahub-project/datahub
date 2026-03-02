@@ -29,15 +29,25 @@ class BasePathRedirectFilter @Inject()(config: Config)(implicit val mat: Materia
     normalized
   }
 
+  /**
+   * Normalizes path for safe same-origin redirects. Strips leading slashes so that
+   * paths like "//google.com" (scheme-relative URL) become "google.com" and redirect
+   * to "/google.com" on the same origin instead of an open redirect.
+   */
+  private def safeRedirectPath(path: String): String =
+    path.replaceFirst("^/+", "")
+
   def apply(nextFilter: RequestHeader => Future[Result])(requestHeader: RequestHeader): Future[Result] = {
 
     val path = requestHeader.path
+    val querySuffix = if (requestHeader.rawQueryString.nonEmpty) "?" + requestHeader.rawQueryString else ""
+    val effectiveBase = if (basePath == "/") "" else basePath
 
     // First, handle trailing slash redirects (redirectToNoTrailingSlashIfPresent equivalent)
     if (path.endsWith("/") && path.length > 1) {
       val pathWithoutTrailingSlash = path.substring(0, path.length - 1)
-      val redirectUrl = pathWithoutTrailingSlash +
-        (if (requestHeader.rawQueryString.nonEmpty) "?" + requestHeader.rawQueryString else "")
+      val safePath = safeRedirectPath(pathWithoutTrailingSlash)
+      val redirectUrl = effectiveBase + "/" + (if (safePath.isEmpty) "" else safePath) + querySuffix
 
       logger.debug(s"Redirecting trailing slash: $path to $redirectUrl")
       return Future.successful(Results.MovedPermanently(redirectUrl))
@@ -45,8 +55,8 @@ class BasePathRedirectFilter @Inject()(config: Config)(implicit val mat: Materia
 
     // Then handle base path redirects if base path is configured
     if (basePath.nonEmpty && !path.startsWith(basePath)) {
-      val redirectUrl = basePath + path +
-        (if (requestHeader.rawQueryString.nonEmpty) "?" + requestHeader.rawQueryString else "")
+      val safePath = safeRedirectPath(path)
+      val redirectUrl = effectiveBase + "/" + (if (safePath.isEmpty) "" else safePath) + querySuffix
 
       logger.debug(s"Redirecting to base path: $path to $redirectUrl")
       return Future.successful(Results.MovedPermanently(redirectUrl))

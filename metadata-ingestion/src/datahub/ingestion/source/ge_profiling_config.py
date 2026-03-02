@@ -6,6 +6,7 @@ from typing import Annotated, Any, Dict, List, Optional
 import pydantic
 from pydantic import model_validator
 from pydantic.fields import Field
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
 from datahub.ingestion.source_config.operation_config import OperationConfig
@@ -20,7 +21,20 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class GEProfilingBaseConfig(ConfigModel):
+class ProfilingMethodConfig(ConfigModel):
+    """Base class for profiling configs that support method selection."""
+
+    method: Literal["ge", "sqlalchemy"] = Field(
+        default="ge",
+        description=(
+            "Profiling method to use. "
+            "Options: `ge` (Great Expectations) or `sqlalchemy` (custom SQLAlchemy-based profiler). "
+            "The SQLAlchemy profiler has no GE dependency and provides the same functionality."
+        ),
+    )
+
+
+class GEProfilingBaseConfig(ProfilingMethodConfig):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -277,3 +291,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+# Alias for clearer naming in new code
+# GEProfilingConfig is misleadingly named - it's actually a generic profiling config
+# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
+# more appropriate name without breaking existing code.
+#
+# Migration strategy:
+# 1. New code should use ProfilingConfig instead of GEProfilingConfig
+# 2. Once GE profiler is removed, deprecate GEProfilingConfig with a warning
+# 3. Eventually rename the class itself to ProfilingConfig
+# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
+#    generic profiling infrastructure, not source-specific
+ProfilingConfig = GEProfilingConfig

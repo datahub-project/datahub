@@ -128,7 +128,12 @@ public class SearchTestUtils {
                   .minSearchFilterLength(3)
                   .build())
           .buildIndices(
-              BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
+              BuildIndicesConfiguration.builder()
+                  .reindexOptimizationEnabled(true)
+                  .reindexBatchSize(5000)
+                  .reindexMaxSlices(256)
+                  .reindexNoProgressRetryMinutes(5)
+                  .build())
           .entityIndex(
               EntityIndexConfiguration.builder()
                   .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
@@ -419,6 +424,11 @@ public class SearchTestUtils {
           @Override
           public DataHubAppConfiguration getDataHubAppConfig() {
             return new DataHubAppConfiguration();
+          }
+
+          @Override
+          public int getMaxParentDepth() {
+            return 50;
           }
         });
   }

@@ -4,6 +4,8 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -16,6 +18,10 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -423,6 +429,88 @@ public class SearchAcrossEntitiesResolverTest {
         10);
 
     verifyMockViewService(mockService, TEST_VIEW_URN);
+  }
+
+  @Test
+  public static void testSearchWithSearchFlagsAndSortInput() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), eq("query"), any(), eq(0), eq(10), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET),
+            "query",
+            0,
+            10,
+            null,
+            null,
+            null,
+            new SearchFlags(),
+            null);
+    SearchSortInput sortInput = new SearchSortInput();
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name");
+    sortCriterion.setSortOrder(SortOrder.ASCENDING);
+    sortInput.setSortCriteria(ImmutableList.of(sortCriterion));
+    input.setSortInput(sortInput);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), eq("query"), any(), eq(0), eq(10), any(), any());
+  }
+
+  @Test
+  public static void testSearchWithStructuredPropertyFacets() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchFlags flags = new SearchFlags();
+    flags.setIncludeStructuredPropertyFacets(true);
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET), "q", 0, 10, null, null, null, flags, null);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.atLeast(1))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
   }
 
   @Test

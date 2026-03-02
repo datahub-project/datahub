@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUpdateDomainEntityDataOnChange } from '@app/domain/utils';
+import { EntityCapabilityType } from '@app/entity/Entity';
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -47,6 +48,7 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useGetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
 
 type Props<T, U> = {
@@ -215,8 +217,14 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
+    const { data: formsData } = useGetFormsForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+        skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
+    });
+
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChange(entityData, entityType);

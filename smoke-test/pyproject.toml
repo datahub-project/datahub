@@ -79,6 +79,8 @@ disallow_incomplete_defs = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
+addopts = "-s -v --junit-xml=test-results/junit.smoke.xml"
+junit_suite_name = "smoke-test-pytest"
 markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",

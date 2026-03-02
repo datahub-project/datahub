@@ -36,11 +36,14 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
     config: AssertionCircuitBreakerConfig
 
     def __init__(self, config: AssertionCircuitBreakerConfig):
-        super().__init__(config.datahub_host, config.datahub_token, config.timeout)
+        _token = (
+            config.datahub_token.get_secret_value() if config.datahub_token else None
+        )
+        super().__init__(config.datahub_host, _token, config.timeout)
         self.config = config
         self.assertion_api = Assertion(
             datahub_host=config.datahub_host,
-            datahub_token=config.datahub_token,
+            datahub_token=_token,
             timeout=config.timeout,
         )
 

@@ -238,6 +238,7 @@ def load_config_file(
                     if url_parsed.username or url_parsed.password
                     else None,
                 )
+                response.raise_for_status()
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(

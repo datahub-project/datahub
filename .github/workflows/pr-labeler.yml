@@ -43,6 +43,7 @@ jobs:
           "deepgarg760",
           "devashish2203",
           "dinesh-verma-datahub",
+          "dutt23",
           "esteban",
           "gabe-lyons",
           "jayacryl",
@@ -69,7 +70,8 @@ jobs:
           "swaroopjagadish",
           "treff7es",
           "v-tarasevich-blitz-brain",
-          "yoonhyejin"
+          "yoonhyejin",
+          "gdatahub"
           ]'),
           github.actor
           )

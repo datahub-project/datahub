@@ -27,6 +27,7 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
+    FlowContainerSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -705,6 +706,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         db_name=db_name,
                         schema_name=snowflake_schema.name,
                     ),
+                    subtype=FlowContainerSubTypes.PROCEDURE_CONTAINER,
                 )
             for procedure in procedures:
                 yield from self._process_procedure(procedure, snowflake_schema, db_name)
@@ -1313,6 +1315,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         "IS_HYBRID": "true" if table.is_hybrid else None,
                         "IS_DYNAMIC": "true" if table.is_dynamic else None,
                         "IS_ICEBERG": "true" if table.is_iceberg else None,
+                        "RETENTION_TIME": (
+                            str(table.retention_time)
+                            if table.retention_time is not None
+                            else None
+                        ),
                     }.items()
                     if v
                 }

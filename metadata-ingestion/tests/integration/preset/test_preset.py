@@ -199,6 +199,69 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 },
             },
         },
+        "mock://mock-domain.preset.io/api/v1/dashboard/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "result": {
+                    "id": "1",
+                    "changed_by": {
+                        "first_name": "Test",
+                        "id": 1,
+                        "last_name": "Owner1",
+                    },
+                    "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
+                    "dashboard_title": "test_dashboard_title_1",
+                    "url": "/dashboard/test_dashboard_url_1",
+                    "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                    "status": "published",
+                    "published": True,
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owner1",
+                        },
+                        {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
+                        },
+                    ],
+                    "certified_by": "Certification team",
+                    "certification_details": "Approved",
+                },
+            },
+        },
+        "mock://mock-domain.preset.io/api/v1/dashboard/2": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "result": {
+                    "id": "2",
+                    "changed_by": {
+                        "first_name": "Test",
+                        "id": 2,
+                        "last_name": "Owner2",
+                    },
+                    "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
+                    "dashboard_title": "test_dashboard_title_2",
+                    "url": "/dashboard/test_dashboard_url_2",
+                    "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
+                    "status": "draft",
+                    "published": False,
+                    "owners": [
+                        {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owner2",
+                        }
+                    ],
+                    "certified_by": "",
+                    "certification_details": "",
+                },
+            },
+        },
         "mock://mock-domain.preset.io/api/v1/dashboard/related/owners": {
             "method": "GET",
             "status_code": 200,

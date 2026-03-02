@@ -13,11 +13,19 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.suggest.Suggest;
 import org.opensearch.search.suggest.SuggestBuilder;
 import org.opensearch.search.suggest.SuggestBuilders;
 import org.opensearch.search.suggest.SuggestionBuilder;
+import org.opensearch.search.suggest.completion.CompletionSuggestion;
+import org.opensearch.search.suggest.phrase.PhraseSuggestion;
+import org.opensearch.search.suggest.term.TermSuggestion;
 import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -150,6 +158,136 @@ public class Es8SearchClientShimConversionTest {
     Action result = invokeConvertAliasAction(addActionWithRouting);
 
     assertNotNull(result, "Converted Action with routing should not be null");
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a TermSuggestion from ES8 JSON response. The JSON uses
+   * typed keys format (e.g., "term#suggestion_name") which is how ES8 returns suggestions when
+   * typed_keys=true is set.
+   */
+  @Test
+  public void testXContentRegistryParsesTermSuggestion() throws Exception {
+    String termSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"term#term_suggestion\": [{"
+            + "    \"text\": \"tset\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 4,"
+            + "    \"options\": [{\"text\": \"test\", \"score\": 0.75, \"freq\": 10}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(termSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("term_suggestion");
+    assertNotNull(suggestion, "term_suggestion should be present");
+    assertEquals(suggestion.getClass(), TermSuggestion.class, "Should be a TermSuggestion");
+
+    TermSuggestion termSuggestion = (TermSuggestion) suggestion;
+    assertEquals(termSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        termSuggestion.getEntries().get(0).getText().string(), "tset", "Entry text should match");
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a PhraseSuggestion from ES8 JSON response. The JSON uses
+   * typed keys format (e.g., "phrase#suggestion_name").
+   */
+  @Test
+  public void testXContentRegistryParsesPhraseSuggestion() throws Exception {
+    String phraseSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"phrase#phrase_suggestion\": [{"
+            + "    \"text\": \"nobel prize\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 11,"
+            + "    \"options\": [{\"text\": \"noble prize\", \"score\": 0.85}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(phraseSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("phrase_suggestion");
+    assertNotNull(suggestion, "phrase_suggestion should be present");
+    assertEquals(suggestion.getClass(), PhraseSuggestion.class, "Should be a PhraseSuggestion");
+
+    PhraseSuggestion phraseSuggestion = (PhraseSuggestion) suggestion;
+    assertEquals(phraseSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        phraseSuggestion.getEntries().get(0).getText().string(),
+        "nobel prize",
+        "Entry text should match");
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a CompletionSuggestion from ES8 JSON response. The JSON
+   * uses typed keys format (e.g., "completion#suggestion_name").
+   */
+  @Test
+  public void testXContentRegistryParsesCompletionSuggestion() throws Exception {
+    String completionSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"completion#completion_suggestion\": [{"
+            + "    \"text\": \"dat\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 3,"
+            + "    \"options\": [{\"text\": \"dataset\", \"_index\": \"test\", \"_id\": \"1\", \"_score\": 1.0, \"_source\": {}}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(completionSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("completion_suggestion");
+    assertNotNull(suggestion, "completion_suggestion should be present");
+    assertEquals(
+        suggestion.getClass(), CompletionSuggestion.class, "Should be a CompletionSuggestion");
+
+    CompletionSuggestion completionSuggestion = (CompletionSuggestion) suggestion;
+    assertEquals(completionSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        completionSuggestion.getEntries().get(0).getText().string(),
+        "dat",
+        "Entry text should match");
+  }
+
+  /** Helper method to parse a JSON string into a SearchResponse using X_CONTENT_REGISTRY. */
+  private SearchResponse parseSearchResponse(String json) throws Exception {
+    try (XContentParser parser =
+        XContentType.JSON
+            .xContent()
+            .createParser(
+                SearchClientShimUtil.X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE,
+                json)) {
+      return SearchResponse.fromXContent(parser);
+    }
   }
 
   /** Helper method to invoke the private convertSuggestion method via reflection. */

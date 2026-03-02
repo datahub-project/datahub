@@ -57,18 +57,17 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install GX package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testQuick
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.python-version == '3.11' && matrix.extraPythonRequirement == 'great-expectations~=0.17.0' }}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (GX Plugin ${{ matrix.python-version}})
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
+          artifact-name: ingestion-gx-plugin-test-results-${{ strategy.job-index }}
+          test-results-paths: "metadata-ingestion-modules/gx-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/gx-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5
@@ -77,7 +76,7 @@ jobs:
           directory: ./build/coverage-reports/metadata-ingestion-modules/gx-plugin/
           fail_ci_if_error: false
           flags: ingestion-gx-plugin
-          name: pytest-gx
+          name: pytest-gx-${{ strategy.job-index }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov

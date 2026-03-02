@@ -1,3 +1,4 @@
+import sysconfig
 from typing import Dict, Set
 
 import setuptools
@@ -28,6 +29,10 @@ base_requirements = {
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
     "sentry-sdk>=1.33.1,<3.0.0",
+    # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
+    "python-json-logger>=2.0.0,<5.0.0",
+    # setuptools 82.0.0 deprecated pkg_resource
+    "setuptools<82.0.0",
 }
 
 framework_common = {
@@ -102,8 +107,12 @@ usage_common = {
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but not longer do.
-    "sqlglot[rs]==27.27.0",
+    # but no longer do.
+    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
+    # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
+    # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
+    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
+    "sqlglot[c]==29.0.1",
     "patchy==2.8.0",
 }
 
@@ -261,7 +270,9 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    # Lower bound >=1.4.6: Versions 1.4.3-1.4.5 require snowflake-connector-python<3.0.0,
+    # but we need snowflake-connector-python>=3.4.0. Version 1.4.6+ supports connector 3.x.
+    # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
     # table column name reflection for non-uppercase table names. While we do not
@@ -276,14 +287,21 @@ snowflake_common = {
     #
     # Reflection failures for case-sensitive object names are a known issue:
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/388
-    #
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
-    "snowflake-sqlalchemy>=1.4.3,<1.7.4",
-    "snowflake-connector-python>=3.4.0,<4.0.0",
+    #
+    # Upper bound <1.7.4 was (accidentally?) removed 
+    # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
+    #
+    # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
+    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
+    # incompatible with cryptography 46+. 3.8.0 was yanked.
+    "snowflake-connector-python>=4.0.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography<47.0.0",
+    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
     "msal<2.0.0",
+    "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
     *classification_lib,
 }
@@ -302,7 +320,9 @@ pyhive_common = {
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
     # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    "acryl-pyhive[hive-pure-sasl]==0.6.17",
+    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
+    #   (https://github.com/acryldata/PyHive/pull/11)
+    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -427,6 +447,7 @@ databricks = {
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
+mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
@@ -639,9 +660,9 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
+    "mysql": mysql_common,
+    "mariadb": mysql_common,
+    "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -718,8 +739,6 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
-    # Agent plugins
-    "snowflake-agent": {f"datahub-agent-context{_self_pin}[snowflake]"},
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
@@ -922,6 +941,7 @@ full_test_dev_requirements = {
             "db2",
             "debug-recording",
             "delta-lake",
+            "doris",
             "druid",
             "excel",
             "feast",
@@ -948,6 +968,9 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "sqlalchemy.dialects": [
+        "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
+    ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
@@ -1000,7 +1023,8 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
-        "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
@@ -1065,6 +1089,7 @@ entry_points = {
         "add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:AddDatasetProperties",
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
+        "set_attribution = datahub.ingestion.transformer.set_attribution:SetAttributionTransformer",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
         "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
@@ -1148,6 +1173,11 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
         "datahub.ingestion.autogenerated": ["*.json"],
     },
+    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
+    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    data_files=[
+        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+    ],
     entry_points=entry_points,
     # Dependencies.
     install_requires=list(base_requirements | framework_common),

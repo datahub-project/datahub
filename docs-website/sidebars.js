@@ -408,6 +408,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -1212,6 +1217,7 @@ module.exports = {
             "docs/dev-guides/semantic-search/README",
             "docs/dev-guides/semantic-search/ARCHITECTURE",
             "docs/dev-guides/semantic-search/CONFIGURATION",
+            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
           ],
         },
         "docs/modeling/extending-the-metadata-model",
@@ -1224,6 +1230,7 @@ module.exports = {
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",
         "docs/how/migrating-graph-service-implementation",
+        "docs/how/migrating-elasticsearch-opensearch",
         "docs/advanced/field-path-spec-v2",
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",

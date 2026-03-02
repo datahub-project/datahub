@@ -81,13 +81,17 @@ jobs:
         id: set-runner
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
-            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "test_runner_type=depot-ubuntu-24.04-4"
+              echo "test_runner_type_small=depot-ubuntu-24.04-small"
+              echo "use_depot_cache=true"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "test_runner_type=ubuntu-latest"
+              echo "test_runner_type_small=ubuntu-latest"
+              echo "use_depot_cache=false"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Compute UV Cache Key
@@ -538,6 +542,7 @@ jobs:
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
@@ -556,7 +561,7 @@ jobs:
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
             --repository "${{ github.repository }}" \
             --workflow-name "${{ github.workflow }}" \
-            --branch "${{ github.head_ref || github.ref_name }}" \
+            --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
             --batch "${{ matrix.profile }}-${{ matrix.architecture }}" \
