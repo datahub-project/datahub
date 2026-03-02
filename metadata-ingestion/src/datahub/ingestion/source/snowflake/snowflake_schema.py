@@ -85,6 +85,25 @@ class SnowflakeTag:
     schema: str
     name: str
     value: str
+    is_inherited: bool = False
+    inherited_from: Optional[str] = None  # SnowflakeObjectDomain value, e.g. "database"
+
+    def as_inherited(self, level: str) -> "SnowflakeTag":
+        """Return a copy marked as inherited from a parent object *level*.
+
+        Args:
+            level: The hierarchy level this tag was inherited from,
+                   should be a ``SnowflakeObjectDomain`` value
+                   (e.g. ``SnowflakeObjectDomain.DATABASE``).
+        """
+        return SnowflakeTag(
+            database=self.database,
+            schema=self.schema,
+            name=self.name,
+            value=self.value,
+            is_inherited=True,
+            inherited_from=level,
+        )
 
     def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
@@ -435,6 +454,84 @@ class _SnowflakeTagCache:
         return (
             self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
         )
+
+    # --- Inheritance-aware methods ---
+    # These emulate Snowflake's tag inheritance: a tag set on a database is
+    # inherited by its schemas, tables, and columns.  A more-specific
+    # assignment (e.g. directly on the table) overrides the inherited value.
+
+    @staticmethod
+    def _deduplicate_tags(tags: List[SnowflakeTag]) -> List[SnowflakeTag]:
+        """Deduplicate tags by (database, schema, name), preferring direct over inherited."""
+        best: Dict[tuple, SnowflakeTag] = {}
+        for tag in tags:
+            key = (tag.database, tag.schema, tag.name)
+            existing = best.get(key)
+            if existing is None or (existing.is_inherited and not tag.is_inherited):
+                best[key] = tag
+        return list(best.values())
+
+    @staticmethod
+    def _mark_inherited(tags: List[SnowflakeTag], level: str) -> List[SnowflakeTag]:
+        return [t.as_inherited(level) for t in tags]
+
+    def get_schema_tags_with_inheritance(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_schema_tags(schema_name, db_name)
+        inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + inherited)
+
+    def get_table_tags_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_table_tags(table_name, schema_name, db_name)
+        schema_inherited = self._mark_inherited(
+            self.get_schema_tags(schema_name, db_name),
+            SnowflakeObjectDomain.SCHEMA,
+        )
+        db_inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + schema_inherited + db_inherited)
+
+    def get_column_tags_for_table_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeTag]]:
+        """Return column tags with inheritance from table, schema, and database levels.
+
+        For each column that has direct tags, merge in inherited tags from
+        parent objects.
+        """
+        direct_column_tags = self.get_column_tags_for_table(
+            table_name, schema_name, db_name
+        )
+
+        # Tags inherited by every column in this table
+        parent_tags = (
+            self._mark_inherited(
+                self.get_table_tags(table_name, schema_name, db_name),
+                SnowflakeObjectDomain.TABLE,
+            )
+            + self._mark_inherited(
+                self.get_schema_tags(schema_name, db_name),
+                SnowflakeObjectDomain.SCHEMA,
+            )
+            + self._mark_inherited(
+                self.get_database_tags(db_name),
+                SnowflakeObjectDomain.DATABASE,
+            )
+        )
+
+        if not parent_tags:
+            return dict(direct_column_tags)
+
+        result: Dict[str, List[SnowflakeTag]] = {}
+        for col_name, col_tags in direct_column_tags.items():
+            result[col_name] = self._deduplicate_tags(list(col_tags) + parent_tags)
+        return result
 
 
 class SnowflakeDataDictionary(SupportsAsObj):

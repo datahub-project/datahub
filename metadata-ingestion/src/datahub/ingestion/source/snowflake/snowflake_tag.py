@@ -50,6 +50,12 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self.snowflake_identifiers = snowflake_identifiers
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
+    def _ensure_cache_loaded(self, db_name: str) -> None:
+        if db_name not in self.tag_cache:
+            self.tag_cache[db_name] = (
+                self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+            )
+
     def _get_tags_on_object_without_propagation(
         self,
         domain: str,
@@ -57,10 +63,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         schema_name: Optional[str],
         table_name: Optional[str],
     ) -> List[SnowflakeTag]:
-        if db_name not in self.tag_cache:
-            self.tag_cache[db_name] = (
-                self.data_dictionary.get_tags_for_database_without_propagation(db_name)
-            )
+        self._ensure_cache_loaded(db_name)
 
         if domain == SnowflakeObjectDomain.DATABASE:
             return self.tag_cache[db_name].get_database_tags(db_name)
@@ -78,6 +81,37 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         else:
             raise ValueError(f"Unknown domain {domain}")
         return tags
+
+    def _get_tags_on_object_with_inheritance(
+        self,
+        domain: str,
+        db_name: str,
+        schema_name: Optional[str],
+        table_name: Optional[str],
+    ) -> List[SnowflakeTag]:
+        """Get tags including those inherited from parent objects.
+
+        Uses the same bulk-loaded cache as without_propagation, but merges
+        parent-level tags downward to emulate Snowflake's tag inheritance.
+        """
+        self._ensure_cache_loaded(db_name)
+
+        if domain == SnowflakeObjectDomain.DATABASE:
+            # Database is the top level — no inheritance to add.
+            return self.tag_cache[db_name].get_database_tags(db_name)
+        elif domain == SnowflakeObjectDomain.SCHEMA:
+            assert schema_name is not None
+            return self.tag_cache[db_name].get_schema_tags_with_inheritance(
+                schema_name, db_name
+            )
+        elif domain == SnowflakeObjectDomain.TABLE:
+            assert schema_name is not None
+            assert table_name is not None
+            return self.tag_cache[db_name].get_table_tags_with_inheritance(
+                table_name, schema_name, db_name
+            )
+        else:
+            raise ValueError(f"Unknown domain {domain}")
 
     def create_structured_property_templates(self) -> Iterable[MetadataWorkUnit]:
         for tag in self.data_dictionary.get_all_tags():
@@ -116,39 +150,6 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             headers={"If-None-Match": "*"},
         ).as_workunit()
 
-    def _get_tags_on_object_with_propagation(
-        self,
-        domain: str,
-        db_name: str,
-        schema_name: Optional[str],
-        table_name: Optional[str],
-    ) -> List[SnowflakeTag]:
-        identifier = ""
-        if domain == SnowflakeObjectDomain.DATABASE:
-            identifier = self.identifiers.get_quoted_identifier_for_database(db_name)
-        elif domain == SnowflakeObjectDomain.SCHEMA:
-            assert schema_name is not None
-            identifier = self.identifiers.get_quoted_identifier_for_schema(
-                db_name, schema_name
-            )
-        elif (
-            domain == SnowflakeObjectDomain.TABLE
-        ):  # Views belong to this domain as well.
-            assert schema_name is not None
-            assert table_name is not None
-            identifier = self.identifiers.get_quoted_identifier_for_table(
-                db_name, schema_name, table_name
-            )
-        else:
-            raise ValueError(f"Unknown domain {domain}")
-        assert identifier
-
-        self.report.num_get_tags_for_object_queries += 1
-        tags = self.data_dictionary.get_tags_for_object_with_propagation(
-            domain=domain, quoted_identifier=identifier, db_name=db_name
-        )
-        return tags
-
     def get_tags_on_object(
         self,
         domain: str,
@@ -165,7 +166,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             )
 
         elif self.config.extract_tags == TagOption.with_lineage:
-            tags = self._get_tags_on_object_with_propagation(
+            tags = self._get_tags_on_object_with_inheritance(
                 domain=domain,
                 db_name=db_name,
                 schema_name=schema_name,
@@ -186,22 +187,16 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
     ) -> Dict[str, List[SnowflakeTag]]:
         temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
-            if db_name not in self.tag_cache:
-                self.tag_cache[db_name] = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
-                )
+            self._ensure_cache_loaded(db_name)
             temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
                 table_name, schema_name, db_name
             )
         elif self.config.extract_tags == TagOption.with_lineage:
-            self.report.num_get_tags_on_columns_for_table_queries += 1
-            temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                quoted_table_name=self.identifiers.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
-                ),
-                db_name=db_name,
+            self._ensure_cache_loaded(db_name)
+            temp_column_tags = self.tag_cache[
+                db_name
+            ].get_column_tags_for_table_with_inheritance(
+                table_name, schema_name, db_name
             )
 
         column_tags: Dict[str, List[SnowflakeTag]] = {}
