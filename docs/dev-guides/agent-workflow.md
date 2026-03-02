@@ -11,18 +11,18 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 **Always use the shell wrapper as the entry point:**
 
 ```bash
-scripts/datahub-dev.sh <command>
+scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`,
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`,
 `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ## End-to-End Workflow
 
-1. **Start**: `scripts/datahub-dev.sh start`
+1. **Start**: `scripts/dev/datahub-dev.sh start`
 2. **Code**: Make changes to Java/Python/frontend code
-3. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
-4. **Test**: `scripts/datahub-dev.sh test <test-path>`
+3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
 5. **Iterate**: Repeat steps 2–4
 
 **Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
@@ -45,15 +45,15 @@ to avoid git-related failures in worktrees.
 **All flag changes require a container restart.** Use `env set` + `env restart`:
 
 ```bash
-scripts/datahub-dev.sh env set SHOW_BROWSE_V2=true
-scripts/datahub-dev.sh env restart
+scripts/dev/datahub-dev.sh env set SHOW_BROWSE_V2=true
+scripts/dev/datahub-dev.sh env restart
 ```
 
 `flag list` and `flag get` are read-only inspection tools — they show the current live values from
 the running server but do not change anything.
 
 The flag manifest at `scripts/generated/flag-classification.json` is **auto-generated**
-(gitignored). Run `scripts/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
+(gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
 or after a fresh clone.
 
 ## Recovery Escalation
@@ -71,5 +71,5 @@ or after a fresh clone.
 Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
 
 ```bash
-AGENT_MODE=1 scripts/datahub-dev.sh test tests/test_system_info.py
+AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```

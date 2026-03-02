@@ -12,15 +12,15 @@ task installRuff(type: Exec) {
 }
 
 task lint(type: Exec, dependsOn: installRuff) {
-  description = 'Check formatting of datahub_dev.py'
-  inputs.file('datahub_dev.py')
+  description = 'Check formatting of Python scripts'
+  inputs.files(fileTree('.').include('*.py'))
   commandLine 'bash', '-c',
-    "${venv_ruff} check datahub_dev.py && ${venv_ruff} format --check datahub_dev.py"
+    "${venv_ruff} check *.py && ${venv_ruff} format --check *.py"
 }
 
 task lintFix(type: Exec, dependsOn: installRuff) {
-  description = 'Auto-fix formatting of datahub_dev.py'
-  inputs.file('datahub_dev.py')
+  description = 'Auto-fix formatting of Python scripts'
+  inputs.files(fileTree('.').include('*.py'))
   commandLine 'bash', '-c',
-    "${venv_ruff} check --fix datahub_dev.py && ${venv_ruff} format datahub_dev.py"
+    "${venv_ruff} check --fix *.py && ${venv_ruff} format *.py"
 }

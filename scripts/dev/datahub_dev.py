@@ -7,17 +7,17 @@ machine-readable environment status, smart rebuilds, targeted test execution,
 feature flag management, and recovery tools.
 
 Usage:
-    python3 scripts/datahub_dev.py status
-    python3 scripts/datahub_dev.py wait [--timeout 300]
-    python3 scripts/datahub_dev.py rebuild [--wait] [--module gms]
-    python3 scripts/datahub_dev.py test <path> [pytest-args...]
-    python3 scripts/datahub_dev.py flag list
-    python3 scripts/datahub_dev.py flag get <name>
-    python3 scripts/datahub_dev.py env set KEY=VALUE
-    python3 scripts/datahub_dev.py env restart
-    python3 scripts/datahub_dev.py sync-flags
-    python3 scripts/datahub_dev.py reset
-    python3 scripts/datahub_dev.py nuke [--keep-data]
+    python3 scripts/dev/datahub_dev.py status
+    python3 scripts/dev/datahub_dev.py wait [--timeout 300]
+    python3 scripts/dev/datahub_dev.py rebuild [--wait] [--module gms]
+    python3 scripts/dev/datahub_dev.py test <path> [pytest-args...]
+    python3 scripts/dev/datahub_dev.py flag list
+    python3 scripts/dev/datahub_dev.py flag get <name>
+    python3 scripts/dev/datahub_dev.py env set KEY=VALUE
+    python3 scripts/dev/datahub_dev.py env restart
+    python3 scripts/dev/datahub_dev.py sync-flags
+    python3 scripts/dev/datahub_dev.py reset
+    python3 scripts/dev/datahub_dev.py nuke [--keep-data]
 """
 
 import argparse
@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Constants
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DOCKER_DIR = REPO_ROOT / "docker"
 SMOKE_TEST_DIR = REPO_ROOT / "smoke-test"
 

@@ -413,10 +413,10 @@ Example: `feat(parser): add ability to parse arrays`
 See [`docs/dev-guides/agent-workflow.md`](docs/dev-guides/agent-workflow.md) for the full agent
 workflow reference. Quick summary:
 
-1. **Start**: `scripts/datahub-dev.sh start`
+1. **Start**: `scripts/dev/datahub-dev.sh start`
 2. **Code**: Make changes
-3. **Rebuild**: `scripts/datahub-dev.sh rebuild --wait`
-4. **Test**: `scripts/datahub-dev.sh test <test-path>`
+3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
 5. **Iterate**: Repeat 2–4
 
 ## Python Virtual Environments
