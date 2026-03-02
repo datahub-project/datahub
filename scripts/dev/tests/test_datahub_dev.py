@@ -1,6 +1,7 @@
 """Unit tests for security-relevant guards in datahub_dev.py."""
 
 import argparse
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -49,3 +50,32 @@ def test_load_flag_classification_handles_corrupt_json(tmp_path, monkeypatch):
     monkeypatch.setattr(datahub_dev, "GENERATED_MANIFEST", corrupt_file)
     result = datahub_dev._load_flag_classification()
     assert result == {"dynamic": {}, "static": {}}
+
+
+def test_plugin_loading_extend_config(tmp_path, monkeypatch):
+    """A valid ext file's extend_config() is called and augments the config."""
+    ext_file = tmp_path / "datahub_dev_ext.py"
+    ext_file.write_text(
+        "from datahub_dev import DevToolingConfig, ServiceConfig\n"
+        "def extend_config(config: DevToolingConfig) -> DevToolingConfig:\n"
+        "    config.rebuild_module_aliases['integrations'] = 'datahub-integrations-service'\n"
+        "    config.services.append(ServiceConfig('integrations', 'http://localhost:9003/health', required=False))\n"
+        "    return config\n"
+    )
+    # Make _load_config() look for the ext file in tmp_path
+    monkeypatch.setattr(datahub_dev, "__file__", str(tmp_path / "datahub_dev.py"))
+    config = datahub_dev._load_config()
+    assert "integrations" in config.rebuild_module_aliases
+    assert config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
+    assert any(svc.name == "integrations" for svc in config.services)
+
+
+def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):
+    """A broken ext file is silently skipped; default config is returned."""
+    ext_file = tmp_path / "datahub_dev_ext.py"
+    ext_file.write_text("this is not valid python !!!\n")
+    monkeypatch.setattr(datahub_dev, "__file__", str(tmp_path / "datahub_dev.py"))
+    # Should not raise — bad ext file produces a warning but returns default config
+    config = datahub_dev._load_config()
+    assert "gms" in config.rebuild_module_aliases
+    assert any(svc.name == "gms" for svc in config.services)

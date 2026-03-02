@@ -21,6 +21,7 @@ Usage:
 """
 
 import argparse
+import dataclasses
 import json
 import os
 import re
@@ -31,6 +32,39 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+
+# ---------------------------------------------------------------------------
+# Plugin extension dataclasses
+# ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class ServiceConfig:
+    name: str  # short label used in JSON output
+    health_url: str  # URL that must return 200 for "healthy"
+    debug_url: Optional[str] = None  # if set, JSON body shown in status output
+    required: bool = True  # if True, must be up for overall ready=True
+
+
+@dataclasses.dataclass
+class DevToolingConfig:
+    # Maps repo-path prefix → (gradle_task_or_None, docker_service_name_or_None)
+    module_to_container: Dict[str, Tuple[Optional[str], Optional[str]]]
+
+    # Short alias → docker service name  (used by `rebuild --module <alias>`)
+    rebuild_module_aliases: Dict[str, str]
+
+    # Ordered list of services; cmd_status and cmd_wait iterate this
+    services: List[ServiceConfig]
+
+    # Gradle task paths (all overridable by fork)
+    gradle_reload_task: str
+    gradle_reload_env_task: str
+    gradle_quickstart_task: str
+    gradle_smoke_install_task: str
+    gradle_sync_flags_task: str
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -78,33 +112,94 @@ COMPOSE_PROJECT = os.environ.get("DOCKER_COMPOSE_PROJECT_NAME", "datahub")
 DEFAULT_TIMEOUT = 300  # seconds
 POLL_INTERVAL = 3  # seconds
 
-# Module path -> (gradle task, container service name)
-MODULE_TO_CONTAINER = {
-    "metadata-service/": (":metadata-service:war:bootJar", "datahub-gms"),
-    "metadata-models/": (None, None),  # triggers full rebuild
-    "datahub-frontend/": (":datahub-frontend:dist", "datahub-frontend-react"),
-    "datahub-web-react/": (":datahub-web-react:distZip", "datahub-frontend-react"),
-    "datahub-graphql-core/": (":metadata-service:war:bootJar", "datahub-gms"),
-    "metadata-jobs/mce-consumer-job/": (
-        ":metadata-jobs:mce-consumer-job:bootJar",
-        "datahub-mce-consumer",
-    ),
-    "metadata-jobs/mae-consumer-job/": (
-        ":metadata-jobs:mae-consumer-job:bootJar",
-        "datahub-mae-consumer",
-    ),
-    "metadata-io/": (":metadata-service:war:bootJar", "datahub-gms"),
-}
-
 
 # ---------------------------------------------------------------------------
-# Utility helpers
+# Plugin config: default + extension point
 # ---------------------------------------------------------------------------
+
+
+def _default_config() -> DevToolingConfig:
+    return DevToolingConfig(
+        module_to_container={
+            "metadata-service/": (":metadata-service:war:bootJar", "datahub-gms"),
+            "metadata-models/": (None, None),  # triggers full rebuild
+            "datahub-frontend/": (":datahub-frontend:dist", "datahub-frontend-react"),
+            "datahub-web-react/": (
+                ":datahub-web-react:distZip",
+                "datahub-frontend-react",
+            ),
+            "datahub-graphql-core/": (
+                ":metadata-service:war:bootJar",
+                "datahub-gms",
+            ),
+            "metadata-jobs/mce-consumer-job/": (
+                ":metadata-jobs:mce-consumer-job:bootJar",
+                "datahub-mce-consumer",
+            ),
+            "metadata-jobs/mae-consumer-job/": (
+                ":metadata-jobs:mae-consumer-job:bootJar",
+                "datahub-mae-consumer",
+            ),
+            "metadata-io/": (":metadata-service:war:bootJar", "datahub-gms"),
+        },
+        rebuild_module_aliases={
+            "gms": "datahub-gms",
+            "frontend": "datahub-frontend-react",
+            "mce": "datahub-mce-consumer",
+            "mae": "datahub-mae-consumer",
+        },
+        services=[
+            ServiceConfig(
+                "gms",
+                f"{GMS_URL}/health",
+                debug_url=f"{GMS_URL}/debug/ready",
+                required=True,
+            ),
+            ServiceConfig("frontend", f"{FRONTEND_URL}/admin", required=True),
+        ],
+        gradle_reload_task=":docker:reload",
+        gradle_reload_env_task=":docker:reloadEnv",
+        gradle_quickstart_task="quickstartDebug",
+        gradle_smoke_install_task=":smoke-test:installDev",
+        gradle_sync_flags_task=":metadata-service:configuration:generateFlagClassification",
+    )
+
+
+def _load_config() -> DevToolingConfig:
+    """Load default config and optionally extend it via a local plugin file.
+
+    If ``scripts/dev/datahub_dev_ext.py`` exists next to this file, it is
+    imported and its ``extend_config(config)`` function is called so that
+    forks can overlay service lists, module aliases, and Gradle task names
+    without modifying this file.
+    """
+    config = _default_config()
+    ext_path = Path(__file__).parent / "datahub_dev_ext.py"
+    if ext_path.exists():
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location("datahub_dev_ext", ext_path)
+            mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            if hasattr(mod, "extend_config"):
+                config = mod.extend_config(config)
+        except Exception as e:
+            _log(f"WARNING: Failed to load datahub_dev_ext.py: {e}")
+    return config
 
 
 def _log(msg: str) -> None:
     """Log to stderr so stdout stays clean for JSON output."""
     print(msg, file=sys.stderr)
+
+
+CONFIG: DevToolingConfig = _load_config()
+
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
 
 
 def _http_get(url: str, timeout: int = 5) -> Tuple[int, str]:
@@ -236,39 +331,34 @@ def cmd_status(args: argparse.Namespace) -> int:
     containers = _run_docker_compose_ps()
     services = _get_container_info(containers)
 
-    # Check GMS health
-    gms_status, gms_body = _http_get(f"{GMS_URL}/health")
-    gms_healthy = gms_status == 200
+    # Health-check each configured service
+    service_health: Dict[str, Dict[str, Any]] = {}
+    for svc in CONFIG.services:
+        status_code, _ = _http_get(svc.health_url)
+        healthy = status_code == 200
+        entry: Dict[str, Any] = {"healthy": healthy, "status_code": status_code}
+        if svc.debug_url:
+            debug_status, debug_body = _http_get(svc.debug_url)
+            if debug_status == 200:
+                try:
+                    entry["debug"] = json.loads(debug_body)
+                except json.JSONDecodeError:
+                    pass
+        service_health[svc.name] = entry
 
-    # Check GMS detailed readiness
-    gms_debug_status, gms_debug_body = _http_get(f"{GMS_URL}/debug/ready")
-    gms_debug = {}
-    if gms_debug_status == 200:
-        try:
-            gms_debug = json.loads(gms_debug_body)
-        except json.JSONDecodeError:
-            pass
+    # Overall readiness: all required services must be healthy
+    ready = all(
+        service_health[svc.name]["healthy"]
+        for svc in CONFIG.services
+        if svc.required
+    )
 
-    # Check frontend
-    frontend_status, _ = _http_get(f"{FRONTEND_URL}/admin")
-    frontend_healthy = frontend_status == 200
+    gms_ok = service_health.get("gms", {}).get("healthy", False)
+    suggestion = _suggest_recovery(services, gms_ok)
 
-    # Overall readiness
-    ready = gms_healthy and frontend_healthy
-
-    suggestion = _suggest_recovery(services, gms_healthy)
-
-    result = {
+    result: Dict[str, Any] = {
         "ready": ready,
-        "gms": {
-            "healthy": gms_healthy,
-            "status_code": gms_status,
-            "debug": gms_debug,
-        },
-        "frontend": {
-            "healthy": frontend_healthy,
-            "status_code": frontend_status,
-        },
+        **service_health,
         "services": services,
     }
     if suggestion:
@@ -289,6 +379,8 @@ def cmd_wait(args: argparse.Namespace) -> int:
     start = time.time()
     _log(f"Waiting up to {timeout}s for DataHub to become ready...")
 
+    required = [svc for svc in CONFIG.services if svc.required]
+
     while True:
         elapsed = time.time() - start
         if elapsed > timeout:
@@ -297,20 +389,20 @@ def cmd_wait(args: argparse.Namespace) -> int:
             cmd_status(args)
             return 1
 
-        gms_status, _ = _http_get(f"{GMS_URL}/health")
-        frontend_status, _ = _http_get(f"{FRONTEND_URL}/admin")
+        checks_ok = [False] * len(required)
+        for i, svc in enumerate(required):
+            code, _ = _http_get(svc.health_url)
+            checks_ok[i] = code == 200
 
-        gms_ok = gms_status == 200
-        frontend_ok = frontend_status == 200
-
-        if gms_ok and frontend_ok:
+        if all(checks_ok):
             _log(f"DataHub is ready! ({elapsed:.0f}s)")
             cmd_status(args)
             return 0
 
-        status_parts = []
-        status_parts.append(f"GMS={'ok' if gms_ok else 'waiting'}")
-        status_parts.append(f"Frontend={'ok' if frontend_ok else 'waiting'}")
+        status_parts = [
+            f"{svc.name}={'ok' if ok else 'waiting'}"
+            for svc, ok in zip(required, checks_ok)
+        ]
         _log(f"  [{elapsed:.0f}s] {', '.join(status_parts)}")
 
         time.sleep(POLL_INTERVAL)
@@ -346,7 +438,7 @@ def _detect_changed_modules() -> List[Tuple[str, str, str]]:
 
     matched = []
     full_rebuild = False
-    for module_prefix, (gradle_task, container) in MODULE_TO_CONTAINER.items():
+    for module_prefix, (gradle_task, container) in CONFIG.module_to_container.items():
         for f in changed_files:
             if f.startswith(module_prefix):
                 if gradle_task is None:
@@ -362,7 +454,7 @@ def _detect_changed_modules() -> List[Tuple[str, str, str]]:
         # Return all buildable modules
         return [
             (mp, gt, ct)
-            for mp, (gt, ct) in MODULE_TO_CONTAINER.items()
+            for mp, (gt, ct) in CONFIG.module_to_container.items()
             if gt is not None
         ]
 
@@ -379,12 +471,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     """
     # Module info is only used for logging; reload handles detection itself
     if args.module:
-        module_names = {
-            "gms": "datahub-gms",
-            "frontend": "datahub-frontend-react",
-            "mce": "datahub-mce-consumer",
-            "mae": "datahub-mae-consumer",
-        }
+        module_names = CONFIG.rebuild_module_aliases
         if args.module not in module_names:
             _log(
                 f"Unknown module: {args.module}. Valid: {', '.join(module_names.keys())}"
@@ -405,7 +492,7 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     # up-to-date to decide which containers to restart.
     gradle_cmd = [
         "./gradlew",
-        ":docker:reload",
+        CONFIG.gradle_reload_task,
         "-x",
         "test",
         "-x",
@@ -465,7 +552,7 @@ def cmd_test(args: argparse.Namespace) -> int:
         setup_result = _run(
             [
                 "./gradlew",
-                ":smoke-test:installDev",
+                CONFIG.gradle_smoke_install_task,
                 "-x",
                 "generateGitPropertiesGlobal",
             ],
@@ -665,7 +752,12 @@ def cmd_env_restart(args: argparse.Namespace) -> int:
     """Restart containers to pick up new environment variables."""
     _log("Restarting containers with new environment via Gradle reloadEnv...")
     result = _run(
-        ["./gradlew", ":docker:reloadEnv", "-x", "generateGitPropertiesGlobal"],
+        [
+            "./gradlew",
+            CONFIG.gradle_reload_env_task,
+            "-x",
+            "generateGitPropertiesGlobal",
+        ],
         capture=False,
         timeout=300,
     )
@@ -862,14 +954,21 @@ def cmd_nuke(args: argparse.Namespace) -> int:
 
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
-    _log("Starting DataHub via quickstartDebug...")
+    _log(f"Starting DataHub via {CONFIG.gradle_quickstart_task}...")
     result = _run(
-        ["./gradlew", "quickstartDebug", "-x", "generateGitPropertiesGlobal"],
+        [
+            "./gradlew",
+            CONFIG.gradle_quickstart_task,
+            "-x",
+            "generateGitPropertiesGlobal",
+        ],
         capture=False,
         timeout=1200,
     )
     if result.returncode != 0:
-        _log("quickstartDebug failed. Check the output above for errors.")
+        _log(
+            f"{CONFIG.gradle_quickstart_task} failed. Check the output above for errors."
+        )
         return 1
 
     _log("Waiting for services to become ready...")
@@ -888,7 +987,7 @@ def cmd_sync_flags(args: argparse.Namespace) -> int:
     result = _run(
         [
             "./gradlew",
-            ":metadata-service:configuration:generateFlagClassification",
+            CONFIG.gradle_sync_flags_task,
             "-x",
             "generateGitPropertiesGlobal",
         ],
@@ -946,7 +1045,7 @@ def build_parser() -> argparse.ArgumentParser:
     rebuild_p.add_argument(
         "--module",
         type=str,
-        choices=["gms", "frontend", "mce", "mae"],
+        choices=list(CONFIG.rebuild_module_aliases.keys()),
         help="Explicitly specify module to rebuild",
     )
     rebuild_p.add_argument(
