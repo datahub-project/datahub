@@ -141,8 +141,7 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   cy.get('[data-testid="data-source-name"]').type(sourceName);
 
   // Finish creating source
-  cy.clickOptionWithTestId("next-button");
-  cy.waitTextVisible("Sync Schedule");
+  cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
@@ -170,8 +169,7 @@ export const updateIngestionSource = (
   cy.get('[data-testid="data-source-name"]')
     .focus()
     .type(`{selectall}{backspace}${updatedSourceName}`);
-  cy.get('[data-testid="next-button"]').scrollIntoView().click();
-  cy.waitTextVisible("Sync Schedule");
+  cy.contains("Sync Schedule").scrollIntoView().should("be.visible");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
   }
@@ -218,7 +216,6 @@ export const createAndRunIngestionSource = (sourceName) => {
 
   cy.clickOptionWithTestId("expand-collapse-button");
   cy.enterTextInTestId("cli-version-input", cli_version);
-  cy.clickOptionWithText("Next");
 
   cy.clickOptionWithTestId("save-and-run-button");
   cy.waitTextVisible(sourceName);
