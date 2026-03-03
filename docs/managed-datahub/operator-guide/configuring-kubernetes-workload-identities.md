@@ -15,6 +15,7 @@ Cloud workload identity enables pods to authenticate as cloud service accounts w
 - **Azure**: Azure AD Workload Identity federates with Kubernetes service accounts
 
 **Use Cases:** Once configured, the executor can access any cloud resource the service account has permissions for:
+
 - Data warehouses (BigQuery, Redshift, Synapse, Snowflake on cloud)
 - Databases (Cloud SQL, RDS, Aurora, Azure SQL)
 - Cloud storage (GCS, S3, Azure Blob Storage)
@@ -23,6 +24,7 @@ Cloud workload identity enables pods to authenticate as cloud service accounts w
 The examples below show configuring access to specific services (BigQuery, RDS, Azure SQL), but the same pattern applies to any cloud resource you want to access without storing credentials in DataHub.
 
 ## Table of Contents
+
 - [GCP: GKE Workload Identity](#gcp-gke-workload-identity)
 - [AWS: IAM Roles for Service Accounts (IRSA)](#aws-iam-roles-for-service-accounts-irsa)
 - [Azure: Azure AD Workload Identity](#azure-azure-ad-workload-identity)
@@ -32,6 +34,7 @@ The examples below show configuring access to specific services (BigQuery, RDS, 
 ## GCP: GKE Workload Identity
 
 ### Prerequisites
+
 - GKE cluster with Workload Identity enabled ([enable if needed](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#enable))
 - GCP project with appropriate permissions to create service accounts and IAM bindings
 
@@ -49,6 +52,7 @@ gcloud container clusters describe my-gke-cluster \
 ```
 
 Or check via the [GKE Console](https://console.cloud.google.com/kubernetes):
+
 1. Navigate to **Kubernetes Engine > Clusters**
 2. Click on your cluster name
 3. Under **Security**, verify **Workload Identity** is **Enabled**
@@ -161,6 +165,7 @@ kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub 
 ## AWS: IAM Roles for Service Accounts (IRSA)
 
 ### Prerequisites
+
 - EKS cluster with OIDC provider configured ([configure if needed](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html))
 - AWS IAM permissions to create roles and policies
 - AWS account ID
@@ -190,6 +195,7 @@ aws eks describe-cluster \
 ```
 
 Or check via the [EKS Console](https://console.aws.amazon.com/eks):
+
 1. Navigate to **Amazon EKS > Clusters**
 2. Click on your cluster name
 3. Go to the **Configuration** tab
@@ -330,6 +336,7 @@ kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub 
 ## Azure: Azure AD Workload Identity
 
 ### Prerequisites
+
 - AKS cluster with Workload Identity enabled ([enable if needed](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster))
 - Azure subscription with appropriate permissions to create managed identities and role assignments
 - Azure CLI installed and authenticated
@@ -355,6 +362,7 @@ echo $AKS_OIDC_ISSUER
 ```
 
 Or check via the [Azure Portal](https://portal.azure.com):
+
 1. Navigate to **Kubernetes services**
 2. Click on your AKS cluster
 3. Go to **Settings > Security**
