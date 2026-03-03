@@ -44,7 +44,6 @@ from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
-    get_schema_metadata,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -67,6 +66,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    SchemaMetadataClass,
 )
 from datahub.utilities.urns.field_paths import (
     get_simple_field_path_from_v2_field_path,
@@ -374,7 +374,7 @@ class TrinoSource(SQLAlchemySource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
-        schema_metadata: Optional[Any] = None,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Emit upstreamLineage from this Trino dataset to the connector dataset.
@@ -385,7 +385,7 @@ class TrinoSource(SQLAlchemySource):
         if (
             self.config.include_column_lineage
             and schema_metadata is not None
-            and getattr(schema_metadata, "fields", None)
+            and schema_metadata.fields
         ):
             fine_grained_lineages = []
             for field in schema_metadata.fields:
@@ -402,7 +402,7 @@ class TrinoSource(SQLAlchemySource):
                 except Exception as e:
                     logging.debug(
                         "Skipping column lineage for field %s: %s",
-                        getattr(field, "fieldPath", field),
+                        field.fieldPath,
                         e,
                     )
         yield MetadataChangeProposalWrapper(
@@ -424,9 +424,15 @@ class TrinoSource(SQLAlchemySource):
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        yield from super()._process_table(
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in super()._process_table(
             dataset_name, inspector, schema, table, sql_config, data_reader
-        )
+        ):
+            sm = wu.get_aspect_of_type(SchemaMetadataClass)
+            if sm is not None:
+                schema_metadata = sm
+            yield wu
+
         if self.config.ingest_lineage_to_connectors:
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -439,29 +445,10 @@ class TrinoSource(SQLAlchemySource):
             )
             if source_dataset_urn:
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                schema_metadata: Optional[Any] = None
-                if self.config.include_column_lineage:
-                    try:
-                        columns = inspector.get_columns(table, schema)
-                        pk_constraints = inspector.get_pk_constraint(table, schema)
-                        schema_fields = self.get_schema_fields(
-                            dataset_name, columns, inspector, pk_constraints
-                        )
-                        schema_metadata = get_schema_metadata(
-                            self.report,
-                            dataset_name,
-                            self.platform,
-                            columns,
-                            pk_constraints,
-                            None,
-                            schema_fields,
-                        )
-                    except Exception as e:
-                        logging.debug(
-                            "Could not build schema for column lineage: %s", e
-                        )
                 yield from self.gen_lineage_workunit(
-                    dataset_urn, source_dataset_urn, schema_metadata
+                    dataset_urn,
+                    source_dataset_urn,
+                    schema_metadata if self.config.include_column_lineage else None,
                 )
 
     def _process_view(
@@ -472,9 +459,15 @@ class TrinoSource(SQLAlchemySource):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        yield from super()._process_view(
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in super()._process_view(
             dataset_name, inspector, schema, view, sql_config
-        )
+        ):
+            sm = wu.get_aspect_of_type(SchemaMetadataClass)
+            if sm is not None:
+                schema_metadata = sm
+            yield wu
+
         if self.config.ingest_lineage_to_connectors:
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -487,29 +480,10 @@ class TrinoSource(SQLAlchemySource):
             )
             if source_dataset_urn:
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                schema_metadata_view: Optional[Any] = None
-                if self.config.include_column_lineage:
-                    try:
-                        columns = inspector.get_columns(view, schema)
-                        pk_constraints = inspector.get_pk_constraint(view, schema)
-                        schema_fields = self.get_schema_fields(
-                            dataset_name, columns, inspector, pk_constraints
-                        )
-                        schema_metadata_view = get_schema_metadata(
-                            self.report,
-                            dataset_name,
-                            self.platform,
-                            columns,
-                            pk_constraints,
-                            None,
-                            schema_fields,
-                        )
-                    except Exception as e:
-                        logging.debug(
-                            "Could not build schema for view column lineage: %s", e
-                        )
                 yield from self.gen_lineage_workunit(
-                    dataset_urn, source_dataset_urn, schema_metadata_view
+                    dataset_urn,
+                    source_dataset_urn,
+                    schema_metadata if self.config.include_column_lineage else None,
                 )
 
     @classmethod
