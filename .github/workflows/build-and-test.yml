@@ -15,6 +15,13 @@ on:
   pull_request:
     branches:
       - "**"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/**"
+      - "!.github/workflows/build-and-test.yml"
+      - "!.github/actions/ensure-codegen-updated"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * *" # Run at midnight UTC every day
