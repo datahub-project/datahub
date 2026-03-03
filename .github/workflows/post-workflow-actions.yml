@@ -47,7 +47,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.event == 'pull_request' ||
       (github.event.workflow_run.event == 'push' &&
-        (github.event.workflow_run.head_branch == 'master' ||
+        (github.event.workflow_run.head_branch == github.event.repository.default_branch ||
          startsWith(github.event.workflow_run.head_branch, 'release/') ||
          startsWith(github.event.workflow_run.head_branch, 'hotfix/')))
     runs-on: ubuntu-latest
