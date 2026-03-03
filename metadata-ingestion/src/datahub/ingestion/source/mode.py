@@ -6,6 +6,7 @@ import os
 import re
 import threading
 import time
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -504,6 +505,7 @@ class ModeSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self._data_sources_by_id_cache: Optional[Dict[int, dict]] = None
         self._definitions_map_cache: Optional[Dict[str, str]] = None
+        self._sql_parse_pool: Optional[concurrent.futures.ProcessPoolExecutor] = None
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_options.requests_per_minute, period=60
         )
@@ -1360,7 +1362,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     platform_instance,
                 )
                 parsed_query_object = future.result()
-            except concurrent.futures.BrokenProcessPool:
+            except BrokenProcessPool:
                 logger.warning(
                     "SQL parsing process pool is broken, falling back to in-thread parsing"
                 )
@@ -2164,14 +2166,13 @@ class ModeSource(StatefulIngestionSourceBase):
         # Threads handle I/O (API calls); processes handle CPU (parsing).
         num_workers = max(1, min((os.cpu_count() or 2) - 1, self.config.max_threads))
         graph_config_dict = self.ctx.graph.config.dict() if self.ctx.graph else None
+        self._sql_parse_pool = None
         try:
-            self._sql_parse_pool: Optional[concurrent.futures.ProcessPoolExecutor] = (
-                concurrent.futures.ProcessPoolExecutor(
-                    max_workers=num_workers,
-                    mp_context=multiprocessing.get_context("spawn"),
-                    initializer=_init_sql_parse_worker,
-                    initargs=(graph_config_dict,),
-                )
+            self._sql_parse_pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=num_workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_init_sql_parse_worker,
+                initargs=(graph_config_dict,),
             )
             logger.info(f"Created SQL parsing process pool with {num_workers} workers")
         except Exception:
