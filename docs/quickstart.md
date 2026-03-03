@@ -121,9 +121,9 @@ Required steps to upgrade:
 
 ⚠️ Without backup, all existing data will be lost.
 
-### Datahub Authentication Changes in default
+### DataHub Authentication Changes in default signing key
 
-From version 1.5 Datahub quickstart now generates a random signing key and salt for use when
+From version 1.5 DataHub quickstart now generates a random signing key and salt for use when
 generating and validating authentication tokens instead of a hardcoded default key.
 If no values are provided, a new key is generated each time quickstart is run,
 which will invalidate any Personal Access Tokens (PATs) created in a previous session.
