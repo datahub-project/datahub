@@ -1,3 +1,8 @@
+---
+title: "Cloud Workload Identity Configuration for DataHub Executor Worker"
+description: Configure GKE, EKS, and AKS workload identities for secure credential-free authentication
+---
+
 # Cloud Workload Identity Configuration for DataHub Executor Worker
 
 :::note
