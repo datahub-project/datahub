@@ -205,7 +205,9 @@ class TestColumnTagsWithInheritance:
 
     def test_inherits_from_all_levels(self):
         cache = _build_cache()
-        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+        col_tags = cache.get_column_tags_for_table_with_inheritance(
+            "TBL", "SCH", "DB", column_names=["COL", "OTHER_COL"]
+        )
         assert "COL" in col_tags
         tag_map = {t.name: t for t in col_tags["COL"]}
         # Direct column tag
@@ -221,19 +223,43 @@ class TestColumnTagsWithInheritance:
         assert tag_map["env"].value == "staging"
         assert tag_map["env"].inherited_from == SnowflakeObjectDomain.TABLE
 
+    def test_columns_without_direct_tags_get_inherited(self):
+        """Columns with no direct tags still get parent-level inherited tags."""
+        cache = _build_cache()
+        col_tags = cache.get_column_tags_for_table_with_inheritance(
+            "TBL", "SCH", "DB", column_names=["COL", "OTHER_COL"]
+        )
+        # OTHER_COL has no direct column tags but should get inherited ones
+        assert "OTHER_COL" in col_tags
+        tag_map = {t.name: t for t in col_tags["OTHER_COL"]}
+        assert tag_map["pii"].inherited_from == SnowflakeObjectDomain.TABLE
+        assert tag_map["team"].inherited_from == SnowflakeObjectDomain.SCHEMA
+        assert tag_map["env"].inherited_from == SnowflakeObjectDomain.TABLE
+
     def test_no_parent_tags_returns_direct_only(self):
         cache = _SnowflakeTagCache()
         cache.add_column_tag("COL", "TBL", "SCH", "DB", _tag("D", "S", "x", "1"))
-        col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+        col_tags = cache.get_column_tags_for_table_with_inheritance(
+            "TBL", "SCH", "DB", column_names=["COL"]
+        )
         assert len(col_tags["COL"]) == 1
         assert col_tags["COL"][0].name == "x"
         assert col_tags["COL"][0].is_inherited is False
 
-    def test_no_column_tags_returns_empty(self):
-        cache = _SnowflakeTagCache()
-        # Even with database tags, no columns → empty
-        cache.add_database_tag("DB", _tag("D", "S", "env", "prod"))
+    def test_no_column_names_falls_back_to_direct_keys(self):
+        """Without column_names, only columns with direct tags are returned."""
+        cache = _build_cache()
         col_tags = cache.get_column_tags_for_table_with_inheritance("TBL", "SCH", "DB")
+        # Only COL (which has direct tags) appears
+        assert "COL" in col_tags
+        assert len(col_tags) == 1
+
+    def test_no_columns_no_direct_tags_returns_empty(self):
+        cache = _SnowflakeTagCache()
+        cache.add_database_tag("DB", _tag("D", "S", "env", "prod"))
+        col_tags = cache.get_column_tags_for_table_with_inheritance(
+            "TBL", "SCH", "DB", column_names=[]
+        )
         assert col_tags == {}
 
 
@@ -317,7 +343,10 @@ class TestSnowflakeTagExtractorRouting:
         """Column tags inherit from table/schema/database in with_lineage mode."""
         extractor = _make_extractor(TagOption.with_lineage)
         col_tags = extractor.get_column_tags_for_table(
-            table_name="TBL", schema_name="SCH", db_name="DB"
+            table_name="TBL",
+            schema_name="SCH",
+            db_name="DB",
+            column_names=["COL", "OTHER_COL"],
         )
         assert "COL" in col_tags
         tag_map = {t.name: t for t in col_tags["COL"]}
@@ -325,16 +354,26 @@ class TestSnowflakeTagExtractorRouting:
         assert "pii" in tag_map  # inherited from table
         assert "team" in tag_map  # inherited from schema
         assert "env" in tag_map  # inherited from table (overrides database)
+        # Column without direct tags also gets inherited tags
+        assert "OTHER_COL" in col_tags
+        other_tag_map = {t.name: t for t in col_tags["OTHER_COL"]}
+        assert "pii" in other_tag_map
+        assert "team" in other_tag_map
 
     def test_column_tags_without_lineage_direct_only(self):
         """Column tags are direct-only in without_lineage mode."""
         extractor = _make_extractor(TagOption.without_lineage)
         col_tags = extractor.get_column_tags_for_table(
-            table_name="TBL", schema_name="SCH", db_name="DB"
+            table_name="TBL",
+            schema_name="SCH",
+            db_name="DB",
+            column_names=["COL", "OTHER_COL"],
         )
         assert "COL" in col_tags
         assert len(col_tags["COL"]) == 1
         assert col_tags["COL"][0].name == "sensitivity"
+        # No inherited tags for columns without direct tags
+        assert "OTHER_COL" not in col_tags
 
     def test_cache_loaded_once_per_database(self):
         extractor = _make_extractor(TagOption.with_lineage)

@@ -1026,7 +1026,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.extract_tags != TagOption.skip:
             try:
                 table.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    table.name, schema_name, db_name
+                    table.name,
+                    schema_name,
+                    db_name,
+                    column_names=[c.name for c in table.columns],
                 )
             except Exception as e:
                 self.structured_reporter.warning(
@@ -1108,7 +1111,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    view.name, schema_name, db_name
+                    view.name,
+                    schema_name,
+                    db_name,
+                    column_names=[c.name for c in view.columns],
                 )
         except Exception as e:
             self.structured_reporter.warning(
@@ -1165,7 +1171,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             try:
                 semantic_view.column_tags = (
                     self.tag_extractor.get_column_tags_for_table(
-                        semantic_view.name, schema_name, db_name
+                        semantic_view.name,
+                        schema_name,
+                        db_name,
+                        column_names=[c.name for c in semantic_view.columns],
                     )
                 )
             except Exception as e:

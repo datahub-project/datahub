@@ -492,9 +492,19 @@ class _SnowflakeTagCache:
         return self._deduplicate_tags(direct + schema_inherited + db_inherited)
 
     def get_column_tags_for_table_with_inheritance(
-        self, table_name: str, schema_name: str, db_name: str
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        column_names: Optional[List[str]] = None,
     ) -> Dict[str, List[SnowflakeTag]]:
-        """Return column tags with inheritance from table, schema, and database levels."""
+        """Return column tags with inheritance from table, schema, and database levels.
+
+        Args:
+            column_names: All column names in the table. When provided,
+                inherited parent tags are applied to every column, not just
+                those with direct column tags.
+        """
         direct_column_tags = self.get_column_tags_for_table(
             table_name, schema_name, db_name
         )
@@ -518,9 +528,16 @@ class _SnowflakeTagCache:
         if not parent_tags:
             return dict(direct_column_tags)
 
+        # Apply parent tags to all known columns, merging with direct tags
+        all_columns = (
+            column_names
+            if column_names is not None
+            else list(direct_column_tags.keys())
+        )
         result: Dict[str, List[SnowflakeTag]] = {}
-        for col_name, col_tags in direct_column_tags.items():
-            result[col_name] = self._deduplicate_tags(list(col_tags) + parent_tags)
+        for col_name in all_columns:
+            col_tags = list(direct_column_tags.get(col_name, []))
+            result[col_name] = self._deduplicate_tags(col_tags + parent_tags)
         return result
 
 

@@ -187,6 +187,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         table_name: str,
         schema_name: str,
         db_name: str,
+        column_names: Optional[List[str]] = None,
     ) -> Dict[str, List[SnowflakeTag]]:
         if self.config.extract_tags == TagOption.skip:
             return {}
@@ -196,7 +197,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         if self.config.extract_tags == TagOption.with_lineage:
             temp_column_tags = cache.get_column_tags_for_table_with_inheritance(
-                table_name, schema_name, db_name
+                table_name, schema_name, db_name, column_names=column_names
             )
         else:
             temp_column_tags = cache.get_column_tags_for_table(
