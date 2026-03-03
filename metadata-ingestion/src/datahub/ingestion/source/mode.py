@@ -1926,6 +1926,33 @@ class ModeSource(StatefulIngestionSourceBase):
                     exc_info=True,
                 )
 
+    def _process_dataset(
+        self, space_token: str, dataset: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single dataset: queries and lineage."""
+        dataset_token = dataset.get("token", "")
+        try:
+            queries = self._get_queries(dataset_token)
+            for query in queries:
+                yield from self.construct_query_or_dataset(
+                    dataset_token,
+                    query,
+                    space_token=space_token,
+                    report_info=dataset,
+                    is_mode_dataset=True,
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to process dataset {dataset_token} in space {space_token}",
+                exc_info=True,
+            )
+            self.report.report_failure(
+                title="Failed to Process Dataset",
+                message=f"Unexpected error processing dataset {dataset_token}.",
+                context=f"Space Token: {space_token}, Error: {str(e)}",
+                exc=e,
+            )
+
     def _process_report_inner(
         self,
         space_token: str,
