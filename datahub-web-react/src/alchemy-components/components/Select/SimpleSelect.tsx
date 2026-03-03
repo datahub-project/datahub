@@ -181,7 +181,7 @@ export const SimpleSelect = ({
                 <Dropdown
                     open={isOpen}
                     disabled={isDisabled}
-                    placement="bottomRight"
+                    placement="bottomLeft"
                     dropdownRender={() => (
                         <DropdownContainer
                             ref={dropdownRef}
