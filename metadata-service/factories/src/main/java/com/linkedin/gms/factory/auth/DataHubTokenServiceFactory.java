@@ -44,12 +44,12 @@ public class DataHubTokenServiceFactory {
     String signingKey = configurationProvider.getAuthentication().getTokenService().getSigningKey();
     String salt = configurationProvider.getAuthentication().getTokenService().getSalt();
     if (signingKey == null || signingKey.isEmpty()) {
-      throw new IllegalStateException(
+      throw new IllegalArgumentException(
           "authentication.tokenService.signingKey must be set and not be empty");
     }
     if (salt == null || salt.isEmpty()) {
-      throw new IllegalStateException(
-          "authentication.tokenService.salt must be set must be set and not be empty");
+      throw new IllegalArgumentException(
+          "authentication.tokenService.salt must be set and not be empty");
     }
   }
 }

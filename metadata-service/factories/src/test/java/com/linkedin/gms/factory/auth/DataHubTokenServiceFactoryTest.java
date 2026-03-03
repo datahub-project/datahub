@@ -2,7 +2,8 @@ package com.linkedin.gms.factory.auth;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.TokenServiceConfiguration;
@@ -46,7 +47,10 @@ public class DataHubTokenServiceFactoryTest {
     when(tokenServiceConfig.getSigningKey()).thenReturn(null);
     when(tokenServiceConfig.getSalt()).thenReturn("some-salt");
 
-    assertThrows(IllegalStateException.class, () -> factory.validate());
+    IllegalArgumentException e =
+        expectThrows(IllegalArgumentException.class, () -> factory.validate());
+    assertEquals(
+        e.getMessage(), "authentication.tokenService.signingKey must be set and not be empty");
   }
 
   @Test
@@ -55,7 +59,10 @@ public class DataHubTokenServiceFactoryTest {
     when(tokenServiceConfig.getSigningKey()).thenReturn("");
     when(tokenServiceConfig.getSalt()).thenReturn("some-salt");
 
-    assertThrows(IllegalStateException.class, () -> factory.validate());
+    IllegalArgumentException e =
+        expectThrows(IllegalArgumentException.class, () -> factory.validate());
+    assertEquals(
+        e.getMessage(), "authentication.tokenService.signingKey must be set and not be empty");
   }
 
   @Test
@@ -64,7 +71,9 @@ public class DataHubTokenServiceFactoryTest {
     when(tokenServiceConfig.getSigningKey()).thenReturn("some-key");
     when(tokenServiceConfig.getSalt()).thenReturn(null);
 
-    assertThrows(IllegalStateException.class, () -> factory.validate());
+    IllegalArgumentException e =
+        expectThrows(IllegalArgumentException.class, () -> factory.validate());
+    assertEquals(e.getMessage(), "authentication.tokenService.salt must be set and not be empty");
   }
 
   @Test
@@ -73,7 +82,9 @@ public class DataHubTokenServiceFactoryTest {
     when(tokenServiceConfig.getSigningKey()).thenReturn("some-key");
     when(tokenServiceConfig.getSalt()).thenReturn("");
 
-    assertThrows(IllegalStateException.class, () -> factory.validate());
+    IllegalArgumentException e =
+        expectThrows(IllegalArgumentException.class, () -> factory.validate());
+    assertEquals(e.getMessage(), "authentication.tokenService.salt must be set and not be empty");
   }
 
   @Test
