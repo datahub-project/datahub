@@ -579,3 +579,213 @@ def test_threading_produces_same_entities_as_sequential(tmp_path):
         f"only_in_seq={seq_urns - par_urns}, "
         f"only_in_par={par_urns - seq_urns}"
     )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Cross-space parallelization tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _build_multi_space_perf_response_map() -> Dict[str, dict]:
+    """Build mock API responses for 3 spaces with varying report counts.
+
+    Space A: 2 reports, Space B: 4 reports, Space C: 4 reports = 10 total.
+    Each report has 1 query and explorations_count=0 (skips chart API calls).
+    """
+    responses: Dict[str, dict] = {}
+
+    responses["https://app.mode.com/api/verify"] = {"authenticated": True}
+    responses["https://app.mode.com/api/acryl/data_sources"] = {
+        "_embedded": {
+            "data_sources": [
+                {
+                    "id": 34499,
+                    "adapter": "jdbc:postgresql",
+                    "name": "test_db",
+                    "database": "test_database",
+                }
+            ]
+        }
+    }
+    responses["https://app.mode.com/api/acryl/definitions"] = {
+        "_embedded": {"definitions": []}
+    }
+    responses["https://app.mode.com/api/modeuser"] = {
+        "username": "testuser",
+        "email": "test@example.com",
+    }
+
+    spaces_config = [
+        ("space_a", "Space A", 2),
+        ("space_b", "Space B", 4),
+        ("space_c", "Space C", 4),
+    ]
+
+    space_objects: List[dict] = []
+    for space_token, space_name, num_reports in spaces_config:
+        space_objects.append(
+            {
+                "token": space_token,
+                "id": hash(space_token) % 10000,
+                "name": space_name,
+                "restricted": False,
+                "default_access_level": "view",
+                "_links": {"creator": {"href": "/api/modeuser"}},
+            }
+        )
+
+        reports: List[dict] = []
+        for i in range(num_reports):
+            report_token = f"rpt_{space_token}_{i:02d}"
+            query_token = f"qry_{space_token}_{i:02d}"
+
+            reports.append(
+                {
+                    "token": report_token,
+                    "id": hash(report_token) % 10000,
+                    "name": f"{space_name} Report {i}",
+                    "description": f"Report {i} in {space_name}",
+                    "created_at": PERF_TIMESTAMP,
+                    "updated_at": PERF_TIMESTAMP,
+                    "edited_at": PERF_TIMESTAMP,
+                    "last_saved_at": PERF_TIMESTAMP,
+                    "last_run_at": PERF_TIMESTAMP,
+                    "archived": False,
+                    "view_count": i,
+                    "imported_datasets": [],
+                    "_links": {"creator": {"href": "/api/modeuser"}},
+                }
+            )
+
+            responses[
+                f"https://app.mode.com/api/acryl/reports/{report_token}/queries"
+            ] = {
+                "_embedded": {
+                    "queries": [
+                        {
+                            "id": hash(query_token) % 10000,
+                            "token": query_token,
+                            "raw_query": f"SELECT * FROM {space_token}_table_{i}",
+                            "name": f"Query {i}",
+                            "created_at": PERF_TIMESTAMP,
+                            "updated_at": PERF_TIMESTAMP,
+                            "data_source_id": 34499,
+                            "last_run_id": 99999,
+                            "explorations_count": 0,
+                            "_links": {"creator": {"href": "/api/modeuser"}},
+                        }
+                    ]
+                }
+            }
+
+        responses[f"https://app.mode.com/api/acryl/spaces/{space_token}/reports"] = {
+            "_embedded": {"reports": reports},
+            "_links": {"self": {"href": f"/api/acryl/spaces/{space_token}/reports"}},
+        }
+
+        responses[f"https://app.mode.com/api/acryl/spaces/{space_token}/datasets"] = {
+            "_embedded": {"reports": []},
+            "_links": {"self": {"href": f"/api/acryl/spaces/{space_token}/datasets"}},
+        }
+
+    responses["https://app.mode.com/api/acryl/spaces"] = {
+        "_embedded": {"spaces": space_objects},
+        "_links": {"self": {"href": "/api/acryl/spaces"}},
+    }
+
+    return responses
+
+
+def test_cross_space_parallelization_speedup(tmp_path):
+    """Verify that reports from multiple spaces are processed concurrently.
+
+    Uses 3 spaces (2 + 4 + 4 = 10 reports). Adds extra latency for a
+    straggler report in Space A. With cross-space parallelization, other
+    spaces' reports should proceed while the straggler blocks.
+
+    Note: No @freeze_time -- freezegun patches time.monotonic() which
+    would make our wall-clock measurements return 0.
+    """
+    responses = _build_multi_space_perf_response_map()
+    latency = 0.03  # 30ms per request
+    straggler_url = "https://app.mode.com/api/acryl/reports/rpt_space_a_00/queries"
+    straggler_extra_latency = 0.3  # 300ms extra for the straggler
+
+    class StragglerMockSession(ThreadSafeMockSession):
+        """Adds extra delay for one specific report to simulate a straggler."""
+
+        def get(self, url: str, timeout: int = 40) -> ThreadSafeResponse:
+            base_url = url.split("?")[0]
+            if base_url == straggler_url and "page=2" not in url:
+                time.sleep(straggler_extra_latency)
+            return super().get(url, timeout=timeout)
+
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=lambda *a, **kw: StragglerMockSession(responses, latency=latency),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-cross-space-parallel",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                        "max_threads": 4,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/cross_space.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    # Verify all 10 reports across 3 spaces produced dashboard entities
+    with open(f"{tmp_path}/cross_space.json") as f:
+        data = json.load(f)
+
+    dashboard_urns = set()
+    for item in data:
+        urn: Optional[str] = None
+        if "entityUrn" in item:
+            urn = item["entityUrn"]
+        elif "proposedSnapshot" in item:
+            snapshot = item["proposedSnapshot"]
+            if isinstance(snapshot, dict):
+                urn = snapshot.get("urn") or snapshot.get(
+                    list(snapshot.keys())[0], {}
+                ).get("urn")
+        if urn and urn.startswith("urn:li:dashboard:"):
+            dashboard_urns.add(urn)
+
+    expected_report_tokens = set()
+    for space_token, _, num_reports in [
+        ("space_a", "Space A", 2),
+        ("space_b", "Space B", 4),
+        ("space_c", "Space C", 4),
+    ]:
+        for i in range(num_reports):
+            expected_report_tokens.add(f"rpt_{space_token}_{i:02d}")
+
+    assert len(expected_report_tokens) == 10
+
+    # Each report should produce a dashboard URN containing its token
+    found_tokens = set()
+    for urn in dashboard_urns:
+        for token in expected_report_tokens:
+            if token in urn:
+                found_tokens.add(token)
+
+    assert found_tokens == expected_report_tokens, (
+        f"Expected dashboards for all 10 reports across 3 spaces. "
+        f"Missing: {expected_report_tokens - found_tokens}, "
+        f"Found URNs: {dashboard_urns}"
+    )
