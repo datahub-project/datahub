@@ -1,9 +1,9 @@
-import React from 'react';
-import { Badge } from 'antd';
-import styled from 'styled-components';
 import { blue } from '@ant-design/colors';
+import { Badge } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const PrimaryKeyBadge = styled(Badge)`
     margin-left: 4px;

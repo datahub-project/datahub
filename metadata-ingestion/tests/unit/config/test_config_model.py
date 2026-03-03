@@ -15,11 +15,11 @@ def test_extras_not_allowed():
         required: str
         optional: str = "bar"
 
-    MyConfig.parse_obj({"required": "foo"})
-    MyConfig.parse_obj({"required": "foo", "optional": "baz"})
+    MyConfig.model_validate({"required": "foo"})
+    MyConfig.model_validate({"required": "foo", "optional": "baz"})
 
     with pytest.raises(pydantic.ValidationError):
-        MyConfig.parse_obj({"required": "foo", "extra": "extra"})
+        MyConfig.model_validate({"required": "foo", "extra": "extra"})
 
 
 def test_extras_allowed():
@@ -75,6 +75,31 @@ def test_config_redaction():
             "options": {},
         },
         "options": "********",
+    }
+
+
+def test_config_redaction_2():
+    obj = {
+        "config": {
+            "catalog": {
+                "config": {
+                    "s3.access-key-id": "ABCDEF",
+                    "s3.secret-access-key": "8126818",
+                }
+            }
+        },
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "config": {
+            "catalog": {
+                "config": {
+                    "s3.access-key-id": "********",
+                    "s3.secret-access-key": "********",
+                }
+            }
+        },
     }
 
 

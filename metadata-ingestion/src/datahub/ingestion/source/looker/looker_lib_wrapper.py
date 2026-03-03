@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from enum import Enum
 from functools import lru_cache
 from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
 
@@ -26,9 +27,17 @@ from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 logger = logging.getLogger(__name__)
+
+
+class LookerQueryResponseFormat(Enum):
+    # result_format - Ref: https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/run_inline_query
+    JSON = "json"
+    SQL = (
+        "sql"  # Note: This does not execute the query, it only generates the SQL query.
+    )
 
 
 class TransportOptionsConfig(ConfigModel):
@@ -41,7 +50,7 @@ class TransportOptionsConfig(ConfigModel):
 
 class LookerAPIConfig(ConfigModel):
     client_id: str = Field(description="Looker API client id.")
-    client_secret: str = Field(description="Looker API client secret.")
+    client_secret: TransparentSecretStr = Field(description="Looker API client secret.")
     base_url: str = Field(
         description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls."
     )
@@ -68,6 +77,8 @@ class LookerAPIStats(BaseModel):
     get_look_calls: int = 0
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
+    all_user_calls: int = 0
+    generate_sql_query_calls: int = 0
 
 
 class LookerAPI:
@@ -75,9 +86,9 @@ class LookerAPI:
 
     def __init__(self, config: LookerAPIConfig) -> None:
         self.config = config
-        # The Looker SDK looks wants these as environment variables
+        # The Looker SDK wants these as environment variables
         os.environ["LOOKERSDK_CLIENT_ID"] = config.client_id
-        os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret
+        os.environ["LOOKERSDK_CLIENT_SECRET"] = config.client_secret.get_secret_value()
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
         self.client = looker_sdk.init40()
@@ -112,7 +123,7 @@ class LookerAPI:
             )
         except SDKError as e:
             raise ConfigurationError(
-                f"Failed to connect/authenticate with looker - check your configuration: {e}"
+                "Failed to connect/authenticate with looker - check your configuration"
             ) from e
 
         self.client_stats = LookerAPIStats()
@@ -135,7 +146,7 @@ class LookerAPI:
 
         return permissions
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=5000)
     def get_user(self, id_: str, user_fields: str) -> Optional[User]:
         self.client_stats.user_calls += 1
         try:
@@ -154,20 +165,54 @@ class LookerAPI:
         # User not found
         return None
 
+    def all_users(self, user_fields: str) -> Sequence[User]:
+        self.client_stats.all_user_calls += 1
+        try:
+            return self.client.all_users(
+                fields=cast(str, user_fields),
+                transport_options=self.transport_options,
+            )
+        except SDKError as e:
+            logger.warning(f"Failure was {e}")
+        return []
+
     def execute_query(self, write_query: WriteQuery) -> List[Dict]:
         logger.debug(f"Executing query {write_query}")
         self.client_stats.query_calls += 1
 
-        response_json = self.client.run_inline_query(
-            result_format="json",
+        response = self.client.run_inline_query(
+            result_format=LookerQueryResponseFormat.JSON.value,
             body=write_query,
             transport_options=self.transport_options,
         )
 
+        data = json.loads(response)
+
         logger.debug("=================Response=================")
-        data = json.loads(response_json)
         logger.debug("Length of response: %d", len(data))
         return data
+
+    def generate_sql_query(
+        self, write_query: WriteQuery, use_cache: bool = False
+    ) -> str:
+        """
+        Generates a SQL query string for a given WriteQuery.
+
+        Note: This does not execute the query, it only generates the SQL query.
+        """
+        logger.debug(f"Generating SQL query for {write_query}")
+        self.client_stats.generate_sql_query_calls += 1
+
+        response = self.client.run_inline_query(
+            result_format=LookerQueryResponseFormat.SQL.value,
+            body=write_query,
+            transport_options=self.transport_options,
+            cache=use_cache,
+        )
+
+        logger.debug("=================Response=================")
+        logger.debug("Length of SQL response: %d", len(response))
+        return str(response)
 
     def dashboard(self, dashboard_id: str, fields: Union[str, List[str]]) -> Dashboard:
         self.client_stats.dashboard_calls += 1
@@ -183,18 +228,27 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
+    def lookml_model_explore(
+        self,
+        model: str,
+        explore_name: str,
+        fields: Optional[List[str]] = None,
+    ) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
-            model, explore_name, transport_options=self.transport_options
+            model,
+            explore_name,
+            fields=self.__fields_mapper(fields) if fields else None,
+            transport_options=self.transport_options,
         )
 
     @lru_cache(maxsize=1000)
     def folder_ancestors(
         self,
         folder_id: str,
-        fields: Union[str, List[str]] = ["id", "name", "parent_id"],
+        fields: Optional[Union[str, List[str]]] = None,
     ) -> Sequence[Folder]:
+        fields = fields or ["id", "name", "parent_id"]
         self.client_stats.folder_calls += 1
         try:
             return self.client.folder_ancestors(

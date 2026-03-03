@@ -13,7 +13,7 @@ import requests
 from cached_property import cached_property
 from dateutil import parser
 from packaging import version
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -21,8 +21,10 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -33,9 +35,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -46,6 +60,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -57,7 +72,7 @@ NIFI = "nifi"
 # and here - https://github.com/psf/requests/issues/1573
 class SSLAdapter(HTTPAdapter):
     def __init__(self, certfile, keyfile, password=None):
-        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        self.context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         self.context.load_cert_chain(
             certfile=certfile, keyfile=keyfile, password=password
         )
@@ -80,7 +95,7 @@ class ProcessGroupKey(ContainerKey):
     process_group_id: str
 
 
-class NifiSourceConfig(EnvConfigMixin):
+class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     site_url: str = Field(
         description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
     )
@@ -113,7 +128,7 @@ class NifiSourceConfig(EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
@@ -125,7 +140,7 @@ class NifiSourceConfig(EnvConfigMixin):
     client_key_file: Optional[str] = Field(
         default=None, description="Path to PEM file containing the client’s secret key"
     )
-    client_key_password: Optional[str] = Field(
+    client_key_password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password to decrypt the client_key_file"
     )
 
@@ -150,43 +165,37 @@ class NifiSourceConfig(EnvConfigMixin):
         " When disabled, re-states lineage on each run.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_auth_params(cla, values):
-        if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
-            "client_cert_file"
-        ):
+    @model_validator(mode="after")
+    def validate_auth_params(self) -> "NifiSourceConfig":
+        if self.auth is NifiAuthType.CLIENT_CERT and not self.client_cert_file:
             raise ValueError(
                 "Config `client_cert_file` is required for CLIENT_CERT auth"
             )
-        elif values.get("auth") in (
+        elif self.auth in (
             NifiAuthType.SINGLE_USER,
             NifiAuthType.BASIC_AUTH,
-        ) and (not values.get("username") or not values.get("password")):
+        ) and (not self.username or not self.password):
             raise ValueError(
-                f"Config `username` and `password` is required for {values.get('auth').value} auth"
+                f"Config `username` and `password` is required for {self.auth.value} auth"
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def validator_site_url_to_site_name(cls, values):
-        site_url_to_site_name = values.get("site_url_to_site_name")
-        site_url = values.get("site_url")
-        site_name = values.get("site_name")
+    @model_validator(mode="after")
+    def validator_site_url_to_site_name(self) -> "NifiSourceConfig":
+        if self.site_url_to_site_name is None:
+            self.site_url_to_site_name = {}
 
-        if site_url_to_site_name is None:
-            site_url_to_site_name = {}
-            values["site_url_to_site_name"] = site_url_to_site_name
+        if self.site_url not in self.site_url_to_site_name:
+            self.site_url_to_site_name[self.site_url] = self.site_name
 
-        if site_url not in site_url_to_site_name:
-            site_url_to_site_name[site_url] = site_name
+        return self
 
-        return values
-
-    @validator("site_url")
+    @field_validator("site_url", mode="after")
+    @classmethod
     def validator_site_url(cls, site_url: str) -> str:
-        assert site_url.startswith(
-            ("http://", "https://")
-        ), "site_url must start with http:// or https://"
+        assert site_url.startswith(("http://", "https://")), (
+            "site_url must start with http:// or https://"
+        )
 
         if not site_url.endswith("/"):
             site_url = site_url + "/"
@@ -451,8 +460,8 @@ def get_attribute_value(attr_lst: List[dict], attr_name: str) -> Optional[str]:
 
 
 @dataclass
-class NifiSourceReport(SourceReport):
-    filtered: List[str] = field(default_factory=list)
+class NifiSourceReport(StaleEntityRemovalSourceReport):
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
@@ -463,14 +472,14 @@ class NifiSourceReport(SourceReport):
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
-class NifiSource(Source):
-
+class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
     report: NifiSourceReport
 
     def __init__(self, config: NifiSourceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
+        self.ctx = ctx
         self.report = NifiSourceReport()
         self.session = requests.Session()
 
@@ -485,17 +494,10 @@ class NifiSource(Source):
     def rest_api_base_url(self):
         return self.config.site_url[: -len("nifi/")] + "nifi-api/"
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = NifiSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_report(self) -> SourceReport:
         return self.report
 
-    def update_flow(
-        self, pg_flow_dto: Dict, recursion_level: int = 0
-    ) -> None:  # noqa: C901
+    def update_flow(self, pg_flow_dto: Dict, recursion_level: int = 0) -> None:
         """
         Update self.nifi_flow with contents of the input process group `pg_flow_dto`
         """
@@ -554,16 +556,16 @@ class NifiSource(Source):
         for inputPort in flow_dto.get("inputPorts", []):
             component = inputPort.get("component")
             if inputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.INPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.INPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:
@@ -582,16 +584,16 @@ class NifiSource(Source):
         for outputPort in flow_dto.get("outputPorts", []):
             component = outputPort.get("component")
             if outputPort.get("allowRemoteAccess"):
-                self.nifi_flow.remotely_accessible_ports[
-                    component.get("id")
-                ] = NifiComponent(
-                    component.get("id"),
-                    component.get("name"),
-                    component.get("type"),
-                    component.get("parentGroupId"),
-                    NifiType.OUTPUT_PORT,
-                    comments=component.get("comments"),
-                    status=component.get("status", {}).get("runStatus"),
+                self.nifi_flow.remotely_accessible_ports[component.get("id")] = (
+                    NifiComponent(
+                        component.get("id"),
+                        component.get("name"),
+                        component.get("type"),
+                        component.get("parentGroupId"),
+                        NifiType.OUTPUT_PORT,
+                        comments=component.get("comments"),
+                        status=component.get("status", {}).get("runStatus"),
+                    )
                 )
                 logger.debug(f"Adding remotely accessible port {component.get('id')}")
             else:
@@ -695,7 +697,7 @@ class NifiSource(Source):
             if (
                 component.nifi_type is NifiType.PROCESSOR
                 and component.type
-                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS.keys()
+                not in NifiProcessorProvenanceEventAnalyzer.KNOWN_INGRESS_EGRESS_PROCESORS
             ) or component.nifi_type not in [
                 NifiType.PROCESSOR,
                 NifiType.REMOTE_INPUT_PORT,
@@ -901,7 +903,7 @@ class NifiSource(Source):
         if not delete_response.ok:
             logger.error("failed to delete provenance ", provenance_uri)
 
-    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def construct_workunits(self) -> Iterable[MetadataWorkUnit]:
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = self.make_flow_urn()
@@ -969,7 +971,7 @@ class NifiSource(Source):
                     )
 
             for incoming_from in incoming:
-                if incoming_from in self.nifi_flow.remotely_accessible_ports.keys():
+                if incoming_from in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[incoming_from].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
@@ -986,7 +988,7 @@ class NifiSource(Source):
                     )
 
             for outgoing_to in outgoing:
-                if outgoing_to in self.nifi_flow.remotely_accessible_ports.keys():
+                if outgoing_to in self.nifi_flow.remotely_accessible_ports:
                     dataset_name = f"{self.config.site_name}.{self.nifi_flow.remotely_accessible_ports[outgoing_to].name}"
                     dataset_urn = builder.make_dataset_urn(
                         NIFI, dataset_name, self.config.env
@@ -1117,7 +1119,7 @@ class NifiSource(Source):
             assert self.config.username is not None
             assert self.config.password is not None
             self.session.auth = HTTPBasicAuth(
-                self.config.username, self.config.password
+                self.config.username, self.config.password.get_secret_value()
             )
             self.session.headers.update(
                 {
@@ -1132,7 +1134,9 @@ class NifiSource(Source):
                 SSLAdapter(
                     certfile=self.config.client_cert_file,
                     keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
+                    password=self.config.client_key_password.get_secret_value()
+                    if self.config.client_key_password
+                    else None,
                 ),
             )
             return
@@ -1144,7 +1148,9 @@ class NifiSource(Source):
                 url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
-                    "password": self.config.password,
+                    "password": self.config.password.get_secret_value()
+                    if self.config.password
+                    else None,
                 },
             )
         elif self.config.auth is NifiAuthType.KERBEROS:
@@ -1157,6 +1163,14 @@ class NifiSource(Source):
 
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -1218,11 +1232,14 @@ class NifiSource(Source):
         job_type: str,
         description: Optional[str],
         job_properties: Optional[Dict[str, str]] = None,
-        inlets: List[str] = [],
-        outlets: List[str] = [],
-        inputJobs: List[str] = [],
+        inlets: Optional[List[str]] = None,
+        outlets: Optional[List[str]] = None,
+        inputJobs: Optional[List[str]] = None,
         status: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        inlets = inlets or []
+        outlets = outlets or []
+        inputJobs = inputJobs or []
         logger.debug(f"Begining construction of job workunit for {job_urn}")
         if job_properties:
             job_properties = {k: v for k, v in job_properties.items() if v is not None}

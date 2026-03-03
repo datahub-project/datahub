@@ -1,4 +1,4 @@
-import { Owner } from '../../types.generated';
+import { Owner } from '@types';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();

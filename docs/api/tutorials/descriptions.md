@@ -202,16 +202,16 @@ Expected Response:
 ```graphql
 mutation updateDataset {
   updateDataset(
-    urn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    urn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
     input: {
       editableProperties: {
-          description: "## The Real Estate Sales Dataset\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\n"
+        description: "## The Real Estate Sales Dataset\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\n"
       }
       institutionalMemory: {
         elements: {
           author: "urn:li:corpuser:jdoe"
-        	url: "https://wikipedia.com/real_estate"
-        	description: "This is the definition of what real estate means"
+          url: "https://wikipedia.com/real_estate"
+          description: "This is the definition of what real estate means"
         }
       }
     }
@@ -275,11 +275,9 @@ Expected Response:
 
 You can now see the description is added to `fct_users_deleted`.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-description-added.png"/>
 </p>
-
 
 ## Add Description on Column
 
@@ -318,7 +316,7 @@ mutation updateDescription {
 ```
 
 `updateDescription` currently only supports Dataset Schema Fields, Containers.
-For more information about the `updateDescription` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updateDescription).
+For more information about the `updateDescription` mutation, please refer to [updateLineage](https://docs.datahub.com/docs/graphql/mutations/#updateDescription).
 
 If you see the following response, the operation was successful:
 
@@ -361,8 +359,6 @@ Expected Response:
 
 You can now see column description is added to `user_name` column of `fct_users_deleted`.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-description-added.png"/>
 </p>
-

@@ -1,11 +1,12 @@
 plugins {
   id 'java-library'
 }
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api project(':metadata-io')
   api project(':metadata-utils')
-  implementation project(':metadata-service:auth-impl')
+  api project(':metadata-service:auth-impl')
   api project(':metadata-service:auth-config')
   api project(':metadata-service:plugin')
   api project(':metadata-service:configuration')
@@ -15,11 +16,13 @@ dependencies {
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
+  implementation project(':metadata-service:events-service')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
   }
   implementation externalDependency.elasticSearchRest
+  implementation externalDependency.elasticsearch8Client
   implementation externalDependency.httpClient
   implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
@@ -30,6 +33,7 @@ dependencies {
   implementation externalDependency.kafkaAvroSerde
   compileOnly externalDependency.lombok
   implementation externalDependency.servletApi
+  implementation externalDependency.graphqlJava
   api externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springBootStarterCache
@@ -37,8 +41,19 @@ dependencies {
   api externalDependency.springCore
   api externalDependency.springKafka
   api externalDependency.springWeb
+  api externalDependency.httpClient
+  implementation externalDependency.springActuator
+  implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+
+  // AWS SDK for S3 file serving
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:s3'
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation 'software.amazon.awssdk:bedrockruntime'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -50,11 +65,23 @@ dependencies {
   implementation externalDependency.jline
   implementation externalDependency.commonsIo
 
+  implementation externalDependency.opentelemetryApi
+  implementation externalDependency.opentelemetrySdk
+  implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
+  implementation externalDependency.opentelemetryAutoConfig
+
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
   testImplementation externalDependency.javatuples
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 
 
   constraints {

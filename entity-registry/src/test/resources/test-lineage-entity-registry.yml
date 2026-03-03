@@ -1,0 +1,674 @@
+entities:
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo
+  - name: role
+    category: core
+    keyAspect: roleKey
+    aspects:
+      - roleProperties
+      - actors
+  - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    category: core
+    keyAspect: datasetKey
+    aspects:
+      - viewProperties
+      - subTypes
+      - datasetProfile
+      - datasetUsageStatistics
+      - operation
+      - domains
+      - schemaMetadata
+      - status
+      - container
+      - deprecation
+      - testResults
+      - siblings
+      - embed
+      - incidentsSummary
+      - datasetProperties
+      - editableDatasetProperties
+      - datasetDeprecation
+      - datasetUpstreamLineage
+      - upstreamLineage
+      - institutionalMemory
+      - ownership
+      - editableSchemaMetadata
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - dataPlatformInstance
+      - browsePathsV2
+      - access
+      - structuredProperties
+      - forms
+      - partitionsSummary
+      - versionProperties
+      - icebergCatalogInfo
+  - name: dataHubPolicy
+    doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
+    category: internal
+    keyAspect: dataHubPolicyKey
+    aspects:
+      - dataHubPolicyInfo
+  - name: dataJob
+    keyAspect: dataJobKey
+    aspects:
+      - datahubIngestionRunSummary
+      - datahubIngestionCheckpoint
+      - domains
+      - deprecation
+      - versionInfo
+      - dataJobInfo
+      - dataJobInputOutput
+      - editableDataJobProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
+      - container
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - subTypes
+      - incidentsSummary
+      - testResults
+      - dataTransformLogic
+  - name: dataFlow
+    category: core
+    keyAspect: dataFlowKey
+    aspects:
+      - domains
+      - deprecation
+      - versionInfo
+      - dataFlowInfo
+      - editableDataFlowProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
+      - container
+      - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - subTypes
+      - testResults
+  - name: dataProcess
+    keyAspect: dataProcessKey
+    aspects:
+      - dataProcessInfo
+      - ownership
+      - status
+      - testResults
+      - subTypes
+  - name: dataProcessInstance
+    doc: DataProcessInstance represents an instance of a datajob/jobflow run
+    keyAspect: dataProcessInstanceKey
+    aspects:
+      - dataProcessInstanceInput
+      - dataProcessInstanceOutput
+      - dataProcessInstanceProperties
+      - dataProcessInstanceRelationships
+      - dataProcessInstanceRunEvent
+      - status
+      - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
+  - name: chart
+    category: core
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - editableChartProperties
+      - chartQuery
+      - inputFields
+      - chartUsageStatistics
+      - embed
+      - browsePaths
+      - domains
+      - container
+      - deprecation
+      - ownership
+      - status
+      - institutionalMemory
+      - dataPlatformInstance
+      - globalTags
+      - glossaryTerms
+      - browsePathsV2
+      - subTypes
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - testResults
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
+      - container
+      - deprecation
+      - dashboardUsageStatistics
+      - inputFields
+      - subTypes
+      - embed
+      - dashboardInfo
+      - editableDashboardProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
+      - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - testResults
+  - name: notebook
+    doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
+    keyAspect: notebookKey
+    aspects:
+      - notebookInfo
+      - notebookContent
+      - editableNotebookProperties
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - institutionalMemory
+      - domains
+      - subTypes
+      - dataPlatformInstance
+      - browsePathsV2
+      - testResults
+  - name: corpuser
+    doc: CorpUser represents an identity of a person (or an account) in the enterprise.
+    keyAspect: corpUserKey
+    aspects:
+      - corpUserInfo
+      - corpUserEditableInfo
+      - corpUserStatus
+      - groupMembership
+      - globalTags
+      - status
+      - corpUserCredentials
+      - nativeGroupMembership
+      - corpUserSettings
+      - origin
+      - roleMembership
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+      - slackUserInfo
+  - name: corpGroup
+    doc: CorpGroup represents an identity of a group of users in the enterprise.
+    keyAspect: corpGroupKey
+    aspects:
+      - corpGroupInfo
+      - corpGroupEditableInfo
+      - globalTags
+      - ownership
+      - status
+      - origin
+      - roleMembership
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: domain
+    doc: A data domain within an organization.
+    category: core
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
+      - structuredProperties
+      - forms
+      - testResults
+      - displayProperties
+  - name: container
+    doc: A container of related data assets.
+    category: core
+    keyAspect: containerKey
+    aspects:
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - deprecation
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+      - domains
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - testResults
+      - access
+  - name: tag
+    category: core
+    keyAspect: tagKey
+    aspects:
+      - tagProperties
+      - ownership
+      - deprecation
+      - status
+      - testResults
+  - name: glossaryTerm
+    category: core
+    keyAspect: glossaryTermKey
+    aspects:
+      - glossaryTermInfo
+      - glossaryRelatedTerms
+      - institutionalMemory
+      - schemaMetadata
+      - ownership
+      - deprecation
+      - domains
+      - status
+      - browsePaths
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: glossaryNode
+    category: core
+    keyAspect: glossaryNodeKey
+    aspects:
+      - glossaryNodeInfo
+      - institutionalMemory
+      - ownership
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+      - displayProperties
+  - name: dataHubIngestionSource
+    category: internal
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    category: internal
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    category: internal
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult
+  - name: assertion
+    doc: Assertion represents a data quality rule applied on one or more dataset.
+    category: core
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - dataPlatformInstance
+      - assertionRunEvent
+      - assertionActions
+      - status
+      - globalTags
+  - name: dataHubRetention
+    category: internal
+    keyAspect: dataHubRetentionKey
+    aspects:
+      - dataHubRetentionConfig
+  - name: dataPlatformInstance
+    category: internal
+    keyAspect: dataPlatformInstanceKey
+    aspects:
+      - dataPlatformInstanceProperties
+      - ownership
+      - globalTags
+      - institutionalMemory
+      - deprecation
+      - status
+      - icebergWarehouseInfo
+  - name: mlModel
+    category: core
+    keyAspect: mlModelKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelProperties
+      - domains
+      - ownership
+      - mlModelProperties
+      - intendedUse
+      - mlModelFactorPrompts
+      - mlModelMetrics
+      - mlModelEvaluationData
+      - mlModelTrainingData
+      - mlModelQuantitativeAnalyses
+      - mlModelEthicalConsiderations
+      - mlModelCaveatsAndRecommendations
+      - institutionalMemory
+      - sourceCode
+      - status
+      - cost
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - testResults
+      - versionProperties
+      - subTypes
+      - container
+  - name: mlModelGroup
+    category: core
+    keyAspect: mlModelGroupKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelGroupProperties
+      - domains
+      - mlModelGroupProperties
+      - ownership
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+      - container
+  - name: mlModelDeployment
+    category: core
+    keyAspect: mlModelDeploymentKey
+    aspects:
+      - mlModelDeploymentProperties
+      - ownership
+      - status
+      - deprecation
+      - globalTags
+      - dataPlatformInstance
+      - testResults
+      - container
+  - name: mlFeatureTable
+    category: core
+    keyAspect: mlFeatureTableKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureTableProperties
+      - domains
+      - mlFeatureTableProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: mlFeature
+    category: core
+    keyAspect: mlFeatureKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureProperties
+      - domains
+      - mlFeatureProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - browsePaths
+      - globalTags
+      - dataPlatformInstance
+      - browsePathsV2
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: mlPrimaryKey
+    category: core
+    keyAspect: mlPrimaryKeyKey
+    aspects:
+      - glossaryTerms
+      - editableMlPrimaryKeyProperties
+      - domains
+      - mlPrimaryKeyProperties
+      - ownership
+      - institutionalMemory
+      - status
+      - deprecation
+      - globalTags
+      - dataPlatformInstance
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: telemetry
+    category: internal
+    keyAspect: telemetryKey
+    aspects:
+      - telemetryClientId
+  - name: dataHubAccessToken
+    category: internal
+    keyAspect: dataHubAccessTokenKey
+    aspects:
+      - dataHubAccessTokenInfo
+  - name: test
+    doc: A DataHub test
+    category: core
+    keyAspect: testKey
+    aspects:
+      - testInfo
+  - name: dataHubUpgrade
+    category: internal
+    keyAspect: dataHubUpgradeKey
+    aspects:
+      - dataHubUpgradeRequest
+      - dataHubUpgradeResult
+  - name: inviteToken
+    category: internal
+    keyAspect: inviteTokenKey
+    aspects:
+      - inviteToken
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects:
+      - schemafieldInfo
+      - structuredProperties
+      - forms
+      - businessAttributes
+      - status
+      - schemaFieldAliases
+      - documentation
+      - testResults
+      - deprecation
+      - subTypes
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+      - globalTags
+  - name: dataHubRole
+    category: core
+    keyAspect: dataHubRoleKey
+    aspects:
+      - dataHubRoleInfo
+  - name: post
+    category: core
+    keyAspect: postKey
+    aspects:
+      - postInfo
+      - subTypes
+  - name: dataHubStepState
+    category: internal
+    keyAspect: dataHubStepStateKey
+    aspects:
+      - dataHubStepStateProperties
+  - name: dataHubView
+    category: core
+    keyAspect: dataHubViewKey
+    aspects:
+      - dataHubViewInfo
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
+    keyAspect: erModelRelationshipKey
+    aspects:
+      - erModelRelationshipProperties
+      - editableERModelRelationshipProperties
+      - institutionalMemory
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+  - name: query
+    category: core
+    keyAspect: queryKey
+    aspects:
+      - queryProperties
+      - querySubjects
+      - queryUsageStatistics
+      - status
+      - dataPlatformInstance
+      - subTypes
+  - name: dataProduct
+    category: core
+    keyAspect: dataProductKey
+    aspects:
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - dataProductProperties
+      - institutionalMemory
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
+  - name: ownershipType
+    doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
+    category: core
+    keyAspect: ownershipTypeKey
+    aspects:
+      - ownershipTypeInfo
+      - status
+  - name: businessAttribute
+    category: core
+    keyAspect: businessAttributeKey
+    aspects:
+      - businessAttributeInfo
+      - status
+      - ownership
+      - institutionalMemory
+  - name: dataContract
+    category: core
+    keyAspect: dataContractKey
+    aspects:
+      - dataContractProperties
+      - dataContractStatus
+      - status
+      - structuredProperties
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects: []
+  - name: entityType
+    doc: A type of entity in the DataHub Metadata Model.
+    category: core
+    keyAspect: entityTypeKey
+    aspects:
+      - entityTypeInfo
+      - institutionalMemory
+      - status
+  - name: dataType
+    doc: A type of data element stored within DataHub.
+    category: core
+    keyAspect: dataTypeKey
+    aspects:
+      - dataTypeInfo
+      - institutionalMemory
+      - status
+  - name: structuredProperty
+    doc: Structured Property represents a property meant for extending the core model of a logical entity
+    category: core
+    keyAspect: structuredPropertyKey
+    aspects:
+      - propertyDefinition
+      - structuredPropertySettings
+      - institutionalMemory
+      - status
+  - name: form
+    category: core
+    keyAspect: formKey
+    aspects:
+      - formInfo
+      - dynamicFormAssignment
+      - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
+  - name: platformResource
+    doc: >-
+      Platform Resources are assets that are unmodeled and stored outside of
+      the core data model. They are stored in DataHub primarily to help with
+      application-specific use-cases that are not sufficiently generalized to move into the core data model.
+    category: core
+    keyAspect: platformResourceKey
+    aspects:
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata

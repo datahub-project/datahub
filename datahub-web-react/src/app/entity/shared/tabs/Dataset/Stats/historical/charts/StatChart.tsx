@@ -1,10 +1,12 @@
 import { Card, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { DateInterval, DateRange } from '../../../../../../../../types.generated';
-import { ChartContainer } from '../../../../../../../analyticsDashboard/components/ChartContainer';
-import { TimeSeriesChart } from '../../../../../../../analyticsDashboard/components/TimeSeriesChart';
-import { ANTD_GRAY } from '../../../../../constants';
+
+import { ChartContainer } from '@app/analyticsDashboard/components/ChartContainer';
+import { TimeSeriesChart } from '@app/analyticsDashboard/components/TimeSeriesChart';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { DateInterval, DateRange } from '@types';
 
 const ChartTitle = styled(Typography.Text)`
     && {

@@ -7,9 +7,11 @@ dependencies {
   implementation project(':metadata-operation-context')
   implementation project(':metadata-auth:auth-api')
 
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.httpClient
 
+  compileOnly externalDependency.swaggerAnnotations
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

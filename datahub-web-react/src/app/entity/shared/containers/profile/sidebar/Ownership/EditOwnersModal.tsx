@@ -1,26 +1,19 @@
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Button, Form, Modal, Select, Tag, Typography, message } from 'antd';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import {
-    CorpUser,
-    Entity,
-    EntityType,
-    OwnerEntityType,
-    OwnershipTypeEntity,
-} from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-import {
-    useBatchAddOwnersMutation,
-    useBatchRemoveOwnersMutation,
-} from '../../../../../../../graphql/mutations.generated';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { useGetRecommendations } from '../../../../../../shared/recommendation';
-import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
-import { handleBatchError } from '../../../../utils';
-import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
-import { getModalDomContainer } from '../../../../../../../utils/focus';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { handleBatchError } from '@app/entity/shared/utils';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipTypeEntity } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -78,10 +71,26 @@ export const EditOwnersModal = ({
     const renderSearchResult = (entity: Entity) => {
         const avatarUrl =
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
+        const corpUserDepartmentName =
+            (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.departmentName) || '';
+        const corpUserId = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
+        const corpUserTitle = (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.title) || '';
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
+
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            <Select.Option
+                key={entity.urn}
+                value={entity.urn}
+                label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />}
+            >
+                <OwnerLabel
+                    name={displayName}
+                    avatarUrl={avatarUrl}
+                    type={entity.type}
+                    corpUserId={corpUserId}
+                    corpUserTitle={corpUserTitle}
+                    corpUserDepartmentName={corpUserDepartmentName}
+                />
             </Select.Option>
         );
     };
@@ -108,14 +117,7 @@ export const EditOwnersModal = ({
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
-    const { data: ownershipTypesData, loading } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-    const ownershipTypes = useMemo(() => {
-        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    }, [ownershipTypesData]);
+    const { ownershipTypes, loading } = useOwnershipTypes();
 
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),
@@ -132,22 +134,29 @@ export const EditOwnersModal = ({
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-    const userSearchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const userSearchResults: Array<Entity> =
+        userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const groupSearchResults: Array<Entity> =
+        groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
+    const { recommendedData } = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            type,
+        );
+
         searchQuery({
             variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
+                input,
             },
         });
     };
@@ -381,6 +390,8 @@ export const EditOwnersModal = ({
                                 value: owner.value.ownerUrn,
                                 label: owner.label,
                             }))}
+                            optionLabelProp="label"
+                            data-testid="users-group-search"
                         >
                             {ownerSearchOptions}
                         </SelectInput>

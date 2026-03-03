@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
@@ -13,6 +12,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -26,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -39,7 +38,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 @RequiredArgsConstructor
 public class RecentlySearchedSource implements RecommendationSource {
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
 
   private static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
@@ -67,11 +66,9 @@ public class RecentlySearchedSource implements RecommendationSource {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
-          _searchClient
-              .indices()
-              .exists(
-                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-                  RequestOptions.DEFAULT);
+          _searchClient.indexExists(
+              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
     }
@@ -85,28 +82,35 @@ public class RecentlySearchedSource implements RecommendationSource {
       @Nullable Filter filter) {
     SearchRequest searchRequest =
         buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
-      final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results
-      ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      return parsedTerms.getBuckets().stream()
-          .map(bucket -> buildContent(bucket.getKeyAsString()))
-          .filter(Optional::isPresent)
-          .map(Optional::get)
-          .limit(MAX_CONTENT)
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      log.error("Search query to get most recently viewed entities failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+
+    return opContext.withSpan(
+        "getRecentlySearched",
+        () -> {
+          try {
+            final SearchResponse searchResponse =
+                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            // extract results
+            ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
+            return parsedTerms.getBuckets().stream()
+                .map(bucket -> buildContent(bucket.getKeyAsString()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .limit(MAX_CONTENT)
+                .collect(Collectors.toList());
+          } catch (Exception e) {
+            log.error("Search query to get most recently searched queries failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getRecentlySearched"));
   }
 
   private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    // Filter for the entity view events of the user requesting recommendation
+    // Filter for the search results view event of the user requesting recommendation
     query.must(
         QueryBuilders.termQuery(
             DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));

@@ -5,13 +5,20 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.application.ApplicationProperties;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
+import com.linkedin.common.DocumentationAssociationArray;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
@@ -30,6 +37,7 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +48,33 @@ public class DescriptionUtils {
           ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
   private DescriptionUtils() {}
+
+  public static void updateDatasetDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+
+    EditableDatasetProperties editableDatasetProperties =
+        (EditableDatasetProperties)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+                entityService,
+                new EditableDatasetProperties());
+
+    editableDatasetProperties.setDescription(newDescription);
+
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+        editableDatasetProperties,
+        actor,
+        entityService);
+  }
 
   public static void updateFieldDescription(
       @Nonnull OperationContext opContext,
@@ -138,11 +173,11 @@ public class DescriptionUtils {
                 entityService,
                 null);
     if (tagProperties == null) {
-      // If there are no properties for the tag already, then we should throw since the properties
-      // model also requires a name.
-      throw new IllegalArgumentException("Properties for this Tag do not yet exist!");
+      tagProperties =
+          new TagProperties().setName(resourceUrn.getId()).setDescription(newDescription);
+    } else {
+      tagProperties.setDescription(newDescription);
     }
-    tagProperties.setDescription(newDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -262,6 +297,16 @@ public class DescriptionUtils {
         entityService);
   }
 
+  public static Boolean validateDescriptionInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
+    }
+
+    return true;
+  }
+
   public static Boolean validateFieldDescriptionInput(
       @Nonnull OperationContext opContext,
       Urn resourceUrn,
@@ -339,19 +384,6 @@ public class DescriptionUtils {
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToUpdateDomainDescription(
-      @Nonnull QueryContext context, Urn targetUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
-  }
-
   public static boolean isAuthorizedToUpdateContainerDescription(
       @Nonnull QueryContext context, Urn targetUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -372,7 +404,9 @@ public class DescriptionUtils {
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -534,6 +568,32 @@ public class DescriptionUtils {
         entityService);
   }
 
+  public static void updateApplicationDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+    ApplicationProperties applicationProperties =
+        (ApplicationProperties)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+                entityService,
+                new ApplicationProperties());
+    if (applicationProperties != null) {
+      applicationProperties.setDescription(newDescription);
+    }
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+        applicationProperties,
+        actor,
+        entityService);
+  }
+
   public static void updateBusinessAttributeDescription(
       @Nonnull OperationContext opContext,
       String newDescription,
@@ -556,6 +616,97 @@ public class DescriptionUtils {
         resourceUrn,
         Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
         businessAttributeInfo,
+        actor,
+        entityService);
+  }
+
+  public static final String SOURCE_DETAIL_KEY_UI = "ui";
+  public static final String SOURCE_DETAIL_KEY_PROPAGATED = "propagated";
+  public static final String SOURCE_DETAIL_KEY_INFERRED = "inferred";
+  public static final String SOURCE_DETAIL_VALUE_TRUE = "true";
+
+  /**
+   * Checks if a DocumentationAssociation was authored via the UI. A doc is considered UI-authored
+   * if it has sourceDetail with "ui" = "true".
+   */
+  private static boolean isUiAuthoredDocumentation(DocumentationAssociation doc) {
+    if (!doc.hasAttribution() || !doc.getAttribution().hasSourceDetail()) {
+      return false;
+    }
+    return SOURCE_DETAIL_VALUE_TRUE.equals(
+        doc.getAttribution().getSourceDetail().get(SOURCE_DETAIL_KEY_UI));
+  }
+
+  /**
+   * Checks if a DocumentationAssociation is propagated. A doc is considered propagated if it has
+   * sourceDetail with "propagated" = "true".
+   */
+  private static boolean isPropagatedDocumentation(DocumentationAssociation doc) {
+    if (!doc.hasAttribution() || !doc.getAttribution().hasSourceDetail()) {
+      return false;
+    }
+    return "true".equals(doc.getAttribution().getSourceDetail().get(SOURCE_DETAIL_KEY_PROPAGATED));
+  }
+
+  /**
+   * Checks if a DocumentationAssociation is inferred (AI-generated). A doc is considered inferred
+   * if it has sourceDetail with "inferred" = "true".
+   */
+  private static boolean isInferredDocumentation(DocumentationAssociation doc) {
+    if (!doc.hasAttribution() || !doc.getAttribution().hasSourceDetail()) {
+      return false;
+    }
+    return "true".equals(doc.getAttribution().getSourceDetail().get(SOURCE_DETAIL_KEY_INFERRED));
+  }
+
+  public static void updateDocumentDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+    // Get existing documentation aspect or create new
+    Documentation documentation =
+        (Documentation)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.DOCUMENTATION_ASPECT_NAME,
+                entityService,
+                new Documentation());
+
+    // Create new documentation association with attribution
+    // Label this as UI-authored so we can identify it later
+    long currentTime = System.currentTimeMillis();
+    MetadataAttribution attribution =
+        new MetadataAttribution()
+            .setTime(currentTime)
+            .setActor(actor)
+            .setSourceDetail(new StringMap(Map.of(SOURCE_DETAIL_KEY_UI, SOURCE_DETAIL_VALUE_TRUE)));
+
+    DocumentationAssociation newDocAssociation =
+        new DocumentationAssociation().setDocumentation(newDescription).setAttribution(attribution);
+
+    // Keep all non-UI-authored documentation entries (propagated, inferred, and ingested)
+    // This ensures we don't accidentally drop propagated descriptions from lineage or AI inferred
+    // ones
+    DocumentationAssociationArray associations =
+        documentation.hasDocumentations()
+            ? new DocumentationAssociationArray(
+                documentation.getDocumentations().stream()
+                    .filter(el -> !isUiAuthoredDocumentation(el))
+                    .collect(java.util.stream.Collectors.toList()))
+            : new DocumentationAssociationArray();
+
+    // Add the new UI-authored documentation
+    associations.add(newDocAssociation);
+    documentation.setDocumentations(associations);
+
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.DOCUMENTATION_ASPECT_NAME,
+        documentation,
         actor,
         entityService);
   }

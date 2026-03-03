@@ -20,6 +20,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
+import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -48,6 +49,8 @@ public class EntitySpecBuilder {
       new PegasusSchemaAnnotationHandlerImpl(TimeseriesFieldAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _timeseriesFieldCollectionHandler =
       new PegasusSchemaAnnotationHandlerImpl(TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _urnValidationAnnotationHandler =
+      new PegasusSchemaAnnotationHandlerImpl(UrnValidationAnnotation.ANNOTATION_NAME);
 
   private final AnnotationExtractionMode _extractionMode;
   private final Set<String> _entityNames = new HashSet<>();
@@ -156,6 +159,13 @@ public class EntitySpecBuilder {
 
   public EntitySpec buildEntitySpec(
       @Nonnull final DataSchema entitySnapshotSchema, @Nonnull final List<AspectSpec> aspectSpecs) {
+    return buildEntitySpec(entitySnapshotSchema, aspectSpecs, null);
+  }
+
+  public EntitySpec buildEntitySpec(
+      @Nonnull final DataSchema entitySnapshotSchema,
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nullable final String searchGroup) {
 
     // 0. Validate the Snapshot definition
     final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
@@ -169,6 +179,13 @@ public class EntitySpecBuilder {
       EntityAnnotation entityAnnotation =
           EntityAnnotation.fromSchemaProperty(
               entityAnnotationObj, entitySnapshotRecordSchema.getFullName());
+
+      // Override searchGroup from YAML configuration if provided
+      if (searchGroup != null) {
+        entityAnnotation =
+            new EntityAnnotation(
+                entityAnnotation.getName(), entityAnnotation.getKeyAspect(), searchGroup);
+      }
 
       final EntitySpec entitySpec =
           new DefaultEntitySpec(aspectSpecs, entityAnnotation, entitySnapshotRecordSchema);
@@ -189,8 +206,9 @@ public class EntitySpecBuilder {
   public EntitySpec buildConfigEntitySpec(
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
-      @Nonnull final List<AspectSpec> aspectSpecs) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs);
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup) {
+    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup);
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -226,6 +244,7 @@ public class EntitySpecBuilder {
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            Collections.emptyList(),
             aspectRecordSchema,
             aspectClass);
       }
@@ -235,6 +254,13 @@ public class EntitySpecBuilder {
               Collections.singletonList(_searchHandler),
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      if (processedSearchResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Searchable annotation with errors: %s",
+                aspectRecordSchema.getName(), processedSearchResult.getErrorMsgs()));
+      }
 
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor =
@@ -275,6 +301,13 @@ public class EntitySpecBuilder {
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
+      if (processedRelationshipResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Relationship annotation with errors: %s",
+                aspectRecordSchema.getName(), processedRelationshipResult.getErrorMsgs()));
+      }
+
       // Extract Relationship Field Specs
       final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor =
           new RelationshipFieldSpecExtractor();
@@ -299,6 +332,18 @@ public class EntitySpecBuilder {
           new DataSchemaRichContextTraverser(timeseriesFieldSpecExtractor);
       timeseriesFieldSpecTraverser.traverse(processedTimeseriesFieldResult.getResultSchema());
 
+      // Extract UrnValidation aspects
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedTimestampResult =
+          SchemaAnnotationProcessor.process(
+              Collections.singletonList(_urnValidationAnnotationHandler),
+              aspectRecordSchema,
+              new SchemaAnnotationProcessor.AnnotationProcessOption());
+      final UrnValidationFieldSpecExtractor urnValidationFieldSpecExtractor =
+          new UrnValidationFieldSpecExtractor();
+      final DataSchemaRichContextTraverser timestampFieldSpecTraverser =
+          new DataSchemaRichContextTraverser(urnValidationFieldSpecExtractor);
+      timestampFieldSpecTraverser.traverse(processedTimestampResult.getResultSchema());
+
       return new AspectSpec(
           aspectAnnotation,
           searchableFieldSpecExtractor.getSpecs(),
@@ -307,6 +352,7 @@ public class EntitySpecBuilder {
           timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
           timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(),
           searchableRefFieldSpecExtractor.getSpecs(),
+          urnValidationFieldSpecExtractor.getUrnValidationFieldSpecs(),
           aspectRecordSchema,
           aspectClass);
     }

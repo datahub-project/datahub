@@ -1,3 +1,6 @@
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
+
 import {
     AssertionStdOperator,
     AssertionStdParameters,
@@ -5,9 +8,7 @@ import {
     FieldAssertionType,
     FieldMetricType,
     FieldTransformType,
-} from '../../../../../../types.generated';
-import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
+} from '@types';
 
 const ASSERTION_OPERATOR_TO_DESCRIPTION: Record<AssertionStdOperator, string | undefined> = {
     [AssertionStdOperator.EqualTo]: 'Is equal to',

@@ -27,8 +27,8 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
@@ -112,7 +112,7 @@ public class BusinessAttributeUpdateHookService {
       @Nullable String scrollId,
       int consumedEntityCount,
       int batchNumber) {
-    GraphRetriever graph = opContext.getRetrieverContext().get().getGraphRetriever();
+    GraphRetriever graph = opContext.getRetrieverContext().getGraphRetriever();
     final ArrayList<Future<ExecutionResult>> futureList = new ArrayList<>();
     RelatedEntitiesScrollResult result =
         graph.scrollRelatedEntities(
@@ -120,7 +120,7 @@ public class BusinessAttributeUpdateHookService {
             newFilter("urn", urn.toString()),
             null,
             EMPTY_FILTER,
-            Arrays.asList(BUSINESS_ATTRIBUTE_OF),
+            Set.of(BUSINESS_ATTRIBUTE_OF),
             newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
@@ -165,7 +165,7 @@ public class BusinessAttributeUpdateHookService {
     return () -> {
       StopWatch stopWatch = new StopWatch();
       stopWatch.start();
-      AspectRetriever aspectRetriever = opContext.getAspectRetrieverOpt().get();
+      AspectRetriever aspectRetriever = opContext.getAspectRetriever();
       log.info("Batch {} for BA:{} started", batchNumber, entityKey);
       ExecutionResult executionResult = new ExecutionResult();
       executionResult.setBatchNumber(batchNumber);
@@ -181,15 +181,16 @@ public class BusinessAttributeUpdateHookService {
             aspectRetriever.getLatestAspectObjects(
                 entityUrns, Set.of(Constants.BUSINESS_ATTRIBUTE_ASPECT));
 
-        entityAspectMap.entrySet().stream()
-            .filter(entry -> entry.getValue().containsKey(Constants.BUSINESS_ATTRIBUTE_ASPECT))
-            .forEach(
-                entry -> {
-                  final Urn entityUrn = entry.getKey();
-                  final Aspect aspect = entry.getValue().get(Constants.BUSINESS_ATTRIBUTE_ASPECT);
-                  updateIndicesService.handleChangeEvent(
-                      opContext,
-                      PegasusUtils.constructMCL(
+        // Collect all MCLs for batch processing
+        List<com.linkedin.mxe.MetadataChangeLog> mcls =
+            entityAspectMap.entrySet().stream()
+                .filter(entry -> entry.getValue().containsKey(Constants.BUSINESS_ATTRIBUTE_ASPECT))
+                .map(
+                    entry -> {
+                      final Urn entityUrn = entry.getKey();
+                      final Aspect aspect =
+                          entry.getValue().get(Constants.BUSINESS_ATTRIBUTE_ASPECT);
+                      return PegasusUtils.constructMCL(
                           null,
                           Constants.SCHEMA_FIELD_ENTITY_NAME,
                           entityUrn,
@@ -199,8 +200,14 @@ public class BusinessAttributeUpdateHookService {
                           new BusinessAttributes(aspect.data()),
                           null,
                           null,
-                          null));
-                });
+                          null);
+                    })
+                .collect(Collectors.toList());
+
+        // Batch process all MCLs at once
+        if (!mcls.isEmpty()) {
+          updateIndicesService.handleChangeEvents(opContext, mcls);
+        }
         stopWatch.stop();
         String result =
             String.format(

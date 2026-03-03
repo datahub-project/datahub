@@ -7,7 +7,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -61,7 +60,7 @@ import org.springframework.web.bind.annotation.RestController;
 */
 @Deprecated
 @RestController
-@RequestMapping("/entities/v1")
+@RequestMapping("/openapi/entities/v1")
 @Slf4j
 @Tag(
     name = "Entities",
@@ -72,6 +71,7 @@ public class EntitiesController {
   private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
+  @Nullable private final MetricUtils metricUtils;
 
   public EntitiesController(
       OperationContext systemOperationContext,
@@ -79,6 +79,7 @@ public class EntitiesController {
       ObjectMapper _objectMapper,
       AuthorizerChain _authorizerChain) {
     this.systemOperationContext = systemOperationContext;
+    this.metricUtils = systemOperationContext.getMetricUtils().orElse(null);
     this._entityService = _entityService;
     this._objectMapper = _objectMapper;
     this._authorizerChain = _authorizerChain;
@@ -104,7 +105,7 @@ public class EntitiesController {
           @RequestParam(name = "aspectNames", required = false)
           @Nullable
           String[] aspectNames) {
-    Timer.Context context = MetricUtils.timer("getEntities").time();
+
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded
@@ -162,12 +163,13 @@ public class EntitiesController {
               entityUrns, projectedAspects),
           e);
     } finally {
-      if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+      if (metricUtils != null) {
+        if (exceptionally != null) {
+          metricUtils.increment(MetricRegistry.name("getEntities", "failed"), 1);
+        } else {
+          metricUtils.increment(MetricRegistry.name("getEntities", "success"), 1);
+        }
       }
-      context.stop();
     }
   }
 
@@ -263,7 +265,7 @@ public class EntitiesController {
           boolean soft,
       @RequestParam(required = false, name = "async") Boolean async) {
     Throwable exceptionally = null;
-    try (Timer.Context context = MetricUtils.timer("deleteEntities").time()) {
+    try {
       Authentication authentication = AuthenticationContext.getAuthentication();
       String actorUrnStr = authentication.getActor().toUrnStr();
 
@@ -338,10 +340,12 @@ public class EntitiesController {
       throw new RuntimeException(
           String.format("Failed to batch delete entities with urns: %s", Arrays.asList(urns)), e);
     } finally {
-      if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+      if (metricUtils != null) {
+        if (exceptionally != null) {
+          metricUtils.increment(MetricRegistry.name("getEntities", "failed"), 1);
+        } else {
+          metricUtils.increment(MetricRegistry.name("getEntities", "success"), 1);
+        }
       }
     }
   }

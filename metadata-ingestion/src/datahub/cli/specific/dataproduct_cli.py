@@ -1,7 +1,6 @@
 import difflib
 import json
 import logging
-import os
 import pathlib
 import sys
 from pathlib import Path
@@ -14,15 +13,16 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.cli.specific.file_loader import load_file
+from datahub.configuration.env_vars import get_dataproduct_external_url
 from datahub.emitter.mce_builder import (
     make_group_urn,
     make_user_urn,
     validate_ownership_type,
 )
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -45,11 +45,11 @@ def _get_owner_urn(maybe_urn: str) -> str:
 
 def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) -> None:
     try:
-        parsed_urn: Urn = Urn.create_from_string(urn)
+        parsed_urn: Urn = Urn.from_string(urn)
         entity_type = parsed_urn.get_type()
     except Exception:
         click.secho(f"Provided urn {urn} does not seem valid", fg="red")
-        raise click.Abort()
+        raise click.Abort() from None
     else:
         if not graph.exists(urn):
             click.secho(
@@ -81,12 +81,10 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
 
     config_dict = load_file(pathlib.Path(file))
     id = config_dict.get("id") if isinstance(config_dict, dict) else None
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         data_product: DataProduct = DataProduct.from_yaml(file, graph)
         external_url_override = (
-            external_url
-            or os.getenv("DATAHUB_DATAPRODUCT_EXTERNAL_URL")
-            or data_product.external_url
+            external_url or get_dataproduct_external_url() or data_product.external_url
         )
         data_product.external_url = external_url_override
         if upsert and not graph.exists(data_product.urn):
@@ -129,7 +127,6 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def update(file: Path, validate_assets: bool, external_url: str) -> None:
     """Create or Update a Data Product in DataHub. Use upsert if you want to apply partial updates."""
 
@@ -145,7 +142,6 @@ def update(file: Path, validate_assets: bool, external_url: str) -> None:
 )
 @click.option("--external-url", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
     """Upsert attributes to a Data Product in DataHub."""
 
@@ -158,11 +154,10 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option("--update", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def diff(file: Path, update: bool) -> None:
     """Diff a Data Product file with its twin in DataHub"""
 
-    with get_default_graph() as emitter:
+    with get_default_graph(ClientMode.CLI) as emitter:
         id: Optional[str] = None
         try:
             data_product_local: DataProduct = DataProduct.from_yaml(file, emitter)
@@ -205,7 +200,6 @@ def diff(file: Path, update: bool) -> None:
 )
 @click.option("--hard/--soft", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def delete(urn: str, file: Path, hard: bool) -> None:
     """Delete a Data Product in DataHub. Defaults to a soft-delete. Use --hard to completely erase metadata."""
 
@@ -216,7 +210,7 @@ def delete(urn: str, file: Path, hard: bool) -> None:
         raise click.Abort()
 
     graph: DataHubGraph
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         data_product_urn = (
             urn if urn.startswith("urn:li:dataProduct") else f"urn:li:dataProduct:{urn}"
         )
@@ -241,18 +235,17 @@ def delete(urn: str, file: Path, hard: bool) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get a Data Product from DataHub"""
 
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             dataproduct: DataProduct = DataProduct.from_datahub(graph=graph, id=urn)
             click.secho(
-                f"{json.dumps(dataproduct.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(dataproduct.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 dataproduct.to_yaml(Path(to_file))
@@ -278,7 +271,6 @@ def get(urn: str, to_file: str) -> None:
     help="A markdown file that contains documentation for this data product",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def set_description(urn: str, description: str, md_file: Path) -> None:
     """Set description for a Data Product in DataHub"""
 
@@ -306,7 +298,7 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
 
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.set_description(description)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "set description")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -329,7 +321,6 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
     default=OwnershipTypeClass.TECHNICAL_OWNER,
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def add_owner(urn: str, owner: str, owner_type: str) -> None:
     """Add owner for a Data Product in DataHub"""
 
@@ -342,7 +333,7 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
             owner=_get_owner_urn(owner), type=owner_type, typeUrn=owner_type_urn
         )
     )
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "add owners")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -352,7 +343,6 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
 @click.option("--urn", required=True, type=str)
 @click.argument("owner_urn", required=True, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def remove_owner(urn: str, owner_urn: str) -> None:
     """Remove owner for a Data Product in DataHub"""
 
@@ -360,7 +350,7 @@ def remove_owner(urn: str, owner_urn: str) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_owner(owner=_get_owner_urn(owner_urn))
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove owners")
         for mcp in dataproduct_patcher.build():
             click.echo(json.dumps(mcp.to_obj()))
@@ -374,7 +364,6 @@ def remove_owner(urn: str, owner_urn: str) -> None:
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Add asset for a Data Product in DataHub"""
 
@@ -382,7 +371,7 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.add_asset(asset)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "add assets")
         if validate_assets:
             _abort_if_non_existent_urn(
@@ -401,7 +390,6 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
     "--validate-assets/--no-validate-assets", required=False, is_flag=True, default=True
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
     """Remove asset for a Data Product in DataHub"""
 
@@ -409,7 +397,7 @@ def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_asset(asset)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove assets")
         if validate_assets:
             _abort_if_non_existent_urn(

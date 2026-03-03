@@ -3,6 +3,8 @@ plugins {
   id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
   implementation project(':metadata-auth:auth-api')
@@ -13,10 +15,14 @@ dependencies {
   implementation project(':metadata-models')
 
   implementation externalDependency.servletApi
-  implementation externalDependency.springBootStarterValidation
+  implementation(externalDependency.springBootStarterValidation) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
-  implementation externalDependency.springDocUI
+  implementation(externalDependency.springDocUI) {
+    exclude group: 'org.springframework.boot'
+  }
   implementation externalDependency.springWeb
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans

@@ -18,11 +18,13 @@ record CorpGroupInfo {
    * The name of the group.
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   displayName: optional string
 
@@ -74,7 +76,8 @@ record CorpGroupInfo {
    * A description of the group.
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "searchTier": 2
   }
   description: optional string
 
@@ -89,7 +92,8 @@ record CorpGroupInfo {
    @Searchable = {
      "/time": {
       "fieldName": "createdTime",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
      }
    }
    created: optional AuditStamp

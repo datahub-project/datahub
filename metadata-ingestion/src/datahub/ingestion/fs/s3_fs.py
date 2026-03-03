@@ -17,9 +17,9 @@ def parse_s3_path(path: str) -> "S3Path":
 
 def assert_ok_status(s3_response):
     is_ok = s3_response["ResponseMetadata"]["HTTPStatusCode"] == 200
-    assert (
-        is_ok
-    ), f"Failed to fetch S3 object, error message: {s3_response['Error']['Message']}"
+    assert is_ok, (
+        f"Failed to fetch S3 object, error message: {s3_response['Error']['Message']}"
+    )
 
 
 @dataclass
@@ -32,7 +32,6 @@ class S3Path:
 
 
 class S3ListIterator(Iterator):
-
     MAX_KEYS = 1000
 
     def __init__(
@@ -49,12 +48,12 @@ class S3ListIterator(Iterator):
     def __next__(self) -> FileInfo:
         try:
             return next(self._file_statuses)
-        except StopIteration:
+        except StopIteration as e:
             if self._token:
                 self.fetch()
                 return next(self._file_statuses)
             else:
-                raise StopIteration()
+                raise e
 
     def fetch(self):
         params = dict(Bucket=self._bucket, Prefix=self._prefix, MaxKeys=self._max_keys)
@@ -106,3 +105,32 @@ class S3FileSystem(FileSystem):
     def list(self, path: str) -> Iterable[FileInfo]:
         s3_path = parse_s3_path(path)
         return S3ListIterator(self.s3, s3_path.bucket, s3_path.key)
+
+    def write(self, path: str, content: str, **kwargs: Any) -> None:
+        """Write content to S3."""
+        s3_path = parse_s3_path(path)
+
+        # Convert string content to bytes for S3
+        content_bytes = content.encode("utf-8")
+
+        # Upload to S3
+        response = self.s3.put_object(
+            Bucket=s3_path.bucket, Key=s3_path.key, Body=content_bytes, **kwargs
+        )
+        assert_ok_status(response)
+
+    def exists(self, path: str) -> bool:
+        """Check if an object exists in S3."""
+        s3_path = parse_s3_path(path)
+        try:
+            self.s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
+            return True
+        except Exception as e:
+            if (
+                hasattr(e, "response")
+                and e.response["ResponseMetadata"]["HTTPStatusCode"] == 404
+            ):
+                return False
+            else:
+                # Re-raise other exceptions (access denied, etc.)
+                raise e

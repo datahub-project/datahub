@@ -5,15 +5,14 @@ title: "Deploying to Azure"
 # Azure setup guide
 
 The following is a set of instructions to quickstart DataHub on Azure Kubernetes Service (AKS). Note, the guide
-assumes that you do not have a Kubernetes cluster set up. 
+assumes that you do not have a Kubernetes cluster set up.
 
 ## Prerequisites
 
 This guide requires the following tools:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage Kubernetes resources
-- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
-    3.
+- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm 3.
 - [AZ CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) to manage Azure resources
 
 To use the above tools, you need to set up Azure credentials by following
@@ -22,7 +21,7 @@ this [guide](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli)
 ## Start up a Kubernetes cluster on AKS
 
 You can follow this [guide](https://learn.microsoft.com/en-us/azure/aks/learn/quick-kubernetes-deploy-cli) to create a new
-cluster using az cli. 
+cluster using az cli.
 
 Note: you can skip the application deployment step since we are deploying DataHub instead. If you are deploying DataHub to an existing cluster, please
 skip the corresponding sections.
@@ -61,6 +60,7 @@ The following output indicates that the command execution was successful:
   "tags": null
 }
 ```
+
 - Create an AKS Cluster. For this project, it is best to increase node count to at least 3. Change cluster name, node count, and addons to your choosing.
 
 ```
@@ -95,8 +95,7 @@ aks-nodepool1-37660971-vmss000002              Ready    agent   24h   v1.25.6
 ## Setup DataHub using Helm
 
 Once the Kubernetes cluster has been set up, you can deploy DataHub and its prerequisites using helm. Please follow the
-steps in this [guide](kubernetes.md). 
-
+steps in this [guide](kubernetes.md).
 
 Notes:
 Since we are using PostgreSQL as the storage layer, change postgresql enabled to true and mysql to false in the values.yaml file of prerequisites.
@@ -106,12 +105,11 @@ Additionally, create a postgresql secret. Make sure to include 3 passwords for t
 
 Now that all the pods are up and running, you need to expose the datahub-frontend end point by setting
 up [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). To do this, you need to first set up an
-ingress controller. 
+ingress controller.
 
-
-There are many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  to choose
+There are many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) to choose
 from, but here, we will follow this [guide](https://learn.microsoft.com/en-us/azure/application-gateway/tutorial-ingress-controller-add-on-existing) to set up the Azure
-Application Gateway Ingress Controller. 
+Application Gateway Ingress Controller.
 
 - Deploy a New Application Gateway.
 
@@ -121,24 +119,23 @@ First, you need to create a WAF policy
 az network application-gateway waf-policy create -g myResourceGroup -n myWAFPolicy
 ```
 
-- Before the application gateway can be deployed, you'll also need to create a public IP resource, a new virtual network with address space 10.0.0.0/16, and a subnet with address space 10.0.0.0/24. 
-Then, you can deploy your application gateway in the subnet using the publicIP.
+- Before the application gateway can be deployed, you'll also need to create a public IP resource, a new virtual network with address space 10.0.0.0/16, and a subnet with address space 10.0.0.0/24.
+  Then, you can deploy your application gateway in the subnet using the publicIP.
 
 Caution: When you use an AKS cluster and application gateway in separate virtual networks, the address spaces of the two virtual networks must not overlap. The default address space that an AKS cluster deploys in is 10.224.0.0/12.
 
-
 ```
 az network public-ip create -n myPublicIp -g myResourceGroup --allocation-method Static --sku Standard
-az network vnet create -n myVnet -g myResourceGroup --address-prefix 10.0.0.0/16 --subnet-name mySubnet --subnet-prefix 10.0.0.0/24 
+az network vnet create -n myVnet -g myResourceGroup --address-prefix 10.0.0.0/16 --subnet-name mySubnet --subnet-prefix 10.0.0.0/24
 az network application-gateway create -n myApplicationGateway -l eastus -g myResourceGroup --sku WAF_v2 --public-ip-address myPublicIp --vnet-name myVnet --subnet mySubnet --priority 100 --waf-policy /subscriptions/{subscription_id}/resourceGroups/myResourceGroup/providers/Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/myWAFPolicy
 ```
-Change myPublicIp, myResourceGroup, myVnet, mySubnet, and myApplicationGateway to names of your choosing.
 
+Change myPublicIp, myResourceGroup, myVnet, mySubnet, and myApplicationGateway to names of your choosing.
 
 - Enable the AGIC Add-On in Existing AKS Cluster Through Azure CLI
 
 ```
-appgwId=$(az network application-gateway show -n myApplicationGateway -g myResourceGroup -o tsv --query "id") 
+appgwId=$(az network application-gateway show -n myApplicationGateway -g myResourceGroup -o tsv --query "id")
 az aks enable-addons -n myCluster -g myResourceGroup -a ingress-appgw --appgw-id $appgwId
 ```
 
@@ -173,8 +170,8 @@ datahub-frontend:
     enabled: true
     annotations:
       kubernetes.io/ingress.class: azure/application-gateway
-      appgw.ingress.kubernetes.io/backend-protocol: "http" 
-    
+      appgw.ingress.kubernetes.io/backend-protocol: "http"
+
     hosts:
     - paths:
       - /*
@@ -198,17 +195,13 @@ You should see a result like this:
 ![frontend-image](https://github.com/Saketh-Mahesh/azure-docs-images/blob/main/frontend-status.png?raw=true)
 
 ## Use PostgresSQL for the storage layer
-Configure a PostgreSQL database in the same virtual network as the Kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side. 
 
+Configure a PostgreSQL database in the same virtual network as the Kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side.
 
 Note: PostgreSQL Database MUST be deployed in same location as AKS/resource group (eastus, centralus, etc.)
 Take a note of the connection details:
 
 ![postgres-info](https://github.com/Saketh-Mahesh/azure-docs-images/blob/main/postgres-info.png?raw=true)
-
-
-
-
 
 - Update the postgresql settings under global in the values.yaml as follows.
 
@@ -225,7 +218,8 @@ global:
       password:
         value: "${POSTGRES_ADMIN_PASSWORD}"
 ```
-Run this command helm command to update datahub configuration
+
+Run this helm command to update datahub configuration
 
 ```
 helm upgrade --install datahub datahub/datahub --values values.yaml

@@ -1,7 +1,13 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     DataProduct,
@@ -12,13 +18,9 @@ import {
     GlobalTags,
     Health,
     Owner,
+    ParentContainersResult,
     SearchInsight,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
@@ -44,6 +46,7 @@ export const Preview = ({
     degree,
     paths,
     health,
+    parentContainers,
 }: {
     urn: string;
     name: string;
@@ -64,6 +67,7 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     health?: Health[] | null;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -98,6 +102,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             health={health || undefined}
+            parentContainers={parentContainers}
         />
     );
 };

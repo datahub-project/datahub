@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../EntityContext';
-import { toLocalDateString, toLocalTimeString, toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
-import HistoricalStats from './historical/HistoricalStats';
-import { LOOKBACK_WINDOWS } from './lookbackWindows';
-import ColumnStats from './snapshot/ColumnStats';
-import TableStats from './snapshot/TableStats';
-import StatsHeader from './StatsHeader';
-import { ViewType } from './viewType';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import StatsHeader from '@app/entity/shared/tabs/Dataset/Stats/StatsHeader';
+import HistoricalStats from '@app/entity/shared/tabs/Dataset/Stats/historical/HistoricalStats';
+import { LOOKBACK_WINDOWS } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
+import ColumnStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
+import TableStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/TableStats';
+import { ViewType } from '@app/entity/shared/tabs/Dataset/Stats/viewType';
+import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '@app/shared/time/timeUtils';
+
+import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@graphql/dataset.generated';
+import { DatasetProfile, Operation, UsageQueryResult } from '@types';
 
 export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();

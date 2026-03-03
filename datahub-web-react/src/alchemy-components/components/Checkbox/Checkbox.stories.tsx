@@ -1,0 +1,217 @@
+import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
+import { GridList } from '@components/.docs/mdx-components';
+import { Checkbox, CheckboxGroup, checkboxDefaults } from '@components/components/Checkbox/Checkbox';
+import { CheckboxProps } from '@components/components/Checkbox/types';
+import { Heading } from '@components/components/Heading';
+
+const MOCK_CHECKBOXES: CheckboxProps[] = [
+    {
+        label: 'Label 1',
+        error: '',
+        isChecked: false,
+        isDisabled: false,
+        isIntermediate: false,
+        isRequired: false,
+    },
+    {
+        label: 'Label 2',
+        error: '',
+        isChecked: false,
+        isDisabled: false,
+        isIntermediate: false,
+        isRequired: false,
+    },
+    {
+        label: 'Label 3',
+        error: '',
+        isChecked: false,
+        isDisabled: false,
+        isIntermediate: false,
+        isRequired: false,
+    },
+];
+
+const meta = {
+    title: 'Forms / Checkbox',
+    component: Checkbox,
+    parameters: {
+        layout: 'centered',
+        docs: {
+            subtitle: 'A component that is used to get user input in the state of a check box.',
+        },
+    },
+    argTypes: {
+        label: {
+            description: 'Label for the Checkbox.',
+            table: {
+                defaultValue: { summary: checkboxDefaults.label },
+            },
+            control: {
+                type: 'text',
+            },
+        },
+        error: {
+            description: 'Enforce error state on the Checkbox.',
+            table: {
+                defaultValue: { summary: checkboxDefaults.error },
+            },
+            control: {
+                type: 'text',
+            },
+        },
+        isChecked: {
+            description: 'Whether the Checkbox is checked.',
+            table: {
+                defaultValue: { summary: checkboxDefaults?.isChecked?.toString() },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        isDisabled: {
+            description: 'Whether the Checkbox is in disabled state.',
+            table: {
+                defaultValue: { summary: checkboxDefaults?.isDisabled?.toString() },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        isIntermediate: {
+            description: 'Whether the Checkbox is in intermediate state.',
+            table: {
+                defaultValue: { summary: checkboxDefaults?.isIntermediate?.toString() },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        isRequired: {
+            description: 'Whether the Checkbox is a required field.',
+            table: {
+                defaultValue: { summary: checkboxDefaults?.isRequired?.toString() },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        labelTooltip: {
+            description: 'Tooltip for the Checkbox label.',
+            control: {
+                type: 'text',
+            },
+        },
+        shouldHandleLabelClicks: {
+            description: 'Whether the label should handle clicks.',
+            control: {
+                type: 'boolean',
+            },
+        },
+        justifyContent: {
+            description: 'Justify content for the Checkbox container.',
+            table: {
+                defaultValue: { summary: 'center' },
+            },
+            control: {
+                type: 'select',
+                options: ['flex-start', 'center'],
+            },
+        },
+        gap: {
+            description: 'Additional gap between the label and the checkbox.',
+            control: {
+                type: 'text',
+            },
+        },
+    },
+    args: {
+        label: checkboxDefaults.label,
+        error: checkboxDefaults.error,
+        isChecked: checkboxDefaults.isChecked,
+        isDisabled: checkboxDefaults.isDisabled,
+        isIntermediate: checkboxDefaults.isIntermediate,
+        isRequired: checkboxDefaults.isRequired,
+    },
+} satisfies Meta<typeof Checkbox>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const sandbox: Story = {
+    tags: ['dev'],
+    render: (props) => <Checkbox {...props} />,
+};
+
+export const states = () => (
+    <GridList>
+        <Checkbox label="Default" />
+        <Checkbox label="Checked" isChecked />
+        <Checkbox label="Error" isChecked error="Error" />
+        <Checkbox label="Required" isChecked isRequired />
+    </GridList>
+);
+
+export const sizes = () => (
+    <GridList>
+        <Checkbox label="Extra Small" isChecked size="xs" />
+        <Checkbox label="Small" isChecked size="sm" />
+        <Checkbox label="Medium" isChecked size="md" />
+        <Checkbox label="Large" isChecked size="lg" />
+        <Checkbox label="Extra Large" isChecked size="xl" />
+    </GridList>
+);
+
+export const intermediate = () => {
+    return (
+        <GridList>
+            <Checkbox label="Primary" isChecked isIntermediate />
+            <Checkbox label="Error" isChecked isIntermediate error="Error" />
+        </GridList>
+    );
+};
+
+export const disabledStates = () => (
+    <GridList>
+        <Checkbox label="Default" isDisabled />
+        <Checkbox label="Checked" isChecked isDisabled />
+        <Checkbox label="Intermediate" isChecked isDisabled isIntermediate />
+    </GridList>
+);
+
+export const checkboxGroups = () => (
+    <GridList isVertical>
+        <div>
+            <Heading>Horizontal Checkbox Group</Heading>
+            <CheckboxGroup checkboxes={MOCK_CHECKBOXES} />
+        </div>
+        <div>
+            <Heading>Vertical Checkbox Group</Heading>
+            <CheckboxGroup isVertical checkboxes={MOCK_CHECKBOXES} />
+        </div>
+    </GridList>
+);
+
+export const withTooltip = () => (
+    <GridList>
+        <Checkbox label="With Tooltip" labelTooltip="This is a tooltip" />
+        <Checkbox label="With Tooltip and Checked" isChecked labelTooltip="This is a tooltip" />
+    </GridList>
+);
+
+export const withJustifyContent = () => (
+    <GridList isVertical>
+        <Checkbox label="Flex Start" justifyContent="flex-start" />
+        <Checkbox label="Center" justifyContent="center" />
+    </GridList>
+);
+
+export const withGap = () => (
+    <GridList isVertical>
+        <Checkbox label="Default Gap" />
+        <Checkbox label="20px Gap" gap="20px" />
+        <Checkbox label="50px Gap" gap="50px" />
+    </GridList>
+);

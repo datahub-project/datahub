@@ -31,4 +31,8 @@ public enum EntityFieldType {
   DATA_PLATFORM_INSTANCE,
   /** Tags of the entity */
   TAG,
+  /** Container of the entity */
+  CONTAINER,
+  /** Glossary terms/nodes associated with the entity */
+  GLOSSARY,
 }

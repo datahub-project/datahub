@@ -84,6 +84,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateTime end,
       final String title,
       final DateInterval interval) {
+
     final DateRange dateRange =
         new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
 
@@ -96,6 +97,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             ImmutableMap.of(),
             Collections.emptyMap(),
             Optional.of("browserId"));
+
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)
@@ -111,7 +113,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateRange trailingMonthDateRange = dateUtil.getTrailingMonthDateRange();
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
 
-      final String topUsersTitle = "Top Users";
+      final String topUsersTitle = "Top Users (Last 30 Days)";
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
               _analyticsService.getUsageIndexName(),
@@ -184,7 +186,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   private AnalyticsChart getNewUsersChart(OperationContext opContext) {
     try {
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
-      final String newUsersTitle = "New Users";
+      final String newUsersTitle = "New Users (Last 30 Days)";
       final SearchResult result = searchForNewUsers(opContext);
       final List<Row> newUserRows = new ArrayList<>();
       for (SearchEntity entity : result.getEntities()) {
@@ -403,13 +405,16 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     }
 
     // Chart 2: Entities per platform
+    // Excludes query entities from this count as they are not expected and over-inflate numbers per
+    // platform
     final List<NamedBar> entitiesPerPlatform =
         _analyticsService.getBarChart(
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("platform.keyword"),
             Collections.emptyMap(),
-            ImmutableMap.of("removed", ImmutableList.of("true")),
+            ImmutableMap.of(
+                "removed", ImmutableList.of("true"), "_index", ImmutableList.of("*queryindex_v2*")),
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(

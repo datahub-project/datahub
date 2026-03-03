@@ -14,15 +14,20 @@ describe("add remove domain", () => {
   const setDomainsFeatureFlag = (isOn) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
           res.body.data.appConfig.featureFlags.nestedDomainsEnabled = isOn;
+          res.body.data.appConfig.featureFlags.themeV2Enabled = false;
+          res.body.data.appConfig.featureFlags.themeV2Default = false;
+          res.body.data.appConfig.featureFlags.showNavBarRedesign = false;
         });
       }
     });
   };
 
   it("create domain", () => {
-    cy.loginWithCredentials();
+    setDomainsFeatureFlag(true);
+    cy.login();
     cy.goToDomainList();
     cy.clickOptionWithText("New Domain");
     cy.waitTextVisible("Create New Domain");
@@ -35,7 +40,7 @@ describe("add remove domain", () => {
 
   it("add entities to domain", () => {
     setDomainsFeatureFlag(false);
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToDomainList();
     cy.clickOptionWithText(test_domain);
     cy.waitTextVisible("Add assets");
@@ -43,10 +48,11 @@ describe("add remove domain", () => {
     cy.get(".ant-modal-content").within(() => {
       cy.get('[data-testid="search-input"]')
         .click()
-        .invoke("val", "cypress_project.jaffle_shop.")
-        .type("customer");
-      cy.contains("BigQuery", { timeout: 30000 });
-      cy.get(".ant-checkbox-input").first().click();
+        .type("cypress_project.jaffle_shop.customers");
+      cy.clickOptionWithTestId(
+        "checkbox-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+        { timeout: 30000 },
+      );
       cy.get("#continueButton").click();
     });
     cy.waitTextVisible("Added assets to Domain!");
@@ -54,7 +60,7 @@ describe("add remove domain", () => {
 
   it("remove entity from domain", () => {
     setDomainsFeatureFlag(false);
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToDomainList();
     cy.removeDomainFromDataset(
       "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
@@ -65,7 +71,7 @@ describe("add remove domain", () => {
 
   it("delete a domain and ensure dangling reference is deleted on entities", () => {
     setDomainsFeatureFlag(false);
-    cy.loginWithCredentials();
+    cy.login();
     cy.goToDomainList();
     cy.get(`[data-testid="dropdown-menu-${test_domain_urn}"]`).click();
     cy.clickOptionWithText("Delete");

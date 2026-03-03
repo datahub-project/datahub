@@ -3,9 +3,11 @@ package com.linkedin.datahub.graphql.types.rolemetadata.mappers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Actor;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Role;
+import com.linkedin.datahub.graphql.generated.RoleGroup;
 import com.linkedin.datahub.graphql.generated.RoleProperties;
 import com.linkedin.datahub.graphql.generated.RoleUser;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -15,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.RoleKey;
 import com.linkedin.role.Actors;
+import com.linkedin.role.RoleGroupArray;
 import com.linkedin.role.RoleUserArray;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,9 +51,18 @@ public class RoleMapper implements ModelMapper<EntityResponse, Role> {
     return result;
   }
 
+  private static RoleGroup mapCorpGroups(final com.linkedin.role.RoleGroup provisionedGroup) {
+    RoleGroup result = new RoleGroup();
+    CorpGroup corpGroup = new CorpGroup();
+    corpGroup.setUrn(provisionedGroup.getGroup().toString());
+    result.setGroup(corpGroup);
+    return result;
+  }
+
   private static Actor mapActor(Actors actors) {
     Actor actor = new Actor();
     actor.setUsers(mapRoleUsers(actors.getUsers()));
+    actor.setGroups(mapRoleGroups(actors.getGroups()));
     return actor;
   }
 
@@ -59,6 +71,13 @@ public class RoleMapper implements ModelMapper<EntityResponse, Role> {
       return null;
     }
     return users.stream().map(x -> mapCorpUsers(x)).collect(Collectors.toList());
+  }
+
+  private static List<RoleGroup> mapRoleGroups(RoleGroupArray groups) {
+    if (groups == null) {
+      return null;
+    }
+    return groups.stream().map(x -> mapCorpGroups(x)).collect(Collectors.toList());
   }
 
   @Override

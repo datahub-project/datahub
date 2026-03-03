@@ -1,5 +1,6 @@
-import { SchemaFieldDataType } from '../../../../../../types.generated';
-import { filterKeyFieldPath } from '../../schema/utils/utils';
+import { filterKeyFieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+
+import { SchemaFieldDataType } from '@types';
 
 describe('utils', () => {
     describe('filterKeyFieldPath', () => {
@@ -44,6 +45,26 @@ describe('utils', () => {
                     recursive: false,
                 }),
             ).toEqual(false);
+        });
+
+        it('allows all fields when showKeySchema is undefined', () => {
+            expect(
+                filterKeyFieldPath(undefined, {
+                    fieldPath: '[version=2.0].[key=True].[type=long].field',
+                    nullable: false,
+                    type: SchemaFieldDataType.Number,
+                    recursive: false,
+                }),
+            ).toEqual(true);
+
+            expect(
+                filterKeyFieldPath(undefined, {
+                    fieldPath: '[version=2.0].[type=long].field',
+                    nullable: false,
+                    type: SchemaFieldDataType.Number,
+                    recursive: false,
+                }),
+            ).toEqual(true);
         });
     });
 });

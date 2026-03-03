@@ -9,13 +9,11 @@ import tempfile
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from types import TracebackType
 from typing import (
     Any,
     Callable,
     Dict,
-    Final,
     Generic,
     Iterator,
     List,
@@ -29,9 +27,18 @@ from typing import (
     Union,
 )
 
+from datahub.configuration.env_vars import get_override_sqlite_version_req
 from datahub.ingestion.api.closeable import Closeable
+from datahub.utilities.sentinels import Unset, unset
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _get_sqlite_version_override() -> bool:
+    """Check if SQLite version requirement should be overridden at runtime."""
+    override_str = get_override_sqlite_version_req()
+    return bool(override_str and override_str.lower() != "false")
+
 
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
@@ -48,16 +55,6 @@ _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
-
-
-class Unset(Enum):
-    token = 0
-
-
-# It's pretty annoying to create a true sentinel that works with typing.
-# https://peps.python.org/pep-0484/#support-for-singleton-types-in-unions
-# Can't wait for https://peps.python.org/pep-0661/
-_unset: Final = Unset.token
 
 
 class ConnectionWrapper:
@@ -212,11 +209,12 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     _active_object_cache: OrderedDict[str, Tuple[_VT, bool]] = field(
         init=False, repr=False
     )
+    _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
     def __post_init__(self) -> None:
-        assert (
-            self.cache_eviction_batch_size > 0
-        ), "cache_eviction_batch_size must be positive"
+        assert self.cache_eviction_batch_size > 0, (
+            "cache_eviction_batch_size must be positive"
+        )
 
         for reserved_column in ("key", "value", "rowid"):
             if reserved_column in self.extra_columns:
@@ -227,6 +225,15 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self.shared_connection._dependent_objects.append(self)
         else:
             self._conn = ConnectionWrapper()
+
+        if sqlite3.sqlite_version_info < (3, 24, 0):
+            # We use the ON CONFLICT clause to implement UPSERTs with sqlite.
+            # This was added in 3.24.0 from 2018-06-04.
+            # See https://www.sqlite.org/lang_conflict.html
+            if _get_sqlite_version_override():
+                self._use_sqlite_on_conflict = False
+            else:
+                raise RuntimeError("SQLite version 3.24.0 or later is required")
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
@@ -242,7 +249,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 rowid INTEGER PRIMARY KEY AUTOINCREMENT,
                 key TEXT UNIQUE,
                 value BLOB
-                {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
+                {"".join(f", {column_name} BLOB" for column_name in self.extra_columns)}
             )"""
         )
 
@@ -259,7 +266,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         if self.indexes_created:
             return
         # The key column will automatically be indexed, but we need indexes for the extra columns.
-        for column_name in self.extra_columns.keys():
+        for column_name in self.extra_columns:
             self._conn.execute(
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
@@ -289,7 +296,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                     values.append(column_serializer(value))
                 items_to_write.append(tuple(values))
 
-        if items_to_write:
+        if items_to_write and self._use_sqlite_on_conflict:
             # Tricky: By using a INSERT INTO ... ON CONFLICT (key) structure, we can
             # ensure that the rowid remains the same if a value is updated but is
             # autoincremented when rows are inserted.
@@ -297,15 +304,35 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 f"""INSERT INTO {self.tablename} (
                     key,
                     value
-                    {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name}" for column_name in self.extra_columns)}
                 )
-                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})
+                VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})
                 ON CONFLICT (key) DO UPDATE SET
                     value = excluded.value
-                    {''.join(f', {column_name} = excluded.{column_name}' for column_name in self.extra_columns.keys())}
+                    {"".join(f", {column_name} = excluded.{column_name}" for column_name in self.extra_columns)}
                 """,
                 items_to_write,
             )
+        else:
+            for item in items_to_write:
+                try:
+                    self._conn.execute(
+                        f"""INSERT INTO {self.tablename} (
+                            key,
+                            value
+                            {"".join(f", {column_name}" for column_name in self.extra_columns)}
+                        )
+                        VALUES ({", ".join(["?"] * (2 + len(self.extra_columns)))})""",
+                        item,
+                    )
+                except sqlite3.IntegrityError:
+                    self._conn.execute(
+                        f"""UPDATE {self.tablename} SET
+                            value = ?
+                            {"".join(f", {column_name} = ?" for column_name in self.extra_columns)}
+                        WHERE key = ?""",
+                        (*item[1:], item[0]),
+                    )
 
     def flush(self) -> None:
         self._prune_cache(len(self._active_object_cache))
@@ -333,7 +360,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self,
         /,
         key: str,
-        default: Union[_VT, Unset] = _unset,
+        default: Union[_VT, Unset] = unset,
     ) -> _VT:
         # If key is in the dictionary, this is similar to __getitem__ + mark_dirty.
         # If key is not in the dictionary, this is similar to __setitem__.
@@ -344,7 +371,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self.mark_dirty(key)
             return value
         except KeyError:
-            if default is _unset:
+            if default is unset:
                 raise
 
             self[key] = default

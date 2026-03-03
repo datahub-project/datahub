@@ -1,10 +1,12 @@
 import { Typography } from 'antd';
 import React from 'react';
-import { CorpUser, EntityType } from '../../../types.generated';
-import { CustomAvatar } from '../../shared/avatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getAutoCompleteEntityText } from './utils';
-import { SuggestionText } from './styledComponents';
+
+import { SuggestionText } from '@app/search/autoComplete/styledComponents';
+import { getAutoCompleteEntityText } from '@app/search/autoComplete/utils';
+import { CustomAvatar } from '@app/shared/avatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityType } from '@types';
 
 interface Props {
     query: string;

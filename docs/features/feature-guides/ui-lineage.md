@@ -1,9 +1,12 @@
 # Managing Data Lineage via UI
 
 ## Viewing Data Lineage
-The UI shows the latest version of the data lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical data lineages. It will only filter the view of the latest version of the lineage. 
+
+The UI shows the latest version of the data lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical data lineages. It will only filter the view of the latest version of the lineage.
 
 ## Editing from Lineage Graph View
+
+Ensure that you have `Edit lineage` privilege on both upstream and downstream entities before you try to add upstream or downstream lineage.
 
 The first place that you can edit data lineage for entities is from the Lineage Visualization screen. Click on the "Lineage" button on the top right of an entity's profile to get to this view.
 

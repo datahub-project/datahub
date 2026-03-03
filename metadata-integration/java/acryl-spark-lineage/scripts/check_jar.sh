@@ -43,10 +43,10 @@ for jarFile in ${jarFiles}; do
       grep -v "io.openlineage" |\
       grep -v "org.apache" |\
       grep -v "aix" |\
-      grep -v "scala" |\
       grep -v "io/micrometer/" |\
       grep -v "library.properties|rootdoc.txt" \|
-      grep -v "com/ibm/.*"
+      grep -v "com/ibm/.*" |\
+      grep -v "org/publicsuffix"
 
 
 if [ $? -ne 0 ]; then

@@ -1,0 +1,244 @@
+import { ThunderboltOutlined } from '@ant-design/icons';
+import { colors } from '@components';
+import CloseIcon from '@mui/icons-material/Close';
+import { Tag, message } from 'antd';
+import React, { useState } from 'react';
+import Highlight from 'react-highlighter';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { StopPropagation } from '@app/shared/StopPropagation';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTermMutation } from '@graphql/mutations.generated';
+import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from '@types';
+
+const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
+
+const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+
+const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
+    position: relative;
+    max-width: 200px;
+
+    .ant-tag.ant-tag {
+        border-radius: 5px;
+        border: 1px solid ${colors.gray[100]};
+    }
+
+    ${(props) =>
+        props.$shouldHighlightBorderOnHover &&
+        `
+        :hover {
+            .ant-tag.ant-tag {
+                border: 1px solid ${props.theme.styles['primary-color']};
+            }
+        }
+    `}
+`;
+
+const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
+    &&& {
+        ${(props) =>
+            props.highlightTerm &&
+            `
+                background: ${props.theme.styles['highlight-color']};
+                border: 1px solid ${props.theme.styles['highlight-border-color']};
+            `}
+    }
+    ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-weight: 400;
+    padding: 3px 8px;
+    margin-right: 0;
+
+    display: flex;
+    position: relative;
+    overflow: hidden;
+
+    ${(props) =>
+        props.showOneAndCount &&
+        `
+            width: 100%;
+            max-width: max-content;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        `}
+`;
+
+const PropagateThunderbolt = styled(ThunderboltOutlined)`
+    color: rgba(0, 143, 100, 0.95);
+    margin-right: -4px;
+    font-weight: bold;
+`;
+
+const CloseButtonContainer = styled.div`
+    display: none;
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background-color: ${(props) => props.theme.styles['primary-color']};
+    align-items: center;
+    border-radius: 100%;
+    padding: 5px;
+
+    ${TermContainer}:hover & {
+        display: flex;
+    }
+`;
+
+const CloseIconStyle = styled(CloseIcon)`
+    font-size: 10px !important;
+    color: white;
+`;
+
+export const TermRibbon = styled.span<{ color: string; opacity?: number }>`
+    position: absolute;
+    left: -20px;
+    top: 4px;
+    width: 50px;
+    transform: rotate(-45deg);
+    padding: 4px;
+    opacity: ${(props) => props.opacity || '1'};
+    background-color: ${(props) => `${props.color}`};
+`;
+
+const StyledHighlight = styled(Highlight)`
+    margin-left: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+interface Props {
+    term: GlossaryTermAssociation;
+    entityUrn?: string;
+    entitySubresource?: string;
+    canRemove?: boolean;
+    readOnly?: boolean;
+    highlightText?: string;
+    fontSize?: number;
+    onOpenModal?: () => void;
+    onCloseModal?: () => void;
+    refetch?: () => Promise<any>;
+    showOneAndCount?: boolean;
+}
+
+export default function TermContent({
+    term,
+    entityUrn,
+    entitySubresource,
+    canRemove,
+    readOnly,
+    highlightText,
+    fontSize,
+    onOpenModal,
+    onCloseModal,
+    refetch,
+    showOneAndCount,
+}: Props) {
+    const entityRegistry = useEntityRegistry();
+    const { reloadByKeyType } = useReloadableContext();
+    const [removeTermMutation] = useRemoveTermMutation();
+    const { parentNodes, urn, type } = term.term;
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const [termTobeRemoved, setTermToBeRemoved] = useState<GlossaryTermAssociation | null>(null);
+    const termName = termTobeRemoved && entityRegistry.getDisplayName(termTobeRemoved.term.type, termTobeRemoved.term);
+    const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
+    const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+    const termColor = lastParentNode
+        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
+        : generateColor(urn);
+    const displayName = entityRegistry.getDisplayName(type, term.term);
+
+    const removeTerm = () => {
+        if (termTobeRemoved?.associatedUrn || entityUrn) {
+            removeTermMutation({
+                variables: {
+                    input: {
+                        termUrn: termTobeRemoved?.term?.urn || '',
+                        resourceUrn: termTobeRemoved?.associatedUrn || entityUrn || '',
+                        subResource: entitySubresource,
+                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        message.success({ content: 'Removed Term!', duration: 2 });
+                        // Reload modules
+                        // RelatedTerms - to update related terms in case some of them was removed
+                        // ChildHierarchy - to update contents module in glossary node
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.RelatedTerms,
+                                ),
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ],
+                            3000,
+                        );
+                    }
+                    setTermToBeRemoved(null);
+                })
+                .then(refetch)
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
+    };
+
+    return (
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly} data-testid={`term-${displayName}`}>
+            <StyledTerm
+                style={{ cursor: 'pointer' }}
+                fontSize={fontSize}
+                highlightTerm={highlightTerm}
+                showOneAndCount={showOneAndCount}
+            >
+                <TermRibbon color={termColor} />
+
+                <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
+                    {displayName}
+                </StyledHighlight>
+
+                {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+            </StyledTerm>
+            {canRemove && !readOnly && (
+                <CloseButtonContainer
+                    onClick={(e) => {
+                        e.preventDefault();
+                        onOpenModal?.();
+                        setTermToBeRemoved(term);
+                    }}
+                    data-testid="remove-icon"
+                >
+                    <CloseIconStyle />
+                </CloseButtonContainer>
+            )}
+            <StopPropagation>
+                <ConfirmationModal
+                    isOpen={!!termTobeRemoved}
+                    handleClose={() => {
+                        setTermToBeRemoved(null);
+                        onCloseModal?.();
+                    }}
+                    handleConfirm={removeTerm}
+                    modalTitle={`Do you want to remove ${termName} term?`}
+                    modalText={`Are you sure you want to remove the ${termName} term?`}
+                />
+            </StopPropagation>
+        </TermContainer>
+    );
+}

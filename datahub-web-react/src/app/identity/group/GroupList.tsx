@@ -1,33 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, Pagination } from 'antd';
-import styled from 'styled-components';
-import { useLocation } from 'react-router';
-import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
-import { CorpGroup, DataHubRole } from '../../../types.generated';
-import { Message } from '../../shared/Message';
-import { useListGroupsQuery } from '../../../graphql/group.generated';
-import GroupListItem from './GroupListItem';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import CreateGroupModal from './CreateGroupModal';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { scrollToTop } from '../../shared/searchUtils';
-import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config/GroupsOnboardingConfig';
-import { OnboardingTour } from '../../onboarding/OnboardingTour';
-import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
-import { useListRolesQuery } from '../../../graphql/role.generated';
+import { Button, Empty, List, Pagination } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
+import styled from 'styled-components';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import CreateGroupModal from '@app/identity/group/CreateGroupModal';
+import GroupListItem from '@app/identity/group/GroupListItem';
+import {
+    DEFAULT_GROUP_LIST_PAGE_SIZE,
+    addGroupToListGroupsCache,
+    removeGroupFromListGroupsCache,
+} from '@app/identity/group/cacheUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListGroupsQuery } from '@graphql/group.generated';
+import { CorpGroup } from '@types';
 
 const GroupContainer = styled.div`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    height: calc(100vh - 240px);
 `;
 
 const GroupStyledList = styled(List)`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    flex: 1;
+    overflow-y: scroll;
+    min-height: 0;
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
@@ -83,17 +91,14 @@ export const GroupList = () => {
         removeGroupFromListGroupsCache(urn, client, page, pageSize);
     };
 
-    const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
-
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const {
+        roles: selectRoleOptions,
+        loading: rolesLoading,
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     return (
         <>
@@ -137,6 +142,11 @@ export const GroupList = () => {
                             onDelete={() => handleDelete(item.urn)}
                             group={item as CorpGroup}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={groupRefetch}
                         />
                     )}

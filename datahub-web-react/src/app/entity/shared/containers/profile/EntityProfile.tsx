@@ -1,51 +1,55 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
-import styled from 'styled-components/macro';
+import { Alert, Divider } from 'antd';
+import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router';
-import { EntityType, Exact } from '../../../../../types.generated';
+import styled from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUpdateDomainEntityDataOnChange } from '@app/domain/utils';
+import { EntityCapabilityType } from '@app/entity/Entity';
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityHeader } from '@app/entity/shared/containers/profile/header/EntityHeader';
+import { EntityTabs } from '@app/entity/shared/containers/profile/header/EntityTabs';
+import { EntityProfileNavBar } from '@app/entity/shared/containers/profile/nav/EntityProfileNavBar';
+import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/EntitySidebar';
+import SidebarFormInfoWrapper from '@app/entity/shared/containers/profile/sidebar/FormInfo/SidebarFormInfoWrapper';
+import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/ProfileSidebar';
+import useGetDataForProfile from '@app/entity/shared/containers/profile/useGetDataForProfile';
 import {
     getEntityPath,
     getOnboardingStepIdsForEntityType,
     sortEntityProfileTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
-} from './utils';
+} from '@app/entity/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import DynamicTab from '@app/entity/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
 import {
     EntitySidebarSection,
     EntitySubHeaderSection,
     EntityTab,
     GenericEntityProperties,
     GenericEntityUpdate,
-} from '../../types';
-import { EntityProfileNavBar } from './nav/EntityProfileNavBar';
-import { ANTD_GRAY } from '../../constants';
-import { EntityHeader } from './header/EntityHeader';
-import { EntityTabs } from './header/EntityTabs';
-import { EntitySidebar } from './sidebar/EntitySidebar';
-import EntityContext from '../../EntityContext';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import CompactContext from '../../../../shared/CompactContext';
-import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
-import analytics, { EventType } from '../../../../analytics';
-import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
-import { useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { EntityActionItem } from '../../entity/EntityActions';
-import { ErrorSection } from '../../../../shared/error/ErrorSection';
-import { EntityHead } from '../../../../shared/EntityHead';
-import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
-import useGetDataForProfile from './useGetDataForProfile';
-import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
+} from '@app/entity/shared/types';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
-} from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import { useAppConfig } from '../../../../useAppConfig';
-import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
-import ProfileSidebar from './sidebar/ProfileSidebar';
-import SidebarFormInfoWrapper from './sidebar/FormInfo/SidebarFormInfoWrapper';
+} from '@app/onboarding/config/LineageGraphOnboardingConfig';
+import CompactContext from '@app/shared/CompactContext';
+import { EntityHead } from '@app/shared/EntityHead';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetFormsForEntityQuery } from '@graphql/form.generated';
+import { EntityType, Exact } from '@types';
 
 type Props<T, U> = {
     urn: string;
@@ -213,8 +217,14 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
+    const { data: formsData } = useGetFormsForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+        skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
+    });
+
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChange(entityData, entityType);

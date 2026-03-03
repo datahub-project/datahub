@@ -10,10 +10,11 @@ source:
     client_secret: bar
     
     # Ingest elements of below PowerBi Workspace into Datahub
-    workspace_id_pattern:
+    workspace_name_pattern:
       allow:
-        - 4bd10256-e999-45dd-8e56-571c77153a5f
+        - MyWorkspace
       deny:
+        - PrivateWorkspace
 
     # Enable / Disable ingestion of ownership information for dashboards
     extract_ownership: true
@@ -28,7 +29,10 @@ source:
     # Optional -- This mapping is optional and only required to configure platform-instance for upstream tables
     # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
     # :port is optional and only needed if your datasource server is running on non-standard port.
-    # For Google BigQuery the datasource's server is google bigquery project name
+    # For Google BigQuery the datasource's server is google bigquery project name.
+    # For Fabric OneLake (DirectLake lineage), use PowerBI workspace ID as the key.
+    # The platform_instance typically represents the Fabric tenant identifier, matching how
+    # the OneLake connector uses platform_instance to group workspaces by tenant.
     server_to_platform_instance:
         ap-south-1.snowflakecomputing.com:
           platform_instance: operational_instance
@@ -39,6 +43,11 @@ source:
         big-query-sales-project:
           platform_instance: sn-2
           env: QA
+        # Fabric OneLake: workspace ID -> (platform_instance, env)
+        # platform_instance is typically the Fabric tenant identifier
+        ff23fbe3-7418-42f8-a675-9f10eb2b78cb:  # PowerBI workspace ID
+          platform_instance: contoso-tenant  # Fabric tenant/platform instance
+          env: PROD
 
     # Need admin_api, only ingest workspace that are modified since...
     modified_since: "2023-02-10T00:00:00.0000000Z"

@@ -16,7 +16,7 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
-    "boostScore": 5.0,
+    "boostScore": 1.0,
     "queryByDefault": "true"
   }
   fieldPath: SchemaFieldPath
@@ -38,7 +38,8 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1
+    "boostScore": 0.1,
+    "sanitizeRichText": true
   }
   description: optional string
 

@@ -1,28 +1,36 @@
+import { Collapse, Form, Input, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
-import { useCreateGroupMutation } from '../../../graphql/group.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { validateCustomUrnId } from '../../shared/textUtil';
-import analytics, { EventType } from '../../analytics';
-import { CorpGroup, EntityType } from '../../../types.generated';
-import { Editor as MarkdownEditor } from '../../entity/shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Editor, Modal } from '@src/alchemy-components';
+
+import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
+import { useAddOwnerMutation } from '@graphql/mutations.generated';
+import { CorpGroup, EntityType, OwnerEntityType } from '@types';
 
 type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;
 };
 
-const StyledEditor = styled(MarkdownEditor)`
+const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY[4]};
 `;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
+    const { urn: currentUserUrn } = useUserContext();
+
     const [stagedName, setStagedName] = useState('');
     const [stagedDescription, setStagedDescription] = useState('');
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createGroupMutation] = useCreateGroupMutation();
+    const [addOwnerMutation] = useAddOwnerMutation();
+    const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
 
@@ -63,6 +71,40 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             },
                         });
                     }
+                    // Add the current user as an owner and member of the group
+                    if (currentUserUrn && data?.createGroup) {
+                        // Add the current user as an owner of the group
+                        addOwnerMutation({
+                            variables: {
+                                input: {
+                                    ownerUrn: currentUserUrn,
+                                    resourceUrn: data.createGroup,
+                                    ownerEntityType: OwnerEntityType.CorpUser,
+                                    ownershipTypeUrn: 'urn:li:ownershipType:__system__none',
+                                },
+                            },
+                        }).catch((e) => {
+                            console.error(e);
+                            message.error({
+                                content: `Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.`,
+                                duration: 5,
+                            });
+                        });
+
+                        // Add the current user as a member of the group
+                        addGroupMembersMutation({
+                            variables: {
+                                groupUrn: data.createGroup,
+                                userUrns: [currentUserUrn],
+                            },
+                        }).catch((e) => {
+                            console.error(e);
+                            message.error({
+                                content: `Failed to automatically add you as a member of the group. Please add yourself as a member manually.`,
+                                duration: 5,
+                            });
+                        });
+                    }
                 })
                 .catch((e) => {
                     message.destroy();
@@ -87,20 +129,25 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            width={700}
+            width={780}
             title="Create new group"
             open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                        Create
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    variant: 'filled',
+                    disabled: createButtonEnabled,
+                    onClick: onCreateGroup,
+                    buttonDataTestId: 'modal-create-group-button',
+                    id: 'createGroupButton',
+                },
+            ]}
         >
             <Form
                 form={form}

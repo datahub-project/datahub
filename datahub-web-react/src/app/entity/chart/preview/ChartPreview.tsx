@@ -1,25 +1,27 @@
 import React from 'react';
+
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
+import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entity/chart/shared/ChartStatsSummary';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     AccessLevel,
-    Domain,
+    ChartStatsSummary,
     Container,
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
     EntityType,
     GlobalTags,
     GlossaryTerms,
-    Owner,
-    SearchInsight,
-    ParentContainersResult,
-    Deprecation,
-    ChartStatsSummary,
-    DataProduct,
-    EntityPath,
     Health,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '@types';
 
 export const ChartPreview = ({
     urn,
@@ -47,6 +49,7 @@ export const ChartPreview = ({
     paths,
     subType,
     health,
+    previewType,
 }: {
     urn: string;
     platform?: string;
@@ -73,6 +76,7 @@ export const ChartPreview = ({
     paths?: EntityPath[];
     subType?: string | null;
     health?: Health[] | null;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -110,6 +114,7 @@ export const ChartPreview = ({
             degree={degree}
             paths={paths}
             health={health || undefined}
+            previewType={previewType}
         />
     );
 };

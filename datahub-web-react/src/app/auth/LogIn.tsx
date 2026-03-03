@@ -1,15 +1,17 @@
-import React, { useCallback, useState } from 'react';
-import * as QueryString from 'query-string';
-import { Input, Button, Form, message, Image, Divider } from 'antd';
-import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
+import { LockOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components/macro';
+import { Button, Divider, Form, Image, Input, message } from 'antd';
+import * as QueryString from 'query-string';
+import React, { useCallback, useState } from 'react';
 import { Redirect, useLocation } from 'react-router';
-import styles from './login.module.css';
-import { Message } from '../shared/Message';
-import { isLoggedInVar } from './checkAuthStatus';
-import analytics, { EventType } from '../analytics';
-import { useAppConfig } from '../useAppConfig';
+import styled, { useTheme } from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import styles from '@app/auth/login.module.css';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 type FormValues = {
     username: string;
@@ -66,7 +68,7 @@ export type LogInProps = Record<string, never>;
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
-    const params = QueryString.parse(location.search);
+    const params = QueryString.parse(location.search, { decode: true });
     const maybeRedirectError = params.error_msg;
 
     const themeConfig = useTheme();
@@ -82,7 +84,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: values.username, password: values.password }),
             };
-            fetch('/logIn', requestOptions)
+            fetch(resolveRuntimePath('/logIn'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();
@@ -94,8 +96,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     analytics.event({ type: EventType.LogInEvent });
                     return Promise.resolve();
                 })
-                .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                .catch((e) => {
+                    message.error(`Failed to log in! ${e}`);
                 })
                 .finally(() => setLoading(false));
         },
@@ -104,7 +106,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
 
     if (isLoggedIn) {
         const maybeRedirectUri = params.redirect_uri;
-        return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
+        // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
+        return <Redirect to={maybeRedirectUri || '/'} />;
     }
 
     return (
@@ -144,6 +147,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                                         htmlType="submit"
                                         className={styles.login_button}
                                         disabled={!formIsComplete}
+                                        data-testid="sign-in"
                                     >
                                         Sign In
                                     </Button>
@@ -152,7 +156,13 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         </Form.Item>
                     </Form>
                     <SsoDivider />
-                    <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
+                    <SsoButton
+                        type="primary"
+                        href={resolveRuntimePath('/sso')}
+                        block
+                        htmlType="submit"
+                        className={styles.sso_button}
+                    >
                         <LoginLogo />
                         <SsoTextSpan>Sign in with SSO</SsoTextSpan>
                         <span />

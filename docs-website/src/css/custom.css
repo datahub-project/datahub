@@ -1,0 +1,61 @@
+/* Shimmering announcement banner */
+.shimmer-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  background: linear-gradient(
+    45deg,
+    #6b46c1 0%,
+    #9f7aea 25%,
+    #b794f4 50%,
+    #9f7aea 75%,
+    #6b46c1 100%
+  );
+  background-size: 200% 200%;
+  animation: shimmer 3s ease-in-out infinite;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+/* Add padding to the body to prevent content from hiding under the banner */
+body {
+  padding-top: 40px; /* Adjust this value based on your banner height */
+}
+
+.shimmer-banner p {
+  margin: 0;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+
+.shimmer-banner .button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  padding: 4px 12px;
+  margin-left: 12px;
+  color: white;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.shimmer-banner .button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+} 

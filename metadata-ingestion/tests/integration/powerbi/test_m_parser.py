@@ -1,12 +1,13 @@
 import logging
 import sys
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
 from lark import Tree
 
+import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -18,10 +19,13 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
-from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
+from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    DataPlatformTable,
+    Lineage,
+)
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_5
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu10758.ap-unknown-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -59,10 +63,15 @@ M_QUERIES = [
     'let Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]), DB_Source = Source{[Name="DATABASE_NAME",Kind="Database"]}[Data], SCHEMA_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data], TABLE_Source = SCHEMA_Source{[Name="TABLE_NAME",Kind="View"]}[Data], #"Split Column by Time" = Table.SplitColumn(Table.TransformColumnTypes(TABLE_Source, {{"TIMESTAMP_COLUMN", type text}}, "en-GB"), "TIMESTAMP_COLUMN", Splitter.SplitTextByDelimiter(" ", QuoteStyle.Csv), {"TIMESTAMP_COLUMN.1", "TIMESTAMP_COLUMN.2"}), #"Added Custom" = Table.AddColumn(#"Split Column by Time", "SOB", each ([ENDTIME] - [STARTTIME]) * 60 * 60 * 24) in #"Added Custom"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="DROP TABLE IF EXISTS #KKR;#(lf)Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
     "LOAD_DATA(SOURCE)",
+    'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
+    'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
+    'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
 ]
 
 
-def get_data_platform_tables_with_dummy_table(q: str) -> List[resolver.Lineage]:
+def get_data_platform_tables_with_dummy_table(
+    q: str,
+) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -87,11 +96,13 @@ def get_data_platform_tables_with_dummy_table(q: str) -> List[resolver.Lineage]:
 
 
 def get_default_instances(
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Tuple[
     PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
 ]:
-    config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
+    if override_config is None:
+        override_config = {}
+    config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.model_validate(
         {
             "tenant_id": "fake",
             "client_id": "foo",
@@ -712,7 +723,6 @@ def test_redshift_regular_case():
 
 
 def test_redshift_native_query():
-
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[22],
         name="category",
@@ -760,12 +770,14 @@ def test_sqlglot_parser():
         }
     )
 
-    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
@@ -807,7 +819,9 @@ def test_sqlglot_parser():
 def test_databricks_multi_cloud():
     q = M_QUERIES[25]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -824,7 +838,9 @@ def test_databricks_multi_cloud():
 def test_databricks_catalog_pattern_1():
     q = M_QUERIES[26]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -893,12 +909,14 @@ def test_sqlglot_parser_2():
         }
     )
 
-    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
     )
 
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
@@ -952,7 +970,9 @@ def test_databricks_regular_case_with_view():
 def test_snowflake_double_double_quotes():
     q = M_QUERIES[30]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -969,7 +989,9 @@ def test_snowflake_double_double_quotes():
 def test_databricks_multicloud():
     q = M_QUERIES[31]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -986,7 +1008,9 @@ def test_databricks_multicloud():
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1003,7 +1027,9 @@ def test_snowflake_multi_function_call():
 def test_mssql_drop_with_select():
     q = M_QUERIES[33]
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1049,21 +1075,23 @@ def test_unsupported_data_platform():
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in info_entries.items():
+    for entry in info_entries.values():
         if entry.title == "Non-Data Platform Expression":
             is_entry_present = True
             break
 
-    assert (
-        is_entry_present
-    ), 'Info message "Non-Data Platform Expression" should be present in reporter'
+    assert is_entry_present, (
+        'Info message "Non-Data Platform Expression" should be present in reporter'
+    )
 
 
 def test_empty_string_in_m_query():
     # TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') is in Query
     q = "let\n  Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') AS TRIM_AGENT_NAME,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source"
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1085,7 +1113,9 @@ def test_double_quotes_in_alias():
     # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
     q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
 
-    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        get_data_platform_tables_with_dummy_table(q=q)
+    )
 
     assert len(lineage) == 1
 
@@ -1101,7 +1131,6 @@ def test_double_quotes_in_alias():
 
 @patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
 def test_m_query_timeout(mock_get_lark_parser):
-
     q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -1139,11 +1168,309 @@ def test_m_query_timeout(mock_get_lark_parser):
     )  # type :ignore
 
     is_entry_present: bool = False
-    for key, entry in warn_entries.items():
+    for entry in warn_entries.values():
         if entry.title == "M-Query Parsing Timeout":
             is_entry_present = True
             break
 
+    assert is_entry_present, (
+        'Warning message "M-Query Parsing Timeout" should be present in reporter'
+    )
+
+
+def test_comments_in_m_query():
+    q: str = 'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com", "COMPUTE_WH", [Role="ACCOUNTADMIN"]),\n    SNOWFLAKE_SAMPLE_DATA_Database = Source{[Name="SNOWFLAKE_SAMPLE_DATA", Kind="Database"]}[Data],\n    TPCDS_SF100TCL_Schema = SNOWFLAKE_SAMPLE_DATA_Database{[Name="TPCDS_SF100TCL", Kind="Schema"]}[Data],\n    ITEM_Table = TPCDS_SF100TCL_Schema{[Name="ITEM", Kind="Table"]}[Data],\n    \n    // Group by I_BRAND and calculate the count\n    BrandCountsTable = Table.Group(ITEM_Table, {"I_BRAND"}, {{"BrandCount", each Table.RowCount(_), Int64.Type}})\nin\n    BrandCountsTable'
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="pet_price_index",
+        full_name="datalake.sandbox_pet.pet_price_index",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={
+            "hostname": "xyz.databricks.com",
+            "http_path": "/sql/1.0/warehouses/abc",
+            "catalog": "cat",
+            "schema": "public",
+        },
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
     assert (
-        is_entry_present
-    ), 'Warning message "M-Query Parsing Timeout" should be present in reporter'
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpcds_sf100tcl.item,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_regular_case():
+    q: str = M_QUERIES[35]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="employees",
+        full_name="employees.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query():
+    q: str = M_QUERIES[36]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="BankDemoTransactions",
+        full_name="BankDemoTransactions.Transactions",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database-only format (dsn: database)."""
+    # Query with unqualified table reference "transaction" instead of "bank_demo.transaction"
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=testdb01", '
+        '"SELECT transaction_id, account_id FROM transaction")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="BankTransactions",
+        full_name="BankTransactions.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database-only mapping: "testdb01" -> "bank_demo" (no schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"testdb01": "mysql"},
+            "dsn_to_database_schema": {"testdb01": "bank_demo"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_schema_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database.schema format (dsn: database.schema)."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={PostgreSQL ODBC Driver};'
+        'server=pg.example.com;database=warehouse;dsn=warehouse_dsn", '
+        '"SELECT order_id, customer_id FROM orders")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Orders",
+        full_name="Orders.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database.schema mapping: "warehouse_dsn" -> "warehouse.sales" (includes schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"warehouse_dsn": "postgres"},
+            "dsn_to_database_schema": {"warehouse_dsn": "warehouse.sales"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,warehouse.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_without_dsn_mapping():
+    """Test ODBC query parsing without dsn_to_database_schema mapping falls back to default behavior."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=unmapped_dsn", '
+        '"SELECT id, name FROM users")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Users",
+        full_name="Users.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test without dsn_to_database_schema mapping
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"unmapped_dsn": "mysql"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    # Without dsn_to_database_schema mapping, should use table name as-is
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_athena_regular_case():
+    """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
+    q: str = M_QUERIES[37]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="sales_data",
+        full_name="awsdatacatalog.analytics.sales_data",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,analytics.sales_data,PROD)"
+    )
+    assert (
+        data_platform_tables[0].data_platform_pair.datahub_data_platform_name
+        == "athena"
+    )
+
+
+@pytest.mark.integration
+def test_athena_with_platform_instance():
+    """Test Athena lineage with server_to_platform_instance configuration."""
+    q: str = M_QUERIES[37]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="sales_data",
+        full_name="awsdatacatalog.analytics.sales_data",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "us-east-1": {
+                    "platform_instance": "production_athena",
+                    "env": "PROD",
+                }
+            }
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
+    )

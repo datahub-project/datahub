@@ -64,18 +64,6 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),customer_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD),customer_id)"
                     ],
                     "downstreamType": "FIELD",
@@ -84,6 +72,18 @@
                     ],
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -100,18 +100,6 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),return_date)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD),return_date)"
                     ],
                     "downstreamType": "FIELD",
@@ -120,6 +108,18 @@
                     ],
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:composite_adc1c41c0ad37c643776d9d93d524e6c435a7e70633da1ce7e3222dda4bb9fb8"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),return_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_6b5a11e96e3d2b742e4e4ec3310bb538d0f5c0c6496b84e4bfe0e8014d5f5b45"
                 },
                 {
                     "upstreamType": "FIELD_SET",

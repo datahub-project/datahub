@@ -50,6 +50,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATETIME_FORMAT,
+    BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
@@ -220,6 +221,7 @@ class BigqueryLineageExtractor:
         *,
         schema_resolver: SchemaResolver,
         identifiers: BigQueryIdentifierBuilder,
+        filters: BigQueryFilter,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
@@ -227,6 +229,7 @@ class BigqueryLineageExtractor:
         self.schema_resolver = schema_resolver
 
         self.identifiers = identifiers
+        self.filters = filters
         self.audit_log_api = BigQueryAuditLogApi(
             report.audit_log_api_perf,
             self.config.rate_limit,
@@ -291,16 +294,15 @@ class BigqueryLineageExtractor:
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
         for project in projects:
-            if self.config.lineage_parse_view_ddl:
-                for view in view_refs_by_project[project]:
-                    self.datasets_skip_audit_log_lineage.add(view)
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(view)
-                        ),
-                        view_definition=view_definitions[view],
-                        default_db=project,
-                    )
+            for view in view_refs_by_project[project]:
+                self.datasets_skip_audit_log_lineage.add(view)
+                self.aggregator.add_view_definition(
+                    view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                        BigQueryTableRef.from_string_name(view)
+                    ),
+                    view_definition=view_definitions[view],
+                    default_db=project,
+                )
 
             for snapshot_ref in snapshot_refs_by_project[project]:
                 snapshot = snapshots_by_ref[snapshot_ref]
@@ -322,32 +324,20 @@ class BigqueryLineageExtractor:
     def get_lineage_workunits(
         self,
         projects: List[str],
-        view_refs_by_project: Dict[str, Set[str]],
-        view_definitions: FileBackedDict[str],
-        snapshot_refs_by_project: Dict[str, Set[str]],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
 
-        yield from self.get_lineage_workunits_for_views_and_snapshots(
-            projects,
-            view_refs_by_project,
-            view_definitions,
-            snapshot_refs_by_project,
-            snapshots_by_ref,
-        )
-
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
 
         for project in projects:
-            self.report.set_ingestion_stage(project, LINEAGE_EXTRACTION)
-            yield from self.generate_lineage(
-                project,
-                table_refs,
-            )
+            with self.report.new_stage(f"{project}: {LINEAGE_EXTRACTION}"):
+                yield from self.generate_lineage(
+                    project,
+                    table_refs,
+                )
 
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
@@ -381,14 +371,14 @@ class BigqueryLineageExtractor:
             self.report.lineage_metadata_entries[project_id] = len(lineage)
             logger.info(f"Built lineage map containing {len(lineage)} entries.")
             logger.debug(f"lineage metadata is {lineage}")
-            self.report.lineage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[project_id] = timer.elapsed_seconds(
+                digits=2
             )
             self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
                 memory_footprint.total_size(lineage)
             )
 
-        for lineage_key in lineage.keys():
+        for lineage_key in lineage:
             # For views, we do not use the upstreams obtained by parsing audit logs
             # as they may contain indirectly referenced tables.
             if (
@@ -462,7 +452,14 @@ class BigqueryLineageExtractor:
         )
 
         # Filtering datasets
-        datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
+        datasets = list(
+            data_dictionary.get_datasets_for_project_id(
+                project_id,
+                dataset_filter=lambda dataset_name: self.filters.is_dataset_allowed(
+                    dataset_name=dataset_name, project_id=project_id
+                ),
+            )
+        )
         project_tables = []
         for dataset in datasets:
             # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
@@ -480,12 +477,7 @@ class BigqueryLineageExtractor:
             # Convert project table to <project_id>.<dataset_id>.<table_id> format
             table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
 
-            if not is_schema_allowed(
-                self.config.dataset_pattern,
-                schema_name=project_table.dataset_id,
-                db_name=project_table.project,
-                match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
-            ) or not self.config.table_pattern.allowed(table):
+            if not self.config.table_pattern.allowed(table):
                 self.report.num_skipped_lineage_entries_not_allowed[
                     project_table.project
                 ] += 1
@@ -710,7 +702,7 @@ class BigqueryLineageExtractor:
                         if parsed_queries[-1]:
                             query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
                             (
-                                {parsed_queries[-1].sql(dialect='bigquery')}
+                                {parsed_queries[-1].sql(dialect="bigquery")}
                             )"""
                         else:
                             query = e.query
@@ -822,11 +814,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[
-                            ref_temp_table_upstream
-                        ] = _merge_lineage_edge_columns(
-                            upstreams.get(ref_temp_table_upstream),
-                            collapsed_lineage,
+                        upstreams[ref_temp_table_upstream] = (
+                            _merge_lineage_edge_columns(
+                                upstreams.get(ref_temp_table_upstream),
+                                collapsed_lineage,
+                            )
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(
@@ -876,13 +868,19 @@ class BigqueryLineageExtractor:
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                     downstreams=[
                         mce_builder.make_schema_field_urn(
-                            bq_table_urn, col_lineage_edge.out_column
+                            bq_table_urn,
+                            col_lineage_edge.out_column.lower()
+                            if self.config.convert_column_urns_to_lowercase
+                            else col_lineage_edge.out_column,
                         )
                     ],
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     upstreams=[
                         mce_builder.make_schema_field_urn(
-                            upstream_table_urn, upstream_col
+                            upstream_table_urn,
+                            upstream_col.lower()
+                            if self.config.convert_column_urns_to_lowercase
+                            else upstream_col,
                         )
                         for upstream_col in col_lineage_edge.in_columns
                     ],
@@ -934,7 +932,6 @@ class BigqueryLineageExtractor:
         ddl: Optional[str],
         graph: Optional[DataHubGraph] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         if not ddl:
             return
 
@@ -972,7 +969,6 @@ class BigqueryLineageExtractor:
         source_uris: List[str],
         graph: Optional[DataHubGraph] = None,
     ) -> Optional[UpstreamLineageClass]:
-
         upstreams_list: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         gcs_urns: Set[str] = set()
@@ -1019,9 +1015,9 @@ class BigqueryLineageExtractor:
                 dataset_urn
             )
             for gcs_dataset_urn in gcs_urns:
-                schema_metadata_for_gcs: Optional[
-                    SchemaMetadataClass
-                ] = graph.get_schema_metadata(gcs_dataset_urn)
+                schema_metadata_for_gcs: Optional[SchemaMetadataClass] = (
+                    graph.get_schema_metadata(gcs_dataset_urn)
+                )
                 if schema_metadata and schema_metadata_for_gcs:
                     fine_grained_lineage = self.get_fine_grained_lineages_with_gcs(
                         dataset_urn,
@@ -1100,14 +1096,23 @@ class BigqueryLineageExtractor:
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
                                 mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
+                                    dataset_urn,
+                                    field_path_v1.lower()
+                                    if self.config.convert_column_urns_to_lowercase
+                                    else field_path_v1,
                                 )
                             ],
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
                                 mce_builder.make_schema_field_urn(
                                     gcs_dataset_urn,
-                                    simplify_field_path(matching_gcs_field.fieldPath),
+                                    simplify_field_path(
+                                        matching_gcs_field.fieldPath
+                                    ).lower()
+                                    if self.config.convert_column_urns_to_lowercase
+                                    else simplify_field_path(
+                                        matching_gcs_field.fieldPath
+                                    ),
                                 )
                             ],
                         )

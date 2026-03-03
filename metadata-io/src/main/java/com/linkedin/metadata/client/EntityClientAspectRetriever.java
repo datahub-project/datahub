@@ -35,7 +35,7 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever {
   @Override
   public Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName) {
     try {
-      return entityClient.getLatestAspectObject(systemOperationContext, urn, aspectName);
+      return entityClient.getLatestAspectObject(systemOperationContext, urn, aspectName, false);
     } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException(e);
     }
@@ -49,10 +49,29 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever {
       return Map.of();
     } else {
       try {
-        return entityClient.getLatestAspects(systemOperationContext, urns, aspectNames);
+        return entityClient.getLatestAspects(systemOperationContext, urns, aspectNames, false);
       } catch (RemoteInvocationException | URISyntaxException e) {
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  @Nonnull
+  public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    } else {
+      return urns.stream()
+          .collect(
+              Collectors.toMap(
+                  urn -> urn,
+                  urn -> {
+                    try {
+                      return entityClient.exists(systemOperationContext, urn);
+                    } catch (RemoteInvocationException e) {
+                      throw new RuntimeException(e);
+                    }
+                  }));
     }
   }
 
@@ -70,7 +89,8 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever {
             urnAspectNames.keySet(),
             urnAspectNames.values().stream()
                 .flatMap(Collection::stream)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            false);
       } catch (RemoteInvocationException | URISyntaxException e) {
         throw new RuntimeException(e);
       }

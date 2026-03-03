@@ -1,4 +1,4 @@
-import { Query } from '../types';
+import { Query } from '@app/entity/shared/tabs/Dataset/Queries/types';
 
 /**
  * Filter queries by a search string. Compares name, description, and query statement.
@@ -10,9 +10,9 @@ export const filterQueries = (filterText, queries: Query[]) => {
     const lowerFilterText = filterText.toLowerCase();
     return queries.filter((query) => {
         return (
-            query.title?.toLowerCase().includes(lowerFilterText) ||
-            query.description?.toLowerCase().includes(lowerFilterText) ||
-            query.query?.toLowerCase().includes(lowerFilterText)
+            query.title?.toLowerCase()?.includes(lowerFilterText) ||
+            query.description?.toLowerCase()?.includes(lowerFilterText) ||
+            query.query?.toLowerCase()?.includes(lowerFilterText)
         );
     });
 };

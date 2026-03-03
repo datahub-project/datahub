@@ -1,10 +1,22 @@
-query getQuery($urn: String!) {
+query getQuery($urn: String!, $skipSiblingsSearch: Boolean = false) {
     entity(urn: $urn) {
         urn
         type
         ... on QueryEntity {
             ...query
         }
+    }
+}
+
+fragment ActorWithDisplayName on CorpUser {
+    urn
+    type
+    ...entityDisplayNameFields
+    editableProperties {
+        pictureLink
+    }
+    editableInfo {
+        pictureLink
     }
 }
 
@@ -22,12 +34,18 @@ fragment query on QueryEntity {
             time
             actor
         }
+        createdOn {
+            time
+            actor {
+                ...ActorWithDisplayName
+            }
+        }
         lastModified {
             time
             actor
         }
         origin {
-            ...searchResultFields
+            ...searchResultFieldsNoLineage
         }
     }
     platform {
@@ -36,12 +54,18 @@ fragment query on QueryEntity {
     subjects {
         dataset {
             urn
+            type
             name
+        }
+        schemaField {
+            urn
+            type
+            fieldPath
         }
     }
 }
 
-query listQueries($input: ListQueriesInput!) {
+query listQueries($input: ListQueriesInput!, $skipSiblingsSearch: Boolean = false) {
     listQueries(input: $input) {
         start
         total
@@ -52,13 +76,13 @@ query listQueries($input: ListQueriesInput!) {
     }
 }
 
-mutation createQuery($input: CreateQueryInput!) {
+mutation createQuery($input: CreateQueryInput!, $skipSiblingsSearch: Boolean = false) {
     createQuery(input: $input) {
         ...query
     }
 }
 
-mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
+mutation updateQuery($urn: String!, $input: UpdateQueryInput!, $skipSiblingsSearch: Boolean = false) {
     updateQuery(urn: $urn, input: $input) {
         ...query
     }
@@ -66,4 +90,30 @@ mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
 
 mutation deleteQuery($urn: String!) {
     deleteQuery(urn: $urn)
+}
+
+query searchAcrossLineageForQueries($input: SearchAcrossLineageInput!, $skipSiblingsSearch: Boolean = false) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ...searchResultFieldsNoLineage
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on QueryEntity {
+                        ...query
+                    }
+                }
+            }
+            explored
+            ignoredAsHop
+        }
+    }
 }

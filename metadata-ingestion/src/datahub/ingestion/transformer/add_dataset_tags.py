@@ -41,7 +41,7 @@ class AddDatasetTags(DatasetTagsTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
-        config = AddDatasetTagsConfig.parse_obj(config_dict)
+        config = AddDatasetTagsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
@@ -67,7 +67,6 @@ class AddDatasetTags(DatasetTagsTransformer):
     def handle_end_of_stream(
         self,
     ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
-
         mcps: List[
             Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
         ] = []
@@ -75,7 +74,7 @@ class AddDatasetTags(DatasetTagsTransformer):
         logger.debug("Generating tags")
 
         for tag_association in self.processed_tags.values():
-            tag_urn = TagUrn.create_from_string(tag_association.tag)
+            tag_urn = TagUrn.from_string(tag_association.tag)
             mcps.append(
                 MetadataChangeProposalWrapper(
                     entityUrn=tag_urn.urn(),
@@ -105,7 +104,7 @@ class SimpleAddDatasetTags(AddDatasetTags):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetTags":
-        config = SimpleDatasetTagConfig.parse_obj(config_dict)
+        config = SimpleDatasetTagConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -129,5 +128,5 @@ class PatternAddDatasetTags(AddDatasetTags):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "PatternAddDatasetTags":
-        config = PatternDatasetTagsConfig.parse_obj(config_dict)
+        config = PatternDatasetTagsConfig.model_validate(config_dict)
         return cls(config, ctx)

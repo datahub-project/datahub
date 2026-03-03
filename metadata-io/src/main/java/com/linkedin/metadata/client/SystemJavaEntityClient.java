@@ -5,6 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClientCache;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -43,7 +45,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       RollbackService rollbackService,
       EventProducer eventProducer,
       EntityClientCacheConfig cacheConfig,
-      int batchGetV2Size) {
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils) {
     super(
         entityService,
         deleteEntityService,
@@ -54,9 +57,11 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         timeseriesAspectService,
         rollbackService,
         eventProducer,
-        batchGetV2Size);
+        entityClientConfig,
+        metricUtils);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
-    this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
+    this.entityClientCache =
+        buildEntityClientCache(metricUtils, SystemJavaEntityClient.class, cacheConfig);
   }
 
   @Nullable
@@ -88,6 +93,6 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return super.batchGetV2(opContext, entityName, urns, aspectNames);
+    return super.batchGetV2(opContext, entityName, urns, aspectNames, false);
   }
 }

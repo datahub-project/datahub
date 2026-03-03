@@ -29,7 +29,7 @@ enum OperationType {
    */
   DROP
   /**
-   * Custom asset operation
+   * Custom asset operation. If this is set, ensure customOperationType is filled out.
    */
   CUSTOM
   UNKNOWN

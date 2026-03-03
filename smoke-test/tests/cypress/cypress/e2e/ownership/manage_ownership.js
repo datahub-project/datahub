@@ -5,7 +5,7 @@ describe("manage ownership", () => {
     cy.login();
     cy.goToOwnershipTypesSettings();
 
-    cy.clickOptionWithText("Create new Ownership Type");
+    cy.clickOptionWithTestId("create-owner-type-v1");
     cy.get('[data-testid="ownership-type-name-input"]').clear("T");
     cy.get('[data-testid="ownership-type-name-input"]').type(
       "Test Ownership Type",
@@ -20,7 +20,9 @@ describe("manage ownership", () => {
 
     cy.get(
       '[data-row-key="Test Ownership Type"] > :nth-child(3) > .anticon > svg',
-    ).click();
+    )
+      .first()
+      .click();
     cy.clickOptionWithText("Edit");
     cy.get('[data-testid="ownership-type-description-input"]').clear(
       "This is an test ownership type description.",
@@ -34,7 +36,9 @@ describe("manage ownership", () => {
 
     cy.get(
       '[data-row-key="Test Ownership Type"] > :nth-child(3) > .anticon > svg',
-    ).click();
+    )
+      .first()
+      .click();
     cy.clickOptionWithText("Delete");
     cy.get(".ant-popover-buttons > .ant-btn-primary").click();
     cy.wait(3000);

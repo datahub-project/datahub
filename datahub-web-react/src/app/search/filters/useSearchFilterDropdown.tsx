@@ -1,16 +1,8 @@
 import { useMemo, useState } from 'react';
-import {
-    GetAutoCompleteMultipleResultsQuery,
-    useAggregateAcrossEntitiesLazyQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '../../../graphql/search.generated';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
-import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { mapFilterOption } from './mapFilterOption';
-import { FilterOptionType } from './types';
+
+import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
+import { mapFilterOption } from '@app/search/filters/mapFilterOption';
+import { FilterOptionType } from '@app/search/filters/types';
 import {
     combineAggregations,
     filterEmptyAggregations,
@@ -18,7 +10,17 @@ import {
     getFilterOptions,
     getNewFilters,
     getNumActiveFiltersForFilter,
-} from './utils';
+} from '@app/search/filters/utils';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useAggregateAcrossEntitiesLazyQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+} from '@graphql/search.generated';
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;
@@ -81,6 +83,15 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         setIsMenuOpen(false);
     }
 
+    function manuallyUpdateFilters(newFilters: FacetFilterInput[]) {
+        // remove any filters that are in newFilters to overwrite them
+        const filtersNotInNewFilters = activeFilters.filter(
+            (f) => !newFilters.find((newFilter) => newFilter.field === f.field),
+        );
+        onChangeFilters([...filtersNotInNewFilters, ...newFilters]);
+        setIsMenuOpen(false);
+    }
+
     function updateSearchQuery(newQuery: string) {
         setSearchQuery(newQuery);
         if (newQuery && FACETS_TO_ENTITY_TYPES[filter.field]) {
@@ -107,7 +118,13 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     );
     // filter out any aggregations with a count of 0 unless it's already selected and in activeFilters
     const finalAggregations = filterEmptyAggregations(combinedAggregations, activeFilters);
-    const filterOptions = getFilterOptions(filter.field, finalAggregations, selectedFilterOptions, autoCompleteResults)
+    const filterOptions = getFilterOptions(
+        filter.field,
+        finalAggregations,
+        selectedFilterOptions,
+        autoCompleteResults,
+        filter.entity,
+    )
         .map((filterOption) =>
             mapFilterOption({ filterOption, entityRegistry, selectedFilterOptions, setSelectedFilterOptions }),
         )
@@ -122,5 +139,6 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         areFiltersLoading: loading,
         searchQuery,
         updateSearchQuery,
+        manuallyUpdateFilters,
     };
 }

@@ -1,7 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +28,8 @@ import javax.annotation.Nullable;
 
 /**
  * GraphQL Resolver responsible for fetching relationships between entities in the DataHub graph.
+ * All GraphQL "relationships" fields are wired to this resolver (see GmsGraphQLEngine and
+ * DocumentResolvers), so cycle detection here covers every recursive relationship resolution path.
  */
 public class EntityRelationshipsResultResolver
     implements DataFetcher<CompletableFuture<EntityRelationshipsResult>> {
@@ -46,12 +50,22 @@ public class EntityRelationshipsResultResolver
 
   @Override
   public CompletableFuture<EntityRelationshipsResult> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
     final RelationshipsInput input =
         bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
-    final List<String> relationshipTypes = input.getTypes();
+    if (context == null) {
+      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
+    }
+    if (context
+        .getRelationshipTraversalContext()
+        .filter(traversal -> !traversal.tryVisit(urn))
+        .isPresent()) {
+      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
+    }
+
+    final Set<String> relationshipTypes = new HashSet<>(input.getTypes());
     final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection =
         input.getDirection();
     final Integer start = input.getStart(); // Optional!
@@ -72,9 +86,18 @@ public class EntityRelationshipsResultResolver
         "get");
   }
 
+  private static EntityRelationshipsResult emptyEntityRelationshipsResult() {
+    EntityRelationshipsResult result = new EntityRelationshipsResult();
+    result.setStart(0);
+    result.setCount(0);
+    result.setTotal(0);
+    result.setRelationships(List.of());
+    return result;
+  }
+
   private EntityRelationships fetchEntityRelationships(
       final String urn,
-      final List<String> types,
+      final Set<String> types,
       final RelationshipDirection direction,
       final Integer start,
       final Integer count,

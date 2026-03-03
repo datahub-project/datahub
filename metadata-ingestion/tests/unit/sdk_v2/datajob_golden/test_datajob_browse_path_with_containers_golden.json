@@ -1,0 +1,54 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:753b430567bda9e9948b93636f7bdd50",
+                    "urn": "urn:li:container:753b430567bda9e9948b93636f7bdd50"
+                },
+                {
+                    "id": "urn:li:container:753b430567bda9e9948b93636f7bdd50",
+                    "urn": "urn:li:container:753b430567bda9e9948b93636f7bdd50"
+                },
+                {
+                    "id": "example_dag",
+                    "urn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "example_task",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)",
+            "env": "PROD"
+        }
+    }
+}
+]

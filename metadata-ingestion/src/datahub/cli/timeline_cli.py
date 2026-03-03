@@ -9,7 +9,7 @@ from requests import Response
 
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -50,7 +50,7 @@ def pretty_id(id: Optional[str]) -> str:
     if id.startswith("urn:li:dataset"):
         dataset_key = dataset_urn_to_key(id)
         if dataset_key:
-            return f"{click.style('dataset', fg='cyan')}:{click.style(dataset_key.platform[len('urn:li:dataPlatform:'):], fg='white')}:{click.style(dataset_key.name, fg='white')}"
+            return f"{click.style('dataset', fg='cyan')}:{click.style(dataset_key.platform[len('urn:li:dataPlatform:') :], fg='white')}:{click.style(dataset_key.name, fg='white')}"
     # failed to prettify, return original
     return id
 
@@ -63,7 +63,7 @@ def get_timeline(
     diff: bool,
     graph: Optional[DataHubGraph] = None,
 ) -> Any:
-    client = graph if graph else get_default_graph()
+    client = graph if graph else get_default_graph(ClientMode.CLI)
     session = client._session
     host = client.config.server
     if urn.startswith("urn%3A"):
@@ -129,7 +129,6 @@ def get_timeline(
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def timeline(
     ctx: Any,
     urn: str,

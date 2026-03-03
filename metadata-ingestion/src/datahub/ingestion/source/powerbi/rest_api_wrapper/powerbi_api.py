@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Literal, Optional, cast
 
 import requests
 
@@ -18,6 +18,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     AppReport,
     Column,
     Dashboard,
+    FabricArtifact,
     Measure,
     PowerBIDataset,
     Report,
@@ -40,7 +41,6 @@ def form_full_table_name(
     dataset_name: str,
     table_name: str,
 ) -> str:
-
     full_table_name: str = "{}.{}".format(
         dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
     )
@@ -67,16 +67,18 @@ class PowerBiAPI:
 
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret,
+            client_secret=self.__config.client_secret.get_secret_value(),
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
+            environment=self.__config.environment,
         )
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret,
+            client_secret=self.__config.client_secret.get_secret_value(),
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
+            environment=self.__config.environment,
         )
 
         self.reporter: PowerBiDashboardSourceReport = reporter
@@ -97,7 +99,7 @@ class PowerBiAPI:
             url: str = e.request.url if e.request else "URL not available"
             self.reporter.warning(
                 title="Metadata API Timeout",
-                message=f"Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
+                message="Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
                 context=f"url={url}",
             )
 
@@ -116,7 +118,7 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS, []):
+        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS) or []:
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
@@ -134,17 +136,17 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        reports: List[dict] = scan_result.get(Constant.REPORTS, [])
+        reports: List[dict] = scan_result.get(Constant.REPORTS) or []
 
         for report in reports:
-            report_id = report.get(Constant.ID, None)
+            report_id = report.get(Constant.ID)
             if report_id is None:
                 logger.warning(
                     f"Report id is none. Skipping endorsement tag for report instance {report}"
                 )
                 continue
             endorsements = self._parse_endorsement(
-                report.get(Constant.ENDORSEMENT_DETAIL, None)
+                report.get(Constant.ENDORSEMENT_DETAIL)
             )
             results[report_id] = endorsements
 
@@ -174,7 +176,7 @@ class PowerBiAPI:
                 entity=entity_name,
                 entity_id=entity_id,
             )
-        except:  # It will catch all type of exception
+        except Exception:
             e = self.log_http_error(
                 message=f"Unable to fetch users for {entity_name}({entity_id})."
             )
@@ -194,15 +196,18 @@ class PowerBiAPI:
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
-    def get_reports(self, workspace: Workspace) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
         """
-        reports: List[Report] = []
+        reports: Dict[str, Report] = {}
         try:
-            reports = self._get_resolver().get_reports(workspace)
+            reports = {
+                report.id: report
+                for report in self._get_resolver().get_reports(workspace)
+            }
             # Fill Report dataset
-            for report in reports:
+            for report in reports.values():
                 if report.dataset_id:
                     report.dataset = self.dataset_registry.get(report.dataset_id)
                     if report.dataset is None:
@@ -211,7 +216,7 @@ class PowerBiAPI:
                             message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                             context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
                         )
-        except:
+        except Exception:
             self.log_http_error(
                 message=f"Unable to fetch reports for workspace {workspace.name}"
             )
@@ -223,7 +228,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.users = self.get_report_users(
                     workspace_id=workspace.id, report_id=report.id
                 )
@@ -235,7 +240,7 @@ class PowerBiAPI:
                 )
                 return
 
-            for report in reports:
+            for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
         fill_ownership()
@@ -261,7 +266,7 @@ class PowerBiAPI:
 
             groups = self._get_resolver().get_groups(filter_=filter_)
 
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of workspaces")
             # raise  # we want this exception to bubble up
 
@@ -271,12 +276,12 @@ class PowerBiAPI:
                 name=workspace[Constant.NAME],
                 type=workspace[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It will be populated in _fill_metadata_from_scan_result method
             )
             for workspace in groups
@@ -293,7 +298,7 @@ class PowerBiAPI:
             modified_workspace_ids = self.__admin_api_resolver.get_modified_workspaces(
                 self.__config.modified_since
             )
-        except:
+        except Exception:
             self.log_http_error(message="Unable to fetch list of modified workspaces.")
 
         return modified_workspace_ids
@@ -304,8 +309,8 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_ids=workspace_ids
             )
-        except:
-            e = self.log_http_error(message=f"Unable to fetch get scan result.")
+        except Exception:
+            e = self.log_http_error(message="Unable to fetch get scan result.")
             if data_resolver.is_permission_error(cast(Exception, e)):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
@@ -337,11 +342,94 @@ class PowerBiAPI:
         if not endorsements:
             return []
 
-        endorsement = endorsements.get(Constant.ENDORSEMENT, None)
+        endorsement = endorsements.get(Constant.ENDORSEMENT)
         if not endorsement:
             return []
 
         return [endorsement]
+
+    @staticmethod
+    def _parse_fabric_artifacts(
+        workspace_metadata: dict,
+    ) -> Dict[str, FabricArtifact]:
+        """Parse Lakehouse, Warehouse, and SQLAnalyticsEndpoint artifacts from scan result.
+
+        These artifacts are used for DirectLake lineage extraction.
+        SQLAnalyticsEndpoint is a TDS layer; we resolve to physical Lakehouse/Warehouse ids
+        via relations so lineage URNs match the OneLake connector. We do not model
+        SQLAnalyticsEndpoint as an entity for now; if we do later, it should be in sync with
+        the OneLake connector.
+
+        Args:
+            workspace_metadata: The workspace scan result from PowerBI Admin API
+
+        Returns:
+            Dict mapping artifact ID to FabricArtifact
+        """
+        artifacts: Dict[str, FabricArtifact] = {}
+        workspace_id = workspace_metadata.get(Constant.ID, "")
+
+        # Mapping of API response key to artifact type and description
+        # Note: API key casing varies ("Lakehouse" vs "warehouses" vs "SQLAnalyticsEndpoint")
+        artifact_configs: List[
+            tuple[
+                str,
+                Literal["Lakehouse", "Warehouse", "SQLAnalyticsEndpoint"],
+                str,
+            ]
+        ] = [
+            (Constant.PARSING_KEY_LAKEHOUSE, "Lakehouse", "Lakehouse"),
+            (Constant.PARSING_KEY_WAREHOUSES, "Warehouse", "Warehouse"),
+            (
+                Constant.PARSING_KEY_SQL_ANALYTICS_ENDPOINT,
+                "SQLAnalyticsEndpoint",
+                "SQLAnalyticsEndpoint",
+            ),
+        ]
+
+        for api_key, artifact_type, log_name in artifact_configs:
+            for artifact_data in workspace_metadata.get(api_key, []):
+                artifact_id = artifact_data.get(Constant.ID)
+                logger.info(f"Processing artifact: {artifact_id}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Processing artifact: {artifact_data}")
+                if artifact_id:
+                    relation_dependent_ids: Optional[List[str]] = None
+                    for rel in artifact_data.get(Constant.RELATIONS, []):
+                        dep_id = rel.get(Constant.DEPENDENT_ON_ARTIFACT_ID)
+                        if dep_id:
+                            if relation_dependent_ids is None:
+                                relation_dependent_ids = []
+                            relation_dependent_ids.append(dep_id)
+                    artifacts[artifact_id] = FabricArtifact(
+                        id=artifact_id,
+                        name=artifact_data.get(Constant.NAME, ""),
+                        artifact_type=artifact_type,
+                        workspace_id=workspace_id,
+                        relation_dependent_ids=relation_dependent_ids,
+                    )
+                    logger.debug(f"Parsed {log_name} artifact: {artifact_id}")
+
+        # Resolve physical_item_ids for SQLAnalyticsEndpoint: use relations.dependentOnArtifactId
+        # that point to a Lakehouse/Warehouse in this workspace (so lineage URNs match OneLake).
+        for artifact in artifacts.values():
+            if (
+                artifact.artifact_type == "SQLAnalyticsEndpoint"
+                and artifact.relation_dependent_ids
+            ):
+                artifact.physical_item_ids = [
+                    rid
+                    for rid in artifact.relation_dependent_ids
+                    if rid in artifacts
+                    and artifacts[rid].artifact_type in ("Lakehouse", "Warehouse")
+                ]
+
+        if artifacts:
+            logger.info(
+                f"Parsed {len(artifacts)} Fabric artifacts from workspace {workspace_id}"
+            )
+
+        return artifacts
 
     def _get_workspace_datasets(self, workspace: Workspace) -> dict:
         """
@@ -394,8 +482,21 @@ class PowerBiAPI:
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
-                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None)
+                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
+
+            # Extract dependent artifact ID from scan result relations (for DirectLake lineage)
+            # The individual dataset API doesn't return relations, but the scan result does
+            relations = dataset_dict.get(Constant.RELATIONS, [])
+            for relation in relations:
+                if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
+                    dataset_instance.dependent_on_artifact_id = relation[
+                        Constant.DEPENDENT_ON_ARTIFACT_ID
+                    ]
+                    logger.debug(
+                        f"Dataset {dataset_id} depends on artifact: {dataset_instance.dependent_on_artifact_id}"
+                    )
+                    break
 
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name
@@ -405,20 +506,37 @@ class PowerBiAPI:
                 else dataset_instance.id
             )
             logger.debug(f"dataset_dict = {dataset_dict}")
-            for table in dataset_dict.get(Constant.TABLES, []):
+            for table_dict in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
-                    table[Constant.SOURCE][0][Constant.EXPRESSION]
-                    if table.get(Constant.SOURCE) is not None
-                    and len(table[Constant.SOURCE]) > 0
+                    table_dict[Constant.SOURCE][0][Constant.EXPRESSION]
+                    if table_dict.get(Constant.SOURCE) is not None
+                    and len(table_dict[Constant.SOURCE]) > 0
                     else None
                 )
+
+                # Extract DirectLake fields from table source
+                source_list = table_dict.get(Constant.SOURCE, [])
+                source_schema: Optional[str] = None
+                source_expression: Optional[str] = None
+                if source_list:
+                    first_source = source_list[0]
+                    source_schema = first_source.get(
+                        Constant.SCHEMA_NAME
+                    )  # e.g., "dbo"
+                    source_expression = first_source.get(
+                        Constant.EXPRESSION
+                    )  # upstream table name
+
+                # Get storage mode (e.g., "DirectLake", "Import", "DirectQuery")
+                storage_mode: Optional[str] = table_dict.get(Constant.STORAGE_MODE)
+
                 table = Table(
-                    name=table[Constant.NAME],
+                    name=table_dict[Constant.NAME],
                     full_name=form_full_table_name(
                         config=self.__config,
                         workspace=workspace,
                         dataset_name=dataset_name,
-                        table_name=table[Constant.NAME],
+                        table_name=table_dict[Constant.NAME],
                     ),
                     expression=expression,
                     columns=[
@@ -428,14 +546,18 @@ class PowerBiAPI:
                                 column["dataType"], FIELD_TYPE_MAPPING["Null"]
                             ),
                         )
-                        for column in table.get("columns", [])
+                        for column in table_dict.get("columns") or []
                     ],
                     measures=[
-                        Measure(**measure) for measure in table.get("measures", [])
+                        Measure(**measure)
+                        for measure in table_dict.get("measures") or []
                     ],
                     dataset=dataset_instance,
                     row_count=None,
                     column_count=None,
+                    storage_mode=storage_mode,
+                    source_schema=source_schema,
+                    source_expression=source_expression,
                 )
                 if self.__config.profiling.enabled:
                     self._get_resolver().profile_dataset(
@@ -478,7 +600,7 @@ class PowerBiAPI:
                     )
                 )
                 if app_id is None:  # In PowerBI one workspace can have one app
-                    app_id = report.get(Constant.APP_ID)
+                    app_id = report[Constant.APP_ID]
 
         raw_app_dashboards: List[Dict] = []
         # Filter app dashboards
@@ -486,7 +608,7 @@ class PowerBiAPI:
             if dashboard.get(Constant.APP_ID):
                 raw_app_dashboards.append(dashboard)
                 if app_id is None:  # In PowerBI, one workspace contains one app
-                    app_id = report[Constant.APP_ID]
+                    app_id = dashboard[Constant.APP_ID]
 
         # workspace doesn't have an App. Above two loops can be avoided
         # if app_id is available at root level in workspace_metadata
@@ -562,13 +684,14 @@ class PowerBiAPI:
                 name=workspace_metadata[Constant.NAME],
                 type=workspace_metadata[Constant.TYPE],
                 datasets={},
-                dashboards=[],
-                reports=[],
+                dashboards={},
+                reports={},
                 report_endorsements={},
                 dashboard_endorsements={},
                 scan_result={},
-                independent_datasets=[],
+                independent_datasets={},
                 app=None,  # It is getting set from scan-result
+                fabric_artifacts=self._parse_fabric_artifacts(workspace_metadata),
             )
             cur_workspace.scan_result = workspace_metadata
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
@@ -596,38 +719,53 @@ class PowerBiAPI:
         return workspaces
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
-
         reachable_datasets: List[str] = []
         # Find out reachable datasets
-        for dashboard in workspace.dashboards:
+        for dashboard in workspace.dashboards.values():
             for tile in dashboard.tiles:
                 if tile.dataset is not None:
                     reachable_datasets.append(tile.dataset.id)
 
-        for report in workspace.reports:
+        for report in workspace.reports.values():
             if report.dataset is not None:
                 reachable_datasets.append(report.dataset.id)
 
         # Set datasets not present in reachable_datasets
         for dataset in workspace.datasets.values():
             if dataset.id not in reachable_datasets:
-                workspace.independent_datasets.append(dataset)
+                workspace.independent_datasets[dataset.id] = dataset
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = self._get_resolver().get_dashboards(workspace)
+            workspace.dashboards = {
+                dashboard.id: dashboard
+                for dashboard in self._get_resolver().get_dashboards(workspace)
+            }
             # set tiles of Dashboard
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
-                # set the dataset for tiles
+                # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
+                    # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
+                    # https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-new-workspaces
+                    if tile.report_id:
+                        tile.report = workspace.reports.get(tile.report_id)
+                        if tile.report is None:
+                            self.reporter.info(
+                                title="Missing Report Lineage For Tile",
+                                message="A Report reference that failed to be resolved. Please ensure that 'extract_reports' is set to True in the configuration.",
+                                context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, report-id: {tile.report_id}",
+                            )
+                    # However, semantic models (aka datasets) can be shared accross workspaces
+                    # https://learn.microsoft.com/en-us/fabric/admin/portal-workspace#use-semantic-models-across-workspaces
+                    # That's why the global 'dataset_registry' is required
                     if tile.dataset_id:
                         tile.dataset = self.dataset_registry.get(tile.dataset_id)
                         if tile.dataset is None:
                             self.reporter.info(
-                                title="Missing Lineage For Tile",
+                                title="Missing Dataset Lineage For Tile",
                                 message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                                 context=f"workspace-name: {workspace.name}, tile-name: {tile.title}, dataset-id: {tile.dataset_id}",
                             )
@@ -646,17 +784,16 @@ class PowerBiAPI:
                     "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false"
                 )
                 return
-            for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
+        # fill reports first since some dashboard may reference a report
+        fill_reports()
         if self.__config.extract_dashboards:
             fill_dashboards()
-
-        fill_reports()
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
 
-    # flake8: noqa: C901
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:

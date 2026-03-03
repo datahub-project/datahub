@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import kafkaLogo from '../../../../../images/kafkalogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import kafkaLogo from '@images/kafkalogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -20,7 +21,7 @@ const kafkaConfig: SourceConfig = {
     type: KAFKA,
     placeholderRecipe,
     displayName: 'Kafka',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/kafka/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/kafka/',
     logoUrl: kafkaLogo,
 };
 

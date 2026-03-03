@@ -1,15 +1,12 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import {
-    FormPrompt as PromptEntity,
-    FormPromptType,
-    SubmitFormPromptInput,
-    SchemaField,
-} from '../../../../../types.generated';
-import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
-import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
-import { useMutationUrn } from '../../EntityContext';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+
+import { useSubmitFormPromptMutation } from '@graphql/form.generated';
+import { FormPromptType, FormPrompt as PromptEntity, SchemaField, SubmitFormPromptInput } from '@types';
 
 export const PromptWrapper = styled.div`
     background-color: white;

@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,7 +47,7 @@ public class MapperUtils {
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {
     if (extraFields == null) {
-      return List.of();
+      return new ArrayList<>();
     } else {
       return extraFields.entrySet().stream()
           .map(
@@ -70,6 +71,9 @@ public class MapperUtils {
         aggregationFacets.stream()
             .map(facet -> facet.equals("entity") || facet.contains("_entityType"))
             .collect(Collectors.toList());
+    if (aggregationMetadata.getEntity() != null) {
+      facetMetadata.setEntity(UrnToEntityMapper.map(context, aggregationMetadata.getEntity()));
+    }
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName())
@@ -83,7 +87,8 @@ public class MapperUtils {
                         filterValue.getFacetCount(),
                         filterValue.getEntity() == null
                             ? null
-                            : UrnToEntityMapper.map(context, filterValue.getEntity())))
+                            : UrnToEntityMapper.map(context, filterValue.getEntity()),
+                        null))
             .collect(Collectors.toList()));
     return facetMetadata;
   }

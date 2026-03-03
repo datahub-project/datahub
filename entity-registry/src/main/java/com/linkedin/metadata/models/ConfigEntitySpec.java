@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
@@ -22,14 +23,17 @@ public class ConfigEntitySpec implements EntitySpec {
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
+  private Map<PathSpec, String> searchableFieldPathMap;
+  private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
 
   public ConfigEntitySpec(
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
-      @Nonnull final Collection<AspectSpec> aspectSpecs) {
+      @Nonnull final Collection<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup) {
     _aspectSpecs =
         aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = new EntityAnnotation(entityName, keyAspect);
+    _entityAnnotation = new EntityAnnotation(entityName, keyAspect, searchGroup);
   }
 
   @Override
@@ -100,5 +104,28 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return searchableFieldTypeMap;
+  }
+
+  @Override
+  public Map<PathSpec, String> getSearchableFieldPathMap() {
+    if (searchableFieldPathMap == null) {
+      searchableFieldPathMap = EntitySpec.super.getSearchableFieldPathMap();
+    }
+
+    return searchableFieldPathMap;
+  }
+
+  @Override
+  public Map<String, List<PathSpec>> getSearchableFieldsToPathSpecsMap() {
+    if (fieldPathToSearchableFieldMap == null) {
+      fieldPathToSearchableFieldMap = EntitySpec.super.getSearchableFieldsToPathSpecsMap();
+    }
+
+    return fieldPathToSearchableFieldMap;
+  }
+
+  @Override
+  public String getSearchGroup() {
+    return _entityAnnotation.getSearchGroup();
   }
 }

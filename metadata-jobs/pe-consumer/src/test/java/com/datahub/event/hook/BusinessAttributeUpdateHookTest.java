@@ -37,7 +37,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
@@ -46,7 +45,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,8 +91,6 @@ public class BusinessAttributeUpdateHookTest {
                 new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString())));
 
     when(opContext
-            .getRetrieverContext()
-            .get()
             .getAspectRetriever()
             .getLatestAspectObjects(
                 eq(Set.of(SCHEMA_FIELD_URN)), eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
@@ -108,7 +104,7 @@ public class BusinessAttributeUpdateHookTest {
 
     // verify
     // page 1
-    Mockito.verify(opContext.getRetrieverContext().get().getGraphRetriever(), Mockito.times(1))
+    Mockito.verify(opContext.getRetrieverContext().getGraphRetriever(), Mockito.times(1))
         .scrollRelatedEntities(
             isNull(),
             any(Filter.class),
@@ -122,7 +118,7 @@ public class BusinessAttributeUpdateHookTest {
             isNull(),
             isNull());
     // page 2
-    Mockito.verify(opContext.getRetrieverContext().get().getGraphRetriever(), Mockito.times(1))
+    Mockito.verify(opContext.getRetrieverContext().getGraphRetriever(), Mockito.times(1))
         .scrollRelatedEntities(
             isNull(),
             any(Filter.class),
@@ -136,11 +132,11 @@ public class BusinessAttributeUpdateHookTest {
             isNull(),
             isNull());
 
-    Mockito.verifyNoMoreInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
+    Mockito.verifyNoMoreInteractions(opContext.getRetrieverContext().getGraphRetriever());
 
     // 2 pages = 2 ingest proposals
     Mockito.verify(mockUpdateIndicesService, Mockito.times(2))
-        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+        .handleChangeEvents(any(OperationContext.class), any(List.class));
   }
 
   @Test
@@ -152,8 +148,8 @@ public class BusinessAttributeUpdateHookTest {
     businessAttributeServiceHook.handleChangeEvent(opContext, platformEvent);
 
     // verify
-    Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
-    Mockito.verifyNoInteractions(opContext.getAspectRetrieverOpt().get());
+    Mockito.verifyNoInteractions(opContext.getRetrieverContext().getGraphRetriever());
+    Mockito.verifyNoInteractions(opContext.getAspectRetriever());
     Mockito.verifyNoInteractions(mockUpdateIndicesService);
   }
 
@@ -226,13 +222,15 @@ public class BusinessAttributeUpdateHookTest {
 
     RetrieverContext mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mock(AspectRetriever.class));
+    when(mockRetrieverContext.getCachingAspectRetriever())
+        .thenReturn(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     when(mockRetrieverContext.getGraphRetriever()).thenReturn(graphRetriever);
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mockRetrieverContext);
 
     // reset mock for test
-    reset(opContext.getAspectRetrieverOpt().get());
+    reset(opContext.getAspectRetriever());
 
     if (!graphEdges.isEmpty()) {
 
@@ -244,7 +242,7 @@ public class BusinessAttributeUpdateHookTest {
                   any(Filter.class),
                   isNull(),
                   any(Filter.class),
-                  eq(Arrays.asList(BUSINESS_ATTRIBUTE_OF)),
+                  eq(Set.of(BUSINESS_ATTRIBUTE_OF)),
                   any(RelationshipFilter.class),
                   eq(Edge.EDGE_SORT_CRITERION),
                   nullable(String.class),

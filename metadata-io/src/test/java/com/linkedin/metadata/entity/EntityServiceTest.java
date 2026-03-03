@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -10,15 +11,25 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -26,6 +37,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
@@ -41,25 +53,33 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -75,19 +95,28 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.aspect.AspectTestUtils;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -109,22 +138,36 @@ import org.testng.annotations.Test;
 public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends RetentionService> {
 
   protected EntityServiceImpl _entityServiceImpl;
+  protected boolean cdcModeChangeLog = false;
   protected T_AD _aspectDao;
   protected T_RS _retentionService;
 
-  protected static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
-  protected final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
-  protected final EntityRegistry _configEntityRegistry =
-      new ConfigEntityRegistry(
-          Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-  protected final EntityRegistry _testEntityRegistry =
-      new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
+  static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
+
+  // Enhanced OperationContext with test plugins integrated at the registry level
+  protected OperationContext opContext =
+      TestOperationContexts.systemContext(
+          null,
+          null,
+          null,
+          () ->
+              AspectTestUtils.enhanceRegistryWithTestPlugins(
+                  TestOperationContexts.defaultEntityRegistry()),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null);
+
+  protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
+  protected OperationContext userContext =
+      TestOperationContexts.userContextNoSearchAuthorization(_testEntityRegistry);
   protected EventProducer _mockProducer;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
-  protected OperationContext opContext;
   protected final AspectSpec structuredPropertiesDefinitionAspect =
-      _configEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+      _testEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
 
   protected EntityServiceTest() throws EntityRegistryException {}
 
@@ -181,14 +224,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -227,15 +277,22 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
 
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -315,22 +372,34 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn1), Mockito.any(), mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn2), Mockito.any(), mclCaptor.capture());
-    mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn1),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn2),
+              Mockito.any(),
+              mclCaptor.capture());
+      mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -397,12 +466,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(
         DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
-
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -468,12 +540,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(
         DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
-
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -498,13 +573,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
+            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
-    verify(_mockProducer, times(3))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(3))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -520,7 +597,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName1 = AspectGenerationUtils.getAspectName(writeAspect1);
     pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     _entityServiceImpl.ingestAspects(
         opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
@@ -541,25 +618,19 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
-    final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
-    restateChangeLog.setEntityType(entityUrn.getEntityType());
-    restateChangeLog.setEntityUrn(entityUrn);
-    restateChangeLog.setChangeType(ChangeType.RESTATE);
-    restateChangeLog.setAspectName(aspectName1);
-    restateChangeLog.setCreated(TEST_AUDIT_STAMP);
-    restateChangeLog.setAspect(aspect);
-    restateChangeLog.setSystemMetadata(metadata1);
-    restateChangeLog.setPreviousAspectValue(aspect);
-    restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
-
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+    }
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
@@ -569,7 +640,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
     verify(_mockProducer, times(0))
-        .produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
+        .produceMetadataChangeLog(
+            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -578,7 +650,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   public void testReingestLineageAspect() throws Exception {
 
     Urn entityUrn =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset,PROD)");
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:looker,testReingestLineageAspect,PROD)");
 
     List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
 
@@ -602,7 +675,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
 
-    SystemMetadata initialSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata initialSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(initialSystemMetadata);
     initialChangeLog.setEntityKeyAspect(
@@ -611,6 +685,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
+    SystemMetadata futureSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
+    futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+    futureSystemMetadata.setRunId("run-123");
+    futureSystemMetadata.setLastRunId("run-123");
+
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
     restateChangeLog.setEntityUrn(entityUrn);
@@ -618,10 +698,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(aspect);
-    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
+        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class)
+            .setLastRunId(null, SetMode.REMOVE_IF_NULL));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -630,28 +711,38 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
+    // verifyNoMoreInteractions(_mockProducer); // /TODO: This should be required, but somehow fails
+    // with this.
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
     clearInvocations(_mockProducer);
 
     _entityServiceImpl.ingestAspects(
-        opContext,
-        entityUrn,
-        pairToIngest,
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata());
+        opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, futureSystemMetadata);
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(restateChangeLog));
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(restateChangeLog));
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -659,14 +750,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   public void testReingestLineageProposal() throws Exception {
 
     Urn entityUrn =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset,PROD)");
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:looker,testReingestLineageProposal,PROD)");
 
     List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
 
     final UpstreamLineage upstreamLineage = AspectGenerationUtils.createUpstreamLineage();
     String aspectName1 = AspectGenerationUtils.getAspectName(upstreamLineage);
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setEntityType(entityUrn.getEntityType());
     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(upstreamLineage);
@@ -688,6 +780,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     initialChangeLog.setAspect(genericAspect);
     initialChangeLog.setSystemMetadata(metadata1);
 
+    SystemMetadata futureSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
+    futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+    futureSystemMetadata.setRunId("run-123");
+
+    MetadataChangeProposal mcp2 = new MetadataChangeProposal(mcp1.data().copy());
+    mcp2.getSystemMetadata().setLastObserved(futureSystemMetadata.getLastObserved());
+
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
     restateChangeLog.setEntityUrn(entityUrn);
@@ -695,30 +795,47 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(genericAspect);
-    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(genericAspect);
-    restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+    restateChangeLog.setPreviousSystemMetadata(
+        simulatePullFromDB(metadata1, SystemMetadata.class)
+            .setLastRunId(null, SetMode.REMOVE_IF_NULL));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
+    verifyNoMoreInteractions(_mockProducer);
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
     clearInvocations(_mockProducer);
 
-    _entityServiceImpl.ingestProposal(opContext, mcp1, TEST_AUDIT_STAMP, false);
+    _entityServiceImpl.ingestProposal(opContext, mcp2, TEST_AUDIT_STAMP, false);
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(restateChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(restateChangeLog));
+    }
 
     verifyNoMoreInteractions(_mockProducer);
+    clearInvocations(_mockProducer);
   }
 
   @Test
@@ -740,6 +857,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    } else {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
   }
 
   @Test
@@ -761,9 +887,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, true);
     verify(_mockProducer, times(0))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+        .produceMetadataChangeLog(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+
+    ChangeItemImpl item =
+        ChangeItemImpl.builder().build(gmce, TEST_AUDIT_STAMP, opContext.getAspectRetriever());
+
     verify(_mockProducer, times(1))
-        .produceMetadataChangeProposal(Mockito.eq(entityUrn), Mockito.eq(gmce));
+        .produceMetadataChangeProposal(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.eq(item));
   }
 
   @Test
@@ -786,7 +918,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, true);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+        .produceMetadataChangeLog(
+            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
     verify(_mockProducer, times(0))
         .produceMetadataChangeProposal(Mockito.eq(entityUrn), Mockito.eq(gmce));
   }
@@ -809,9 +942,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     RecordTemplate readAspect1 = _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     // Ingest CorpUserInfo Aspect #2
     writeAspect.setEmail("newemail@test.com");
@@ -822,19 +960,25 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     RecordTemplate readAspect2 = _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -863,9 +1007,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     VersionedAspect readAspect1 =
         _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     readAspect1 = _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, -1);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
@@ -882,24 +1031,32 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, 0);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspectVersion2));
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect2, readAspectVersion2));
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
+
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     readAspect1 = _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, -1);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
     // check key aspect
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpuser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpuser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -935,36 +1092,40 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(items)
-            .build(),
-        true,
-        true);
+                .build(opContext.getAspectRetriever()));
+
+    items.forEach(
+        item -> {
+          _entityServiceImpl.ingestAspects(
+              opContext,
+              AspectsBatchImpl.builder()
+                  .retrieverContext(opContext.getRetrieverContext())
+                  .items(List.of(item))
+                  .build(opContext),
+              true,
+              true);
+        });
 
     // this should no-op since this run has been overwritten
     AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
@@ -1027,31 +1188,34 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(items)
-            .build(),
-        true,
-        true);
+                .build(opContext.getAspectRetriever()));
 
-    // this should no-op since the key should have been written in the furst run
+    items.forEach(
+        item ->
+            _entityServiceImpl.ingestAspects(
+                opContext,
+                AspectsBatchImpl.builder()
+                    .retrieverContext(opContext.getRetrieverContext())
+                    .items(List.of(item))
+                    .build(opContext),
+                true,
+                true));
+
+    // this should no-op since the key should have been written in the first run
     AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
     rollbackKeyWithWrongRunId.setRunId("run-456");
     rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
@@ -1082,6 +1246,92 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readNewRecentAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+  }
+
+  @Test
+  public void testIngestWithMaxVersionsOne_NoVersionHistory() throws AssertionError {
+    doReturn(1)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:maxVersionsOne");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(first)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(second)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), second);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "No version history when maxVersionsToKeep=1");
+  }
+
+  @Test
+  public void testIngestWhenGetMaxVersionsToKeepForWriteThrows_FallbackToOne() throws Exception {
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> mockRetention = mock(RetentionService.class);
+    when(mockRetention.getMaxVersionsToKeepForWrite(any(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("retention unavailable"));
+
+    _entityServiceImpl.setRetentionService(mockRetention);
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:retentionThrows");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo aspect = AspectGenerationUtils.createCorpUserInfo("fallback@test.com");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(entityUrn)
+                        .aspectName(aspectName)
+                        .recordTemplate(aspect)
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), aspect);
+    assertNull(
+        _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1),
+        "Fallback to 1 when getMaxVersionsToKeepForWrite throws");
   }
 
   @Test
@@ -1120,41 +1370,41 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1186,9 +1436,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
     SystemMetadata metadata1 =
-        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", "run-123", "1");
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-123", null, "1", TEST_AUDIT_STAMP);
     SystemMetadata metadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-456", "2");
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", null, "2", TEST_AUDIT_STAMP);
+    SystemMetadata expectedMetadata2 =
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", "run-123", "2", TEST_AUDIT_STAMP);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1198,13 +1453,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1213,31 +1468,37 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1254,13 +1515,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1271,20 +1532,38 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
 
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    SystemMetadataUtils.setNoOp(expectedMetadata2, false);
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2),
+        String.format(
+            "Expected %s == %s",
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1),
+        String.format(
+            "Expected %s == %s",
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()),
+            metadata1));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNotNull(mcl.getPreviousAspectValue());
-    assertNotNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNotNull(mcl.getPreviousAspectValue());
+      assertNotNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1298,9 +1577,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
     SystemMetadata metadata1 =
-        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", "run-123", "1");
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-123", null, "1", TEST_AUDIT_STAMP);
     SystemMetadata metadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-456", "2");
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", null, "2", TEST_AUDIT_STAMP);
+    SystemMetadata expectedMetadata2 =
+        SystemMetadataUtils.setNoOp(
+            AspectGenerationUtils.createSystemMetadata(
+                1635792689, "run-456", "run-123", "2", TEST_AUDIT_STAMP),
+            false);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1310,13 +1596,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1337,13 +1623,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1357,46 +1643,60 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2),
+        String.format(
+            "Expected %s == %s",
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1),
+        String.format(
+            "Expected %s == %s",
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()),
+            metadata1));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              Mockito.any());
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
 
   @Test
   public void testIngestSameAspect() throws AssertionError {
-    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testIngestSameAspect");
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
-    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
-    SystemMetadata metadata3 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456", "1");
+    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-456");
+    SystemMetadata expectedMetadata2 =
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-456", "run-123", "1", TEST_AUDIT_STAMP);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1406,13 +1706,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1421,31 +1721,36 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1462,13 +1767,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1481,17 +1786,28 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     assertFalse(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            metadata2));
     assertFalse(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata1));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            metadata1));
 
+    SystemMetadataUtils.setNoOp(expectedMetadata2, true);
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2),
+        String.format(
+            "Expected %s == %s",
+            SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
+            expectedMetadata2));
 
-    verify(_mockProducer, times(0))
-        .produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(0))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1521,50 +1837,54 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1a)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1b)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2a)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2b)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(items)
-            .build(),
-        true,
-        true);
+                .build(opContext.getAspectRetriever()));
+
+    items.forEach(
+        item -> {
+          _entityServiceImpl.ingestAspects(
+              opContext,
+              AspectsBatchImpl.builder()
+                  .retrieverContext(opContext.getRetrieverContext())
+                  .items(List.of(item))
+                  .build(opContext),
+              true,
+              true);
+        });
 
     assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1), writeAspect1);
     assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName2, 1), writeAspect2);
@@ -1597,20 +1917,20 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1c)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2c)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1733,7 +2053,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     objectMapper
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-    return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
+    return RecordUtils.toRecordTemplate(clazz, RecordUtils.toJsonString(aspect));
   }
 
   @Test
@@ -1766,7 +2086,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       ArgumentCaptor<MetadataChangeLog> mclCaptor =
           ArgumentCaptor.forClass(MetadataChangeLog.class);
       verify(_mockProducer, times(1))
-          .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
       MetadataChangeLog mcl = mclCaptor.getValue();
       assertEquals(mcl.getEntityType(), "dataset");
       assertNull(mcl.getPreviousAspectValue());
@@ -1842,7 +2166,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), urnWithMismatchedParens);
       Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
     } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("mismatched paren nesting"));
+      assertTrue(e.getMessage().contains("[test(Key]"));
     }
 
     Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
@@ -1900,22 +2224,126 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
 
-    ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
-    verify(_mockProducer, times(4))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), aspectSpecCaptor.capture(), captor.capture());
-    assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    if (!cdcModeChangeLog) { // TODO: This needs an additional check to make sure preprocess was
+      // called even though mcl was not produced.
+      ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+      ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              aspectSpecCaptor.capture(),
+              captor.capture());
+      assertEquals(
+          captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE), UI_SOURCE);
+      assertEquals(
+          aspectSpecCaptor.getAllValues().stream()
+              .map(AspectSpec::getName)
+              .collect(Collectors.toSet()),
+          Set.of(
+              "browsePathsV2",
+              "editableDatasetProperties",
+              // "browsePaths",
+              "dataPlatformInstance",
+              "datasetKey"));
+    }
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockUpdateIndicesService, times(4))
+        .handleChangeEvent(eq(opContext), mceCaptor.capture());
     assertEquals(
-        aspectSpecCaptor.getAllValues().stream()
-            .map(AspectSpec::getName)
-            .collect(Collectors.toSet()),
-        Set.of(
-            "browsePathsV2",
-            "editableDatasetProperties",
-            // "browsePaths",
-            "dataPlatformInstance",
-            "datasetKey"));
+        mceCaptor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE), UI_SOURCE);
+    assertEquals(mceCaptor.getValue().getEntityUrn(), entityUrn);
+  }
+
+  @Test
+  public void testSyncHeaderPreProcessedProposal() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    // verify with sync header
+    StringMap headers = new StringMap();
+    headers.put(SYNC_INDEX_UPDATE_HEADER_NAME, "true");
+    gmce.setHeaders(headers);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, times(1))
+        .handleChangeEvent(eq(opContext), mceCaptor.capture());
+    assertTrue(
+        mceCaptor
+            .getValue()
+            .getHeaders()
+            .get(SYNC_INDEX_UPDATE_HEADER_NAME)
+            .equalsIgnoreCase("true"));
+    assertEquals(mceCaptor.getValue().getEntityUrn(), entityUrn);
+  }
+
+  @Test
+  public void testWithoutSyncHeaderOrUISourcePreProcessedProposal() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
+  }
+
+  @Test
+  public void testWithNullUpdateIndicesServicePreProcessedProposal() throws Exception {
+    _entityServiceImpl.setUpdateIndicesService(
+        null); // this should cause skipping of the sync index update
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+    datasetProperties.setDescription("Foo Bar");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(entityUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("editableDatasetProperties");
+
+    StringMap headers = new StringMap();
+    headers.put(SYNC_INDEX_UPDATE_HEADER_NAME, "true");
+    gmce.setHeaders(headers);
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+
+    verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
   }
 
   @Test
@@ -1945,12 +2373,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
 
-    ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(firstPropertyUrn),
-            Mockito.eq(structuredPropertiesDefinitionAspect),
-            captor.capture());
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(firstPropertyUrn),
+              Mockito.eq(structuredPropertiesDefinitionAspect),
+              captor.capture());
+    }
     assertEquals(
         _entityServiceImpl.getAspect(opContext, firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
@@ -1970,7 +2401,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext().get(), entityAspect)
+                              opContext.getRetrieverContext(), entityAspect, false)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -1982,7 +2413,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemEntityClient mockSystemEntityClient = Mockito.mock(SystemEntityClient.class);
     Mockito.when(
             mockSystemEntityClient.getLatestAspectObject(
-                any(OperationContext.class), eq(firstPropertyUrn), eq("propertyDefinition")))
+                any(OperationContext.class),
+                eq(firstPropertyUrn),
+                eq("propertyDefinition"),
+                anyBoolean()))
         .thenReturn(new com.linkedin.entity.Aspect(structuredPropertyDefinition.data()));
 
     // Add a value for that property
@@ -2029,13 +2463,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     secondGenericAspect.setContentType("application/json");
     gmce2.setAspect(secondGenericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce2, TEST_AUDIT_STAMP, false);
-    ArgumentCaptor<MetadataChangeLog> secondCaptor =
-        ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(secondPropertyUrn),
-            Mockito.eq(structuredPropertiesDefinitionAspect),
-            secondCaptor.capture());
+    if (!cdcModeChangeLog) {
+
+      ArgumentCaptor<MetadataChangeLog> secondCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(secondPropertyUrn),
+              Mockito.eq(structuredPropertiesDefinitionAspect),
+              secondCaptor.capture());
+    }
     assertEquals(
         _entityServiceImpl.getAspect(opContext, firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
@@ -2050,7 +2488,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext().get(), entityAspect)
+                              opContext.getRetrieverContext(), entityAspect, false)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2061,7 +2499,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Mockito.when(
             mockSystemEntityClient.getLatestAspectObject(
-                any(OperationContext.class), eq(secondPropertyUrn), eq("propertyDefinition")))
+                any(OperationContext.class),
+                eq(secondPropertyUrn),
+                eq("propertyDefinition"),
+                anyBoolean()))
         .thenReturn(new com.linkedin.entity.Aspect(secondDefinition.data()));
 
     // Get existing value for first structured property
@@ -2099,6 +2540,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(
         _entityServiceImpl.getAspect(opContext, entityUrn, "structuredProperties", 0),
         expectedProperties);
+
+    if (cdcModeChangeLog) {
+      verifyNoMoreInteractions(_mockProducer);
+    }
   }
 
   @Test
@@ -2106,7 +2551,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     Urn user1 = UrnUtils.getUrn("urn:li:corpuser:test1");
     Urn user2 = UrnUtils.getUrn("urn:li:corpuser:test2");
     Urn entityUrn =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset,PROD)");
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:looker,testCreateChangeTypeProposal,PROD)");
 
     MetadataChangeProposal initialCreateProposal = new MetadataChangeProposal();
     initialCreateProposal.setEntityUrn(entityUrn);
@@ -2145,7 +2591,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         ValidationException.class,
         () ->
             _entityServiceImpl.ingestProposal(
-                opContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
+                userContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
   }
 
   @Test
@@ -2185,6 +2631,839 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Set.of(existentUrn, noStatusUrn, softDeletedUrn));
   }
 
+  @Test
+  public void testBatchCollapse() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testBatchCollapse");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    ChangeItemImpl item1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(true))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+    ChangeItemImpl item2 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(false))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(item1, item2))
+            .build(opContext),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "2",
+        "Expected version 2 after collapsing the updates");
+    assertEquals(
+        envelopedAspect.getValue().toString(),
+        "{removed=false}",
+        "Expected 2nd item to be the latest");
+  }
+
+  @Test
+  public void testBatchPatchWithTrailingNoOp() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchWithTrailingNoOp,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+    Urn tag2 = UrnUtils.getUrn("urn:li:tag:tag2");
+    Urn tagOther = UrnUtils.getUrn("urn:li:tag:other");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(
+                new GlobalTags()
+                    .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchRemoveNonExistent =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tagOther)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspectTag1))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchAdd2, patchRemoveNonExistent))
+            .build(opContext),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "2",
+        "Expected version 3. 1 - Initial, + 1 add, 1 remove");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1, tag2),
+        "Expected both tags");
+  }
+
+  @Test
+  public void testBatchPatchAdd() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchAdd,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:tag2");
+    TagUrn tag3 = TagUrn.createFromString("urn:li:tag:tag3");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(
+                new GlobalTags()
+                    .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    PatchItemImpl patchAdd3 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag3)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchAdd1 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspectTag1))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchAdd3, patchAdd2, patchAdd1))
+            .build(opContext),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "4", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1, tag2, tag3),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testBatchPatchAddDuplicate() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchAddDuplicate,PROD)");
+    List<TagAssociation> initialTags =
+        List.of(
+                TagUrn.createFromString("urn:li:tag:__default_large_table"),
+                TagUrn.createFromString("urn:li:tag:__default_low_queries"),
+                TagUrn.createFromString("urn:li:tag:__default_low_changes"),
+                TagUrn.createFromString("urn:li:tag:!10TB+ tables"))
+            .stream()
+            .map(tag -> new TagAssociation().setTag(tag))
+            .collect(Collectors.toList());
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:$ 1TB+");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    SystemMetadata patchSystemMetadata = new SystemMetadata();
+    patchSystemMetadata.setLastObserved(systemMetadata.getLastObserved() + 1);
+    patchSystemMetadata.setProperties(new StringMap(Map.of(APP_SOURCE, METADATA_TESTS_SOURCE)));
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(new GlobalTags().setTags(new TagAssociationArray(initialTags)))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .systemMetadata(patchSystemMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspectTag1))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchAdd2, patchAdd2)) // duplicate
+            .build(opContext),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "2", "Expected version 2");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Stream.concat(initialTags.stream().map(TagAssociation::getTag), Stream.of(tag2))
+            .collect(Collectors.toSet()),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testPatchRemoveNonExistent() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testPatchRemoveNonExistent,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+
+    PatchItemImpl patchRemove =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    List<UpdateAspectResult> results =
+        _entityServiceImpl.ingestAspects(
+            opContext,
+            AspectsBatchImpl.builder()
+                .retrieverContext(opContext.getRetrieverContext())
+                .items(List.of(patchRemove))
+                .build(opContext),
+            false,
+            true);
+
+    assertEquals(results.size(), 4, "Expected default aspects + empty globalTags");
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "1", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(),
+        "Expected empty tags");
+  }
+
+  @Test
+  public void testPatchAddNonExistent() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testPatchAddNonExistent,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+
+    PatchItemImpl patchAdd =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    List<UpdateAspectResult> results =
+        _entityServiceImpl.ingestAspects(
+            opContext,
+            AspectsBatchImpl.builder()
+                .retrieverContext(opContext.getRetrieverContext())
+                .items(List.of(patchAdd))
+                .build(opContext),
+            false,
+            true);
+
+    assertEquals(results.size(), 4, "Expected default aspects + globalTags");
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "1", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatch() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+
+    // Create aspects with different run IDs
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata();
+    metadata2.setRunId("run-456"); // Different run ID
+
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // First ingest the aspect that should survive (run-456)
+    CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata2);
+
+    // Then ingest the aspect that should be deleted (run-123)
+    CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata1);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatchVersionGap() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // Metadata that should be preserved (run-456)
+    SystemMetadata metadata456 = AspectGenerationUtils.createSystemMetadata();
+    metadata456.setRunId("run-456"); // Different run ID
+    CorpUserInfo writeAspect456 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect456, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata456);
+
+    // Metadata that should be deleted (run-123)
+    SystemMetadata metadata123 = AspectGenerationUtils.createSystemMetadata();
+    metadata123.setRunId("run-123");
+    CorpUserInfo writeAspect123 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect123, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata123);
+
+    // Then insert another run-123 with version gap
+    _aspectDao.insertAspect(
+        null,
+        EntityAspect.EntitySystemAspect.builder()
+            .forInsert(
+                EntityAspect.builder()
+                    .urn(entityUrn.toString())
+                    .aspect(aspectName)
+                    .metadata(RecordUtils.toJsonString(writeAspect123))
+                    .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                    .createdOn(new Timestamp(TEST_AUDIT_STAMP.getTime()))
+                    .systemMetadata(RecordUtils.toJsonString(metadata123))
+                    .build(),
+                opContext.getEntityRegistry()),
+        10L);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect456, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
+  }
+
+  @Test
+  public void testFailedAspectValidation() throws Exception {
+    final OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null) // mocked
+            .entityRegistrySupplier(
+                () ->
+                    AspectTestUtils.enhanceRegistryWithTestPlugins(
+                        TestOperationContexts.defaultEntityRegistry()))
+            .buildSystemContext();
+
+    try (MockedStatic<Span> mockedStatic = Mockito.mockStatic(Span.class)) {
+      Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testFailedAspectValidation");
+
+      // Create an aspect that will trigger validation failure
+      CorpUserInfo invalidAspect = new CorpUserInfo().setActive(true);
+
+      String aspectName = AspectGenerationUtils.getAspectName(invalidAspect);
+
+      // Mock the span recording behavior
+      Span mockSpan = Mockito.mock(Span.class);
+      when(mockSpan.recordException(any(IllegalStateException.class))).thenReturn(mockSpan);
+      when(mockSpan.setStatus(any(StatusCode.class), anyString())).thenReturn(mockSpan);
+      when(mockSpan.setAttribute(anyString(), anyString())).thenReturn(mockSpan);
+
+      // Configure the static Span.current() to return our mock
+      mockedStatic.when(Span::current).thenReturn(mockSpan);
+
+      // Create test items that will fail validation
+      List<ChangeItemImpl> items =
+          List.of(
+              ChangeItemImpl.builder()
+                  .urn(entityUrn)
+                  .aspectName(aspectName)
+                  .recordTemplate(invalidAspect)
+                  .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                  .auditStamp(TEST_AUDIT_STAMP)
+                  // Set invalid version to trigger validation failure
+                  .headers(Map.of("If-Version-Match", "-10000"))
+                  .build(testContext.getAspectRetriever()));
+
+      // Create a mock Future that completes successfully
+      @SuppressWarnings("unchecked")
+      Future<Void> mockFuture = Mockito.mock(Future.class);
+      when(mockFuture.get()).thenReturn(null);
+
+      // Make producer return our mock Future
+      when(_mockProducer.produceFailedMetadataChangeProposalAsync(
+              any(OperationContext.class), any(MCPItem.class), any(Set.class)))
+          .thenReturn(mockFuture);
+
+      // Execute the ingest which should trigger validation failures
+      _entityServiceImpl.ingestAspects(
+          testContext,
+          AspectsBatchImpl.builder()
+              .retrieverContext(testContext.getRetrieverContext())
+              .items(items)
+              .build(testContext),
+          true,
+          true);
+
+      // Verify span error recording
+      verify(mockSpan).recordException(any(IllegalStateException.class));
+      verify(mockSpan).setStatus(StatusCode.ERROR, "Batch contains failed aspect validations.");
+      verify(mockSpan).setAttribute(MetricUtils.ERROR_TYPE, IllegalStateException.class.getName());
+
+      // Verify failed MCP production
+      verify(_mockProducer, times(1))
+          .produceFailedMetadataChangeProposalAsync(
+              eq(testContext), any(MCPItem.class), any(Set.class));
+
+      // Verify Future.get() was called
+      verify(mockFuture, times(1)).get();
+    }
+  }
+
+  @Test
+  public void testAssertionInfoPatchPreservesNote() throws Exception {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:testAssertionInfoPatch");
+    Urn datasetUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,assertionInfoPatch,PROD)");
+
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("keep me")
+            .setLastModified(new AuditStamp().setTime(1).setActor(new CorpuserUrn("test-user")));
+
+    DatasetAssertionInfo initialDatasetAssertion =
+        new DatasetAssertionInfo()
+            .setDataset(datasetUrn)
+            .setScope(DatasetAssertionScope.DATASET_ROWS)
+            .setOperator(AssertionStdOperator.BETWEEN);
+
+    AssertionInfo initialInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(initialDatasetAssertion)
+            .setNote(note)
+            .setCustomProperties(new StringMap(Map.of("expectation_suite_name", "initial")));
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspect =
+        ChangeItemImpl.builder()
+            .urn(assertionUrn)
+            .aspectName(ASSERTION_INFO_ASPECT_NAME)
+            .recordTemplate(initialInfo)
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
+
+    GenericJsonPatch.PatchOp typePatch = new GenericJsonPatch.PatchOp();
+    typePatch.setOp(PatchOperationType.ADD.getValue());
+    typePatch.setPath("/type");
+    typePatch.setValue("DATASET");
+
+    GenericJsonPatch.PatchOp datasetAssertionPatch = new GenericJsonPatch.PatchOp();
+    datasetAssertionPatch.setOp(PatchOperationType.ADD.getValue());
+    datasetAssertionPatch.setPath("/datasetAssertion");
+    datasetAssertionPatch.setValue(
+        Map.of(
+            "dataset",
+            datasetUrn.toString(),
+            "scope",
+            DatasetAssertionScope.DATASET_SCHEMA.toString(),
+            "operator",
+            AssertionStdOperator.EQUAL_TO.toString()));
+
+    GenericJsonPatch.PatchOp expectationSuitePatch = new GenericJsonPatch.PatchOp();
+    expectationSuitePatch.setOp(PatchOperationType.ADD.getValue());
+    expectationSuitePatch.setPath("/customProperties/expectation_suite_name");
+    expectationSuitePatch.setValue("updated");
+
+    GenericJsonPatch genericPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(typePatch, datasetAssertionPatch, expectationSuitePatch))
+            .forceGenericPatch(true)
+            .build();
+    ObjectMapper objectMapper = new ObjectMapper();
+    GenericAspect patchAspect =
+        new GenericAspect()
+            .setValue(
+                ByteString.copyString(
+                    objectMapper.writeValueAsString(genericPatch), StandardCharsets.UTF_8));
+    MetadataChangeProposal patchProposal =
+        new MetadataChangeProposal()
+            .setEntityType(ASSERTION_ENTITY_NAME)
+            .setEntityUrn(assertionUrn)
+            .setAspectName(ASSERTION_INFO_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(patchAspect);
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .build(patchProposal, AuditStampUtils.createDefaultAuditStamp(), _testEntityRegistry);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(initialAspect))
+            .build(opContext),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(patchItem))
+            .build(opContext),
+        false,
+        true);
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, ASSERTION_ENTITY_NAME, assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+    AssertionInfo patchedInfo = new AssertionInfo(envelopedAspect.getValue().data());
+
+    assertEquals(patchedInfo.getNote().getContent(), "keep me");
+    assertEquals(patchedInfo.getCustomProperties().get("expectation_suite_name"), "updated");
+    assertEquals(
+        patchedInfo.getDatasetAssertion().getScope(), DatasetAssertionScope.DATASET_SCHEMA);
+    assertEquals(patchedInfo.getDatasetAssertion().getOperator(), AssertionStdOperator.EQUAL_TO);
+  }
+
+  @Test
+  public void testCountAspect() throws Exception {
+    if (!(this instanceof EbeanEntityServiceTest)) {
+      return;
+    }
+
+    // Setup: Create test data with different URNs and aspects
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:testCountAspect2");
+    Urn entityUrn3 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testCountAspect3,PROD)");
+
+    CorpUserInfo userInfo1 = AspectGenerationUtils.createCorpUserInfo("test1@test.com");
+    CorpUserInfo userInfo2 = AspectGenerationUtils.createCorpUserInfo("test2@test.com");
+    DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setDescription("Test dataset");
+
+    SystemMetadata metadata = AspectGenerationUtils.createSystemMetadata();
+
+    // Ingest test aspects
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn1,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo1), userInfo1)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn2,
+        List.of(new Pair<>(AspectGenerationUtils.getAspectName(userInfo2), userInfo2)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn3,
+        List.of(
+            new Pair<>(AspectGenerationUtils.getAspectName(datasetProperties), datasetProperties)),
+        TEST_AUDIT_STAMP,
+        metadata);
+
+    List<String> logMessages = new ArrayList<>();
+
+    // Test case 1: No filter - should return count of all aspects
+    RestoreIndicesArgs args1 = new RestoreIndicesArgs();
+    int count1 = _entityServiceImpl.countAspect(args1, logMessages::add);
+    assertTrue(count1 >= 3, "Should have at least 3 aspects (corpUserInfo x2 + datasetProperties)");
+
+    // Test case 2: urnLike filter - should return count of aspects matching the URN pattern
+    RestoreIndicesArgs args2 = new RestoreIndicesArgs();
+    args2.urnLike = "%corpuser:testCountAspect%";
+    int count2 = _entityServiceImpl.countAspect(args2, logMessages::add);
+    assertTrue(count2 >= 2, "Should have at least 2 corpuser aspects");
+
+    // Test case 3: urnLike + aspectName filter - should return count of matching aspects
+    RestoreIndicesArgs args3 = new RestoreIndicesArgs();
+    args3.urnLike = "%corpuser:testCountAspect%";
+    args3.aspectName = "corpUserInfo";
+    int count3 = _entityServiceImpl.countAspect(args3, logMessages::add);
+    assertEquals(count3, 2, "Should have exactly 2 corpUserInfo aspects for testCountAspect users");
+
+    // Test case 4: aspectName filter only
+    RestoreIndicesArgs args4 = new RestoreIndicesArgs();
+    args4.aspectName = "datasetProperties";
+    int count4 = _entityServiceImpl.countAspect(args4, logMessages::add);
+    assertTrue(count4 >= 1, "Should have at least 1 datasetProperties aspect");
+
+    // Verify logger was called
+    assertFalse(logMessages.isEmpty(), "Logger should have been called");
+  }
+
   @Nonnull
   protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email)
       throws Exception {
@@ -2215,5 +3494,20 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate recordTemplate =
         RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
+  }
+
+  private static GenericJsonPatch.PatchOp tagPatchOp(PatchOperationType op, Urn tagUrn) {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp(op.getValue());
+    patchOp.setPath(String.format("/tags/%s", tagUrn));
+    if (PatchOperationType.ADD.equals(op)) {
+      // Create a proper TagAssociation structure
+      Map<String, Object> tagAssociation = new HashMap<>();
+      tagAssociation.put("tag", tagUrn.toString());
+      // Add optional context field with a non-null value to avoid coercion issues
+      tagAssociation.put("context", "test-context");
+      patchOp.setValue(tagAssociation);
+    }
+    return patchOp;
   }
 }

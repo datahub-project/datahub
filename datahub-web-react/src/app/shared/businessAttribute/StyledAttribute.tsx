@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
-import AttributeContent from './AttributeContent';
+
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import AttributeContent from '@app/shared/businessAttribute/AttributeContent';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { BusinessAttributeAssociation, EntityType } from '@types';
 
 const AttributeLink = styled(Link)`
     display: inline-block;
@@ -25,7 +27,7 @@ interface Props {
     highlightText?: string;
     fontSize?: number;
     onOpenModal?: () => void;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
 }
 
 export default function StyledAttribute(props: Props) {

@@ -9,22 +9,27 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
-import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +52,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
     })
 public class MCLSpringCommonTestConfiguration {
 
+  // TODO: We cannot move from MockBeans here because we are reliant on their behavior in
+  // configuration classes
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ElasticSearchGraphService graphService;
@@ -71,6 +78,9 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean public FormService formService;
 
+  @MockBean(name = "settingsBuilder")
+  public SettingsBuilder settingsBuilder;
+
   @MockBean(name = "systemAuthentication")
   public Authentication systemAuthentication;
 
@@ -80,8 +90,6 @@ public class MCLSpringCommonTestConfiguration {
   @MockBean(name = "duheKafkaConsumerFactory")
   public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
 
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
-
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(
       final EntityRegistry entityRegistry,
@@ -89,15 +97,29 @@ public class MCLSpringCommonTestConfiguration {
       final IndexConvention indexConvention) {
     when(systemAuthentication.getActor())
         .thenReturn(TestOperationContexts.TEST_SYSTEM_AUTH.getActor());
+
     return OperationContext.asSystem(
         OperationContextConfig.builder().build(),
         systemAuthentication,
         entityRegistry,
         mock(ServicesRegistryContext.class),
-        indexConvention,
-        mock(RetrieverContext.class),
-        mock(ValidationContext.class));
+        SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build(),
+        TestOperationContexts.emptyActiveUsersRetrieverContext(() -> entityRegistry),
+        mock(ValidationContext.class),
+        null,
+        true);
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
+
+  @MockBean(name = "kafkaThrottle")
+  public ThrottleSensor kafkaThrottle;
+
+  @MockBean(name = "traceAdminClient")
+  public AdminClient traceAdminClient;
+
+  @MockBean public MetricUtils metricUtils;
+
+  @MockBean(name = "searchClientShim", answer = Answers.RETURNS_MOCKS)
+  SearchClientShim<?> searchClientShim;
 }

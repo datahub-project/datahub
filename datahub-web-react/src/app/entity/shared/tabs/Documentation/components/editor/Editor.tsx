@@ -1,5 +1,7 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
     BoldExtension,
@@ -21,18 +23,17 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
-import { EditorComponent, Remirror, useRemirror, ThemeProvider, TableComponents } from '@remirror/react';
-import { useMount } from 'react-use';
-import { EditorContainer, EditorTheme } from './EditorTheme';
-import { htmlToMarkdown } from './extensions/htmlToMarkdown';
-import { markdownToHtml } from './extensions/markdownToHtml';
-import { CodeBlockToolbar } from './toolbar/CodeBlockToolbar';
-import { FloatingToolbar } from './toolbar/FloatingToolbar';
-import { Toolbar } from './toolbar/Toolbar';
-import { OnChangeMarkdown } from './OnChangeMarkdown';
-import { TableCellMenu } from './toolbar/TableCellMenu';
-import { DataHubMentionsExtension } from './extensions/mentions/DataHubMentionsExtension';
-import { MentionsComponent } from './extensions/mentions/MentionsComponent';
+
+import { EditorContainer, EditorTheme } from '@app/entity/shared/tabs/Documentation/components/editor/EditorTheme';
+import { OnChangeMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/OnChangeMarkdown';
+import { htmlToMarkdown } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/htmlToMarkdown';
+import { markdownToHtml } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/markdownToHtml';
+import { DataHubMentionsExtension } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/mentions/DataHubMentionsExtension';
+import { MentionsComponent } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/mentions/MentionsComponent';
+import { CodeBlockToolbar } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/CodeBlockToolbar';
+import { FloatingToolbar } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/FloatingToolbar';
+import { TableCellMenu } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/TableCellMenu';
+import { Toolbar } from '@app/entity/shared/tabs/Documentation/components/editor/toolbar/Toolbar';
 
 type EditorProps = {
     readOnly?: boolean;
@@ -50,26 +51,26 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
-            new BoldExtension(),
-            new BulletListExtension(),
+            new BoldExtension({}),
+            new BulletListExtension({}),
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
-            new DataHubMentionsExtension(),
-            new DropCursorExtension(),
+            new DataHubMentionsExtension({}),
+            new DropCursorExtension({}),
             new HardBreakExtension(),
-            new HeadingExtension(),
-            new HistoryExtension(),
-            new HorizontalRuleExtension(),
+            new HeadingExtension({}),
+            new HistoryExtension({}),
+            new HorizontalRuleExtension({}),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
-            new ListItemExtension(),
+            new ListItemExtension({}),
             new MarkdownExtension({ htmlSanitizer: DOMPurify.sanitize, htmlToMarkdown, markdownToHtml }),
             new OrderedListExtension(),
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
-            ...(readOnly ? [] : [new HistoryExtension()]),
+            ...(readOnly ? [] : [new HistoryExtension({})]),
         ],
         content,
         stringHandler: 'markdown',

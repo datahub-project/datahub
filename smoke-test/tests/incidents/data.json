@@ -159,7 +159,7 @@
     "changeType":"UPSERT",
     "aspectName":"assertionInfo",
     "aspect":{
-      "value":"{\"type\": \"DATASET\" }",
+      "value":"{\"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)\", \"scope\": \"DATASET_ROWS\", \"operator\": \"EQUAL_TO\"}}",
       "contentType":"application/json"
     },
     "systemMetadata":null

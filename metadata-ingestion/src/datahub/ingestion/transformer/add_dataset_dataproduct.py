@@ -1,7 +1,7 @@
 import logging
 from typing import Callable, Dict, List, Optional, Union
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
@@ -39,7 +39,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetDataProduct":
-        config = AddDatasetDataProductConfig.parse_obj(config_dict)
+        config = AddDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
@@ -54,7 +54,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         data_products_container: Dict[str, DataProductPatchBuilder] = {}
         logger.debug("Generating dataproducts")
         is_container = self.config.is_container
-        for entity_urn in self.entity_map.keys():
+        for entity_urn in self.entity_map:
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
             if data_product_urn:
                 if data_product_urn not in data_products:
@@ -80,10 +80,10 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
                         ).add_asset(container_urn)
                         data_products_container[data_product_urn] = container_product
                     else:
-                        data_products_container[
-                            data_product_urn
-                        ] = data_products_container[data_product_urn].add_asset(
-                            container_urn
+                        data_products_container[data_product_urn] = (
+                            data_products_container[data_product_urn].add_asset(
+                                container_urn
+                            )
                         )
 
         mcps: List[
@@ -105,7 +105,6 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
     """Transformer that adds a specified dataproduct entity for provided dataset as its asset."""
 
     def __init__(self, config: SimpleDatasetDataProductConfig, ctx: PipelineContext):
-
         generic_config = AddDatasetDataProductConfig(
             get_data_product_to_add=lambda dataset_urn: config.dataset_to_data_product_urns.get(
                 dataset_urn
@@ -117,7 +116,7 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetDataProduct":
-        config = SimpleDatasetDataProductConfig.parse_obj(config_dict)
+        config = SimpleDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -125,7 +124,8 @@ class PatternDatasetDataProductConfig(ConfigModel):
     dataset_to_data_product_urns_pattern: KeyValuePattern = KeyValuePattern.all()
     is_container: bool = False
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_pattern_value(cls, values: Dict) -> Dict:
         rules = values["dataset_to_data_product_urns_pattern"]["rules"]
         for key, value in rules.items():
@@ -157,5 +157,5 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetDataProduct":
-        config = PatternDatasetDataProductConfig.parse_obj(config_dict)
+        config = PatternDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)

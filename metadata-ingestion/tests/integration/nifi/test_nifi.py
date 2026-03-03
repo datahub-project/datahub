@@ -6,7 +6,8 @@ import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import fs_helpers, mce_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 pytestmark = pytest.mark.integration_batch_2
@@ -72,7 +73,7 @@ def test_nifi_ingest_standalone(
             status = next(s for s in statuses if s["name"] == "FetchS3Object")
 
             if status["aggregateSnapshot"]["flowFilesOut"] >= 1:
-                logging.info(f"Waited for time {i*5} seconds")
+                logging.info(f"Waited for time {i * 5} seconds")
                 break
 
     # Run the metadata ingestion pipeline.
@@ -124,7 +125,7 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
             statuses = [pg["status"] for pg in pgs]
             status = next(s for s in statuses if s["name"] == "Cluster_Site_S3_to_S3")
             if status["aggregateSnapshot"]["flowFilesSent"] >= 1:
-                logging.info(f"Waited for time {i*5} seconds")
+                logging.info(f"Waited for time {i * 5} seconds")
                 break
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
     # Run the metadata ingestion pipeline.

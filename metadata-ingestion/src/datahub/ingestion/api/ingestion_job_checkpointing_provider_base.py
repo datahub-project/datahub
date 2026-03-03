@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, NewType, Optional, Type, TypeVar
+from typing import Any, Dict, NewType, Optional
+
+from typing_extensions import Self
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -17,9 +19,6 @@ class IngestionCheckpointingProviderConfig(ConfigModel):
     pass
 
 
-_Self = TypeVar("_Self", bound="IngestionCheckpointingProviderBase")
-
-
 @dataclass()
 class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStatesMap]):
     """
@@ -32,9 +31,7 @@ class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStates
 
     @classmethod
     @abstractmethod
-    def create(
-        cls: Type[_Self], config_dict: Dict[str, Any], ctx: PipelineContext
-    ) -> "_Self":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> Self:
         pass
 
     @abstractmethod

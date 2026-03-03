@@ -5,8 +5,8 @@ import re
 import sys
 import tempfile
 import unittest.mock
+import urllib.parse
 from typing import Any, Dict, Mapping, Optional, Set, Union
-from urllib import parse
 
 import requests
 from expandvars import UnboundVariable, expand
@@ -15,68 +15,156 @@ from datahub.configuration.common import ConfigurationError, ConfigurationMechan
 from datahub.configuration.json_loader import JsonConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 Environ = Mapping[str, str]
 
 
-def _resolve_element(element: str, environ: Environ) -> str:
-    if re.search(r"(\$\{).+(\})", element):
-        return expand(element, nounset=True, environ=environ)
-    elif element.startswith("$"):
-        try:
-            return expand(element, nounset=True, environ=environ)
-        except UnboundVariable:
-            return element
-    else:
-        return element
+def _extract_env_var_names(text: str) -> Set[str]:
+    """Extract environment variable names from ${VAR} or $VAR patterns."""
+    var_names = set()
 
+    # Match ${VAR} and bash parameter expansion patterns
+    # Pattern breakdown:
+    #   ([A-Za-z_][A-Za-z0-9_]*)  - capture variable name
+    #   (?::[+\-=?][^}]*)?        - optional bash operators with content
+    for match in re.finditer(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::[+\-=?][^}]*)?\}", text):
+        var_names.add(match.group(1))
 
-def _resolve_list(ele_list: list, environ: Environ) -> list:
-    new_v: list = []
-    for ele in ele_list:
-        if isinstance(ele, str):
-            new_v.append(_resolve_element(ele, environ=environ))
-        elif isinstance(ele, list):
-            new_v.append(_resolve_list(ele, environ=environ))
-        elif isinstance(ele, dict):
-            new_v.append(resolve_env_variables(ele, environ=environ))
-        else:
-            new_v.append(ele)
-    return new_v
+    # Match $VAR patterns (without braces)
+    for match in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*)", text):
+        var_name = match.group(1)
+        # Only add if not already captured by ${} pattern
+        if var_name not in var_names:
+            var_names.add(var_name)
+
+    return var_names
 
 
 def resolve_env_variables(config: dict, environ: Environ) -> dict:
-    new_dict: Dict[Any, Any] = {}
-    for k, v in config.items():
-        if isinstance(v, dict):
-            new_dict[k] = resolve_env_variables(v, environ=environ)
-        elif isinstance(v, list):
-            new_dict[k] = _resolve_list(v, environ=environ)
-        elif isinstance(v, str):
-            new_dict[k] = _resolve_element(v, environ=environ)
-        else:
-            new_dict[k] = v
-    return new_dict
+    # TODO: This is kept around for backwards compatibility.
+    return EnvResolver(environ).resolve(config)
 
 
 def list_referenced_env_variables(config: dict) -> Set[str]:
-    # This is a bit of a hack, but expandvars does a bunch of escaping
-    # and other logic that we don't want to duplicate here.
+    # TODO: This is kept around for backwards compatibility.
+    return EnvResolver(environ=os.environ).list_referenced_variables(config)
 
-    vars = set()
 
-    def mock_get_env(key: str, default: Optional[str] = None) -> str:
-        vars.add(key)
-        if default is not None:
-            return default
-        return "mocked_value"
+class EnvResolver:
+    """Resolves environment variable references in configuration dictionaries."""
 
-    mock = unittest.mock.MagicMock()
-    mock.get.side_effect = mock_get_env
+    def __init__(
+        self,
+        environ: Environ,
+        strict_env_syntax: bool = False,
+        register_secrets: bool = True,
+    ):
+        """
+        Initialize the environment variable resolver.
 
-    resolve_env_variables(config, environ=mock)
+        Args:
+            environ: Environment variable mapping (os.environ, custom dict, or external secrets)
+            strict_env_syntax: If True, only match ${VAR} syntax (not $VAR)
+            register_secrets: If True, register resolved values with masking registry
+                            (only if masking is globally enabled)
+        """
+        self.environ = environ
+        self.strict_env_syntax = strict_env_syntax
+        self.register_secrets = register_secrets
 
-    return vars
+    def resolve(self, config: dict) -> dict:
+        return self._resolve_dict(config)
+
+    @classmethod
+    def list_referenced_variables(
+        cls,
+        config: dict,
+        strict_env_syntax: bool = False,
+    ) -> Set[str]:
+        # This is a bit of a hack, but expandvars does a bunch of escaping
+        # and other logic that we don't want to duplicate here.
+
+        vars = set()
+
+        def mock_get_env(key: str, default: Optional[str] = None) -> str:
+            vars.add(key)
+            if default is not None:
+                return default
+            return "mocked_value"
+
+        mock = unittest.mock.MagicMock()
+        mock.get.side_effect = mock_get_env
+
+        resolver = EnvResolver(
+            environ=mock, strict_env_syntax=strict_env_syntax, register_secrets=False
+        )
+        resolver._resolve_dict(config)
+
+        return vars
+
+    def _register_env_vars_from_element(self, element: str) -> None:
+        """Register environment variables found in element for secret masking."""
+        if not self.register_secrets or not is_masking_enabled():
+            return
+
+        # Extract variable names from the pattern
+        var_names = _extract_env_var_names(element)
+
+        # Collect secrets for batch registration
+        # We register all ${VAR} references from recipe as secrets
+        secrets = {}
+        for var_name in var_names:
+            value = self.environ.get(var_name)
+            if value:
+                secrets[var_name] = value
+
+        # Batch register all secrets from this element
+        if secrets:
+            SecretRegistry.get_instance().register_secrets_batch(secrets)
+
+    def _resolve_element(self, element: str) -> str:
+        if re.search(r"(\$\{).+(\})", element):
+            # Register secrets before expansion
+            self._register_env_vars_from_element(element)
+            return expand(element, nounset=True, environ=self.environ)
+        elif not self.strict_env_syntax and element.startswith("$"):
+            try:
+                # Register secrets before expansion
+                self._register_env_vars_from_element(element)
+                return expand(element, nounset=True, environ=self.environ)
+            except UnboundVariable:
+                # TODO: This fallback is kept around for backwards compatibility, but
+                # doesn't make a ton of sense from first principles.
+                return element
+        else:
+            return element
+
+    def _resolve_list(self, ele_list: list) -> list:
+        new_v: list = []
+        for ele in ele_list:
+            if isinstance(ele, str):
+                new_v.append(self._resolve_element(ele))
+            elif isinstance(ele, list):
+                new_v.append(self._resolve_list(ele))
+            elif isinstance(ele, dict):
+                new_v.append(self._resolve_dict(ele))
+            else:
+                new_v.append(ele)
+        return new_v
+
+    def _resolve_dict(self, config: dict) -> dict:
+        new_dict: Dict[Any, Any] = {}
+        for k, v in config.items():
+            if isinstance(v, dict):
+                new_dict[k] = self._resolve_dict(v)
+            elif isinstance(v, list):
+                new_dict[k] = self._resolve_list(v)
+            elif isinstance(v, str):
+                new_dict[k] = self._resolve_element(v)
+            else:
+                new_dict[k] = v
+        return new_dict
 
 
 WRITE_TO_FILE_DIRECTIVE_PREFIX = "__DATAHUB_TO_FILE_"
@@ -134,14 +222,23 @@ def load_config_file(
                 f"Only .toml, .yml, and .json are supported. Cannot process file type {config_file_path.suffix}"
             )
 
-        url_parsed = parse.urlparse(str(config_file))
+        url_parsed = urllib.parse.urlparse(str(config_file))
         if allow_remote and url_parsed.scheme in (
             "http",
             "https",
         ):  # URLs will return http/https
             # If the URL is remote, we need to fetch it.
             try:
-                response = requests.get(str(config_file))
+                response = requests.get(
+                    str(config_file),
+                    auth=(
+                        urllib.parse.unquote(url_parsed.username or ""),
+                        urllib.parse.unquote(url_parsed.password or ""),
+                    )
+                    if url_parsed.username or url_parsed.password
+                    else None,
+                )
+                response.raise_for_status()
                 raw_config_file = response.text
             except Exception as e:
                 raise ConfigurationError(
@@ -159,7 +256,7 @@ def load_config_file(
 
     config = raw_config.copy()
     if resolve_env_vars:
-        config = resolve_env_variables(config, environ=os.environ)
+        config = EnvResolver(environ=os.environ).resolve(config)
     if process_directives:
         config = _process_directives(config)
 

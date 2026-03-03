@@ -1,9 +1,17 @@
 import React from 'react';
-import { render } from '@testing-library/react';
-import { Editor } from '../Editor';
+
+import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { render } from '@utils/test-utils/customRender';
 
 // setupTests mocks Editor for all tests. We want to use the actual editor for this test module
 vi.mock('../Editor', async () => vi.importActual('../Editor'));
+
+vi.mock('@graphql/search.generated', () => ({
+    useGetAutoCompleteMultipleResultsLazyQuery: vi.fn(() => [
+        vi.fn(), // mock query function
+        { loading: false, error: null, data: [] }, // mock result
+    ]),
+}));
 
 describe('Editor', () => {
     it('should render the Editor and content without failure', () => {

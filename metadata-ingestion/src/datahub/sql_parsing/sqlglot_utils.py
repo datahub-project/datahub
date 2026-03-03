@@ -1,7 +1,6 @@
 from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
-import hashlib
 import logging
 import re
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -10,40 +9,16 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
+from datahub.configuration.env_vars import get_sql_parse_cache_size
+from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str as _get_dialect_str
+
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
-
-FORMAT_QUERY_CACHE_SIZE = 1000
-
-
-def _get_dialect_str(platform: str) -> str:
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    # TODO: define SalesForce SOQL dialect
-    # Temporary workaround is to treat SOQL as databricks dialect
-    # At least it allows to parse simple SQL queries and built linage for them
-    elif platform == "salesforce":
-        return "databricks"
-    elif platform in {"mysql", "mariadb"}:
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        # MariaDB is a fork of MySQL, so we reuse the same dialect.
-        return "mysql, normalization_strategy = lowercase"
-    # Dremio is based upon drill. Not 100% compatibility
-    elif platform == "dremio":
-        return "drill"
-    else:
-        return platform
+SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
+FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
 
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
@@ -56,12 +31,9 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
 def is_dialect_instance(
     dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
 ) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
+    platforms = [platforms] if isinstance(platforms, str) else list(platforms)
 
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+    dialects = [get_dialect(platform) for platform in platforms]
 
     if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
         return True
@@ -75,6 +47,36 @@ def _parse_statement(
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
+
+    # Handle Block statements from sqlglot v29+
+    # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
+    # We only process the non None statement, if there is 1 and only 1.
+    if isinstance(statement, sqlglot.exp.Block):
+        if not statement.expressions:
+            raise sqlglot.errors.ParseError(
+                "Block statement must have at least one expression"
+            )
+
+        # Filter out None expressions (empty statements from double semicolons)
+        non_none_expressions = [e for e in statement.expressions if e is not None]
+
+        if not non_none_expressions:
+            raise sqlglot.errors.ParseError(
+                "Block contains only None expressions - no valid SQL statement found"
+            )
+
+        if len(non_none_expressions) > 1:
+            # parse_statement expects a single statement, not multiple
+            raise sqlglot.errors.ParseError(
+                f"Block contains {len(non_none_expressions)} statements: "
+                f"{[type(e).__name__ for e in non_none_expressions]}. "
+                f"Use parse_statements_and_pick() for multi-statement SQL."
+            )
+
+        # Return the single non-None statement
+        statement = non_none_expressions[0]
+
     return statement
 
 
@@ -117,11 +119,13 @@ def _expression_to_string(
     return expression.sql(dialect=get_dialect(platform))
 
 
+PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
+
 _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
     # Remove -- comments.
-    re.compile(r"--.*$"): "",
+    re.compile(r"--.*$", re.MULTILINE): "",
     # Replace all runs of whitespace with a single space.
     re.compile(r"\s+"): " ",
     # Remove leading and trailing whitespace and trailing semicolons.
@@ -131,10 +135,21 @@ _BASIC_NORMALIZATION_RULES = {
     # Replace anything that looks like a string with a placeholder.
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
-    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # The r" ?" makes it more robust to uneven spacing.
+    re.compile(
+        r"\b(IN|VALUES)\s*\( ?(?:%s|\$\d|\?)(?:, ?(?:%s|\$\d|\?))* ?\)", re.IGNORECASE
+    ): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
+    # Fix up spaces before commas in column lists.
+    # e.g. "col1 , col2" -> "col1, col2"
+    # e.g. "col1,col2" -> "col1, col2"
+    re.compile(r"\b ,"): ",",
+    re.compile(r"\b,\b"): ", ",
+    # MAKE SURE THAT THIS IS AFTER THE ABOVE REPLACEMENT
+    # Replace all versions of placeholders with generic ? placeholder.
+    PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION: "?",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
@@ -248,18 +263,20 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
 
 
-def generate_hash(text: str) -> str:
-    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
             dialect = get_dialect(platform)
             expression_sql = generalize_query(expression, dialect=dialect)
+            # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
+            expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
+                "?", expression_sql
+            )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
@@ -269,16 +286,18 @@ def get_query_fingerprint_debug(
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
         expression_sql = None
 
-    fingerprint = generate_hash(
-        expression_sql
-        if expression_sql is not None
-        else _expression_to_string(expression, platform=platform)
-    )
+    text = expression_sql or _expression_to_string(expression, platform=platform)
+    if secondary_id:
+        text = text + " -- " + secondary_id
+    fingerprint = generate_hash(text=text)
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -295,12 +314,15 @@ def get_query_fingerprint(
     Args:
         expression: The SQL query to fingerprint.
         platform: The SQL dialect to use.
+        secondary_id: An optional additional id string to included in the final fingerprint.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
+    return get_query_fingerprint_debug(
+        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+    )[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
@@ -398,7 +420,7 @@ def detach_ctes(
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
                 )
             break
         statement = new_statement

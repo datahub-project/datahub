@@ -1,0 +1,38 @@
+import { Tooltip } from '@components';
+import { capitalCase } from '@remirror/core';
+import { useHelpers } from '@remirror/react';
+import { Button, ButtonProps } from 'antd';
+import React, { MouseEventHandler, useCallback } from 'react';
+import styled from 'styled-components';
+
+const StyledButton = styled(Button)`
+    height: auto;
+`;
+
+export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
+    active?: boolean;
+    children?: React.ReactNode;
+    commandName?: string;
+}
+
+export const CommandButton = ({ active, children, commandName, ...buttonProps }: CommandButtonProps) => {
+    const { getCommandOptions } = useHelpers();
+    const options = commandName ? getCommandOptions(commandName) : undefined;
+
+    const handleMouseDown: MouseEventHandler<HTMLButtonElement> = useCallback((e) => {
+        e.preventDefault();
+    }, []);
+
+    return (
+        <Tooltip title={options?.name ? capitalCase(options?.name) : null}>
+            <StyledButton
+                type={active ? 'link' : 'text'}
+                onMouseDown={handleMouseDown}
+                {...buttonProps}
+                data-testid={`command-${commandName}-btn`}
+            >
+                {children}
+            </StyledButton>
+        </Tooltip>
+    );
+};

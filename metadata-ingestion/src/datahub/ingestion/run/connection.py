@@ -1,6 +1,6 @@
 import logging
 
-from datahub import __version__
+from datahub._version import __version__
 from datahub.ingestion.api.source import TestableSource, TestConnectionReport
 from datahub.ingestion.source.source_registry import source_registry
 

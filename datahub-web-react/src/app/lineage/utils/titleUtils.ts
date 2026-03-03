@@ -1,5 +1,6 @@
-import { SchemaField } from '../../../types.generated';
-import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
+import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '@app/lineage/constants';
+
+import { SchemaField } from '@types';
 
 interface OptionalOptions {
     font?: string;
@@ -124,10 +125,10 @@ function truncate(input, length) {
 function getLastTokenOfTitle(title?: string): string {
     if (!title) return '';
 
-    const lastToken = title?.split('.').slice(-1)[0];
+    const lastToken = title?.split('.')?.slice(-1)?.[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
-    if (lastToken.replace(/\s/g, '').length === 0) {
+    if (lastToken?.replace(/\s/g, '')?.length === 0) {
         return title;
     }
 

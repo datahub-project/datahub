@@ -1,18 +1,26 @@
 package com.linkedin.metadata.dao.producer;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
+import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,11 +37,18 @@ import org.apache.kafka.clients.producer.ProducerRecord;
  * delimiter of an underscore (_).
  */
 @Slf4j
-public class KafkaEventProducer implements EventProducer {
+public class KafkaEventProducer extends EventProducer {
 
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final TopicConvention _topicConvention;
   private final KafkaHealthChecker _kafkaHealthChecker;
+  private final MetricUtils metricUtils;
+  private boolean canWrite = true;
+
+  @Override
+  public void flush() {
+    _producer.flush();
+  }
 
   /**
    * Constructor.
@@ -45,10 +60,16 @@ public class KafkaEventProducer implements EventProducer {
   public KafkaEventProducer(
       @Nonnull final Producer<String, ? extends IndexedRecord> producer,
       @Nonnull final TopicConvention topicConvention,
-      @Nonnull final KafkaHealthChecker kafkaHealthChecker) {
+      @Nonnull final KafkaHealthChecker kafkaHealthChecker,
+      MetricUtils metricUtils) {
     _producer = producer;
     _topicConvention = topicConvention;
     _kafkaHealthChecker = kafkaHealthChecker;
+    this.metricUtils = metricUtils;
+  }
+
+  public void setWritable(boolean writable) {
+    canWrite = writable;
   }
 
   @Override
@@ -57,6 +78,10 @@ public class KafkaEventProducer implements EventProducer {
       @Nonnull final Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
     try {
       log.debug(
@@ -69,19 +94,29 @@ public class KafkaEventProducer implements EventProducer {
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
+    String topic = getMetadataChangeLogTopicName(aspectSpec);
+    return _producer.send(
+        new ProducerRecord(topic, urn.toString(), record),
+        _kafkaHealthChecker.getKafkaCallBack(metricUtils, "MCL", urn.toString()));
+  }
+
+  @Override
+  public String getMetadataChangeLogTopicName(@Nonnull AspectSpec aspectSpec) {
     String topic = _topicConvention.getMetadataChangeLogVersionedTopicName();
     if (aspectSpec.isTimeseries()) {
       topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
-    return _producer.send(
-        new ProducerRecord(topic, urn.toString(), record),
-        _kafkaHealthChecker.getKafkaCallBack("MCL", urn.toString()));
+    return topic;
   }
 
   @Override
   @WithSpan
   public Future<?> produceMetadataChangeProposal(
       @Nonnull final Urn urn, @Nonnull final MetadataChangeProposal metadataChangeProposal) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
 
     try {
@@ -99,12 +134,56 @@ public class KafkaEventProducer implements EventProducer {
     String topic = _topicConvention.getMetadataChangeProposalTopicName();
     return _producer.send(
         new ProducerRecord(topic, urn.toString(), record),
-        _kafkaHealthChecker.getKafkaCallBack("MCP", urn.toString()));
+        _kafkaHealthChecker.getKafkaCallBack(metricUtils, "MCP", urn.toString()));
+  }
+
+  @Override
+  public String getMetadataChangeProposalTopicName() {
+    return _topicConvention.getMetadataChangeProposalTopicName();
+  }
+
+  @Override
+  public Future<?> produceFailedMetadataChangeProposalAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull MetadataChangeProposal mcp,
+      @Nonnull Set<Throwable> throwables) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
+
+    try {
+      String topic = _topicConvention.getFailedMetadataChangeProposalTopicName();
+      final FailedMetadataChangeProposal failedMetadataChangeProposal =
+          createFailedMCPEvent(opContext, mcp, throwables);
+
+      final GenericRecord record = EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
+      log.debug(
+          "Sending FailedMessages to topic - {}",
+          _topicConvention.getFailedMetadataChangeProposalTopicName());
+      log.info(
+          "Error while processing FMCP: FailedMetadataChangeProposal - {}",
+          failedMetadataChangeProposal);
+
+      return _producer.send(
+          new ProducerRecord(topic, mcp.getEntityUrn().toString(), record),
+          _kafkaHealthChecker.getKafkaCallBack(metricUtils, "FMCP", mcp.getEntityUrn().toString()));
+    } catch (IOException e) {
+      log.error(
+          "Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
+          e.getStackTrace(),
+          mcp);
+      return CompletableFuture.failedFuture(e);
+    }
   }
 
   @Override
   public Future<?> producePlatformEvent(
       @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
     GenericRecord record;
     try {
       log.debug(
@@ -118,11 +197,17 @@ public class KafkaEventProducer implements EventProducer {
     final String topic = _topicConvention.getPlatformEventTopicName();
     return _producer.send(
         new ProducerRecord(topic, key == null ? name : key, record),
-        _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
+        _kafkaHealthChecker.getKafkaCallBack(metricUtils, "Platform Event", name));
+  }
+
+  @Override
+  public String getPlatformEventTopicName() {
+    return _topicConvention.getPlatformEventTopicName();
   }
 
   @Override
   public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+    // We allow this to write even when in not writable mode to allow DH to start up
     GenericRecord record;
     try {
       log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
@@ -139,6 +224,17 @@ public class KafkaEventProducer implements EventProducer {
     _producer.send(
         new ProducerRecord(topic, event.getVersion(), record),
         _kafkaHealthChecker.getKafkaCallBack(
-            "History Event", "Event Version: " + event.getVersion()));
+            metricUtils, "History Event", "Event Version: " + event.getVersion()));
+  }
+
+  @Nonnull
+  private static FailedMetadataChangeProposal createFailedMCPEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull MetadataChangeProposal event,
+      @Nonnull Set<Throwable> throwables) {
+    final FailedMetadataChangeProposal fmcp = new FailedMetadataChangeProposal();
+    fmcp.setError(opContext.traceException(throwables));
+    fmcp.setMetadataChangeProposal(event);
+    return fmcp;
   }
 }

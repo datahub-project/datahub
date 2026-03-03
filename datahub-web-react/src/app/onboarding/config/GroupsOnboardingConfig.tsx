@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const GROUPS_INTRO_ID = 'groups-intro';
 export const GROUPS_CREATE_GROUP_ID = 'groups-create-group';
@@ -27,7 +28,7 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/groups"
+                        href="https://docs.datahub.com/docs/authorization/groups"
                     >
                         {' '}
                         here.

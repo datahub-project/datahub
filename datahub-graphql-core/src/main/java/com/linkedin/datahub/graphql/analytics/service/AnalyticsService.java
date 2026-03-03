@@ -11,7 +11,9 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -44,7 +45,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 public class AnalyticsService {
 
-  private final RestHighLevelClient _elasticClient;
+  private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
 
   private static final String FILTERED = "filtered";
@@ -178,7 +179,9 @@ public class AnalyticsService {
                 indexName, dateRange, dimensions)
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    assert (dimensions.size() == 1 || dimensions.size() == 2);
+    if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
+      throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
+    }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
@@ -350,6 +353,7 @@ public class AnalyticsService {
       Optional<DateRange> dateRange,
       String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
+    filteredQuery.filter(getDefaultFilters());
     mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
     mustNotFilters.forEach(
         (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
@@ -363,6 +367,14 @@ public class AnalyticsService {
       Optional<DateRange> dateRange) {
     // Use timestamp as dateRangeField
     return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
+  }
+
+  private QueryBuilder getDefaultFilters() {
+    return QueryBuilders.boolQuery()
+        .mustNot(
+            QueryBuilders.termQuery(
+                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
   private QueryBuilder dateRangeQuery(DateRange dateRange) {

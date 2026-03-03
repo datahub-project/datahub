@@ -5,16 +5,16 @@ import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
-from pydantic import validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -42,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
@@ -50,18 +49,19 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 nest_asyncio.apply()
 
 
-class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
+class OktaConfig(StatefulIngestionConfigBase):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
-    okta_api_token: str = Field(
+    okta_api_token: TransparentSecretStr = Field(
         description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
@@ -75,6 +75,10 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     ingest_group_membership: bool = Field(
         default=True,
         description="Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.",
+    )
+    ingest_groups_users: bool = Field(
+        default=True,
+        description="Only ingest users belonging to the selected groups. This option is only useful when `ingest_users` is set to False and `ingest_group_membership` to True.",
     )
 
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
@@ -154,26 +158,26 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     mask_group_id: bool = True
     mask_user_id: bool = True
 
-    @validator("okta_users_search")
-    def okta_users_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_users_filter"]:
+    @model_validator(mode="after")
+    def okta_users_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_users_search and self.okta_users_filter:
             raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
-        return v
+        return self
 
-    @validator("okta_groups_search")
-    def okta_groups_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_groups_filter"]:
+    @model_validator(mode="after")
+    def okta_groups_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_groups_search and self.okta_groups_filter:
             raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
-        return v
+        return self
 
 
 @dataclass
 class OktaSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_filtered(self, name: str) -> None:
         self.filtered.append(name)
@@ -198,7 +202,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class OktaSource(StatefulIngestionSourceBase):
     """
@@ -285,7 +289,7 @@ class OktaSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OktaConfig.parse_obj(config_dict)
+        config = OktaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
@@ -328,25 +332,20 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
+        okta_users: Set[User] = set()
         # Step 2: Populate GroupMembership Aspects for CorpUsers
-        datahub_corp_user_urn_to_group_membership: Dict[
-            str, GroupMembershipClass
-        ] = defaultdict(lambda: GroupMembershipClass(groups=[]))
+        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = (
+            defaultdict(lambda: GroupMembershipClass(groups=[]))
+        )
         if self.config.ingest_group_membership and okta_groups is not None:
             # Fetch membership for each group.
             for okta_group in okta_groups:
@@ -371,6 +370,9 @@ class OktaSource(StatefulIngestionSourceBase):
                         self.report.report_failure("okta_user_mapping", error_str)
                         continue
 
+                    if self.config.ingest_groups_users:
+                        okta_users.add(okta_user)
+
                     # Update the GroupMembership aspect for this group member.
                     datahub_corp_user_urn_to_group_membership[
                         datahub_corp_user_urn
@@ -378,7 +380,10 @@ class OktaSource(StatefulIngestionSourceBase):
 
         # Step 3: Produce MetadataWorkUnits for CorpUsers.
         if self.config.ingest_users:
-            okta_users = self._get_okta_users(event_loop)
+            # we can just throw away collected okta users so far and fetch them all
+            okta_users = set(self._get_okta_users(event_loop))
+
+        if okta_users:
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
             datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
             for user_count, datahub_corp_user_snapshot in enumerate(
@@ -407,18 +412,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
@@ -433,7 +432,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def _create_okta_client(self):
         config = {
             "orgUrl": f"https://{self.config.okta_domain}",
-            "token": f"{self.config.okta_api_token}",
+            "token": self.config.okta_api_token.get_secret_value(),
             "raiseException": True,
         }
         return OktaClient(config)
@@ -557,9 +556,7 @@ class OktaSource(StatefulIngestionSourceBase):
         if (
             self.config.include_deprovisioned_users is False
             and okta_user.status == UserStatus.DEPROVISIONED
-        ):
-            return False
-        elif (
+        ) or (
             self.config.include_suspended_users is False
             and okta_user.status == UserStatus.SUSPENDED
         ):
@@ -657,6 +654,27 @@ class OktaSource(StatefulIngestionSourceBase):
             self.config.okta_profile_to_username_regex,
         )
 
+    def _map_okta_user_profile_custom_properties(
+        self, profile: UserProfile
+    ) -> Dict[str, str]:
+        # filter out the common fields that are already mapped to the CorpUserInfo aspect and the private ones
+        return {
+            k: str(v)
+            for k, v in profile.__dict__.items()
+            if v
+            and k
+            not in [
+                "displayName",
+                "firstName",
+                "lastName",
+                "email",
+                "title",
+                "countryCode",
+                "department",
+            ]
+            and not k.startswith("_")
+        }
+
     # Converts Okta User Profile into a CorpUserInfo.
     def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
         # TODO: Extract user's manager if provided.
@@ -674,6 +692,7 @@ class OktaSource(StatefulIngestionSourceBase):
             title=profile.title,
             countryCode=profile.countryCode,
             departmentName=profile.department,
+            customProperties=self._map_okta_user_profile_custom_properties(profile),
         )
 
     def _make_corp_group_urn(self, name: str) -> str:

@@ -1,6 +1,11 @@
 source:
   type: athena
   config:
+
+    # AWS Keys (Optional - Required only if local aws credentials are not set)
+    username: my_aws_access_key_id
+    password: my_aws_secret_access_key
+    
     # Coordinates
     aws_region: my_aws_region
     work_group: primary

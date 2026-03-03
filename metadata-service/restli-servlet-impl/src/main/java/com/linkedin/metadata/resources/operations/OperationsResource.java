@@ -33,7 +33,7 @@ import com.linkedin.timeseries.TimeseriesIndexSizeResultArray;
 import com.linkedin.timeseries.TimeseriesIndicesSizesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -103,10 +103,11 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
       @ActionParam("limit") @Optional @Nullable Integer limit,
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
-      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
-    return RestliUtils.toTask(
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
+      @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
+    return RestliUtils.toTask(systemOperationContext,
       () ->  Utils.restoreIndices(systemOperationContext, getContext(),
-                  aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
+                  aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
 
@@ -129,7 +130,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_NODE_ID) @Optional String nodeId,
       @ActionParam(PARAM_TASK_ID) @Optional("0") long taskId,
       @ActionParam(PARAM_TASK) @Optional String task) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
@@ -192,7 +193,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Nonnull
   @WithSpan
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
 
             final Authentication auth = AuthenticationContext.getAuthentication();
@@ -317,7 +318,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds,
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex) {
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             executeTruncateTimeseriesAspect(
                 entityType,

@@ -13,7 +13,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 public class GlossaryTermsPatchBuilder
     extends AbstractMultiFieldPatchBuilder<GlossaryTermsPatchBuilder> {
 
-  private static final String BASE_PATH = "/glossaryTerms/";
+  private static final String BASE_PATH = "/terms/";
   private static final String URN_KEY = "urn";
   private static final String CONTEXT_KEY = "context";
 
@@ -32,12 +32,16 @@ public class GlossaryTermsPatchBuilder
       value.put(CONTEXT_KEY, context);
     }
 
-    pathValues.add(ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH + urn, value));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn), value));
     return this;
   }
 
   public GlossaryTermsPatchBuilder removeTerm(@Nonnull GlossaryTermUrn urn) {
-    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + urn, null));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn), null));
     return this;
   }
 

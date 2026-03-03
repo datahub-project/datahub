@@ -1,8 +1,10 @@
+import { Popconfirm, message } from 'antd';
 import React from 'react';
-import { message, Popconfirm } from 'antd';
-import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
-import { DataHubRole } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+
+import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
+import { DataHubRole } from '@types';
 
 type Props = {
     open: boolean;
@@ -34,7 +36,7 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? `Assigned role ${roleToAssign?.name} to user ${username}!`
+                            ? `Assigned role ${roleToAssign?.name} to ${username}!`
                             : `Removed role from user ${username}!`,
                         duration: 2,
                     });

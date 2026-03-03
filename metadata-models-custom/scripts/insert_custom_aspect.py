@@ -30,7 +30,6 @@ emitter: DatahubRestEmitter = DatahubRestEmitter(gms_server="http://localhost:80
 
 dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
 mcp_raw: MetadataChangeProposalClass = MetadataChangeProposalClass(
-    entityType="dataset",
     entityUrn=dataset_urn,
     changeType=ChangeTypeClass.UPSERT,
     aspectName="customDataQualityRules",

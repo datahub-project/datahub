@@ -15,6 +15,7 @@ import collections
 import contextlib
 import itertools
 import logging
+import logging.config
 import os
 import pathlib
 import sys
@@ -22,6 +23,7 @@ from typing import Deque, Iterator, Optional
 
 import click
 
+from datahub.configuration.env_vars import get_no_color, get_suppress_logging_manager
 from datahub.utilities.tee_io import TeeIO
 
 BASE_LOGGING_FORMAT = (
@@ -38,7 +40,7 @@ IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
 
 
-NO_COLOR = os.environ.get("NO_COLOR", False)
+NO_COLOR = get_no_color()
 
 
 def extract_name_from_filename(filename: str, fallback_name: str) -> str:
@@ -130,9 +132,9 @@ class _ColorLogFormatter(logging.Formatter):
         # Mimic our default format, but with color.
         message_fg = self.MESSAGE_COLORS.get(record.levelname)
         return (
-            f'{click.style(f"[{self.formatTime(record, self.datefmt)}]", fg="green", dim=True)} '
+            f"{click.style(f'[{self.formatTime(record, self.datefmt)}]', fg='green', dim=True)} "
             f"{click.style(f'{record.levelname:8}', fg=message_fg)} "
-            f'{click.style(f"{{{record.name}:{record.lineno}}}", fg="blue", dim=True)} - '
+            f"{click.style(f'{{{record.name}:{record.lineno}}}', fg='blue', dim=True)} - "
             f"{click.style(record.getMessage(), fg=message_fg)}"
         )
 
@@ -161,6 +163,7 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        # We do not expect `line` to have a trailing newline.
         if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
             line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
 
@@ -178,6 +181,18 @@ class _LogBuffer:
         return text
 
 
+class _ResilientStreamHandler(logging.StreamHandler):
+    """StreamHandler that gracefully handles closed streams."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except (ValueError, OSError):
+            # Stream was closed (e.g., during pytest teardown)
+            # Silently ignore to prevent test failures
+            pass
+
+
 class _BufferLogHandler(logging.Handler):
     def __init__(self, storage: _LogBuffer) -> None:
         super().__init__()
@@ -188,13 +203,52 @@ class _BufferLogHandler(logging.Handler):
             message = self.format(record)
         except TypeError as e:
             message = f"Error formatting log message: {e}\nMessage: {record.msg}, Args: {record.args}"
-        self._storage.write(message)
+
+        # For exception stack traces, the message is split over multiple lines,
+        # but we store it as a single string. Because we truncate based on line
+        # length, it's better for us to split it into multiple lines so that we
+        # don't lose any information on deeper stack traces.
+        for line in message.split("\n"):
+            self._storage.write(line)
 
 
 def _remove_all_handlers(logger: logging.Logger) -> None:
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-        handler.close()
+        try:
+            handler.close()
+        except (ValueError, OSError):
+            # Handler stream may already be closed (e.g., during pytest teardown)
+            pass
+
+
+def _reset_logging() -> None:
+    """
+    Reset all loggers to their default state.
+
+    This is useful when we want to completely reconfigure logging from
+    an external config file, ensuring no previously configured handlers
+    or settings interfere.
+    """
+    manager = logging.root.manager
+    manager.disable = logging.NOTSET
+    for sub_logger in manager.loggerDict.values():
+        if isinstance(sub_logger, logging.Logger):
+            sub_logger.setLevel(logging.NOTSET)
+            sub_logger.propagate = True
+            sub_logger.disabled = False
+            sub_logger.filters.clear()
+            handlers = sub_logger.handlers.copy()
+            for handler in handlers:
+                try:
+                    handler.acquire()
+                    handler.flush()
+                    handler.close()
+                except (OSError, ValueError):
+                    pass
+                finally:
+                    handler.release()
+                sub_logger.removeHandler(handler)
 
 
 _log_buffer = _LogBuffer(maxlen=IN_MEMORY_LOG_BUFFER_SIZE)
@@ -212,14 +266,22 @@ _default_formatter = logging.Formatter(BASE_LOGGING_FORMAT)
 def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[None]:
     _log_buffer.clear()
 
-    if os.environ.get("DATAHUB_SUPPRESS_LOGGING_MANAGER") == "1":
+    if get_suppress_logging_manager() == "1":
         # If we're running in pytest, we don't want to configure logging.
+        yield
+        return
+
+    # Check for external config file - if set, use it instead of default configuration
+    external_config = os.environ.get("DATAHUB_LOG_CONFIG_FILE")
+    if external_config:
+        _reset_logging()
+        logging.config.fileConfig(external_config, disable_existing_loggers=False)
         yield
         return
 
     with contextlib.ExitStack() as stack:
         # Create stdout handler.
-        stream_handler = logging.StreamHandler()
+        stream_handler = _ResilientStreamHandler()
         stream_handler.addFilter(_DatahubLogFilter(debug=debug))
         stream_handler.setFormatter(_stream_formatter)
 
@@ -230,7 +292,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
             tee = TeeIO(sys.stdout, file)
             stack.enter_context(contextlib.redirect_stdout(tee))  # type: ignore
 
-            file_handler = logging.StreamHandler(file)
+            file_handler = _ResilientStreamHandler(file)
             file_handler.addFilter(_DatahubLogFilter(debug=True))
             file_handler.setFormatter(_default_formatter)
         else:

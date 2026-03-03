@@ -1,0 +1,64 @@
+import json
+import tempfile
+from typing import Dict, Optional
+
+from pydantic import Field, model_validator
+
+from datahub.configuration import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
+
+
+class GCPCredential(ConfigModel):
+    project_id: Optional[str] = Field(
+        None, description="Project id to set the credentials"
+    )
+    private_key_id: str = Field(description="Private key id")
+    private_key: TransparentSecretStr = Field(
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
+    )
+    client_email: str = Field(description="Client email")
+    client_id: str = Field(description="Client Id")
+    auth_uri: str = Field(
+        default="https://accounts.google.com/o/oauth2/auth",
+        description="Authentication uri",
+    )
+    token_uri: str = Field(
+        default="https://oauth2.googleapis.com/token", description="Token uri"
+    )
+    auth_provider_x509_cert_url: str = Field(
+        default="https://www.googleapis.com/oauth2/v1/certs",
+        description="Auth provider x509 certificate url",
+    )
+    type: str = Field(default="service_account", description="Authentication type")
+    client_x509_cert_url: Optional[str] = Field(
+        default=None,
+        description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
+    )
+
+    _fix_private_key_newlines = pydantic_multiline_string("private_key")
+
+    @model_validator(mode="after")
+    def validate_config(self) -> "GCPCredential":
+        if self.client_x509_cert_url is None:
+            self.client_x509_cert_url = (
+                f"https://www.googleapis.com/robot/v1/metadata/x509/{self.client_email}"
+            )
+        return self
+
+    def _dump_with_secrets(self, project_id: Optional[str] = None) -> Dict[str, str]:
+        configs = self.model_dump()
+        configs["private_key"] = self.private_key.get_secret_value()
+        if project_id:
+            configs["project_id"] = project_id
+        return configs
+
+    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
+        configs = self._dump_with_secrets(project_id)
+        with tempfile.NamedTemporaryFile(delete=False) as fp:
+            cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
+            fp.write(cred_json.encode())
+            return fp.name
+
+    def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
+        return self._dump_with_secrets(project_id)

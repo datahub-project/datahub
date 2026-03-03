@@ -1,12 +1,13 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
-import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import lark
 from lark import Lark, Tree
 
+import datahub.ingestion.source.powerbi.m_query.data_classes
+from datahub.configuration.env_vars import get_powerbi_m_query_parse_timeout
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -24,7 +25,7 @@ from datahub.utilities.threading_timeout import TimeoutException, threading_time
 
 logger = logging.getLogger(__name__)
 
-_M_QUERY_PARSE_TIMEOUT = int(os.getenv("DATAHUB_POWERBI_M_QUERY_PARSE_TIMEOUT", 60))
+_M_QUERY_PARSE_TIMEOUT = get_powerbi_m_query_parse_timeout()
 
 
 @functools.lru_cache(maxsize=1)
@@ -64,9 +65,9 @@ def get_upstream_tables(
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
-    parameters: Dict[str, str] = {},
-) -> List[resolver.Lineage]:
-
+    parameters: Optional[Dict[str, str]] = None,
+) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+    parameters = parameters or {}
     if table.expression is None:
         logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []
@@ -128,15 +129,17 @@ def get_upstream_tables(
     reporter.m_query_parse_successes += 1
 
     try:
-        lineage: List[resolver.Lineage] = resolver.MQueryResolver(
-            table=table,
-            parse_tree=parse_tree,
-            reporter=reporter,
-            parameters=parameters,
-        ).resolve_to_data_platform_table_list(
-            ctx=ctx,
-            config=config,
-            platform_instance_resolver=platform_instance_resolver,
+        lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+            resolver.MQueryResolver(
+                table=table,
+                parse_tree=parse_tree,
+                reporter=reporter,
+                parameters=parameters,
+            ).resolve_to_lineage(
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
+            )
         )
 
         if lineage:
@@ -149,7 +152,7 @@ def get_upstream_tables(
         reporter.m_query_resolver_errors += 1
         reporter.warning(
             title="Unknown M-Query Pattern",
-            message="Encountered a unknown M-Query Expression",
+            message="Encountered an unknown M-Query Expression",
             context=f"table-full-name={table.full_name}, expression={table.expression}, message={e}",
             exc=e,
         )

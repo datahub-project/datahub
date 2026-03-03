@@ -90,6 +90,7 @@ public class MockEntitySpec implements EntitySpec {
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
+        Collections.emptyList(),
         type.schema(),
         (Class<RecordTemplate>) type.getClass().asSubclass(RecordTemplate.class));
   }
@@ -140,5 +141,11 @@ public class MockEntitySpec implements EntitySpec {
   @Override
   public TyperefDataSchema getAspectTyperefSchema() {
     return null;
+  }
+
+  @Override
+  public String getSearchGroup() {
+    // Return a default search index group for mock entities
+    return "default";
   }
 }

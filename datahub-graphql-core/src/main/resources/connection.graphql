@@ -47,7 +47,6 @@ type DataHubConnection implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
-
 """
 The details of the Connection
 """

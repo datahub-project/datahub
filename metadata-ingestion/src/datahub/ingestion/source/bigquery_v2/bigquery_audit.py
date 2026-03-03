@@ -29,22 +29,48 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
 )
 
 
+class BigQueryShardPatternMatcher:
+    def __init__(self, pattern: str = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX):
+        self.pattern_string = pattern
+        self.compiled_pattern = re.compile(pattern, re.IGNORECASE)
+
+    def match(self, table_name: str) -> Optional["re.Match[str]"]:
+        return self.compiled_pattern.match(table_name)
+
+
 @dataclass(frozen=True, order=True)
 class BigqueryTableIdentifier:
     project_id: str
     dataset: str
     table: str
 
-    # Note: this regex may get overwritten by the sharded_table_pattern config.
-    # The class-level constant, however, will not be overwritten.
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[
-        str
-    ] = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
-    def get_table_and_shard(table_name: str) -> Tuple[Optional[str], Optional[str]]:
+    def extract_base_table_name(
+        table_id: str, dataset_name: str, match: "re.Match[str]"
+    ) -> str:
+        """
+        Extract base table name from a sharded table regex match.
+
+        Regex groups: [1] = prefix with separator, [2] = base name, [3] = shard suffix.
+        """
+        base_name = match[1] or ""
+        shard = match[3]
+
+        if base_name and table_id.endswith(shard):
+            base_name = table_id[: -len(shard)].rstrip("_")
+
+        if not base_name or base_name.endswith("."):
+            base_name = dataset_name
+
+        return base_name
+
+    @staticmethod
+    def get_table_and_shard(
+        table_name: str, shard_matcher: Optional[BigQueryShardPatternMatcher] = None
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Args:
             table_name:
@@ -57,12 +83,11 @@ class BigqueryTableIdentifier:
                 In case of non-sharded tables, returns (<table-id>, None)
                 In case of sharded tables, returns (<table-prefix>, shard)
         """
+        if shard_matcher is None:
+            shard_matcher = BigQueryShardPatternMatcher()
+
         new_table_name = table_name
-        match = re.match(
-            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-            table_name,
-            re.IGNORECASE,
-        )
+        match = shard_matcher.match(table_name)
         if match:
             shard: str = match[3]
             if shard:
@@ -165,7 +190,7 @@ class BigQueryTableRef:
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
         for key in ["projectId", "datasetId", "tableId"]:
-            if key not in spec.keys():
+            if key not in spec:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(
@@ -190,7 +215,7 @@ class BigQueryTableRef:
     @classmethod
     def from_urn(cls, urn: str) -> "BigQueryTableRef":
         """Raises: ValueError if urn is not a valid BigQuery table URN."""
-        dataset_urn = DatasetUrn.create_from_string(urn)
+        dataset_urn = DatasetUrn.from_string(urn)
         split = dataset_urn.name.rsplit(".", 3)
         if len(split) == 3:
             project, dataset, table = split

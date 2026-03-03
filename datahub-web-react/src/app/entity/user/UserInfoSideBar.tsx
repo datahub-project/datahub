@@ -1,27 +1,35 @@
-import { Divider, message, Space, Button, Typography, Tag } from 'antd';
-import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { EntityRelationship, DataHubRole } from '../../../types.generated';
-import UserEditProfileModal from './UserEditProfileModal';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import { Button, Divider, Space, Tag, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+
+import { useUserContext } from '@app/context/useUserContext';
+import EntityGroups from '@app/entity/shared/EntityGroups';
 import {
-    SideBar,
-    SideBarSubSection,
-    EmptyValue,
-    SocialDetails,
-    EditButton,
     AboutSection,
     AboutSectionText,
+    EditButton,
+    EmptyValue,
     GroupsSection,
+    LocationSection,
+    LocationSectionText,
     Name,
-    TitleRole,
+    SideBar,
+    SideBarSubSection,
+    SocialDetails,
     Team,
-} from '../shared/SidebarStyledComponents';
-import EntityGroups from '../shared/EntityGroups';
-import { mapRoleIcon } from '../../identity/user/UserUtils';
-import { useUserContext } from '../../context/useUserContext';
-import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
+    TitleRole,
+    UserDetails,
+} from '@app/entity/shared/SidebarStyledComponents';
+import UserEditProfileModal from '@app/entity/user/UserEditProfileModal';
+import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { getCountryName } from '@src/app/shared/sidebar/components';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+import { DataHubRole, EntityRelationship } from '@types';
+
+import GlobeIcon from '@images/Globe.svg';
 
 const { Paragraph } = Typography;
 
@@ -38,6 +46,8 @@ type SideBarData = {
     groupsDetails: Array<EntityRelationship>;
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
+    countryCode: string | undefined;
+    username: string | undefined;
 };
 
 type Props = {
@@ -51,8 +61,22 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn } =
-        sideBarData;
+    const {
+        name,
+        aboutText,
+        avatarName,
+        email,
+        groupsDetails,
+        phone,
+        photoUrl,
+        role,
+        slack,
+        team,
+        dataHubRoles,
+        urn,
+        countryCode,
+        username,
+    } = sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
@@ -114,12 +138,14 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
 
+    const maybeCountryName = getCountryName(countryCode ?? '');
     return (
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
+                    <UserDetails>{username || <EmptyValue />}</UserDetails>
                     {role && <TitleRole>{role}</TitleRole>}
                     {team && <Team>{team}</Team>}
                     {dataHubRoleName && <Tag icon={mapRoleIcon(dataHubRoleName)}>{dataHubRoleName}</Tag>}
@@ -143,6 +169,17 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
+                    {maybeCountryName != null ? (
+                        <LocationSection>
+                            Location
+                            <br />
+                            <LocationSectionText>
+                                <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
+                                {maybeCountryName}
+                            </LocationSectionText>
+                            <Divider className="divider-aboutSection" />
+                        </LocationSection>
+                    ) : null}
                     <AboutSection>
                         About
                         <AboutSectionText>

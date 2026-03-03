@@ -1,5 +1,6 @@
+import logging
+
 import pytest
-import tenacity
 
 from tests.privileges.utils import (
     assign_role,
@@ -8,6 +9,9 @@ from tests.privileges.utils import (
     create_group,
     create_user,
     create_user_policy,
+    get_current_user_info,
+    log_policies,
+    log_user_privileges,
     remove_group,
     remove_policy,
     remove_secret,
@@ -20,14 +24,14 @@ from tests.utils import (
     get_admin_credentials,
     get_frontend_session,
     get_frontend_url,
-    get_sleep_info,
     login_as,
     wait_for_writes_to_sync,
+    with_test_retry,
 )
 
-pytestmark = pytest.mark.no_cypress_suite1
+logger = logging.getLogger(__name__)
 
-sleep_sec, sleep_times = get_sleep_info()
+pytestmark = pytest.mark.no_cypress_suite1
 
 
 @pytest.fixture(scope="module")
@@ -38,6 +42,9 @@ def admin_session(auth_session):
 @pytest.fixture(scope="module", autouse=True)
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
+    # Clean up any leftover test policies from previous failed runs
+    clear_polices(admin_session)
+
     # Disable 'All users' privileges
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
@@ -45,8 +52,33 @@ def privileges_and_test_user_setup(admin_session):
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
+    # Verify clean state
+    logger.info("=" * 80)
+    logger.info("Initial test setup - verifying clean state")
+    log_policies(admin_session, "(after cleanup, before test user creation)")
+    logger.info("=" * 80)
+
     # Create a new user
     admin_session = create_user(admin_session, "user", "user")
+
+    # Verify test user has no privileges initially
+    user_session = login_as("user", "user")
+    user_info = log_user_privileges(user_session, "(initial state)")
+    if user_info:
+        privileges = user_info["privileges"]
+        if any(
+            privileges.get(p)
+            for p in [
+                "managePolicies",
+                "manageSecrets",
+                "manageIngestion",
+                "generatePersonalAccessTokens",
+            ]
+        ):
+            logger.warning(
+                f"WARNING: Test user has unexpected privileges {privileges} before tests start!"
+            )
+    logger.info("=" * 80)
 
     yield
 
@@ -68,24 +100,41 @@ def privileges_and_test_user_setup(admin_session):
     wait_for_writes_to_sync()
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_cant_perform_action(session, json, assertion_key):
+    logger.info(f"Testing that action '{assertion_key}' is FORBIDDEN (expecting 403)")
+
     action_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     action_response.raise_for_status()
     action_data = action_response.json()
+
+    logger.debug(f"Response status code: {action_response.status_code}")
+
+    if "errors" not in action_data:
+        logger.error("=" * 80)
+        logger.error("Expected 'errors' key in response but got successful response!")
+        logger.error(f"Full response: {action_data}")
+        logger.error(f"Assertion key: {assertion_key}")
+        logger.error("=" * 80)
+
+        # Log current user privileges to understand why they have access
+        log_user_privileges(session, "(during test failure)")
+
+        # Get admin session to list policies
+        (admin_user, admin_pass) = get_admin_credentials()
+        admin_session = login_as(admin_user, admin_pass)
+        log_policies(admin_session, "(during test failure)")
+        logger.error("=" * 80)
 
     assert action_data["errors"][0]["extensions"]["code"] == 403, action_data["errors"][
         0
     ]
     assert action_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
     assert action_data["data"][assertion_key] is None
+    logger.info(f"Action '{assertion_key}' correctly returned 403")
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_secret(session, json, urn):
     create_secret_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -99,9 +148,7 @@ def _ensure_can_create_secret(session, json, urn):
     assert secret_data["data"]["createSecret"] == urn
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_ingestion_source(session, json):
     create_ingestion_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -117,9 +164,7 @@ def _ensure_can_create_ingestion_source(session, json):
     return ingestion_data["data"]["createIngestionSource"]
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_access_token(session, json):
     create_access_token_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -134,9 +179,7 @@ def _ensure_can_create_access_token(session, json):
     assert ingestion_data["data"]["createAccessToken"]["__typename"] == "AccessToken"
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_user_policy(session, json):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
@@ -401,23 +444,40 @@ def test_privilege_to_create_and_manage_policies():
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
 
+    # Log initial user privilege state
+    logger.info("=" * 80)
+    logger.info("Starting test_privilege_to_create_and_manage_policies")
+    logger.info("=" * 80)
+
+    user_info = get_current_user_info(user_session)
+    if user_info:
+        logger.info(
+            f"Initial user privileges: managePolicies={user_info['privileges'].get('managePolicies')}"
+        )
+        logger.info(f"User URN: {user_info['urn']}")
+    else:
+        logger.warning("Could not retrieve user info")
+
+    # Log all active policies at test start
+    log_policies(admin_session, "(before test starts)")
+
     # Verify new user can't create a policy
     create_policy = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {
-            createPolicy(input: $input) 
+            createPolicy(input: $input)
         }""",
         "variables": {
             "input": {
                 "type": "PLATFORM",
-                "name": "Policy Name",
-                "description": "Policy Description",
+                "name": "Test Policy Name",
+                "description": "Test Policy Description",
                 "state": "ACTIVE",
                 "resources": {"filter": {"criteria": []}},
                 "privileges": ["MANAGE_POLICIES"],
                 "actors": {
-                    "users": [],
+                    "users": ["urn:li:corpuser:user"],
                     "resourceOwners": False,
-                    "allUsers": True,
+                    "allUsers": False,
                     "allGroups": False,
                 },
             }
@@ -444,8 +504,8 @@ def test_privilege_to_create_and_manage_policies():
             "input": {
                 "type": "PLATFORM",
                 "state": "INACTIVE",
-                "name": "Policy Name test",
-                "description": "Policy Description updated",
+                "name": "Test Policy Name Updated",
+                "description": "Test Policy Description Updated",
                 "privileges": ["MANAGE_POLICIES"],
                 "actors": {
                     "users": [],

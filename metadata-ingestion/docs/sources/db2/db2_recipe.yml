@@ -1,0 +1,17 @@
+source:
+  type: db2
+  config:
+    # Coordinates
+    host_port: localhost:50000
+    database: dbname
+
+    # Credentials
+    username: db2inst1
+    password: password
+
+    # Optional TLS
+    # uri_args:
+    #   Security: SSL
+
+    # Use the IBM i Access ODBC Driver to connect to Db2 for IBM i (AS/400)
+    # scheme: db2+pyodbc400

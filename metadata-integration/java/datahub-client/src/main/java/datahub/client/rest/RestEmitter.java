@@ -1,6 +1,7 @@
 package datahub.client.rest;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.apache.hc.core5.http.HttpHeaders.*;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -18,6 +19,7 @@ import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -26,6 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.concurrent.ThreadSafe;
@@ -97,17 +100,20 @@ public class RestEmitter implements Emitter {
     this.config = config;
     HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
     httpClientBuilder.setRetryStrategy(new DatahubHttpRequestRetryStrategy());
-
-    // Override httpClient settings with RestEmitter configs if present
-    if (config.getTimeoutSec() != null) {
-      httpClientBuilder.setDefaultRequestConfig(
-          RequestConfig.custom()
-              .setConnectionRequestTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .setResponseTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .build());
+    if ((config.getTimeoutSec() != null) || (config.isDisableChunkedEncoding())) {
+      RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+      // Override httpClient settings with RestEmitter configs if present
+      if (config.getTimeoutSec() != null) {
+        requestConfigBuilder
+            .setConnectionRequestTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS)
+            .setResponseTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS);
+      }
+      if (config.isDisableChunkedEncoding()) {
+        requestConfigBuilder.setContentCompressionEnabled(false);
+      }
+      httpClientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
     }
+
     PoolingAsyncClientConnectionManagerBuilder poolingAsyncClientConnectionManagerBuilder =
         PoolingAsyncClientConnectionManagerBuilder.create();
 
@@ -207,6 +213,12 @@ public class RestEmitter implements Emitter {
       throws IOException {
     DataMap map = new DataMap();
     map.put("proposal", mcp.data());
+
+    // Include async parameter if configured
+    if (this.config.getAsyncIngest() != null) {
+      map.put("async", String.valueOf(this.config.getAsyncIngest()));
+    }
+
     String serializedMCP = dataTemplateCodec.mapToString(map);
     log.debug("Emit: URL: {}, Payload: {}\n", this.ingestProposalUrl, serializedMCP);
     return this.postGeneric(this.ingestProposalUrl, serializedMCP, mcp, callback);
@@ -223,8 +235,13 @@ public class RestEmitter implements Emitter {
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
     }
+    if (this.config.isDisableChunkedEncoding()) {
+      byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
+      simpleRequestBuilder.setBody(payloadBytes, ContentType.APPLICATION_JSON);
+    } else {
+      simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
+    }
 
-    simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =
@@ -278,15 +295,40 @@ public class RestEmitter implements Emitter {
   }
 
   private Future<MetadataWriteResponse> getGeneric(String urlStr) throws IOException {
-    SimpleHttpRequest simpleHttpRequest =
+    SimpleRequestBuilder simpleRequestBuilder =
         SimpleRequestBuilder.get(urlStr)
             .addHeader("Content-Type", "application/json")
             .addHeader("X-RestLi-Protocol-Version", "2.0.0")
-            .addHeader("Accept", "application/json")
-            .build();
+            .addHeader("Accept", "application/json");
 
+    // Add authorization header if token is present
+    if (this.config.getToken() != null) {
+      simpleRequestBuilder.addHeader("Authorization", "Bearer " + this.config.getToken());
+    }
+
+    SimpleHttpRequest simpleHttpRequest = simpleRequestBuilder.build();
     Future<SimpleHttpResponse> response = this.httpClient.execute(simpleHttpRequest, null);
     return new MetadataResponseFuture(response, RestEmitter::mapResponse);
+  }
+
+  /**
+   * Returns the configuration for this emitter.
+   *
+   * @return the emitter configuration
+   */
+  public RestEmitterConfig getConfig() {
+    return config;
+  }
+
+  /**
+   * Performs a GET request to the specified URL.
+   *
+   * @param urlStr the URL to GET
+   * @return future containing the response
+   * @throws IOException if the request fails
+   */
+  public Future<MetadataWriteResponse> get(String urlStr) throws IOException {
+    return getGeneric(urlStr);
   }
 
   @Override

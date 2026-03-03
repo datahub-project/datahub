@@ -1,12 +1,12 @@
 import React from 'react';
-
 import { useParams } from 'react-router';
 import styled from 'styled-components';
 
-import { Message } from '../../shared/Message';
-import { decodeUrn } from '../shared/utils';
-import TagStyleEntity from '../../shared/TagStyleEntity';
-import { useGetTagQuery } from '../../../graphql/tag.generated';
+import { decodeUrn } from '@app/entity/shared/utils';
+import { Message } from '@app/shared/Message';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+
+import { useGetTagQuery } from '@graphql/tag.generated';
 
 const PageContainer = styled.div`
     padding: 32px 100px;

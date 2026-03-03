@@ -1,0 +1,17 @@
+namespace com.linkedin.settings.asset
+
+/**
+ * Information related to the asset summary for this asset
+ */
+record AssetSummarySettings {
+  /**
+   * The list of templates applied to this asset in order. Right now we only expect one.
+   */
+  @Relationship = {
+    "/*/template": {
+    "name": "HasSummaryTemplate",
+    "entityTypes": [ "dataHubPageTemplate" ]
+    }
+  }
+  templates: optional array[AssetSummarySettingsTemplate] = []
+}

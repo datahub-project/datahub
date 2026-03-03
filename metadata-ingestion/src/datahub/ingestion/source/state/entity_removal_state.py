@@ -1,6 +1,7 @@
-from typing import Any, Dict, Iterable, List, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, Type
 
 import pydantic
+from pydantic import model_validator
 
 from datahub.emitter.mce_builder import make_assertion_urn, make_container_urn
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
@@ -8,13 +9,16 @@ from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn import guess_entity_type
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1RootValidator
+
 STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
     "dataProcessInstance",
     "query",
 }
 
 
-def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
+def pydantic_state_migrator(mapping: Dict[str, str]) -> "V1RootValidator":
     # mapping would be something like:
     # {
     #    'encoded_view_urns': 'dataset',
@@ -56,7 +60,7 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
 
         return values
 
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return model_validator(mode="before")(_validate_field_rename)
 
 
 class GenericCheckpointState(CheckpointStateBase):
@@ -146,7 +150,11 @@ class GenericCheckpointState(CheckpointStateBase):
 def compute_percent_entities_changed(
     new_entities: List[str], old_entities: List[str]
 ) -> float:
-    (overlap_count, old_count, _,) = _get_entity_overlap_and_cardinalities(
+    (
+        overlap_count,
+        old_count,
+        _,
+    ) = _get_entity_overlap_and_cardinalities(
         new_entities=new_entities, old_entities=old_entities
     )
 

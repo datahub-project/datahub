@@ -1,25 +1,27 @@
 import React from 'react';
+
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '@app/entity/dashboard/shared/DashboardStatsSummary';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     AccessLevel,
-    Domain,
     Container,
+    DashboardStatsSummary,
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
     EntityType,
     GlobalTags,
     GlossaryTerms,
-    Owner,
-    SearchInsight,
-    ParentContainersResult,
-    Deprecation,
-    DashboardStatsSummary,
-    DataProduct,
-    EntityPath,
     Health,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { IconStyleType } from '../../Entity';
-import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '@types';
 
 export const DashboardPreview = ({
     urn,
@@ -48,6 +50,7 @@ export const DashboardPreview = ({
     degree,
     paths,
     health,
+    previewType,
 }: {
     urn: string;
     platform?: string;
@@ -75,6 +78,7 @@ export const DashboardPreview = ({
     degree?: number;
     paths?: EntityPath[];
     health?: Health[] | null;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -114,6 +118,7 @@ export const DashboardPreview = ({
             degree={degree}
             paths={paths}
             health={health || undefined}
+            previewType={previewType}
         />
     );
 };

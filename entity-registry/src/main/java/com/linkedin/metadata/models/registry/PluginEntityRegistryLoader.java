@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -33,6 +34,7 @@ public class PluginEntityRegistryLoader {
   private final Boolean scanningEnabled;
   private final String pluginDirectory;
   private final int loadDelaySeconds;
+  private final boolean ignoreFailureWhenLoadingRegistry;
   // Registry Name -> Registry Version -> (Registry, LoadResult)
   private final Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
       patchRegistries;
@@ -47,10 +49,12 @@ public class PluginEntityRegistryLoader {
   private final Condition initialized = lock.newCondition();
   private boolean booted = false;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
+  private final AtomicReference<Throwable> initFailure = new AtomicReference<>();
 
   public PluginEntityRegistryLoader(
       String pluginDirectory,
       int loadDelaySeconds,
+      boolean ignoreFailureWhenLoadingRegistry,
       @Nullable
           BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
     File directory = new File(pluginDirectory);
@@ -65,6 +69,7 @@ public class PluginEntityRegistryLoader {
     this.pluginDirectory = pluginDirectory;
     this.patchRegistries = new HashMap<>();
     this.loadDelaySeconds = loadDelaySeconds;
+    this.ignoreFailureWhenLoadingRegistry = ignoreFailureWhenLoadingRegistry;
     this.pluginFactoryProvider = pluginFactoryProvider;
   }
 
@@ -133,13 +138,19 @@ public class PluginEntityRegistryLoader {
                 "Will be loading paths in this order {}",
                 versionedPaths.stream().map(p -> p.toString()).collect(Collectors.joining(";")));
 
-            versionedPaths.forEach(
-                x ->
-                    loadOneRegistry(
-                        this.mergedEntityRegistry,
-                        x.getName(rootDepth).toString(),
-                        x.getName(rootDepth + 1).toString(),
-                        x.toString()));
+            for (Path x : versionedPaths) {
+              try {
+                loadOneRegistry(
+                    this.mergedEntityRegistry,
+                    x.getName(rootDepth).toString(),
+                    x.getName(rootDepth + 1).toString(),
+                    x.toString());
+              } catch (Exception | EntityRegistryException e) {
+                if (!ignoreFailureWhenLoadingRegistry) {
+                  initFailure.compareAndSet(null, e);
+                }
+              }
+            }
           } catch (Exception e) {
             log.warn("Failed to walk directory with exception", e);
           } finally {
@@ -161,6 +172,11 @@ public class PluginEntityRegistryLoader {
       } finally {
         lock.unlock();
       }
+
+      // propagate failure to the caller
+      if (!ignoreFailureWhenLoadingRegistry && initFailure.get() != null) {
+        throw new RuntimeException("Failed to initialize plugin registry.", initFailure.get());
+      }
     }
     return this;
   }
@@ -169,7 +185,8 @@ public class PluginEntityRegistryLoader {
       MergedEntityRegistry parentRegistry,
       String registryName,
       String registryVersionStr,
-      String patchDirectory) {
+      String patchDirectory)
+      throws EntityRegistryException, IOException {
     ComparableVersion registryVersion = new ComparableVersion("0.0.0-dev");
     try {
       ComparableVersion maybeVersion = new ComparableVersion(registryVersionStr);
@@ -204,12 +221,15 @@ public class PluginEntityRegistryLoader {
       loadResultBuilder.plugins(entityRegistry.getPluginFactory().getPluginLoadResult());
 
       log.info("Loaded registry {} successfully", entityRegistry);
-    } catch (RuntimeException | EntityRegistryException | IOException e) {
-      log.debug("{}: Failed to load registry {} with {}", this, registryName, e.getMessage());
+    } catch (Exception | EntityRegistryException e) {
+      log.error("{}: Failed to load registry {} with {}", this, registryName, e.getMessage(), e);
       StringWriter sw = new StringWriter();
       PrintWriter pw = new PrintWriter(sw);
       e.printStackTrace(pw);
       loadResultBuilder.loadResult(LoadStatus.FAILURE).failureReason(sw.toString()).failureCount(1);
+      if (!ignoreFailureWhenLoadingRegistry) {
+        throw e;
+      }
     }
 
     addLoadResult(registryName, registryVersion, loadResultBuilder.build(), entityRegistry);

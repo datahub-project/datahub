@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, Iterable, Union, cast
+import logging
+from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -11,6 +12,7 @@ from pyiceberg.types import (
     IcebergType,
     IntegerType,
     LongType,
+    PrimitiveType,
     TimestampType,
     TimestamptzType,
     TimeType,
@@ -21,10 +23,9 @@ from pyiceberg.utils.datetime import (
     to_human_timestamp,
     to_human_timestamptz,
 )
+from typing_extensions import TypeGuard
 
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergProfilingConfig,
     IcebergSourceReport,
@@ -32,7 +33,11 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
+    _Aspect,
 )
+from datahub.utilities.perf_timer import PerfTimer
+
+LOGGER = logging.getLogger(__name__)
 
 
 class IcebergProfiler:
@@ -62,7 +67,7 @@ class IcebergProfiler:
         aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, bytes],
     ) -> None:
-        for field_id, value_encoded in manifest_values.items():  # type: int, Any
+        for field_id, value_encoded in manifest_values.items():
             try:
                 field = schema.find_field(field_id)
             except ValueError:
@@ -82,9 +87,8 @@ class IcebergProfiler:
     def profile_table(
         self,
         dataset_name: str,
-        dataset_urn: str,
         table: Table,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[_Aspect]:
         """This method will profile the supplied Iceberg table by looking at the table's manifest.
 
         The overall profile of the table is aggregated from the individual manifest files.
@@ -109,101 +113,120 @@ class IcebergProfiler:
         Yields:
             Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
         """
-        current_snapshot = table.current_snapshot()
-        if not current_snapshot:
-            # Table has no data, cannot profile, or we can't get current_snapshot.
-            return
+        with PerfTimer() as timer:
+            LOGGER.debug(f"Starting profiling of dataset: {dataset_name}")
+            current_snapshot = table.current_snapshot()
+            if not current_snapshot:
+                # Table has no data, cannot profile, or we can't get current_snapshot.
+                return
 
-        row_count = (
-            int(current_snapshot.summary.additional_properties["total-records"])
-            if current_snapshot.summary
-            else 0
-        )
-        column_count = len(
-            [
-                field.field_id
-                for field in table.schema().fields
-                if field.field_type.is_primitive
-            ]
-        )
-        dataset_profile = DatasetProfileClass(
-            timestampMillis=get_sys_time(),
-            rowCount=row_count,
-            columnCount=column_count,
-        )
-        dataset_profile.fieldProfiles = []
+            row_count = (
+                int(current_snapshot.summary.additional_properties["total-records"])
+                if current_snapshot.summary
+                else 0
+            )
+            size_in_bytes: Optional[int] = None
+            if current_snapshot.summary:
+                size_in_bytes_str = current_snapshot.summary.additional_properties.get(
+                    "total-files-size"
+                )
+                if size_in_bytes_str:
+                    try:
+                        size_in_bytes = int(size_in_bytes_str)
+                    except (ValueError, TypeError):
+                        pass
+            column_count = len(
+                [
+                    field.field_id
+                    for field in table.schema().fields
+                    if field.field_type.is_primitive
+                ]
+            )
+            dataset_profile = DatasetProfileClass(
+                timestampMillis=get_sys_time(),
+                rowCount=row_count,
+                columnCount=column_count,
+                sizeInBytes=size_in_bytes,
+            )
+            dataset_profile.fieldProfiles = []
 
-        total_count = 0
-        null_counts: Dict[int, int] = {}
-        min_bounds: Dict[int, Any] = {}
-        max_bounds: Dict[int, Any] = {}
-        try:
-            for manifest in current_snapshot.manifests(table.io):
-                for manifest_entry in manifest.fetch_manifest_entry(table.io):
-                    data_file = manifest_entry.data_file
+            total_count = 0
+            null_counts: Dict[int, int] = {}
+            min_bounds: Dict[int, Any] = {}
+            max_bounds: Dict[int, Any] = {}
+            try:
+                for manifest in current_snapshot.manifests(table.io):
+                    for manifest_entry in manifest.fetch_manifest_entry(table.io):
+                        data_file = manifest_entry.data_file
+                        if self.config.include_field_null_count:
+                            null_counts = self._aggregate_counts(
+                                null_counts, data_file.null_value_counts
+                            )
+                        if self.config.include_field_min_value:
+                            self._aggregate_bounds(
+                                table.schema(),
+                                min,
+                                min_bounds,
+                                data_file.lower_bounds,
+                            )
+                        if self.config.include_field_max_value:
+                            self._aggregate_bounds(
+                                table.schema(),
+                                max,
+                                max_bounds,
+                                data_file.upper_bounds,
+                            )
+                        total_count += data_file.record_count
+            except Exception as e:
+                self.report.warning(
+                    title="Error when profiling a table",
+                    message="Skipping profiling of the table due to errors",
+                    context=dataset_name,
+                    exc=e,
+                )
+            if row_count:
+                # Iterating through fieldPaths introduces unwanted stats for list element fields...
+                for field_path, field_id in table.schema()._name_to_id.items():
+                    field = table.schema().find_field(field_id)
+                    column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                     if self.config.include_field_null_count:
-                        null_counts = self._aggregate_counts(
-                            null_counts, data_file.null_value_counts
+                        column_profile.nullCount = cast(
+                            int, null_counts.get(field_id, 0)
                         )
+                        column_profile.nullProportion = float(
+                            column_profile.nullCount / row_count
+                        )
+
                     if self.config.include_field_min_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            min,
-                            min_bounds,
-                            data_file.lower_bounds,
+                        column_profile.min = (
+                            self._render_value(
+                                dataset_name, field.field_type, min_bounds.get(field_id)
+                            )
+                            if field_id in min_bounds
+                            else None
                         )
                     if self.config.include_field_max_value:
-                        self._aggregate_bounds(
-                            table.schema(),
-                            max,
-                            max_bounds,
-                            data_file.upper_bounds,
+                        column_profile.max = (
+                            self._render_value(
+                                dataset_name, field.field_type, max_bounds.get(field_id)
+                            )
+                            if field_id in max_bounds
+                            else None
                         )
-                    total_count += data_file.record_count
-        except Exception as e:
-            # Catch any errors that arise from attempting to read the Iceberg table's manifests
-            # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
-            self.report.report_warning(
-                "profiling",
-                f"Error while profiling dataset {dataset_name}: {e}",
+                    dataset_profile.fieldProfiles.append(column_profile)
+            time_taken = timer.elapsed_seconds()
+            self.report.report_table_profiling_time(
+                time_taken, dataset_name, table.metadata_location
             )
-        if row_count:
-            # Iterating through fieldPaths introduces unwanted stats for list element fields...
-            for field_path, field_id in table.schema()._name_to_id.items():
-                field = table.schema().find_field(field_id)
-                column_profile = DatasetFieldProfileClass(fieldPath=field_path)
-                if self.config.include_field_null_count:
-                    column_profile.nullCount = cast(int, null_counts.get(field_id, 0))
-                    column_profile.nullProportion = float(
-                        column_profile.nullCount / row_count
-                    )
+            LOGGER.debug(
+                f"Finished profiling of dataset: {dataset_name} in {time_taken}"
+            )
 
-                if self.config.include_field_min_value:
-                    column_profile.min = (
-                        self._render_value(
-                            dataset_name, field.field_type, min_bounds.get(field_id)
-                        )
-                        if field_id in min_bounds
-                        else None
-                    )
-                if self.config.include_field_max_value:
-                    column_profile.max = (
-                        self._render_value(
-                            dataset_name, field.field_type, max_bounds.get(field_id)
-                        )
-                        if field_id in max_bounds
-                        else None
-                    )
-                dataset_profile.fieldProfiles.append(column_profile)
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=dataset_profile,
-        ).as_workunit()
+        yield dataset_profile
 
     def _render_value(
         self, dataset_name: str, value_type: IcebergType, value: Any
-    ) -> Union[str, None]:
+    ) -> Optional[str]:
         try:
             if isinstance(value_type, TimestampType):
                 return to_human_timestamp(value)
@@ -215,14 +238,22 @@ class IcebergProfiler:
                 return to_human_time(value)
             return str(value)
         except Exception as e:
-            self.report.report_warning(
-                "profiling",
-                f"Error in dataset {dataset_name} when profiling a {value_type} field with value {value}: {e}",
+            self.report.warning(
+                title="Couldn't render value when profiling a table",
+                message="Encountered error, when trying to redner a value for table profile.",
+                context=str(
+                    {
+                        "value": value,
+                        "value_type": value_type,
+                        "dataset_name": dataset_name,
+                    }
+                ),
+                exc=e,
             )
             return None
 
     @staticmethod
-    def _is_numeric_type(type: IcebergType) -> bool:
+    def _is_numeric_type(type: IcebergType) -> TypeGuard[PrimitiveType]:
         return isinstance(
             type,
             (

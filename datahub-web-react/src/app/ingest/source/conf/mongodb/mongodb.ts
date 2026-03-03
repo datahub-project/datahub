@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import mongodbLogo from '../../../../../images/mongodblogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import mongodbLogo from '@images/mongodblogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -17,13 +18,15 @@ source:
         enableSchemaInference: True
         useRandomSampling: True
         maxSchemaSize: 300
+        stateful_ingestion:
+            enabled: true
 `;
 
 const mongoConfig: SourceConfig = {
     type: 'mongodb',
     placeholderRecipe,
     displayName: 'MongoDB',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/mongodb/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mongodb/',
     logoUrl: mongodbLogo,
 };
 

@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-# This arg should point at a local copy of https://github.com/hsheth2/sample-dbt,
+# This arg should point at a local copy of https://github.com/acryldata/sample-dbt,
 # after the generation script has been run.
 sample_dbt=$1
 number=$2

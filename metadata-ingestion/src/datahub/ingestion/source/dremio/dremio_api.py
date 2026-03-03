@@ -1,12 +1,13 @@
 import concurrent.futures
 import json
 import logging
+import re
 import warnings
 from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Deque, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -14,12 +15,17 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
+from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +59,8 @@ class DremioAPIOperations:
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
+        self.start_time = connection_args.start_time
+        self.end_time = connection_args.end_time
         self.report = report
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
@@ -175,24 +183,28 @@ class DremioAPIOperations:
                     "Personal Access Token (PAT) is missing for cloud authentication."
                 )
             self.session.headers.update(
-                {"Authorization": f"Bearer {connection_args.password}"}
+                {
+                    "Authorization": f"Bearer {connection_args.password.get_secret_value()}"
+                }
             )
+            logger.debug("Configured Dremio cloud API session to use PAT")
             return
 
         # On-prem Dremio authentication (PAT or Basic Auth)
-        for retry in range(1, self._retry_count + 1):
+        for _ in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
                         {
-                            "Authorization": f"Bearer {connection_args.password}",
+                            "Authorization": f"Bearer {connection_args.password.get_secret_value() if connection_args.password else ''}",
                         }
                     )
+                    logger.debug("Configured Dremio API session to use PAT")
                     return
                 else:
-                    assert (
-                        connection_args.username and connection_args.password
-                    ), "Username and password are required for authentication"
+                    assert connection_args.username and connection_args.password, (
+                        "Username and password are required for authentication"
+                    )
                     host = connection_args.hostname
                     port = connection_args.port
                     protocol = "https" if connection_args.tls else "http"
@@ -202,7 +214,7 @@ class DremioAPIOperations:
                         data=json.dumps(
                             {
                                 "userName": connection_args.username,
-                                "password": connection_args.password,
+                                "password": connection_args.password.get_secret_value(),
                             }
                         ),
                         verify=self._verify,
@@ -211,10 +223,10 @@ class DremioAPIOperations:
                     response.raise_for_status()
                     token = response.json().get("token")
                     if token:
+                        logger.debug("Exchanged username and password for Dremio token")
                         self.session.headers.update(
                             {"Authorization": f"_dremio{token}"}
                         )
-
                         return
                     else:
                         self.report.failure("Failed to authenticate", login_url)
@@ -230,52 +242,79 @@ class DremioAPIOperations:
             "Credentials cannot be refreshed. Please check your username and password."
         )
 
+    def _request(self, method: str, url: str, data: Union[str, None] = None) -> Dict:
+        """Send a request to the Dremio API."""
+
+        logger.debug(f"{method} request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path[f"{method} {url}"] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.request(
+                method=method,
+                url=(self.base_url + url),
+                data=data,
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path[f"{method} {url}"] += (
+                timer.elapsed_seconds()
+            )
+            # response.raise_for_status()  # Enabling this line, makes integration tests to fail
+            try:
+                return response.json()
+            except requests.exceptions.JSONDecodeError as e:
+                logger.info(
+                    f"On {method} request to {url}, failed to parse JSON from response (status {response.status_code}): {response.text}"
+                )
+                logger.debug(
+                    f"Request curl equivalent: {make_curl_command(self.session, method, url, data)}"
+                )
+                raise DremioAPIException(
+                    f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
+                ) from e
+
     def get(self, url: str) -> Dict:
-        """execute a get request on dremio"""
-        response = self.session.get(
-            url=(self.base_url + url),
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        """Send a GET request to the Dremio API."""
+        return self._request("GET", url)
 
     def post(self, url: str, data: str) -> Dict:
-        """execute a get request on dremio"""
-        response = self.session.post(
-            url=(self.base_url + url),
-            data=data,
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        """Send a POST request to the Dremio API."""
+        return self._request("POST", url, data=data)
 
-    def execute_query(self, query: str, timeout: int = 300) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
         try:
-            response = self.post(url="/sql", data=json.dumps({"sql": query}))
+            with PerfTimer() as timer:
+                logger.info(f"Executing query: {query}")
+                response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
-            if "errorMessage" in response:
-                self.report.failure(
-                    message="SQL Error", context=f"{response['errorMessage']}"
-                )
-                raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
-
-            job_id = response["id"]
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(self.fetch_results, job_id)
-                try:
-                    return future.result(timeout=timeout)
-                except concurrent.futures.TimeoutError:
-                    self.cancel_query(job_id)
-                    raise DremioAPIException(
-                        f"Query execution timed out after {timeout} seconds"
+                if "errorMessage" in response:
+                    self.report.failure(
+                        message="SQL Error", context=f"{response['errorMessage']}"
                     )
-                except RuntimeError as e:
-                    raise DremioAPIException(f"{str(e)}")
+                    raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
+
+                job_id = response["id"]
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(self.fetch_results, job_id)
+                    try:
+                        result = future.result(timeout=timeout)
+                        logger.info(
+                            f"Query executed in {timer.elapsed_seconds()} seconds with {len(result)} results"
+                        )
+                        return result
+                    except concurrent.futures.TimeoutError:
+                        self.cancel_query(job_id)
+                        raise DremioAPIException(
+                            f"Query execution timed out after {timeout} seconds"
+                        ) from None
+                    except RuntimeError as e:
+                        raise DremioAPIException() from e
 
         except requests.RequestException as e:
-            raise DremioAPIException(f"Error executing query: {str(e)}")
+            raise DremioAPIException("Error executing query") from e
 
     def fetch_results(self, job_id: str) -> List[Dict]:
         """Fetch job results with status checking"""
@@ -306,13 +345,148 @@ class DremioAPIOperations:
 
         while True:
             result = self.get_job_result(job_id, offset, limit)
-            rows.extend(result["rows"])
 
-            offset = offset + limit
-            if offset >= result["rowCount"]:
+            # Handle cases where API response doesn't contain 'rows' key
+            # This can happen with OOM errors or when no rows are returned
+            if "rows" not in result:
+                logger.warning(
+                    f"API response for job {job_id} missing 'rows' key. "
+                    f"Response keys: {list(result.keys())}"
+                )
+                # Check for error conditions
+                if "errorMessage" in result:
+                    raise DremioAPIException(f"Query error: {result['errorMessage']}")
+                elif "message" in result:
+                    logger.warning(
+                        f"Query warning for job {job_id}: {result['message']}"
+                    )
+                # Return empty list if no rows key and no error
                 break
 
+            # Handle empty rows response
+            result_rows = result["rows"]
+            if not result_rows:
+                logger.debug(
+                    f"No more rows returned for job {job_id} at offset {offset}"
+                )
+                break
+
+            rows.extend(result_rows)
+
+            # Check actual returned rows to determine if we should continue
+            actual_rows_returned = len(result_rows)
+            if actual_rows_returned == 0:
+                logger.debug(f"Query returned no rows for job {job_id}")
+                break
+
+            offset = offset + actual_rows_returned
+            # If we got fewer rows than requested, we've reached the end
+            if actual_rows_returned < limit:
+                break
+
+        logger.info(f"Fetched {len(rows)} total rows for job {job_id}")
         return rows
+
+    def _fetch_results_iter(self, job_id: str) -> Iterator[Dict]:
+        """
+        Fetch job results in a streaming fashion to reduce memory usage.
+        Yields individual rows instead of collecting all in memory.
+        """
+        limit = 500
+        offset = 0
+        total_rows_fetched = 0
+
+        while True:
+            result = self.get_job_result(job_id, offset, limit)
+
+            # Handle cases where API response doesn't contain 'rows' key
+            if "rows" not in result:
+                logger.warning(
+                    f"API response for job {job_id} missing 'rows' key. "
+                    f"Response keys: {list(result.keys())}"
+                )
+                # Check for error conditions
+                if "errorMessage" in result:
+                    raise DremioAPIException(f"Query error: {result['errorMessage']}")
+                elif "message" in result:
+                    logger.warning(
+                        f"Query warning for job {job_id}: {result['message']}"
+                    )
+                # Stop iteration if no rows key and no error
+                break
+
+            # Handle empty rows response
+            result_rows = result["rows"]
+            if not result_rows:
+                logger.debug(
+                    f"No more rows returned for job {job_id} at offset {offset}"
+                )
+                break
+
+            # Yield individual rows instead of collecting them
+            for row in result_rows:
+                yield row
+                total_rows_fetched += 1
+
+            # Check actual returned rows to determine if we should continue
+            actual_rows_returned = len(result_rows)
+            if actual_rows_returned == 0:
+                logger.debug(f"Query returned no rows for job {job_id}")
+                break
+
+            offset = offset + actual_rows_returned
+            # If we got fewer rows than requested, we've reached the end
+            if actual_rows_returned < limit:
+                break
+
+        logger.info(f"Streamed {total_rows_fetched} total rows for job {job_id}")
+
+    def execute_query_iter(
+        self, query: str, timeout: int = 3600
+    ) -> Iterator[Dict[str, Any]]:
+        """Execute SQL query and return results as a streaming iterator"""
+        try:
+            with PerfTimer() as timer:
+                logger.info(f"Executing streaming query: {query}")
+                response = self.post(url="/sql", data=json.dumps({"sql": query}))
+
+                if "errorMessage" in response:
+                    self.report.failure(
+                        message="SQL Error", context=f"{response['errorMessage']}"
+                    )
+                    raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
+
+                job_id = response["id"]
+
+                # Wait for job completion
+                start_time = time()
+                while True:
+                    status = self.get_job_status(job_id)
+                    if status["jobState"] == "COMPLETED":
+                        break
+                    elif status["jobState"] == "FAILED":
+                        error_message = status.get("errorMessage", "Unknown error")
+                        raise RuntimeError(f"Query failed: {error_message}")
+                    elif status["jobState"] == "CANCELED":
+                        raise RuntimeError("Query was canceled")
+
+                    if time() - start_time > timeout:
+                        self.cancel_query(job_id)
+                        raise DremioAPIException(
+                            f"Query execution timed out after {timeout} seconds"
+                        )
+
+                    sleep(3)
+
+                logger.info(
+                    f"Query job completed in {timer.elapsed_seconds()} seconds, starting streaming"
+                )
+
+                # Return streaming iterator
+                return self._fetch_results_iter(job_id)
+
+        except requests.RequestException as e:
+            raise DremioAPIException("Error executing streaming query") from e
 
     def cancel_query(self, job_id: str) -> None:
         """Cancel a running query"""
@@ -461,7 +635,13 @@ class DremioAPIOperations:
         pattern_str = "|".join(f"({p})" for p in patterns)
         return f"AND {operator}({field}, '{pattern_str}')"
 
-    def get_all_tables_and_columns(self, containers: Deque) -> List[Dict]:
+    def get_all_tables_and_columns(
+        self, containers: Iterator["DremioContainer"]
+    ) -> Iterator[Dict]:
+        """
+        Memory-efficient streaming version that yields tables one at a time.
+        Reduces memory usage for large datasets by processing results as they come.
+        """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
         elif self.edition == DremioEdition.CLOUD:
@@ -478,21 +658,78 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        all_tables_and_columns = []
-
+        # Process each container's results separately to avoid memory buildup
         for schema in containers:
-            formatted_query = ""
             try:
                 formatted_query = query_template.format(
                     schema_pattern=schema_condition,
                     deny_schema_pattern=deny_schema_condition,
                     container_name=schema.container_name.lower(),
                 )
-                all_tables_and_columns.extend(
-                    self.execute_query(
-                        query=formatted_query,
+
+                # Use streaming query execution
+                container_results = list(self.execute_query_iter(query=formatted_query))
+
+                if self.edition == DremioEdition.COMMUNITY:
+                    # Process community edition results
+                    formatted_tables = self.community_get_formatted_tables(
+                        container_results
                     )
-                )
+                    for table in formatted_tables:
+                        yield table
+                else:
+                    # Process enterprise/cloud edition results
+                    column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
+                    table_metadata: Dict[str, Dict] = {}
+
+                    for record in container_results:
+                        if not record.get("COLUMN_NAME"):
+                            continue
+
+                        table_full_path = record.get("FULL_TABLE_PATH")
+                        if not table_full_path:
+                            continue
+
+                        # Store column information
+                        column_dictionary[table_full_path].append(
+                            {
+                                "name": record["COLUMN_NAME"],
+                                "ordinal_position": record["ORDINAL_POSITION"],
+                                "is_nullable": record["IS_NULLABLE"],
+                                "data_type": record["DATA_TYPE"],
+                                "column_size": record["COLUMN_SIZE"],
+                            }
+                        )
+
+                        # Store table metadata (only once per table)
+                        if table_full_path not in table_metadata:
+                            table_metadata[table_full_path] = {
+                                "TABLE_NAME": record.get("TABLE_NAME"),
+                                "TABLE_SCHEMA": record.get("TABLE_SCHEMA"),
+                                "VIEW_DEFINITION": record.get("VIEW_DEFINITION"),
+                                "RESOURCE_ID": record.get("RESOURCE_ID"),
+                                "LOCATION_ID": record.get("LOCATION_ID"),
+                                "OWNER": record.get("OWNER"),
+                                "OWNER_TYPE": record.get("OWNER_TYPE"),
+                                "CREATED": record.get("CREATED"),
+                                "FORMAT_TYPE": record.get("FORMAT_TYPE"),
+                            }
+
+                    # Yield tables one at a time
+                    for table_path, table_info in table_metadata.items():
+                        yield {
+                            "TABLE_NAME": table_info.get("TABLE_NAME"),
+                            "TABLE_SCHEMA": table_info.get("TABLE_SCHEMA"),
+                            "COLUMNS": column_dictionary[table_path],
+                            "VIEW_DEFINITION": table_info.get("VIEW_DEFINITION"),
+                            "RESOURCE_ID": table_info.get("RESOURCE_ID"),
+                            "LOCATION_ID": table_info.get("LOCATION_ID"),
+                            "OWNER": table_info.get("OWNER"),
+                            "OWNER_TYPE": table_info.get("OWNER_TYPE"),
+                            "CREATED": table_info.get("CREATED"),
+                            "FORMAT_TYPE": table_info.get("FORMAT_TYPE"),
+                        }
+
             except DremioAPIException as e:
                 self.report.warning(
                     message="Container has no tables or views",
@@ -500,73 +737,7 @@ class DremioAPIOperations:
                     exc=e,
                 )
 
-        tables = []
-
-        if self.edition == DremioEdition.COMMUNITY:
-            tables = self.community_get_formatted_tables(all_tables_and_columns)
-
-        else:
-            column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
-
-            for record in all_tables_and_columns:
-                if not record.get("COLUMN_NAME"):
-                    continue
-
-                table_full_path = record.get("FULL_TABLE_PATH")
-                if not table_full_path:
-                    continue
-
-                column_dictionary[table_full_path].append(
-                    {
-                        "name": record["COLUMN_NAME"],
-                        "ordinal_position": record["ORDINAL_POSITION"],
-                        "is_nullable": record["IS_NULLABLE"],
-                        "data_type": record["DATA_TYPE"],
-                        "column_size": record["COLUMN_SIZE"],
-                    }
-                )
-
-            distinct_tables_list = list(
-                {
-                    tuple(
-                        dictionary[key]
-                        for key in (
-                            "TABLE_SCHEMA",
-                            "TABLE_NAME",
-                            "FULL_TABLE_PATH",
-                            "VIEW_DEFINITION",
-                            "LOCATION_ID",
-                            "OWNER",
-                            "OWNER_TYPE",
-                            "CREATED",
-                            "FORMAT_TYPE",
-                        )
-                        if key in dictionary
-                    ): dictionary
-                    for dictionary in all_tables_and_columns
-                }.values()
-            )
-
-            for table in distinct_tables_list:
-                tables.append(
-                    {
-                        "TABLE_NAME": table.get("TABLE_NAME"),
-                        "TABLE_SCHEMA": table.get("TABLE_SCHEMA"),
-                        "COLUMNS": column_dictionary[table["FULL_TABLE_PATH"]],
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
-                        "RESOURCE_ID": table.get("RESOURCE_ID"),
-                        "LOCATION_ID": table.get("LOCATION_ID"),
-                        "OWNER": table.get("OWNER"),
-                        "OWNER_TYPE": table.get("OWNER_TYPE"),
-                        "CREATED": table.get("CREATED"),
-                        "FORMAT_TYPE": table.get("FORMAT_TYPE"),
-                    }
-                )
-
-        return tables
-
     def validate_schema_format(self, schema):
-
         if "." in schema:
             schema_path = self.get(
                 url=f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
@@ -602,39 +773,31 @@ class DremioAPIOperations:
 
         return parents_list
 
-    def extract_all_queries(self) -> List[Dict[str, Any]]:
+    def extract_all_queries(self) -> Iterator[Dict[str, Any]]:
+        """
+        Memory-efficient streaming version for extracting query results.
+        """
+        # Convert datetime objects to string format for SQL queries
+        start_timestamp_str = None
+        end_timestamp_str = None
+
+        if self.start_time:
+            start_timestamp_str = self.start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        if self.end_time:
+            end_timestamp_str = self.end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
         if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS_CLOUD
+            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
         else:
-            jobs_query = DremioSQLQueries.QUERY_ALL_JOBS
+            jobs_query = DremioSQLQueries.get_query_all_jobs(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
 
-        return self.execute_query(query=jobs_query)
-
-    def get_source_by_id(self, source_id: str) -> Optional[Dict]:
-        """
-        Fetch source details by ID.
-        """
-        response = self.get(
-            url=f"/source/{source_id}",
-        )
-        return response if response else None
-
-    def get_source_for_dataset(self, schema: str, dataset: str) -> Optional[Dict]:
-        """
-        Get source information for a dataset given its schema and name.
-        """
-        dataset_id = self.get_dataset_id(schema, dataset)
-        if not dataset_id:
-            return None
-
-        catalog_entry = self.get(
-            url=f"/catalog/{dataset_id}",
-        )
-        if not catalog_entry or "path" not in catalog_entry:
-            return None
-
-        source_id = catalog_entry["path"][0]
-        return self.get_source_by_id(source_id)
+        return self.execute_query_iter(query=jobs_query)
 
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
@@ -674,56 +837,103 @@ class DremioAPIOperations:
             )
         return None
 
-    def get_containers_for_location(
-        self, resource_id: str, path: List[str]
-    ) -> List[Dict[str, str]]:
-        containers = []
+    def _check_pattern_match(
+        self,
+        pattern: str,
+        paths: List[str],
+        allow_prefix: bool = True,
+    ) -> bool:
+        """
+        Helper method to check if a pattern matches any of the paths.
+        Handles hierarchical matching where each level is matched independently.
+        Also handles prefix matching for partial paths.
+        """
+        if pattern == ".*":
+            return True
 
-        def traverse_path(location_id: str, entity_path: List[str]) -> List:
-            nonlocal containers
-            try:
-                response = self.get(url=f"/catalog/{location_id}")
-                if (
-                    response.get("entityType")
-                    == DremioEntityContainerType.FOLDER.value.lower()
+        # Convert the pattern to regex with proper anchoring
+        regex_pattern = pattern
+        if pattern.startswith("^"):
+            # Already has start anchor
+            regex_pattern = pattern.replace(".", r"\.")  # Escape dots
+            regex_pattern = regex_pattern.replace(
+                r"\.*", ".*"
+            )  # Convert .* to wildcard
+        else:
+            # Add start anchor and handle dots
+            regex_pattern = "^" + pattern.replace(".", r"\.").replace(r"\.*", ".*")
+
+        # Handle end matching
+        if not pattern.endswith(".*"):
+            if pattern.endswith("$"):
+                # Keep explicit end anchor
+                pass
+            elif not allow_prefix:
+                # Add end anchor for exact matching
+                regex_pattern = regex_pattern + "$"
+
+        return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
+
+    def _could_match_pattern(self, pattern: str, path_components: List[str]) -> bool:
+        """
+        Check if a container path could potentially match a schema pattern.
+        This handles hierarchical path matching for container filtering.
+        """
+        if pattern == ".*":
+            return True
+
+        current_path = ".".join(path_components)
+
+        # Handle simple .* patterns (like "a.b.c.*")
+        if pattern.endswith(".*") and not any(c in pattern for c in "^$[](){}+?\\"):
+            # Simple dotstar pattern - check prefix matching
+            pattern_prefix = pattern[:-2]  # Remove ".*"
+            return current_path.lower().startswith(
+                pattern_prefix.lower()
+            ) or pattern_prefix.lower().startswith(current_path.lower())
+        else:
+            # Complex regex pattern - use existing regex matching logic
+            return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
+
+    def should_include_container(self, path: List[str], name: str) -> bool:
+        """
+        Helper method to check if a container should be included based on schema patterns.
+        Used by both get_all_containers and get_containers_for_location.
+        """
+        path_components = path + [name] if path else [name]
+        full_path = ".".join(path_components)
+
+        # Default allow everything case
+        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
+            self.report.report_container_scanned(full_path)
+            return True
+
+        # Check deny patterns first
+        if self.deny_schema_pattern:
+            for pattern in self.deny_schema_pattern:
+                if self._check_pattern_match(
+                    pattern=pattern,
+                    paths=[full_path],
+                    allow_prefix=False,
                 ):
+                    self.report.report_container_filtered(full_path)
+                    return False
 
-                    containers.append(
-                        {
-                            "id": location_id,
-                            "name": entity_path[-1],
-                            "path": entity_path[:-1],
-                            "container_type": DremioEntityContainerType.FOLDER,
-                        }
-                    )
+        # Check allow patterns
+        for pattern in self.allow_schema_pattern:
+            # Check if current path could potentially match this pattern
+            if self._could_match_pattern(pattern, path_components):
+                self.report.report_container_scanned(full_path)
+                return True
 
-                for container in response.get("children", []):
-                    if (
-                        container.get("type")
-                        == DremioEntityContainerType.CONTAINER.value
-                    ):
-                        traverse_path(container.get("id"), container.get("path"))
-
-            except Exception as exc:
-                logging.info(
-                    "Location {} contains no tables or views. Skipping...".format(id)
-                )
-                self.report.warning(
-                    message="Failed to get tables or views",
-                    context=f"{id}",
-                    exc=exc,
-                )
-
-            return containers
-
-        return traverse_path(location_id=resource_id, entity_path=path)
+        self.report.report_container_filtered(full_path)
+        return False
 
     def get_all_containers(self):
         """
-        Query the Dremio sources API and return source information.
+        Query the Dremio sources API and return filtered source information.
         """
         containers = []
-
         response = self.get(url="/catalog")
 
         def process_source(source):
@@ -733,34 +943,41 @@ class DremioAPIOperations:
                 )
 
                 source_config = source_resp.get("config", {})
-                if source_config.get("database"):
-                    db = source_config.get("database")
-                else:
-                    db = source_config.get("databaseName", "")
+                db = source_config.get(
+                    "database", source_config.get("databaseName", "")
+                )
 
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SOURCE,
-                    "source_type": source_resp.get("type"),
-                    "root_path": source_config.get("rootPath"),
-                    "database_name": db,
-                }
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SOURCE,
+                        "source_type": source_resp.get("type"),
+                        "root_path": source_config.get("rootPath"),
+                        "database_name": db,
+                    }
             else:
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SPACE,
-                }
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SPACE,
+                    }
+            return None
 
         def process_source_and_containers(source):
             container = process_source(source)
+            if not container:
+                return []
+
+            # Get sub-containers
             sub_containers = self.get_containers_for_location(
                 resource_id=container.get("id"),
                 path=[container.get("name")],
             )
+
             return [container] + sub_containers
 
         # Use ThreadPoolExecutor to parallelize the processing of sources
@@ -773,6 +990,78 @@ class DremioAPIOperations:
             }
 
             for future in concurrent.futures.as_completed(future_to_source):
-                containers.extend(future.result())
+                source = future_to_source[future]
+                try:
+                    containers.extend(future.result())
+                except Exception as exc:
+                    logger.error(f"Error processing source: {exc}")
+                    self.report.warning(
+                        message="Failed to process source",
+                        context=f"{source}",
+                        exc=exc,
+                    )
 
         return containers
+
+    def get_context_for_vds(self, resource_id: str) -> str:
+        context_array = self.get(
+            url=f"/catalog/{resource_id}",
+        ).get("sqlContext")
+        if context_array:
+            return ".".join(
+                f'"{part}"' if "." in part else f"{part}" for part in context_array
+            )
+        else:
+            return ""
+
+    def get_containers_for_location(
+        self, resource_id: str, path: List[str]
+    ) -> List[Dict[str, str]]:
+        containers = []
+
+        def traverse_path(location_id: str, entity_path: List[str]) -> List:
+            nonlocal containers
+            try:
+                response = self.get(url=f"/catalog/{location_id}")
+
+                # Check if current folder should be included
+                if (
+                    response.get("entityType")
+                    == DremioEntityContainerType.FOLDER.value.lower()
+                ):
+                    folder_name = entity_path[-1]
+                    folder_path = entity_path[:-1]
+
+                    if self.should_include_container(folder_path, folder_name):
+                        containers.append(
+                            {
+                                "id": location_id,
+                                "name": folder_name,
+                                "path": folder_path,
+                                "container_type": DremioEntityContainerType.FOLDER,
+                            }
+                        )
+
+                # Recursively process child containers
+                for container in response.get("children", []):
+                    if (
+                        container.get("type")
+                        == DremioEntityContainerType.CONTAINER.value
+                    ):
+                        traverse_path(container.get("id"), container.get("path"))
+
+            except Exception as exc:
+                logging.info(
+                    "Location {} contains no tables or views. Skipping...".format(
+                        location_id
+                    )
+                )
+                self.report.warning(
+                    message="Failed to get tables or views",
+                    context=f"{location_id}",
+                    exc=exc,
+                )
+
+            return containers
+
+        return traverse_path(location_id=resource_id, entity_path=path)

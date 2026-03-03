@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import oktaLogo from '../../../../../images/oktalogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import oktaLogo from '@images/oktalogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -29,13 +30,15 @@ source:
         # Optional: Include deprovisioned or suspended Okta users in the ingestion.
         # include_deprovisioned_users = False
         # include_suspended_users = False
+        stateful_ingestion:
+            enabled: true
 `;
 
 const oktaConfig: SourceConfig = {
     type: 'okta',
     placeholderRecipe,
     displayName: 'Okta',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/okta',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/okta',
     logoUrl: oktaLogo,
 };
 

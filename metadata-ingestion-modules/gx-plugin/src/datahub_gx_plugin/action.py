@@ -3,16 +3,47 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from datetime import timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 import packaging.version
+from great_expectations.checkpoint.actions import ValidationAction
+from great_expectations.core.batch import Batch
+from great_expectations.core.batch_spec import (
+    RuntimeDataBatchSpec,
+    RuntimeQueryBatchSpec,
+    SqlAlchemyDatasourceBatchSpec,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.data_asset.data_asset import DataAsset
+from great_expectations.data_context import AbstractDataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine import (
+    PandasExecutionEngine,
+    SparkDFExecutionEngine,
+)
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+from sqlalchemy.engine.base import Connection, Engine
+from sqlalchemy.engine.url import make_url
+
+import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -33,32 +64,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-from datahub.utilities.sql_parser import DefaultSQLParser
-from great_expectations.checkpoint.actions import ValidationAction
-from great_expectations.core.batch import Batch
-from great_expectations.core.batch_spec import (
-    RuntimeDataBatchSpec,
-    RuntimeQueryBatchSpec,
-    SqlAlchemyDatasourceBatchSpec,
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
 )
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-)
-from great_expectations.data_asset.data_asset import DataAsset
-from great_expectations.data_context import AbstractDataContext
-from great_expectations.data_context.types.resource_identifiers import (
-    ExpectationSuiteIdentifier,
-    ValidationResultIdentifier,
-)
-from great_expectations.execution_engine import PandasExecutionEngine
-from great_expectations.execution_engine.sqlalchemy_execution_engine import (
-    SqlAlchemyExecutionEngine,
-)
-from great_expectations.validator.validator import Validator
-from sqlalchemy.engine.base import Connection, Engine
-from sqlalchemy.engine.url import make_url
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 # TODO: move this and version check used in tests to some common module
 try:
@@ -66,7 +81,7 @@ try:
 
     has_name_positional_arg = packaging.version.parse(
         GX_VERSION
-    ) >= packaging.version.Version("0.18.0")
+    ) >= packaging.version.Version("0.18.14")
 except Exception:
     has_name_positional_arg = False
 
@@ -89,7 +104,7 @@ class DataHubValidationAction(ValidationAction):
     def __init__(
         self,
         data_context: AbstractDataContext,
-        # this would capture `name` positional arg added in GX 0.18.0
+        # this would capture `name` positional arg added in GX 0.18.14
         *args: Union[str, Any],
         server_url: str,
         env: str = builder.DEFAULT_ENV,
@@ -106,7 +121,6 @@ class DataHubValidationAction(ValidationAction):
         convert_urns_to_lowercase: bool = False,
         name: str = "DataHubValidationAction",
     ):
-
         if has_name_positional_arg:
             if len(args) >= 1 and isinstance(args[0], str):
                 name = args[0]
@@ -148,6 +162,8 @@ class DataHubValidationAction(ValidationAction):
                 retry_status_codes=self.retry_status_codes,
                 retry_max_times=self.retry_max_times,
                 extra_headers=self.extra_headers,
+                client_mode=ClientMode.INGESTION,
+                datahub_component="gx-plugin",
             )
 
             expectation_suite_name = validation_result_suite.meta.get(
@@ -162,9 +178,7 @@ class DataHubValidationAction(ValidationAction):
             if isinstance(
                 validation_result_suite_identifier, ValidationResultIdentifier
             ):
-                expectation_suite_name = (
-                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
-                )
+                expectation_suite_name = validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
                 run_id = validation_result_suite_identifier.run_id
                 batch_identifier = validation_result_suite_identifier.batch_identifier
 
@@ -187,15 +201,16 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Sending metadata to datahub ...")
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
+            graph = emitter.to_graph()
+
             for assertion in assertions:
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
 
                 # Construct a MetadataChangeProposalWrapper object.
-                assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=assertion["assertionUrn"],
-                    aspect=assertion["assertionInfo"],
+                assertion_info_mcp = self._build_assertion_info_mcp(
+                    graph, assertion["assertionUrn"], assertion["assertionInfo"]
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
@@ -225,6 +240,75 @@ class DataHubValidationAction(ValidationAction):
                 raise
 
         return {"datahub_notification_result": result}
+
+    def _build_assertion_info_mcp(
+        self,
+        graph: DataHubGraph,
+        assertion_urn: str,
+        assertion_info: AssertionInfo,
+    ) -> Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]:
+        try:
+            existing_info = graph.get_aspect(assertion_urn, AssertionInfo)
+        except Exception:
+            logger.warning(
+                "Failed to check existing assertionInfo. Falling back to upsert.",
+                exc_info=True,
+            )
+            existing_info = None
+
+        if existing_info is None:
+            return MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn,
+                aspect=assertion_info,
+            )
+
+        return self._build_assertion_info_patch(assertion_urn, assertion_info)
+
+    def _build_assertion_info_patch(
+        self,
+        assertion_urn: str,
+        assertion_info: AssertionInfo,
+    ) -> MetadataChangeProposalClass:
+        assertion_info_obj = assertion_info.to_obj()
+        patch_ops = []
+
+        if "type" in assertion_info_obj:
+            patch_ops.append(
+                {"op": "add", "path": "/type", "value": assertion_info_obj["type"]}
+            )
+        if "datasetAssertion" in assertion_info_obj:
+            patch_ops.append(
+                {
+                    "op": "add",
+                    "path": "/datasetAssertion",
+                    "value": assertion_info_obj["datasetAssertion"],
+                }
+            )
+        custom_properties = assertion_info_obj.get("customProperties") or {}
+        expectation_suite_name = custom_properties.get("expectation_suite_name")
+        if expectation_suite_name is not None:
+            patch_ops.append(
+                {
+                    "op": "add",
+                    "path": "/customProperties/expectation_suite_name",
+                    "value": expectation_suite_name,
+                }
+            )
+
+        aspect_payload = {
+            "patch": pre_json_transform(patch_ops),
+            "forceGenericPatch": True,
+        }
+        return MetadataChangeProposalClass(
+            entityUrn=assertion_urn,
+            entityType=guess_entity_type(assertion_urn),
+            changeType=ChangeTypeClass.PATCH,
+            aspectName="assertionInfo",
+            aspect=GenericAspectClass(
+                value=json.dumps(pre_json_transform(aspect_payload)).encode(),
+                contentType=JSON_PATCH_CONTENT_TYPE,
+            ),
+        )
 
     def get_assertions_with_results(
         self,
@@ -584,16 +668,67 @@ class DataHubValidationAction(ValidationAction):
         )
 
     def get_dataset_partitions(self, batch_identifier, data_asset):
-        dataset_partitions = []
+        dataset_partitions: List[
+            Dict[str, Union[PartitionSpecClass, BatchSpec, str, None]]
+        ] = []
 
         logger.debug("Finding datasets being validated")
 
-        # for now, we support only v3-api and sqlalchemy execution engine and Pandas engine
+        # for now, we support only v3-api and sqlalchemy execution engine,Pandas engine and Spark engine
         is_sql_alchemy = isinstance(data_asset, Validator) and (
             isinstance(data_asset.execution_engine, SqlAlchemyExecutionEngine)
         )
         is_pandas = isinstance(data_asset.execution_engine, PandasExecutionEngine)
-        if is_sql_alchemy or is_pandas:
+
+        is_spark = isinstance(data_asset.execution_engine, SparkDFExecutionEngine)
+
+        if is_spark:
+            ge_batch_spec = data_asset.active_batch_spec
+            partitionSpec = None
+            batchSpecProperties = {
+                "data_asset_name": str(
+                    data_asset.active_batch_definition.data_asset_name
+                ),
+                "datasource_name": str(
+                    data_asset.active_batch_definition.datasource_name
+                ),
+            }
+
+            if isinstance(ge_batch_spec, RuntimeDataBatchSpec):
+                data_platform = self.get_platform_instance_spark(
+                    data_asset.active_batch_definition.datasource_name
+                )
+
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=(
+                        data_platform
+                        if self.platform_alias is None
+                        else self.platform_alias
+                    ),
+                    name=data_asset.active_batch_definition.data_asset_name,
+                    platform_instance="",
+                    env=self.env,
+                )
+
+                batchSpec = BatchSpec(
+                    nativeBatchId=batch_identifier,
+                    query="",
+                    customProperties=batchSpecProperties,
+                )
+                dataset_partitions.append(
+                    {
+                        "dataset_urn": dataset_urn,
+                        "partitionSpec": partitionSpec,
+                        "batchSpec": batchSpec,
+                    }
+                )
+            else:
+                warn(
+                    "DataHubValidationAction does not recognize this GE batch spec type for SparkDFExecutionEngine- {batch_spec_type}. No action will be taken.".format(
+                        batch_spec_type=type(ge_batch_spec)
+                    )
+                )
+        elif is_sql_alchemy or is_pandas:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
             batchSpecProperties = {
@@ -605,6 +740,7 @@ class DataHubValidationAction(ValidationAction):
                 ),
             }
             sqlalchemy_uri = None
+
             if is_sql_alchemy and isinstance(
                 data_asset.execution_engine.engine, Engine
             ):
@@ -625,7 +761,7 @@ class DataHubValidationAction(ValidationAction):
                     schema_name,
                     table_name,
                     self.env,
-                    self.get_platform_instance(
+                    self.get_platform_instance_sqlalchemy(
                         data_asset.active_batch_definition.datasource_name
                     ),
                     self.exclude_dbname,
@@ -677,10 +813,23 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                try:
-                    tables = DefaultSQLParser(query).get_tables()
-                except Exception as e:
-                    logger.warning(f"Sql parser failed on {query} with {e}")
+
+                data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=data_platform,
+                    env=self.env,
+                    platform_instance=None,
+                    default_db=None,
+                )
+                tables = [
+                    DatasetUrn.from_string(table_urn).name
+                    for table_urn in sql_parser_in_tables.in_tables
+                ]
+                if sql_parser_in_tables.debug_info.table_error:
+                    logger.warning(
+                        f"Sql parser failed on {query} with {sql_parser_in_tables.debug_info.table_error}"
+                    )
                     tables = []
 
                 if len(set(tables)) != 1:
@@ -694,7 +843,7 @@ class DataHubValidationAction(ValidationAction):
                         None,
                         table,
                         self.env,
-                        self.get_platform_instance(
+                        self.get_platform_instance_sqlalchemy(
                             data_asset.active_batch_definition.datasource_name
                         ),
                         self.exclude_dbname,
@@ -709,7 +858,7 @@ class DataHubValidationAction(ValidationAction):
                         }
                     )
             elif isinstance(ge_batch_spec, RuntimeDataBatchSpec):
-                data_platform = self.get_platform_instance(
+                data_platform = self.get_platform_instance_sqlalchemy(
                     data_asset.active_batch_definition.datasource_name
                 )
                 dataset_urn = builder.make_dataset_urn_with_platform_instance(
@@ -743,14 +892,14 @@ class DataHubValidationAction(ValidationAction):
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy.".format(
+                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}.".format(
                     asset_type=type(data_asset)
                 )
             )
 
         return dataset_partitions
 
-    def get_platform_instance(self, datasource_name):
+    def get_platform_instance_sqlalchemy(self, datasource_name):
         if self.platform_instance_map and datasource_name in self.platform_instance_map:
             return self.platform_instance_map[datasource_name]
         else:
@@ -758,6 +907,16 @@ class DataHubValidationAction(ValidationAction):
                 f"Datasource {datasource_name} is not present in platform_instance_map"
             )
         return None
+
+    def get_platform_instance_spark(self, datasource_name):
+        if self.platform_instance_map and datasource_name in self.platform_instance_map:
+            return self.platform_instance_map[datasource_name]
+        else:
+            warn(
+                f"Datasource {datasource_name} is not present in platform_instance_map. \
+                        Data platform will be {datasource_name} by default "
+            )
+            return datasource_name
 
 
 def parse_int_or_default(value, default_value=None):

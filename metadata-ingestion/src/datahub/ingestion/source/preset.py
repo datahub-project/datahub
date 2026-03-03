@@ -2,9 +2,10 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from pydantic.class_validators import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -16,10 +17,13 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
+from datahub.ingestion.source.superset import (
+    SupersetConfig,
+    SupersetSource,
+    SupersetSourceReport,
+)
 from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
@@ -34,8 +38,12 @@ class PresetConfig(SupersetConfig):
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
-    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
-    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None, description="Preset.io API key."
+    )
+    api_secret: Optional[TransparentSecretStr] = Field(
+        default=None, description="Preset.io API secret."
+    )
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -52,23 +60,23 @@ class PresetConfig(SupersetConfig):
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    @validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "PresetConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 @platform_name("Preset")
 @config_class(PresetConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class PresetSource(SupersetSource):
     """
@@ -76,7 +84,7 @@ class PresetSource(SupersetSource):
     """
 
     config: PresetConfig
-    report: StaleEntityRemovalSourceReport
+    report: SupersetSourceReport
     platform = "preset"
 
     def __init__(self, ctx: PipelineContext, config: PresetConfig):
@@ -84,13 +92,21 @@ class PresetSource(SupersetSource):
 
         super().__init__(ctx, config)
         self.config = config
-        self.report = StaleEntityRemovalSourceReport()
+        self.report = SupersetSourceReport()
+        self.platform = "preset"
 
     def login(self):
         try:
             login_response = requests.post(
                 f"{self.config.manager_uri}/v1/auth/",
-                json={"name": self.config.api_key, "secret": self.config.api_secret},
+                json={
+                    "name": self.config.api_key.get_secret_value()
+                    if self.config.api_key
+                    else None,
+                    "secret": self.config.api_secret.get_secret_value()
+                    if self.config.api_secret
+                    else None,
+                },
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to authenticate with Preset: {e}")

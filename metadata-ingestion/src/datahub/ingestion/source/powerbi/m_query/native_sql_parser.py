@@ -72,10 +72,30 @@ def get_tables(native_query: str) -> List[str]:
 def remove_drop_statement(query: str) -> str:
     # Certain PowerBI M-Queries contain a combination of DROP and SELECT statements within SQL, causing SQLParser to fail on these queries.
     # Therefore, these occurrences are being removed.
-    # Regular expression to match patterns like "DROP TABLE IF EXISTS #<identifier>;"
-    pattern = r"DROP TABLE IF EXISTS #\w+;?"
 
-    return re.sub(pattern, "", query)
+    patterns = [
+        # Regular expression to match patterns like:
+        #   "DROP TABLE IF EXISTS #<identifier>;"
+        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...;"
+        #   "DROP TABLE IF EXISTS #<identifier>, <identifier2>, ...\n"
+        r"DROP\s+TABLE\s+IF\s+EXISTS\s+(?:#?\w+(?:,\s*#?\w+)*)[;\n]",
+    ]
+
+    new_query = query
+
+    for pattern in patterns:
+        new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE)
+
+    # Only normalize multiple consecutive spaces (but preserve newlines and tabs)
+    # This fixes spacing issues caused by DROP statement removal without
+    # collapsing the entire query into a single line
+    new_query = re.sub(r"[ \t]+", " ", new_query)
+    # Remove spaces at the start of lines (left by DROP statement removal)
+    new_query = re.sub(r"\n[ \t]+", "\n", new_query)
+    # Remove trailing spaces
+    new_query = new_query.strip()
+
+    return new_query
 
 
 def parse_custom_sql(
@@ -87,7 +107,6 @@ def parse_custom_sql(
     env: str,
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
-
     logger.debug("Using sqlglot_lineage to parse custom sql")
 
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")

@@ -1,6 +1,6 @@
-import { Dashboard, DashboardUpdateInput } from '../../types.generated';
-import { findDashboardByURN } from '../fixtures/searchResult/dashboardSearchResult';
-import { updateEntityOwners, updateEntityTag } from '../mutationHelper';
+import { findDashboardByURN } from '@graphql-mock/fixtures/searchResult/dashboardSearchResult';
+import { updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
+import { Dashboard, DashboardUpdateInput } from '@types';
 
 type UpdateDashboard = {
     data: { updateDashboard: Dashboard };

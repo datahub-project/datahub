@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../EntityContext';
-import { ANTD_GRAY } from '../../../constants';
-import DescriptionSection from '../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import { getPlatformName } from '../../../utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import DescriptionSection from '@app/entity/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import { getPlatformName } from '@app/entity/shared/utils';
 
 const SourceDescriptionWrapper = styled.div`
     border-top: 1px solid ${ANTD_GRAY[4]};

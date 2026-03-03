@@ -1,4 +1,4 @@
-query getMLFeature($urn: String!) {
+query getMLFeature($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlFeature(urn: $urn) {
         urn
         type
@@ -17,8 +17,6 @@ query getMLFeature($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
+        ...notes
     }
 }

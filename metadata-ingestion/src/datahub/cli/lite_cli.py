@@ -40,13 +40,13 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().dict()
+        type="duckdb", config=DuckDBLiteConfigWrapper().model_dump()
     )
 
 
 def get_lite_config() -> LiteLocalConfig:
     client_config_dict = get_raw_client_config()
-    lite_config = LiteCliConfig.parse_obj(client_config_dict)
+    lite_config = LiteCliConfig.model_validate(client_config_dict)
     return lite_config.lite
 
 
@@ -55,7 +55,9 @@ def _get_datahub_lite(read_only: bool = False) -> DataHubLiteLocal:
     if lite_config.type == "duckdb":
         lite_config.config["read_only"] = read_only
 
-    duckdb_lite = get_datahub_lite(config_dict=lite_config.dict(), read_only=read_only)
+    duckdb_lite = get_datahub_lite(
+        config_dict=lite_config.model_dump(), read_only=read_only
+    )
     return duckdb_lite
 
 
@@ -176,7 +178,7 @@ def get(
             )
         )
     end_time = time.time()
-    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+    logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
 
 
 @lite.command()
@@ -228,7 +230,7 @@ def ls(path: Optional[str]) -> None:
     try:
         browseables = lite.ls(path)
         end_time = time.time()
-        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+        logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]
@@ -285,10 +287,12 @@ def search(
     ctx: click.Context,
     query: str = "",
     flavor: str = SearchFlavor.FREE_TEXT.name.lower(),
-    aspect: List[str] = [],
+    aspect: Optional[List[str]] = None,
     details: bool = True,
 ) -> None:
     """Search with a free text or exact query string"""
+    if aspect is None:
+        aspect = []
 
     # query flavor should be sanitized by now, but we still need to convert it to a SearchFlavor
     try:
@@ -296,7 +300,7 @@ def search(
     except KeyError:
         raise click.UsageError(
             f"Failed to find a matching query flavor for {flavor}. Valid values are {[x.lower() for x in SearchFlavor._member_names_]}"
-        )
+        ) from None
     catalog = _get_datahub_lite(read_only=True)
     # sanitize query
     result_ids = set()
@@ -306,7 +310,7 @@ def search(
         ):
             result_str = searchable.id
             if details:
-                result_str = json.dumps(searchable.dict())
+                result_str = json.dumps(searchable.model_dump())
             # suppress id if we have already seen it in the non-detailed response
             if details or searchable.id not in result_ids:
                 click.secho(result_str)
@@ -319,7 +323,7 @@ def search(
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
     cli_config = get_raw_client_config()
     assert isinstance(cli_config, dict)
-    cli_config["lite"] = lite_config.dict()
+    cli_config["lite"] = lite_config.model_dump()
     persist_raw_datahub_config(cli_config)
 
 
@@ -330,12 +334,12 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     lite_config = get_lite_config()
-    new_lite_config_dict = lite_config.dict()
+    new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
     new_lite_config_dict["type"] = type
     if file:
         new_lite_config_dict["config"]["file"] = file
-    new_lite_config = LiteLocalConfig.parse_obj(new_lite_config_dict)
+    new_lite_config = LiteLocalConfig.model_validate(new_lite_config_dict)
     if lite_config != new_lite_config:
         if click.confirm(
             f"Will replace datahub lite config {lite_config} with {new_lite_config}"

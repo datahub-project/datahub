@@ -7,7 +7,6 @@ In this guide, we will outline each step to developing a Action for the DataHub 
 Developing a DataHub Action is a matter of extending the `Action` base class in Python, installing your
 Action to make it visible to the framework, and then configuring the framework to use the new Action.
 
-
 ## Step 1: Defining an Action
 
 To implement an Action, we'll need to extend the `Action` base class and override the following functions:
@@ -16,7 +15,7 @@ To implement an Action, we'll need to extend the `Action` base class and overrid
   extracted from the Actions configuration file as input.
 - `act()` - This function is invoked when an Action is received. It should contain the core logic of the Action.
 - `close()` - This function is invoked when the framework has issued a shutdown of the pipeline. It should be used
-  to cleanup any processes happening inside the Action. 
+  to cleanup any processes happening inside the Action.
 
 Let's start by defining a new implementation of Action called `CustomAction`. We'll keep it simple-- this Action will
 print the configuration that is provided when it is created, and print any Events that it receives.
@@ -39,20 +38,19 @@ class CustomAction(Action):
 
     def act(self, event: EventEnvelope) -> None:
         # Do something super important.
-        # For now, just print. :) 
+        # For now, just print. :)
         print(event)
 
     def close(self) -> None:
         pass
 ```
 
-
 ## Step 2: Installing the Action
 
-Now that we've defined the Action, we need to make it visible to the framework by making it 
-available in the Python runtime environment. 
+Now that we've defined the Action, we need to make it visible to the framework by making it
+available in the Python runtime environment.
 
-The easiest way to do this is to just place it in the same directory as your configuration file, in which case the module name is the same as the file 
+The easiest way to do this is to just place it in the same directory as your configuration file, in which case the module name is the same as the file
 name - in this case it will be `custom_action`.
 
 ### Advanced: Installing as a Package
@@ -77,17 +75,16 @@ Next, install the package
 pip install -e .
 ```
 
-inside the module. (alt.`python setup.py`). 
+inside the module. (alt.`python setup.py`).
 
 Once we have done this, our class will be referencable via `custom_action_example.custom_action:CustomAction`.
-
 
 ## Step 3: Running the Action
 
 Now that we've defined our Action, we can create an Action configuration file that refers to the new Action.
 We will need to provide the fully-qualified Python module & class name when doing so.
 
-*Example Configuration*
+_Example Configuration_
 
 ```yaml
 # custom_action.yaml
@@ -113,11 +110,10 @@ datahub actions -c custom_action.yaml
 
 If all is well, your Action should now be receiving & printing Events.
 
-
 ## (Optional) Step 4: Contributing the Action
 
 If your Action is generally applicable, you can raise a PR to include it in the core Action library
-provided by DataHub. All Actions will live under the `datahub_actions/plugin/action` directory inside the 
+provided by DataHub. All Actions will live under the `datahub_actions/plugin/action` directory inside the
 [datahub-actions](https://github.com/acryldata/datahub-actions) repository.
 
 Once you've added your new Action there, make sure that you make it discoverable by updating the `entry_points` section

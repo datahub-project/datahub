@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -58,7 +59,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.junit.Assert;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.AnalyzeRequest;
 import org.opensearch.client.indices.AnalyzeResponse;
 import org.opensearch.client.indices.GetMappingsRequest;
@@ -68,6 +68,7 @@ import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -81,13 +82,51 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   protected abstract EntityClient getEntityClient();
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract OperationContext getOperationContext();
 
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
+  @BeforeClass
+  public void verifyDataAvailability() {
+    // Wait for sample data to be available before running tests
+    // This verifies that the basic search functionality works and returns expected counts
+    Map<String, Integer> expectedTypes =
+        Map.of(
+            "dataset", 13,
+            "chart", 0,
+            "container", 2,
+            "dashboard", 0,
+            "tag", 0,
+            "mlmodel", 0);
+
+    waitForDataAvailability(
+        () -> {
+          SearchResult testResult =
+              searchAcrossEntities(getOperationContext(), getSearchService(), "test");
+
+          // Check if we get the expected entity counts
+          for (Map.Entry<String, Integer> entry : expectedTypes.entrySet()) {
+            long actualCount =
+                testResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .filter(entity -> entry.getKey().equals(entity.getEntityType()))
+                    .count();
+
+            if (actualCount != entry.getValue()) {
+              return false;
+            }
+          }
+          return true;
+        },
+        120,
+        String.format(
+            "Sample data not available after 120 seconds. Expected entity counts: %s",
+            expectedTypes));
+  }
 
   @Test
   public void testSearchFieldConfig() throws IOException {
@@ -123,8 +162,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       EntitySpec entitySpec = entry.getKey();
       GetMappingsRequest req = new GetMappingsRequest().indices(entry.getValue());
 
-      GetMappingsResponse resp =
-          getSearchClient().indices().getMapping(req, RequestOptions.DEFAULT);
+      GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
       Map<String, Map<String, Object>> mappings =
           (Map<String, Map<String, Object>>)
               resp.mappings().get(entry.getValue()).sourceAsMap().get("properties");
@@ -261,7 +299,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testDatasetHasTags() throws IOException {
     GetMappingsRequest req = new GetMappingsRequest().indices("smpldat_datasetindex_v2");
-    GetMappingsResponse resp = getSearchClient().indices().getMapping(req, RequestOptions.DEFAULT);
+    GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
     Map<String, Map<String, String>> mappings =
         (Map<String, Map<String, String>>)
             resp.mappings().get("smpldat_datasetindex_v2").sourceAsMap().get("properties");
@@ -1079,7 +1117,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testFacets() {
+  public void testSearchFacets() {
     Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
     SearchResult testResult =
         searchAcrossEntities(getOperationContext(), getSearchService(), "cypress");
@@ -1122,11 +1160,55 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testScrollFacets() {
+    Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
+    ScrollResult testResult =
+        scrollAcrossEntities(getOperationContext(), getSearchService(), "cypress");
+    expectedFacets.forEach(
+        facet -> {
+          assertTrue(
+              testResult.getMetadata().getAggregations().stream()
+                  .anyMatch(agg -> agg.getName().equals(facet)),
+              String.format(
+                  "Failed to find facet `%s` in %s",
+                  facet,
+                  testResult.getMetadata().getAggregations().stream()
+                      .map(AggregationMetadata::getName)
+                      .collect(Collectors.toList())));
+        });
+    AggregationMetadata entityAggMeta =
+        testResult.getMetadata().getAggregations().stream()
+            .filter(aggMeta -> aggMeta.getName().equals("entity"))
+            .findFirst()
+            .get();
+    Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+    expectedEntityTypeCounts.put("container", 0L);
+    expectedEntityTypeCounts.put("corpuser", 0L);
+    expectedEntityTypeCounts.put("corpgroup", 0L);
+    expectedEntityTypeCounts.put("mlmodel", 0L);
+    expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+    expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+    expectedEntityTypeCounts.put("dataflow", 1L);
+    expectedEntityTypeCounts.put("glossarynode", 1L);
+    expectedEntityTypeCounts.put("mlfeature", 0L);
+    expectedEntityTypeCounts.put("datajob", 2L);
+    expectedEntityTypeCounts.put("domain", 0L);
+    expectedEntityTypeCounts.put("tag", 0L);
+    expectedEntityTypeCounts.put("glossaryterm", 2L);
+    expectedEntityTypeCounts.put("mlprimarykey", 1L);
+    expectedEntityTypeCounts.put("dataset", 9L);
+    expectedEntityTypeCounts.put("chart", 0L);
+    expectedEntityTypeCounts.put("dashboard", 0L);
+    assertEquals(entityAggMeta.getAggregations(), expectedEntityTypeCounts);
+  }
+
+  @Test
   public void testNestedAggregation() {
     Set<String> expectedFacets = Set.of("platform");
+    OperationContext context =
+        getOperationContext().withSearchFlags(flags -> flags.setIncludeDefaultFacets(false));
     SearchResult testResult =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult.getMetadata().getAggregations().size(), 1);
     expectedFacets.forEach(
         facet -> {
@@ -1143,8 +1225,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
     SearchResult testResult2 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1191,8 +1272,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", "typeNames", "entity");
     SearchResult testResult3 =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResult3.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1222,8 +1302,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
     expectedFacets = Set.of(singleNestedFacet);
     SearchResult testResultSingleNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
     Map<String, Long> expectedNestedFacetCounts = new HashMap<>();
     expectedNestedFacetCounts.put("datajob␞urn:li:corpuser:datahub", 2L);
@@ -1245,8 +1324,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
     expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
     SearchResult testResultNested =
-        facetAcrossEntities(
-            getOperationContext(), getSearchService(), "cypress", List.copyOf(expectedFacets));
+        facetAcrossEntities(context, getSearchService(), "cypress", List.copyOf(expectedFacets));
     assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
     expectedFacets.forEach(
         facet -> {
@@ -1367,8 +1445,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
-    // expect 2 total matching results
-    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
+    // expect 8 total matching results
+    assertEquals(totalResults, 8, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
@@ -1745,7 +1823,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -1776,7 +1854,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -2029,7 +2107,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testSortOrdering() {
+  public void testSearchSortOrdering() {
     String query = "unit_data";
     SortCriterion criterion =
         new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
@@ -2045,6 +2123,28 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 0,
                 100,
                 null);
+    assertTrue(
+        result.getEntities().size() > 2,
+        String.format("%s - Expected search results to have at least two results", query));
+  }
+
+  @Test
+  public void testScrollSortOrdering() {
+    String query = "unit_data";
+    SortCriterion criterion =
+        new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
+    ScrollResult result =
+        getSearchService()
+            .scrollAcrossEntities(
+                getOperationContext()
+                    .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+                SEARCHABLE_ENTITIES,
+                query,
+                null,
+                Collections.singletonList(criterion),
+                null,
+                null,
+                100);
     assertTrue(
         result.getEntities().size() > 2,
         String.format("%s - Expected search results to have at least two results", query));
@@ -2124,10 +2224,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)
       throws IOException {
-    return getSearchClient()
-        .indices()
-        .analyze(request, RequestOptions.DEFAULT)
-        .getTokens()
-        .stream();
+    return getSearchClient().analyzeIndex(request, RequestOptions.DEFAULT).getTokens().stream();
   }
 }

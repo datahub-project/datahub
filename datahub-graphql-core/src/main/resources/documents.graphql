@@ -1,0 +1,816 @@
+extend type Mutation {
+  """
+  Create a new Document. Returns the urn of the newly created document.
+  Requires the CREATE_ENTITY privilege for documents or MANAGE_DOCUMENTS platform privilege.
+  """
+  createDocument(input: CreateDocumentInput!): String!
+
+  """
+  Update the title or text of an existing Document.
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentContents(input: UpdateDocumentContentsInput!): Boolean!
+
+  """
+  Update the related entities (assets and documents) for a Document.
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentRelatedEntities(
+    input: UpdateDocumentRelatedEntitiesInput!
+  ): Boolean!
+
+  """
+  Move a Document to a different parent (or to root level if no parent is specified).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  moveDocument(input: MoveDocumentInput!): Boolean!
+
+  """
+  Delete a Document.
+  Requires the GET_ENTITY privilege for the document or MANAGE_DOCUMENTS platform privilege.
+  """
+  deleteDocument(urn: String!): Boolean!
+
+  """
+  Update the status of a Document (published/unpublished).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentStatus(input: UpdateDocumentStatusInput!): Boolean!
+
+  """
+  Update the sub-type of a Document (e.g., "FAQ", "Tutorial", "Runbook").
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentSubType(input: UpdateDocumentSubTypeInput!): Boolean!
+
+  """
+  Update the settings of a Document (e.g., visibility in sidebar).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
+}
+
+extend type Query {
+  """
+  Get a Document by URN.
+  Requires the GET_ENTITY privilege for the document or MANAGE_DOCUMENTS platform privilege.
+  """
+  document(urn: String!): Document
+
+  """
+  Search Documents with hybrid semantic search and filtering support.
+  Supports filtering by parent document, types, domains, and query.
+
+  Results are automatically filtered based on document status:
+  - PUBLISHED documents are shown to all users
+  - UNPUBLISHED documents are only shown if owned by the current calling user or a group they belong to
+
+  This ensures that unpublished documents remain private to their owners while published
+  documents are discoverable by everyone.
+
+  Additionally, this API does NOT return documents that have should not be shown in "global" context via
+  their document settings.
+  """
+  searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
+}
+
+"""
+A Document entity in DataHub
+"""
+type Document implements Entity {
+  """
+  The primary key of the Document
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Information about the Document
+  """
+  info: DocumentInfo
+
+  """
+  Settings specific to the Document
+  """
+  settings: DocumentSettings
+
+  """
+  The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
+  """
+  subType: String
+
+  """
+  Data Platform Instance associated with the Document
+  """
+  dataPlatformInstance: DataPlatformInstance
+
+  """
+  The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
+  For documents natively authored on DataHub, the platform will be "DataHub".
+  """
+  platform: DataPlatform!
+
+  """
+  Ownership metadata of the Document
+  """
+  ownership: Ownership
+
+  """
+  The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
+  """
+  browsePathV2: BrowsePathV2
+
+  """
+  Tags applied to the Document
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the Document
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Document
+  """
+  domain: DomainAssociation
+
+  """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Experimental API.
+  For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Structured properties about this asset
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  References to internal resources related to the Document (links)
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
+  Documentation aspect containing editable description for this Document
+  """
+  documentation: Documentation
+
+  """
+  Change history for this document.
+  Returns a chronological list of changes made to the document.
+  """
+  changeHistory(
+    """
+    Start time in milliseconds since epoch (optional).
+    Defaults to 30 days ago if not specified.
+    """
+    startTimeMillis: Long
+
+    """
+    End time in milliseconds since epoch (optional).
+    Defaults to current time if not specified.
+    """
+    endTimeMillis: Long
+
+    """
+    Maximum number of change entries to return.
+    Defaults to 50.
+    """
+    limit: Int = 50
+  ): [DocumentChange!]!
+
+  """
+  Recursively get the lineage of parent documents for this document.
+  Returns parents with direct parent first followed by the parent's parent, etc.
+  """
+  parentDocuments: ParentDocumentsResult
+}
+
+"""
+Information about a Document
+"""
+type DocumentInfo {
+  """
+  Optional title for the document
+  """
+  title: String
+
+  """
+  Information about the external source of this document.
+  Only populated for third-party documents ingested from external systems.
+  If null, the document is first-party (created directly in DataHub).
+  """
+  source: DocumentSource
+
+  """
+  Status of the Document (published, unpublished, etc.)
+  """
+  status: DocumentStatus
+
+  """
+  Content of the Document
+  """
+  contents: DocumentContent!
+
+  """
+  The audit stamp for when the document was created
+  """
+  created: ResolvedAuditStamp!
+
+  """
+  The audit stamp for when the document was last modified (any field)
+  """
+  lastModified: ResolvedAuditStamp!
+
+  """
+  Assets referenced by or related to this Document
+  """
+  relatedAssets: [DocumentRelatedAsset!]
+
+  """
+  Documents referenced by or related to this Document
+  """
+  relatedDocuments: [DocumentRelatedDocument!]
+
+  """
+  The parent document of this Document
+  """
+  parentDocument: DocumentParentDocument
+
+  """
+  Custom properties of the Document
+  """
+  customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+The contents of a Document
+"""
+type DocumentContent {
+  """
+  The text contents of the Document
+  """
+  text: String!
+}
+
+"""
+The type of source for a document
+"""
+enum DocumentSourceType {
+  """
+  Created via the DataHub UI or API
+  """
+  NATIVE
+
+  """
+  The document was ingested from an external source
+  """
+  EXTERNAL
+}
+
+"""
+Information about the external source of a document
+"""
+type DocumentSource {
+  """
+  The type of the source
+  """
+  sourceType: DocumentSourceType!
+
+  """
+  URL to the external source where this document originated
+  """
+  externalUrl: String
+
+  """
+  Unique identifier in the external system
+  """
+  externalId: String
+}
+
+"""
+A data asset referenced by a Document
+"""
+type DocumentRelatedAsset {
+  """
+  The asset referenced by or related to the document
+  """
+  asset: Entity!
+}
+
+"""
+A document referenced by or related to another Document
+"""
+type DocumentRelatedDocument {
+  """
+  The document referenced by or related to the document
+  """
+  document: Document!
+}
+
+"""
+The parent document of the document
+"""
+type DocumentParentDocument {
+  """
+  The hierarchical parent document for this document
+  """
+  document: Document!
+}
+
+"""
+Status information for a Document
+"""
+type DocumentStatus {
+  """
+  The current state of the document
+  """
+  state: DocumentState!
+}
+
+"""
+The state of a Document
+"""
+enum DocumentState {
+  """
+  Document is published and visible to users
+  """
+  PUBLISHED
+
+  """
+  Document is not published publically
+  """
+  UNPUBLISHED
+}
+
+"""
+Settings specific to a Document
+"""
+type DocumentSettings {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  When false, the document is accessible primarily through the assets it is related to.
+  When true, the document appears in the global documents space accessible to all users.
+  """
+  showInGlobalContext: Boolean!
+}
+
+"""
+Input required to create a new Document
+"""
+input CreateDocumentInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the document.
+  If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Optional sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference").
+  If not provided, the document will have no type set.
+  """
+  subType: String
+
+  """
+  Optional title for the document
+  """
+  title: String
+
+  """
+  Optional initial state of the document. Defaults to UNPUBLISHED if not provided.
+  """
+  state: DocumentState
+
+  """
+  Content of the Document
+  """
+  contents: DocumentContentInput!
+
+  """
+  Optional owners for the document. If not provided, the creator is automatically added as an owner.
+  """
+  owners: [OwnerInput!]
+
+  """
+  Optional URN of the parent document
+  """
+  parentDocument: String
+
+  """
+  Optional URNs of related assets
+  """
+  relatedAssets: [String!]
+
+  """
+  Optional URNs of related documents
+  """
+  relatedDocuments: [String!]
+
+  """
+  Optional settings for the document. If not provided, defaults will be used.
+  Documents created from the UI sidebar will always have showInGlobalContext=true.
+  API/programmatic clients can set showInGlobalContext=false to create private context documents.
+  """
+  settings: DocumentSettingsInput
+}
+
+"""
+Input for Document settings
+"""
+input DocumentSettingsInput {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  Defaults to true if not specified.
+  """
+  showInGlobalContext: Boolean
+}
+
+"""
+Input required to update the settings of a Document
+"""
+input UpdateDocumentSettingsInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Whether or not this document should be visible in the global context
+  """
+  showInGlobalContext: Boolean!
+}
+
+"""
+Input for Document content
+"""
+input DocumentContentInput {
+  """
+  The text contents of the Document
+  """
+  text: String!
+}
+
+"""
+Input required to update the contents of a Document
+"""
+input UpdateDocumentContentsInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Optional updated title for the document. If not provided, the existing title will not be updated.
+  """
+  title: String
+
+  """
+  The new text contents for the Document. If not provided, the existing contents will not be updated.
+  """
+  contents: DocumentContentInput
+
+  """
+  Optional updated sub-type for the document (e.g., "FAQ", "Tutorial", "Reference")
+  """
+  subType: String
+}
+
+"""
+Input required to update the related entities of a Document
+"""
+input UpdateDocumentRelatedEntitiesInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Optional URNs of related assets (will replace existing)
+  """
+  relatedAssets: [String!]
+
+  """
+  Optional URNs of related documents (will replace existing)
+  """
+  relatedDocuments: [String!]
+}
+
+"""
+Input required to move a Document to a different parent
+"""
+input MoveDocumentInput {
+  """
+  The URN of the Document to move
+  """
+  urn: String!
+
+  """
+  Optional URN of the new parent document. If null, moves to root level.
+  """
+  parentDocument: String
+}
+
+"""
+Input required to update the status of a Document
+"""
+input UpdateDocumentStatusInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  The new state for the document
+  """
+  state: DocumentState!
+}
+
+"""
+Input required to update the sub-type of a Document
+"""
+input UpdateDocumentSubTypeInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  The new sub-type for the document (e.g., "FAQ", "Tutorial", "Runbook"). Set to null to clear the sub-type.
+  """
+  subType: String
+}
+
+"""
+Input required when searching Documents.
+
+Search results are automatically filtered based on document visibility and ownership:
+- PUBLISHED documents are returned for all users
+- UNPUBLISHED documents are only returned if owned by the current user or a group they belong to
+
+This ensures private/unpublished documents remain visible only to their owners.
+"""
+input SearchDocumentsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Documents to be returned in the result set
+  """
+  count: Int
+
+  """
+  Optional semantic search query to search across document contents and metadata
+  """
+  query: String
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups)
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional list of related asset URNs to filter by (ANDed with other filters).
+  Returns documents that are related to ANY of the provided asset URNs.
+  """
+  relatedAssets: [String!]
+
+  """
+  Optional document source type to filter by.
+  If not provided, searches all documents regardless of source.
+  """
+  sourceType: DocumentSourceType
+}
+
+"""
+The result obtained when searching Documents
+"""
+type SearchDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Input for querying context documents related to an entity.
+The relatedAssets filter is automatically set to the parent entity's URN.
+This returns all documents related to the asset, including those hidden from global context.
+"""
+input RelatedDocumentsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The maximum number of Documents to return
+  """
+  count: Int
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups)
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional document source type to filter by.
+  """
+  sourceType: DocumentSourceType
+}
+
+"""
+Result containing context documents related to an entity.
+Same structure as SearchDocumentsResult.
+"""
+type RelatedDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+A change made to a document.
+Represents a single modification with timestamp, actor, and description.
+"""
+type DocumentChange {
+  """
+  Type of change that occurred
+  """
+  changeType: DocumentChangeType!
+
+  """
+  Human-readable description of what changed
+  """
+  description: String!
+
+  """
+  User who made the change (optional, may not be available for all changes)
+  """
+  actor: CorpUser
+
+  """
+  When the change occurred (milliseconds since epoch)
+  """
+  timestamp: Long!
+
+  """
+  Additional context about the change (optional).
+  For example, if a document was moved, this might contain the old and new parent URNs.
+  """
+  details: [StringMapEntry!]
+}
+
+"""
+Types of changes that can occur to a document
+"""
+enum DocumentChangeType {
+  """
+  Document was created
+  """
+  CREATED
+
+  """
+  Document title was modified
+  """
+  TITLE_CHANGED
+
+  """
+  Document text content was modified
+  """
+  TEXT_CHANGED
+
+  """
+  Document was moved to a different parent
+  """
+  PARENT_CHANGED
+
+  """
+  Relationships to other documents were added or removed
+  """
+  RELATED_DOCUMENTS_CHANGED
+
+  """
+  Relationships to assets (datasets, dashboards, etc.) were added or removed
+  """
+  RELATED_ASSETS_CHANGED
+
+  """
+  Document state changed (e.g., published <-> unpublished)
+  """
+  STATE_CHANGED
+
+  """
+  Document was deleted
+  """
+  DELETED
+}
+
+"""
+All of the parent documents for a given document. Returns parents with direct parent first followed by the parent's parent, etc.
+"""
+type ParentDocumentsResult {
+  """
+  The number of parent documents bubbling up for this document
+  """
+  count: Int!
+
+  """
+  The ordered list of parent documents, starting with the direct parent
+  """
+  documents: [Document!]!
+}

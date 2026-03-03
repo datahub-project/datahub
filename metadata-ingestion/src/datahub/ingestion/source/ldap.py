@@ -2,13 +2,14 @@
 
 import contextlib
 import dataclasses
+import logging
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -37,6 +38,9 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
 )
+from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -104,7 +108,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
-    ldap_password: str = Field(description="LDAP password.")
+    ldap_password: TransparentSecretStr = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -153,6 +157,13 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Use email for users' usernames instead of username (disabled by default). \
             If enabled, the user and group urn would be having email as the id part of the urn.",
     )
+
+    tls_verify: bool = Field(
+        default=True,
+        description="Verify server TLS certificates for LDAPS connections. "
+        "Disabling in production exposes connections to Man-in-the-Middle attacks (CWE-295).",
+    )
+
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -160,7 +171,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
 @dataclasses.dataclass
 class LDAPSourceReport(StaleEntityRemovalSourceReport):
-    dropped_dns: List[str] = dataclasses.field(default_factory=list)
+    dropped_dns: LossyList[str] = dataclasses.field(default_factory=LossyList)
 
     def report_dropped(self, dn: str) -> None:
         self.dropped_dns.append(dn)
@@ -220,7 +231,17 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.report = LDAPSourceReport()
 
-        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
+        # Configure TLS certificate validation
+        # Setting tls_verify=True enforces certificate validation (recommended for production)
+        if self.config.tls_verify:
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        else:
+            logger.warning(
+                "LDAP TLS certificate verification is disabled (tls_verify=False). "
+                "This makes the connection vulnerable to Man-in-the-Middle attacks. "
+                "Set tls_verify=True for production environments."
+            )
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)
@@ -228,7 +249,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         try:
             self.ldap_client.simple_bind_s(
-                self.config.ldap_user, self.config.ldap_password
+                self.config.ldap_user, self.config.ldap_password.get_secret_value()
             )
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e
@@ -241,7 +262,7 @@ class LDAPSource(StatefulIngestionSourceBase):
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
         """Factory method."""
-        config = LDAPSourceConfig.parse_obj(config_dict)
+        config = LDAPSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -514,5 +535,5 @@ def parse_ldap_dn(input_clean: bytes) -> str:
 
 def get_attr_or_none(
     attrs: Dict[str, Any], key: str, default: Optional[str] = None
-) -> str:
+) -> Optional[str]:
     return attrs[key][0].decode() if attrs.get(key) else default

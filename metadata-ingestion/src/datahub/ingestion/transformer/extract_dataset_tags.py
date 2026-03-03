@@ -29,7 +29,7 @@ class ExtractDatasetTags(DatasetTagsTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ExtractDatasetTags":
-        config = ExtractDatasetTagsConfig.parse_obj(config_dict)
+        config = ExtractDatasetTagsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _get_tags_to_add(self, entity_urn: str) -> List[TagAssociationClass]:

@@ -2,14 +2,17 @@ package com.linkedin.metadata.config.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.Nullable;
 
 @Data
+@Configuration
 public class KafkaConfiguration {
   // Avoiding dependencies on other libraries (Spring/Kafka) for configuration
   public static final String KEY_SERIALIZER_CLASS_CONFIG = "key.serializer";
@@ -20,8 +23,24 @@ public class KafkaConfiguration {
       "spring.deserializer.key.delegate.class";
   public static final String VALUE_DESERIALIZER_DELEGATE_CLASS =
       "spring.deserializer.value.delegate.class";
+  public static final String MCP_EVENT_CONSUMER_NAME = "mcpEventConsumer";
+  public static final String MCL_EVENT_CONSUMER_NAME = "mclEventConsumer";
+  public static final String PE_EVENT_CONSUMER_NAME = "platformEventConsumer";
+  public static final String SIMPLE_EVENT_CONSUMER_NAME = "simpleKafkaConsumer";
+  public static final String CDC_EVENT_CONSUMER_NAME = "cdcKafkaConsumer";
+  public static final String DEFAULT_EVENT_CONSUMER_NAME = "kafkaEventConsumer";
 
   private String bootstrapServers;
+
+  private SetupConfiguration setup;
+
+  private TopicsConfiguration.TopicConfiguration topicDefaults;
+
+  private Map<String, TopicsConfiguration.TopicConfiguration> topics;
+
+  // Retained for backward compatibility, not loaded from conf, but computed by merging
+  // topics with topicDefaults
+  private TopicsConfiguration topicsConfiguration;
 
   private ListenerConfiguration listener;
 
@@ -32,6 +51,15 @@ public class KafkaConfiguration {
   private ConsumerConfiguration consumer;
 
   private SerDeConfig serde;
+
+  @PostConstruct
+  public void initializeTopicDefaults() {
+    topicsConfiguration = new TopicsConfiguration(topicDefaults, topics);
+  }
+
+  public TopicsConfiguration getTopics() {
+    return new TopicsConfiguration(topicDefaults, topics);
+  }
 
   @Data
   public static class SerDeConfig {

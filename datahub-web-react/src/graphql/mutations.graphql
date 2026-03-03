@@ -34,6 +34,10 @@ mutation addLink($input: AddLinkInput!) {
     addLink(input: $input)
 }
 
+mutation updateLink($input: UpdateLinkInput!) {
+    updateLink(input: $input)
+}
+
 mutation removeLink($input: RemoveLinkInput!) {
     removeLink(input: $input)
 }
@@ -106,7 +110,11 @@ mutation raiseIncident($input: RaiseIncidentInput!) {
     raiseIncident(input: $input)
 }
 
-mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {
+mutation updateIncident($urn: String!, $input: UpdateIncidentInput!) {
+    updateIncident(urn: $urn, input: $input)
+}
+
+mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
     updateIncidentStatus(urn: $urn, input: $input)
 }
 
@@ -146,4 +154,8 @@ mutation addBusinessAttribute($input: AddBusinessAttributeInput!) {
 
 mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
     removeBusinessAttribute(input: $input)
+}
+
+mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
+    updateDisplayProperties(urn: $urn, input: $input)
 }

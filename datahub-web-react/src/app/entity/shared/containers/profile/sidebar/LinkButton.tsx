@@ -2,7 +2,8 @@ import { LinkOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+
+import { InstitutionalMemoryMetadata } from '@types';
 
 export const StyledLink = styled(Button)`
     display: flex;
@@ -29,7 +30,7 @@ export default function LinkButton({ link }: Props) {
             href={link.url}
             target="_blank"
             rel="noreferrer"
-            key={`${link.label}-${link.url}-${link.author}`}
+            key={`${link.label}-${link.url}-${link.actor.urn}`}
         >
             <LinkOutlined />
             {link.description || link.label}

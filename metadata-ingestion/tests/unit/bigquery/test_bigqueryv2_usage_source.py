@@ -33,7 +33,7 @@ def test_bigqueryv2_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "stateful_ingestion": {"enabled": False},
@@ -66,7 +66,7 @@ def test_bigqueryv2_uri_with_credential():
 
 @freeze_time(FROZEN_TIME)
 def test_bigqueryv2_filters():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "credential": {
@@ -114,7 +114,7 @@ AND
     )
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
-)"""  # noqa: W293
+)"""
 
     corrected_start_time = config.start_time - config.max_query_duration
     corrected_end_time = config.end_time + config.max_query_duration
@@ -184,7 +184,6 @@ def test_bigquery_table_sanitasitation():
 
 
 def test_unquote_and_decode_unicode_escape_seq():
-
     # Test with a string that starts and ends with quotes and has Unicode escape sequences
     input_string = '"Hello \\u003cWorld\\u003e"'
     expected_output = "Hello <World>"

@@ -51,7 +51,7 @@ source:
           - ".*"
 ```
 
-Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://datahubproject.io/docs/domains/).
+Note that the `domain` in config above can be either an _urn_ or a domain _id_ (i.e. `urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810` or simply `13ae4d85-d955-49fc-8474-9004c663a810`). The Domain should exist in your DataHub instance before ingesting data into the Domain. To create a Domain on DataHub, check out the [Domains User Guide](https://docs.datahub.com/docs/domains/).
 
 If you are using a non-default subject naming strategy in the schema registry, such as [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work), the mapping for the topic's key and value schemas to the schema registry subject names should be provided via `topic_subject_map` as shown in the configuration below.
 
@@ -92,7 +92,7 @@ class KafkaSchemaRegistryBase(ABC):
 
 The custom schema registry class can be configured using the `schema_registry_class` config param of the `kafka` source as shown below.
 
-```YAML
+```yaml
 source:
   type: "kafka"
   config:
@@ -102,8 +102,71 @@ source:
     connection:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
+```
 
+### OAuth Callback
+
+The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
+
+- For sources: `config.connection.consumer_config.oauth_cb`
+- For sinks: `config.connection.producer_config.oauth_cb`
+
+You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.
+
+For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
+
+#### Deploying Custom OAuth Callbacks
+
+**For Built-in Callbacks (Recommended):**
+
+DataHub includes pre-built OAuth callbacks for common use cases:
+
+- **AWS MSK IAM**: `datahub_actions.utils.kafka_msk_iam:oauth_cb`
+- **Azure Event Hubs**: `datahub_actions.utils.kafka_eventhubs_auth:oauth_cb`
+
+**Important:** To use these built-in callbacks, you must install the `acryl-datahub-actions` package:
+
+```bash
+pip install acryl-datahub-actions>=1.3.1.2
+```
+
+**For Custom OAuth Callbacks:**
+
+If you need to implement a custom OAuth callback, you must ensure your Python module is accessible to the DataHub process, e.g. adding it via `PYTHONPATH=/path/to/your/module:$PYTHONPATH` or `pip install my-oauth-package`.
+
+**Example for Kafka Source:**
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    # Set the custom schema registry implementation class
+    schema_registry_class: "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
+    # Coordinates
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: http://localhost:8081
+      consumer_config:
+        security.protocol: "SASL_PLAINTEXT"
+        sasl.mechanism: "OAUTHBEARER"
+        oauth_cb: "oauth:create_token"
 # sink configs
+```
+
+**Example for Kafka Sink (e.g., MSK IAM authentication):**
+
+```yaml
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "b-1.msk.us-west-2.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
 ```
 
 ### Limitations of `PROTOBUF` schema types implementation
@@ -217,4 +280,4 @@ config:
         tag: "pii"
 ```
 
-The underlying implementation is similar to [dbt meta mapping](https://datahubproject.io/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.

@@ -25,24 +25,27 @@ jobs:
       python_release_version: ${{ steps.python_release_version.outputs.release_version }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Compute Tag
         id: tag
+        env:
+          GITHUB_REF_FALLBACK: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
+          echo "tag=$(get_tag)" >> "$GITHUB_OUTPUT"
       - name: Compute Python Release Version
         id: python_release_version
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
+          echo "release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
       - name: Check whether publishing enabled
         id: publish
         env:
           ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> "$GITHUB_OUTPUT"
   build-smoke:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
@@ -50,13 +53,13 @@ jobs:
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
             ${{ env.IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' }}

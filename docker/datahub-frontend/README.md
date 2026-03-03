@@ -2,7 +2,7 @@
 
 [![datahub-frontend docker](https://github.com/datahub-project/datahub/workflows/datahub-frontend%20docker/badge.svg)](https://github.com/datahub-project/datahub/actions?query=workflow%3A%22datahub-frontend+docker%22)
 
-Refer to [DataHub Frontend Service](../../datahub-frontend) to have a quick understanding of the architecture and 
+Refer to [DataHub Frontend Service](../../datahub-frontend) to have a quick understanding of the architecture and
 responsibility of this service for the DataHub.
 
 ## Checking out DataHub UI
@@ -10,6 +10,7 @@ responsibility of this service for the DataHub.
 After starting your Docker container, you can connect to it by typing below into your favorite web browser:
 
 If using React app:
+
 ```
 http://localhost:9002
 ```

@@ -4,7 +4,7 @@ import pyarrow
 import pyarrow.parquet
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
@@ -12,8 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
+    SchemaFieldClass as SchemaField,
+    SchemaFieldDataTypeClass as SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
     UnionTypeClass,
@@ -81,7 +81,7 @@ class ParquetInferrer(SchemaInferenceBase):
 
         fields: List[SchemaField] = []
 
-        for name, pyarrow_type in zip(schema.names, schema.types):
+        for name, pyarrow_type in zip(schema.names, schema.types, strict=False):
             mapped_type = map_pyarrow_type(pyarrow_type)
 
             field = SchemaField(

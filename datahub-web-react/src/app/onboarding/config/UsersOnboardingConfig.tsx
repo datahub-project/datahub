@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const USERS_INTRO_ID = 'users-intro';
 export const USERS_SSO_ID = 'users-sso';
@@ -36,7 +37,7 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react/#configuring-oidc-in-react"
+                        href="https://docs.datahub.com/docs/authentication/guides/sso/configure-oidc-react/#configuring-oidc-in-react"
                     >
                         {' '}
                         here.
@@ -60,7 +61,7 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authentication/guides/add-users/#send-prospective-users-an-invite-link"
+                        href="https://docs.datahub.com/docs/authentication/guides/add-users/#send-prospective-users-an-invite-link"
                     >
                         {' '}
                         here.
@@ -83,7 +84,7 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/roles"
+                        href="https://docs.datahub.com/docs/authorization/roles"
                     >
                         {' '}
                         here.

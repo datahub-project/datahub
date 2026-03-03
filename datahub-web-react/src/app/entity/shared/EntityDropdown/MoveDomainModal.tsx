@@ -1,13 +1,15 @@
+import { Button, Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
-import DomainParentSelect from './DomainParentSelect';
-import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import { EntityType } from '../../../../types.generated';
+
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import DomainParentSelect from '@app/entity/shared/EntityDropdown/DomainParentSelect';
+import { useHandleMoveDomainComplete } from '@app/entity/shared/EntityDropdown/useHandleMoveDomainComplete';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useMoveDomainMutation } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;

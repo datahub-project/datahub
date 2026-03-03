@@ -11,7 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.source.powerbi.config import Constant
+from datahub.ingestion.source.powerbi.config import Constant, PowerBiEnvironment
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
     Column,
@@ -63,18 +63,26 @@ class SessionWithTimeout(requests.Session):
         super().__init__(*args, **kwargs)
         self.timeout = timeout
 
-    def request(self, method, url, **kwargs):
+    def request(self, method, url, *args, **kwargs):
         # Set the default timeout if none is provided
         kwargs.setdefault("timeout", self.timeout)
-        return super().request(method, url, **kwargs)
+        return super().request(method, url, *args, **kwargs)
 
 
 class DataResolverBase(ABC):
-    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
-    MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
-    BASE_URL: str = f"{MY_ORG_URL}/groups"
-    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
-    AUTHORITY: str = "https://login.microsoftonline.com/"
+    # PowerBI environment URLs
+    COMMERCIAL_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/",
+    }
+
+    GOVERNMENT_URLS = {
+        "SCOPE": "https://analysis.usgovcloudapi.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/",
+    }
+
     TOP: int = 1000
 
     def __init__(
@@ -83,17 +91,32 @@ class DataResolverBase(ABC):
         client_secret: str,
         tenant_id: str,
         metadata_api_timeout: int,
+        environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
     ):
-        self.__access_token: Optional[str] = None
-        self.__access_token_expiry_time: Optional[datetime] = None
-        self.__tenant_id = tenant_id
+        self._environment = environment
+        urls = (
+            self.GOVERNMENT_URLS
+            if environment == PowerBiEnvironment.GOVERNMENT
+            else self.COMMERCIAL_URLS
+        )
+
+        self._scope = urls["SCOPE"]
+        self._my_org_url = urls["MY_ORG_URL"]
+        self._base_url = f"{self._my_org_url}/groups"
+        self._admin_base_url = f"{self._my_org_url}/admin"
+        self._authority = urls["AUTHORITY"]
+
+        self._access_token: Optional[str] = None
+        self._access_token_expiry_time: Optional[datetime] = None
+
+        self._tenant_id = tenant_id
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self._get_authority_url()}")
         # Power-Bi Auth (Service Principal Auth)
-        self.__msal_client = msal.ConfidentialClientApplication(
+        self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
-            authority=DataResolverBase.AUTHORITY + tenant_id,
+            authority=self._authority + tenant_id,
         )
         self.get_access_token()
 
@@ -168,20 +191,18 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self.__tenant_id}"
+        return f"{self._authority}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
 
-    def get_access_token(self):
-        if self.__access_token is not None and not self._is_access_token_expired():
-            return self.__access_token
+    def get_access_token(self) -> str:
+        if self._access_token is not None and not self._is_access_token_expired():
+            return self._access_token
 
         logger.info("Generating PowerBi access token")
 
-        auth_response = self.__msal_client.acquire_token_for_client(
-            scopes=[DataResolverBase.SCOPE]
-        )
+        auth_response = self._msal_client.acquire_token_for_client(scopes=[self._scope])
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
             logger.warning(
@@ -193,24 +214,24 @@ class DataResolverBase(ABC):
 
         logger.info("Generated PowerBi access token")
 
-        self.__access_token = "Bearer {}".format(
+        self._access_token = "Bearer {}".format(
             auth_response.get(Constant.ACCESS_TOKEN)
         )
         safety_gap = 300
-        self.__access_token_expiry_time = datetime.now() + timedelta(
+        self._access_token_expiry_time = datetime.now() + timedelta(
             seconds=(
                 max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
             )
         )
 
-        logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
+        logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
 
-        return self.__access_token
+        return self._access_token
 
     def _is_access_token_expired(self) -> bool:
-        if not self.__access_token_expiry_time:
+        if not self._access_token_expiry_time:
             return True
-        return self.__access_token_expiry_time < datetime.now()
+        return self._access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
@@ -336,41 +357,6 @@ class DataResolverBase(ABC):
         -tiles), there is no information available on pagination
 
         """
-
-        def new_dataset_or_report(tile_instance: Any) -> dict:
-            """
-            Find out which is the data source for tile. It is either REPORT or DATASET
-            """
-            report_fields = {
-                Constant.REPORT: (
-                    self.get_report(
-                        workspace=workspace,
-                        report_id=tile_instance.get(Constant.REPORT_ID),
-                    )
-                    if tile_instance.get(Constant.REPORT_ID) is not None
-                    else None
-                ),
-                Constant.CREATED_FROM: Tile.CreatedFrom.UNKNOWN,
-            }
-
-            # reportId and datasetId are exclusive in tile_instance
-            # if datasetId is present that means tile is created from dataset
-            # if reportId is present that means tile is created from report
-            # if both i.e. reportId and datasetId are not present then tile is created from some visualization
-            if tile_instance.get(Constant.REPORT_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.REPORT
-            elif tile_instance.get(Constant.DATASET_ID) is not None:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.DATASET
-            else:
-                report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.VISUALIZATION
-
-            title: Optional[str] = tile_instance.get(Constant.TITLE)
-            _id: Optional[str] = tile_instance.get(Constant.ID)
-            created_from: Any = report_fields[Constant.CREATED_FROM]
-            logger.info(f"Tile {title}({_id}) is created from {created_from}")
-
-            return report_fields
-
         tile_list_endpoint: str = self.get_tiles_endpoint(
             workspace, dashboard_id=dashboard.id
         )
@@ -392,8 +378,18 @@ class DataResolverBase(ABC):
                 title=instance.get(Constant.TITLE),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 dataset_id=instance.get(Constant.DATASET_ID),
+                report_id=instance.get(Constant.REPORT_ID),
                 dataset=None,
-                **new_dataset_or_report(instance),
+                report=None,
+                createdFrom=(
+                    # In the past we considered that only one of the two report_id or dataset_id would be present
+                    # but we have seen cases where both are present. If both are present, we prioritize the report.
+                    Tile.CreatedFrom.REPORT
+                    if instance.get(Constant.REPORT_ID)
+                    else Tile.CreatedFrom.DATASET
+                    if instance.get(Constant.DATASET_ID)
+                    else Tile.CreatedFrom.VISUALIZATION
+                ),
             )
             for instance in tile_dict
             if instance is not None
@@ -404,8 +400,9 @@ class DataResolverBase(ABC):
     def itr_pages(
         self,
         endpoint: str,
-        parameter_override: Dict = {},
+        parameter_override: Optional[Dict] = None,
     ) -> Iterator[List[Dict]]:
+        parameter_override = parameter_override or {}
         params: dict = {
             "$skip": 0,
             "$top": self.TOP,
@@ -424,9 +421,9 @@ class DataResolverBase(ABC):
 
             response.raise_for_status()
 
-            assert (
-                Constant.VALUE in response.json()
-            ), "'value' key is not present in paginated response"
+            assert Constant.VALUE in response.json(), (
+                "'value' key is not present in paginated response"
+            )
 
             if not response.json()[Constant.VALUE]:  # if it is an empty list then break
                 break
@@ -439,7 +436,6 @@ class DataResolverBase(ABC):
         self,
         app_id: str,
     ) -> Optional[App]:
-
         raw_app: Optional[Dict] = self._get_app(
             app_id=app_id,
         )
@@ -447,13 +443,13 @@ class DataResolverBase(ABC):
         if raw_app is None:
             return None
 
-        assert (
-            Constant.ID in raw_app
-        ), f"{Constant.ID} is required field not present in server response"
+        assert Constant.ID in raw_app, (
+            f"{Constant.ID} is required field not present in server response"
+        )
 
-        assert (
-            Constant.NAME in raw_app
-        ), f"{Constant.NAME} is required field not present in server response"
+        assert Constant.NAME in raw_app, (
+            f"{Constant.NAME} is required field not present in server response"
+        )
 
         return App(
             id=raw_app[Constant.ID],
@@ -498,7 +494,7 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             DATASET_ID=dataset_id,
         )
@@ -523,7 +519,7 @@ class RegularAPIResolver(DataResolverBase):
             Constant.DATASET_GET
         ]
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
@@ -547,7 +543,7 @@ class RegularAPIResolver(DataResolverBase):
         }
 
     def get_groups_endpoint(self) -> str:
-        return DataResolverBase.BASE_URL
+        return self._base_url
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboards_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
@@ -555,20 +551,20 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         return dashboards_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace.id
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
         reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=self._base_url, WORKSPACE_ID=workspace.id
         )
 
     def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
         tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         return tiles_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             DASHBOARD_ID=dashboard_id,
         )
@@ -577,7 +573,7 @@ class RegularAPIResolver(DataResolverBase):
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace.id,
             REPORT_ID=report_id,
         )
@@ -613,7 +609,7 @@ class RegularAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         dataset_query_endpoint = dataset_query_endpoint.format(
-            POWERBI_BASE_URL=self.BASE_URL,
+            POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=dataset.workspace_id,
             DATASET_ID=dataset.id,
         )
@@ -768,7 +764,7 @@ class AdminAPIResolver(DataResolverBase):
 
         scan_create_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url
         )
 
         logger.debug(
@@ -857,7 +853,7 @@ class AdminAPIResolver(DataResolverBase):
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url, SCAN_ID=scan_id
         )
 
         return self._is_scan_result_ready(
@@ -877,7 +873,7 @@ class AdminAPIResolver(DataResolverBase):
         ]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             ENTITY=entity,
             ENTITY_ID=entity_id,
         )
@@ -920,7 +916,7 @@ class AdminAPIResolver(DataResolverBase):
             Constant.SCAN_RESULT_GET
         ]
         scan_result_get_endpoint = scan_result_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url, SCAN_ID=scan_id
         )
 
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")
@@ -945,20 +941,20 @@ class AdminAPIResolver(DataResolverBase):
         return res.json()
 
     def get_groups_endpoint(self) -> str:
-        return f"{AdminAPIResolver.ADMIN_BASE_URL}/groups"
+        return f"{self._admin_base_url}/groups"
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         return dashboard_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
         reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
 
@@ -966,7 +962,7 @@ class AdminAPIResolver(DataResolverBase):
         tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         return tiles_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             DASHBOARD_ID=dashboard_id,
         )
 
@@ -974,7 +970,7 @@ class AdminAPIResolver(DataResolverBase):
         self, workspace: Workspace, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
@@ -1009,7 +1005,7 @@ class AdminAPIResolver(DataResolverBase):
         modified_workspaces_endpoint = self.API_ENDPOINTS[
             Constant.WORKSPACE_MODIFIED_LIST
         ].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
         )
         parameters: Dict[str, Any] = {
             "excludePersonalWorkspaces": False,
@@ -1062,9 +1058,8 @@ class AdminAPIResolver(DataResolverBase):
         self,
         app_id: str,
     ) -> Optional[Dict]:
-
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
             APP_ID=app_id,
         )
         # Hit PowerBi

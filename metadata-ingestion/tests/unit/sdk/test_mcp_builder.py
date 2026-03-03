@@ -86,6 +86,70 @@ def test_guid_generators():
     assert guid == guid_datahub
 
 
+def _assert_eq(a: builder.ContainerKey, b: builder.ContainerKey) -> None:
+    assert a == b
+    assert a.__class__ is b.__class__
+    assert a.guid() == b.guid()
+    assert a.property_dict() == b.property_dict()
+
+
+def test_parent_key() -> None:
+    schema_key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
+        env="DEV",
+    )
+    db_key = schema_key.parent_key()
+    assert db_key is not None
+    _assert_eq(
+        db_key,
+        builder.DatabaseKey(
+            database="test",
+            platform="mysql",
+            instance="TestInstance",
+            env="DEV",
+        ),
+    )
+
+    assert db_key.parent_key() is None
+
+
+def test_parent_key_with_backcompat_env_as_instance() -> None:
+    schema_key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance=None,
+        env="PROD",
+        backcompat_env_as_instance=True,
+    )
+    db_key = schema_key.parent_key()
+    assert db_key is not None
+    _assert_eq(
+        db_key,
+        builder.DatabaseKey(
+            database="test",
+            platform="mysql",
+            instance=None,
+            env="PROD",
+            backcompat_env_as_instance=True,
+        ),
+    )
+
+
+def test_parent_key_on_container_key() -> None:
+    # In general, people shouldn't be calling parent_key() on ContainerKey directly.
+    # But just in case, we should make sure it works.
+    container_key = builder.ContainerKey(
+        platform="bigquery",
+        name="test",
+        env="DEV",
+    )
+    assert container_key.parent_key() is None
+
+
 def test_entity_supports_aspect():
     assert builder.entity_supports_aspect("dataset", StatusClass)
     assert not builder.entity_supports_aspect("telemetry", StatusClass)

@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v3.models;
 
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -12,4 +13,6 @@ import lombok.extern.jackson.Jacksonized;
 public class GenericEntityAspectsBodyV3 {
   @Nullable private Set<String> entities;
   @Nullable private Set<String> aspects;
+  @Nullable private Filter filter;
+  @Nullable private List<SortCriterion> sortCriteria;
 }

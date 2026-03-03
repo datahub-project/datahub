@@ -1,10 +1,15 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DatasetProfile;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetFieldProfileArray;
+import com.linkedin.dataset.Quantile;
+import com.linkedin.dataset.QuantileArray;
+import com.linkedin.dataset.ValueFrequency;
+import com.linkedin.dataset.ValueFrequencyArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.ArrayList;
@@ -19,6 +24,19 @@ public class DatasetProfileMapperTest {
     input.setRowCount(10L);
     input.setColumnCount(45L);
     input.setSizeInBytes(15L);
+
+    ValueFrequency valueFrequency = new ValueFrequency();
+    valueFrequency.setValue("2");
+    valueFrequency.setFrequency(10L);
+
+    Quantile quantile25 = new Quantile();
+    quantile25.setQuantile("0.25");
+    quantile25.setValue("1");
+
+    Quantile quantile75 = new Quantile();
+    quantile75.setQuantile("0.75");
+    quantile75.setValue("5");
+
     input.setFieldProfiles(
         new DatasetFieldProfileArray(
             ImmutableList.of(
@@ -33,7 +51,11 @@ public class DatasetProfileMapperTest {
                     .setNullProportion(20.5f)
                     .setUniqueCount(30L)
                     .setUniqueProportion(30.5f)
-                    .setSampleValues(new StringArray(ImmutableList.of("val1", "val2"))),
+                    .setSampleValues(new StringArray(ImmutableList.of("val1", "val2")))
+                    .setQuantiles(new QuantileArray(ImmutableList.of(quantile25, quantile75)))
+                    .setDistinctValueFrequencies(
+                        new ValueFrequencyArray(ImmutableList.of(valueFrequency)),
+                        SetMode.IGNORE_NULL),
                 new DatasetFieldProfile()
                     .setFieldPath("/field2")
                     .setMax("2")
@@ -45,7 +67,11 @@ public class DatasetProfileMapperTest {
                     .setNullProportion(30.5f)
                     .setUniqueCount(40L)
                     .setUniqueProportion(40.5f)
-                    .setSampleValues(new StringArray(ImmutableList.of("val3", "val4"))))));
+                    .setSampleValues(new StringArray(ImmutableList.of("val3", "val4")))
+                    .setQuantiles(new QuantileArray(ImmutableList.of(quantile25, quantile75)))
+                    .setDistinctValueFrequencies(
+                        new ValueFrequencyArray(ImmutableList.of(valueFrequency)),
+                        SetMode.IGNORE_NULL))));
     final EnvelopedAspect inputAspect =
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(input));
     final DatasetProfile actual = DatasetProfileMapper.map(null, inputAspect);
@@ -68,7 +94,14 @@ public class DatasetProfileMapperTest {
                     "2",
                     "4",
                     "3",
-                    new ArrayList<>(ImmutableList.of("val1", "val2"))),
+                    new ArrayList<>(ImmutableList.of("val1", "val2")),
+                    new ArrayList<com.linkedin.datahub.graphql.generated.Quantile>(
+                        ImmutableList.of(
+                            new com.linkedin.datahub.graphql.generated.Quantile("0.25", "1"),
+                            new com.linkedin.datahub.graphql.generated.Quantile("0.75", "5"))),
+                    new ArrayList<com.linkedin.datahub.graphql.generated.ValueFrequency>(
+                        ImmutableList.of(
+                            new com.linkedin.datahub.graphql.generated.ValueFrequency("2", 10L)))),
                 new com.linkedin.datahub.graphql.generated.DatasetFieldProfile(
                     "/field2",
                     40L,
@@ -80,7 +113,15 @@ public class DatasetProfileMapperTest {
                     "3",
                     "5",
                     "4",
-                    new ArrayList<>(ImmutableList.of("val3", "val4"))))));
+                    new ArrayList<>(ImmutableList.of("val3", "val4")),
+                    new ArrayList<com.linkedin.datahub.graphql.generated.Quantile>(
+                        ImmutableList.of(
+                            new com.linkedin.datahub.graphql.generated.Quantile("0.25", "1"),
+                            new com.linkedin.datahub.graphql.generated.Quantile("0.75", "5"))),
+                    new ArrayList<com.linkedin.datahub.graphql.generated.ValueFrequency>(
+                        ImmutableList.of(
+                            new com.linkedin.datahub.graphql.generated.ValueFrequency(
+                                "2", 10L)))))));
     Assert.assertEquals(actual.getTimestampMillis(), expected.getTimestampMillis());
     Assert.assertEquals(actual.getRowCount(), expected.getRowCount());
     Assert.assertEquals(actual.getColumnCount(), expected.getColumnCount());
@@ -113,6 +154,24 @@ public class DatasetProfileMapperTest {
     Assert.assertEquals(
         actual.getFieldProfiles().get(0).getSampleValues(),
         expected.getFieldProfiles().get(0).getSampleValues());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles().get(0).getQuantile(),
+        expected.getFieldProfiles().get(0).getQuantiles().get(0).getQuantile());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles().get(0).getValue(),
+        expected.getFieldProfiles().get(0).getQuantiles().get(0).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles().get(1).getQuantile(),
+        expected.getFieldProfiles().get(0).getQuantiles().get(1).getQuantile());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles().get(1).getValue(),
+        expected.getFieldProfiles().get(0).getQuantiles().get(1).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getDistinctValueFrequencies().get(0).getValue(),
+        expected.getFieldProfiles().get(0).getDistinctValueFrequencies().get(0).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getDistinctValueFrequencies().get(0).getFrequency(),
+        expected.getFieldProfiles().get(0).getDistinctValueFrequencies().get(0).getFrequency());
 
     Assert.assertEquals(
         actual.getFieldProfiles().get(1).getFieldPath(),
@@ -141,6 +200,24 @@ public class DatasetProfileMapperTest {
     Assert.assertEquals(
         actual.getFieldProfiles().get(1).getSampleValues(),
         expected.getFieldProfiles().get(1).getSampleValues());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getQuantiles().get(0).getQuantile(),
+        expected.getFieldProfiles().get(1).getQuantiles().get(0).getQuantile());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles().get(0).getValue(),
+        expected.getFieldProfiles().get(0).getQuantiles().get(0).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getQuantiles().get(1).getQuantile(),
+        expected.getFieldProfiles().get(1).getQuantiles().get(1).getQuantile());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getQuantiles().get(1).getValue(),
+        expected.getFieldProfiles().get(1).getQuantiles().get(1).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getDistinctValueFrequencies().get(0).getValue(),
+        expected.getFieldProfiles().get(1).getDistinctValueFrequencies().get(0).getValue());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getDistinctValueFrequencies().get(0).getFrequency(),
+        expected.getFieldProfiles().get(1).getDistinctValueFrequencies().get(0).getFrequency());
   }
 
   @Test
@@ -176,9 +253,11 @@ public class DatasetProfileMapperTest {
         new ArrayList<>(
             ImmutableList.of(
                 new com.linkedin.datahub.graphql.generated.DatasetFieldProfile(
-                    "/field1", 30L, 30.5f, null, null, null, null, null, null, null, null),
+                    "/field1", 30L, 30.5f, null, null, null, null, null, null, null, null, null,
+                    null),
                 new com.linkedin.datahub.graphql.generated.DatasetFieldProfile(
-                    "/field2", 40L, 40.5f, null, null, "6", "2", "3", "5", "4", null))));
+                    "/field2", 40L, 40.5f, null, null, "6", "2", "3", "5", "4", null, null,
+                    null))));
     Assert.assertEquals(actual.getTimestampMillis(), expected.getTimestampMillis());
     Assert.assertEquals(actual.getRowCount(), expected.getRowCount());
     Assert.assertEquals(actual.getColumnCount(), expected.getColumnCount());
@@ -211,6 +290,12 @@ public class DatasetProfileMapperTest {
     Assert.assertEquals(
         actual.getFieldProfiles().get(0).getSampleValues(),
         expected.getFieldProfiles().get(0).getSampleValues());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getQuantiles(),
+        expected.getFieldProfiles().get(0).getQuantiles());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(0).getDistinctValueFrequencies(),
+        expected.getFieldProfiles().get(0).getDistinctValueFrequencies());
 
     Assert.assertEquals(
         actual.getFieldProfiles().get(1).getFieldPath(),
@@ -239,5 +324,11 @@ public class DatasetProfileMapperTest {
     Assert.assertEquals(
         actual.getFieldProfiles().get(1).getSampleValues(),
         expected.getFieldProfiles().get(1).getSampleValues());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getQuantiles(),
+        expected.getFieldProfiles().get(1).getQuantiles());
+    Assert.assertEquals(
+        actual.getFieldProfiles().get(1).getDistinctValueFrequencies(),
+        expected.getFieldProfiles().get(1).getDistinctValueFrequencies());
   }
 }

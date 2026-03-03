@@ -5,7 +5,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -21,14 +21,13 @@ def state() -> None:
 @click.option("--pipeline-name", required=True, type=str)
 @click.option("--platform", required=True, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def inspect(pipeline_name: str, platform: str) -> None:
     """
     Get the latest stateful ingestion state for a given pipeline.
     Only works for state entity removal for now.
     """
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
     checkpoint = datahub_graph.get_latest_pipeline_checkpoint(pipeline_name, platform)
     if not checkpoint:
         click.secho("No ingestion state found.", fg="red")

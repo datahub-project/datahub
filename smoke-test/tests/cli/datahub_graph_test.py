@@ -1,28 +1,27 @@
 from typing import Optional
 
 import pytest
-import tenacity
+
+from conftest import _ingest_cleanup_data_impl
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import KafkaSchemaClass, SchemaMetadataClass
-
-from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
-
-sleep_sec, sleep_times = get_sleep_info()
-
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    KafkaSchemaClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    SystemMetadataClass,
+)
+from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
 
 graph = "test_resources/graph_data.json"
 graph_2 = "test_resources/graph_dataDiff.json"
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(graph_client, auth_session, request):
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
-    print("ingesting graph test data")
-    ingest_file_via_rest(auth_session, "tests/cli/graph_data.json")
-    yield
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/cli/graph_data.json", "graph"
+    )
 
 
 def test_get_aspect_v2(graph_client, ingest_cleanup_data):
@@ -41,9 +40,65 @@ def test_get_aspect_v2(graph_client, ingest_cleanup_data):
     )
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+def test_get_entities_v3(graph_client, ingest_cleanup_data):
+    ownership_aspect_name = "ownership"
+    dataset_properties_aspect_name = "datasetProperties"
+    urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)"
+    entities = graph_client.get_entities(
+        entity_name="dataset",
+        urns=[urn],
+        aspects=[ownership_aspect_name, dataset_properties_aspect_name],
+    )
+
+    assert entities
+    assert len(entities) == 1 and urn in entities
+    assert (
+        len(entities[urn]) == 2
+        and ownership_aspect_name in entities[urn]
+        and dataset_properties_aspect_name in entities[urn]
+        and isinstance(entities[urn][ownership_aspect_name][0], OwnershipClass)
+        and isinstance(
+            entities[urn][dataset_properties_aspect_name][0], DatasetPropertiesClass
+        )
+        and entities[urn][ownership_aspect_name][1] is None
+        and entities[urn][dataset_properties_aspect_name][1] is None
+    )
+    assert {
+        owner.owner for owner in entities[urn][ownership_aspect_name][0].owners
+    } == {
+        "urn:li:corpuser:datahub",
+        "urn:li:corpuser:jdoe",
+    }
+    assert not entities[urn][dataset_properties_aspect_name][0].description
+    assert entities[urn][dataset_properties_aspect_name][0].customProperties == {
+        "prop1": "fakeprop",
+        "prop2": "pikachu",
+    }
+
+    # Test with system metadata
+    entities_with_metadata = graph_client.get_entities(
+        entity_name="dataset",
+        urns=[urn],
+        aspects=[ownership_aspect_name],
+        with_system_metadata=True,
+    )
+
+    assert entities_with_metadata
+    assert len(entities_with_metadata) == 1 and urn in entities_with_metadata
+    assert (
+        ownership_aspect_name in entities_with_metadata[urn]
+        and entities_with_metadata[urn][ownership_aspect_name][0]
+        and isinstance(
+            entities_with_metadata[urn][ownership_aspect_name][0], OwnershipClass
+        )
+        and entities_with_metadata[urn][ownership_aspect_name][1]
+        and isinstance(
+            entities_with_metadata[urn][ownership_aspect_name][1], SystemMetadataClass
+        )
+    )
+
+
+@with_test_retry()
 def _ensure_dataset_present_correctly(auth_session, graph_client: DataHubGraph):
     urn = "urn:li:dataset:(urn:li:dataPlatform:graph,graph-test,PROD)"
     json = {
@@ -61,7 +116,7 @@ def _ensure_dataset_present_correctly(auth_session, graph_client: DataHubGraph):
                         createdAt\n
                     }\n
                     outgoing: relationships(\n
-                      input: { types: ["SchemaFieldTaggedWith"], direction: OUTGOING, start: 0, count: 10000 }\n
+                      input: { types: ["SchemaFieldTaggedWith"], direction: OUTGOING, start: 0, count: 2000 }\n
                     ) {\n
                             start\n
                             count\n

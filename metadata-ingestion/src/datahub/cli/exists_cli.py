@@ -6,7 +6,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ def exists() -> None:
 @click.option("--urn", required=False, type=str)
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def urn(ctx: Any, urn: Optional[str]) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.
@@ -36,4 +35,4 @@ def urn(ctx: Any, urn: Optional[str]) -> None:
             raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
-    click.echo(json.dumps(get_default_graph().exists(urn)))
+    click.echo(json.dumps(get_default_graph(ClientMode.CLI).exists(urn)))

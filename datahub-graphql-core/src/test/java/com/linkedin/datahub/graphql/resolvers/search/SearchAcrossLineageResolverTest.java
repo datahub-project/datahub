@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.InputStream;
@@ -48,6 +49,7 @@ public class SearchAcrossLineageResolverTest {
   private SearchAcrossLineageResolver _resolver;
 
   private EntityRegistry _entityRegistry;
+  private ViewService _viewService;
 
   @BeforeMethod
   public void setupTest() {
@@ -56,7 +58,8 @@ public class SearchAcrossLineageResolverTest {
     _authentication = mock(Authentication.class);
 
     _entityRegistry = mock(EntityRegistry.class);
-    _resolver = new SearchAcrossLineageResolver(_entityClient, _entityRegistry);
+    _viewService = mock(ViewService.class);
+    _resolver = new SearchAcrossLineageResolver(_entityClient, _entityRegistry, _viewService);
   }
 
   @Test
@@ -64,7 +67,7 @@ public class SearchAcrossLineageResolverTest {
     InputStream inputStream = ClassLoader.getSystemResourceAsStream("entity-registry.yml");
     EntityRegistry entityRegistry = new ConfigEntityRegistry(inputStream);
     SearchAcrossLineageResolver resolver =
-        new SearchAcrossLineageResolver(_entityClient, entityRegistry);
+        new SearchAcrossLineageResolver(_entityClient, entityRegistry, _viewService);
     assertTrue(resolver._allEntities.contains("dataset"));
     assertTrue(resolver._allEntities.contains("dataFlow"));
     // Test for case sensitivity
@@ -115,7 +118,7 @@ public class SearchAcrossLineageResolverTest {
             eq(QUERY),
             eq(null),
             any(),
-            eq(null),
+            eq(Collections.emptyList()),
             eq(START),
             eq(COUNT)))
         .thenReturn(lineageSearchResult);

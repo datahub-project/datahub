@@ -11,8 +11,9 @@ import requests
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -51,6 +52,7 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     tenant_id: str = Field(
         description="Directory ID. Found in your app registration on Azure AD Portal"
     )
-    client_secret: str = Field(
+    client_secret: TransparentSecretStr = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
     authority: str = Field(
@@ -132,11 +134,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    # If enabled, report will contain names of filtered users and groups.
-    filtered_tracking: bool = Field(
-        default=True,
-        description="If enabled, report will contain names of filtered users and groups.",
-    )
+    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(
@@ -156,14 +154,10 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
 @dataclass
 class AzureADSourceReport(StaleEntityRemovalSourceReport):
-    filtered: List[str] = field(default_factory=list)
-    filtered_tracking: bool = field(default=True, repr=False)
-    filtered_count: int = field(default=0)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_filtered(self, name: str) -> None:
-        self.filtered_count += 1
-        if self.filtered_tracking:
-            self.filtered.append(name)
+        self.filtered.append(name)
 
 
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
@@ -173,7 +167,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class AzureADSource(StatefulIngestionSourceBase):
     """
@@ -260,15 +254,13 @@ class AzureADSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = AzureADConfig.parse_obj(config_dict)
+        config = AzureADConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
-        self.report = AzureADSourceReport(
-            filtered_tracking=self.config.filtered_tracking
-        )
+        self.report = AzureADSourceReport()
         session = requests.Session()
         retries = Retry(
             total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
@@ -281,7 +273,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
             "tenant_id": self.config.tenant_id,
-            "client_secret": self.config.client_secret,
+            "client_secret": self.config.client_secret.get_secret_value(),
             "resource": "https://graph.microsoft.com",
             "scope": "https://graph.microsoft.com/.default",
         }
@@ -354,9 +346,9 @@ class AzureADSource(StatefulIngestionSourceBase):
                     yield MetadataWorkUnit(id=group_status_wu_id, mcp=group_status_mcp)
 
         # Populate GroupMembership Aspects for CorpUsers
-        datahub_corp_user_urn_to_group_membership: Dict[
-            str, GroupMembershipClass
-        ] = defaultdict(lambda: GroupMembershipClass(groups=[]))
+        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = (
+            defaultdict(lambda: GroupMembershipClass(groups=[]))
+        )
         if (
             self.config.ingest_group_membership
             and len(self.selected_azure_ad_groups) > 0

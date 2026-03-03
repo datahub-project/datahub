@@ -33,6 +33,9 @@ dmypy.json
 MANIFEST
 *.pyc
 .python-version
+Pipfile
+Pipfile.lock
+fix-failing-tests/
 
 # Generated files
 **/bin
@@ -45,12 +48,22 @@ out/
 # Mac OS
 **/.DS_Store
 
+# Mise
+**/mise.local.toml
+**/.mise.local.toml
+.mise/**
+
 #spark-lineage
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log
 **/spark-lineage/**/hive/
 **/spark-lineage/**/out*.csv/
 **/spark-lineage/coalesce-test/
+
+#spark-lineage-legacy (test output; avoid "location already exists" in CI)
+**/spark-lineage-legacy/**/derby.log
+**/spark-lineage-legacy/**/hive/
+**/spark-lineage-legacy/**/out*.csv/
 
 #VS Code
 .vscode
@@ -63,6 +76,7 @@ smoke-test/spark-smoke-test/__pycache__/
 # cypress integration test generated files
 **/cypress/videos
 **/cypress/screenshots
+**/cypress/results
 **/cypress/node_modules
 
 # Metadata Ingestion Generated
@@ -70,8 +84,11 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
-docs-website/versioned_docs/
-docs-website/versioned_sidebars/
+
+# Generated flag classification manifest (produced by generateFlagClassification Gradle task)
+scripts/generated/
+# Dev-scripts ruff venv (managed by scriptsInstallRuff Gradle task)
+scripts/.venv/
 tmp*
 temp/**
 
@@ -85,8 +102,27 @@ metadata-service/plugin/src/test/resources/sample-plugins/**
 smoke-test/rollback-reports
 coverage*.xml
 .vercel
+.envrc
 
-# A long series of binary directories we should ignore
+# Local dev environment overrides (user-specific GMS/Kafka settings)
+docker/profiles/my-settings.env
+
+# Agents Skills
+.agents/
+skills-lock.json
+
+# Claude ignores
+.claude/
+**/.claude/settings.local.json
+# Claude agent files (session-specific, not to be committed)
+**/.claude/agents/
+**/.claude/*.md
+
+# Environment files with credentials
+.env*
+*.env
+
+# A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
 datahub-frontend/bin/test/
 datahub-graphql-core/bin/
@@ -126,6 +162,8 @@ metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
 
-datahub-executor/
-datahub-integrations-service/
-metadata-ingestion-modules/acryl-cloud
+# Git credentials (should never be committed)
+.git-credentials
+
+# Git Worktree management (wtp)
+.wtp.yml

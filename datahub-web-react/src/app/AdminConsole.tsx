@@ -1,12 +1,13 @@
+import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
+import { Menu } from 'antd';
+import Sider from 'antd/lib/layout/Sider';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu } from 'antd';
 import styled from 'styled-components';
-import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
-import Sider from 'antd/lib/layout/Sider';
-import { useAppConfig } from './useAppConfig';
-import { ANTD_GRAY } from './entity/shared/constants';
-import { useUserContext } from './context/useUserContext';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useAppConfig } from '@app/useAppConfig';
 
 const ToggleContainer = styled.div`
     background-color: ${ANTD_GRAY[4]};
@@ -37,8 +38,8 @@ export const AdminConsole = (): JSX.Element => {
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;

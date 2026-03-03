@@ -1,0 +1,8 @@
+source:
+  type: file
+  config:
+    # Coordinates
+    path: ./path/to/mce/file.json
+
+sink:
+  # sink configs

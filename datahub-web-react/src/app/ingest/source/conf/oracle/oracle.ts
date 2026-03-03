@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import oracleLogo from '../../../../../images/oraclelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import oracleLogo from '@images/oraclelogo.png';
 
 const placeholderRecipe = `\
 source: 
@@ -16,13 +17,15 @@ source:
 
         # Optional service name
         # service_name: # Your service name, e.g. svc # omit database if using this option
+        stateful_ingestion:
+            enabled: true
 `;
 
 const oracleConfig: SourceConfig = {
     type: 'oracle',
     placeholderRecipe,
     displayName: 'Oracle',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/oracle/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/oracle/',
     logoUrl: oracleLogo,
 };
 

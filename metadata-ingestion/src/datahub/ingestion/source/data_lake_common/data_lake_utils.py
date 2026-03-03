@@ -11,22 +11,29 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
-    get_bucket_name,
     get_bucket_relative_path,
     get_s3_prefix,
     is_s3_uri,
 )
 from datahub.ingestion.source.azure.abs_utils import (
     get_abs_prefix,
-    get_container_name,
     get_container_relative_path,
     is_abs_uri,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.data_lake_common.object_store import (
+    get_object_store_bucket_name,
+    get_object_store_for_uri,
+)
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_utils import (
-    get_gcs_bucket_name,
     get_gcs_prefix,
     is_gcs_uri,
+)
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 # hide annoying debug errors from py4j
@@ -36,6 +43,37 @@ logger: logging.Logger = logging.getLogger(__name__)
 PLATFORM_S3 = "s3"
 PLATFORM_GCS = "gcs"
 PLATFORM_ABS = "abs"
+
+
+def add_partition_columns_to_schema(
+    path_spec: PathSpec, full_path: str, fields: List[SchemaFieldClass]
+) -> None:
+    # Check if using fieldPath v2 format
+    is_fieldpath_v2 = any(
+        field.fieldPath.startswith("[version=2.0]") for field in fields
+    )
+
+    # Extract partition information from path
+    partition_keys = path_spec.get_partition_from_path(full_path)
+    if not partition_keys:
+        return
+
+    # Add partition fields to schema
+    for partition_key in partition_keys:
+        fields.append(
+            SchemaFieldClass(
+                fieldPath=(
+                    f"{partition_key[0]}"
+                    if not is_fieldpath_v2
+                    else f"[version=2.0].[type=string].{partition_key[0]}"
+                ),
+                nativeDataType="string",
+                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                isPartitioningKey=True,
+                nullable=False,
+                recursive=False,
+            )
+        )
 
 
 class ContainerWUCreator:
@@ -87,6 +125,13 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_protocol(path: str) -> str:
+        object_store = get_object_store_for_uri(path)
+        if object_store:
+            prefix = object_store.get_prefix(path)
+            if prefix:
+                return prefix
+
+        # Legacy fallback
         protocol: Optional[str] = None
         if is_s3_uri(path):
             protocol = get_s3_prefix(path)
@@ -104,13 +149,12 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_bucket_name(path: str) -> str:
-        if is_s3_uri(path):
-            return get_bucket_name(path)
-        elif is_gcs_uri(path):
-            return get_gcs_bucket_name(path)
-        elif is_abs_uri(path):
-            return get_container_name(path)
-        raise ValueError(f"Unable to get bucket name from path: {path}")
+        """
+        Get the bucket/container name from any supported object store URI.
+
+        Delegates to the abstract get_object_store_bucket_name function.
+        """
+        return get_object_store_bucket_name(path)
 
     def get_sub_types(self) -> str:
         if self.platform == PLATFORM_S3:
@@ -122,6 +166,11 @@ class ContainerWUCreator:
         raise ValueError(f"Unable to sub type for platform: {self.platform}")
 
     def get_base_full_path(self, path: str) -> str:
+        object_store = get_object_store_for_uri(path)
+        if object_store:
+            return object_store.get_object_key(path)
+
+        # Legacy fallback
         if self.platform == "s3" or self.platform == "gcs":
             return get_bucket_relative_path(path)
         elif self.platform == "abs":

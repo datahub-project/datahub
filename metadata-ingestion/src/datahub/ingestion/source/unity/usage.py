@@ -7,12 +7,14 @@ from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, 
 
 import pyspark
 from databricks.sdk.service.sql import QueryStatementType
-from sqllineage.runner import LineageRunner
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogSourceConfig,
+    UsageDataSource,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
@@ -22,7 +24,9 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import UsageAggregator
 from datahub.metadata.schema_classes import OperationClass
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,7 @@ class UnityCatalogUsageExtractor:
     proxy: UnityCatalogApiProxy
     table_urn_builder: Callable[[TableReference], str]
     user_urn_builder: Callable[[str], str]
+    platform: str = "databricks"
 
     def __post_init__(self):
         self.usage_aggregator = UsageAggregator[TableReference](self.config)
@@ -101,7 +106,9 @@ class UnityCatalogUsageExtractor:
                                 query, table_info
                             )
                         for source_table in table_info.source_tables:
-                            with self.report.usage_perf_report.aggregator_add_event_timer:
+                            with (
+                                self.report.usage_perf_report.aggregator_add_event_timer
+                            ):
                                 self.usage_aggregator.aggregate_event(
                                     resource=source_table,
                                     start_time=query.start_time,
@@ -160,11 +167,50 @@ class UnityCatalogUsageExtractor:
                     aspect=operation_aspect,
                 ).as_workunit()
 
+    def _validate_usage_data_source_config(self) -> None:
+        """Validate usage data source configuration before execution."""
+        usage_data_source = self.config.usage_data_source
+
+        if (
+            usage_data_source == UsageDataSource.SYSTEM_TABLES
+            and not self.proxy.warehouse_id
+        ):
+            raise ValueError(
+                "usage_data_source is set to SYSTEM_TABLES but warehouse_id is not configured. "
+                "Either set warehouse_id or use AUTO/API mode."
+            )
+
     def _get_queries(self) -> Iterable[Query]:
         try:
-            yield from self.proxy.query_history(
-                self.config.start_time, self.config.end_time
-            )
+            self._validate_usage_data_source_config()
+            usage_data_source = self.config.usage_data_source
+
+            if usage_data_source == UsageDataSource.AUTO:
+                if self.proxy.warehouse_id:
+                    logger.info(
+                        "Using system tables for usage query history (AUTO mode)"
+                    )
+                    yield from self.proxy.get_query_history_via_system_tables(
+                        self.config.start_time, self.config.end_time
+                    )
+                else:
+                    logger.info(
+                        "Using API for usage query history (AUTO mode, no warehouse)"
+                    )
+                    yield from self.proxy.query_history(
+                        self.config.start_time, self.config.end_time
+                    )
+            elif usage_data_source == UsageDataSource.SYSTEM_TABLES:
+                logger.info("Using system tables for usage query history (forced)")
+                yield from self.proxy.get_query_history_via_system_tables(
+                    self.config.start_time, self.config.end_time
+                )
+            elif usage_data_source == UsageDataSource.API:
+                logger.info("Using API for usage query history (forced)")
+                yield from self.proxy.query_history(
+                    self.config.start_time, self.config.end_time
+                )
+
         except Exception as e:
             logger.warning("Error getting queries", exc_info=True)
             self.report.report_warning("get-queries", str(e))
@@ -173,7 +219,7 @@ class UnityCatalogUsageExtractor:
         self, query: Query, table_map: TableMap
     ) -> Optional[QueryTableInfo]:
         with self.report.usage_perf_report.sql_parsing_timer:
-            table_info = self._parse_query_via_lineage_runner(query.query_text)
+            table_info = self._parse_query_via_sqlglot(query.query_text)
             if table_info is None and query.statement_type == QueryStatementType.SELECT:
                 with self.report.usage_perf_report.spark_sql_parsing_timer:
                     table_info = self._parse_query_via_spark_sql_plan(query.query_text)
@@ -191,26 +237,33 @@ class UnityCatalogUsageExtractor:
                     ),
                 )
 
-    def _parse_query_via_lineage_runner(self, query: str) -> Optional[StringTableInfo]:
+    def _parse_query_via_sqlglot(self, query: str) -> Optional[StringTableInfo]:
         try:
-            runner = LineageRunner(query)
+            sql_parser_in_tables = create_lineage_sql_parsed_result(
+                query=query,
+                default_db=None,
+                platform=self.platform,
+                env=self.config.env,
+                platform_instance=None,
+            )
+
             return GenericTableInfo(
                 source_tables=[
-                    self._parse_sqllineage_table(table)
-                    for table in runner.source_tables
+                    self._parse_sqlglot_table(table)
+                    for table in sql_parser_in_tables.in_tables
                 ],
                 target_tables=[
-                    self._parse_sqllineage_table(table)
-                    for table in runner.target_tables
+                    self._parse_sqlglot_table(table)
+                    for table in sql_parser_in_tables.out_tables
                 ],
             )
         except Exception as e:
-            logger.info(f"Could not parse query via lineage runner, {query}: {e!r}")
+            logger.info(f"Could not parse query via sqlglot, {query}: {e!r}")
             return None
 
     @staticmethod
-    def _parse_sqllineage_table(sqllineage_table: object) -> str:
-        full_table_name = str(sqllineage_table)
+    def _parse_sqlglot_table(table_urn: str) -> str:
+        full_table_name = DatasetUrn.from_string(table_urn).name
         default_schema = "<default>."
         if full_table_name.startswith(default_schema):
             return full_table_name[len(default_schema) :]

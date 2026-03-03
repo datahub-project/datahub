@@ -1,0 +1,29 @@
+config:
+  - matcher:
+      require:
+        - 'agent.product.name="DataHub-Client"'
+      extract:
+        - 'DeviceClass : 1000:"Robot"'
+        - 'AgentClass : 1000 :agent.(1)product.(1)comments.(1)entry'
+        - 'AgentName : 1000 :agent.(1)product.(1)comments.(2)entry'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0.0 (sdk; datahub; 1.0.1)'
+      expected:
+        DeviceClass: 'Robot'
+        AgentClass: 'sdk'
+        AgentName: 'datahub'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0.0 (cli; datahub; 1.0.1)'
+      expected:
+        DeviceClass: 'Robot'
+        AgentClass: 'cli'
+        AgentName: 'datahub'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0.0 (ingestion; datahub; 1.0.1)'
+      expected:
+        DeviceClass: 'Robot'
+        AgentClass: 'ingestion'
+        AgentName: 'datahub'

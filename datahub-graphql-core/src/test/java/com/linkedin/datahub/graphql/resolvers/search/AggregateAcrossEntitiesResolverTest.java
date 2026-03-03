@@ -386,7 +386,11 @@ public class AggregateAcrossEntitiesResolverTest {
     Mockito.when(
             client.searchAcrossEntities(
                 any(),
-                Mockito.eq(entityTypes),
+                Mockito.argThat(
+                    argument ->
+                        argument != null
+                            && argument.containsAll(entityTypes)
+                            && entityTypes.containsAll(argument)),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
@@ -409,7 +413,11 @@ public class AggregateAcrossEntitiesResolverTest {
     Mockito.verify(mockClient, Mockito.times(1))
         .searchAcrossEntities(
             any(),
-            Mockito.eq(entityTypes),
+            Mockito.argThat(
+                argument ->
+                    argument != null
+                        && argument.containsAll(entityTypes)
+                        && entityTypes.containsAll(argument)),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),

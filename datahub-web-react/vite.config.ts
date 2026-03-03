@@ -1,35 +1,116 @@
+import { codecovVitePlugin } from '@codecov/vite-plugin';
+import federation from '@originjs/vite-plugin-federation';
+import basicSsl from '@vitejs/plugin-basic-ssl';
+import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
-import { defineConfig, loadEnv } from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
+import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
+import svgr from 'vite-plugin-svgr';
+
+const injectMeticulous = () => {
+    if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
+        return null;
+    }
+
+    return {
+        name: 'inject-meticulous',
+        transformIndexHtml: {
+            transform(html) {
+                const scriptTag = `
+                    <script
+                        data-recording-token=${process.env.REACT_APP_METICULOUS_PROJECT_TOKEN}
+                        src="https://snippet.meticulous.ai/v1/meticulous.js">
+                    </script>
+                `;
+
+                return html.replace('</head>', `${scriptTag}\n</head>`);
+            },
+        },
+    };
+};
+
+// since we have base: './' for relative paths, vite will set static assets at "./assets/..."
+// with a base path configured we can't find them. We want simple "assets/..."
+export function stripDotSlashFromAssets() {
+    return {
+        name: 'strip-dot-slash',
+        transformIndexHtml(html) {
+            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
+    const { viteStaticCopy } = await import('vite-plugin-static-copy');
+
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
-    // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
+    let antThemeConfig: any;
+    if (process.env.ANT_THEME_CONFIG) {
+        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        antThemeConfig = require(themeConfigFile);
+    }
+
+    // common extra logging setup for proxies
+    const proxyDebugConfig = (proxy, options) => {
+        proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log(`[PROXY] ${req.url} -> ${options.target}${req.url}`);
+        });
+        proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log(`[PROXY RESPONSE] ${req.url} <- ${proxyRes.statusCode} ${proxyRes.statusMessage}`);
+            if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400) {
+                console.log(`[PROXY REDIRECT] Location: ${proxyRes.headers.location}`);
+            }
+        });
+        proxy.on('error', (err, req, _res) => {
+            console.error(`[PROXY ERROR] ${req.url}:`, err.message);
+        });
+    };
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
         target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
         changeOrigin: true,
+        configure: proxyDebugConfig,
     };
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
-        '/track': frontendProxy,
+        '/openapi/v1/tracking/track': frontendProxy,
+        '/openapi/v1/files': frontendProxy,
+        '/mfe/config': frontendProxy,
     };
+
+    const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+    if (isHttps) {
+        devPlugins.push(
+            basicSsl({
+                name: 'datahub-dev-ssl',
+                domains: ['localhost'],
+            }),
+        );
+    }
 
     return {
         appType: 'spa',
+        base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            ...devPlugins,
             react(),
+            federation({
+                name: 'datahub-host',
+                remotes: {
+                    // at least one remote is needed to load the plugin correctly, just remotes: {} does not work
+                    remoteName: '',
+                },
+            }),
             svgr(),
             macrosPlugin(),
             viteStaticCopy({
@@ -61,6 +142,13 @@ export default defineConfig(({ mode }) => {
                 ],
                 structured: true,
             }),
+            codecovVitePlugin({
+                enableBundleAnalysis: true,
+                bundleName: 'datahub-react-web',
+                uploadToken: process.env.CODECOV_TOKEN,
+                gitService: 'github',
+            }),
+            stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -68,12 +156,18 @@ export default defineConfig(({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            target: 'esnext',
+            minify: 'esbuild',
+            reportCompressedSize: false,
+            // Limit number of worker threads to reduce CPU pressure
+            workers: 3, // default is number of CPU cores
         },
         server: {
             open: false,
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            https: isHttps,
         },
         css: {
             preprocessorOptions: {
@@ -81,7 +175,7 @@ export default defineConfig(({ mode }) => {
                     javascriptEnabled: true,
                     // Override antd theme variables.
                     // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: themeConfig.styles,
+                    modifyVars: antThemeConfig,
                 },
             },
         },
@@ -92,9 +186,31 @@ export default defineConfig(({ mode }) => {
             css: true,
             // reporters: ['verbose'],
             coverage: {
+                enabled: true,
+                provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
-                exclude: [],
+                include: ['src/**/*.ts'],
+                reportsDirectory: '../build/coverage-reports/datahub-web-react/',
+                exclude: [
+                    '**/*.d.ts', // TypeScript declaration files contain no executable code
+                ],
+            },
+        },
+        resolve: {
+            alias: {
+                // Root Directories
+                '@src': path.resolve(__dirname, '/src'),
+                '@app': path.resolve(__dirname, '/src/app'),
+                '@conf': path.resolve(__dirname, '/src/conf'),
+                '@components': path.resolve(__dirname, 'src/alchemy-components'),
+                '@graphql': path.resolve(__dirname, 'src/graphql'),
+                '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
+                '@images': path.resolve(__dirname, 'src/images'),
+                '@providers': path.resolve(__dirname, 'src/providers'),
+                '@utils': path.resolve(__dirname, 'src/utils'),
+
+                // Specific Files
+                '@types': path.resolve(__dirname, 'src/types.generated.ts'),
             },
         },
     };

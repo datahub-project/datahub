@@ -34,26 +34,30 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long nextAspectVersion) {
+  public static SystemMetadata createSystemMetadata(
+      int nextAspectVersion, @Nullable AuditStamp auditStamp) {
     return createSystemMetadata(
-        1625792689, "run-123", "run-123", String.valueOf(nextAspectVersion));
+        1625792689, "run-123", null, String.valueOf(nextAspectVersion), auditStamp);
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId) {
-    return createSystemMetadata(lastObserved, runId, runId, null);
+  public static SystemMetadata createSystemMetadata(int lastObserved, @Nonnull String runId) {
+    return createSystemMetadata(lastObserved, runId, null, null, null);
   }
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(
-      long lastObserved,
-      @Nonnull String runId,
-      @Nonnull String lastRunId,
-      @Nullable String version) {
+      int lastObserved, // for test comparison must be int
+      @Nullable String runId,
+      @Nullable String lastRunId,
+      @Nullable String version,
+      @Nullable AuditStamp auditStamp) {
     SystemMetadata metadata = createDefaultSystemMetadata(runId);
-    metadata.setLastRunId(lastRunId);
+    metadata.setLastRunId(lastRunId, SetMode.IGNORE_NULL);
     metadata.setVersion(version, SetMode.IGNORE_NULL);
     metadata.setLastObserved(lastObserved);
+    metadata.setAspectModified(auditStamp, SetMode.IGNORE_NULL);
+    metadata.setAspectCreated(auditStamp, SetMode.IGNORE_NULL);
     return metadata;
   }
 
@@ -68,6 +72,7 @@ public class AspectGenerationUtils {
     CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setEmail(email);
     corpUserInfo.setActive(true);
+    corpUserInfo.setSystem(false);
     return corpUserInfo;
   }
 

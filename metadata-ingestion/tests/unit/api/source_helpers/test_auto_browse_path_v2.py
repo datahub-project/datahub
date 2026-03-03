@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import patch
 
 import datahub.metadata.schema_classes as models
@@ -307,6 +307,52 @@ def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_prevents_platform_instance_duplication(
+    telemetry_ping_mock,
+):
+    """Test that _prepend_platform_instance doesn't duplicate platform instance when it's already present."""
+    platform = "my_platform"
+    platform_instance = "my_instance"
+    platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    platform_instance_entry = models.BrowsePathEntryClass(
+        id=platform_instance_urn, urn=platform_instance_urn
+    )
+
+    # Test case: platform instance already in the path
+    entries_with_platform = [
+        platform_instance_entry,
+        *_make_container_browse_path_entries(["a", "b"]),
+    ]
+    result = _prepend_platform_instance(
+        entries_with_platform, platform, platform_instance
+    )
+    # Should not duplicate - same list returned
+    assert result == entries_with_platform
+    assert len(result) == 3  # platform instance + 2 containers
+    assert result[0].urn == platform_instance_urn
+
+    # Test case: platform instance not in the path
+    entries_without_platform = _make_container_browse_path_entries(["a", "b"])
+    result = _prepend_platform_instance(
+        entries_without_platform, platform, platform_instance
+    )
+    # Should prepend platform instance
+    assert len(result) == 3  # platform instance + 2 containers
+    assert result[0].urn == platform_instance_urn
+    assert result[1:] == entries_without_platform
+
+    # Test case: empty path
+    result = _prepend_platform_instance([], platform, platform_instance)
+    assert len(result) == 1
+    assert result[0].urn == platform_instance_urn
+
+    # Test case: no platform/instance
+    entries = _make_container_browse_path_entries(["a"])
+    result = _prepend_platform_instance(entries, None, None)
+    assert result == entries
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
 def test_auto_browse_path_v2_invalid_batch_telemetry(telemetry_ping_mock):
     structure = {"a": {"b": ["c"]}}
     b_urn = make_container_urn("b")
@@ -403,9 +449,11 @@ def _get_browse_paths_from_wu(
 
 def _create_container_aspects(
     d: Dict[str, Any],
-    other_aspects: Dict[str, List[models._Aspect]] = {},
+    other_aspects: Optional[Dict[str, List[models._Aspect]]] = None,
     root: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
+    if other_aspects is None:
+        other_aspects = {}
     for k, v in d.items():
         urn = make_container_urn(k)
         yield MetadataChangeProposalWrapper(

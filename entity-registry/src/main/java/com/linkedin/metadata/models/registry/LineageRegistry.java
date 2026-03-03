@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
-import com.google.common.collect.Streams;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
@@ -104,21 +105,45 @@ public class LineageRegistry {
                     sourceEntity, destEntity, annotation.getName(), annotation.isUpstream()));
   }
 
+  public Map<String, LineageSpec> getLineageSpecs() {
+    return _lineageSpecMap.entrySet().stream()
+        .filter(
+            e ->
+                !e.getValue().getDownstreamEdges().isEmpty()
+                    || !e.getValue().getUpstreamEdges().isEmpty())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   public LineageSpec getLineageSpec(String entityName) {
     return _lineageSpecMap.get(entityName.toLowerCase());
   }
 
   public Set<String> getEntitiesWithLineageToEntityType(String entityType) {
     Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
-    Set<String> result =
-        Streams.concat(
-                _lineageSpecMap.get(entityType.toLowerCase()).getDownstreamEdges().stream(),
-                _lineageSpecMap.get(entityType.toLowerCase()).getUpstreamEdges().stream())
-            .map(EdgeInfo::getOpposingEntityType)
-            .map(entity -> specs.get(entity.toLowerCase()).getName())
-            .collect(Collectors.toSet());
-    result.add(entityType);
-    return result;
+    Set<String> discoveredTypes = new HashSet<>();
+    Set<String> typesToProcess = new HashSet<>();
+
+    typesToProcess.add(entityType);
+    while (!typesToProcess.isEmpty()) {
+      Set<String> nextBatch = new HashSet<>();
+
+      for (String currentType : typesToProcess) {
+        if (discoveredTypes.add(currentType)) {
+          LineageSpec lineageSpec = _lineageSpecMap.get(currentType.toLowerCase());
+          if (lineageSpec != null) {
+            Stream.concat(
+                    lineageSpec.getDownstreamEdges().stream(),
+                    lineageSpec.getUpstreamEdges().stream())
+                .map(EdgeInfo::getOpposingEntityType)
+                .map(entity -> specs.get(entity.toLowerCase()).getName())
+                .forEach(nextBatch::add);
+          }
+        }
+      }
+      typesToProcess = nextBatch;
+    }
+
+    return discoveredTypes;
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {
@@ -127,7 +152,7 @@ public class LineageRegistry {
       return Collections.emptyList();
     }
 
-    if (entityName.equals("schemaField")) {
+    if (entityName.equals(SCHEMA_FIELD_ENTITY_NAME)) {
       return getSchemaFieldRelationships(direction);
     }
 
@@ -141,12 +166,16 @@ public class LineageRegistry {
     List<EdgeInfo> schemaFieldEdges = new ArrayList<>();
     if (direction == LineageDirection.UPSTREAM) {
       schemaFieldEdges.add(
-          new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "schemafield"));
+          new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, SCHEMA_FIELD_ENTITY_NAME));
     } else {
       schemaFieldEdges.add(
-          new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "schemafield"));
+          new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, SCHEMA_FIELD_ENTITY_NAME));
     }
     return schemaFieldEdges;
+  }
+
+  public EntityRegistry getEntityRegistry() {
+    return _entityRegistry;
   }
 
   @Value

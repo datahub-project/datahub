@@ -32,11 +32,14 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
     operation_api: Operation
 
     def __init__(self, config: OperationCircuitBreakerConfig):
-        super().__init__(config.datahub_host, config.datahub_token, config.timeout)
+        _token = (
+            config.datahub_token.get_secret_value() if config.datahub_token else None
+        )
+        super().__init__(config.datahub_host, _token, config.timeout)
         self.config = config
         self.operation_api = Operation(
             datahub_host=config.datahub_host,
-            datahub_token=config.datahub_token,
+            datahub_token=_token,
             timeout=config.timeout,
         )
 
@@ -55,9 +58,9 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
             which is set as Airflow connection.
         :param partition: The partition to check the operation.
         :param source_type: The source type to filter on. If not set it will accept any source type.
-            See valid types here: https://datahubproject.io/docs/graphql/enums#operationsourcetype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
         :param operation_type: The operation type to filter on. If not set it will accept any source type.
-            See valid types here: https://datahubproject.io/docs/graphql/enums/#operationtype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums/#operationtype
         """
 
         start_time_millis: int = int(

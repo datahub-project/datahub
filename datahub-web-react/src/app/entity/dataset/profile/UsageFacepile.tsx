@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
 import { Avatar, Tooltip } from 'antd';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { UserUsageCounts } from '../../../../types.generated';
-import { SpacedAvatarGroup } from '../../../shared/avatar/SpaceAvatarGroup';
-import getAvatarColor from '../../../shared/avatar/getAvatarColor';
+import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
+import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+
+import { UserUsageCounts } from '@types';
 
 export type Props = {
     users?: (UserUsageCounts | null)[] | null;

@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -94,7 +95,8 @@ public class MCLItemImpl implements MCLItem {
       log.debug("entity spec = {}", this.entitySpec);
 
       aspectSpec(
-          ValidationApiUtils.validate(this.entitySpec, this.metadataChangeLog.getAspectName()));
+          ValidationApiUtils.validateAspect(
+              this.entitySpec, this.metadataChangeLog.getAspectName()));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       Pair<RecordTemplate, RecordTemplate> aspects =
@@ -132,7 +134,7 @@ public class MCLItemImpl implements MCLItem {
           aspect =
               GenericRecordUtils.deserializeAspect(
                   mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec);
-          ValidationApiUtils.validateOrThrow(aspect);
+          ValidationApiUtils.validateTrimOrThrow(aspect);
         } else {
           aspect = null;
         }
@@ -143,7 +145,7 @@ public class MCLItemImpl implements MCLItem {
                   mcl.getPreviousAspectValue().getValue(),
                   mcl.getPreviousAspectValue().getContentType(),
                   aspectSpec);
-          ValidationApiUtils.validateOrThrow(prevAspect);
+          ValidationApiUtils.validateTrimOrThrow(prevAspect);
         } else {
           prevAspect = null;
         }
@@ -156,6 +158,11 @@ public class MCLItemImpl implements MCLItem {
 
       return Pair.of(aspect, prevAspect);
     }
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
   }
 
   @Override

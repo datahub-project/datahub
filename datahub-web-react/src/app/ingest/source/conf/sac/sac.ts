@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import sacLogo from '../../../../../images/saclogo.svg';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import sacLogo from '@images/saclogo.svg';
 
 const placeholderRecipe = `\
 source:
@@ -11,6 +12,8 @@ source:
         # Add secret in Secrets Tab with relevant names for each variable
         client_id: "\${SAC_CLIENT_ID}" # Your SAP Analytics Cloud client id
         client_secret: "\${SAC_CLIENT_SECRET}" # Your SAP Analytics Cloud client secret
+        stateful_ingestion:
+            enabled: true
 `;
 
 export const SAC = 'sac';
@@ -19,7 +22,7 @@ const sacConfig: SourceConfig = {
     type: SAC,
     placeholderRecipe,
     displayName: 'SAP Analytics Cloud',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/sac/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/sac/',
     logoUrl: sacLogo,
 };
 

@@ -1,0 +1,72 @@
+import { Modal } from '@components';
+import { message } from 'antd';
+import React, { useState } from 'react';
+
+import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
+import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
+
+import { useUpdateDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct } from '@types';
+
+type Props = {
+    dataProduct: DataProduct;
+    onClose: () => void;
+    onUpdateDataProduct: (dataProduct: DataProduct) => void;
+};
+
+export default function EditDataProductModal({ dataProduct, onUpdateDataProduct, onClose }: Props) {
+    const [builderState, updateBuilderState] = useState<DataProductBuilderState>({
+        name: dataProduct.properties?.name || '',
+        description: dataProduct.properties?.description || '',
+    });
+    const [updateDataProductMutation] = useUpdateDataProductMutation();
+
+    function updateDataProduct() {
+        updateDataProductMutation({
+            variables: {
+                urn: dataProduct.urn,
+                input: {
+                    name: builderState.name,
+                    description: builderState.description || undefined,
+                },
+            },
+        })
+            .then(({ data, errors }) => {
+                if (!errors) {
+                    message.success('Updates Data Product!');
+                    if (data?.updateDataProduct) {
+                        onUpdateDataProduct(data.updateDataProduct as DataProduct);
+                    }
+                    onClose();
+                }
+            })
+            .catch(() => {
+                onClose();
+                message.destroy();
+                message.error({ content: 'Failed to update Data Product. An unexpected error occurred' });
+            });
+    }
+
+    return (
+        <Modal
+            title={`Update ${dataProduct.properties?.name || 'Data Product'}`}
+            onCancel={onClose}
+            open
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Update',
+                    onClick: updateDataProduct,
+                    variant: 'filled',
+                    disabled: !builderState.name,
+                },
+            ]}
+        >
+            <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
+        </Modal>
+    );
+}

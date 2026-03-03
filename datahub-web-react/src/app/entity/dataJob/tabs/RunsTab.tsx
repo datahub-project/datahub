@@ -3,18 +3,20 @@ import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '../../../ingest/source/utils';
-import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
-import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
-import { scrollToTop } from '../../../shared/searchUtils';
+} from '@app/ingest/source/utils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { scrollToTop } from '@app/shared/searchUtils';
+
+import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
+
+import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -117,10 +119,11 @@ export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
 
-    const { loading, data } = useGetDataJobRunsQuery({
+    const { loading, data } = useGetExecutionRunsQuery({
         variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE },
     });
-    const runs = data && data?.dataJob?.runs?.runs;
+    const runsData = data?.entity && ('runs' in data?.entity ? data?.entity?.runs : null);
+    const runs = runsData?.runs;
 
     const tableData = runs
         ?.filter((run) => run)
@@ -129,8 +132,8 @@ export const RunsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {
@@ -154,7 +157,7 @@ export const RunsTab = () => {
                 <Pagination
                     current={page}
                     pageSize={PAGE_SIZE}
-                    total={data?.dataJob?.runs?.total || 0}
+                    total={runsData?.total || 0}
                     showLessItems
                     onChange={onChangePage}
                     showSizeChanger={false}

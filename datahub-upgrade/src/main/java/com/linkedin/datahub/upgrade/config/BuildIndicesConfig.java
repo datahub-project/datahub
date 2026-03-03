@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -12,10 +13,12 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 
 @Configuration
 @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
 public class BuildIndicesConfig {
+  @Order(2)
   @Bean(name = "buildIndices")
   public BlockingSystemUpgrade buildIndices(
       final SystemMetadataService systemMetadataService,

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useRemirrorContext } from '@remirror/react';
 import { ActionKind, AutocompleteAction, FromTo } from 'prosemirror-autocomplete';
-import { DataHubMentionsExtension } from './DataHubMentionsExtension';
+import { useCallback, useEffect, useState } from 'react';
+
+import { DataHubMentionsExtension } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/mentions/DataHubMentionsExtension';
 
 type State = {
     active: boolean;
@@ -21,7 +22,7 @@ type UseDataHubMentionsProps<T> = {
  * when using the arrow keys to navigate the autocomplete menu.
  */
 export function useDataHubMentions<Item = any>(props: UseDataHubMentionsProps<Item>) {
-    const [index, selectedIndex] = useState(0);
+    const [selectedIndex, setSelectedIndex] = useState(0);
     const rmrCtx = useRemirrorContext();
     const ext = rmrCtx.getExtension(DataHubMentionsExtension);
     const [state, setState] = useState<State>({ active: false });
@@ -39,19 +40,23 @@ export function useDataHubMentions<Item = any>(props: UseDataHubMentionsProps<It
             const maxIndex = items.length - 1;
 
             switch (action.kind) {
-                case ActionKind.enter:
-                    return onEnter?.(items[index]) || true;
+                case ActionKind.enter: {
+                    // Guard: items may be empty during debounce window after dropdown renders
+                    const selectedItem = items[selectedIndex];
+                    if (!selectedItem) return false;
+                    return onEnter?.(selectedItem) || true;
+                }
                 case ActionKind.up:
-                    selectedIndex((i) => (i - 1 < 0 ? maxIndex : i - 1));
+                    setSelectedIndex((i) => (i - 1 < 0 ? maxIndex : i - 1));
                     return true;
                 case ActionKind.down:
-                    selectedIndex((i) => (i + 1 > maxIndex ? 0 : i + 1));
+                    setSelectedIndex((i) => (i + 1 > maxIndex ? 0 : i + 1));
                     return true;
                 default:
                     return false;
             }
         },
-        [items, onEnter, selectedIndex, index],
+        [items, onEnter, setSelectedIndex, selectedIndex],
     );
 
     useEffect(() => {
@@ -59,5 +64,10 @@ export function useDataHubMentions<Item = any>(props: UseDataHubMentionsProps<It
         return () => eventHandler();
     }, [ext, handleEvents]);
 
-    return { ...state, selectedIndex: index };
+    // Reset selectedIndex when items change to prevent out-of-bounds access
+    useEffect(() => {
+        setSelectedIndex(0);
+    }, [items]);
+
+    return { ...state, selectedIndex };
 }

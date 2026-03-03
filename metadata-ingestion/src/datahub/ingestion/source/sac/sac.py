@@ -8,17 +8,14 @@ import pyodata
 import pyodata.v2.model
 import pyodata.v2.service
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DEFAULT_ENV,
-    DatasetSourceConfigMixin,
-    EnvConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
     dataset_urn_to_key,
     make_dashboard_urn,
     make_data_platform_urn,
@@ -162,7 +159,8 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
-    @validator("tenant_url", "token_url")
+    @field_validator("tenant_url", "token_url", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
@@ -181,7 +179,9 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default (only for Live Data Models)",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default (only for Import Data Models)",
@@ -210,7 +210,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SACSource":
-        config = SACSourceConfig.parse_obj(config_dict)
+        config = SACSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -218,7 +218,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
 
         try:
-            config = SACSourceConfig.parse_obj(config_dict)
+            config = SACSourceConfig.model_validate(config_dict)
 
             # when creating the pyodata.Client, the metadata is automatically parsed and validated
             session, _ = SACSource.get_sac_connection(config)
@@ -404,7 +404,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             columns = self.get_import_data_model_columns(model_id=model.model_id)
             for column in columns:
-
                 schema_field = SchemaFieldClass(
                     fieldPath=column.name,
                     type=self.get_schema_field_data_type(column),

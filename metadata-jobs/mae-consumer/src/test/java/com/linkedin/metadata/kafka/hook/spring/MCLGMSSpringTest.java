@@ -3,12 +3,12 @@ package com.linkedin.metadata.kafka.hook.spring;
 import static org.testng.AssertJUnit.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.kafka.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -42,20 +42,19 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
     MCLKafkaListenerRegistrar registrar =
         applicationContext.getBean(MCLKafkaListenerRegistrar.class);
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
-            .anyMatch(hook -> hook instanceof UpdateIndicesHook));
+        registrar.getEnabledHooks().stream().anyMatch(hook -> hook instanceof UpdateIndicesHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .anyMatch(hook -> hook instanceof SiblingAssociationHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
   }
@@ -69,6 +68,6 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
     assertNotNull(updateIndicesService.getUpdateGraphIndicesService());
     assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphDiffMode());
-    assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
+    assertFalse(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
   }
 }

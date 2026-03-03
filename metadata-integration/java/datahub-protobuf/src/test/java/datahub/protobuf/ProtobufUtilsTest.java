@@ -15,6 +15,7 @@ public class ProtobufUtilsTest {
 
   @Test
   public void registryTest() throws IOException, IllegalArgumentException {
+    // Test that primitive and enum-type extensions are properly handled
     byte[] protocBytes = getTestProtoc("extended_protobuf", "messageA").readAllBytes();
     DescriptorProtos.FileDescriptorSet fileSet =
         getTestProtobufFileSet("extended_protobuf", "messageA");
@@ -24,10 +25,7 @@ public class ProtobufUtilsTest {
 
     assertNotEquals(fileSet, fileSetWithRegistry);
 
-    /*
-     *
-     * Without the ExtensionRegistry we get field numbers instead of the names.
-     */
+    // Without the ExtensionRegistry we get field numbers instead of the names.
     ProtobufGraph graph = new ProtobufGraph(fileSet, null);
     assertEquals(
         "[meta.msg.classification_enum]: HighlyConfidential\n"
@@ -44,6 +42,32 @@ public class ProtobufUtilsTest {
             + "[meta.msg.repeat_enum]: ENTITY\n"
             + "[meta.msg.repeat_enum]: EVENT\n",
         graph.root().messageProto().getOptions().toString());
+  }
+
+  @Test
+  public void messageTypeExtensionRegistryTest() throws IOException {
+    // Test that MESSAGE-type extensions (not just primitive/enum) are properly handled
+    byte[] protocBytes = getTestProtoc("extended_protobuf", "messageF").readAllBytes();
+    DescriptorProtos.FileDescriptorSet fileSet =
+        getTestProtobufFileSet("extended_protobuf", "messageF");
+    ExtensionRegistry registry = ProtobufUtils.buildRegistry(fileSet);
+    DescriptorProtos.FileDescriptorSet fileSetWithRegistry =
+        DescriptorProtos.FileDescriptorSet.parseFrom(protocBytes, registry);
+
+    assertNotEquals(fileSet, fileSetWithRegistry);
+
+    // Verify that message-type extension options are properly parsed
+    ProtobufGraph graph = new ProtobufGraph(fileSetWithRegistry, "extended_protobuf.Product");
+    String options = graph.root().messageProto().getOptions().toString();
+
+    // The extension should be properly parsed with field names (not field numbers)
+    assertTrue(
+        options.contains("[meta.nested_msg.metadata]"),
+        "Expected MESSAGE-type extension to be properly registered");
+    assertTrue(
+        options.contains("description: \"Product catalog message\""),
+        "Expected extension field values to be parsed");
+    assertTrue(options.contains("priority: 10"), "Expected extension field values to be parsed");
   }
 
   @Test

@@ -1,0 +1,67 @@
+# Semantic Search Configuration Extensions
+
+"""
+Configuration for semantic search including embedding generation settings
+"""
+type SemanticSearchConfig {
+  """
+  Whether semantic search is enabled on the server
+  """
+  enabled: Boolean!
+
+  """
+  Entity types that support semantic search (e.g., ["document"])
+  """
+  enabledEntities: [String!]!
+
+  """
+  Embedding generation configuration (nullable when semantic search is disabled)
+  """
+  embeddingConfig: EmbeddingConfig
+}
+
+"""
+Embedding model configuration for generating semantic search vectors.
+Only includes minimal settings required for clients to match server embedding behavior.
+"""
+type EmbeddingConfig {
+  """
+  Embedding provider type (e.g., "aws-bedrock")
+  """
+  provider: String!
+
+  """
+  Model identifier (e.g., "cohere.embed-english-v3")
+  """
+  modelId: String!
+
+  """
+  Embedding storage key for SemanticContent aspects (e.g., "cohere_embed_v3").
+  This is the canonical key used in the embeddings map when storing SemanticContent aspects.
+  Server-provided to ensure exact match between client (writing) and server (querying).
+  """
+  modelEmbeddingKey: String!
+
+  """
+  AWS Bedrock-specific configuration (only populated when provider is "aws-bedrock")
+  """
+  awsProviderConfig: AwsProviderConfig
+}
+
+"""
+AWS Bedrock provider-specific configuration
+"""
+type AwsProviderConfig {
+  """
+  AWS region where Bedrock is accessed (e.g., "us-west-2")
+  """
+  region: String!
+}
+
+# Extend AppConfig with semantic search configuration
+extend type AppConfig {
+  """
+  Semantic search and embedding configuration
+  """
+  semanticSearchConfig: SemanticSearchConfig
+}

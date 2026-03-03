@@ -44,7 +44,7 @@ def assert_field_types_match(
     fields: List[SchemaField], expected_field_types: List[Type]
 ) -> None:
     assert len(fields) == len(expected_field_types)
-    for field, expected_type in zip(fields, expected_field_types):
+    for field, expected_type in zip(fields, expected_field_types, strict=False):
         assert isinstance(field.type.type, expected_type)
 
 

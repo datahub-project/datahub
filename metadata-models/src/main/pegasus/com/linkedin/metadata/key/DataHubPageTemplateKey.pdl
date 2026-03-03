@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHubPageTemplate
+ */
+@Aspect = {
+  "name": "dataHubPageTemplateKey",
+}
+record DataHubPageTemplateKey {
+  /**
+  * Unique id for the template.
+  */
+  id: string
+}

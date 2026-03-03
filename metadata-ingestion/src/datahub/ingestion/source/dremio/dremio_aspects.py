@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_domain_urn,
     make_group_urn,
@@ -14,6 +15,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioContainer,
     DremioDataset,
@@ -116,10 +118,7 @@ class SchemaFieldTypeMapper:
             data_type = data_type.lower()
             type_class = cls.FIELD_TYPE_MAPPING.get(data_type, NullTypeClass)
 
-            if data_size:
-                native_data_type = f"{data_type}({data_size})"
-            else:
-                native_data_type = data_type
+            native_data_type = f"{data_type}({data_size})" if data_size else data_type
 
         try:
             schema_field_type = SchemaFieldDataTypeClass(type=type_class())
@@ -142,6 +141,7 @@ class DremioAspects:
         platform: str,
         ui_url: str,
         env: str,
+        ingest_owner: bool,
         domain: Optional[str] = None,
         platform_instance: Optional[str] = None,
     ):
@@ -150,6 +150,7 @@ class DremioAspects:
         self.env = env
         self.domain = domain
         self.ui_url = ui_url
+        self.ingest_owner = ingest_owner
 
     def get_container_key(
         self, name: Optional[str], path: Optional[List[str]]
@@ -166,8 +167,9 @@ class DremioAspects:
         )
 
     def get_container_urn(
-        self, name: Optional[str] = None, path: Optional[List[str]] = []
+        self, name: Optional[str] = None, path: Optional[List[str]] = None
     ) -> str:
+        path = path or []
         container_key = self.get_container_key(name, path)
         return container_key.as_urn()
 
@@ -364,9 +366,9 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if entity.subclass == "Dremio Space":
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == "Dremio Source":
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
         if paths:
             return BrowsePathsV2Class(path=paths)
@@ -381,7 +383,7 @@ class DremioAspects:
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             instance=(
                 make_dataplatform_instance_urn(self.platform, self.platform_instance)
                 if self.platform_instance
@@ -426,21 +428,23 @@ class DremioAspects:
         return f'{self.ui_url}/{container_type}/{dataset_url_path}"{dataset.resource_name}"'
 
     def _create_ownership(self, dataset: DremioDataset) -> Optional[OwnershipClass]:
-        if not dataset.owner:
-            return None
-        owner = (
-            make_user_urn(dataset.owner)
-            if dataset.owner_type == "USER"
-            else make_group_urn(dataset.owner)
-        )
-        return OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-            ]
-        )
+        if self.ingest_owner and dataset.owner:
+            owner_urn = (
+                make_user_urn(dataset.owner)
+                if dataset.owner_type == "USER"
+                else make_group_urn(dataset.owner)
+            )
+            ownership: OwnershipClass = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                ]
+            )
+            return ownership
+
+        return None
 
     def _create_glossary_terms(self, entity: DremioDataset) -> GlossaryTermsClass:
         return GlossaryTermsClass(
@@ -457,7 +461,7 @@ class DremioAspects:
     def _create_schema_metadata(self, dataset: DremioDataset) -> SchemaMetadataClass:
         return SchemaMetadataClass(
             schemaName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
-            platform=f"urn:li:dataPlatform:{self.platform}",
+            platform=make_data_platform_urn(self.platform),
             version=0,
             fields=[self._create_schema_field(column) for column in dataset.columns],
             platformSchema=MySqlDDLClass(""),

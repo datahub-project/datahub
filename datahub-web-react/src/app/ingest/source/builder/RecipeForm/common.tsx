@@ -1,6 +1,6 @@
-import React from 'react';
-import { set, get } from 'lodash';
+import { get, set } from 'lodash';
 import moment, { Moment } from 'moment-timezone';
+import React from 'react';
 
 export enum FieldType {
     TEXT,
@@ -34,6 +34,7 @@ export interface RecipeField {
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
     placeholder?: string;
+    shouldShow?: (formValues: any) => boolean; // Optional function to determine field visibility based on form state
 }
 
 function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
@@ -276,7 +277,7 @@ export const INCLUDE_LINEAGE: RecipeField = {
 export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
-    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the sync.',
+    tooltip: 'Extract Table-Level lineage metadata. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_table_lineage',
     rules: null,
@@ -335,7 +336,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
             <p>
                 Which table lineage collector mode to use. Check out{' '}
                 <a
-                    href="https://datahubproject.io/docs/generated/ingestion/sources/redshift/#config-details"
+                    href="https://docs.datahub.com/docs/generated/ingestion/sources/redshift/#config-details"
                     target="_blank"
                     rel="noreferrer"
                 >

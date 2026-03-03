@@ -9,6 +9,8 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+from .token_utils import listUsers, removeUser
+
 pytestmark = pytest.mark.no_cypress_suite1
 
 # Disable telemetry
@@ -111,15 +113,24 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
+
+    if res_data["data"]["listAccessTokens"]["tokens"]:
+        for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
+            revokeAccessToken(admin_session, metadata["id"])
+        wait_for_writes_to_sync()
+
+    # Verify clean state after cleanup
+    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
 
-    # Clean up
+    # Clean up after the test
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
+    wait_for_writes_to_sync()
 
 
 def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
@@ -430,7 +441,9 @@ def generateAccessToken_v2(session, actorUrn):
     return response.json()
 
 
-def listAccessTokens(session, filters=[]):
+def listAccessTokens(session, filters):
+    if filters is None:
+        filters = []
     # Get count of existing tokens
     input = {"start": 0, "count": 20}
 
@@ -489,46 +502,4 @@ def getAccessTokenMetadata(session, token):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    return response.json()
-
-
-def removeUser(session, urn):
-    # Remove user
-    json = {
-        "query": """mutation removeUser($urn: String!) {
-            removeUser(urn: $urn)
-        }""",
-        "variables": {"urn": urn},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
-    return response.json()
-
-
-def listUsers(session):
-    input = {
-        "start": "0",
-        "count": "20",
-    }
-
-    # list users
-    json = {
-        "query": """query listUsers($input: ListUsersInput!) {
-            listUsers(input: $input) {
-              start
-              count
-              total
-              users {
-                username
-              }
-            }
-        }""",
-        "variables": {"input": input},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
     return response.json()

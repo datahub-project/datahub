@@ -1,17 +1,19 @@
+import { ArrowRightOutlined } from '@ant-design/icons';
 import { Image, Typography } from 'antd';
+import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
-import Link from 'antd/lib/typography/Link';
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { DEFAULT_APP_CONFIG } from '../../../../appConfigContext';
-import { useAppConfig } from '../../../useAppConfig';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { useEntityData } from '../EntityContext';
-import { getDisplayedEntityType } from '../containers/profile/header/PlatformContent/PlatformContentContainer';
-import { ANTD_GRAY } from '../constants';
-import analytics from '../../../analytics/analytics';
-import { EventType } from '../../../analytics';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { IconStyleType } from '@app/entity/Entity';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -59,7 +61,7 @@ const EntityNameWrapper = styled.div`
 
 export default function EmbeddedHeader() {
     const entityRegistry = useEntityRegistry();
-    const { entityData, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
 
@@ -74,7 +76,6 @@ export default function EmbeddedHeader() {
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
-    const entityTypePathName = entityRegistry.getPathName(entityType);
     const logoUrl =
         appConfig.config !== DEFAULT_APP_CONFIG
             ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
@@ -93,7 +94,7 @@ export default function EmbeddedHeader() {
                         {entityName}
                     </EntityName>
                     <StyledLink
-                        href={`${window.location.origin}/${entityTypePathName}/${entityData?.urn}`}
+                        href={`${window.location.origin}/${resolveRuntimePath(entityRegistry.getEntityUrl(entityType, urn))}`}
                         target="_blank"
                         rel="noreferrer noopener"
                         onClick={trackClickViewInDataHub}

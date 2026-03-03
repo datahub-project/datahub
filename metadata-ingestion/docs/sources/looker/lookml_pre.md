@@ -110,7 +110,7 @@ jobs:
             config:
               base_folder: ${{ github.workspace }}
               parse_table_names_from_sql: true
-              github_info:
+              git_info:
                 repo: ${{ github.repository }}
                 branch: ${{ github.ref }}
               # Options
@@ -122,6 +122,13 @@ jobs:
                 client_id: ${LOOKER_CLIENT_ID}
                 client_secret: ${LOOKER_CLIENT_SECRET}
                 base_url: ${LOOKER_BASE_URL}
+              # Enable API-based lineage extraction (required for field splitting features)
+              use_api_for_view_lineage: true
+              # Optional: Large view handling configuration
+              # field_threshold_for_splitting: 100
+              # allow_partial_lineage_results: true
+              # enable_individual_field_fallback: true
+              # max_workers_for_parallel_processing: 10
           sink:
             type: datahub-rest
             config:

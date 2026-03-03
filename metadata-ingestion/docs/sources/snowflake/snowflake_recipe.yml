@@ -1,7 +1,7 @@
 source:
   type: snowflake
   config:
-    # This option is recommended to be used to ingest all lineage
+    # This option is recommended to be used to ingest all lineage on the first run.
     ignore_start_time_lineage: true
 
     # Coordinates
@@ -32,4 +32,4 @@ source:
     #   - "MARKETING_DB.*.*"
 
 # Default sink is datahub-rest and doesn't need to be configured
-# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options

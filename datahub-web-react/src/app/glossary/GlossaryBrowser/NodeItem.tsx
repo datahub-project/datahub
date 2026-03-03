@@ -1,14 +1,17 @@
-import { FolderOutlined, RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
+import { DownOutlined, LoadingOutlined, RightOutlined } from '@ant-design/icons';
+import { BookmarksSimple } from '@phosphor-icons/react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import React, { useState, useEffect } from 'react';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
-import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
-import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
-import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
+
+import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
+
+import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const ItemWrapper = styled.div`
     display: flex;
@@ -35,7 +38,7 @@ const StyledDownOutlined = styled(DownOutlined)`
     font-size: 10px;
 `;
 
-const StyledFolderOutlined = styled(FolderOutlined)`
+const StyledGlossaryNodeIcon = styled(BookmarksSimple)`
     margin-right: 6px;
 `;
 
@@ -63,24 +66,37 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
 function NodeItem(props: Props) {
-    const { node, isSelecting, hideTerms, openToEntity, refreshBrowser, nodeUrnToHide, selectTerm, selectNode } = props;
+    const {
+        node,
+        isSelecting,
+        hideTerms,
+        openToEntity,
+        refreshBrowser,
+        nodeUrnToHide,
+        termUrnToHide,
+        selectTerm,
+        selectNode,
+    } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
-    const { data, loading, refetch } = useGetGlossaryNodeQuery({
-        variables: { urn: node.urn },
-        skip: !areChildrenVisible || shouldHideNode,
-    });
+    const entityUrn = node.urn;
+    const {
+        scrollRef,
+        data: children,
+        loading,
+    } = useGlossaryChildren({ entityUrn, skip: !areChildrenVisible || shouldHideNode });
+    const { entityData } = useGlossaryEntityData();
 
     useEffect(() => {
-        if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
+        if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
             setAreChildrenVisible(true);
         }
     }, [entityData, node.urn, openToEntity]);
@@ -91,17 +107,7 @@ function NodeItem(props: Props) {
         }
     }, [refreshBrowser]);
 
-    useEffect(() => {
-        if (urnsToUpdate.includes(node.urn)) {
-            refetch();
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== node.urn));
-        }
-    });
-
     const isOnEntityPage = entityData && entityData.urn === node.urn;
-
-    const children =
-        entityData && isOnEntityPage ? entityData.children?.relationships : data?.glossaryNode?.children?.relationships;
 
     function handleSelectNode() {
         if (selectNode) {
@@ -110,16 +116,12 @@ function NodeItem(props: Props) {
         }
     }
 
-    const childNodes =
-        (children as any)
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryNode)
-            .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA.entity, nodeB.entity))
-            .map((child) => child.entity) || [];
-    const childTerms =
-        (children as any)
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryTerm)
-            .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
-            .map((child) => child.entity) || [];
+    const childNodes = children
+        ?.filter((child) => child?.type === EntityType.GlossaryNode)
+        .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
+    const childTerms = children
+        ?.filter((child) => child?.type === EntityType.GlossaryTerm)
+        .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
     if (shouldHideNode) return null;
 
@@ -131,30 +133,31 @@ function NodeItem(props: Props) {
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
-                        isSelected={entityData?.urn === node.urn}
+                        $isSelected={entityData?.urn === node.urn}
                     >
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NodeLink>
                 )}
                 {isSelecting && (
                     <NameWrapper showSelectStyles={!!selectNode} onClick={handleSelectNode}>
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NameWrapper>
                 )}
             </NodeWrapper>
             {areChildrenVisible && (
                 <>
-                    {!data && loading && (
+                    {!children.length && loading && (
                         <LoadingWrapper>
                             <LoadingOutlined />
                         </LoadingWrapper>
                     )}
-                    {data && data.glossaryNode && (
+                    {children.length > 0 && (
                         <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (
                                 <NodeItem
+                                    key={child.urn}
                                     node={child}
                                     isSelecting={isSelecting}
                                     hideTerms={hideTerms}
@@ -167,12 +170,15 @@ function NodeItem(props: Props) {
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
                                     <TermItem
+                                        key={child.urn}
                                         term={child}
                                         isSelecting={isSelecting}
                                         selectTerm={selectTerm}
                                         includeActiveTabPath
+                                        termUrnToHide={termUrnToHide}
                                     />
                                 ))}
+                            <div ref={scrollRef} />
                         </ChildrenWrapper>
                     )}
                 </>

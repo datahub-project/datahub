@@ -1,3 +1,6 @@
+#import "./incident.graphql"
+#import "./fragments.graphql"
+
 fragment autoCompleteFields on Entity {
     urn
     type
@@ -51,9 +54,42 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                        platform {
+                            ...platformFields
+                        }
+                        parentContainers {
+                            ...parentContainersFields
+                        }
+                        name
+                        properties {
+                            name
+                            description
+                            qualifiedName
+                            externalUrl
+                            lastModified {
+                                time
+                                actor
+                            }
+                        }
+                    }
+                }
+            }
+        }
         ...datasetStatsFields
         access {
             ...getAccess
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Role {
@@ -74,6 +110,7 @@ fragment autoCompleteFields on Entity {
         }
         editableProperties {
             displayName
+            pictureLink
         }
     }
     ... on CorpGroup {
@@ -98,6 +135,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Chart {
         chartId
@@ -116,6 +156,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -127,6 +170,12 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on DataJob {
@@ -145,6 +194,12 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {
@@ -169,8 +224,28 @@ fragment autoCompleteFields on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on DataProduct {
+        properties {
+            name
+        }
+        domain {
+            domain {
+                urn
+                type
+                properties {
+                    name
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+            }
+        }
+    }
+    ... on Application {
         properties {
             name
         }
@@ -190,6 +265,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Tag {
@@ -213,11 +291,33 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
+        }
     }
     ... on MLPrimaryKey {
         name
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
         }
     }
     ... on MLModel {
@@ -247,9 +347,53 @@ fragment autoCompleteFields on Entity {
             description
         }
     }
+    ... on SchemaFieldEntity {
+        fieldPath
+        parent {
+            ... on Dataset {
+                urn
+                type
+                ...entityDisplayNameFields
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
+    ... on Document {
+        urn
+        type
+        subType
+        platform {
+            ...platformFields
+        }
+        info {
+            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
 }
 
-query getAutoCompleteResults($input: AutoCompleteInput!) {
+query getAutoCompleteResults($input: AutoCompleteInput!, $skipSiblingsSearch: Boolean = false) {
     autoComplete(input: $input) {
         query
         suggestions
@@ -259,7 +403,7 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     }
 }
 
-query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
+query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!, $skipSiblingsSearch: Boolean = false) {
     autoCompleteForMultiple(input: $input) {
         query
         suggestions {
@@ -368,10 +512,6 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     subTypes {
         typeNames
     }
-    domain {
-        ...entityDomain
-    }
-    ...entityDataProduct
     parentContainers {
         ...parentContainersFields
     }
@@ -380,6 +520,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     }
     health {
         ...entityHealth
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
     ...datasetStatsFields
 }
@@ -396,8 +539,48 @@ fragment searchResultsWithoutSchemaField on Entity {
                 type
                 ... on Dataset {
                     ...nonSiblingsDatasetSearchFields
+                    structuredProperties {
+                        properties {
+                            ...structuredPropertiesFields
+                        }
+                    }
                 }
             }
+        }
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...nonSiblingsDatasetSearchFields
+                        siblings {
+                            isPrimary
+                        }
+                        structuredProperties {
+                            properties {
+                                ...structuredPropertiesFields
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Role {
@@ -417,6 +600,8 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastName
             fullName
             email
+            departmentName
+            title
         }
         info {
             active
@@ -426,6 +611,8 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastName
             fullName
             email
+            departmentName
+            title
         }
         editableProperties {
             displayName
@@ -446,6 +633,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on Dashboard {
+        tool
         dashboardId
         properties {
             name
@@ -474,10 +662,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -508,6 +692,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Chart {
@@ -543,15 +738,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         statsSummary {
             viewCount
@@ -578,8 +772,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on DataFlow {
+        orchestrator
         flowId
         cluster
         properties {
@@ -606,10 +809,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        domain {
-            ...entityDomain
+        parentContainers {
+            ...parentContainersFields
         }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -618,6 +820,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on DataJob {
@@ -642,15 +855,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         editableProperties {
             description
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
         subTypes {
             typeNames
@@ -671,6 +883,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on GlossaryTerm {
         name
@@ -686,6 +906,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 key
                 value
             }
+            createdOn {
+                time
+            }
         }
         deprecation {
             ...deprecationFields
@@ -696,11 +919,27 @@ fragment searchResultsWithoutSchemaField on Entity {
         domain {
             ...entityDomain
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
         parentNodes {
             ...parentNodesFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Domain {
@@ -714,7 +953,18 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Container {
         properties {
@@ -752,6 +1002,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLFeatureTable {
         name
@@ -777,12 +1035,30 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModel {
         name
@@ -799,6 +1075,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        properties {
+            propertiesName: name
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on MLModelGroup {
@@ -817,6 +1104,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        properties {
+            propertiesName: name
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Tag {
         name
@@ -831,6 +1129,17 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+    }
+    ... on Application {
+        ...applicationSearchFields
     }
     ... on ERModelRelationship {
         urn
@@ -855,24 +1164,122 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on BusinessAttribute {
         ...businessAttributeFields
     }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
+    ... on SupportsVersions {
+        versionProperties {
+            ...versionProperties
+        }
+    }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    ... on Incident {
+        ...incidentFields
+    }
+    ... on Document {
+        urn
+        type
+        subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        info {
+            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
+            created {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
 }
 
-fragment searchResultFields on Entity {
+fragment searchResultFieldsNoLineage on Entity {
     ...searchResultsWithoutSchemaField
     ... on SchemaFieldEntity {
         ...entityField
     }
 }
 
+fragment searchResultFields on Entity {
+    ...searchResultFieldsNoLineage
+    ... on EntityWithRelationships {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) @skip(if: $skipLineage) {
+            total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) @skip(if: $skipLineage) {
+            total
+            filtered
+            # avoid fetching data about results, this query is meant to give a count upstream and downstream
+            # count is 100 in order to allow us to filter out ghost entities and show a more accurate count in the UI
+        }
+    }
+}
+
 fragment facetFields on FacetMetadata {
     field
     displayName
+    entity {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on StructuredPropertyEntity {
+            definition {
+                valueType {
+                    urn
+                }
+            }
+        }
+    }
     aggregations {
         value
         count
         entity {
             urn
             type
+            ...entityDisplayNameFields
             ... on Tag {
                 name
                 properties {
@@ -903,12 +1310,20 @@ fragment facetFields on FacetMetadata {
                     ...parentDomainsFields
                 }
             }
+            ... on Dataset {
+                platform {
+                    ...platformFields
+                }
+            }
             ... on Container {
                 platform {
                     ...platformFields
                 }
                 properties {
                     name
+                }
+                parentContainers {
+                    ...parentContainersFields
                 }
             }
             ... on CorpUser {
@@ -929,6 +1344,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+            ... on Application {
                 properties {
                     name
                 }
@@ -969,6 +1389,37 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment scrollResults on ScrollResults {
+    count
+    total
+    nextScrollId
+    searchResults {
+        entity {
+            ...searchResultFields
+        }
+        matchedFields {
+            name
+            value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        insights {
+            text
+            icon
+        }
+        extraProperties {
+            name
+            value
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
 fragment entityField on SchemaFieldEntity {
     urn
     type
@@ -1001,7 +1452,7 @@ fragment entityField on SchemaFieldEntity {
     }
 }
 
-fragment schemaFieldEntityFields on SchemaFieldEntity {
+fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     urn
     type
     fieldPath
@@ -1041,7 +1492,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
             path {
                 ...searchResultsWithoutSchemaField
                 ... on SchemaFieldEntity {
-                    ...schemaFieldEntityFields
+                    ...schemaFieldEntitySearchFields
                 }
             }
         }
@@ -1050,27 +1501,118 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     facets {
         ...facetFields
     }
+    lineageSearchPath
 }
 
-query getSearchResults($input: SearchInput!) {
+query getSearchResults($input: SearchInput!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     search(input: $input) {
         ...searchResults
     }
 }
 
-query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
+query getSearchResultsForMultiple(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossEntities(input: $input) {
         ...searchResults
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
+query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+            matchedFields {
+                name
+                value
+                entity {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+# Lightweight search query
+query getEntitySearchResultsAutoCompleteFields(
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ...autoCompleteFields
+            }
+        }
+    }
+}
+
+query getSearchCount($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        total
+    }
+}
+
+query searchAcrossLineage(
+    $input: SearchAcrossLineageInput!
+    $includeAssertions: Boolean = false
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }
 }
 
-query getEntityMentionNode($urn: String!) {
+query searchAcrossLineageCount($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
+    }
+}
+
+query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+            }
+            paths {
+                path {
+                    urn
+                    type
+                }
+            }
+            explored
+            ignoredAsHop
+        }
+    }
+}
+
+query aggregateAcrossLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+query getEntityMentionNode($urn: String!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     entity(urn: $urn) {
         urn
         type
@@ -1094,8 +1636,23 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
     }
 }
 
-query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+query listDataProductAssets(
+    $urn: String!
+    $input: SearchAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
     listDataProductAssets(urn: $urn, input: $input) {
         ...searchResults
+    }
+}
+
+query scrollAcrossEntities(
+    $input: ScrollAcrossEntitiesInput!
+    $skipSiblingsSearch: Boolean = false
+    $skipLineage: Boolean = false
+) {
+    scrollAcrossEntities(input: $input) {
+        ...scrollResults
     }
 }

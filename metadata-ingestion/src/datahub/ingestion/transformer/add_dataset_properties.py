@@ -2,6 +2,8 @@ import copy
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, cast
 
+from pydantic import ConfigDict
+
 from datahub.configuration.common import (
     TransformerSemantics,
     TransformerSemanticsConfigModel,
@@ -25,8 +27,7 @@ class AddDatasetPropertiesResolverBase(ABC):
 class AddDatasetPropertiesConfig(TransformerSemanticsConfigModel):
     add_properties_resolver_class: Type[AddDatasetPropertiesResolverBase]
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     _resolve_properties_class = pydantic_resolve_key("add_properties_resolver_class")
 
@@ -50,7 +51,7 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetProperties":
-        config = AddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = AddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -61,9 +62,9 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
     ) -> Optional[DatasetPropertiesClass]:
         assert dataset_properties_aspect
 
-        server_dataset_properties_aspect: Optional[
-            DatasetPropertiesClass
-        ] = graph.get_dataset_properties(entity_urn)
+        server_dataset_properties_aspect: Optional[DatasetPropertiesClass] = (
+            graph.get_dataset_properties(entity_urn)
+        )
         # No need to take any action if server properties is None or there is not customProperties in server properties
         if (
             server_dataset_properties_aspect is None
@@ -144,5 +145,5 @@ class SimpleAddDatasetProperties(AddDatasetProperties):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetProperties":
-        config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = SimpleAddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)

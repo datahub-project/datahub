@@ -45,17 +45,23 @@ record Operation includes TimeseriesAspectBase {
    * Source Type
    */
    @TimeseriesField = {}
-   sourceType: optional OperationSourceType
+  sourceType: optional OperationSourceType
 
   /**
    * Custom properties
    */
-   customProperties: optional map[string, string]
+  customProperties: optional map[string, string]
 
   /**
    * The time at which the operation occurred. Would be better named 'operationTime'
    */
-  @TimeseriesField = {}
+  @TimeseriesField = { "fieldType": "DATETIME" }
   @Searchable = { "fieldType": "DATETIME", "fieldName": "lastOperationTime" }
   lastUpdatedTimestamp: long
+
+  /**
+   * Which queries were used in this operation.
+   */
+  @TimeseriesFieldCollection = {"key":"query"}
+  queries: optional array[Urn]
 }

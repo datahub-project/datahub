@@ -1,8 +1,10 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
-import dataHubLogo from '../../../images/datahublogo.png';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import dataHubLogo from '@images/datahublogo.png';
 
 const Section = styled.div`
     width: auto;
@@ -41,12 +43,13 @@ const ResourceListItem = styled.li`
 const resources = [
     {
         label: 'DataHub Project',
-        path: 'https://datahubproject.io',
+        path: 'https://docs.datahub.com',
         shouldOpenInNewTab: true,
+        description: 'DataHub Project website',
     },
     {
         label: 'DataHub Docs',
-        path: 'https://datahubproject.io/docs',
+        path: 'https://docs.datahub.com/docs',
         shouldOpenInNewTab: true,
     },
     {
@@ -58,12 +61,13 @@ const resources = [
 
 export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
+    const themeLogo = themeConfig.assets.logoUrl || dataHubLogo;
 
     return (
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
+                    <Image src={themeLogo} preview={false} style={{ width: 40 }} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>

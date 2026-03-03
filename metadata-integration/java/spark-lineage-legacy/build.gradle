@@ -2,11 +2,10 @@ plugins {
     id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
 apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -21,17 +20,55 @@ configurations {
     implementation.extendsFrom provided
 }
 
+configurations.all {
+  exclude group: 'log4j', module: 'log4j'  // Log4j 1.x EOL; CVE-2019-17571, CVE-2022-23305, CVE-2022-23307, CVE-2022-23302, CVE-2021-4104
+  resolutionStrategy.eachDependency { details ->
+    if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
+      details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
+      details.because("CVE-2025-12183, upgrade to 1.10.1")
+    }
+  }
+  resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+  resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
+  resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
+  def lv = rootProject.ext.log4jVersion
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-api:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-core:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-1.2-api:${lv}"
+  resolutionStrategy.force "org.apache.logging.log4j:log4j-slf4j-impl:${lv}"
+  // dnsjava, jettison, nimbus-jose-jwt, commons-configuration2, jetty-servlet/util-ajax/webapp forced in root (spark-lineage configure block)
+  def jetty94 = rootProject.ext.sparkLineageJetty94Version
+  ['jetty-http', 'jetty-io', 'jetty-security', 'jetty-server', 'jetty-util', 'jetty-xml'].each {
+    resolutionStrategy.force "org.eclipse.jetty:${it}:${jetty94}"
+  }
+  resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+    select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
+  }
+}
+
 dependencies {
 
   constraints {
-    provided(externalDependency.hadoopMapreduceClient) {
+    provided(externalDependency.hadoopClient) {
       because 'Needed for tie breaking of guava version need for spark and wiremock'
     }
-    provided(externalDependency.hadoopCommon) {
+    provided(externalDependency.hadoopCommon3) {
       because 'required for org.apache.hadoop.util.StopWatch'
     }
     provided(externalDependency.commonsIo) {
       because 'required for org.apache.commons.io.Charsets that is used internally'
+    }
+    provided(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    implementation(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    provided(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    implementation(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
     }
   }
 
@@ -91,13 +128,15 @@ shadowJar {
   dependencies {
 
     exclude(dependency {
-            exclude_modules.contains(it.name)
+            exclude_modules.contains(it.name) && it.moduleGroup != 'org.slf4j'
         })
+    exclude(dependency("org.scala-lang::"))
   }
 
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
-  exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
+  exclude('module-info.class', 'META-INF/versions/**',
+          '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
 
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
@@ -123,15 +162,6 @@ shadowJar {
   finalizedBy checkShadowJar
 }
 
-checkShadowJar {
-   dependsOn shadowJar
-}
-
-
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
 test {
   forkEvery = 1
   useJUnit()
@@ -154,14 +184,13 @@ test {
   ]
   jvmArgs = sparkJava17CompatibleJvmArgs
 
-  finalizedBy jacocoTestReport
 }
 
 assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSlim'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
@@ -185,7 +214,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-spark-lineage'
         description = 'Library to push data lineage from spark to datahub'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
@@ -214,8 +243,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -236,16 +265,16 @@ signing {
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+    serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    username = System.getenv("RELEASE_USERNAME")
+    password = System.getenv("RELEASE_PASSWORD")
 }
 
-task cleanExtraDirs {
+clean{
   delete "$projectDir/derby.log"
   delete "$projectDir/src/test/resources/data/hive"
   delete "$projectDir/src/test/resources/data/out.csv"
   delete "$projectDir/src/test/resources/data/out_persist.csv"
   delete "$projectDir/spark-smoke-test/venv"
 }
-clean.finalizedBy(cleanExtraDirs)
+

@@ -1,13 +1,16 @@
 import { Tag } from 'antd';
+import { isEqual } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { Entity, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../graphql/search.generated';
-import { useEntityData } from '../../../../EntityContext';
-import { getInitialEntitiesForUrnPrompt } from '../utils';
-import SelectedEntity from './SelectedEntity';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import usePrevious from '../../../../../../shared/usePrevious';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
+import { getInitialEntitiesForUrnPrompt } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { Entity, PropertyCardinality, StructuredPropertyEntity } from '@types';
 
 const StyleTag = styled(Tag)`
     margin: 2px;
@@ -52,11 +55,13 @@ export default function useUrnInput({ structuredProperty, selectedValues, update
     const isMultiple = structuredProperty.definition.cardinality === PropertyCardinality.Multiple;
 
     const previousEntityUrn = usePrevious(entityData?.urn);
+    const previousInitial = usePrevious(initialEntities);
+
     useEffect(() => {
-        if (entityData?.urn !== previousEntityUrn) {
+        if (entityData?.urn !== previousEntityUrn || !isEqual(previousInitial, initialEntities)) {
             setSelectedEntities(initialEntities || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialEntities]);
+    }, [entityData?.urn, previousEntityUrn, initialEntities, previousInitial]);
 
     function handleSearch(query: string) {
         if (query.length > 0) {

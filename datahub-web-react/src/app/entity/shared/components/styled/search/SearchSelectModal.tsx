@@ -1,10 +1,13 @@
-import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../../../../types.generated';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import { EntityAndType } from '../../../types';
-import { SearchSelect } from './SearchSelect';
+
+import { SearchSelect } from '@app/entity/shared/components/styled/search/SearchSelect';
+import { EntityAndType } from '@app/entity/shared/types';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Modal } from '@src/alchemy-components';
+
+import { EntityType } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -42,20 +45,11 @@ export const SearchSelectModal = ({
     hideToolbar,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const onCancelSelect = () => {
         if (selectedEntities.length > 0) {
-            Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`,
-                onOk() {
-                    onCancel?.();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowConfirmationModal(true);
         } else {
             onCancel?.();
         }
@@ -70,20 +64,21 @@ export const SearchSelectModal = ({
                 width={MODAL_WIDTH_PX}
                 open
                 onCancel={onCancelSelect}
-                footer={
-                    <>
-                        <Button onClick={onCancel} type="text">
-                            Cancel
-                        </Button>
-                        <Button
-                            id="continueButton"
-                            onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
-                            disabled={selectedEntities.length === 0}
-                        >
-                            {continueText || 'Done'}
-                        </Button>
-                    </>
-                }
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        variant: 'text',
+                        onClick: () => onCancel?.(),
+                    },
+                    {
+                        text: continueText || 'Done',
+                        onClick: () => onContinue(selectedEntities.map((entity) => entity.urn)),
+                        variant: 'filled',
+                        disabled: selectedEntities.length === 0,
+                        buttonDataTestId: 'search-select-continue-button',
+                        id: 'continueButton',
+                    },
+                ]}
             >
                 <SearchSelect
                     fixedEntityTypes={fixedEntityTypes}
@@ -94,6 +89,13 @@ export const SearchSelectModal = ({
                     hideToolbar={hideToolbar}
                 />
             </StyledModal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle="Exit Selection"
+                modalText={`Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`}
+            />
         </ClickOutside>
     );
 };

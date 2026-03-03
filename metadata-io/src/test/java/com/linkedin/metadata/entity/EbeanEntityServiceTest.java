@@ -2,11 +2,27 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +34,8 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -32,6 +50,11 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.retention.DataHubRetentionConfig;
+import com.linkedin.retention.Retention;
+import com.linkedin.retention.TimeBasedRetention;
+import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.DataGenerator;
@@ -39,21 +62,27 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
-import io.ebean.annotation.TxIsolation;
+import jakarta.persistence.EntityNotFoundException;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
-import org.testng.Assert;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 /**
@@ -67,22 +96,54 @@ import org.testng.annotations.Test;
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
 
+  /** Real retention service used to test policy resolution without spy stubbing. */
+  private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
+
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
-  @BeforeMethod
-  public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
+  @DataProvider(name = "cdcModeVariants")
+  public Object[][] cdcModeVariants() {
+    return new Object[][] {
+      {false}, // Non-CDC mode
+      {true} // CDC mode
+    };
+  }
 
+  @BeforeClass
+  public void beforeClass() {
     _mockProducer = mock(EventProducer.class);
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
-
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+  }
+
+  @Parameters({"cdcMode"})
+  @BeforeMethod
+  public void setupTestWithParameter(
+      @org.testng.annotations.Optional("false") String cdcModeParam) {
+    boolean cdcMode = Boolean.parseBoolean(cdcModeParam);
+    setupTestWithCdcMode(cdcMode);
+  }
+
+  private void setupTestWithCdcMode(boolean cdcMode) {
+    this.cdcModeChangeLog = cdcMode;
+    reset(_mockProducer);
+    reset(_mockUpdateIndicesService);
+
+    Database server =
+        EbeanTestUtils.createTestServer(
+            EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
+
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
+    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
+    doReturn(20)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
     _entityServiceImpl.setRetentionService(_retentionService);
 
     opContext =
@@ -98,24 +159,165 @@ public class EbeanEntityServiceTest
                             .entityService(_entityServiceImpl)
                             .entityRegistry(_testEntityRegistry)
                             .build())
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(
+                            () -> _testEntityRegistry))
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
   }
 
-  /**
-   * Ideally, all tests would be in the base class, so they're reused between all implementations.
-   * When that's the case - test runner will ignore this class (and its base!) so we keep this dummy
-   * test to make sure this class will always be discovered.
-   */
   @Test
-  public void obligatoryTest() throws AssertionError {
-    Assert.assertTrue(true);
+  public void testGetMaxVersionsToKeepForWrite_ResolvesPolicy() {
+    _realRetentionService.setRetention(
+        opContext,
+        null,
+        null,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(20))));
+    _realRetentionService.setRetention(
+        opContext,
+        CORP_USER_ENTITY_NAME,
+        STATUS_ASPECT_NAME,
+        new DataHubRetentionConfig()
+            .setRetention(
+                new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
+
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, STATUS_ASPECT_NAME),
+        1);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(
+            opContext, CORP_USER_ENTITY_NAME, "corpUserInfo"),
+        20);
+    assertEquals(
+        _realRetentionService.getMaxVersionsToKeepForWrite(opContext, "dataset", "schemaMetadata"),
+        20);
+  }
+
+  @Test
+  public void testApplyRetentionWithPolicyDefaults_VersionAndTimePolicies() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:retentionApplyTest");
+    List<RetentionService.RetentionContext> contexts =
+        List.of(
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName(STATUS_ASPECT_NAME)
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))
+                .maxVersion(Optional.of(2L))
+                .build(),
+            RetentionService.RetentionContext.builder()
+                .urn(urn)
+                .aspectName("corpUserInfo")
+                .retentionPolicy(
+                    Optional.of(
+                        new Retention().setTime(new TimeBasedRetention().setMaxAgeInSeconds(3600))))
+                .build());
+    _realRetentionService.applyRetentionWithPolicyDefaults(opContext, contexts);
+  }
+
+  @Test
+  public void testNoRowsUpdatedErrorHandling() throws Exception {
+    // Setup test data
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testUser");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect.schema());
+
+    // No database needed since all methods are stubbed
+    EbeanAspectDao aspectDao = mock(EbeanAspectDao.class);
+
+    // Prevent actual saves
+    EntityAspect mockEntityAspect = mock(EntityAspect.class);
+    when(mockEntityAspect.getMetadata()).thenReturn("");
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).updateAspect(any(), any());
+    doReturn(Optional.of(mockEntityAspect)).when(aspectDao).insertAspect(any(), any(), anyLong());
+
+    // Stub methods that the transaction block will call
+    // Use mutable maps because the code calls computeIfAbsent() on them
+    when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any())).thenReturn(new java.util.HashMap<>());
+    // Stub saveLatestAspect to return a Pair with the mocked entity aspects
+    when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
+        .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
+
+    // Create mocked transaction context that throws on commitAndContinue
+    AtomicReference<TransactionContext> capturedTxContext = new AtomicReference<>();
+    AtomicReference<TransactionResult<?>> capturedResult = new AtomicReference<>();
+
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<?>> block = invocation.getArgument(0);
+              Integer maxTransactionRetry = invocation.getArgument(2);
+
+              // Use mock instead of spy to avoid Mockito global interceptor
+              TransactionContext txContext = mock(TransactionContext.class);
+              // Stub other methods that might be called
+              when(txContext.getFailedAttempts()).thenReturn(0);
+              when(txContext.shouldAttemptRetry()).thenReturn(true);
+              when(txContext.lastException()).thenReturn(null);
+              when(txContext.lastExceptionIsDuplicateKey()).thenReturn(false);
+
+              capturedTxContext.set(txContext);
+
+              doThrow(new EntityNotFoundException("No rows updated"))
+                  .when(txContext)
+                  .commitAndContinue();
+
+              TransactionResult<?> result = block.apply(txContext);
+              capturedResult.set(result);
+              return result.getResults();
+            })
+        .when(aspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    // Create the service with our mocked dao
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(false);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(aspectDao, _mockProducer, false, preProcessHooks, true);
+
+    // Create the test batch
+    List<ChangeItemImpl> items =
+        List.of(
+            ChangeItemImpl.builder()
+                .urn(entityUrn)
+                .aspectName(aspectName)
+                .recordTemplate(writeAspect)
+                .systemMetadata(systemMetadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(items)
+            .build(opContext);
+
+    // Execute the test
+    List<UpdateAspectResult> results = entityService.ingestAspects(opContext, batch, false, true);
+
+    // Verify results
+    assertEquals(results.size(), 0, "Expected no results for rolled back transaction");
+
+    // Verify transaction behavior
+    verify(aspectDao).runInTransactionWithRetry(any(), eq(batch), anyInt());
+    verify(capturedTxContext.get()).commitAndContinue();
+
+    // Verify the transaction result was a rollback
+    TransactionResult<?> result = capturedResult.get();
+    assertNotNull(result, "Expected a transaction result");
+    assertFalse(result.isCommitOrRollback(), "Expected a rollback result");
   }
 
   @Override
@@ -152,27 +354,27 @@ public class EbeanEntityServiceTest
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)));
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -230,27 +432,27 @@ public class EbeanEntityServiceTest
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)));
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -281,12 +483,11 @@ public class EbeanEntityServiceTest
     Database server = _aspectDao.getServer();
 
     try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       transaction.setBatchMode(true);
       // Work 1
       try (Transaction transaction2 =
-          server.beginTransaction(
-              TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -311,13 +512,13 @@ public class EbeanEntityServiceTest
             .recordTemplate(new Status().setRemoved(true))
             .systemMetadata(systemMetadata)
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -337,19 +538,22 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
-      _entityServiceImpl.aspectDao.saveAspect(
+      _entityServiceImpl.aspectDao.insertAspect(
           transactionContext,
-          entityUrn.toString(),
-          STATUS_ASPECT_NAME,
-          new Status().setRemoved(false).toString(),
-          entityUrn.toString(),
-          null,
-          Timestamp.from(Instant.now()),
-          systemMetadata.toString(),
-          1,
-          true);
+          EntityAspect.EntitySystemAspect.builder()
+              .forInsert(
+                  EntityAspect.builder()
+                      .urn(entityUrn.toString())
+                      .aspect(STATUS_ASPECT_NAME)
+                      .metadata(RecordUtils.toJsonString(new Status().setRemoved(false)))
+                      .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                      .createdOn(new Timestamp(0L))
+                      .systemMetadata(RecordUtils.toJsonString(systemMetadata))
+                      .build(),
+                  opContext.getEntityRegistry()),
+          1);
       transaction.commit();
     }
 
@@ -357,7 +561,7 @@ public class EbeanEntityServiceTest
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(
                 List.of(
                     ChangeItemImpl.builder()
@@ -366,8 +570,8 @@ public class EbeanEntityServiceTest
                         .recordTemplate(new Status().setRemoved(false))
                         .systemMetadata(systemMetadata)
                         .auditStamp(TEST_AUDIT_STAMP)
-                        .build(TestOperationContexts.emptyAspectRetriever(null))))
-            .build(),
+                        .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null))))
+            .build(opContext),
         false,
         true);
     EnvelopedAspect envelopedAspect2 =
@@ -382,55 +586,38 @@ public class EbeanEntityServiceTest
         "Expected version 0 with systemMeta version 3 accounting for the the collision");
   }
 
+  // NOTE: This is not currently super useful because H2 always treats spaces as significant
   @Test
-  public void testBatchDuplicate() throws Exception {
-    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:batchDuplicateTest");
+  public void testSystemMetadataDuplicateKeyWhitespace() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:duplicateKeyTest");
     SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
-    ChangeItemImpl item1 =
+    ChangeItemImpl item =
         ChangeItemImpl.builder()
             .urn(entityUrn)
             .aspectName(STATUS_ASPECT_NAME)
             .recordTemplate(new Status().setRemoved(true))
-            .systemMetadata(systemMetadata.copy())
+            .systemMetadata(systemMetadata)
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
-    ChangeItemImpl item2 =
-        ChangeItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(STATUS_ASPECT_NAME)
-            .recordTemplate(new Status().setRemoved(false))
-            .systemMetadata(systemMetadata.copy())
-            .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(List.of(item1, item2))
-            .build(),
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(List.of(item))
+            .build(opContext),
         false,
         true);
 
-    // List aspects urns
-    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
+    Urn entityUrnWhitespace = UrnUtils.getUrn(entityUrn + " ");
+    Map<Urn, List<EnvelopedAspect>> envelopedAspects =
+        _entityServiceImpl.getLatestEnvelopedAspects(
+            opContext,
+            ImmutableSet.of(entityUrn, entityUrnWhitespace),
+            ImmutableSet.of(STATUS_ASPECT_NAME),
+            false);
 
-    assertEquals(batch.getStart().intValue(), 0);
-    assertEquals(batch.getCount().intValue(), 1);
-    assertEquals(batch.getTotal().intValue(), 1);
-    assertEquals(batch.getEntities().size(), 1);
-    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
-
-    EnvelopedAspect envelopedAspect =
-        _entityServiceImpl.getLatestEnvelopedAspect(
-            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
-    assertEquals(
-        envelopedAspect.getSystemMetadata().getVersion(),
-        "2",
-        "Expected version 2 accounting for duplicates");
-    assertEquals(
-        envelopedAspect.getValue().toString(),
-        "{removed=false}",
-        "Expected 2nd item to be the latest");
+    assertEquals(envelopedAspects.get(entityUrn).size(), 1);
+    assertEquals(envelopedAspects.get(entityUrnWhitespace).size(), 0);
   }
 
   @Test
@@ -468,7 +655,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 15);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 15);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =
@@ -507,7 +694,9 @@ public class EbeanEntityServiceTest
     assertEquals(
         missing.size(),
         0,
-        String.format("Expected all generated aspects to be inserted. Missing: %s", missing));
+        String.format(
+            "Expected all generated aspects to be inserted. Missing Examples: %s",
+            missing.stream().limit(10).collect(Collectors.toSet())));
   }
 
   /**
@@ -524,7 +713,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 1);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 1);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =
@@ -650,13 +839,20 @@ public class EbeanEntityServiceTest
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()
-                  .mcps(mcps, auditStamp, operationContext.getRetrieverContext().get())
-                  .build();
+                  .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
+                  .build(operationContext);
           entityService.ingestProposal(operationContext, batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {
         throw new RuntimeException(ie);
       }
     }
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all Database instances to prevent thread pool and connection leaks
+    // This includes the "gma.heartBeat" thread and connection pools
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
   }
 }

@@ -69,6 +69,9 @@ public class SearchFlagsInputMapper
       result.setCustomHighlightingFields(
           new StringArray(searchFlags.getCustomHighlightingFields()));
     }
+    if (searchFlags.getFilterNonLatestVersions() != null) {
+      result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
+    }
     return result;
   }
 }

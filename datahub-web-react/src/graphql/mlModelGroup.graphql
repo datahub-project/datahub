@@ -1,7 +1,20 @@
-query getMLModelGroup($urn: String!) {
+query getMLModelGroup($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlModelGroup(urn: $urn) {
         urn
         type
+        properties {
+            name
+            description
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time
+                actor
+            }
+            externalUrl
+        }
         ...nonRecursiveMLModelGroupFields
         incoming: relationships(
             input: {
@@ -34,8 +47,6 @@ query getMLModelGroup($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
+        ...notes
     }
 }

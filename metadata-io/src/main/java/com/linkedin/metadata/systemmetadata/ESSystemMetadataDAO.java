@@ -1,11 +1,17 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_ASPECT;
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_URN;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,7 +27,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.xcontent.XContentType;
@@ -39,10 +44,11 @@ import org.opensearch.search.sort.SortOrder;
 @Slf4j
 @RequiredArgsConstructor
 public class ESSystemMetadataDAO {
-  private final RestHighLevelClient client;
+  private final SearchClientShim<?> client;
   private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
+  private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   /**
    * Gets the status of a Task running in ElasticSearch
@@ -52,7 +58,7 @@ public class ESSystemMetadataDAO {
   public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
     final GetTaskRequest taskRequest = new GetTaskRequest(nodeId, taskId);
     try {
-      return client.tasks().get(taskRequest, RequestOptions.DEFAULT);
+      return client.getTask(taskRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("ERROR: Failed to get task status: ", e);
       e.printStackTrace();
@@ -81,7 +87,8 @@ public class ESSystemMetadataDAO {
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
 
     try {
-      final DeleteResponse deleteResponse = client.delete(deleteRequest, RequestOptions.DEFAULT);
+      final DeleteResponse deleteResponse =
+          client.deleteDocument(deleteRequest, RequestOptions.DEFAULT);
       return deleteResponse;
     } catch (IOException e) {
       log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:");
@@ -103,8 +110,8 @@ public class ESSystemMetadataDAO {
   public BulkByScrollResponse deleteByUrnAspect(
       @Nonnull final String urn, @Nonnull final String aspect) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    finalQuery.must(QueryBuilders.termQuery("urn", urn));
-    finalQuery.must(QueryBuilders.termQuery("aspect", aspect));
+    finalQuery.filter(QueryBuilders.termQuery("urn", urn));
+    finalQuery.filter(QueryBuilders.termQuery("aspect", aspect));
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
@@ -113,7 +120,10 @@ public class ESSystemMetadataDAO {
   }
 
   public SearchResponse findByParams(
-      Map<String, String> searchParams, boolean includeSoftDeleted, int from, int size) {
+      Map<String, String> searchParams,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -121,7 +131,7 @@ public class ESSystemMetadataDAO {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
     for (String key : searchParams.keySet()) {
-      finalQuery.must(QueryBuilders.termQuery(key, searchParams.get(key)));
+      finalQuery.filter(QueryBuilders.termQuery(key, searchParams.get(key)));
     }
 
     if (!includeSoftDeleted) {
@@ -131,7 +141,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.query(finalQuery);
 
     searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
 
     searchRequest.source(searchSourceBuilder);
 
@@ -153,7 +163,7 @@ public class ESSystemMetadataDAO {
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -161,7 +171,7 @@ public class ESSystemMetadataDAO {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
     for (String key : searchParams.keySet()) {
-      finalQuery.must(QueryBuilders.termQuery(key, searchParams.get(key)));
+      finalQuery.filter(QueryBuilders.termQuery(key, searchParams.get(key)));
     }
 
     if (!includeSoftDeleted) {
@@ -171,7 +181,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.query(finalQuery);
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
 
     searchRequest.source(searchSourceBuilder);
 
@@ -186,15 +196,57 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
+  public SearchResponse scroll(
+      BoolQueryBuilder queryBuilder,
+      boolean includeSoftDeleted,
+      @Nullable String scrollId,
+      @Nullable String pitId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    SearchRequest searchRequest = new SearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    if (!includeSoftDeleted) {
+      queryBuilder.mustNot(QueryBuilders.termQuery("removed", "true"));
+    }
+
+    Object[] sort = null;
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      sort = searchAfterWrapper.getSort();
+    }
+
+    searchSourceBuilder.query(queryBuilder);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
+    searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
+
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try {
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.error("Error while searching by params.", e);
+    }
+    return null;
+  }
+
   public SearchResponse findByRegistry(
-      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
+      String registryName,
+      String registryVersion,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     Map<String, String> params = new HashMap<>();
     params.put("registryName", registryName);
     params.put("registryVersion", registryVersion);
     return findByParams(params, includeSoftDeleted, from, size);
   }
 
-  public SearchResponse findByRunId(String runId, boolean includeSoftDeleted, int from, int size) {
+  public SearchResponse findByRunId(
+      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(Collections.singletonMap("runId", runId), includeSoftDeleted, from, size);
   }
 

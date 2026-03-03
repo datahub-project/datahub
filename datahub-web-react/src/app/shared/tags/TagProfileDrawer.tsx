@@ -1,11 +1,13 @@
-import React from 'react';
-import { Drawer, Button, Space } from 'antd';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Button, Drawer, Space } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
-import TagStyleEntity from '../TagStyleEntity';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType } from '../../../types.generated';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { EntityType } from '@types';
 
 type Props = {
     closeTagProfileDrawer?: () => void;
@@ -36,7 +38,8 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                             </Button>
                         </Space>
                         <Space>
-                            <Button href={entityRegistry.getEntityUrl(EntityType.Tag, urn)}>
+                            {/* broken */}
+                            <Button href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, urn))}>
                                 <InfoCircleOutlined /> Tag Details
                             </Button>
                         </Space>
@@ -44,7 +47,7 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                 }
             >
                 <>
-                    <TagStyleEntity urn={urn} />
+                    <TagStyleEntity urn={urn} hideDeleteAction />
                 </>
             </Drawer>
         </>

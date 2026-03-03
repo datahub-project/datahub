@@ -1,14 +1,16 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { SearchResult } from '../../../types.generated';
+
+import { MatchedFieldName } from '@app/search/matches/constants';
 import {
-    getMatchedFieldsByUrn,
+    getMatchedFieldLabel,
     getMatchedFieldNames,
     getMatchedFieldsByNames,
-    shouldShowInMatchedFieldList,
-    getMatchedFieldLabel,
+    getMatchedFieldsByUrn,
     getMatchesPrioritized,
-} from '../matches/utils';
-import { MatchedFieldName } from '../matches/constants';
+    shouldShowInMatchedFieldList,
+} from '@app/search/matches/utils';
+
+import { EntityType, MatchedField, SearchResult } from '@types';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -40,12 +42,17 @@ export const useSearchResult = () => {
 };
 
 export const useEntityType = () => {
-    return useSearchResultContext()?.searchResult.entity.type;
+    return useSearchResultContext()?.searchResult?.entity?.type;
 };
 
 export const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
+
+export function getMatchedFieldsForList(primaryField: string, entityType: EntityType, matchedFields: MatchedField[]) {
+    const showableFields = matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
+    return getMatchesPrioritized(entityType, showableFields, primaryField);
+}
 
 export const useMatchedFieldsForList = (primaryField: MatchedFieldName) => {
     const entityType = useEntityType();

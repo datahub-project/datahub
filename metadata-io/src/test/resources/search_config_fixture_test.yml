@@ -1,3 +1,37 @@
+fieldConfigurations:
+  # Excludes column match and highlight
+  excludeColumns:
+    searchFields:
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+  excludeColumnHighlight:
+    searchFields:
+    # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+
+  # PDL legacy configuration
+  legacy:
+    searchFields:
+    # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      # No modifications - use PDL defaults
+
 # Use for testing with search fixtures
 queryConfigurations:
   # Select */explore all
@@ -57,9 +91,9 @@ queryConfigurations:
       boost_mode: replace
 
   # Criteria for exact-match only
-  # Contains quotes, is a single term with `_`, `.`, or `-` (normally consider for tokenization) then use exact match query
+  # Contains quotes
   - queryRegex: >-
-      ^["'].+["']$|^[a-zA-Z0-9]\S+[_.-]\S+[a-zA-Z0-9]$
+      ^["'].+["']$
     simpleQuery: false
     prefixMatchQuery: true
     exactMatchQuery: true

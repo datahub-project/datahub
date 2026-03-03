@@ -15,6 +15,7 @@ record AssertionSource {
     type:  enum AssertionSourceType {
       /**
        * The assertion was defined natively on DataHub by a user.
+       * DataHub Cloud only
        */
       NATIVE
       /**
@@ -23,6 +24,7 @@ record AssertionSource {
       EXTERNAL
       /**
        * The assertion was inferred, e.g. from offline AI / ML models.
+       * DataHub Cloud only
        */
       INFERRED
     }

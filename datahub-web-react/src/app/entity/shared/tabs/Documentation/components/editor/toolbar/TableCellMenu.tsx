@@ -1,9 +1,10 @@
-import React from 'react';
-import { Dropdown } from 'antd';
-import styled from 'styled-components';
-import { useActive, useCommands } from '@remirror/react';
 import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
-import { MenuItemStyle } from '../../../../../../view/menu/item/styledComponent';
+import { useActive, useCommands } from '@remirror/react';
+import { Dropdown } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 const StyledDropdownButton = styled(Dropdown.Button)`
     position: absolute;

@@ -1,10 +1,13 @@
-import React from 'react';
 import { Divider, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { useListPostsQuery } from '../../graphql/post.generated';
-import { Post, PostContentType } from '../../types.generated';
-import { PostTextCard } from '../search/PostTextCard';
-import { PostLinkCard } from '../search/PostLinkCard';
+
+import { PostLinkCard } from '@app/search/PostLinkCard';
+import { PostTextCard } from '@app/search/PostTextCard';
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
+
+import { useListPostsQuery } from '@graphql/post.generated';
+import { Post, PostContentType } from '@types';
 
 const RecommendationContainer = styled.div`
     margin-bottom: 92px;
@@ -47,6 +50,7 @@ export const HomePagePosts = () => {
             input: {
                 start: 0,
                 count: 10,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: 'cache-first',

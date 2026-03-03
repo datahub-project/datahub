@@ -20,6 +20,8 @@ source:
 
     include_query_lineage: True
 
+    ingest_owner: true
+
     #Optional
     source_mappings:
       - platform: s3

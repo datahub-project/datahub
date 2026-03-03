@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from lark import Token, Tree
 
@@ -58,7 +58,7 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
         if isinstance(node, Token):
             return None
 
-        for child in cast(Tree, node).children:
+        for child in node.children:
             child_node: Optional[Tree] = internal(child)
             if child_node is not None:
                 return child_node
@@ -70,13 +70,14 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
+def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
     """
     :param tree: Tree to traverse
     :param parameters: If parameters is not an empty dict, it will try to resolve identifier variable references
                        using the values in 'parameters'.
     :return: List of leaf token data
     """
+    parameters = parameters or {}
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:
@@ -99,7 +100,7 @@ def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
                 logger.debug(f"Unable to resolve parameter reference to {ref}")
                 values.append(ref)
         elif isinstance(node, Token):
-            values.append(cast(Token, node).value)
+            values.append(node.value)
             return
         else:
             for child in node.children:

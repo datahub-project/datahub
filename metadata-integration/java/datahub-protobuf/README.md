@@ -73,7 +73,7 @@ In order to extract even more metadata from the protobuf schema we can extend th
 
 An annotated protobuf schema would look like the following, except for the `is_primary_key` all annotations are configurable for individual needs.
 
-*Note*: Extending FieldOptions and MessageOptions does not change the messages themselves. The metadata is not included in messages being sent over the wire.
+_Note_: Extending FieldOptions and MessageOptions does not change the messages themselves. The metadata is not included in messages being sent over the wire.
 
 ```protobuf
 syntax = "proto3";
@@ -98,15 +98,15 @@ message Person {
 
     string email = 3
     [(meta.fld.classification_enum) = Confidential];
-    
+
     Department dept = 4;
-    
+
     string test_coverage = 5
     [(meta.fld.product_type_bool) = true, (meta.fld.product_type) = "my type", (meta.fld.product_type_enum) = EVENT];
 }
 ```
 
-#### meta.proto 
+#### meta.proto
 
 In order to use the annotations above, create a proto file called `meta.proto`. Feel free to customize the kinds of metadata and how it is emitted to DataHub for your use cases.
 
@@ -221,7 +221,7 @@ message msg {
 #### DataHubMetadataType
 
 | DataHubMetadataType | String    | Bool | Enum | Repeated  | Uint64   |
-|---------------------|-----------|------|------|-----------|----------|
+| ------------------- | --------- | ---- | ---- | --------- | -------- |
 | PROPERTY            | X         | X    | X    | X         |          |
 | TAG                 | X         | X    | X    |           |          |
 | TAG_LIST            | X         |      |      |           |          |
@@ -242,7 +242,7 @@ For example, generating a custom property with key `prop1` and value `value1`.
        string prop1 = 5000 [(meta.fld.type) = PROPERTY];
     }
   }
-  
+
   message Message {
     option(meta.msg.prop1) = "value1";
   }
@@ -256,7 +256,7 @@ Booleans are converted to a value of either `true` or `false`.
        bool prop1 = 5000 [(meta.fld.type) = PROPERTY];
     }
   }
-  
+
   message Message {
     option(meta.msg.prop1) = true;
   }
@@ -276,7 +276,7 @@ Enum values are similarly converted to their string representation.
        MetaEnumExample prop1 = 5000 [(meta.fld.type) = PROPERTY];
     }
   }
-  
+
   message Message {
     option(meta.msg.prop1) = ENTITY;
   }
@@ -290,7 +290,7 @@ Repeated values will be collected and the value will be stored as a serialized j
        repeated string prop1 = 5000 [(meta.fld.type) = PROPERTY];
     }
   }
-  
+
   message Message {
     option(meta.msg.prop1) = "a";
     option(meta.msg.prop1) = "b";
@@ -308,7 +308,7 @@ The tag list assumes a string that contains the comma delimited values of the ta
        string tags = 5000 [(meta.fld.type) = TAG_LIST];
     }
   }
-  
+
   message Message {
     option(meta.msg.tags) = "a, b, c";
   }
@@ -323,7 +323,7 @@ Tags could also be represented as separate boolean options. Only the `true` opti
        bool tagB = 5001 [(meta.fld.type) = TAG];
     }
   }
-  
+
   message Message {
     option(meta.msg.tagA) = true;
     option(meta.msg.tagB) = false;
@@ -339,7 +339,7 @@ Alternatively, tags can be separated into different fields with the option name 
        string tagB = 5001 [(meta.fld.type) = TAG];
     }
   }
-  
+
   message Message {
     option(meta.msg.tagA) = "a";
     option(meta.msg.tagB) = "a";
@@ -360,7 +360,7 @@ The dot delimited prefix also works with enum types where the prefix is the enum
        MetaEnumExample tag = 5000 [(meta.fld.type) = TAG];
     }
   }
-  
+
   message Message {
     option(meta.msg.tag) = ENTITY;
   }
@@ -383,7 +383,7 @@ In addition, tags can be added to fields as well as messages. The following is a
        MetaEnumExample tagEnum = 6003 [(meta.fld.type) = TAG];
     }
   }
-  
+
   message Message {
     uint32 my_field = 1
         [(meta.fld.tags) = "a, b, c",
@@ -412,7 +412,7 @@ The following example shows both methods, either of which would result in the te
        string class = 5001 [(meta.fld.type) = TERM];
     }
   }
-  
+
   message Message {
     option(meta.msg.term) = HighlyConfidential;
     option(meta.msg.class) = "Classification.HighlyConfidential";
@@ -434,7 +434,7 @@ The following is a consolidated example for the possible field level term option
        string class = 5001 [(meta.fld.type) = TERM];
     }
   }
-  
+
   message Message {
     uint32 my_field = 1
         [(meta.fld.term) = HighlyConfidential,
@@ -454,7 +454,7 @@ The following example assigns the ownership to a group of `myGroup` and a user c
        repeated string owner = 5000 [(meta.fld.type) = OWNER];
     }
   }
-  
+
   message Message {
     option(meta.msg.owner) = "corpUser:myName";
     option(meta.msg.owner) = "myGroup";
@@ -470,7 +470,7 @@ In this example, the option name determines the ownership type. User `myName` is
        repeated string data_steward = 5001 [(meta.fld.type) = OWNER];
     }
   }
-  
+
   message Message {
     option(meta.msg.technical_owner) = "corpUser:myName";
     option(meta.msg.data_steward) = "myGroup";
@@ -479,7 +479,7 @@ In this example, the option name determines the ownership type. User `myName` is
 
 ##### DOMAIN
 
-Set the domain id for the dataset. The domain should exist already. Note that the *id* of the domain is the value. If not specified during domain creation it is likely a random string.
+Set the domain id for the dataset. The domain should exist already. Note that the _id_ of the domain is the value. If not specified during domain creation it is likely a random string.
 
 ```protobuf
    message msg {
@@ -487,7 +487,7 @@ Set the domain id for the dataset. The domain should exist already. Note that th
        string domain = 5000 [(meta.fld.type) = DOMAIN];
     }
   }
-  
+
   message Message {
     option(meta.msg.domain) = "engineering";
   }
@@ -506,7 +506,7 @@ Field deprecation adds a tag with the following urn `urn:li:tag:deprecated` (red
        uint64 deprecation_time          = 5621 [(meta.fld.type) = DEPRECATION];
     }
   }
-  
+
   message Message {
     option deprecated = true;
     option (meta.msg.deprecation_note) = "Deprecated for this other message.";
@@ -530,12 +530,17 @@ Follow the specific instructions for your build system to declare a dependency o
 **_Note_**: Check the [Maven repository](https://mvnrepository.com/artifact/io.acryl/datahub-protobuf) for the latest version of the package before following the instructions below.
 
 ### Gradle
+
 Add the following to your build.gradle.
+
 ```gradle
 implementation 'io.acryl:datahub-protobuf:__version__'
 ```
+
 ### Maven
+
 Add the following to your `pom.xml`.
+
 ```xml
 <!-- https://mvnrepository.com/artifact/io.acryl/datahub-protobuf -->
 <dependency>
@@ -548,7 +553,7 @@ Add the following to your `pom.xml`.
 
 ## Example Application (embedded)
 
-An example application **Proto2DataHub** is included as part of this project. 
+An example application **Proto2DataHub** is included as part of this project.
 You can also set up a standalone project that works with the `protobuf-gradle-plugin`, see the standalone [example project](../datahub-protobuf-example) as an example of such a project.
 
 ### Usage
@@ -623,17 +628,20 @@ usage: Proto2DataHub
 ```
 
 You can run it like a standard java jar application:
+
 ```shell
 
 java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest
 ```
 
 or using gradle
+
 ```shell
 ../../../gradlew run --args="--descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest"
 ```
 
 Result:
+
 ```
 java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
@@ -645,12 +653,12 @@ SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further detail
 You can also route results to a file by using the `--transport file --filename events.json` options.
 
 ##### Important Flags
+
 Here are a few important flags to use with this command
+
 - --env : Defaults to DEV, you should use PROD once you have ironed out all the issues with running this command.
 - --platform: Defaults to Kafka (as most people use protobuf schema repos with Kafka), but you can provide a custom platform name for this e.g. (`schema_repo` or `<company_name>_schemas`). If you use a custom platform, make sure to provision the custom platform on your DataHub instance with a logo etc, to get a native experience. See how to use the [put platform command](../../../docs/cli.md#put-platform) to accomplish this.
 - --subtype : This gives your entities a more descriptive category than Dataset in the UI. Defaults to schema, but you might find topic, event or message more descriptive.
-
-
 
 ## Example Application (separate project)
 

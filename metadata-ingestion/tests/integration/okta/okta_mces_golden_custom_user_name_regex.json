@@ -18,7 +18,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -34,7 +35,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -49,7 +51,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -71,7 +74,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -87,7 +91,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -102,7 +107,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -112,12 +118,17 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "login": "john.doe@test.com",
+                            "mobilePhone": "555-415-1337"
+                        },
                         "active": true,
                         "displayName": "JDoe",
                         "email": "john.doe@test.com",
                         "firstName": "John",
                         "lastName": "Doe",
-                        "fullName": "John Doe"
+                        "fullName": "John Doe",
+                        "system": false
                     }
                 },
                 {
@@ -133,7 +144,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -149,7 +161,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -164,7 +177,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -174,6 +188,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "login": "mary.jane@test.com",
+                            "mobilePhone": "666-415-1337"
+                        },
                         "active": true,
                         "displayName": "Mary Jane",
                         "email": "mary.jane@test.com",
@@ -182,7 +200,8 @@
                         "firstName": "Mary",
                         "lastName": "Jane",
                         "fullName": "Mary Jane",
-                        "countryCode": "us"
+                        "countryCode": "us",
+                        "system": false
                     }
                 },
                 {
@@ -200,7 +219,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -216,7 +236,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -231,7 +252,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -241,6 +263,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "login": "good.test@test.com",
+                            "mobilePhone": "666-415-1337"
+                        },
                         "active": true,
                         "displayName": "Good Test",
                         "email": "good.test@test.com",
@@ -249,7 +275,8 @@
                         "firstName": "Good",
                         "lastName": "Test",
                         "fullName": "Good Test",
-                        "countryCode": "eu"
+                        "countryCode": "eu",
+                        "system": false
                     }
                 },
                 {
@@ -262,7 +289,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -278,7 +306,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -293,7 +322,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

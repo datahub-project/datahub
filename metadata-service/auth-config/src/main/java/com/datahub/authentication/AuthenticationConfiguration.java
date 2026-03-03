@@ -9,6 +9,12 @@ public class AuthenticationConfiguration {
   /** Whether authentication is enabled */
   private boolean enabled;
 
+  /** Whether user existence is enforced */
+  private boolean enforceExistenceEnabled;
+
+  /** Paths to be excluded from filtering * */
+  private String excludedPaths;
+
   /**
    * List of configurations for {@link com.datahub.plugins.auth.authentication.Authenticator}s to be
    * registered
@@ -23,6 +29,9 @@ public class AuthenticationConfiguration {
 
   /** The lifespan of a UI session token. */
   private long sessionTokenDurationMs;
+
+  /** The lifespan of a password reset token in milliseconds. Defaults to 24 hours. */
+  private long passwordResetTokenExpirationMs;
 
   private TokenServiceConfiguration tokenService;
 }

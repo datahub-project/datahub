@@ -2,14 +2,23 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EntityType, Ownership } from '../../../types.generated';
-import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { DisplayCount, GroupSectionTitle, GroupSectionHeader } from '../shared/SidebarStyledComponents';
+
+import { DisplayCount, GroupSectionHeader, GroupSectionTitle } from '@app/entity/shared/SidebarStyledComponents';
+import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+
+import { EntityType, Ownership } from '@types';
 
 const TITLE = 'Owners';
 
 const SectionWrapper = styled.div``;
+
+const OwnersWrapper = styled.div`
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+`;
 
 const AddOwnerButton = styled(Button)``;
 
@@ -30,10 +39,12 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
                 <DisplayCount>{ownership?.owners?.length || ''}</DisplayCount>
             </GroupSectionHeader>
             <SectionWrapper>
-                {ownership &&
-                    ownership?.owners?.map((owner) => (
-                        <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
-                    ))}
+                <OwnersWrapper>
+                    {ownership &&
+                        ownership?.owners?.map((owner) => (
+                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                        ))}
+                </OwnersWrapper>
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>
                 )}

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
@@ -15,9 +14,10 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -58,7 +57,7 @@ public class MostPopularSource implements EntityRecommendationSource {
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
           Constants.ML_FEATURE_TABLE_ENTITY_NAME);
 
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
   private final EntityService<?> _entityService;
 
@@ -87,11 +86,9 @@ public class MostPopularSource implements EntityRecommendationSource {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
-          _searchClient
-              .indices()
-              .exists(
-                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-                  RequestOptions.DEFAULT);
+          _searchClient.indexExists(
+              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to determine whether DataHub usage index exists");
     }
@@ -105,22 +102,29 @@ public class MostPopularSource implements EntityRecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest = buildSearchRequest(opContext);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
-      final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results
-      ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      List<String> bucketUrns =
-          parsedTerms.getBuckets().stream()
-              .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-              .collect(Collectors.toList());
-      return buildContent(opContext, bucketUrns, _entityService)
-          .limit(MAX_CONTENT)
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      log.error("Search query to get most popular entities failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+
+    return opContext.withSpan(
+        "getMostPopular",
+        () -> {
+          try {
+            final SearchResponse searchResponse =
+                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            // extract results
+            ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
+            List<String> bucketUrns =
+                parsedTerms.getBuckets().stream()
+                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+                    .collect(Collectors.toList());
+            return buildContent(opContext, bucketUrns, _entityService)
+                .limit(MAX_CONTENT)
+                .collect(Collectors.toList());
+          } catch (Exception e) {
+            log.error("Search query to get most popular entities failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getMostPopular"));
   }
 
   @Override

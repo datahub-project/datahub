@@ -18,7 +18,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -36,7 +37,6 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import java.util.List;
@@ -76,13 +76,13 @@ public class PropertyDefinitionDeleteSideEffectTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn(
           "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)");
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private SearchRetriever mockSearchRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObject(
             eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
@@ -101,8 +101,8 @@ public class PropertyDefinitionDeleteSideEffectTest {
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mockSearchRetriever)
-            .aspectRetriever(mockAspectRetriever)
-            .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(GraphRetriever.EMPTY)
             .build();
   }
 

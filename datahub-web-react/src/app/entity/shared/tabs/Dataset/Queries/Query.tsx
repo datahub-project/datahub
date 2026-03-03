@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import QueryModal from './QueryModal';
-import QueryBuilderModal from './QueryBuilderModal';
-import QueryCard from './QueryCard';
+
+import QueryBuilderModal from '@app/entity/shared/tabs/Dataset/Queries/QueryBuilderModal';
+import QueryCard from '@app/entity/shared/tabs/Dataset/Queries/QueryCard';
+import QueryModal from '@app/entity/shared/tabs/Dataset/Queries/QueryModal';
 
 export type Props = {
     urn?: string;

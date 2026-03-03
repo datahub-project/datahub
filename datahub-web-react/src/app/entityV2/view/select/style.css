@@ -1,0 +1,10 @@
+.view-select-popover.ant-popover.ant-popover-placement-bottom,
+.view-select-popover .ant-popover-content,
+.view-select-popover .ant-popover-inner-content {
+    width: 100%;
+}
+
+.view-select-popover .ant-popover.ant-popover-placement-bottom {
+    left: 0px !important; /* dynamically changing so added important */
+    transform-origin: 0% !important; /* dynamically changing so added important */
+}

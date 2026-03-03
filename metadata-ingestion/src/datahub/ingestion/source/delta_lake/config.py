@@ -1,19 +1,21 @@
 import logging
 from typing import Optional
 
-import pydantic
 from cached_property import cached_property
-from pydantic import Field
+from pydantic import Field, field_validator
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
-    ConfigModel,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulIngestionConfigBase,
+    StatefulStaleMetadataRemovalConfig,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -36,7 +38,9 @@ class S3(ConfigModel):
     )
 
 
-class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class DeltaLakeSourceConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
+):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."
@@ -72,7 +76,12 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         "When set to `False`, number_of_files in delta table can not be reported.",
     )
 
-    s3: Optional[S3] = Field()
+    s3: Optional[S3] = Field(None)
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful Ingestion Config with stale metadata removal",
+    )
 
     @cached_property
     def is_s3(self):
@@ -88,8 +97,11 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
         return complete_path
 
-    @pydantic.validator("version_history_lookback")
-    def negative_version_history_implies_no_limit(cls, v):
+    @field_validator("version_history_lookback", mode="after")
+    @classmethod
+    def negative_version_history_implies_no_limit(
+        cls, v: Optional[int]
+    ) -> Optional[int]:
         if v and v < 0:
             return None
         return v

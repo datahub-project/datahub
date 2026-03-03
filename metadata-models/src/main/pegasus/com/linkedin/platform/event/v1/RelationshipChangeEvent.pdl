@@ -1,0 +1,69 @@
+namespace com.linkedin.platform.event.v1
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Kafka event for proposing a relationship change between two entities.
+ * For example, when dataset1 establishes a new downstream relationship with dataset2.
+ */
+@Event = {
+  "name": "relationshipChangeEvent"
+}
+record RelationshipChangeEvent {
+
+  /**
+   * Kafka audit header containing metadata about the message itself.
+   * Includes information like message ID, timestamp, and server details.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * The URN (Uniform Resource Name) of the source entity in the relationship.
+   * In a downstream relationship example, this would be the URN of the upstream dataset.
+   */
+  sourceUrn: Urn
+
+  /**
+   * The URN of the destination entity in the relationship.
+   * In a downstream relationship example, this would be the URN of the downstream dataset.
+   */
+  destinationUrn: Urn
+
+  /**
+   * The operation being performed on this relationship.
+   * Typically includes operations like ADD, REMOVE, or RESTATE.
+   */
+  operation: RelationshipChangeOperation
+
+  /**
+   * The type/category of relationship being established or modified.
+   * Examples: "DownstreamOf", "Contains", "OwnedBy", "DerivedFrom", etc.
+   */
+  relationshipType: string
+
+  /**
+   * The system or service responsible for managing the lifecycle of this relationship.
+   * This helps identify which component has authority over the relationship.
+   */
+  lifecycleOwner: optional string
+
+  /**
+   * Information about how or through what means this relationship was established.
+   * Could indicate a specific pipeline, process, or tool that discovered/created the relationship.
+   */
+  via: optional string
+
+  /**
+   * Additional custom properties associated with this relationship.
+   * Allows for flexible extension without changing the schema.
+   */
+  properties: optional map[string, string]
+
+  /**
+   * Stores information about who made this change and when.
+   * Contains the actor (user or system) that performed the action and the timestamp.
+   */
+  auditStamp: AuditStamp
+}

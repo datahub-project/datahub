@@ -1,9 +1,12 @@
 plugins {
     id 'java-library'
 }
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
+    implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
 
     implementation externalDependency.slf4jApi
@@ -14,8 +17,24 @@ dependencies {
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.springBootTest
+    testImplementation externalDependency.jacksonDataFormatYaml
 }
 
 processResources.configure {
   finalizedBy printVersionDetails // always print version details
+}
+
+task generateFlagClassification(type: JavaExec, dependsOn: classes) {
+  def outputFile = rootProject.file("scripts/generated/flag-classification.json")
+  inputs.file("src/main/java/com/linkedin/datahub/graphql/featureflags/FeatureFlags.java")
+  inputs.file("src/main/resources/application.yaml")
+  outputs.file(outputFile)
+
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = "com.linkedin.datahub.graphql.featureflags.FlagClassificationGenerator"
+  args = [outputFile.absolutePath]
+  doFirst { outputFile.parentFile.mkdirs() }
 }

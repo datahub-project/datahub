@@ -30,6 +30,8 @@ public class RestEmitterConfig {
   Integer timeoutSec;
   @Builder.Default boolean disableSslVerification = false;
 
+  @Builder.Default boolean disableChunkedEncoding = false;
+
   @Builder.Default int maxRetries = 0;
 
   @Builder.Default int retryIntervalSec = 10;
@@ -40,6 +42,8 @@ public class RestEmitterConfig {
 
   @Builder.Default
   EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
+
+  @Builder.Default Boolean asyncIngest = null;
 
   HttpAsyncClientBuilder asyncHttpClientBuilder;
 

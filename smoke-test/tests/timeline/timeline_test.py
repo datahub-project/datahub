@@ -1,9 +1,9 @@
 import json
 
 import pytest
+
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 pytestmark = pytest.mark.no_cypress_suite1
@@ -15,9 +15,15 @@ def test_all(auth_session, graph_client):
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_data.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav2.json")
-    ingest_file_via_rest(auth_session, "tests/timeline/timeline_test_datav3.json")
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_data.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav2.json", mode="ASYNC"
+    )
+    ingest_file_via_rest(
+        auth_session, "tests/timeline/timeline_test_datav3.json", mode="ASYNC"
+    )
 
     res_data = timeline_cli.get_timeline(
         dataset_urn,

@@ -1,0 +1,40 @@
+run_id: oracle-query-usage-test
+
+source:
+  type: oracle
+  config:
+    username: system
+    password: example
+    host_port: localhost:51521
+    service_name: XEPDB1
+    
+    # Enable query usage extraction
+    include_query_usage: true
+    max_queries_to_extract: 50
+    
+    # Enable stored procedures and lineage to test complete functionality
+    include_stored_procedures: true
+    include_lineage: true
+    include_view_lineage: true
+    include_view_column_lineage: true
+    
+    # Optionally exclude system queries
+    query_exclude_patterns:
+      - "^SELECT.*FROM SYS\\..*"
+      - "^SELECT.*FROM DUAL$"
+    
+    data_dictionary_mode: "ALL"
+    
+    schema_pattern:
+      allow:
+        - "^HR_SCHEMA$"
+        - "^SALES_SCHEMA$"
+        - "^ANALYTICS_SCHEMA$"
+        
+    profiling:
+      enabled: false
+      
+sink:
+  type: file
+  config:
+    filename: "oracle_mces.json"

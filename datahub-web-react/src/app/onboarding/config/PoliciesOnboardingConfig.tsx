@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const POLICIES_INTRO_ID = 'policies-intro';
 export const POLICIES_CREATE_POLICY_ID = 'policies-create-policy';
@@ -26,7 +27,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/policies"
+                        href="https://docs.datahub.com/docs/authorization/policies"
                     >
                         {' '}
                         here.

@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.PropertyValue;
 import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -25,23 +26,29 @@ public class StructuredPropertiesMapper {
   public static final StructuredPropertiesMapper INSTANCE = new StructuredPropertiesMapper();
 
   public static com.linkedin.datahub.graphql.generated.StructuredProperties map(
-      @Nullable QueryContext context, @Nonnull final StructuredProperties structuredProperties) {
-    return INSTANCE.apply(context, structuredProperties);
+      @Nullable QueryContext context,
+      @Nonnull final StructuredProperties structuredProperties,
+      @Nonnull final Urn entityUrn) {
+    return INSTANCE.apply(context, structuredProperties, entityUrn);
   }
 
   public com.linkedin.datahub.graphql.generated.StructuredProperties apply(
-      @Nullable QueryContext context, @Nonnull final StructuredProperties structuredProperties) {
+      @Nullable QueryContext context,
+      @Nonnull final StructuredProperties structuredProperties,
+      @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.StructuredProperties result =
         new com.linkedin.datahub.graphql.generated.StructuredProperties();
     result.setProperties(
         structuredProperties.getProperties().stream()
-            .map(p -> mapStructuredProperty(context, p))
+            .map(p -> mapStructuredProperty(context, p, entityUrn))
             .collect(Collectors.toList()));
     return result;
   }
 
   private StructuredPropertiesEntry mapStructuredProperty(
-      @Nullable QueryContext context, StructuredPropertyValueAssignment valueAssignment) {
+      @Nullable QueryContext context,
+      StructuredPropertyValueAssignment valueAssignment,
+      @Nonnull final Urn entityUrn) {
     StructuredPropertiesEntry entry = new StructuredPropertiesEntry();
     entry.setStructuredProperty(createStructuredPropertyEntity(valueAssignment));
     final List<PropertyValue> values = new ArrayList<>();
@@ -58,6 +65,11 @@ public class StructuredPropertiesMapper {
             });
     entry.setValues(values);
     entry.setValueEntities(entities);
+    entry.setAssociatedUrn(entityUrn.toString());
+    if (valueAssignment.getAttribution() != null) {
+      entry.setAttribution(
+          MetadataAttributionMapper.map(context, valueAssignment.getAttribution()));
+    }
     return entry;
   }
 

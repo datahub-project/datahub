@@ -9,11 +9,14 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, root_validator, validator
+from pydantic import Field, field_validator, model_validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -23,7 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -49,6 +52,7 @@ from datahub.metadata.schema_classes import (
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    EdgeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -61,7 +65,11 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
+class MetabaseConfig(
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
+):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
@@ -69,9 +77,19 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
-    username: Optional[str] = Field(default=None, description="Metabase username.")
+    username: Optional[str] = Field(
+        default=None,
+        description="Metabase username, used when an API key is not provided.",
+    )
     password: Optional[pydantic.SecretStr] = Field(
-        default=None, description="Metabase password."
+        default=None,
+        description="Metabase password, used when an API key is not provided.",
+    )
+
+    # https://www.metabase.com/learn/metabase-basics/administration/administration-and-operation/metabase-api#example-get-request
+    api_key: Optional[pydantic.SecretStr] = Field(
+        default=None,
+        description="Metabase API key. If provided, the username and password will be ignored. Recommended method.",
     )
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
@@ -97,16 +115,16 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "MetabaseConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 @dataclass
@@ -178,30 +196,40 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.source_config: MetabaseConfig = config
 
     def setup_session(self) -> None:
-        login_response = requests.post(
-            f"{self.config.connect_uri}/api/session",
-            None,
-            {
-                "username": self.config.username,
-                "password": (
-                    self.config.password.get_secret_value()
-                    if self.config.password
-                    else None
-                ),
-            },
-        )
-
-        login_response.raise_for_status()
-        self.access_token = login_response.json().get("id", "")
-
         self.session = requests.session()
-        self.session.headers.update(
-            {
-                "X-Metabase-Session": f"{self.access_token}",
-                "Content-Type": "application/json",
-                "Accept": "*/*",
-            }
-        )
+        if self.config.api_key:
+            self.session.headers.update(
+                {
+                    "x-api-key": self.config.api_key.get_secret_value(),
+                    "Content-Type": "application/json",
+                    "Accept": "*/*",
+                }
+            )
+        else:
+            # If no API key is provided, generate a session token using username and password.
+            login_response = requests.post(
+                f"{self.config.connect_uri}/api/session",
+                None,
+                {
+                    "username": self.config.username,
+                    "password": (
+                        self.config.password.get_secret_value()
+                        if self.config.password
+                        else None
+                    ),
+                },
+            )
+
+            login_response.raise_for_status()
+            self.access_token = login_response.json().get("id", "")
+
+            self.session.headers.update(
+                {
+                    "X-Metabase-Session": f"{self.access_token}",
+                    "Content-Type": "application/json",
+                    "Accept": "*/*",
+                }
+            )
 
         # Test the connection
         try:
@@ -217,15 +245,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
-        response = requests.delete(
-            f"{self.config.connect_uri}/api/session",
-            headers={"X-Metabase-Session": self.access_token},
-        )
-        if response.status_code not in (200, 204):
-            self.report.report_failure(
-                title="Unable to Log User Out",
-                message=f"Unable to logout for user {self.config.username}",
+        # API key authentication does not require session closure.
+        if not self.config.api_key:
+            response = requests.delete(
+                f"{self.config.connect_uri}/api/session",
+                headers={"X-Metabase-Session": self.access_token},
             )
+            if response.status_code not in (200, 204):
+                self.report.report_failure(
+                    title="Unable to Log User Out",
+                    message=f"Unable to logout for user {self.config.username}",
+                )
         super().close()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -291,7 +321,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, dashboard_details.get("id", "")
+            self.platform, str(dashboard_details.get("id", ""))
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -309,19 +339,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        chart_urns = []
+        # Convert chart URNs to chart edges (instead of deprecated charts field)
+        chart_edges = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             card_id = card_info.get("card").get("id", "")
             if not card_id:
                 continue  # most likely a virtual card without an id (text or heading), not relevant.
-            chart_urn = builder.make_chart_urn(self.platform, card_id)
-            chart_urns.append(chart_urn)
+            chart_urn = builder.make_chart_urn(self.platform, str(card_id))
+            chart_edges.append(
+                EdgeClass(
+                    destinationUrn=chart_urn,
+                    lastModified=last_modified.lastModified,
+                )
+            )
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
             title=title,
-            charts=chart_urns,
+            chartEdges=chart_edges,
             lastModified=last_modified,
             dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
             customProperties={},
@@ -407,7 +443,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
-            card_response = self.session.get(card_url)
+            # Use legacy-mbql=true to get MBQL 4 format for compatibility.
+            # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
+            card_response = self.session.get(card_url, params={"legacy-mbql": "true"})
             card_response.raise_for_status()
             return card_response.json()
         except HTTPError as http_error:
@@ -437,7 +475,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return None
 
-        chart_urn = builder.make_chart_urn(self.platform, card_id)
+        chart_urn = builder.make_chart_urn(self.platform, str(card_id))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -459,13 +497,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
+        input_edges = (
+            [
+                EdgeClass(
+                    destinationUrn=urn,
+                    lastModified=last_modified.lastModified,
+                )
+                for urn in datasource_urn
+            ]
+            if datasource_urn
+            else None
+        )
+
         chart_info = ChartInfoClass(
             type=chart_type,
             description=description,
             title=title,
             lastModified=last_modified,
             chartUrl=f"{self.config.display_uri}/card/{card_id}",
-            inputs=datasource_urn,
+            inputEdges=input_edges,
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
@@ -788,11 +838,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
         return platform, dbname, schema, platform_instance
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = MetabaseConfig.parse_obj(config_dict)
-        return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

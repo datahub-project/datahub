@@ -1,10 +1,13 @@
 import { RedoOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../conf/Global';
-import { useCreateNativeUserResetTokenMutation } from '../../../graphql/user.generated';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { useCreateNativeUserResetTokenMutation } from '@graphql/user.generated';
 
 const ModalSection = styled.div`
     display: flex;
@@ -76,7 +79,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
 
     const resetToken = createNativeUserResetTokenData?.createNativeUserResetToken?.resetToken || '';
 
-    const inviteLink = `${baseUrl}${PageRoutes.RESET_CREDENTIALS}?reset_token=${resetToken}`;
+    const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.RESET_CREDENTIALS}?reset_token=${resetToken}`)}`;
 
     return (
         <Modal

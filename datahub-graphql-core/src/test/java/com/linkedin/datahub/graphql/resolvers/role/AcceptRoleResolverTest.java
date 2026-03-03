@@ -11,7 +11,10 @@ import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
+import com.linkedin.entity.client.EntityClientCache;
+import com.linkedin.entity.client.SystemEntityClient;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -24,6 +27,7 @@ public class AcceptRoleResolverTest {
   private Urn inviteTokenUrn;
   private RoleService _roleService;
   private InviteTokenService _inviteTokenService;
+  private SystemEntityClient _systemEntityClient;
   private AcceptRoleResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
@@ -34,10 +38,11 @@ public class AcceptRoleResolverTest {
     inviteTokenUrn = Urn.createFromString(INVITE_TOKEN_URN_STRING);
     _roleService = mock(RoleService.class);
     _inviteTokenService = mock(InviteTokenService.class);
+    _systemEntityClient = mock(SystemEntityClient.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
 
-    _resolver = new AcceptRoleResolver(_roleService, _inviteTokenService);
+    _resolver = new AcceptRoleResolver(_roleService, _inviteTokenService, _systemEntityClient);
   }
 
   @Test
@@ -99,6 +104,94 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testCacheInvalidationIsCalledAfterRoleAssignment() throws Exception {
+    // Setup
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(any(), eq(inviteTokenUrn))).thenReturn(roleUrn);
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // Mock EntityClientCache
+    EntityClientCache mockEntityClientCache = mock(EntityClientCache.class);
+    when(_systemEntityClient.getEntityClientCache()).thenReturn(mockEntityClientCache);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    // Execute
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    // Verify cache invalidation was called with correct URN and aspect
+    verify(_systemEntityClient, atLeastOnce()).getEntityClientCache();
+    verify(mockEntityClientCache, times(1))
+        .invalidate(eq(Urn.createFromString(ACTOR_URN_STRING)), eq(Set.of("roleMembership")));
+  }
+
+  @Test
+  public void testCacheInvalidationSkippedWhenCacheIsNull() throws Exception {
+    // Setup
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(any(), eq(inviteTokenUrn))).thenReturn(roleUrn);
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // Mock EntityClientCache as null (cache not available)
+    when(_systemEntityClient.getEntityClientCache()).thenReturn(null);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    // Execute - should succeed even without cache
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    // Verify role assignment still succeeded
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testRoleAssignmentSucceedsEvenIfCacheInvalidationFails() throws Exception {
+    // Setup
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
+    when(_inviteTokenService.isInviteTokenValid(any(), eq(inviteTokenUrn))).thenReturn(true);
+    when(_inviteTokenService.getInviteTokenRole(any(), eq(inviteTokenUrn))).thenReturn(roleUrn);
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // Mock EntityClientCache to throw exception
+    EntityClientCache mockEntityClientCache = mock(EntityClientCache.class);
+    when(_systemEntityClient.getEntityClientCache()).thenReturn(mockEntityClientCache);
+    doThrow(new RuntimeException("Cache invalidation failed"))
+        .when(mockEntityClientCache)
+        .invalidate(any(), any());
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    // Execute - should succeed despite cache invalidation failure
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    // Verify role assignment still succeeded
     verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
   }
 }

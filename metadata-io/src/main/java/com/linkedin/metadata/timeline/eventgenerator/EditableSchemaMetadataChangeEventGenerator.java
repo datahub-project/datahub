@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
@@ -10,7 +11,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -94,7 +95,9 @@ public class EditableSchemaMetadataChangeEventGenerator
             ? baseEditableSchemaMetadata.getEditableSchemaFieldInfo()
             : new EditableSchemaFieldInfoArray();
     EditableSchemaFieldInfoArray targetFieldInfos =
-        targetEditableSchemaMetadata.getEditableSchemaFieldInfo();
+        (targetEditableSchemaMetadata != null)
+            ? targetEditableSchemaMetadata.getEditableSchemaFieldInfo()
+            : new EditableSchemaFieldInfoArray();
     int baseIdx = 0;
     int targetIdx = 0;
     while (baseIdx < baseFieldInfos.size() && targetIdx < targetFieldInfos.size()) {
@@ -354,7 +357,7 @@ public class EditableSchemaMetadataChangeEventGenerator
       final EditableSchemaFieldInfo latest,
       String entityUrn) {
     return previous != null
-        ? getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
-        : getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
+        ? generateSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
+        : generateSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
   }
 }

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
@@ -19,6 +18,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    CustomAssertionInfoClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
@@ -43,6 +43,44 @@ class DBTTestResult:
 
     native_results: Dict[str, str]
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
+
+@dataclass
+class DBTFreshnessCriteria:
+    """Represents warn_after or error_after criteria from dbt freshness"""
+
+    count: int
+    period: str  # minute, hour, day
+
+
+@dataclass
+class DBTFreshnessInfo:
+    """Freshness test information from dbt sources.json"""
+
+    invocation_id: str
+    status: str  # pass, warn, error, runtime error
+    max_loaded_at: datetime
+    snapshotted_at: datetime
+    max_loaded_at_time_ago_in_s: float
+    warn_after: Optional[DBTFreshnessCriteria]
+    error_after: Optional[DBTFreshnessCriteria]
+
+
+def parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCriteria]:
+    """Parse warn_after or error_after criteria dict into DBTFreshnessCriteria."""
+    if not data:
+        return None
+    count = data.get("count")
+    period = data.get("period")
+    if count is None or period is None:
+        return None
+    return DBTFreshnessCriteria(
+        count=count,
+        period=period,
+    )
+
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
     """
@@ -57,15 +95,11 @@ def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
         # base assertions are violated, bail early
         return None
     m = re.match(r"^ref\(\'(.*)\'\)$", destination_ref)
-    if m:
-        destination_table = m.group(1)
-    else:
-        destination_table = destination_ref
+    destination_table = m.group(1) if m else destination_ref
+
     m = re.search(r"ref\(\'(.*)\'\)", source_ref)
-    if m:
-        source_table = m.group(1)
-    else:
-        source_table = source_ref
+    source_table = m.group(1) if m else source_ref
+
     return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
 
 
@@ -161,7 +195,7 @@ def make_assertion_from_test(
     node: "DBTNode",
     assertion_urn: str,
     upstream_urn: str,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assert node.test_info
     qualified_test_name = node.test_info.qualified_test_name
     column_name = node.test_info.column_name
@@ -235,7 +269,7 @@ def make_assertion_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertion_info,
-    ).as_workunit()
+    )
 
 
 def make_assertion_result_from_test(
@@ -244,7 +278,7 @@ def make_assertion_result_from_test(
     assertion_urn: str,
     upstream_urn: str,
     test_warnings_are_errors: bool,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
@@ -253,7 +287,7 @@ def make_assertion_result_from_test(
         result=AssertionResultClass(
             type=(
                 AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
+                if test_result.has_success_status()
                 or (not test_warnings_are_errors and test_result.status == "warn")
                 else AssertionResultTypeClass.FAILURE
             ),
@@ -265,4 +299,80 @@ def make_assertion_result_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertionResult,
-    ).as_workunit()
+    )
+
+
+def make_assertion_from_freshness(
+    extra_custom_props: Dict[str, str],
+    node: "DBTNode",
+    assertion_urn: str,
+    upstream_urn: str,
+) -> MetadataChangeProposalWrapper:
+    """Create an AssertionInfo aspect for a dbt freshness test."""
+    assert node.freshness_info
+    freshness_info = node.freshness_info
+
+    assert (
+        freshness_info.error_after or freshness_info.warn_after
+    )  # At least one of error_after/warn_after must be set
+
+    custom_props = {**extra_custom_props, "dbt_freshness_test": "true"}
+    if freshness_info.warn_after:
+        custom_props["warn_after_count"] = str(freshness_info.warn_after.count)
+        custom_props["warn_after_period"] = freshness_info.warn_after.period
+    if freshness_info.error_after:
+        custom_props["error_after_count"] = str(freshness_info.error_after.count)
+        custom_props["error_after_period"] = freshness_info.error_after.period
+
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=custom_props,
+        customAssertion=CustomAssertionInfoClass(type="Freshness", entity=upstream_urn),
+    )
+
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=assertion_info,
+    )
+
+
+def make_assertion_result_from_freshness(
+    node: "DBTNode",
+    assertion_urn: str,
+    upstream_urn: str,
+    test_warnings_are_errors: bool,
+) -> MetadataChangeProposalWrapper:
+    """Create an AssertionRunEvent aspect for a dbt freshness test result"""
+    assert node.freshness_info
+    freshness_info = node.freshness_info
+
+    if freshness_info.status == "pass" or (
+        freshness_info.status == "warn" and not test_warnings_are_errors
+    ):
+        result_type = AssertionResultTypeClass.SUCCESS
+    else:
+        result_type = AssertionResultTypeClass.FAILURE
+
+    native_results = {
+        "status": freshness_info.status,
+        "max_loaded_at": freshness_info.max_loaded_at.isoformat(),
+        "snapshotted_at": freshness_info.snapshotted_at.isoformat(),
+        "max_loaded_at_time_ago_in_s": str(freshness_info.max_loaded_at_time_ago_in_s),
+    }
+
+    assertion_result = AssertionRunEventClass(
+        timestampMillis=int(freshness_info.snapshotted_at.timestamp() * 1000.0),
+        assertionUrn=assertion_urn,
+        asserteeUrn=upstream_urn,
+        runId=freshness_info.invocation_id,
+        result=AssertionResultClass(
+            type=result_type,
+            nativeResults=native_results,
+        ),
+        status=AssertionRunStatusClass.COMPLETE,
+    )
+
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=assertion_result,
+    )

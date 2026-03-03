@@ -32,7 +32,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "FileIngestionCheckpointingProvider":
-        config = FileIngestionStateProviderConfig.parse_obj(config_dict)
+        config = FileIngestionStateProviderConfig.model_validate(config_dict)
         return cls(config)
 
     def get_latest_checkpoint(
@@ -67,7 +67,7 @@ class FileIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" job_name:'{job_name}' found with start_time:"
-                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis/1000)}"
+                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}"
             )
             return latest_checkpoint
         else:

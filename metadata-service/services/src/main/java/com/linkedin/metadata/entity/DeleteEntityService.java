@@ -1,16 +1,12 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FormAssociation;
-import com.linkedin.common.FormAssociationArray;
-import com.linkedin.common.FormVerificationAssociation;
-import com.linkedin.common.FormVerificationAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +16,9 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.file.BucketStorageLocation;
+import com.linkedin.file.DataHubFileInfo;
+import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
@@ -28,10 +27,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
@@ -41,6 +36,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -68,6 +64,7 @@ public class DeleteEntityService {
   private final EntityService<?> _entityService;
   private final GraphService _graphService;
   private final EntitySearchService _searchService;
+  private final S3Util _s3Util;
 
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
   private static final Integer BATCH_SIZE = 1000;
@@ -88,6 +85,9 @@ public class DeleteEntityService {
     // in CLI
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
 
+    // Delete file references first (before other references are cleaned up)
+    int totalFileCount = deleteFileReferences(opContext, urn, dryRun);
+
     // Delete references for entities referencing the deleted urn with searchables.
     // Only works for Form deletion for now
     int totalSearchAssetCount = deleteSearchReferences(opContext, urn, dryRun);
@@ -99,10 +99,10 @@ public class DeleteEntityService {
             newFilter("urn", urn.toString()),
             null,
             EMPTY_FILTER,
-            ImmutableList.of(),
+            ImmutableSet.of(),
             newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             0,
-            10000);
+            null);
 
     final List<RelatedAspect> relatedAspects =
         relatedEntities.getEntities().stream()
@@ -117,7 +117,7 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount);
+    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount + totalFileCount);
 
     if (dryRun) {
       return result;
@@ -137,10 +137,10 @@ public class DeleteEntityService {
                 newFilter("urn", urn.toString()),
                 null,
                 EMPTY_FILTER,
-                ImmutableList.of(),
+                ImmutableSet.of(),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
                 0,
-                10000);
+                null);
       }
     }
 
@@ -568,65 +568,49 @@ public class DeleteEntityService {
     result.assets = new ArrayList<>();
 
     if (deletedUrn.getEntityType().equals("form")) {
-      // first, get all entities with this form assigned on it
-      final CriterionArray incompleteFormsArray = new CriterionArray();
-      incompleteFormsArray.add(
-          buildCriterion("incompleteForms", Condition.EQUAL, deletedUrn.toString()));
-      final CriterionArray completedFormsArray = new CriterionArray();
-      completedFormsArray.add(
-          buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
-      // next, get all metadata tests created for this form
-      final CriterionArray metadataTestSourceArray = new CriterionArray();
-      metadataTestSourceArray.add(
-          buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
-      metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
-      Filter filter =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion().setAnd(incompleteFormsArray),
-                      new ConjunctiveCriterion().setAnd(completedFormsArray),
-                      new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
-      ScrollResult scrollResult =
-          _searchService.structuredScroll(
-              opContext,
-              ImmutableList.of(
-                  "dataset",
-                  "dataJob",
-                  "dataFlow",
-                  "chart",
-                  "dashboard",
-                  "corpuser",
-                  "corpGroup",
-                  "domain",
-                  "container",
-                  "glossaryTerm",
-                  "glossaryNode",
-                  "mlModel",
-                  "mlModelGroup",
-                  "mlFeatureTable",
-                  "mlFeature",
-                  "mlPrimaryKey",
-                  "schemaField",
-                  "dataProduct",
-                  "test"),
-              "*",
-              filter,
-              null,
-              scrollId,
-              "5m",
-              dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
-      if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
-        return result;
+      Filter filter = DeleteEntityUtils.getFilterForFormDeletion(deletedUrn);
+      List<String> entityNames = DeleteEntityUtils.getEntityNamesForFormDeletion();
+      return scrollForAssets(opContext, result, filter, entityNames, scrollId, dryRun);
+    }
+    if (deletedUrn.getEntityType().equals("structuredProperty")) {
+      Filter filter = DeleteEntityUtils.getFilterForStructuredPropertyDeletion(deletedUrn);
+      List<String> entityNames = DeleteEntityUtils.getEntityNamesForStructuredPropertyDeletion();
+      return scrollForAssets(opContext, result, filter, entityNames, scrollId, dryRun);
+    }
+    return result;
+  }
+
+  private AssetScrollResult scrollForAssets(
+      @Nonnull OperationContext opContext,
+      AssetScrollResult result,
+      final @Nullable Filter filter,
+      final @Nonnull List<String> entityNames,
+      @Nullable String scrollId,
+      final boolean dryRun) {
+    ScrollResult scrollResult =
+        _searchService.structuredScroll(
+            opContext,
+            entityNames,
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
+    if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
+      // Initialize assets to empty list and count to 0 if no results
+      if (result.assets == null) {
+        result.assets = new ArrayList<>();
       }
-      result.scrollId = scrollResult.getScrollId();
-      result.totalAssetCount = scrollResult.getNumEntities();
-      result.assets =
-          scrollResult.getEntities().stream()
-              .map(SearchEntity::getEntity)
-              .collect(Collectors.toList());
+      result.totalAssetCount = 0;
       return result;
     }
+    result.scrollId = scrollResult.getScrollId();
+    result.totalAssetCount = scrollResult.getNumEntities();
+    result.assets =
+        scrollResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList());
     return result;
   }
 
@@ -641,7 +625,7 @@ public class DeleteEntityService {
     }
 
     List<MetadataChangeProposal> mcps = new ArrayList<>();
-    List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn);
+    List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn, assetUrn);
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
@@ -667,9 +651,14 @@ public class DeleteEntityService {
    * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
    * that the asset has
    */
-  private List<String> getAspectsToUpdate(@Nonnull final Urn deletedUrn) {
+  private List<String> getAspectsToUpdate(
+      @Nonnull final Urn deletedUrn, @Nonnull final Urn assetUrn) {
     if (deletedUrn.getEntityType().equals("form")) {
       return ImmutableList.of("forms");
+    }
+    if (deletedUrn.getEntityType().equals("structuredProperty")
+        && assetUrn.getEntityType().equals("form")) {
+      return ImmutableList.of("formInfo");
     }
     return new ArrayList<>();
   }
@@ -697,6 +686,9 @@ public class DeleteEntityService {
     if (aspectName.equals("forms")) {
       return updateFormsAspect(opContext, assetUrn, deletedUrn);
     }
+    if (aspectName.equals("formInfo") && deletedUrn.getEntityType().equals("structuredProperty")) {
+      return updateFormInfoAspect(opContext, assetUrn, deletedUrn);
+    }
     return null;
   }
 
@@ -708,41 +700,141 @@ public class DeleteEntityService {
     RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "forms");
     if (record == null) return null;
 
-    Forms formsAspect = new Forms(record.data());
-    final AtomicReference<Forms> updatedAspect;
-    try {
-      updatedAspect = new AtomicReference<>(formsAspect.copy());
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to copy the forms aspect for updating", e);
-    }
+    return DeleteEntityUtils.removeFormFromFormsAspect(
+        new Forms(record.data()), assetUrn, deletedUrn);
+  }
 
-    List<FormAssociation> incompleteForms =
-        formsAspect.getIncompleteForms().stream()
-            .filter(incompleteForm -> !incompleteForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    List<FormAssociation> completedForms =
-        formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    final List<FormVerificationAssociation> verifications =
-        formsAspect.getVerifications().stream()
-            .filter(verification -> !verification.getForm().equals(deletedUrn))
-            .collect(Collectors.toList());
+  @Nullable
+  private MetadataChangeProposal updateFormInfoAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn) {
+    RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "formInfo");
+    if (record == null) return null;
 
-    updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
-    updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
-    updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
-
-    if (!formsAspect.equals(updatedAspect.get())) {
-      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
-    }
-    return null;
+    return DeleteEntityUtils.createFormInfoUpdateProposal(
+        new FormInfo(record.data()), assetUrn, deletedUrn);
   }
 
   private AuditStamp createAuditStamp() {
     return new AuditStamp()
         .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
         .setTime(System.currentTimeMillis());
+  }
+
+  /**
+   * Find and delete files from S3 when their referenced entity is being deleted. This method finds
+   * all DataHub file entities that reference the deleted entity via the referencedByAsset field,
+   * deletes them from S3, and soft-deletes the file entities.
+   *
+   * @param opContext the operation context
+   * @param deletedUrn the URN of the entity being deleted
+   * @param dryRun if true, only count files without deleting them
+   * @return the number of files processed
+   */
+  private int deleteFileReferences(
+      @Nonnull OperationContext opContext, @Nonnull final Urn deletedUrn, final boolean dryRun) {
+
+    Filter filter = DeleteEntityUtils.getFilterForFileDeletion(deletedUrn);
+    List<String> entityNames = ImmutableList.of(Constants.DATAHUB_FILE_ENTITY_NAME);
+
+    int totalFileCount = 0;
+    String scrollId = null;
+
+    do {
+      AssetScrollResult result =
+          scrollForAssets(
+              opContext, new AssetScrollResult(), filter, entityNames, scrollId, dryRun);
+
+      totalFileCount += result.totalAssetCount;
+      scrollId = dryRun ? null : result.scrollId;
+
+      if (!dryRun) {
+        result.assets.forEach(
+            fileUrn -> {
+              try {
+                deleteFileAndS3Object(opContext, fileUrn, deletedUrn);
+              } catch (Exception e) {
+                log.error(
+                    "Failed to process file deletion for urn: {} referenced by deleted entity: {}",
+                    fileUrn,
+                    deletedUrn,
+                    e);
+              }
+            });
+      }
+    } while (scrollId != null);
+
+    if (totalFileCount > 0) {
+      log.info("Processed {} file(s) referencing deleted entity: {}", totalFileCount, deletedUrn);
+    }
+
+    return totalFileCount;
+  }
+
+  /**
+   * Delete a file from S3 and soft-delete the DataHub file entity. This ensures the file is removed
+   * from storage and marked as deleted in DataHub for audit purposes.
+   *
+   * @param opContext the operation context
+   * @param fileUrn the URN of the file to delete
+   * @param deletedEntityUrn the URN of the entity being deleted (for logging)
+   */
+  private void deleteFileAndS3Object(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn fileUrn,
+      @Nonnull final Urn deletedEntityUrn) {
+
+    log.info(
+        "Processing file cleanup for file: {} (referenced by deleted entity: {})",
+        fileUrn,
+        deletedEntityUrn);
+
+    try {
+      // Get file info to retrieve S3 location
+      RecordTemplate record =
+          _entityService.getLatestAspect(
+              opContext, fileUrn, Constants.DATAHUB_FILE_INFO_ASPECT_NAME);
+
+      if (record == null) {
+        log.warn("Could not retrieve file info for urn: {}, skipping cleanup", fileUrn);
+        return;
+      }
+
+      DataHubFileInfo fileInfo = new DataHubFileInfo(record.data());
+
+      // Delete from S3 if S3Util is available and file has storage location
+      if (_s3Util != null && fileInfo.hasBucketStorageLocation()) {
+        BucketStorageLocation location = fileInfo.getBucketStorageLocation();
+        String bucket = location.getStorageBucket();
+        String key = location.getStorageKey();
+
+        try {
+          _s3Util.deleteObject(bucket, key);
+          log.info(
+              "Successfully deleted file from S3: bucket={}, key={}, urn={}", bucket, key, fileUrn);
+        } catch (Exception e) {
+          log.error(
+              "Failed to delete file from S3 for urn: {}. Will continue with soft-delete to avoid "
+                  + "leaving entity in inconsistent state. Manual S3 cleanup may be required.",
+              fileUrn,
+              e);
+        }
+      } else {
+        log.warn(
+            "S3Util not configured or file has no storage location, skipping S3 deletion for file: {}",
+            fileUrn);
+      }
+
+      // Soft delete the file entity
+      MetadataChangeProposal softDeleteMcp = DeleteEntityUtils.buildSoftDeleteProposal(fileUrn);
+      _entityService.ingestProposal(opContext, softDeleteMcp, createAuditStamp(), true);
+      log.info("Soft-deleted DataHub file entity: {}", fileUrn);
+
+    } catch (Exception e) {
+      log.error("Failed to process file deletion for urn: {}", fileUrn, e);
+      throw new RuntimeException("Failed to delete file: " + fileUrn, e);
+    }
   }
 
   @AllArgsConstructor

@@ -1,7 +1,8 @@
 import React from 'react';
-import { RecommendationRenderProps } from '../types';
-import { recommendationClickEvent } from '../util/recommendationClickEvent';
-import { TagSearchList } from './component/TagSearchList';
+
+import { TagSearchList } from '@app/recommendations/renderer/component/TagSearchList';
+import { RecommendationRenderProps } from '@app/recommendations/types';
+import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
 
 export const TagSearchListRenderer = ({
     renderId,

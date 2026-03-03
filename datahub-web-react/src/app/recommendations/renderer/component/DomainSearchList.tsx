@@ -2,13 +2,15 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Domain, EntityType, RecommendationContent } from '../../../../types.generated';
-import { LogoCountCard } from '../../../shared/LogoCountCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import DomainIcon from '../../../domain/DomainIcon';
-import { PageRoutes } from '../../../../conf/Global';
-import { HomePageButton } from '../../../shared/components';
-import { HoverEntityTooltip } from './HoverEntityTooltip';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { LogoCountCard } from '@app/shared/LogoCountCard';
+import { HomePageButton } from '@app/shared/components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { Domain, EntityType, RecommendationContent } from '@types';
 
 const DomainListContainer = styled.div`
     display: flex;

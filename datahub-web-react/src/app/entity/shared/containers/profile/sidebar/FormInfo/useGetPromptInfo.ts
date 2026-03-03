@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
-import { useEntityData } from '../../../../EntityContext';
-import { useGetEntityWithSchema } from '../../../../tabs/Dataset/Schema/useGetEntitySchema';
-import { getAllPrompts, getEntityPromptsInfo, getFieldPromptsInfo, getPromptsForForm } from './utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    getAllPrompts,
+    getEntityPromptsInfo,
+    getFieldPromptsInfo,
+    getPromptsForForm,
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 
 export default function useGetPromptInfo(formUrn?: string) {
     const { entityData } = useEntityData();
@@ -18,10 +24,10 @@ export default function useGetPromptInfo(formUrn?: string) {
         requiredEntityPrompts,
     } = getEntityPromptsInfo(prompts, entityData);
     const { fieldPrompts, numRequiredFieldPromptsRemaining, numOptionalFieldPromptsRemaining, requiredFieldPrompts } =
-        getFieldPromptsInfo(prompts, entityData, entityWithSchema?.schemaMetadata?.fields.length || 0, formUrn);
+        getFieldPromptsInfo(prompts, entityData, entityWithSchema?.schemaMetadata?.fields?.length || 0, formUrn);
     // Multiply number of field prompts by number of schema fields for total number of schema field prompts
     const totalRequiredSchemaFieldPrompts =
-        (entityWithSchema?.schemaMetadata?.fields.length || 0) * requiredFieldPrompts.length;
+        (entityWithSchema?.schemaMetadata?.fields?.length || 0) * requiredFieldPrompts.length;
 
     const numRequiredPromptsRemaining = numRequiredEntityPromptsRemaining + numRequiredFieldPromptsRemaining;
     const numOptionalPromptsRemaining = numOptionalEntityPromptsRemaining + numOptionalFieldPromptsRemaining;

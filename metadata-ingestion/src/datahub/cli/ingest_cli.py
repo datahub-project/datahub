@@ -5,28 +5,33 @@ import os
 import sys
 import textwrap
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.recording.recorder import IngestionRecorder
 
 import click
 import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
-import datahub as datahub_package
+from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
-from datahub.configuration.common import ConfigModel, GraphError
+from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH, load_client_config
+from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ingest_utils import deploy_source_vars
 
 logger = logging.getLogger(__name__)
 
+INGEST_SRC_TABLE_COLUMNS = ["runId", "source", "startTime", "status", "URN"]
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -101,6 +106,44 @@ def ingest() -> None:
     default=False,
     help="If enabled, mute intermediate progress ingestion reports",
 )
+@click.option(
+    "--record",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Enable recording of ingestion run for debugging. "
+    "Requires recording config in recipe or --record-password.",
+)
+@click.option(
+    "--record-password",
+    type=str,
+    default=None,
+    help="Password for encrypting the recording archive. "
+    "Can also be set via DATAHUB_RECORDING_PASSWORD env var.",
+)
+@click.option(
+    "--record-output-path",
+    type=str,
+    default=None,
+    help="Path to save the recording archive (local path or S3 URL when s3_upload=true). "
+    "Overrides recording.output_path in recipe. "
+    "If not provided, uses INGESTION_ARTIFACT_DIR env var or temp directory.",
+)
+@click.option(
+    "--no-s3-upload",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Disable S3 upload of recording (for testing).",
+)
+@click.option(
+    "--no-secret-redaction",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Disable secret redaction in recordings (for local debugging). "
+    "WARNING: Recording will contain actual secrets. Use with caution.",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -110,8 +153,10 @@ def ingest() -> None:
         "no_default_report",
         "no_spinner",
         "no_progress",
+        "record",
     ]
 )
+@upgrade.check_upgrade
 def run(
     config: str,
     dry_run: bool,
@@ -123,8 +168,16 @@ def run(
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
+    record: bool,
+    record_password: Optional[str],
+    record_output_path: Optional[str],
+    no_s3_upload: bool,
+    no_secret_redaction: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
+
+    # Initialize secret masking (before any logging)
+    initialize_secret_masking()
 
     def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
@@ -146,7 +199,7 @@ def run(
                 return ret
 
     # main function begins
-    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", nice_version_name())
 
     pipeline_config = load_config_file(
         config,
@@ -166,55 +219,51 @@ def run(
         # The default is "datahub" reporting. The extra flag will disable it.
         report_to = None
 
-    # logger.debug(f"Using config: {pipeline_config}")
-    pipeline = Pipeline.create(
-        pipeline_config,
-        dry_run=dry_run,
-        preview_mode=preview,
-        preview_workunits=preview_workunits,
-        report_to=report_to,
-        no_progress=no_progress,
-        raw_config=raw_pipeline_config,
-    )
-    with PerfTimer() as timer:
-        ret = run_pipeline_to_completion(pipeline)
-
-    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-    if ret == 0:
-        upgrade.check_upgrade_post(
-            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
+    # Helper function to create and run the pipeline
+    def create_and_run_pipeline() -> int:
+        pipeline = Pipeline.create(
+            pipeline_config,
+            dry_run=dry_run,
+            preview_mode=preview,
+            preview_workunits=preview_workunits,
+            report_to=report_to,
+            no_progress=no_progress,
+            raw_config=raw_pipeline_config,
         )
+        return run_pipeline_to_completion(pipeline)
+
+    # Handle recording if enabled (via --record flag or recording.enabled in recipe)
+    # IMPORTANT: Pipeline.create() must happen INSIDE the recording context
+    # so that SDK initialization (including auth) is captured by VCR.
+    recording_enabled = record or pipeline_config.get("recording", {}).get(
+        "enabled", False
+    )
+    if recording_enabled:
+        recorder = _setup_recording(
+            pipeline_config,
+            record_password,
+            record_output_path,
+            no_s3_upload,
+            no_secret_redaction,
+            raw_pipeline_config,
+        )
+        with recorder:
+            ret = create_and_run_pipeline()
+    else:
+        ret = create_and_run_pipeline()
 
     if ret:
         sys.exit(ret)
     # don't raise SystemExit if there's no error
 
 
-def _make_ingestion_urn(name: str) -> str:
-    guid = datahub_guid(
-        {
-            "name": name,
-        }
-    )
-    return f"urn:li:dataHubIngestionSource:deploy-{guid}"
-
-
-class DeployOptions(ConfigModel):
-    name: str
-    schedule: Optional[str] = None
-    time_zone: str = "UTC"
-    cli_version: Optional[str] = None
-    executor_id: str = "default"
-
-
 @ingest.command()
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 @click.option(
     "-n",
     "--name",
     type=str,
     help="Recipe Name",
+    required=False,
 )
 @click.option(
     "-c",
@@ -232,9 +281,9 @@ class DeployOptions(ConfigModel):
 @click.option(
     "--executor-id",
     type=str,
-    default="default",
     help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
     required=False,
+    default=None,
 )
 @click.option(
     "--cli-version",
@@ -255,16 +304,37 @@ class DeployOptions(ConfigModel):
     type=str,
     help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default="UTC",
+    default=None,
 )
+@click.option(
+    "--debug", type=bool, help="Should we debug.", required=False, default=False
+)
+@click.option(
+    "--extra-pip",
+    type=str,
+    help='Extra pip packages. e.g. ["memray"]',
+    required=False,
+    default=None,
+)
+@click.option(
+    "--extra-env",
+    type=str,
+    help='Environment variables as comma-separated KEY=VALUE pairs. e.g. "VAR1=value1,VAR2=value2"',
+    required=False,
+    default=None,
+)
+@upgrade.check_upgrade
 def deploy(
     name: Optional[str],
     config: str,
     urn: Optional[str],
-    executor_id: str,
+    executor_id: Optional[str],
     cli_version: Optional[str],
     schedule: Optional[str],
-    time_zone: str,
+    time_zone: Optional[str],
+    extra_pip: Optional[str],
+    extra_env: Optional[str],
+    debug: bool = False,
 ) -> None:
     """
     Deploy an ingestion recipe to your DataHub instance.
@@ -273,85 +343,26 @@ def deploy(
     urn:li:dataHubIngestionSource:<name>
     """
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
 
-    pipeline_config = load_config_file(
-        config,
-        allow_stdin=True,
-        allow_remote=True,
-        resolve_env_vars=False,
+    variables = deploy_source_vars(
+        name=name,
+        config=config,
+        urn=urn,
+        executor_id=executor_id,
+        cli_version=cli_version,
+        schedule=schedule,
+        time_zone=time_zone,
+        extra_pip=extra_pip,
+        debug=debug,
+        extra_env=extra_env,
     )
-
-    deploy_options_raw = pipeline_config.pop("deployment", None)
-    if deploy_options_raw is not None:
-        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
-
-        if name:
-            logger.info(f"Overriding deployment name {deploy_options.name} with {name}")
-            deploy_options.name = name
-    else:
-        if not name:
-            raise click.UsageError(
-                "Either --name must be set or deployment_name specified in the config"
-            )
-        deploy_options = DeployOptions(name=name)
-
-    # Use remaining CLI args to override deploy_options
-    if schedule:
-        deploy_options.schedule = schedule
-    if time_zone:
-        deploy_options.time_zone = time_zone
-    if cli_version:
-        deploy_options.cli_version = cli_version
-    if executor_id:
-        deploy_options.executor_id = executor_id
-
-    logger.info(f"Using {repr(deploy_options)}")
-
-    if not urn:
-        # When urn/name is not specified, we will generate a unique urn based on the deployment name.
-        urn = _make_ingestion_urn(deploy_options.name)
-        logger.info(f"Using recipe urn: {urn}")
-
-    # Invariant - at this point, both urn and deploy_options are set.
-
-    variables: dict = {
-        "urn": urn,
-        "name": deploy_options.name,
-        "type": pipeline_config["source"]["type"],
-        "recipe": json.dumps(pipeline_config),
-        "executorId": deploy_options.executor_id,
-        "version": deploy_options.cli_version,
-    }
-
-    if deploy_options.schedule is not None:
-        variables["schedule"] = {
-            "interval": deploy_options.schedule,
-            "timezone": deploy_options.time_zone,
-        }
 
     # The updateIngestionSource endpoint can actually do upserts as well.
     graphql_query: str = textwrap.dedent(
         """
-        mutation updateIngestionSource(
-            $urn: String!,
-            $name: String!,
-            $type: String!,
-            $schedule: UpdateIngestionSourceScheduleInput,
-            $recipe: String!,
-            $executorId: String!
-            $version: String) {
-
-            updateIngestionSource(urn: $urn, input: {
-                name: $name,
-                type: $type,
-                schedule: $schedule,
-                config: {
-                    recipe: $recipe,
-                    executorId: $executorId,
-                    version: $version,
-                }
-            })
+        mutation updateIngestionSource($urn: String!, $input: UpdateIngestionSourceInput!) {
+            updateIngestionSource(urn: $urn, input: $input)
         }
         """
     )
@@ -371,9 +382,100 @@ def deploy(
         sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {variables['input']['name']}:"
     )
     click.echo(response)
+
+
+def _setup_recording(
+    pipeline_config: dict,
+    record_password: Optional[str],
+    record_output_path: Optional[str],
+    no_s3_upload: bool,
+    no_secret_redaction: bool,
+    raw_config: dict,
+) -> "IngestionRecorder":
+    """Setup recording for the ingestion run."""
+    from datahub.ingestion.recording.config import (
+        RecordingConfig,
+        check_recording_dependencies,
+        get_recording_password_from_env,
+    )
+    from datahub.ingestion.recording.recorder import IngestionRecorder
+
+    # Check dependencies first
+    check_recording_dependencies()
+
+    # Build recording config from recipe, with CLI overrides
+    recording_config_dict = pipeline_config.get("recording", {}).copy()
+
+    # CLI password takes precedence, then env var, then recipe
+    password = record_password or get_recording_password_from_env()
+    if password:
+        recording_config_dict["password"] = password
+
+    # CLI --record-output-path flag overrides recipe
+    if record_output_path:
+        recording_config_dict["output_path"] = record_output_path
+
+    # CLI --no-s3-upload flag overrides recipe
+    if no_s3_upload:
+        recording_config_dict["s3_upload"] = False
+
+    # Ensure enabled is set (we're here because recording should be enabled)
+    recording_config_dict["enabled"] = True
+
+    # Validate config using pydantic model
+    try:
+        recording_config = RecordingConfig.model_validate(recording_config_dict)
+    except Exception as e:
+        click.secho(f"Error in recording configuration: {e}", fg="red", err=True)
+        sys.exit(1)
+
+    # Get password as string for recorder
+    if not recording_config.password:
+        click.secho(
+            "Error: Recording password required. Provide via --record-password, "
+            "DATAHUB_RECORDING_PASSWORD env var, or recipe recording.password.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+    password_str = recording_config.password.get_secret_value()
+
+    # Get run_id from pipeline config or generate one
+    run_id = pipeline_config.get("run_id")
+    if not run_id:
+        from datahub.ingestion.run.pipeline_config import _generate_run_id
+
+        run_id = _generate_run_id(
+            pipeline_config.get("source", {}).get("type", "unknown")
+        )
+
+    # Get source and sink types for metadata
+    source_type = pipeline_config.get("source", {}).get("type")
+    sink_type = pipeline_config.get("sink", {}).get("type", "datahub-rest")
+
+    logger.info(f"Recording enabled for run_id: {run_id}")
+    logger.info(f"S3 upload: {'enabled' if recording_config.s3_upload else 'disabled'}")
+    if recording_config.output_path:
+        logger.info(f"Output path: {recording_config.output_path}")
+    if no_secret_redaction:
+        logger.warning(
+            "Secret redaction is DISABLED - recording will contain actual secrets. "
+            "Use this only for local debugging and NEVER commit recordings to source control."
+        )
+
+    return IngestionRecorder(
+        run_id=run_id,
+        password=password_str,
+        redact_secrets=not no_secret_redaction,
+        recipe=raw_config,
+        output_path=recording_config.output_path,
+        s3_upload=recording_config.s3_upload,
+        source_type=source_type,
+        sink_type=sink_type,
+    )
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
@@ -413,7 +515,9 @@ def parse_restli_response(response):
 
 
 @ingest.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument(
+    "path", type=click.Path(exists=False)
+)  # exists=False since it only supports local filesystems
 def mcps(path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.
@@ -422,6 +526,7 @@ def mcps(path: str) -> None:
     """
 
     click.echo("Starting ingestion...")
+    datahub_config = load_client_config()
     recipe: dict = {
         "source": {
             "type": "file",
@@ -429,12 +534,139 @@ def mcps(path: str) -> None:
                 "path": path,
             },
         },
+        "datahub_api": datahub_config,
     }
 
     pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
+
+
+@ingest.command()
+@click.argument("page_offset", type=int, default=0)
+@click.argument("page_size", type=int, default=100)
+@click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
+@click.option(
+    "--source", type=str, default=None, help="Filter by ingestion source name."
+)
+@upgrade.check_upgrade
+def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
+    """
+    List ingestion source runs with their details, optionally filtered by URN or source.
+    Required the Manage Metadata Ingestion permission.
+    """
+
+    query = """
+    query listIngestionRuns($input: ListIngestionSourcesInput!) {
+      listIngestionSources(input: $input) {
+        ingestionSources {
+          urn
+          name
+          executions {
+            executionRequests {
+              id
+              result {
+                startTimeMs
+                status
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    # filter by urn and/or source using CONTAINS
+    filters = []
+    if urn:
+        filters.append({"field": "urn", "values": [urn], "condition": "CONTAIN"})
+    if source:
+        filters.append({"field": "name", "values": [source], "condition": "CONTAIN"})
+
+    variables = {
+        "input": {
+            "start": page_offset,
+            "count": page_size,
+            "filters": filters,
+        }
+    }
+
+    client = get_default_graph(ClientMode.CLI)
+    session = client._session
+    gms_host = client.config.server
+
+    url = f"{gms_host}/api/graphql"
+    try:
+        response = session.post(url, json={"query": query, "variables": variables})
+        response.raise_for_status()
+    except Exception as e:
+        click.echo(f"Error fetching data: {str(e)}")
+        return
+
+    try:
+        data = response.json()
+    except ValueError:
+        click.echo("Failed to parse JSON response from server.")
+        return
+
+    if not data:
+        click.echo("No response received from the server.")
+        return
+    if "errors" in data:
+        click.echo("Errors in response:")
+        for error in data["errors"]:
+            click.echo(f"- {error.get('message', 'Unknown error')}")
+        return
+
+    # a lot of responses can be null if there's errors in the run
+    ingestion_sources = (
+        data.get("data", {}).get("listIngestionSources", {}).get("ingestionSources", [])
+    )
+
+    if not ingestion_sources:
+        click.echo("No ingestion sources or executions found.")
+        return
+
+    rows = []
+    for ingestion_source in ingestion_sources:
+        urn = ingestion_source.get("urn", "N/A")
+        name = ingestion_source.get("name", "N/A")
+
+        executions = ingestion_source.get("executions", {}).get("executionRequests", [])
+
+        for execution in executions:
+            if execution is None:
+                continue
+
+            execution_id = execution.get("id", "N/A")
+            result = execution.get("result") or {}
+            status = result.get("status", "N/A")
+
+            try:
+                start_time = (
+                    datetime.fromtimestamp(
+                        result.get("startTimeMs", 0) / 1000
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                    if status != "DUPLICATE" and result.get("startTimeMs") is not None
+                    else "N/A"
+                )
+            except (TypeError, ValueError):
+                start_time = "N/A"
+
+            rows.append([execution_id, name, start_time, status, urn])
+
+    if not rows:
+        click.echo("No execution data found.")
+        return
+
+    click.echo(
+        tabulate(
+            rows,
+            headers=INGEST_SRC_TABLE_COLUMNS,
+            tablefmt="grid",
+        )
+    )
 
 
 @ingest.command()
@@ -447,11 +679,10 @@ def mcps(path: str) -> None:
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -497,12 +728,11 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -547,12 +777,11 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if not force and not dry_run:
         click.confirm(
@@ -616,3 +845,170 @@ def rollback(
         except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")
+
+
+@ingest.command()
+@click.argument("archive_path", type=str)
+@click.option(
+    "--password",
+    type=str,
+    required=False,
+    help="Password for decrypting the recording archive. "
+    "Can also be set via DATAHUB_RECORDING_PASSWORD env var.",
+)
+@click.option(
+    "--live-sink",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, emit to real GMS server instead of using recorded responses.",
+)
+@click.option(
+    "--server",
+    type=str,
+    default=None,
+    help="GMS server URL when using --live-sink. Defaults to value in recorded recipe.",
+)
+@click.option(
+    "--report-to",
+    type=str,
+    default=None,
+    help="Path to write the report file.",
+)
+@click.option(
+    "--no-spinner",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off spinner",
+)
+@click.option(
+    "--use-responses-lib",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Use responses library for HTTP replay instead of VCR.py. "
+    "Useful for sources with known VCR compatibility issues (e.g., Looker).",
+)
+@telemetry.with_telemetry(capture_kwargs=["live_sink"])
+@upgrade.check_upgrade
+def replay(
+    archive_path: str,
+    password: Optional[str],
+    live_sink: bool,
+    server: Optional[str],
+    report_to: Optional[str],
+    no_spinner: bool,
+    use_responses_lib: bool,
+) -> None:
+    """
+    Replay a recorded ingestion run for debugging.
+
+    archive_path can be a local file path or an S3 URL (s3://bucket/path/to/recording.zip).
+
+    This command runs an ingestion using recorded HTTP and database responses,
+    allowing offline debugging without network access.
+
+    Examples:
+        # Replay from local file
+        datahub ingest replay ./recording.zip --password secret
+
+        # Replay from S3
+        datahub ingest replay s3://bucket/recordings/run-id.zip --password secret
+
+        # Replay with live sink (emit to real GMS)
+        datahub ingest replay ./recording.zip --password secret --live-sink
+    """
+    from datahub.ingestion.recording.config import (
+        check_recording_dependencies,
+        get_recording_password_from_env,
+    )
+    from datahub.ingestion.recording.replay import IngestionReplayer
+
+    # Check dependencies
+    try:
+        check_recording_dependencies()
+    except ImportError as e:
+        click.secho(str(e), fg="red", err=True)
+        sys.exit(1)
+
+    # Get password
+    password = password or get_recording_password_from_env()
+    if not password:
+        click.secho(
+            "Error: Password required. Provide via --password or "
+            "DATAHUB_RECORDING_PASSWORD env var.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    logger.info("DataHub CLI version: %s", nice_version_name())
+    logger.info(f"Replaying recording from: {archive_path}")
+    logger.info(f"Mode: {'live sink' if live_sink else 'air-gapped'}")
+
+    def run_replay_with_library(use_responses_lib: bool) -> int:
+        """Run replay with specified HTTP library. Returns exit code."""
+        with IngestionReplayer(
+            archive_path=archive_path,
+            password=password,
+            live_sink=live_sink,
+            gms_server=server,
+            use_responses_library=use_responses_lib,
+        ) as replayer:
+            recipe = replayer.get_recipe()
+            logger.info(f"Loaded recording: run_id={replayer.run_id}")
+
+            # Create and run pipeline
+            pipeline = Pipeline.create(recipe)
+
+            logger.info("Starting replay...")
+            with click_spinner.spinner(disable=no_spinner):
+                try:
+                    pipeline.run()
+                except Exception as e:
+                    logger.info(
+                        f"Source ({pipeline.source_type}) report:\n"
+                        f"{pipeline.source.get_report().as_string()}"
+                    )
+                    logger.info(
+                        f"Sink ({pipeline.sink_type}) report:\n"
+                        f"{pipeline.sink.get_report().as_string()}"
+                    )
+                    raise e
+                else:
+                    logger.info("Replay complete")
+                    pipeline.log_ingestion_stats()
+                    ret = pipeline.pretty_print_summary()
+
+                    if report_to:
+                        with open(report_to, "w") as f:
+                            f.write(pipeline.source.get_report().as_string())
+
+                    return ret or 0
+        return 0
+
+    if use_responses_lib:
+        # User explicitly requested responses library
+        ret = run_replay_with_library(use_responses_lib=True)
+        if ret:
+            sys.exit(ret)
+    else:
+        # Try VCR.py first, fallback to responses on failure
+        try:
+            ret = run_replay_with_library(use_responses_lib=False)
+            if ret:
+                # VCR.py replay had failures - retry with responses library
+                # This handles cases where VCR patching causes issues (e.g., Looker SDK)
+                logger.warning(
+                    "VCR.py replay had failures. Retrying with responses library..."
+                )
+                ret = run_replay_with_library(use_responses_lib=True)
+                if ret:
+                    sys.exit(ret)
+        except Exception as vcr_error:
+            logger.warning(f"VCR.py replay failed with exception: {vcr_error}")
+            logger.info("Retrying replay with responses library...")
+            ret = run_replay_with_library(use_responses_lib=True)
+            if ret:
+                sys.exit(ret)

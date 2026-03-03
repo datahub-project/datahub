@@ -50,7 +50,6 @@ def test_change_percent(
 
 
 def test_filter_ignored_entity_types():
-
     assert filter_ignored_entity_types(
         [
             "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)",

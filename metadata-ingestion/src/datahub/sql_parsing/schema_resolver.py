@@ -1,5 +1,7 @@
 import contextlib
+import logging
 import pathlib
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
@@ -13,13 +15,23 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
-from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
+logger = logging.getLogger(__name__)
+
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+
+@dataclass
+class SchemaResolverReport:
+    """Report class for tracking SchemaResolver cache performance."""
+
+    num_schema_cache_hits: int = 0
+    num_schema_cache_misses: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -33,14 +45,11 @@ class GraphQLSchemaMetadata(TypedDict):
 
 class SchemaResolverInterface(Protocol):
     @property
-    def platform(self) -> str:
-        ...
+    def platform(self) -> str: ...
 
-    def includes_temp_tables(self) -> bool:
-        ...
+    def includes_temp_tables(self) -> bool: ...
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        ...
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
 
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.
@@ -56,6 +65,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         env: str = DEFAULT_ENV,
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
+        report: Optional[SchemaResolverReport] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -63,6 +73,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.env = env
 
         self.graph = graph
+        self.report = report
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -123,17 +134,26 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         return urn
 
+    def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
+
+        return urn, None
+
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
+            self._track_cache_hit()
             return urn, schema_info
 
         urn_lower = self.get_urn_for_table(table, lower=True)
         if urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
+                self._track_cache_hit()
                 return urn_lower, schema_info
 
         # Our treatment of platform instances when lowercasing urns
@@ -148,7 +168,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if urn_mixed not in {urn, urn_lower}:
             schema_info = self._resolve_schema_info(urn_mixed)
             if schema_info:
+                self._track_cache_hit()
                 return urn_mixed, schema_info
+
+        logger.debug(
+            f"Schema resolution failed for table {table}. Tried URNs: "
+            f"primary={urn}, lower={urn_lower}, mixed={urn_mixed}"
+        )
+        self._track_cache_miss()
 
         if self._prefers_urn_lower():
             return urn_lower, None
@@ -160,6 +187,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
+
+    def _track_cache_hit(self) -> None:
+        """Track a cache hit if reporting is enabled."""
+        if self.report is not None:
+            self.report.num_schema_cache_hits += 1
+
+    def _track_cache_miss(self) -> None:
+        """Track a cache miss if reporting is enabled."""
+        if self.report is not None:
+            self.report.num_schema_cache_misses += 1
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -225,8 +262,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return {
             get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
                 # The actual types are more of a "nice to have".
-                field["nativeDataType"]
-                or "str"
+                field["nativeDataType"] or "str"
             )
             for field in schema["fields"]
             # TODO: We can't generate lineage to columns nested within structs yet.
@@ -258,6 +294,8 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             table, lower=self._base_resolver._prefers_urn_lower()
         )
         if urn in self._extra_schemas:
+            # Track cache hit for extra schemas
+            self._base_resolver._track_cache_hit()
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
 
@@ -282,8 +320,7 @@ def _convert_schema_field_list_to_info(
     return {
         get_simple_field_path_from_v2_field_path(col.fieldPath): (
             # The actual types are more of a "nice to have".
-            col.nativeDataType
-            or "str"
+            col.nativeDataType or "str"
         )
         for col in schema_fields
         # TODO: We can't generate lineage to columns nested within structs yet.
@@ -293,3 +330,19 @@ def _convert_schema_field_list_to_info(
 
 def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
     return _convert_schema_field_list_to_info(schema_metadata.fields)
+
+
+def match_columns_to_schema(
+    schema_info: SchemaInfo, input_columns: List[str]
+) -> List[str]:
+    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
+
+    gms_column_map: Dict[str, str] = {
+        column.lower(): column for column in column_from_gms
+    }
+
+    output_columns: List[str] = [
+        gms_column_map.get(column.lower(), column) for column in input_columns
+    ]
+
+    return output_columns

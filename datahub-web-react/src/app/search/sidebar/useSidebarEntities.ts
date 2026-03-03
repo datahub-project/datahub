@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
-import useAggregationsQuery from './useAggregationsQuery';
+
+import useAggregationsQuery from '@app/search/sidebar/useAggregationsQuery';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 
 type Props = {
     skip: boolean;

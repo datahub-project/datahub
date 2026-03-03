@@ -1,28 +1,33 @@
-import * as React from 'react';
 import { BookOutlined } from '@ant-design/icons';
 import { Tag, Tooltip } from 'antd';
+import * as React from 'react';
 import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { ParentWrapper } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
+import { getParentEntities } from '@app/search/filters/utils';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/search/utils/constants';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { formatNumber } from '@app/shared/formatNumber';
+import { DomainLink } from '@app/shared/tags/DomainLink';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
-    Domain,
     Container,
+    CorpGroup,
+    CorpUser,
     DataPlatform,
+    DataPlatformInstance,
+    Domain,
+    Entity,
     EntityType,
     GlossaryTerm,
     Tag as TagType,
-    CorpUser,
-    CorpGroup,
-    DataPlatformInstance,
-    Entity,
-} from '../../types.generated';
-import { StyledTag } from '../entity/shared/components/styled/StyledTag';
-import { capitalizeFirstLetterOnly } from '../shared/textUtil';
-import { DomainLink } from '../shared/tags/DomainLink';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from './utils/constants';
-import CustomAvatar from '../shared/avatar/CustomAvatar';
-import { IconStyleType } from '../entity/Entity';
-import { formatNumber } from '../shared/formatNumber';
-import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
+} from '@types';
 
 type Props = {
     field: string;
@@ -157,11 +162,17 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.Container) {
         const container = entity as Container;
         const displayName = entityRegistry.getDisplayName(EntityType.Container, container);
+        const parentEntities: Entity[] = getParentEntities(container as Entity) || [];
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 {!!container.platform?.properties?.logoUrl && (
-                    <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                    <>
+                        <ParentWrapper style={{ width: '200px' }}>
+                            <ParentEntities parentEntities={parentEntities} />
+                        </ParentWrapper>
+                        <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                    </>
                 )}
                 <span>
                     {truncatedDisplayName}

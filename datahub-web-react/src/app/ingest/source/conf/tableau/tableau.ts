@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import tableauLogo from '../../../../../images/tableaulogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import tableauLogo from '@images/tableaulogo.svg';
 
 const placeholderRecipe = `\
 source:
@@ -20,6 +21,8 @@ source:
     default_schema_map:
       mydatabase: public
       anotherdatabase: anotherschema
+    stateful_ingestion:
+      enabled: true
 `;
 
 export const TABLEAU = 'tableau';
@@ -28,7 +31,7 @@ const tableauConfig: SourceConfig = {
     type: TABLEAU,
     placeholderRecipe,
     displayName: 'Tableau',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/tableau/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/tableau/',
     logoUrl: tableauLogo,
 };
 

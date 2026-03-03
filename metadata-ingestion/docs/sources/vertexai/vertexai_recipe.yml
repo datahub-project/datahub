@@ -1,0 +1,29 @@
+source:
+  type: vertexai
+  config:
+    project_id: "acryl-poc"
+    # region: "us-west2"  # [deprecated] Prefer 'regions' or 'discover_regions'
+    # regions:
+    #   - "us-west2"
+    #   - "us-central1"
+    # discover_regions: true  # Enumerate available regions and scan all
+    # Optional multi-project support
+    # project_ids:
+    #   - "project-a"
+    #   - "project-b"
+    # project_labels:
+    #   - "env:prod"
+    # project_id_pattern:
+    #   allow:
+    #     - ".*-prod"
+# You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
+#   credential:
+#      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'
+#      private_key_id: "project_key_id"
+#      client_email: "client_email"
+#      client_id: "client_id"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

@@ -21,15 +21,32 @@ export enum PageRoutes {
     PERMISSIONS = '/permissions',
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
+    INGESTION_CREATE = '/ingestion/create',
+    INGESTION_UPDATE = '/ingestion/update/:urn',
+    INGESTION_RUN_DETAILS = '/ingestion/run-details/:urn',
     SETTINGS = '/settings',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
+    DOCUMENT = '/document',
     GLOSSARY = '/glossary',
+    STRUCTURED_PROPERTIES = '/structured-properties',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
     SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
+    INTRODUCE = '/introduce',
+    // Temporary route to view all data products
+    DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
+    MANAGE_TAGS = '/tags',
+    MANAGE_APPLICATIONS = '/applications',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
+}
+
+export enum HelpLinkRoutes {
+    GRAPHIQL = '/api/graphiql',
+    OPENAPI = '/openapi/swagger-ui/index.html',
 }
 
 /**

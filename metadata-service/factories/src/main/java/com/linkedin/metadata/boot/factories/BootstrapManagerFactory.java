@@ -14,10 +14,11 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
-import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
+import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
+import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -69,12 +70,8 @@ public class BootstrapManagerFactory {
   private SearchDocumentTransformer _searchDocumentTransformer;
 
   @Autowired
-  @Qualifier("entityAspectMigrationsDao")
+  @Qualifier("entityAspectDao")
   private AspectMigrationsDao _migrationsDao;
-
-  @Autowired
-  @Qualifier("ingestRetentionPoliciesStep")
-  private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
 
   @Autowired
   @Qualifier("dataHubUpgradeKafkaListener")
@@ -110,6 +107,10 @@ public class BootstrapManagerFactory {
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
+    final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
+        new RestoreFormInfoIndicesStep(_entityService);
+    final MigrateHomePageLinksStep migrateHomePageLinksStep =
+        new MigrateHomePageLinksStep(_entityService, _entitySearchService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
@@ -117,14 +118,18 @@ public class BootstrapManagerFactory {
                 waitForSystemUpdateStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
-                _ingestRetentionPoliciesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestEntityTypesStep));
+                ingestEntityTypesStep,
+                restoreFormInfoIndicesStep));
+
+    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
+      finalSteps.add(migrateHomePageLinksStep);
+    }
 
     return new BootstrapManager(finalSteps);
   }

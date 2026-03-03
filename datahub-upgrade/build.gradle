@@ -1,10 +1,11 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
-  id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/java-coverage.gradle"
+apply from: "../gradle/docker/docker.gradle"
 
 ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -14,13 +15,16 @@ ext {
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:services')
   implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
+  implementation project(':metadata-utils')
   implementation externalDependency.charle
 
   implementation externalDependency.mustache
   implementation externalDependency.javaxInject
+  implementation externalDependency.springActuator
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
@@ -28,7 +32,7 @@ dependencies {
     exclude group: "org.eclipse.jetty"
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
     exclude group: "com.charleskorn.kaml", module:"kaml"
-
+    exclude group: "org.apache.kerby", module:"kerb-simplekdc"
   }
 
   constraints {
@@ -47,11 +51,17 @@ dependencies {
     implementation(externalDependency.guava) {
       because("CVE-2023-2976")
     }
-    implementation('io.airlift:aircompressor:0.27') {
-      because("CVE-2024-36114")
+    implementation("io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}") {
+      because("CVE-2024-36114, CVE-2025-67721")
     }
     implementation('dnsjava:dnsjava:3.6.1') {
       because("CVE-2024-25638")
+    }
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
+    implementation('io.netty:netty-codec-smtp:4.1.130.Final') {
+      because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection, CVE-2025-67735 - CRLF Injection")
     }
   }
 
@@ -59,17 +69,21 @@ dependencies {
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:3.7.1"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.picocli
+  implementation externalDependency.resilience4j
   implementation externalDependency.parquet
   implementation externalDependency.protobuf
   implementation externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  implementation externalDependency.kafkaClients
+  runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
 
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.mariadbConnector
@@ -77,6 +91,11 @@ dependencies {
   runtimeOnly externalDependency.postgresql
 
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
+
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonJsr310
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
@@ -87,8 +106,17 @@ dependencies {
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
 
+  // testcontainers for integration tests
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.h2
+  testImplementation testFixtures(project(':metadata-io'))
+
   constraints {
-    implementation(implementation externalDependency.parquetHadoop) {
+    implementation(externalDependency.parquetHadoop) {
       because("CVE-2022-42003")
     }
   }
@@ -117,10 +145,98 @@ task run(type: Exec) {
   environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
   environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SQL_SETUP_ENABLED", "true"
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
           "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
+/**
+ * Runs the non-blocking system updates locally (includes lineage index fields backfill)
+ * Sets up environment variables for local execution
+ */
+task runNonBlocking(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the non-blocking system updates locally (includes lineage index fields backfill)."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS", "0"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateNonBlocking"
+}
+
+/**
+ * Runs specific non-blocking system upgrade(s) locally - FixEntityConsistency.
+ * Usage: ./gradlew :datahub-upgrade:runSingleNonBlocking
+ */
+task runFixEntityConsistency(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run specific non-blocking system upgrade(s) locally. Use -Pclassname=<classname> or comma-delimited list."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
+  environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED", "true"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN", "false"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS", "0"
+
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateNonBlocking", "-n", "FixEntityConsistency"
+}
+
+task runCron(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron"
+}
+
+task runCronDryRun(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "dryRun=true"
+}
+
+/**
+ * Runs RestoreIndices on locally running system.
+ * This is useful for debugging or special situations to reindex, the index to reindex is given in -u index= argument"
+ */
+task runReindexDebug(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate ReindexDebug"
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "ReindexDebug", "-a", "index=datahubpolicyindex_v2"
 }
 
 /**
@@ -136,7 +252,7 @@ task runRestoreIndices(type: Exec) {
           "-jar",
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
-          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "createDefaultAspects=true"
 }
 
 task runRestoreIndicesUrn(type: Exec) {
@@ -151,24 +267,171 @@ task runRestoreIndicesUrn(type: Exec) {
           bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
 }
 
+/**
+ * Runs LoadIndices on locally running system. This ensures indices have the correct mappings
+ * and then loads data from database to Elasticsearch.
+ *
+ * The process includes two steps:
+ * 1. BuildIndicesStep: Ensures indices have the correct mappings (creates/updates index structure)
+ * 2. LoadIndicesStep: Loads data from database to Elasticsearch
+ * 
+ * The task automatically configures ES_BULK_REQUESTS_LIMIT to match the batch size
+ * and disables ES_BULK_FLUSH_PERIOD for optimal bulk processor performance.
+ * 
+ * Optional parameters:
+ * - limit: Maximum number of records to process (default: no limit)
+ * - batchSize: Number of records per batch (default: 10000)
+ * - esThreadCount: Elasticsearch I/O thread count (default: 3, enables async bulk processing)
+ * - urnLike: URN pattern filter (e.g., "urn:li:dataset:%")
+ * - aspectNames: Comma-separated aspect names to filter
+ * - lePitEpochMs: Process records created before this timestamp
+ * - gePitEpochMs: Process records created after this timestamp
+ * 
+ * Usage examples:
+ * ./gradlew runLoadIndices
+ * ./gradlew runLoadIndices -Plimit=5000
+ * ./gradlew runLoadIndices -Plimit=1000 -PbatchSize=2500
+ * ./gradlew runLoadIndices -PurnLike="urn:li:dataset:%"
+ * ./gradlew runLoadIndices -PesThreadCount=3
+ */
+task runLoadIndices(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the load indices process locally - ensures correct mappings and loads data from database to Elasticsearch."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  
+  def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+              "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "LoadIndices"]
+  
+  // Add batchSize (default: 10000)
+  def batchSize = project.hasProperty('batchSize') ? project.getProperty('batchSize') : '10000'
+  args.addAll(["-a", "batchSize=${batchSize}"])
+  
+  // Optimize bulk request limit for sustained load
+  environment "ES_BULK_REQUESTS_LIMIT", batchSize
+  // Set flush period to 5 minutes to allow proper batching
+  environment "ES_BULK_FLUSH_PERIOD", "300"
+  
+  // Configure Elasticsearch I/O threads for better BulkProcessor performance
+  // Increase from default 2 to allow more concurrent HTTP connections
+  def threadCount = project.hasProperty('esThreadCount') ? project.getProperty('esThreadCount') : '4'
+  environment "ELASTICSEARCH_THREAD_COUNT", threadCount
+  
+  // Add limit if specified
+  if (project.hasProperty('limit')) {
+    args.addAll(["-a", "limit=${project.getProperty('limit')}"])
+  }
+  
+  // Add urnLike if specified
+  if (project.hasProperty('urnLike')) {
+    args.addAll(["-a", "urnLike=${project.getProperty('urnLike')}"])
+  }
+  
+  // Add aspectNames if specified
+  if (project.hasProperty('aspectNames')) {
+    args.addAll(["-a", "aspectNames=${project.getProperty('aspectNames')}"])
+  }
+  
+  // Add lePitEpochMs if specified
+  if (project.hasProperty('lePitEpochMs')) {
+    args.addAll(["-a", "lePitEpochMs=${project.getProperty('lePitEpochMs')}"])
+  }
+  
+  // Add gePitEpochMs if specified
+  if (project.hasProperty('gePitEpochMs')) {
+    args.addAll(["-a", "gePitEpochMs=${project.getProperty('gePitEpochMs')}"])
+  }
+  
+  commandLine args
+}
+
+
+/**
+ * Runs SqlSetup for MySQL on locally running system.
+ * Configured for quickstart MySQL service running on localhost:3306
+ * Uses environment variables for backwards compatibility with docker/mysql-setup
+ *
+ * Usage:
+ * ./gradlew runSqlSetupMysql
+ * MYSQL_USERNAME=datahub MYSQL_PASSWORD=datahub CREATE_USER=true ./gradlew runSqlSetupMysql
+ * CDC_MCL_PROCESSING_ENABLED=true CDC_USER=datahub_cdc CDC_PASSWORD=datahub_cdc ./gradlew runSqlSetupMysql
+ */
+task runSqlSetupMysql(type: Exec) {
+    dependsOn bootJar
+    group = "Execution"
+    description = "Run the SqlSetup process for MySQL locally - creates tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+
+    // Set standard Ebean environment variables for MySQL
+    environment "EBEAN_DATASOURCE_USERNAME", "datahub"
+    environment "EBEAN_DATASOURCE_PASSWORD", "datahub"
+    environment "EBEAN_DATASOURCE_URL", "jdbc:mysql://localhost:3306/datahub"
+    environment "EBEAN_DATASOURCE_DRIVER", "com.mysql.cj.jdbc.Driver"
+    environment "EBEAN_USE_IAM_AUTH", "false"
+
+    // Set SqlSetup-specific environment variables
+    environment "CREATE_TABLES", "true"
+    environment "CREATE_USER", "false"
+    environment "CDC_MCL_PROCESSING_ENABLED", "false"
+    environment "CDC_USER", "datahub_cdc"
+    environment "CDC_PASSWORD", "datahub_cdc"
+
+    def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+                "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SqlSetup"]
+
+    commandLine args
+}
+
+/**
+ * Runs SqlSetup for PostgreSQL on locally running system.
+ * Configured for quickstart PostgreSQL service running on localhost:5432
+ * Uses environment variables for backwards compatibility with docker/postgres-setup
+ *
+ * Usage:
+ * ./gradlew runSqlSetupPostgres
+ * POSTGRES_USERNAME=datahub POSTGRES_PASSWORD=datahub CREATE_USER=true ./gradlew runSqlSetupPostgres
+ * CDC_MCL_PROCESSING_ENABLED=true CDC_USER=datahub_cdc CDC_PASSWORD=datahub_cdc ./gradlew runSqlSetupPostgres
+ */
+task runSqlSetupPostgres(type: Exec) {
+    dependsOn bootJar
+    group = "Execution"
+    description = "Run the SqlSetup process for PostgreSQL locally - creates database, tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+
+    // Set standard Ebean environment variables for PostgreSQL
+    environment "EBEAN_DATASOURCE_USERNAME", "datahub"
+    environment "EBEAN_DATASOURCE_PASSWORD", "datahub"
+    environment "EBEAN_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/datahub"
+    environment "EBEAN_DATASOURCE_DRIVER", "org.postgresql.Driver"
+    environment "EBEAN_USE_IAM_AUTH", "false"
+
+    // Set SqlSetup-specific environment variables
+    environment "CREATE_TABLES", "true"
+    environment "CREATE_USER", "false"
+    environment "CDC_MCL_PROCESSING_ENABLED", "false"
+    environment "CDC_USER", "datahub_cdc"
+    environment "CDC_PASSWORD", "datahub_cdc"
+
+    def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+                "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SqlSetup"]
+
+    commandLine args
+}
+
 docker {
-  name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
+  dependsOn(bootJar)
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
+    include 'docker/monitoring/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-  // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -186,12 +449,3 @@ docker {
     buildArgs(dockerBuildArgs)
   }
 }
-tasks.getByPath(":datahub-upgrade:docker").dependsOn([bootJar])
-
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
-}
-dockerClean.finalizedBy(cleanLocalDockerImages)
-

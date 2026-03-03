@@ -1,57 +1,54 @@
-import logging
-from typing import Optional
+from typing import List, Optional, Union
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_term_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
-)
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from datahub.sdk import DataHubClient, DatasetUrn, GlossaryTermUrn
 
 
-# First we get the current terms
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+def add_terms_to_dataset(
+    client: DataHubClient,
+    dataset_urn: DatasetUrn,
+    term_urns: List[Union[GlossaryTermUrn, str]],
+) -> None:
+    """
+    Add glossary terms to a dataset.
 
-dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
+    Args:
+        client: DataHub client to use
+        dataset_urn: URN of the dataset to update
+        term_urns: List of term URNs or term names to add
+    """
+    dataset = client.entities.get(dataset_urn)
 
-current_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
-    entity_urn=dataset_urn, aspect_type=GlossaryTermsClass
-)
+    for term in term_urns:
+        if isinstance(term, str):
+            resolved_term_urn = client.resolve.term(name=term)
+            dataset.add_term(resolved_term_urn)
+        else:
+            dataset.add_term(term)
 
-term_to_add = make_term_urn("Classification.HighlyConfidential")
-term_association_to_add = GlossaryTermAssociationClass(urn=term_to_add)
-# an audit stamp that basically says we have no idea when these terms were added to this dataset
-# change the time value to (time.time() * 1000) if you want to specify the current time of running this code as the time
-unknown_audit_stamp = AuditStampClass(time=0, actor="urn:li:corpuser:ingestion")
-need_write = False
-if current_terms:
-    if term_to_add not in [x.urn for x in current_terms.terms]:
-        # terms exist, but this term is not present in the current terms
-        current_terms.terms.append(term_association_to_add)
-        need_write = True
-else:
-    # create a brand new terms aspect
-    current_terms = GlossaryTermsClass(
-        terms=[term_association_to_add],
-        auditStamp=unknown_audit_stamp,
+    client.entities.update(dataset)
+
+
+def main(client: Optional[DataHubClient] = None) -> None:
+    """
+    Main function to add terms to dataset example.
+
+    Args:
+        client: Optional DataHub client (for testing). If not provided, creates one from env.
+    """
+    client = client or DataHubClient.from_env()
+
+    dataset_urn = DatasetUrn(platform="hive", name="realestate_db.sales", env="PROD")
+
+    # Add terms using both URN and name resolution
+    add_terms_to_dataset(
+        client=client,
+        dataset_urn=dataset_urn,
+        term_urns=[
+            GlossaryTermUrn("Classification.HighlyConfidential"),
+            "PII",  # Will be resolved by name
+        ],
     )
-    need_write = True
 
-if need_write:
-    event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn,
-        aspect=current_terms,
-    )
-    graph.emit(event)
-else:
-    log.info(f"Term {term_to_add} already exists, omitting write")
+
+if __name__ == "__main__":
+    main()

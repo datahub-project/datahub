@@ -1,14 +1,20 @@
 import datetime
+import json
+import logging
 import os
 import subprocess
-from typing import List, Set
+import threading
+from typing import List
 
 import pytest
 
+from conftest import bin_pack_tasks
+from tests.cypress.timestamp_updater import TimestampUpdater
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
 )
+from tests.utilities import env_vars
 from tests.utils import (
     create_datahub_step_state_aspects,
     delete_urns,
@@ -17,9 +23,12 @@ from tests.utils import (
     ingest_file_via_rest,
 )
 
+logger = logging.getLogger(__name__)
+
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"
+TEST_INCIDENT_DATA_FILENAME = "incidents_test.json"
 TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
 TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
@@ -113,21 +122,39 @@ for id_list in ONBOARDING_ID_LISTS:
     ONBOARDING_IDS.extend(id_list)
 
 
+def update_fixture_timestamps(cypress_test_data_dir: str) -> None:
+    """
+    Updates timestamps in fixture files before ingestion.
+
+    Args:
+        cypress_test_data_dir: Directory containing the test data files
+    """
+    timestamp_config: dict = {
+        # Add more files and their timestamp paths as needed
+    }
+
+    updater = TimestampUpdater(timestamp_config)
+    updater.update_all_configured_files(cypress_test_data_dir)
+
+
 def print_now():
-    print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
+    logger.info(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
 
 def ingest_data(auth_session, graph_client):
     print_now()
-    print("creating onboarding data file")
+    logger.info("creating onboarding data file")
     create_datahub_step_state_aspects(
         get_admin_username(),
         ONBOARDING_IDS,
         f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}",
     )
 
+    logger.info("updating timestamps in fixture files")
+    update_fixture_timestamps(CYPRESS_TEST_DATA_DIR)
+
     print_now()
-    print("ingesting test data")
+    logger.info("ingesting test data")
     ingest_file_via_rest(auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
@@ -138,9 +165,12 @@ def ingest_data(auth_session, graph_client):
     ingest_file_via_rest(
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
+    )
     ingest_time_lineage(graph_client)
     print_now()
-    print("completed ingesting test data")
+    logger.info("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -148,7 +178,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     ingest_data(auth_session, graph_client)
     yield
     print_now()
-    print("removing test data")
+    logger.info("removing test data")
     delete_urns_from_file(graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
@@ -160,50 +190,112 @@ def ingest_cleanup_data(auth_session, graph_client):
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
     )
     delete_urns(graph_client, get_time_lineage_urns())
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
+    )
 
     print_now()
-    print("deleting onboarding data file")
+    logger.info("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
         os.remove(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
     print_now()
-    print("deleted onboarding data")
+    logger.info("deleted onboarding data")
 
 
-def _get_spec_map(items: Set[str]) -> str:
-    if len(items) == 0:
-        return ""
-    return ",".join([f"**/{item}/*.js" for item in items])
+def _get_js_files(base_path: str):
+    file_paths = []
+    for root, _, files in os.walk(base_path):
+        for file in files:
+            if file.endswith(".js"):
+                file_paths.append(os.path.relpath(os.path.join(root, file), base_path))
+    return sorted(file_paths)  # sort to make the order stable across batch runs
+
+
+def _get_cypress_tests_batch():
+    """
+    Batching is configured via env vars BATCH_COUNT and BATCH_NUMBER.  All cypress tests are split into exactly
+    BATCH_COUNT batches. When BATCH_NUMBER env var is set (zero based index), that batch alone is run.
+    Github workflow via test_matrix, runs all batches in parallel to speed up the test elapsed time.
+    If either of these vars are not set, all tests are run sequentially.
+    :return:
+    """
+    all_tests = _get_js_files("tests/cypress/cypress/e2e")
+
+    tests_with_weights = []
+
+    with open("tests/cypress/test_weights.json") as f:
+        weights_data = json.load(f)
+
+    # File has file path relative to cypress/e2e folder and duration in seconds (with s suffix), pulled from codecov report.
+    # Use some other method to automate finding the weights - may be use junits directly
+    test_weights = {
+        item["filePath"]: float(item["duration"][:-1]) for item in weights_data
+    }
+
+    for test in all_tests:
+        if test in test_weights:
+            tests_with_weights.append((test, test_weights[test]))
+        else:
+            tests_with_weights.append(test)
+
+    test_batches = bin_pack_tasks(tests_with_weights, env_vars.get_batch_count())
+    return test_batches[env_vars.get_batch_number()]
+
+
+def _get_filtered_or_batched_tests():
+    """
+    Read tests from a file if FILTERED_TESTS env var is set, pointing to a file.
+    Otherwise, fall back to normal batching logic.
+
+    This allows running a specific subset of tests for any purpose (flaky tests,
+    smoke tests, regression tests, etc.) by setting FILTERED_TESTS=/path/to/file.
+
+    Returns list of test file paths relative to cypress/e2e/
+    """
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered tests from {filtered_tests_file}")
+        with open(filtered_tests_file) as f:
+            # Read non-empty lines, strip whitespace, ignore comments
+            tests = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        logger.info(f"Found {len(tests)} filtered tests to run")
+        return tests
+    else:
+        logger.info("No FILTERED_TESTS set, using batching logic")
+        return _get_cypress_tests_batch()
 
 
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
-    record_key = os.getenv("CYPRESS_RECORD_KEY")
+    record_key = env_vars.get_cypress_record_key()
     tag_arg = ""
-    test_strategy = os.getenv("TEST_STRATEGY", None)
+    test_strategy = env_vars.get_test_strategy()
     if record_key:
         record_arg = " --record "
-        tag_arg = f" --tag {test_strategy} "
+        batch_number = os.getenv("BATCH_NUMBER")
+        batch_count = os.getenv("BATCH_COUNT")
+        if batch_number and batch_count:
+            batch_suffix = f"-{batch_number}{batch_count}"
+        else:
+            batch_suffix = ""
+        tag_arg = f" --tag {test_strategy}{batch_suffix}"
     else:
         record_arg = " "
 
-    rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
-    cypress_suite1_specs = {"mutations", "search", "views"}
-    rest_specs.difference_update(set(cypress_suite1_specs))
-    strategy_spec_map = {
-        "cypress_suite1": cypress_suite1_specs,
-        "cypress_rest": rest_specs,
-    }
-    print(f"test strategy is {test_strategy}")
+    logger.info(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    if test_strategy is not None:
-        specs = strategy_spec_map.get(test_strategy)
-        assert specs is not None
-        specs_str = _get_spec_map(specs)
-        test_spec_arg = f" --spec '{specs_str}' "
+    specs_str = ",".join([f"**/{f}" for f in _get_filtered_or_batched_tests()])
+    test_spec_arg = f" --spec '{specs_str}' "
 
-    print("Running Cypress tests with command")
-    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
-    print(command)
+    logger.info("Running Cypress tests with command")
+    node_options = "--max-old-space-size=500"
+    electron_args = 'ELECTRON_EXTRA_LAUNCH_ARGS="--js-flags=\'--max-old-space-size=4096 --disable-dev-shm-usage --disable-gpu --no-sandbox"'
+    command = f'{electron_args} NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg}'
+    logger.info(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
     print_now()
@@ -213,15 +305,39 @@ def test_run_cypress(auth_session):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=f"{CYPRESS_TEST_DATA_DIR}",
+        text=True,  # Use text mode for string output
+        bufsize=1,  # Line buffered
     )
     assert proc.stdout is not None
     assert proc.stderr is not None
-    stdout = proc.stdout.read()
-    stderr = proc.stderr.read()
+
+    # Function to read and print output from a pipe
+    def read_and_print(pipe, prefix=""):
+        for line in pipe:
+            logger.info(f"{prefix}{line.rstrip()}")
+
+    # Read and print output in real-time
+
+    stdout_thread = threading.Thread(target=read_and_print, args=(proc.stdout,))
+    stderr_thread = threading.Thread(
+        target=read_and_print, args=(proc.stderr, "stderr: ")
+    )
+
+    # Set threads as daemon so they exit when the main thread exits
+    stdout_thread.daemon = True
+    stderr_thread.daemon = True
+
+    # Start the threads
+    stdout_thread.start()
+    stderr_thread.start()
+
+    # Wait for the process to complete
     return_code = proc.wait()
-    print(stdout.decode("utf-8"))
-    print("stderr output:")
-    print(stderr.decode("utf-8"))
-    print("return code", return_code)
+
+    # Wait for the threads to finish
+    stdout_thread.join()
+    stderr_thread.join()
+
+    logger.info(f"return code: {return_code}")
     print_now()
     assert return_code == 0

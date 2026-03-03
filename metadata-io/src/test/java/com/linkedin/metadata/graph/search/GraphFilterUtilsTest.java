@@ -1,8 +1,8 @@
 package com.linkedin.metadata.graph.search;
 
-import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnFieldName;
-import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusFieldName;
-import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusQuery;
+import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnFieldName;
+import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusFieldName;
+import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusQuery;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -11,7 +11,7 @@ import com.google.common.io.Resources;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
-import com.linkedin.metadata.graph.elastic.GraphFilterUtils;
+import com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;

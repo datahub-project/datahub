@@ -1,6 +1,7 @@
 query getMe {
     me {
         corpUser {
+            type
             urn
             username
             info {
@@ -18,15 +19,28 @@ query getMe {
                 pictureLink
                 teams
                 skills
+                persona {
+                    urn
+                }
+                platforms {
+                    urn
+                }
             }
             settings {
                 appearance {
                     showSimplifiedHomepage
+                    showThemeV2
                 }
                 views {
                     defaultView {
                         urn
                     }
+                }
+                homePage {
+                    pageTemplate {
+                        ...PageTemplate
+                    }
+                    dismissedAnnouncementUrns
                 }
             }
         }
@@ -44,6 +58,7 @@ query getMe {
             manageGlossaries
             manageUserCredentials
             manageTags
+            viewManageTags
             createDomains
             createTags
             manageGlobalViews
@@ -51,6 +66,13 @@ query getMe {
             manageGlobalAnnouncements
             createBusinessAttributes
             manageBusinessAttributes
+            manageStructuredProperties
+            viewStructuredPropertiesPage
+            manageApplications
+            manageFeatures
+            manageHomePageTemplates
+            manageDocuments
+            manageServiceAccounts
         }
     }
 }

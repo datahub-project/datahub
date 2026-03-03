@@ -103,7 +103,7 @@ public class UpsertStructuredPropertiesResolver
             _entityClient.ingestProposal(
                 context.getOperationContext(), structuredPropertiesProposal, false);
 
-            return StructuredPropertiesMapper.map(context, structuredProperties);
+            return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
@@ -149,6 +149,7 @@ public class UpsertStructuredPropertiesResolver
                                 .collect(Collectors.toList()));
                     propAssignment.setValues(values);
                     propAssignment.setLastModified(auditStamp);
+                    propAssignment.removeAttribution();
                   }
                   return propAssignment;
                 })

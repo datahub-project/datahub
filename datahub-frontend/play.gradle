@@ -30,9 +30,15 @@ dependencies {
     testImplementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
 
     play(externalDependency.jacksonDataBind)
-    play("com.typesafe.akka:akka-actor_$playScalaVersion:2.6.20")
+    play("com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion")
     play(externalDependency.jsonSmart)
-    play('io.netty:netty-all:4.1.114.Final')
+    play('io.netty:netty-all:4.1.130.Final')
+
+    implementation(externalDependency.nettyReactor) {
+    }
+
+    implementation(externalDependency.nettyCore) {
+    }
 
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
@@ -40,21 +46,29 @@ dependencies {
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
     }
+    // commons-beanutils: forced in root build.gradle (CVE-2025-48734)
   }
 
   implementation project(":metadata-service:restli-client")
   implementation project(":metadata-service:auth-config")
   implementation project(":metadata-service:configuration")
+  implementation project(":metadata-utils")
 
   implementation externalDependency.springCore
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
   implementation externalDependency.springBootAutoconfigure
-  implementation externalDependency.jettyJaas
+  implementation externalDependency.jettySecurity
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.akkaHttp
+  implementation externalDependency.akkaActor
+  implementation externalDependency.akkaStream
+  implementation externalDependency.akkaActorTyped
+  implementation externalDependency.akkaSlf4j
+  implementation externalDependency.akkaJackson
+  implementation externalDependency.akkaParsing
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
@@ -74,19 +88,30 @@ dependencies {
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.playTest
-  testImplementation 'org.awaitility:awaitility:4.2.0'
+  testImplementation externalDependency.awaitility
   testImplementation 'no.nav.security:mock-oauth2-server:2.1.9'
   testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
   testImplementation externalDependency.junitJupiterApi
   testRuntimeOnly externalDependency.junitJupiterEngine
 
+  // Ensure MockWebServer version matches OkHttp version to avoid internal API incompatibilities
+  testImplementation('com.squareup.okhttp3:mockwebserver:5.0.0-alpha.14') {
+    because("MockWebServer 4.x is incompatible with OkHttp 5.x internal APIs")
+  }
+
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
+  runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
   }

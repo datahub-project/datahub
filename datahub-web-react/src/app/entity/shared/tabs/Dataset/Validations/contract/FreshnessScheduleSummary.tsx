@@ -1,11 +1,9 @@
-import React from 'react';
 import cronstrue from 'cronstrue';
-import {
-    FreshnessAssertionSchedule,
-    FreshnessAssertionScheduleType,
-    CronSchedule,
-} from '../../../../../../../types.generated';
-import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
+import React from 'react';
+
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
+
+import { CronSchedule, FreshnessAssertionSchedule, FreshnessAssertionScheduleType } from '@types';
 
 type Props = {
     definition: FreshnessAssertionSchedule;
@@ -29,7 +27,7 @@ export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Pro
         case FreshnessAssertionScheduleType.FixedInterval:
             scheduleText = `In the past ${
                 definition.fixedInterval?.multiple
-            } ${definition.fixedInterval?.unit.toLocaleLowerCase()}s${
+            } ${definition.fixedInterval?.unit?.toLocaleLowerCase()}s${
                 cronStr ? `, as of ${cronstrue.toString(cronStr).toLowerCase()}` : ''
             }`;
             break;

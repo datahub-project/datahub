@@ -1,6 +1,7 @@
-import { EntityType } from '../../../types.generated';
-import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '../../../Mocks';
-import { getParentNodeToUpdate, getGlossaryRootToUpdate, ROOT_NODES, ROOT_TERMS } from '../utils';
+import { ROOT_NODES, ROOT_TERMS, getGlossaryRootToUpdate, getParentNodeToUpdate } from '@app/glossary/utils';
+import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '@src/Mocks';
+
+import { EntityType } from '@types';
 
 const glossaryTermWithParent = {
     ...glossaryTerm1,
@@ -13,7 +14,7 @@ const glossaryTermWithParent = {
 describe('glossary utils tests', () => {
     it('should get the direct parent node urn in getParentNodeToUpdate for glossary nodes', () => {
         const parentNode = getParentNodeToUpdate(glossaryNode3 as any, EntityType.GlossaryNode);
-        expect(parentNode).toBe(glossaryNode3.parentNodes?.nodes[0].urn);
+        expect(parentNode).toBe(glossaryNode3.parentNodes?.nodes[0]?.urn);
     });
 
     it('should get the direct parent node urn in getParentNodeToUpdate for glossary terms', () => {

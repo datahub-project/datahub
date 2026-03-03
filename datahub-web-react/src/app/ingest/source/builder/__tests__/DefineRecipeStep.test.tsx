@@ -2,14 +2,15 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import defaultThemeConfig from '../../../../../conf/theme/theme_light.config.json';
-import { DefineRecipeStep } from '../DefineRecipeStep';
-import { SourceConfig } from '../types';
+
+import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import themeV1 from '@conf/theme/themeV1';
 
 describe('DefineRecipeStep', () => {
     it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV1}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'snowflake' }}
@@ -18,6 +19,7 @@ describe('DefineRecipeStep', () => {
                         submit={() => {}}
                         cancel={() => {}}
                         ingestionSources={[{ name: 'snowflake', displayName: 'Snowflake' } as SourceConfig]}
+                        isEditing={false}
                     />
                 </MockedProvider>
             </ThemeProvider>,
@@ -29,7 +31,7 @@ describe('DefineRecipeStep', () => {
 
     it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV1}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'glue' }}
@@ -38,6 +40,7 @@ describe('DefineRecipeStep', () => {
                         submit={() => {}}
                         cancel={() => {}}
                         ingestionSources={[{ name: 'glue', displayName: 'Glue' } as SourceConfig]}
+                        isEditing={false}
                     />
                 </MockedProvider>
             </ThemeProvider>,

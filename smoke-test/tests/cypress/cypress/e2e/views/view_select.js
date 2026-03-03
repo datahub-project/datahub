@@ -13,12 +13,6 @@ describe("view select", () => {
     const newViewName = `New View Name ${randomNumber}`;
 
     // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on(
-      "uncaught:exception",
-      (err) => !err.message.includes(resizeObserverLoopErrRe),
-    );
-
     cy.goToStarSearchList();
 
     cy.log("Create a View from the select");
@@ -41,11 +35,11 @@ describe("view select", () => {
     cy.log("Ensure the View filter has been applied correctly.");
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("cypress_logging_events");
-    cy.contains("of 2 results");
+    cy.contains(/Showing 1 - [2-4] of [2-4]/);
 
     cy.log("Clear the selected view");
     cy.clearView(viewName);
-    cy.ensureTextNotPresent("of 2 results");
+    cy.ensureTextNotPresent(/Showing 1 - [2-4] of [2-4]/);
 
     cy.log("Now edit the view");
     openViewEditDropDownAndClickId("view-dropdown-edit");

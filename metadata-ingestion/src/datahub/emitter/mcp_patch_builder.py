@@ -1,39 +1,80 @@
 import json
+import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    get_args,
+    runtime_checkable,
+)
+
+from typing_extensions import LiteralString
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
+    EdgeClass,
     GenericAspectClass,
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
 )
+from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
+
+# Unit Separator character (U+241F) used in arrayPrimaryKeys for nested paths
+UNIT_SEPARATOR = "\u241f"
+
+
+@runtime_checkable
+class SupportsToObj(Protocol):
+    def to_obj(self) -> Any: ...
 
 
 def _recursive_to_obj(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_recursive_to_obj(v) for v in obj]
-    elif hasattr(obj, "to_obj"):
+    elif isinstance(obj, SupportsToObj):
         return obj.to_obj()
     else:
         return obj
 
 
+PatchPath = Tuple[Union[LiteralString, Urn], ...]
+PatchOp = Literal["add", "remove", "replace"]
+_VALID_PATCH_OPS = set(get_args(PatchOp))
+
+
 @dataclass
-class _Patch:
-    op: str  # one of ['add', 'remove', 'replace']; we don't support move, copy or test
-    path: str
+class _Patch(SupportsToObj):
+    op: PatchOp
+    path: PatchPath
     value: Any
 
+    @classmethod
+    def quote_path_component(cls, value: Union[str, Urn]) -> str:
+        """Quote a single path component for JSON Patch, based on https://jsonpatch.com/#json-pointer"""
+        return str(value).replace("~", "~0").replace("/", "~1")
+
+    @classmethod
+    def unquote_path_component(cls, value: str) -> str:
+        """Unquote a single path component from JSON Patch, based on https://jsonpatch.com/#json-pointer"""
+        return value.replace("~1", "/").replace("~0", "~")
+
     def to_obj(self) -> Dict:
+        quoted_path = "/" + "/".join(self.quote_path_component(p) for p in self.path)
         return {
             "op": self.op,
-            "path": self.path,
+            "path": quoted_path,
             "value": _recursive_to_obj(self.value),
         }
 
@@ -57,21 +98,21 @@ class MetadataPatchProposal:
         self.audit_header = audit_header
         self.patches = defaultdict(list)
 
-    # Json Patch quoting based on https://jsonpatch.com/#json-pointer
     @classmethod
-    def quote(cls, value: str) -> str:
-        return value.replace("~", "~0").replace("/", "~1")
+    def quote(cls, value: Union[str, Urn]) -> str:
+        return _Patch.quote_path_component(value)
 
     def _add_patch(
-        self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
+        self,
+        aspect_name: str,
+        op: PatchOp,
+        path: PatchPath,
+        value: Any,
     ) -> None:
-        if not isinstance(path, str):
-            path = "/" + "/".join(self.quote(p) for p in path)
-
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 
-    def build(self) -> Iterable[MetadataChangeProposalClass]:
+    def build(self) -> List[MetadataChangeProposalClass]:
         return [
             MetadataChangeProposalClass(
                 entityUrn=self.urn,
@@ -89,3 +130,142 @@ class MetadataPatchProposal:
             )
             for aspect_name, patches in self.patches.items()
         ]
+
+    @classmethod
+    def _mint_auditstamp(cls, message: Optional[str] = None) -> AuditStampClass:
+        """
+        Creates an AuditStampClass instance with the current timestamp and other default values.
+
+        Args:
+            message: The message associated with the audit stamp (optional).
+
+        Returns:
+            An instance of AuditStampClass.
+        """
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
+
+    @classmethod
+    def _ensure_urn_type(
+        cls, entity_type: str, edges: List[EdgeClass], context: str
+    ) -> None:
+        """
+        Ensures that the destination URNs in the given edges have the specified entity type.
+
+        Args:
+            entity_type: The entity type to check against.
+            edges: A list of Edge objects.
+            context: The context or description of the operation.
+
+        Raises:
+            ValueError: If any of the destination URNs is not of the specified entity type.
+        """
+        for e in edges:
+            urn = Urn.from_string(e.destinationUrn)
+            if not urn.entity_type == entity_type:
+                raise ValueError(
+                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
+                )
+
+
+def parse_patch_path(path_str: str) -> PatchPath:
+    """
+    Parse a JSON Patch path string into a PatchPath tuple.
+
+    Args:
+        path_str: A JSON Patch path string (e.g., "/tags/urn:li:tag:test")
+
+    Returns:
+        A PatchPath tuple representing the path components
+    """
+    # Remove leading slash and split
+    if not path_str.startswith("/"):
+        raise ValueError(f"Patch path must start with '/': {path_str}")
+    parts = path_str[1:].split("/")
+    unquoted_parts = []
+    for part in parts:
+        if not part:
+            raise ValueError(
+                f"Patch path has empty component (invalid '//' or leading/trailing '/'): {path_str!r}"
+            )
+        unquoted = _Patch.unquote_path_component(part)
+        unquoted_parts.append(unquoted)
+    return tuple(unquoted_parts)
+
+
+@dataclass
+class GenericJsonPatch:
+    """
+    Represents a GenericJsonPatch structure with arrayPrimaryKeys support.
+
+    This extends standard JSON Patch to support idempotent array operations
+    using composite keys instead of array indices.
+
+    Mirrors the Java class: com.linkedin.metadata.aspect.patch.GenericJsonPatch
+    """
+
+    array_primary_keys: Dict[str, List[str]]
+    patch: List[_Patch]
+    force_generic_patch: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "arrayPrimaryKeys": self.array_primary_keys,
+            "patch": [op.to_obj() for op in self.patch],
+            "forceGenericPatch": self.force_generic_patch,
+        }
+
+    def to_generic_aspect(self) -> GenericAspectClass:
+        """Serialize to GenericAspectClass for use in MetadataChangeProposalClass."""
+        try:
+            payload = pre_json_transform(_recursive_to_obj(self.to_dict()))
+            serialized = json.dumps(payload).encode()
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                f"Failed to serialize GenericJsonPatch to JSON: {e}"
+            ) from e
+        return GenericAspectClass(
+            value=serialized,
+            contentType=JSON_PATCH_CONTENT_TYPE,
+        )
+
+    @classmethod
+    def from_dict(cls, patch_dict: Dict[str, Any]) -> "GenericJsonPatch":
+        """
+        Create a GenericJsonPatch from a dictionary (e.g., from parsed JSON).
+
+        Args:
+            patch_dict: Dictionary containing arrayPrimaryKeys, patch, and optionally forceGenericPatch
+
+        Returns:
+            A GenericJsonPatch instance
+        """
+        array_primary_keys = patch_dict.get("arrayPrimaryKeys", {})
+        force_generic_patch = patch_dict.get("forceGenericPatch", False)
+        patch_ops = patch_dict.get("patch", [])
+
+        # Convert dict-based patch operations to _Patch instances
+        patch_list = []
+        for op_dict in patch_ops:
+            op_str = op_dict.get("op")
+            path_str = op_dict.get("path", "")
+            value = op_dict.get("value")
+
+            # Validate op
+            if op_str not in _VALID_PATCH_OPS:
+                raise ValueError(f"Unsupported patch operation: {op_str}")
+
+            # Parse path string to tuple
+            path_tuple = parse_patch_path(path_str)
+
+            patch_list.append(_Patch(op=op_str, path=path_tuple, value=value))
+
+        return cls(
+            array_primary_keys=array_primary_keys,
+            patch=patch_list,
+            force_generic_patch=force_generic_patch,
+        )

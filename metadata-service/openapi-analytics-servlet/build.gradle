@@ -3,6 +3,8 @@ plugins {
     id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
     implementation project(':metadata-auth:auth-api')
@@ -14,7 +16,9 @@ dependencies {
 
     implementation externalDependency.springBoot
     implementation externalDependency.springCore
-    implementation externalDependency.springDocUI
+    implementation(externalDependency.springDocUI) {
+        exclude group: 'org.springframework.boot'
+    }
     implementation externalDependency.springWeb
     implementation externalDependency.springWebMVC
     implementation externalDependency.springBeans

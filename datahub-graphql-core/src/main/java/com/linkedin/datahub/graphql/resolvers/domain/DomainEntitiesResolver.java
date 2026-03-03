@@ -95,8 +95,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                                 new ConjunctiveCriterion().setAnd(criteria))),
                     start,
                     count,
-                    Collections.emptyList(),
-                    null));
+                    Collections.emptyList()));
 
           } catch (Exception e) {
             throw new RuntimeException(

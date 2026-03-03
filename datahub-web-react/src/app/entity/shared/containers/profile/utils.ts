@@ -1,13 +1,14 @@
+import { isEqual } from 'lodash';
+import queryString from 'query-string';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import queryString from 'query-string';
-import { isEqual } from 'lodash';
-import { AppConfig, EntityType } from '../../../../../types.generated';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import EntityRegistry from '../../../EntityRegistry';
-import { EntityTab, GenericEntityProperties } from '../../types';
-import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
@@ -18,10 +19,11 @@ import {
     ENTITY_PROFILE_PROPERTIES_ID,
     ENTITY_PROFILE_SCHEMA_ID,
     ENTITY_PROFILE_TAGS_ID,
-} from '../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { useGlossaryEntityData } from '../../GlossaryEntityContext';
-import usePrevious from '../../../../shared/usePrevious';
-import { GLOSSARY_ENTITY_TYPES } from '../../constants';
+} from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AppConfig, EntityType } from '@types';
 
 /**
  * The structure of our path will be
@@ -60,9 +62,12 @@ export function getDataForEntityType<T>({
         };
     }
 
-    if (anyEntityData?.siblings?.siblings?.filter((sibling) => sibling.exists).length > 0 && !isHideSiblingMode) {
-        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblings?.siblings?.map((sibling) =>
-            getDataForEntityType({ data: sibling, getOverrideProperties: () => ({}) }),
+    if (
+        anyEntityData?.siblingsSearch?.searchResults?.filter((sibling) => sibling.entity.exists).length > 0 &&
+        !isHideSiblingMode
+    ) {
+        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblingsSearch?.searchResults?.map(
+            (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
         const allPlatforms = anyEntityData.siblings.isPrimary
@@ -231,7 +236,7 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
+        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain?.defaultTab;
         sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
     }
 

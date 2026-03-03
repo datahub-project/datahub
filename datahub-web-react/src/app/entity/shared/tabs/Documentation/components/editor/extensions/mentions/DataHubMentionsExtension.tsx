@@ -1,19 +1,17 @@
 /* eslint-disable class-methods-use-this */
-import React, { ComponentType } from 'react';
-import type { Plugin } from 'prosemirror-state';
 import {
     ApplySchemaAttributes,
     CommandFunction,
-    extension,
     ExtensionTag,
     FromToProps,
     Handler,
-    isElementDomNode,
     NodeExtension,
     NodeExtensionSpec,
     NodeSpecOverride,
-    omitExtraAttributes,
     ProsemirrorAttributes,
+    extension,
+    isElementDomNode,
+    omitExtraAttributes,
 } from '@remirror/core';
 import { NodeViewComponentProps } from '@remirror/react';
 import autocomplete, {
@@ -21,7 +19,10 @@ import autocomplete, {
     AutocompleteAction,
     pluginKey as acPluginKey,
 } from 'prosemirror-autocomplete';
-import { MentionsNodeView } from './MentionsNodeView';
+import type { Plugin } from 'prosemirror-state';
+import React, { ComponentType } from 'react';
+
+import { MentionsNodeView } from '@app/entity/shared/tabs/Documentation/components/editor/extensions/mentions/MentionsNodeView';
 
 export const DATAHUB_MENTION_ATTRS = {
     urn: 'data-datahub-mention-urn',
@@ -125,6 +126,11 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
                     const acState: ActiveAutocompleteState = acPluginKey.getState(state);
                     const { from = 0, to = 0 } = range ?? acState.range ?? {};
                     tr.replaceRangeWith(from, to, this.type.create(attrs));
+                    // Append a space after the mention to fix Safari cursor positioning bug.
+                    // Safari has a known issue where the cursor jumps to the start of the line
+                    // when an atom node is the last element. Appending text gives the cursor
+                    // a text node to position after. See: https://github.com/ProseMirror/prosemirror/issues/1165
+                    tr.insertText(' ');
                     dispatch?.(tr);
 
                     return true;
@@ -134,5 +140,10 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
     }
 }
 
-const decoratedExt = extension<DataHubMentionsOptions>({ handlerKeys: ['handleEvents'] })(DataHubMentionsExtension);
+const decoratedExt = extension<DataHubMentionsOptions>({
+    defaultOptions: {},
+    staticKeys: [],
+    handlerKeys: ['handleEvents'],
+    customHandlerKeys: [],
+})(DataHubMentionsExtension);
 export { decoratedExt as DataHubMentionsExtension };

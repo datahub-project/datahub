@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
-import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { LineageDirection } from '../../../../../types.generated';
-import { GetSearchResultsParams } from '../../components/styled/search/types';
+
+import { GetSearchResultsParams } from '@app/entity/shared/components/styled/search/types';
+
+import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
+import { LineageDirection } from '@types';
 
 const filtersExist = (filters, orFilters) => {
     return filters?.length || orFilters?.length;

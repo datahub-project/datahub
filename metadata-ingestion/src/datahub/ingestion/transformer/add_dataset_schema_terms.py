@@ -39,7 +39,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetSchemaTerms":
-        config = AddDatasetSchemaTermsConfig.parse_obj(config_dict)
+        config = AddDatasetSchemaTermsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def extend_field(
@@ -108,9 +108,9 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         ] = {}  # Map to cache server field objects, where fieldPath is key
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            server_schema_metadata_aspect: Optional[
-                SchemaMetadataClass
-            ] = self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
+            server_schema_metadata_aspect: Optional[SchemaMetadataClass] = (
+                self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
+            )
             if server_schema_metadata_aspect is not None:
                 if not schema_metadata_aspect:
                     schema_metadata_aspect = server_schema_metadata_aspect
@@ -162,5 +162,5 @@ class PatternAddDatasetSchemaTerms(AddDatasetSchemaTerms):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetSchemaTerms":
-        config = PatternDatasetTermsConfig.parse_obj(config_dict)
+        config = PatternDatasetTermsConfig.model_validate(config_dict)
         return cls(config, ctx)

@@ -1,9 +1,11 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const INGESTION_CREATE_SOURCE_ID = 'ingestion-create-source';
 export const INGESTION_REFRESH_SOURCES_ID = 'ingestion-refresh-sources';
+export const INGESTION_SELECT_SOURCE_ID = 'ingestion-select-source';
 
 export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
@@ -22,7 +24,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/metadata-ingestion"
+                        href="https://docs.datahub.com/docs/metadata-ingestion"
                     >
                         {' '}
                         here.
@@ -40,5 +42,9 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
                 <p>Click to force a refresh of running ingestion sources.</p>
             </Typography.Paragraph>
         ),
+    },
+    {
+        id: INGESTION_SELECT_SOURCE_ID,
+        selector: `#${INGESTION_SELECT_SOURCE_ID}`,
     },
 ];

@@ -1,77 +1,135 @@
+import logging
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
+
+from airflow.configuration import conf
+from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
-from airflow.configuration import conf
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from pydantic.fields import Field
+from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+    from datahub_airflow_plugin.hooks.datahub import (
+        DatahubCompositeHook,
+        DatahubGenericHook,
+    )
 
 
 class DatajobUrl(Enum):
     GRID = "grid"
     TASKINSTANCE = "taskinstance"
+    TASKS = "tasks"  # Airflow 3.x task URL format: /dags/{dag_id}/tasks/{task_id}
 
 
 class DatahubLineageConfig(ConfigModel):
-    # This class is shared between the lineage backend and the Airflow plugin.
-    # The defaults listed here are only relevant for the lineage backend.
-    # The Airflow plugin's default values come from the fallback values in
-    # the get_lineage_config() function below.
+    enabled: bool
 
-    enabled: bool = True
-
-    # DataHub hook connection ID.
+    # DataHub hook connection ID (can be comma-separated for multiple connections).
     datahub_conn_id: str
 
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
-    cluster: str = builder.DEFAULT_FLOW_CLUSTER
+    cluster: str
+
+    # Platform instance to associate with the pipelines and tasks.
+    platform_instance: Optional[str]
 
     # If true, the owners field of the DAG will be captured as a DataHub corpuser.
-    capture_ownership_info: bool = True
+    capture_ownership_info: bool
 
     # If true, the owners field of the DAG will instead be captured as a DataHub corpgroup.
-    capture_ownership_as_group: bool = False
+    capture_ownership_as_group: bool
 
     # If true, the tags field of the DAG will be captured as DataHub tags.
-    capture_tags_info: bool = True
+    capture_tags_info: bool
 
     # If true (default), we'll materialize and un-soft-delete any urns
     # referenced by inlets or outlets.
-    materialize_iolets: bool = True
+    materialize_iolets: bool
 
-    capture_executions: bool = False
+    # If true (default), capture native Airflow Assets/Datasets as DataHub lineage.
+    # Airflow 2.4+ Dataset and Airflow 3.x Asset objects in inlets/outlets
+    # will be converted to DataHub dataset URNs.
+    capture_airflow_assets: bool
 
-    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
+    capture_executions: bool
 
-    # Note that this field is only respected by the lineage backend.
-    # The Airflow plugin v2 behaves as if it were set to True.
-    graceful_exceptions: bool = True
+    datajob_url_link: DatajobUrl
 
-    # The remaining config fields are only relevant for the v2 plugin.
-    enable_extractors: bool = True
+    enable_extractors: bool
+
+    # OpenLineage extractor patching/override controls (only apply when enable_extractors=True)
+    # These allow fine-grained control over DataHub's enhancements to OpenLineage extractors
+
+    # If true (default), patch SqlExtractor to use DataHub's SQL parser
+    # This enables column-level lineage extraction from SQL queries
+    # Works with both Legacy OpenLineage and OpenLineage Provider
+    patch_sql_parser: bool
+
+    # If true (default), patch SnowflakeExtractor's default_schema property
+    # Fixes schema detection issues in Snowflake operators
+    # Works with both Legacy OpenLineage and OpenLineage Provider
+    patch_snowflake_schema: bool
+
+    # If true (default), use DataHub's custom AthenaOperatorExtractor
+    # Provides better Athena lineage with DataHub's SQL parser
+    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
+    extract_athena_operator: bool
+
+    # If true (default), use DataHub's custom BigQueryInsertJobOperatorExtractor
+    # Handles BigQuery job configuration and destination tables
+    # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
+    extract_bigquery_insert_job_operator: bool
+
+    # If true (default) use DataHub's custom TeradataOperator
+    extract_teradata_operator: bool
 
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
-    render_templates: bool = True
+    render_templates: bool
+
+    # If true, use multi-statement SQL parsing that resolves temporary tables
+    # and merges lineage across multiple SQL statements in a single execution.
+    # When false (default), only the first SQL statement is parsed.
+    enable_multi_statement_sql_parsing: bool
+
+    # Only if true, lineage will be emitted for the DataJobs.
+    enable_datajob_lineage: bool
 
     dag_filter_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
         description="regex patterns for DAGs to ingest",
     )
 
-    log_level: Optional[str] = None
-    debug_emitter: bool = False
+    log_level: Optional[str]
+    debug_emitter: bool
 
-    disable_openlineage_plugin: bool = True
+    disable_openlineage_plugin: bool
 
-    def make_emitter_hook(self) -> "DatahubGenericHook":
+    @property
+    def _datahub_connection_ids(self) -> List[str]:
+        """
+        Parse comma-separated connection IDs into a list.
+
+        This is implemented as a property to avoid the class variable pollution
+        bug that would occur with validators. Each instance computes its own
+        connection ID list from its datahub_conn_id field.
+        """
+        return [conn_id.strip() for conn_id in self.datahub_conn_id.split(",")]
+
+    def make_emitter_hook(self) -> Union["DatahubGenericHook", "DatahubCompositeHook"]:
         # This is necessary to avoid issues with circular imports.
-        from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+        from datahub_airflow_plugin.hooks.datahub import (
+            DatahubCompositeHook,
+            DatahubGenericHook,
+        )
 
-        return DatahubGenericHook(self.datahub_conn_id)
+        connection_ids = self._datahub_connection_ids
+        if len(connection_ids) == 1:
+            return DatahubGenericHook(connection_ids[0])
+        else:
+            return DatahubCompositeHook(connection_ids)
 
 
 def get_lineage_config() -> DatahubLineageConfig:
@@ -80,6 +138,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     enabled = conf.get("datahub", "enabled", fallback=True)
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
     cluster = conf.get("datahub", "cluster", fallback=builder.DEFAULT_FLOW_CLUSTER)
+    platform_instance = conf.get("datahub", "platform_instance", fallback=None)
     capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
     capture_ownership_info = conf.get(
         "datahub", "capture_ownership_info", fallback=True
@@ -89,34 +148,146 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
     materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
+    capture_airflow_assets = conf.get(
+        "datahub", "capture_airflow_assets", fallback=True
+    )
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
+
+    # OpenLineage extractor patching/override configuration
+    # These only apply when enable_extractors=True
+    patch_sql_parser = conf.get("datahub", "patch_sql_parser", fallback=True)
+    patch_snowflake_schema = conf.get(
+        "datahub", "patch_snowflake_schema", fallback=True
+    )
+    extract_athena_operator = conf.get(
+        "datahub", "extract_athena_operator", fallback=True
+    )
+    extract_bigquery_insert_job_operator = conf.get(
+        "datahub", "extract_bigquery_insert_job_operator", fallback=True
+    )
+    extract_teradata_operator = conf.get(
+        "datahub", "extract_teradata_operator", fallback=True
+    )
+
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
+
+    # Disable OpenLineage plugin by default (disable_openlineage_plugin=True) for all versions.
+    # This is the safest default since most DataHub users only want DataHub's lineage.
+    #
+    # When disable_openlineage_plugin=True (default):
+    # - Only DataHub plugin runs (OpenLineagePlugin.listeners are cleared if present)
+    # - In Airflow 3: SQLParser calls only DataHub's enhanced parser
+    # - In Airflow 2: DataHub uses its own extractors
+    # - DataHub gets enhanced parsing with column-level lineage
+    #
+    # When disable_openlineage_plugin=False (opt-in for dual plugin mode):
+    # - Both DataHub and OpenLineage plugins run side-by-side
+    # - In Airflow 3: SQLParser calls BOTH parsers
+    #   - OpenLineage plugin uses its own parsing results (inputs/outputs)
+    #   - DataHub extracts its enhanced parsing (with column-level lineage) from run_facets
+    #   - Both plugins get their expected parsing without interference
+    # - In Airflow 2: Not recommended - may cause conflicts
+    default_disable_openlineage = True
+
     disable_openlineage_plugin = conf.get(
-        "datahub", "disable_openlineage_plugin", fallback=True
+        "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage
     )
     render_templates = conf.get("datahub", "render_templates", fallback=True)
-    datajob_url_link = conf.get(
-        "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
+    enable_multi_statement_sql_parsing = conf.get(
+        "datahub", "enable_multi_statement_sql_parsing", fallback=False
     )
-    dag_filter_pattern = AllowDenyPattern.parse_raw(
+
+    # Use new task URL format for Airflow 3.x, old taskinstance format for Airflow 2.x
+    # Airflow 3 changed URL structure: /dags/{dag_id}/tasks/{task_id} instead of /taskinstance/list/...
+    default_datajob_url = (
+        DatajobUrl.TASKS.value
+        if IS_AIRFLOW_3_OR_HIGHER
+        else DatajobUrl.TASKINSTANCE.value
+    )
+    datajob_url_link = conf.get(
+        "datahub", "datajob_url_link", fallback=default_datajob_url
+    )
+    dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
+    enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
 
     return DatahubLineageConfig(
         enabled=enabled,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
+        platform_instance=platform_instance,
         capture_ownership_info=capture_ownership_info,
         capture_ownership_as_group=capture_ownership_as_group,
         capture_tags_info=capture_tags_info,
         capture_executions=capture_executions,
         materialize_iolets=materialize_iolets,
+        capture_airflow_assets=capture_airflow_assets,
         enable_extractors=enable_extractors,
+        patch_sql_parser=patch_sql_parser,
+        patch_snowflake_schema=patch_snowflake_schema,
+        extract_athena_operator=extract_athena_operator,
+        extract_bigquery_insert_job_operator=extract_bigquery_insert_job_operator,
+        extract_teradata_operator=extract_teradata_operator,
         log_level=log_level,
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
+        enable_datajob_lineage=enable_lineage,
+        enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
     )
+
+
+def get_configured_env() -> str:
+    """
+    Get the configured DataHub cluster/environment name.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config.
+
+    Returns:
+        The configured cluster name
+    """
+    from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+    listener = get_airflow_plugin_listener()
+    if listener and listener.config:
+        return listener.config.cluster
+
+    # Fallback: listener disabled or failed to initialize
+    logger.debug(
+        "Listener or config not available, falling back to get_lineage_config()"
+    )
+    return get_lineage_config().cluster
+
+
+def get_enable_multi_statement() -> bool:
+    """
+    Get the enable_multi_statement_sql_parsing flag from config.
+
+    Uses cached config from the listener when available, otherwise reads
+    directly from config. Returns False if config loading fails.
+
+    Returns:
+        True if multi-statement SQL parsing is enabled, False otherwise
+    """
+    try:
+        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+        listener = get_airflow_plugin_listener()
+        if listener and listener.config:
+            return listener.config.enable_multi_statement_sql_parsing
+
+        # Fallback: listener disabled or failed to initialize
+        logger.debug(
+            "Listener or config not available, falling back to get_lineage_config()"
+        )
+        return get_lineage_config().enable_multi_statement_sql_parsing
+    except Exception as e:
+        logger.warning(
+            f"Could not load config to check enable_multi_statement_sql_parsing: {e}"
+        )
+        return False

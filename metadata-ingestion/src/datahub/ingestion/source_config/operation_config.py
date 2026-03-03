@@ -2,10 +2,12 @@ import datetime
 import logging
 from typing import Any, Dict, Optional
 
-import pydantic
+import cachetools
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.utilities.cachetools_keys import self_methodkey
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,8 @@ class OperationConfig(ConfigModel):
         description="Number between 1 to 31 for date of month (both inclusive). If not specified, defaults to Nothing and this field does not take affect.",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def lower_freq_configs_are_set(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         lower_freq_profile_enabled = values.get("lower_freq_profile_enabled")
         profile_day_of_week = values.get("profile_day_of_week")
@@ -39,7 +42,8 @@ class OperationConfig(ConfigModel):
             )
         return values
 
-    @pydantic.validator("profile_day_of_week")
+    @field_validator("profile_day_of_week", mode="after")
+    @classmethod
     def validate_profile_day_of_week(cls, v: Optional[int]) -> Optional[int]:
         profile_day_of_week = v
         if profile_day_of_week is None:
@@ -50,7 +54,8 @@ class OperationConfig(ConfigModel):
             )
         return profile_day_of_week
 
-    @pydantic.validator("profile_date_of_month")
+    @field_validator("profile_date_of_month", mode="after")
+    @classmethod
     def validate_profile_date_of_month(cls, v: Optional[int]) -> Optional[int]:
         profile_date_of_month = v
         if profile_date_of_month is None:
@@ -62,6 +67,13 @@ class OperationConfig(ConfigModel):
         return profile_date_of_month
 
 
+# TRICKY: The operation_config is time-dependent. Because we don't want to change
+# whether or not we're running profiling mid-ingestion, we cache the result of this method.
+# An additional benefit is that we only print the log lines on the first call.
+@cachetools.cached(
+    cache=cachetools.LRUCache(maxsize=1),
+    key=self_methodkey,
+)
 def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     if operation_config.lower_freq_profile_enabled is False:
         return True

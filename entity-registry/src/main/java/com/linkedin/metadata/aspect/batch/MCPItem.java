@@ -1,10 +1,12 @@
 package com.linkedin.metadata.aspect.batch;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +23,15 @@ public interface MCPItem extends BatchItem {
 
   @Nullable
   MetadataChangeProposal getMetadataChangeProposal();
+
+  /**
+   * Set system metadata on the item
+   *
+   * @param systemMetadata
+   */
+  default void setSystemMetadata(@Nonnull SystemMetadata systemMetadata) {
+    getMetadataChangeProposal().setSystemMetadata(systemMetadata);
+  }
 
   @Nonnull
   default Map<String, String> getHeaders() {
@@ -62,14 +73,12 @@ public interface MCPItem extends BatchItem {
   }
 
   static boolean supportsPatch(AspectSpec aspectSpec) {
-    // Limit initial support to defined templates
-    if (!AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(aspectSpec.getName())) {
-      // Prevent unexpected behavior for aspects that do not currently have 1st class patch support,
-      // specifically having array based fields that require merging without specifying merge
-      // behavior can get into bad states
-      throw new UnsupportedOperationException(
-          "Aspect: " + aspectSpec.getName() + " does not currently support patch " + "operations.");
-    }
+    // All aspects now support patch operations using generic patching.
+    // The system will automatically choose between template-based patching (for aspects with
+    // templates)
+    // and generic patching (for aspects without templates or when forceGenericPatch is enabled).
     return true;
   }
+
+  default void validate(Urn urn, String aspectName, EntityRegistry entityRegistry) {}
 }

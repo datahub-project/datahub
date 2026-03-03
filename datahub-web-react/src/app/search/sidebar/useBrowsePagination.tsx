@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import useIntersect from '../../shared/useIntersect';
-import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from './constants';
-import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '../../../graphql/browseV2.generated';
-import { useSidebarFilters } from './useSidebarFilters';
-import { useBrowsePath, useEntityType } from './BrowseContext';
+
+import { useBrowsePath, useEntityType } from '@app/search/sidebar/BrowseContext';
+import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/search/sidebar/constants';
+import { useSidebarFilters } from '@app/search/sidebar/useSidebarFilters';
+import useIntersect from '@app/shared/useIntersect';
+
+import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '@graphql/browseV2.generated';
 
 type Props = {
     skip: boolean;
@@ -98,7 +100,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         loaded: !!latestData || !!error,
         error,
         groups,
-        path: latestData?.browseV2?.metadata.path,
+        path: latestData?.browseV2?.metadata?.path,
         observable: <div ref={observableRef} style={{ width: '1px', height: '1px' }} />,
         retry,
     } as const;

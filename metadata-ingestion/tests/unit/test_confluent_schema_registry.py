@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch
 
@@ -8,7 +9,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.ingestion.source.confluent_schema_registry import ConfluentSchemaRegistry
-from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
 
 
 class ConfluentSchemaRegistryTest(unittest.TestCase):
@@ -60,7 +61,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         """
         )
 
-        kafka_source_config = KafkaSourceConfig.parse_obj(
+        kafka_source_config = KafkaSourceConfig.model_validate(
             {
                 "connection": {
                     "bootstrap": "localhost:9092",
@@ -74,6 +75,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_1",
                 schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
                 subject="test",
@@ -85,16 +87,18 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             "get_latest_version",
             new_get_latest_version,
         ):
-            schema_str = confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
-                # The external reference would match by name.
-                schema=Schema(
-                    schema_str=schema_str_orig,
-                    schema_type="AVRO",
-                    references=[
-                        SchemaReference(
-                            name="TestTopic1", subject="schema_subject_1", version=1
-                        )
-                    ],
+            schema_str = (
+                confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
+                    # The external reference would match by name.
+                    schema=Schema(
+                        schema_str=schema_str_orig,
+                        schema_type="AVRO",
+                        references=[
+                            SchemaReference(
+                                name="TestTopic1", subject="schema_subject_1", version=1
+                            )
+                        ],
+                    )
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
@@ -106,21 +110,62 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             "get_latest_version",
             new_get_latest_version,
         ):
-            schema_str = confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
-                # The external reference would match by subject.
-                schema=Schema(
-                    schema_str=schema_str_orig,
-                    schema_type="AVRO",
-                    references=[
-                        SchemaReference(
-                            name="schema_subject_1", subject="TestTopic1", version=1
-                        )
-                    ],
+            schema_str = (
+                confluent_schema_registry.get_schema_str_replace_confluent_ref_avro(
+                    # The external reference would match by subject.
+                    schema=Schema(
+                        schema_str=schema_str_orig,
+                        schema_type="AVRO",
+                        references=[
+                            SchemaReference(
+                                name="schema_subject_1", subject="TestTopic1", version=1
+                            )
+                        ],
+                    )
                 )
             )
             assert schema_str == ConfluentSchemaRegistry._compact_schema(
                 schema_str_final
             )
+
+    def test_get_schema_fields_with_hyphenated_namespace(self):
+        """Test that schemas with hyphens in namespace (e.g., from Debezium CDC)
+        are parsed successfully by default, matching Java Schema Registry client behavior."""
+        debezium_schema_str = json.dumps(
+            {
+                "type": "record",
+                "name": "Value",
+                "namespace": "my-debezium-topic.public.users",
+                "fields": [
+                    {"name": "id", "type": "int"},
+                    {"name": "name", "type": "string"},
+                ],
+            }
+        )
+
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        confluent_schema_registry = ConfluentSchemaRegistry.create(
+            kafka_source_config, KafkaSourceReport()
+        )
+
+        schema = Schema(schema_str=debezium_schema_str, schema_type="AVRO")
+        fields = confluent_schema_registry._get_schema_fields(
+            topic="my-debezium-topic.public.users",
+            schema=schema,
+            is_key_schema=False,
+        )
+
+        assert len(fields) == 2
+        field_names = [f.fieldPath for f in fields]
+        assert any("id" in name for name in field_names)
+        assert any("name" in name for name in field_names)
 
 
 if __name__ == "__main__":

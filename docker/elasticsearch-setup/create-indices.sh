@@ -7,6 +7,8 @@ set -e
 : ${ELASTICSEARCH_INSECURE:=false}
 : ${DUE_SHARDS:=1}
 : ${DUE_REPLICAS:=1}
+: ${MAX_RETRIES:=5}
+: ${INITIAL_RETRY_DELAY:=2}
 
 # protocol: http or https?
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
@@ -55,6 +57,29 @@ fi
 # path where index definitions are stored
 INDEX_DEFINITIONS_ROOT=/index/usage-event
 
+# Retry function with exponential backoff
+function retry_with_backoff {
+  local max_attempts=$1
+  shift
+  local delay=$INITIAL_RETRY_DELAY
+  local attempt=1
+
+  while [ $attempt -le $max_attempts ]; do
+    if "$@"; then
+      return 0
+    fi
+
+    if [ $attempt -lt $max_attempts ]; then
+      echo -e ">>> Attempt $attempt failed. Retrying in ${delay}s..."
+      sleep $delay
+      delay=$((delay * 2))
+      attempt=$((attempt + 1))
+    else
+      echo -e ">>> All $max_attempts attempts failed."
+      return 1
+    fi
+  done
+}
 
 # check Elasticsearch for given index/resource (first argument)
 # if it doesn't exist (http code 404), use the given file (second argument) to create it
@@ -62,9 +87,13 @@ function create_if_not_exists {
   RESOURCE_ADDRESS="$1"
   RESOURCE_DEFINITION_NAME="$2"
 
-  # query ES to see if the resource already exists
+  # Retry the GET request to check if resource exists
+  echo -e "\n>>> Checking if $RESOURCE_ADDRESS exists..."
+  retry_with_backoff $MAX_RETRIES curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}" \
+    "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" | grep -qE "^(200|404)$"
+
   RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}\n" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
-  echo -e "\n>>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
+  echo -e ">>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
 
   if [ $RESOURCE_STATUS -eq 200 ]; then
     # resource already exists -> nothing to do
@@ -89,7 +118,7 @@ function create_if_not_exists {
 
   else
     # when `USE_AWS_ELASTICSEARCH` was forgotten to be set to `true` when running against AWS ES OSS,
-    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_opendistro/_ism/policies/`)
+    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_plugins/_ism/policies/`)
     # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
     # let's use this as chance to point that wrong config might be used!
     if [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
@@ -128,9 +157,18 @@ function update_ism_policy {
       | sed -e "s/DUE_SHARDS/$DUE_SHARDS/g" \
       | sed -e "s/DUE_REPLICAS/$DUE_REPLICAS/g" \
       | tee -a "$TMP_NEW_POLICY_PATH"
-  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS?if_seq_no=$SEQ_NO&if_primary_term=$PRIMARY_TERM" \
-    -H 'Content-Type: application/json' -w "%{http_code}\n" -o $TMP_NEW_RESPONSE_PATH --data "@$TMP_NEW_POLICY_PATH")
-  echo -e "\n>>> PUT $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
+
+  # Retry the update with exponential backoff
+  retry_with_backoff $MAX_RETRIES curl "${CURL_ARGS[@]}" -XPUT \
+    "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS?if_seq_no=$SEQ_NO&if_primary_term=$PRIMARY_TERM" \
+    -H 'Content-Type: application/json' -w "%{http_code}" -o $TMP_NEW_RESPONSE_PATH --data "@$TMP_NEW_POLICY_PATH" | \
+    grep -qE "^(200|201)$"
+
+  if [ $? -eq 0 ]; then
+    echo -e ">>> Successfully updated ISM policy $RESOURCE_ADDRESS"
+  else
+    echo -e ">>> Failed to update ISM policy $RESOURCE_ADDRESS after $MAX_RETRIES attempts (non-fatal)"
+  fi
 }
 
 # create indices for ES (non-AWS)
@@ -148,11 +186,11 @@ function create_datahub_usage_event_datastream() {
 function create_datahub_usage_event_aws_elasticsearch() {
   # AWS env requires creation of three resources for Datahub usage events:
   #   1. ISM policy
-  create_if_not_exists "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+  create_if_not_exists "_plugins/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
 
   #   1.1 ISM policy update if it already existed
   if [ $RESOURCE_STATUS -eq 200 ]; then
-    update_ism_policy "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+    update_ism_policy "_plugins/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
   fi
 
   #   2. index template

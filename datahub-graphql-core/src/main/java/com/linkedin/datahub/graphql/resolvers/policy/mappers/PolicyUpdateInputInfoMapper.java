@@ -89,6 +89,10 @@ public class PolicyUpdateInputInfoMapper
     if (resourceInput.getFilter() != null) {
       result.setFilter(mapFilter(resourceInput.getFilter()));
     }
+    if (resourceInput.getPrivilegeConstraints() != null) {
+      result.setPrivilegeConstraints(mapFilter(resourceInput.getPrivilegeConstraints()));
+    }
+
     return result;
   }
 

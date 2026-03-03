@@ -40,7 +40,7 @@ record CorpUserEditableInfo {
   /**
    * A URL which points to a picture which user wants to set as a profile photo
    */
-  pictureLink: Url = "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+  pictureLink: Url = "assets/platforms/default_avatar.png"
 
   /**
    * DataHub-native display name
@@ -91,4 +91,11 @@ record CorpUserEditableInfo {
    * Email address to contact the user
    */
   email: optional string
+
+  /**
+   * Information sources that have been used to populate this CorpUserEditableInfo.
+   * These include platform resources, such as Slack members or Looker users.
+   * They can also refer to other semantic urns in the future.
+   */
+  informationSources: optional array[Urn]
 }

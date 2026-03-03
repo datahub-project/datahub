@@ -1,0 +1,21 @@
+namespace com.linkedin.event.notification
+
+/**
+ * A type of sink / platform to send a notification to.
+ */
+enum NotificationSinkType {
+  /**
+  * Slack target type.
+  */
+  SLACK,
+
+  /**
+  * Email target type.
+  */
+  EMAIL,
+
+  /**
+  * Microsoft Teams target type.
+  */
+  TEAMS
+}

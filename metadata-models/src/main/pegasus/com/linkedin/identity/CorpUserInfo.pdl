@@ -3,6 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.CorpuserUrn
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.EmailAddress
+import com.linkedin.common.Urn
 
 /**
  * Linkedin corp user information
@@ -30,7 +31,9 @@ record CorpUserInfo includes CustomProperties {
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   displayName: optional string
 
@@ -39,7 +42,8 @@ record CorpUserInfo includes CustomProperties {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "queryByDefault": true
+    "queryByDefault": true,
+    "searchTier": 1
   }
   email: optional EmailAddress
 
@@ -101,4 +105,14 @@ record CorpUserInfo includes CustomProperties {
    * two uppercase letters country code. e.g.  US
    */
   countryCode: optional string
+
+  /**
+   * Whether the corpUser is a system user.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
+  }
+  system: optional boolean = false
+
 }

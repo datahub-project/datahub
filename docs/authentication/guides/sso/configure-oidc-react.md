@@ -1,6 +1,3 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Configuring OIDC Authentication
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library.
@@ -9,6 +6,7 @@ This enables operators of DataHub to integrate with 3rd party identity providers
 ## 1. Get your credentials
 
 Before you do anything, you'll want to set up DataHub with your SSO provider, and get prerequisite credentials:
+
 1. _Client ID_ - A unique identifier for your application with the identity provider
 2. _Client Secret_ - A shared secret to use for exchange between you and your identity provider.
 3. _Discovery URL_ - A URL where the OIDC API of your identity provider can be discovered.

@@ -1,16 +1,16 @@
 # Introduction to Metadata Ingestion
 
 :::tip Find Integration Source
-Please see our **[Integrations page](https://datahubproject.io/integrations)** to browse our ingestion sources and filter on their features.
+Please see our **[Integrations page](https://docs.datahub.com/integrations)** to browse our ingestion sources and filter on their features.
 :::
 
 ## Integration Methods
 
 DataHub offers three methods for data ingestion:
 
-- [UI Ingestion](../docs/ui-ingestion.md) : Easily configure and execute a metadata ingestion pipeline through the UI. 
-- [CLI Ingestion guide](cli-ingestion.md) : Configure the ingestion pipeline using YAML and execute by it through CLI. 
-- SDK-based ingestion : Use [Python Emitter](./as-a-library.md) or [Java emitter](../metadata-integration/java/as-a-library.md) to programmatically control the ingestion pipelines. 
+- [UI Ingestion](../docs/ui-ingestion.md) : Easily configure and execute a metadata ingestion pipeline through the UI.
+- [CLI Ingestion guide](cli-ingestion.md) : Configure the ingestion pipeline using YAML and execute by it through CLI.
+- SDK-based ingestion : Use [Python Emitter](./as-a-library.md) or [Java emitter](../metadata-integration/java/as-a-library.md) to programmatically control the ingestion pipelines.
 
 ## Types of Integration
 
@@ -23,7 +23,7 @@ Examples of push-based integrations include [Airflow](../docs/lineage/airflow.md
 
 ### Pull-based Integration
 
-Pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner. 
+Pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner.
 Examples of pull-based integrations include BigQuery, Snowflake, Looker, Tableau and many others.
 
 ## Core Concepts

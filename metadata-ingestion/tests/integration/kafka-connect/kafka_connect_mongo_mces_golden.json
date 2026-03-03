@@ -13,7 +13,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -32,27 +33,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,source_mongodb_connector,PROD),test_db.purchases)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mongodb,test_db.purchases,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafkax.mongodb.test_db.purchases,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -67,7 +49,29 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,source_mongodb_connector,PROD),test_db.purchases)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mongodb,test_db.purchases,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafkax.my.mongodb.topic.prefix.test_db.purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -82,7 +86,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

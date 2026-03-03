@@ -3,17 +3,21 @@ package io.datahubproject.openapi.health;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -28,9 +32,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/")
 @Tag(name = "HealthCheck", description = "An API for checking health of GMS and its clients.")
 public class HealthCheckController {
+
+  private static final Logger log = LoggerFactory.getLogger(HealthCheckController.class);
+
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
+
+  @Autowired
+  @Qualifier("bootstrapManager")
+  private BootstrapManager bootstrapManager;
 
   private final Supplier<ResponseEntity<String>> memoizedSupplier;
 
@@ -48,6 +59,83 @@ public class HealthCheckController {
       @RequestParam(name = "checks", defaultValue = "elasticsearch") List<String> checks) {
     return ResponseEntity.status(getCombinedDebug(checks).getStatusCode())
         .body(getCombinedDebug(checks).getStatusCode().is2xxSuccessful());
+  }
+
+  /**
+   * Bootstrap-aware health endpoint that replaces the legacy /health servlet.
+   *
+   * <p>This endpoint implements proper readiness checking by waiting for critical bootstrap steps
+   * to complete before marking the service as healthy. This prevents the race condition where
+   * health checks pass before essential functionality (like admin authentication) is available.
+   *
+   * <p>Returns: - HTTP 503 during bootstrap (service starting, not ready for traffic) - HTTP 200
+   * after bootstrap (service ready for traffic)
+   *
+   * <p>Response body is intentionally empty to maintain backward compatibility with existing health
+   * check configurations (Docker Compose, load balancers, etc).
+   *
+   * <p>This endpoint is excluded from authentication via configuration:
+   * authentication.excludedPaths: /health (see application.yaml)
+   */
+  @GetMapping(path = "/health")
+  public ResponseEntity<Void> getBootstrapAwareHealth() {
+    if (!bootstrapManager.areBlockingStepsComplete()) {
+      // Service is still bootstrapping - not ready for traffic
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+    }
+
+    // Bootstrap complete - service ready for traffic
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Liveness check endpoint - returns 200 if the process is alive, regardless of bootstrap status.
+   *
+   * <p>This is useful for Kubernetes liveness probes or process monitors that need to distinguish
+   * between "process crashed" (restart needed) vs "process starting up" (wait for readiness).
+   *
+   * <p>Use /health for readiness (traffic routing decisions) Use /health/live for liveness (restart
+   * decisions)
+   */
+  @GetMapping(path = "/health/live")
+  public ResponseEntity<Void> getLivenessCheck() {
+    // Always return 200 if we can process the request - process is alive
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Detailed health endpoint that consolidates all health checks into a single JSON response.
+   * Designed for agent tooling (datahub-dev status) to get a comprehensive view in one call.
+   *
+   * <p>Returns a JSON object with bootstrap status, elasticsearch health, and overall readiness.
+   * Always returns HTTP 200 with the status in the body (so agents can parse the response even when
+   * unhealthy).
+   */
+  @GetMapping(path = "/health/detailed", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Map<String, Object>> getDetailedHealth() {
+    Map<String, Object> result = new LinkedHashMap<>();
+
+    boolean bootstrapped = bootstrapManager.areBlockingStepsComplete();
+    result.put("bootstrapped", bootstrapped);
+
+    // Elasticsearch health
+    ResponseEntity<String> esHealth;
+    try {
+      esHealth = getElasticDebugWithCache();
+    } catch (Exception e) {
+      log.error("Unexpected error getting Elasticsearch health", e);
+      esHealth = ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
+    }
+    boolean esHealthy = esHealth.getStatusCode() == HttpStatus.OK;
+    String esStatus = esHealthy ? "green" : "unhealthy";
+    result.put("elasticsearch", esStatus);
+    result.put("elasticsearch_detail", esHealth.getBody());
+
+    boolean ready = bootstrapped && esHealthy;
+    result.put("ready", ready);
+    result.put("timestamp", System.currentTimeMillis());
+
+    return ResponseEntity.ok(result);
   }
 
   /**
@@ -114,8 +202,7 @@ public class HealthCheckController {
     String responseString = null;
     try {
       ClusterHealthRequest request = new ClusterHealthRequest();
-      ClusterHealthResponse response =
-          elasticClient.cluster().health(request, RequestOptions.DEFAULT);
+      ClusterHealthResponse response = elasticClient.clusterHealth(request, RequestOptions.DEFAULT);
 
       boolean isHealthy = !response.isTimedOut() && response.getStatus() != ClusterHealthStatus.RED;
       responseString = response.toString();

@@ -7,12 +7,14 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -70,9 +72,33 @@ public class ResolverUtils {
     return input;
   }
 
+  /**
+   * Resolves QueryContext from the environment. Uses the non-deprecated getGraphQlContext() first;
+   * falls back to getContext() only for backwards compatibility with callers that may not set
+   * GraphQLContext.
+   */
+  @Nullable
+  public static QueryContext getQueryContext(DataFetchingEnvironment environment) {
+    if (environment.getGraphQlContext() != null) {
+      Object fromGraphQL = environment.getGraphQlContext().get(QueryContext.class);
+      if (fromGraphQL instanceof QueryContext) {
+        return (QueryContext) fromGraphQL;
+      }
+    }
+    Object raw = environment.getContext();
+    if (raw instanceof QueryContext) {
+      return (QueryContext) raw;
+    }
+    return null;
+  }
+
   @Nonnull
   public static Authentication getAuthentication(DataFetchingEnvironment environment) {
-    return ((QueryContext) environment.getContext()).getAuthentication();
+    QueryContext context = getQueryContext(environment);
+    if (context == null) {
+      throw new IllegalStateException("QueryContext is required for getAuthentication");
+    }
+    return context.getAuthentication();
   }
 
   /**
@@ -198,5 +224,21 @@ public class ResolverUtils {
       return System.currentTimeMillis();
     }
     return null;
+  }
+
+  public static boolean filterEntitiesForExistence(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityClient entityClient,
+      @Nullable final Boolean checkForExistence) {
+    try {
+      if (Boolean.TRUE.equals(checkForExistence) && !entityClient.exists(opContext, urn)) {
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      _logger.error("Error when filtering urns when getting entities", e);
+      return false;
+    }
   }
 }

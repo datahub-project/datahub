@@ -18,7 +18,9 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1
+    "boostScore": 0.1,
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 
@@ -67,7 +69,9 @@ record EditableSchemaFieldInfo {
     "/terms/*/urn": {
       "fieldName": "editedFieldGlossaryTerms",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "includeSystemModifiedAt": true,
+      "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt"
     },
     "/terms/*/attribution/time": {
         "fieldName": "editedFieldTermAttributionDates",

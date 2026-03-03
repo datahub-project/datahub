@@ -1,3 +1,8 @@
+"""
+DEPRECATED: This assertions CLI is no longer supported and will be removed in a future version.
+Please use alternative methods for managing assertions in DataHub.
+"""
+
 import logging
 import os
 from pathlib import Path
@@ -15,8 +20,8 @@ from datahub.api.entities.assertion.compiler_interface import (
 from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.integrations.assertion.registry import ASSERTION_PLATFORMS
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -26,20 +31,39 @@ REPORT_FILE_NAME = "compile_report.json"
 
 @click.group(cls=DefaultGroup, default="upsert")
 def assertions() -> None:
-    """A group of commands to interact with the Assertion entity in DataHub."""
+    """A group of commands to interact with the Assertion entity in DataHub.
+
+    ⚠️  DEPRECATED: This assertions CLI is no longer supported and will be removed
+    in a future version. Please use alternative methods for managing assertions in DataHub.
+    """
+    click.secho(
+        "⚠️  WARNING: The assertions CLI is deprecated and no longer supported. "
+        "It may be removed in a future version. Please use alternative methods for managing assertions in DataHub.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
     pass
 
 
 @assertions.command()
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: str) -> None:
-    """Upsert (create or update) a set of assertions in DataHub."""
+    """Upsert (create or update) a set of assertions in DataHub.
+
+    ⚠️  DEPRECATED: This command is deprecated and no longer supported.
+    """
+    click.secho(
+        "⚠️  WARNING: The 'upsert' command is deprecated and no longer supported.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
 
     assertions_spec: AssertionsConfigSpec = AssertionsConfigSpec.from_yaml(file)
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         for assertion_spec in assertions_spec.assertions:
             try:
                 mcp = MetadataChangeProposalWrapper(
@@ -70,8 +94,6 @@ def upsert(file: str) -> None:
     default=[],
     help="Platform-specific extra key-value inputs in form key=value",
 )
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def compile(
     file: str, platform: str, output_to: Optional[str], extras: List[str]
 ) -> None:
@@ -81,7 +103,15 @@ def compile(
     In future, we may introduce separate command to automatically apply these compiled changes
     in assertion platform. Currently, generated result artifacts are stored in target folder
     unless another folder is specified using option `--output-to <folder>`.
+
+    ⚠️  DEPRECATED: This command is deprecated and no longer supported.
     """
+    click.secho(
+        "⚠️  WARNING: The 'compile' command is deprecated and no longer supported.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
 
     if platform not in ASSERTION_PLATFORMS:
         click.secho(
@@ -136,9 +166,9 @@ def extras_list_to_dict(extras: List[str]) -> Dict[str, str]:
     extra_properties: Dict[str, str] = dict()
     for x in extras:
         parts = x.split("=")
-        assert (
-            len(parts) == 2
-        ), f"Invalid value for extras {x}, should be in format key=value"
+        assert len(parts) == 2, (
+            f"Invalid value for extras {x}, should be in format key=value"
+        )
         extra_properties[parts[0]] = parts[1]
     return extra_properties
 
@@ -149,3 +179,5 @@ def extras_list_to_dict(extras: List[str]) -> Dict[str, str]:
 # Later:
 # 3. execute compiled assertions on assertion platform (Later, requires connection details to platform),
 # 4. cleanup assertions from assertion platform (generate artifacts. optionally execute)
+#
+# NOTE: This entire assertions CLI is deprecated and these TODOs will not be implemented.

@@ -1,12 +1,14 @@
-import React, { ReactNode } from 'react';
-import { AutoComplete, Divider, Form } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { AutoComplete, Divider, Form } from 'antd';
+import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
-import { Secret } from '../../../../../../types.generated';
-import CreateSecretButton from './CreateSecretButton';
-import { RecipeField } from '../common';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { clearSecretListCache } from '../../../../secret/cacheUtils';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { clearSecretListCache } from '@app/ingest/secret/cacheUtils';
+import CreateSecretButton from '@app/ingest/source/builder/RecipeForm/SecretField/CreateSecretButton';
+import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+
+import { Secret } from '@types';
 
 const StyledDivider = styled(Divider)`
     margin: 0;
@@ -70,7 +72,7 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
                 This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
                 review{' '}
                 <a
-                    href="https://datahubproject.io/docs/ui-ingestion/#creating-a-secret"
+                    href="https://docs.datahub.com/docs/ui-ingestion/#creating-a-secret"
                     target="_blank"
                     rel="noreferrer"
                 >
@@ -102,7 +104,7 @@ function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSec
         >
             <AutoComplete
                 placeholder={field.placeholder}
-                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                filterOption={(input, option) => !!option?.value?.toLowerCase().includes(input.toLowerCase())}
                 notFoundContent={<>No secrets found</>}
                 options={options}
                 dropdownRender={(menu) => {

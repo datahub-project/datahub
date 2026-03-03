@@ -8,8 +8,7 @@ import pydantic
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
@@ -35,6 +34,7 @@ class BigQuerySchemaApiPerfReport(Report):
     list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
     list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
     list_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
+    enrich_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
     get_tables_for_dataset_sec: float = 0
@@ -77,8 +77,7 @@ class BigQueryQueriesExtractorReport(Report):
 
 @dataclass
 class BigQueryV2Report(
-    ProfilingSqlReport,
-    IngestionStageReport,
+    SQLSourceReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
 ):
@@ -141,7 +140,7 @@ class BigQueryV2Report(
     profiling_skipped_invalid_partition_type: Dict[str, str] = field(
         default_factory=TopKDict
     )
-    profiling_skipped_partition_profiling_disabled: List[str] = field(
+    profiling_skipped_partition_profiling_disabled: LossyList[str] = field(
         default_factory=LossyList
     )
     allow_pattern: Optional[str] = None
@@ -160,6 +159,8 @@ class BigQueryV2Report(
     num_lineage_dropped_gcs_path: int = 0
 
     snapshots_scanned: int = 0
+    num_sharded_tables_scanned: int = 0
+    num_sharded_tables_deduped: int = 0
 
     # view lineage
     sql_aggregator: Optional[SqlAggregatorReport] = None
@@ -190,6 +191,3 @@ class BigQueryV2Report(
     num_skipped_external_table_lineage: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
-
-    def set_ingestion_stage(self, project_id: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{project_id}: {stage}")

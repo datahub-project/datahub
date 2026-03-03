@@ -1,20 +1,27 @@
 import { LockOutlined } from '@ant-design/icons';
-import React from 'react';
-import styled from 'styled-components';
 import { List, Tag, Tooltip, Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { CorpGroup, DataHubRole, EntityType, OriginType } from '../../../types.generated';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import EntityDropdown from '../../entity/shared/EntityDropdown';
-import { EntityMenuItems } from '../../entity/shared/EntityDropdown/EntityDropdown';
-import { getElasticCappedTotalValueText } from '../../entity/shared/constants';
-import SelectRoleGroup from './SelectRoleGroup';
+import styled from 'styled-components';
+
+import EntityDropdown from '@app/entity/shared/EntityDropdown';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import SelectRoleGroup from '@app/identity/group/SelectRoleGroup';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpGroup, DataHubRole, EntityType, OriginType } from '@types';
 
 type Props = {
     group: CorpGroup;
     onDelete?: () => void;
     selectRoleOptions: Array<DataHubRole>;
+    rolesLoading: boolean;
+    rolesHasMore: boolean;
+    rolesObserverRef: (node: HTMLDivElement | null) => void;
+    rolesSearchQuery: string;
+    setRolesSearchQuery: (query: string) => void;
     refetch?: () => void;
 };
 
@@ -38,7 +45,17 @@ const GroupItemButtonGroup = styled.div`
     align-items: center;
 `;
 
-export default function GroupListItem({ group, onDelete, selectRoleOptions, refetch }: Props) {
+export default function GroupListItem({
+    group,
+    onDelete,
+    selectRoleOptions,
+    rolesLoading,
+    rolesHasMore,
+    rolesObserverRef,
+    rolesSearchQuery,
+    setRolesSearchQuery,
+    refetch,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup: boolean = group.origin?.type === OriginType.External;
@@ -82,6 +99,11 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                         group={group}
                         groupRoleUrn={groupRoleUrn || ''}
                         selectRoleOptions={selectRoleOptions}
+                        rolesLoading={rolesLoading}
+                        rolesHasMore={rolesHasMore}
+                        rolesObserverRef={rolesObserverRef}
+                        rolesSearchQuery={rolesSearchQuery}
+                        setRolesSearchQuery={setRolesSearchQuery}
                         refetch={refetch}
                     />
                     <EntityDropdown

@@ -1,5 +1,82 @@
+import logging
+
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
+
+logger = logging.getLogger(__name__)
+
+
+def get_current_user_info(session):
+    """
+    Get information about the currently authenticated user (whoami equivalent).
+
+    Returns a dict with user info and platform privileges, or None if the query fails.
+    """
+    me_query = {
+        "query": """query me {
+            me {
+                corpUser {
+                    urn
+                    username
+                    info {
+                        fullName
+                        email
+                    }
+                }
+                platformPrivileges {
+                    managePolicies
+                    manageIdentities
+                    manageUserCredentials
+                    generatePersonalAccessTokens
+                    viewAnalytics
+                    manageSecrets
+                    manageIngestion
+                }
+            }
+        }"""
+    }
+
+    me_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=me_query)
+    logger.debug(f"whoami (me query) status: {me_response.status_code}")
+
+    if me_response.status_code == 200:
+        me_data = me_response.json()
+        if me_data.get("data") and me_data["data"].get("me"):
+            me_info = me_data["data"]["me"]
+            corp_user = me_info.get("corpUser", {})
+            privileges = me_info.get("platformPrivileges", {})
+
+            user_info = {
+                "username": corp_user.get("username", "UNKNOWN"),
+                "urn": corp_user.get("urn", "UNKNOWN"),
+                "email": corp_user.get("info", {}).get("email", "UNKNOWN"),
+                "fullName": corp_user.get("info", {}).get("fullName", "UNKNOWN"),
+                "privileges": privileges,
+            }
+
+            logger.debug(f"Authenticated as user: {user_info['username']}")
+            logger.debug(f"User URN: {user_info['urn']}")
+            logger.debug(f"User email: {user_info['email']}")
+            logger.debug(
+                f"managePolicies privilege: {privileges.get('managePolicies', 'UNKNOWN')}"
+            )
+            logger.debug(
+                f"manageIdentities privilege: {privileges.get('manageIdentities', 'UNKNOWN')}"
+            )
+            logger.debug(
+                f"manageSecrets privilege: {privileges.get('manageSecrets', 'UNKNOWN')}"
+            )
+            logger.debug(
+                f"manageIngestion privilege: {privileges.get('manageIngestion', 'UNKNOWN')}"
+            )
+
+            return user_info
+        else:
+            logger.debug(f"me query returned unexpected structure: {me_data}")
+            return None
+    else:
+        logger.debug(f"me query failed: {me_response.text}")
+        return None
 
 
 def set_base_platform_privileges_policy_status(status, session):
@@ -126,6 +203,7 @@ def create_user(session, email, password):
     res_data = remove_user(session, f"urn:li:corpuser:{email}")
     assert res_data
     assert "error" not in res_data
+
     # Get the invite token
     get_invite_token_json = {
         "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
@@ -140,6 +218,24 @@ def create_user(session, email, password):
     )
     get_invite_token_response.raise_for_status()
     get_invite_token_res_data = get_invite_token_response.json()
+
+    # Log the response for debugging CI failures
+    logger.debug(
+        f"getInviteToken response status: {get_invite_token_response.status_code}"
+    )
+    logger.debug(f"getInviteToken response data: {get_invite_token_res_data}")
+
+    # Check if the response structure is as expected before accessing
+    if not get_invite_token_res_data.get("data") or not get_invite_token_res_data[
+        "data"
+    ].get("getInviteToken"):
+        logger.error(
+            f"getInviteToken returned unexpected structure. Full response: {get_invite_token_res_data}"
+        )
+        raise RuntimeError(
+            f"getInviteToken query failed or returned null. Response: {get_invite_token_res_data}"
+        )
+
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token
@@ -171,6 +267,7 @@ def remove_user(session, urn):
     }
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
+    wait_for_writes_to_sync()
     return response.json()
 
 
@@ -187,6 +284,7 @@ def create_group(session, name):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createGroup"]
+    wait_for_writes_to_sync()
     return res_data["data"]["createGroup"]
 
 
@@ -203,6 +301,7 @@ def remove_group(session, urn):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["removeGroup"]
+    wait_for_writes_to_sync()
     return res_data["data"]["removeGroup"]
 
 
@@ -219,6 +318,7 @@ def assign_user_to_group(session, group_urn, user_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["addGroupMembers"]
+    wait_for_writes_to_sync()
     return res_data["data"]["addGroupMembers"]
 
 
@@ -236,6 +336,7 @@ def assign_role(session, role_urn, actor_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["batchAssignRole"]
+    wait_for_writes_to_sync()
     return res_data["data"]["batchAssignRole"]
 
 
@@ -268,6 +369,8 @@ def create_user_policy(user_urn, privileges, session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
+
+    wait_for_writes_to_sync()
     return res_data["data"]["createPolicy"]
 
 
@@ -289,8 +392,14 @@ def remove_policy(urn, session):
     assert res_data["data"]["deletePolicy"]
     assert res_data["data"]["deletePolicy"] == urn
 
+    wait_for_writes_to_sync()
 
-def clear_polices(session):
+
+def list_policies(session):
+    """
+    List all active editable policies.
+    Returns the full policy list response.
+    """
     list_policy_json = {
         "query": """query listPolicies($input: ListPoliciesInput!) {
                       listPolicies(input: $input) {
@@ -302,6 +411,8 @@ def clear_polices(session):
                           editable
                           name
                           description
+                          state
+                          privileges
                           __typename
                         }
                         __typename
@@ -340,9 +451,71 @@ def clear_polices(session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
-    for policy in res_data["data"]["listPolicies"]["policies"]:
+
+    return res_data["data"]["listPolicies"]
+
+
+def log_user_privileges(session, context=""):
+    """
+    Log the current user's platform privileges for debugging.
+    Returns the user_info dict.
+    """
+    user_info = get_current_user_info(session)
+    if user_info:
+        privileges = user_info["privileges"]
+        logger.info(f"User privileges {context}:")
+        logger.info(f"  User: {user_info['username']} ({user_info['urn']})")
+        logger.info(f"  managePolicies: {privileges.get('managePolicies')}")
+        logger.info(f"  manageSecrets: {privileges.get('manageSecrets')}")
+        logger.info(f"  manageIngestion: {privileges.get('manageIngestion')}")
+        logger.info(
+            f"  generatePersonalAccessTokens: {privileges.get('generatePersonalAccessTokens')}"
+        )
+    else:
+        logger.warning(f"Could not retrieve user info {context}")
+    return user_info
+
+
+def log_policies(session, context=""):
+    """
+    Log all active editable policies for debugging.
+    """
+    logger.info(f"Listing active editable policies {context}")
+
+    policies_data = list_policies(session)
+    total = policies_data["total"]
+    policies = policies_data["policies"]
+
+    logger.info(f"Found {total} active editable policies")
+
+    for policy in policies:
+        logger.info(f"  - {policy['name']}")
+        logger.info(f"    URN: {policy['urn']}")
+        logger.info(f"    Privileges: {policy.get('privileges', [])}")
+        if policy["description"]:
+            desc_preview = policy["description"][:100]
+            if len(policy["description"]) > 100:
+                desc_preview += "..."
+            logger.info(f"    Description: {desc_preview}")
+
+
+def clear_polices(session):
+    logger.info("Starting policy cleanup (clear_polices)")
+
+    policies_data = list_policies(session)
+    policies = policies_data["policies"]
+
+    deleted_count = 0
+    for policy in policies:
         if "test" in policy["name"].lower() or "test" in policy["description"].lower():
+            logger.info(f"Deleting test policy: {policy['name']} ({policy['urn']})")
             remove_policy(policy["urn"], session)
+            deleted_count += 1
+
+    logger.info(f"Policy cleanup complete. Deleted {deleted_count} test policies")
+
+    if deleted_count > 0:
+        wait_for_writes_to_sync()
 
 
 def remove_secret(session, urn):
@@ -354,3 +527,4 @@ def remove_secret(session, urn):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
     response.raise_for_status()
+    wait_for_writes_to_sync()
