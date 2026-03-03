@@ -30,5 +30,8 @@
       "Bash(npx cypress:*)"
     ],
     "deny": []
+  },
+  "enabledPlugins": {
+    "jdtls-lsp@claude-plugins-official": true
   }
 }
