@@ -43,7 +43,7 @@ class PostHogCIReporter:
             distinct_id=repo,
             event="ci_workflow_run_completed",
             properties=workflow_props,
-            timestamp=data["workflow"].get("completed_at"),
+            timestamp=parse_dt(data["workflow"].get("completed_at")),
         )
 
         # flush() blocks until the background delivery thread has sent all queued events —
