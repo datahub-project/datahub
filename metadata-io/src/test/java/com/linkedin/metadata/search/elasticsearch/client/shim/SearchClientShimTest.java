@@ -24,6 +24,7 @@ public class SearchClientShimTest {
             .withAwsIamAuth(false, null)
             .withThreadCount(2)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     assertEquals(config.getEngineType(), SearchEngineType.ELASTICSEARCH_7);
@@ -36,6 +37,7 @@ public class SearchClientShimTest {
     assertFalse(config.isUseAwsIamAuth());
     assertEquals(config.getThreadCount(), Integer.valueOf(2));
     assertEquals(config.getConnectionRequestTimeout(), Integer.valueOf(5000));
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
   }
 
   @Test
@@ -86,6 +88,7 @@ public class SearchClientShimTest {
             .withAwsIamAuth(false, null)
             .withThreadCount(2)
             .withConnectionRequestTimeout(5000)
+            .withSocketTimeout(30000)
             .build();
 
     // We can't test the actual shim implementations without a live cluster
@@ -93,6 +96,50 @@ public class SearchClientShimTest {
     assertNotNull(mockConfig);
     assertEquals(mockConfig.getEngineType().getEngine(), "elasticsearch");
     assertEquals(mockConfig.getEngineType().getMajorVersion(), "7");
+  }
+
+  @Test
+  public void testShimConfigurationBuilderWithDefaultSocketTimeout() {
+    SearchClientShim.ShimConfiguration config =
+        new ShimConfigurationBuilder()
+            .withEngineType(SearchEngineType.ELASTICSEARCH_8)
+            .withHost("localhost")
+            .withPort(9200)
+            .build();
+
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(30000));
+  }
+
+  @Test
+  public void testShimConfigurationBuilderWithCustomSocketTimeout() {
+    SearchClientShim.ShimConfiguration config =
+        new ShimConfigurationBuilder()
+            .withEngineType(SearchEngineType.ELASTICSEARCH_8)
+            .withHost("localhost")
+            .withPort(9200)
+            .withSocketTimeout(600000)
+            .build();
+
+    assertEquals(config.getSocketTimeout(), Integer.valueOf(600000));
+  }
+
+  @Test
+  public void testShimConfigurationBuilderCopy() {
+    SearchClientShim.ShimConfiguration original =
+        new ShimConfigurationBuilder()
+            .withEngineType(SearchEngineType.OPENSEARCH_2)
+            .withHost("localhost")
+            .withPort(9200)
+            .withConnectionRequestTimeout(10000)
+            .withSocketTimeout(300000)
+            .build();
+
+    SearchClientShim.ShimConfiguration copy =
+        new ShimConfigurationBuilder(original).withPort(9201).build();
+
+    assertEquals(copy.getSocketTimeout(), Integer.valueOf(300000));
+    assertEquals(copy.getConnectionRequestTimeout(), Integer.valueOf(10000));
+    assertEquals(copy.getPort(), Integer.valueOf(9201));
   }
 
   // Note: Integration tests that require live Elasticsearch/OpenSearch clusters

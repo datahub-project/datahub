@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Edge, Node } from 'reactflow';
+import { Node } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
@@ -8,12 +8,7 @@ import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodes
 
 export function useAddAnnotationNodes() {
     return useCallback(
-        (
-            filteredNodes: LineageVisualizationNode[],
-            filteredEdges: Edge[],
-            levelsInfo: LevelsInfo,
-            levelsMap: Map<string, number>,
-        ) => {
+        (filteredNodes: LineageVisualizationNode[], levelsInfo: LevelsInfo, levelsMap: Map<string, number>) => {
             const nodesWithLevel = filteredNodes.map((node) => {
                 const urn = node.id;
                 const nodeLevel = levelsMap.get(urn) ?? 0;
@@ -60,17 +55,12 @@ export function useAddAnnotationNodes() {
                     data: {
                         label: `${levelInfo.shownEntities} of ${levelInfo.totalEntities} shown`,
                     },
-                    draggable: false,
                     selectable: false,
                     connectable: false,
                 });
             });
 
-            return {
-                nodes: [...nodesWithLevel, ...annotationNodes],
-                edges: filteredEdges,
-                levelsInfo,
-            };
+            return [...nodesWithLevel, ...annotationNodes];
         },
         [],
     );
