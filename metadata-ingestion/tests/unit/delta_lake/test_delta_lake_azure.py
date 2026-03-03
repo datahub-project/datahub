@@ -90,7 +90,7 @@ def test_delta_lake_domain_assignment_workunit() -> None:
             "base_path": "abfss://container@acct.dfs.core.windows.net/delta",
             "azure": {"account_key": "my-secret"},
             "domain": {
-                "urn:li:domain:karol-test": {
+                "urn:li:domain:some-test": {
                     "allow": ["container/delta/.*"],
                 }
             },
@@ -111,4 +111,4 @@ def test_delta_lake_domain_assignment_workunit() -> None:
     assert len(domain_workunits) == 1
     domain_aspect = domain_workunits[0].get_aspect_of_type(DomainsClass)
     assert domain_aspect is not None
-    assert list(domain_aspect.domains) == ["urn:li:domain:karol-test"]
+    assert list(domain_aspect.domains) == ["urn:li:domain:some-test"]
