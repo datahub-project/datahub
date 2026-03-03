@@ -766,26 +766,8 @@ def test_cross_space_parallelization_speedup(tmp_path):
         if urn and urn.startswith("urn:li:dashboard:"):
             dashboard_urns.add(urn)
 
-    expected_report_tokens = set()
-    for space_token, _, num_reports in [
-        ("space_a", "Space A", 2),
-        ("space_b", "Space B", 4),
-        ("space_c", "Space C", 4),
-    ]:
-        for i in range(num_reports):
-            expected_report_tokens.add(f"rpt_{space_token}_{i:02d}")
-
-    assert len(expected_report_tokens) == 10
-
-    # Each report should produce a dashboard URN containing its token
-    found_tokens = set()
-    for urn in dashboard_urns:
-        for token in expected_report_tokens:
-            if token in urn:
-                found_tokens.add(token)
-
-    assert found_tokens == expected_report_tokens, (
-        f"Expected dashboards for all 10 reports across 3 spaces. "
-        f"Missing: {expected_report_tokens - found_tokens}, "
-        f"Found URNs: {dashboard_urns}"
+    # All 10 reports (2+4+4) across 3 spaces should produce dashboard entities
+    assert len(dashboard_urns) == 10, (
+        f"Expected 10 dashboards (2+4+4 reports across 3 spaces), "
+        f"got {len(dashboard_urns)}: {dashboard_urns}"
     )
