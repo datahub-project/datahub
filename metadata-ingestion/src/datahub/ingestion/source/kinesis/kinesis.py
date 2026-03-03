@@ -59,7 +59,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
-        config = KinesisSourceConfig.parse_obj(config_dict)
+        config = KinesisSourceConfig.model_validate(config_dict)
         report = TestConnectionReport()
         try:
             client = KinesisClient(config.connection, config.region_name)
@@ -76,7 +76,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "KinesisSource":
-        config = KinesisSourceConfig.parse_obj(config_dict)
+        config = KinesisSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

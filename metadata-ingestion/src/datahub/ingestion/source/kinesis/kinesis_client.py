@@ -51,11 +51,46 @@ class KinesisClient:
     def describe_stream(self, stream_name: str) -> Optional[Dict[str, Any]]:
         """
         Get details for a specific stream.
+        Uses describe_stream_summary for metadata and list_shards for accurate shard listing.
         """
         try:
-            # Simple retry logic for throttling could be added here if needed beyond boto3's retries
-            response = self.client.describe_stream(StreamName=stream_name)
-            return response.get("StreamDescription")
+            # Get stream configuration
+            summary_response = self.client.describe_stream_summary(
+                StreamName=stream_name
+            )
+            description = summary_response.get("StreamDescriptionSummary", {})
+
+            # Get complete list of shards using list_shards
+            shards = []
+            paginator = self.client.get_paginator("list_shards")
+            # list_shards requires StreamName, but the paginator interface might differ.
+            # Boto3 list_shards paginator usually takes StreamName.
+            # NOTE: list_shards paginator might not be available in older boto3 versions,
+            # let's check basic list_shards call loop instead for safety or use paginator if standard.
+            # Boto3 docs say list_shards has a paginator.
+
+            try:
+                for page in paginator.paginate(StreamName=stream_name):
+                    shards.extend(page.get("Shards", []))
+            except ClientError as e:
+                # Fallback or specific handling if list_shards fails?
+                # If list_shards fails, we might just have summary data.
+                logger.warning(f"Failed to list shards for {stream_name}: {e}")
+
+            # Combine
+            # We map summary fields to what the source expects (which matched verify_stream output)
+            # Source expects: StreamARN, StreamStatus, RetentionPeriodHours, EncryptionType, Shards
+
+            result = {
+                "StreamARN": description.get("StreamARN"),
+                "StreamStatus": description.get("StreamStatus"),
+                "RetentionPeriodHours": description.get("RetentionPeriodHours"),
+                "EncryptionType": description.get("EncryptionType"),
+                "Shards": shards,
+            }
+
+            return result
+
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 logger.warning(f"Stream {stream_name} not found")

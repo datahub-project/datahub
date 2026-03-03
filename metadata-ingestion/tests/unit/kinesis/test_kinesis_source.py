@@ -30,7 +30,7 @@ def test_kinesis_source_extraction():
         },
         "region_name": region,
     }
-    config = KinesisSourceConfig.parse_obj(params)
+    config = KinesisSourceConfig.model_validate(params)
     ctx = PipelineContext(run_id="test-run")
     source = KinesisSource(config, ctx)
 
