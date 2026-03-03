@@ -1,5 +1,7 @@
+import concurrent.futures
 import dataclasses
 import logging
+import multiprocessing
 import os
 import re
 import threading
@@ -144,6 +146,56 @@ DEFAULT_API_ITEMS_PER_PAGE = 30
 # render as "NULL" instead of raising. Done at module level (once) rather
 # than per-call to avoid redundant global mutation from worker threads.
 Undefined.__str__ = lambda self: "NULL"  # type: ignore
+
+# ──────────────────────────────────────────────────────────────────────
+# Process-pool worker functions for CPU-bound SQL parsing.
+# Module-level so they are picklable by ProcessPoolExecutor.
+# ──────────────────────────────────────────────────────────────────────
+
+_worker_graph: Optional[object] = None
+
+
+def _init_sql_parse_worker(graph_config_dict: Optional[dict]) -> None:
+    """Per-process initializer: create a DataHubGraph connection for schema resolution."""
+    global _worker_graph
+    if graph_config_dict:
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        _worker_graph = DataHubGraph(DatahubClientConfig(**graph_config_dict))
+
+
+def _parse_sql_in_worker(
+    sql: str,
+    platform: str,
+    env: str,
+    default_db: Optional[str],
+    platform_instance: Optional[str],
+) -> SqlParsingResult:
+    """Parse SQL and compute lineage in a worker process.
+
+    Each process has its own SchemaResolver (via create_and_cache_schema_resolver)
+    backed by _worker_graph, avoiding cross-process sharing of caches or connections.
+    """
+    schema_resolver = create_and_cache_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=_worker_graph,
+        platform_instance=platform_instance,
+    )
+    try:
+        parsed = parse_statements_and_pick(sql, platform)
+        sql_to_parse = parsed.sql(dialect=platform)
+    except Exception:
+        sql_to_parse = sql
+    try:
+        return sqlglot_lineage(
+            sql=sql_to_parse,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+        )
+    except Exception as e:
+        return SqlParsingResult.make_from_error(e)
 
 
 class SpaceKey(ContainerKey):
@@ -1288,43 +1340,46 @@ class ModeSource(StatefulIngestionSourceBase):
             if matches and matches.group(1):
                 upstream_warehouse_db_name = matches.group(1)
 
-        # Parse multi-statement SQL and pick the last meaningful statement.
-        # Uses cached parse_statement internally, with proper dialect.
-        sql_parse_start = time.perf_counter()
-        try:
-            parsed_expression = parse_statements_and_pick(
-                normalized_query, upstream_warehouse_platform
-            )
-            query_to_parse = parsed_expression.sql(dialect=upstream_warehouse_platform)
-        except Exception as e:
-            logger.debug(
-                f"parse_statements_and_pick failed on: {normalized_query}, error: {e}"
-            )
-            query_to_parse = normalized_query
-
-        # Use create_and_cache_schema_resolver + sqlglot_lineage directly.
-        # This enables the _sqlglot_lineage_cached lru_cache to get hits,
-        # since the same SchemaResolver instance is reused for the same
-        # (platform, env, graph, platform_instance) combination.
+        # SQL parsing + lineage extraction (CPU-bound).
+        # Offloaded to process pool when available; falls back to in-thread.
         platform_instance = (
             self.config.platform_instance_map.get(upstream_warehouse_platform)
             if upstream_warehouse_platform and self.config.platform_instance_map
             else None
         )
-        try:
-            schema_resolver = create_and_cache_schema_resolver(
-                platform=upstream_warehouse_platform,
-                env=self.config.env,
-                graph=self.ctx.graph,
-                platform_instance=platform_instance,
+        sql_parse_start = time.perf_counter()
+        pool = getattr(self, "_sql_parse_pool", None)
+        if pool is not None:
+            try:
+                future = pool.submit(
+                    _parse_sql_in_worker,
+                    normalized_query,
+                    upstream_warehouse_platform,
+                    self.config.env,
+                    upstream_warehouse_db_name,
+                    platform_instance,
+                )
+                parsed_query_object = future.result()
+            except concurrent.futures.BrokenProcessPool:
+                logger.warning(
+                    "SQL parsing process pool is broken, falling back to in-thread parsing"
+                )
+                self._sql_parse_pool = None
+                parsed_query_object = _parse_sql_in_worker(
+                    normalized_query,
+                    upstream_warehouse_platform,
+                    self.config.env,
+                    upstream_warehouse_db_name,
+                    platform_instance,
+                )
+        else:
+            parsed_query_object = _parse_sql_in_worker(
+                normalized_query,
+                upstream_warehouse_platform,
+                self.config.env,
+                upstream_warehouse_db_name,
+                platform_instance,
             )
-            parsed_query_object = sqlglot_lineage(
-                sql=query_to_parse,
-                schema_resolver=schema_resolver,
-                default_db=upstream_warehouse_db_name,
-            )
-        except Exception as e:
-            parsed_query_object = SqlParsingResult.make_from_error(e)
         sql_parse_elapsed = time.perf_counter() - sql_parse_start
         with self.report._lock:
             self.report.sql_parsing_total_sec += sql_parse_elapsed
@@ -1341,11 +1396,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 self.report.num_sql_parser_success += 1
         if parsed_query_object.debug_info.table_error:
             logger.info(
-                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
+                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{normalized_query}]"
             )
         elif parsed_query_object.debug_info.column_error:
             logger.info(
-                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
+                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{normalized_query}]"
             )
 
         schema_fields = infer_output_schema(parsed_query_object)
@@ -2105,27 +2160,53 @@ class ModeSource(StatefulIngestionSourceBase):
             all_report_args.extend(report_args)
             all_dataset_args.extend(dataset_args)
 
-        # Phase 2: Process ALL reports across ALL spaces in one global pool
-        if self.config.max_threads > 1:
-            yield from ThreadedIteratorExecutor.process(
-                worker_func=self._process_report,
-                args_list=all_report_args,
-                max_workers=self.config.max_threads,
+        # Create a process pool for CPU-bound SQL parsing (sqlglot).
+        # Threads handle I/O (API calls); processes handle CPU (parsing).
+        num_workers = max(1, min((os.cpu_count() or 2) - 1, self.config.max_threads))
+        graph_config_dict = self.ctx.graph.config.dict() if self.ctx.graph else None
+        try:
+            self._sql_parse_pool: Optional[concurrent.futures.ProcessPoolExecutor] = (
+                concurrent.futures.ProcessPoolExecutor(
+                    max_workers=num_workers,
+                    mp_context=multiprocessing.get_context("spawn"),
+                    initializer=_init_sql_parse_worker,
+                    initargs=(graph_config_dict,),
+                )
             )
-        else:
-            for args in all_report_args:
-                yield from self._process_report(*args)
+            logger.info(f"Created SQL parsing process pool with {num_workers} workers")
+        except Exception:
+            logger.warning(
+                "Failed to create SQL parsing process pool, falling back to in-thread parsing",
+                exc_info=True,
+            )
+            self._sql_parse_pool = None
 
-        # Phase 3: Process ALL datasets across ALL spaces
-        if self.config.max_threads > 1 and all_dataset_args:
-            yield from ThreadedIteratorExecutor.process(
-                worker_func=self._process_dataset,
-                args_list=all_dataset_args,
-                max_workers=self.config.max_threads,
-            )
-        else:
-            for args in all_dataset_args:
-                yield from self._process_dataset(*args)
+        try:
+            # Phase 2: Process ALL reports across ALL spaces in one global pool
+            if self.config.max_threads > 1:
+                yield from ThreadedIteratorExecutor.process(
+                    worker_func=self._process_report,
+                    args_list=all_report_args,
+                    max_workers=self.config.max_threads,
+                )
+            else:
+                for args in all_report_args:
+                    yield from self._process_report(*args)
+
+            # Phase 3: Process ALL datasets across ALL spaces
+            if self.config.max_threads > 1 and all_dataset_args:
+                yield from ThreadedIteratorExecutor.process(
+                    worker_func=self._process_dataset,
+                    args_list=all_dataset_args,
+                    max_workers=self.config.max_threads,
+                )
+            else:
+                for args in all_dataset_args:
+                    yield from self._process_dataset(*args)
+        finally:
+            if self._sql_parse_pool is not None:
+                self._sql_parse_pool.shutdown(wait=True)
+                self._sql_parse_pool = None
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)

@@ -639,3 +639,67 @@ class TestExcludePersonalCollections:
 
         assert "tok1" in result
         assert "tok2" not in result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Process pool worker functions
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestParseSqlInWorker:
+    def test_simple_select_returns_parsing_result(self):
+        """_parse_sql_in_worker produces a SqlParsingResult for valid SQL."""
+        from datahub.ingestion.source.mode import _parse_sql_in_worker
+        from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+
+        result = _parse_sql_in_worker(
+            sql="SELECT id, name FROM users",
+            platform="postgres",
+            env="PROD",
+            default_db=None,
+            platform_instance=None,
+        )
+        assert isinstance(result, SqlParsingResult)
+
+    def test_invalid_sql_returns_error_result(self):
+        """_parse_sql_in_worker returns an error result for unparseable SQL."""
+        from datahub.ingestion.source.mode import _parse_sql_in_worker
+        from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+
+        result = _parse_sql_in_worker(
+            sql="THIS IS NOT SQL AT ALL @@@@",
+            platform="postgres",
+            env="PROD",
+            default_db=None,
+            platform_instance=None,
+        )
+        assert isinstance(result, SqlParsingResult)
+
+    def test_init_worker_without_graph(self):
+        """_init_sql_parse_worker with None config does not create a graph."""
+        from datahub.ingestion.source.mode import (
+            _init_sql_parse_worker,
+        )
+
+        _init_sql_parse_worker(None)
+        # Module-level _worker_graph should remain None
+        import datahub.ingestion.source.mode as mode_module
+
+        assert mode_module._worker_graph is None
+
+    def test_init_worker_with_graph_config(self):
+        """_init_sql_parse_worker with a config dict creates a DataHubGraph."""
+        from unittest.mock import patch as _patch
+
+        import datahub.ingestion.source.mode as mode_module
+        from datahub.ingestion.source.mode import _init_sql_parse_worker
+
+        mock_graph = MagicMock()
+        with _patch(
+            "datahub.ingestion.graph.client.DataHubGraph", return_value=mock_graph
+        ):
+            _init_sql_parse_worker({"server": "http://localhost:8080"})
+
+        assert mode_module._worker_graph is mock_graph
+        # Clean up
+        mode_module._worker_graph = None
