@@ -266,9 +266,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                     catalog_config[S3_ACCESS_KEY_ID] = creds["AccessKeyId"]
                     catalog_config[S3_SECRET_ACCESS_KEY] = creds["SecretAccessKey"]
                     catalog_config[S3_SESSION_TOKEN] = creds["SessionToken"]
-                    logger.debug(
-                        "Also injected assumed-role credentials for S3 FileIO"
-                    )
+                    logger.debug("Also injected assumed-role credentials for S3 FileIO")
 
             # Remove role-arn keys so pyiceberg doesn't attempt its own
             # (broken) role assumption on top of our credentials
