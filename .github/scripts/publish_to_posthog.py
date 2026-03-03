@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from utils.clients.posthog.ci_reporter import PostHogCIReporter
+from utils.posthog.ci_reporter import PostHogCIReporter
 
 
 def main() -> int:

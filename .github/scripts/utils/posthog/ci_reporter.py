@@ -4,6 +4,8 @@ from typing import Any
 
 import posthog
 
+from utils.datetime_utils import parse_dt
+
 POSTHOG_HOST = "https://us.i.posthog.com"
 
 
@@ -23,14 +25,18 @@ class PostHogCIReporter:
                 posthog.capture(
                     distinct_id=repo,
                     event="ci_step_completed",
-                    properties={**workflow_props, **job_props, **self._step_props(step)},
-                    timestamp=step.get("completed_at"),
+                    properties={
+                        **workflow_props,
+                        **job_props,
+                        **self._step_props(step),
+                    },
+                    timestamp=parse_dt(step.get("completed_at")),
                 )
             posthog.capture(
                 distinct_id=repo,
                 event="ci_job_completed",
                 properties={**workflow_props, **job_props},
-                timestamp=job.get("completed_at"),
+                timestamp=parse_dt(job.get("completed_at")),
             )
 
         posthog.capture(
