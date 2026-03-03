@@ -184,10 +184,6 @@ class NotebookKey(DatahubKey):
         )
 
 
-class NamespaceKey(ContainerKey):
-    namespace: str
-
-
 KeyType = TypeVar("KeyType", bound=ContainerKey)
 
 

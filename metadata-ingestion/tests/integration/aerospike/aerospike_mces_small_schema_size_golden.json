@@ -280,6 +280,42 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "a_level1",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "a_level1.a_level2",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "a_level1.a_level2.a_level3",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "age",
                     "nullable": false,
                     "type": {
@@ -326,42 +362,6 @@
                     "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "favoriteFood.name",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "mixedType",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.UnionType": {}
-                        }
-                    },
-                    "nativeDataType": "mixed",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "legs",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "integer",
-                    "recursive": false,
-                    "isPartOfKey": false
                 }
             ],
             "primaryKeys": [
@@ -383,8 +383,10 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "schema.truncated": "True",
+                "schema.totalDepth": "4",
                 "schema.downsampled": "True",
-                "schema.totalFields": "22"
+                "schema.totalFields": "25"
             },
             "name": "first_set",
             "tags": []

@@ -12,6 +12,13 @@
     ],
     "seen": "2024-10-29T12:00:00Z",
     "canSwim": false,
+    "a_level1": {
+      "a_level2": {
+        "a_level3": {
+          "a_level4": 4
+        }
+      }
+    },
     "favoriteFood": {
       "name": "lasagna",
       "calories": 4000,
@@ -47,6 +54,13 @@
     ],
     "seen": "2024-10-29T12:00:00Z",
     "canSwim": false,
+    "a_level1": {
+      "a_level2": {
+        "a_level3": {
+          "a_level4": 5
+        }
+      }
+    },
     "favoriteFood": {
       "name": "dog food",
       "calories": 1000,
@@ -71,6 +85,13 @@
     ],
     "seen": "2024-10-29T12:00:00Z",
     "canSwim": false,
+    "a_level1": {
+      "a_level2": {
+        "a_level3": {
+          "a_level4": 6
+        }
+      }
+    },
     "favoriteFood": {
       "name": "who knows",
       "calories": null,
@@ -91,6 +112,13 @@
     ],
     "seen": "2024-10-29T12:00:00Z",
     "canSwim": true,
+    "a_level1": {
+      "a_level2": {
+        "a_level3": {
+          "a_level4": 7
+        }
+      }
+    },
     "favoriteFood": {
       "name": "crab",
       "calories": 500,

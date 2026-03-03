@@ -246,8 +246,12 @@ def construct_schema_aerospike(
         query.max_records = sample_size
     query.records_per_second = records_per_second
 
-    res = query.results()
-    records = [{**record[2], "PK": record[0][2]} for record in res]
+    try:
+        res = query.results()
+        records = [{**record[2], "PK": record[0][2]} for record in res]
+    except Exception as e:
+        logger.error(f"Error querying Aerospike set: {e}")
+        records = []
     return construct_schema(records, delimiter)
 
 
@@ -302,7 +306,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
             if self.config.tls_cafile is not None:
                 client_config["tls"]["cafile"] = self.config.tls_cafile
 
-        self.aerospike_client = aerospike.client(client_config).connect()
+        try:
+            self.aerospike_client = aerospike.client(client_config).connect()
+        except Exception as e:
+            logger.error(f"Error connecting to Aerospike: {e}")
+            raise e
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AerospikeSource":
@@ -365,19 +373,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        sets_info: str = self.aerospike_client.info_random_node("sets")
-        sets_info = (
-            sets_info[len("sets\t") :] if sets_info.startswith("sets\t") else sets_info
-        )
-        sets_info = sets_info[: -len(";\n")] if sets_info.endswith(";\n") else sets_info
-
-        all_sets: List[AerospikeSet] = [
-            AerospikeSet(item) for item in sets_info.split(";") if item
-        ]
-        if self.config.ignore_empty_sets:
-            all_sets = [
-                aerospike_set for aerospike_set in all_sets if aerospike_set.objects > 0
-            ]
+        all_sets = self.get_sets()
 
         namespaces = list(set([aerospike_set.ns for aerospike_set in all_sets]))
 
@@ -471,60 +467,49 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     )
                 ]
 
+    def get_sets(self) -> List[AerospikeSet]:
+        sets_info: str = self.aerospike_client.info_random_node("sets")
+        sets_info = (
+            sets_info[len("sets\t") :] if sets_info.startswith("sets\t") else sets_info
+        )
+        sets_info = sets_info[: -len(";\n")] if sets_info.endswith(";\n") else sets_info
+
+        all_sets: List[AerospikeSet] = [
+            AerospikeSet(item) for item in sets_info.split(";") if item
+        ]
+        if self.config.ignore_empty_sets:
+            all_sets = [
+                aerospike_set for aerospike_set in all_sets if aerospike_set.objects > 0
+            ]
+        return all_sets
+
     def _infer_schema_metadata(
         self,
         dataset_urn: DatasetUrn,
         as_set: AerospikeSet,
         dataset_properties: DatasetPropertiesClass,
     ) -> SchemaMetadata:
-        set_schema: Dict[
-            Tuple[str, ...], SchemaDescription
-        ] = construct_schema_aerospike(
-            client=self.aerospike_client,
-            as_set=as_set,
-            delimiter=".",
-            records_per_second=self.config.records_per_second,
-            sample_size=self.config.schemaSamplingSize,
+        set_full_schema: Dict[Tuple[str, ...], SchemaDescription] = (
+            construct_schema_aerospike(
+                client=self.aerospike_client,
+                as_set=as_set,
+                delimiter=".",
+                records_per_second=self.config.records_per_second,
+                sample_size=self.config.schemaSamplingSize,
+            )
         )
 
-        if self.config.inferSchemaDepth != -1:
-            # Infer schema only at the bins level
-            set_schema = {
-                k: v
-                for k, v in set_schema.items()
-                if len(k) <= self.config.inferSchemaDepth
-            }
+        set_schema, dataset_properties = self.limit_schema_size(
+            set_full_schema, dataset_properties
+        )
 
-        # initialize the schema for the set
-        canonical_schema: List[SchemaField] = []
-        max_schema_size = self.config.maxSchemaSize
-        set_schema_size = len(set_schema.values())
-        set_fields: Union[
-            List[SchemaDescription], ValuesView[SchemaDescription]
-        ] = set_schema.values()
-        assert max_schema_size is not None
-        if set_schema_size > max_schema_size:
-            # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
-                title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {set_schema_size}, Collection: {dataset_urn}",
-            )
-            # Add this information to the custom properties so user can know they are looking at downsampled schema
-            dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties[
-                "schema.totalFields"
-            ] = f"{set_schema_size}"
-
-        logger.debug(f"Size of set fields = {len(set_fields)}")
+        set_fields: Union[List[SchemaDescription], ValuesView[SchemaDescription]] = (
+            set_schema.values()
+        )
+        logger.debug(f"Size of set {as_set.set} fields = {len(set_fields)}")
         # append each schema field (sort so output is consistent)
-        for schema_field in sorted(
-            set_fields,
-            key=lambda x: (
-                -x["count"],
-                x["delimited_name"],
-            ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
-        )[0:max_schema_size]:
+        canonical_schema: List[SchemaField] = []
+        for schema_field in set_fields:
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],
                 nativeDataType=self.get_aerospike_type_string(
@@ -547,6 +532,60 @@ class AerospikeSource(StatefulIngestionSourceBase):
             fields=canonical_schema,
             primaryKeys=["PK"],
         )
+
+    def limit_schema_size(
+        self,
+        schema: Dict[Tuple[str, ...], SchemaDescription],
+        dataset_properties: DatasetPropertiesClass,
+    ) -> Tuple[Dict[Tuple[str, ...], SchemaDescription], DatasetPropertiesClass]:
+        """
+        Limits the size of the schema to the maxSchemaSize and inferSchemaDepth
+        """
+
+        # print([{"delimited_name": x["delimited_name"], "count": x["count"] } for x in schema.values()])
+
+        if self.config.inferSchemaDepth != -1:
+            # Infer schema only at the specified depth
+            truncated_schema = {
+                k: v
+                for k, v in schema.items()
+                if len(k) <= self.config.inferSchemaDepth
+            }
+            if len(truncated_schema) < len(schema):
+                print(f"Truncated schema from {len(schema)} to {len(truncated_schema)}")
+                schema_depth = max([len(k) for k in schema])
+                self.report.report_warning(
+                    title="Schema depth limit reached",
+                    message=f"Truncating the collection schema because it has too many nested levels. Configured threshold is {self.config.inferSchemaDepth}",
+                    context=f"Schema Depth: {len(schema)}",
+                )
+                dataset_properties.customProperties["schema.truncated"] = "True"
+                dataset_properties.customProperties["schema.totalDepth"] = (
+                    f"{schema_depth}"
+                )
+                schema = truncated_schema
+
+        schema_size = len(schema)
+        max_schema_size = self.config.maxSchemaSize
+        if max_schema_size is not None and schema_size > max_schema_size:
+            self.report.report_warning(
+                title="Too many schema fields",
+                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
+                context=f"Schema Size: {schema_size}",
+            )
+            dataset_properties.customProperties["schema.downsampled"] = "True"
+            dataset_properties.customProperties["schema.totalFields"] = f"{schema_size}"
+            # downsample the schema, using frequency as the sort key
+            schema = dict(
+                sorted(
+                    schema.items(),
+                    key=lambda x: (
+                        -x[1]["count"],
+                        x[1]["delimited_name"],
+                    ),
+                )[0:max_schema_size]
+            )
+        return schema, dataset_properties
 
     def xdr_sets(self, namespace: str, sets: List[str]) -> Dict[str, List[str]]:
         sets_dc: Dict[str, List[str]] = {key: [] for key in sets}

@@ -5,7 +5,7 @@ import aerospike
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
@@ -55,7 +55,7 @@ def test_aerospike_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                 "source": {
                     "type": "aerospike",
                     "config": {
-                        "inferSchemaDepth": -1,
+                        "inferSchemaDepth": 3,
                         "maxSchemaSize": 10,
                         "platform_instance": "instance",
                     },
