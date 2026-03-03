@@ -51,7 +51,8 @@ public class SearchClientShimFactory {
             .withPathPrefix(esConfig.getPathPrefix())
             .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
             .withThreadCount(esConfig.getThreadCount())
-            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout());
+            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout())
+            .withSocketTimeout(esConfig.getSocketTimeout());
 
     // Determine how to create the shim
     if (shimAutoDetectEngine) {

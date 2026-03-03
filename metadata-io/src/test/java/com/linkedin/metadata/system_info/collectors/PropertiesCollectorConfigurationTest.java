@@ -569,6 +569,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
+          "elasticsearch.socketTimeout",
           "elasticsearch.host",
           "elasticsearch.idHashAlgo",
           "elasticsearch.implementation",

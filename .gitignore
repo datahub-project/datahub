@@ -84,6 +84,11 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+
+# Generated flag classification manifest (produced by generateFlagClassification Gradle task)
+scripts/generated/
+# Dev-scripts ruff venv (managed by scriptsInstallRuff Gradle task)
+scripts/.venv/
 tmp*
 temp/**
 
@@ -101,6 +106,10 @@ coverage*.xml
 
 # Local dev environment overrides (user-specific GMS/Kafka settings)
 docker/profiles/my-settings.env
+
+# Agents Skills
+.agents/
+skills-lock.json
 
 # Claude ignores
 .claude/
