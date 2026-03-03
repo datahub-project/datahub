@@ -11,13 +11,15 @@ _QUERY_SEQUENCE_LIMIT = 290
 
 _MAX_COPY_ENTRIES_PER_TABLE = 20
 
-# TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size (200 for provisioned,
-# 4000 for serverless) to decide whether to add a space when stitching segments. This
-# approach can't distinguish between padding and tokens that exactly fill a segment.
-# Edge case: a 199-char token followed by a segment boundary gets a spurious space.
-# Future: implement keyword-aware fallback with CHR(1) markers (SQL marks boundaries,
-# Python detects keywords) to preserve identifiers split mid-word while correctly
-# separating keywords at boundaries.
+_PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
+_SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
+
+# TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size to decide whether to
+# add a space when stitching segments. This approach can't distinguish between padding
+# and tokens that exactly fill a segment. Edge case: a 199-char token followed by a
+# segment boundary gets a spurious space. Future: implement keyword-aware fallback
+# with CHR(1) markers (SQL marks boundaries, Python detects keywords) to preserve
+# identifiers split mid-word while correctly separating keywords at boundaries.
 
 
 class RedshiftCommonQuery:
@@ -519,7 +521,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                         SELECT
                             query,
                             userid,
-                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                                 WITHIN GROUP (ORDER BY sequence)) AS querytxt
                         FROM STL_QUERYTEXT
                         WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
@@ -585,6 +587,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                         order by cluster, target_schema, target_table, starttime asc
                     """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -632,7 +635,7 @@ with query_txt as (
     select
         query,
         pid,
-        RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+        RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
             WITHIN GROUP (ORDER BY sequence)) as ddl
     from (
         select
@@ -687,6 +690,7 @@ group by
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -729,7 +733,7 @@ from (
                 xid,
                 type,
                 userid,
-                RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')
+                RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                     WITHIN GROUP (ORDER BY sequence)) as query_text
             from
                 SVL_STATEMENTTEXT
@@ -959,7 +963,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     table_id as source_table_id,
                     queries.query_id as query_id,
                     username,
-                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < 4000 THEN ' ' ELSE '' END, '')
+                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                         WITHIN GROUP (ORDER BY sequence)) AS query_text
                 FROM
                     "queries" LEFT JOIN
@@ -998,6 +1002,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             WHERE source_table_id <> target_table_id
             ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
                     """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1048,7 +1053,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 target_table,
                 username,
                 query_id,
-                RTRIM(LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < 4000 THEN ' ' ELSE '' END, '')
+                RTRIM(LISTAGG(RTRIM(querytxt) || CASE WHEN LEN(RTRIM(querytxt)) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                     WITHIN GROUP (ORDER BY sequence)) AS ddl,
                 ANY_VALUE(session_id) AS session_id,
                 starttime AS timestamp
@@ -1086,6 +1091,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ORDER BY cluster, query_id, target_schema, target_table, starttime ASC
             ;
                 """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -1130,7 +1136,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             qh.transaction_id AS transaction_id,
                                             qh.start_time AS start_time,
                                             qh.user_id AS userid,
-                                            RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < 4000 THEN ' ' ELSE '' END, '')
+                                            RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                                                 WITHIN GROUP (ORDER BY sequence)) AS query_text
                                     FROM
                                             SYS_QUERY_HISTORY qh
