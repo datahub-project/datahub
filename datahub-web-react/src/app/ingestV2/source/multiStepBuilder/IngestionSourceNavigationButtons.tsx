@@ -15,6 +15,10 @@ const ButtonsContainer = styled.div`
     gap: 8px;
 `;
 
+const ButtonWithoutWrapping = styled(Button)`
+    white-space: nowrap;
+`;
+
 export default function IngestionSourceNavigationButtons() {
     const { submit, cancel, isFinalStep, isCurrentStepCompleted } = useMultiStepContext<
         MultiStepSourceBuilderState,
@@ -48,14 +52,14 @@ export default function IngestionSourceNavigationButtons() {
         const buttons: React.ReactNode[] = [];
 
         buttons.push(
-            <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
+            <ButtonWithoutWrapping key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
                 Cancel
-            </Button>,
+            </ButtonWithoutWrapping>,
         );
 
         if (isFinalStep()) {
             buttons.push(
-                <Button
+                <ButtonWithoutWrapping
                     size="sm"
                     variant="outline"
                     disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress}
@@ -63,15 +67,15 @@ export default function IngestionSourceNavigationButtons() {
                     data-testid="save-button"
                 >
                     Save
-                </Button>,
-                <Button
+                </ButtonWithoutWrapping>,
+                <ButtonWithoutWrapping
                     size="sm"
                     disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress}
                     onClick={onSaveAndRun}
                     data-testid="save-and-run-button"
                 >
                     Save and Run
-                </Button>,
+                </ButtonWithoutWrapping>,
             );
         }
 
