@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Load GraphQL queries
 _gql_dir = pathlib.Path(__file__).parent / "gql"
-search_gql = (_gql_dir / "search.gql").read_text()
+search_gql = (_gql_dir / "search_queries.gql").read_text()
 
 
 def search(
