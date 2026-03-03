@@ -35,9 +35,7 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
     # Parse entity_type filter if provided
     filters = {}
@@ -49,7 +47,7 @@ try:
             # If not valid JSON, treat as single entity type
             filters["entity_type"] = [entity_type]
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return search(
             query=search_query,
             filters=filters if filters else None,

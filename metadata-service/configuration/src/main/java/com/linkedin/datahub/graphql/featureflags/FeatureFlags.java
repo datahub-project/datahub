@@ -57,4 +57,5 @@ public class FeatureFlags {
   private boolean documentationFileUploadV1 = false;
   private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
+  private boolean glossaryBasedPoliciesEnabled = false;
 }

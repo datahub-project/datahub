@@ -36,11 +36,9 @@ try:
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
     datahub_url = datahub_url.rstrip('/')
 
-    graph = DataHubGraph(
-        config=DatahubClientConfig(server=datahub_url, token=datahub_token)
-    )
+    client = DataHubClient(server=datahub_url, token=datahub_token)
 
-    with DataHubContext(graph):
+    with DataHubContext(client):
         return get_dataset_queries(
             urn=urn,
             column=column_name if column_name else None,

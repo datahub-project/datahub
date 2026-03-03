@@ -29,13 +29,13 @@ RETURNS {return_type}
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.10'
 ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository
-PACKAGES = ('datahub-agent-context>=1.3.1.8')
+PACKAGES = ('datahub-agent-context==1.4.0.3')
 SECRETS = ('datahub_url_secret' = datahub_url, 'datahub_token_secret' = datahub_token)
 EXTERNAL_ACCESS_INTEGRATIONS = (datahub_access)
 HANDLER = '{function_name.lower()}'
 AS $$
 import _snowflake
-from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
+from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.context import DataHubContext
 
 def {function_name.lower()}({py_param_names}):
