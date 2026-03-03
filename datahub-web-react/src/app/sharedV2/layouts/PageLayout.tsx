@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 const Card = styled.div`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     overflow: hidden;
