@@ -261,15 +261,17 @@ def test_trino_gen_lineage_workunit_includes_fine_grained_lineage_when_schema_pr
     assert fgl is not None
     assert len(fgl) == 4
     for fg in fgl:
+        assert fg.upstreams is not None
+        assert fg.downstreams is not None
         assert len(fg.upstreams) == 1
         assert len(fg.downstreams) == 1
         assert "iceberg" in fg.upstreams[0]
         assert "trino" in fg.downstreams[0]
     assert make_schema_field_urn(source_dataset_urn, "accountid") in [
-        fg.upstreams[0] for fg in fgl
+        fg.upstreams[0] for fg in fgl if fg.upstreams
     ]
     assert make_schema_field_urn(dataset_urn, "accountid") in [
-        fg.downstreams[0] for fg in fgl
+        fg.downstreams[0] for fg in fgl if fg.downstreams
     ]
 
 
