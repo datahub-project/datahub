@@ -1862,6 +1862,32 @@
       "platform_name": "Kafka Connect",
       "support_status": "CERTIFIED"
     },
+    "kinesis": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
+      "platform_id": "kinesis",
+      "platform_name": "Kinesis",
+      "support_status": "INCUBATING"
+    },
     "ldap": {
       "capabilities": [
         {
