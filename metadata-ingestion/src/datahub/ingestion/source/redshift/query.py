@@ -11,6 +11,14 @@ _QUERY_SEQUENCE_LIMIT = 290
 
 _MAX_COPY_ENTRIES_PER_TABLE = 20
 
+# TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size (200 for provisioned,
+# 4000 for serverless) to decide whether to add a space when stitching segments. This
+# approach can't distinguish between padding and tokens that exactly fill a segment.
+# Edge case: a 199-char token followed by a segment boundary gets a spurious space.
+# Future: implement keyword-aware fallback with CHR(1) markers (SQL marks boundaries,
+# Python detects keywords) to preserve identifiers split mid-word while correctly
+# separating keywords at boundaries.
+
 
 class RedshiftCommonQuery:
     CREATE_TEMP_TABLE_CLAUSE = "create temp table"
