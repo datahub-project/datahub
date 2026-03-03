@@ -11,6 +11,30 @@ This guide extends the [Configuring Remote Executor](./setting-up-remote-ingesti
 
 This guide covers configuring cloud workload identity for the DataHub Executor Worker on GKE, EKS, and AKS. Using workload identity allows your executor pods to authenticate to **any cloud resource** without storing passwords or long-lived credentials, following cloud security best practices.
 
+## Before You Begin
+
+Before starting, collect the following placeholder values used throughout this guide:
+
+| Placeholder                         | Description                           | Example                           |
+| ----------------------------------- | ------------------------------------- | --------------------------------- |
+| **All Platforms**                   |                                       |                                   |
+| `<DATAHUB-ACCESS-TOKEN>`            | DataHub personal access token         | `eyJhbGc...`                      |
+| `your-company.acryl.io`             | Your DataHub Cloud instance hostname  | `acme.acryl.io`                   |
+| `datahub`                           | Kubernetes namespace for the executor | `datahub`                         |
+| **GCP**                             |                                       |                                   |
+| `my-gcp-project`                    | GCP project ID                        | `acme-prod-123`                   |
+| `my-gke-cluster`                    | GKE cluster name                      | `datahub-cluster`                 |
+| `us-central1`                       | GKE cluster region                    | `us-central1`                     |
+| **AWS**                             |                                       |                                   |
+| `123456789012`                      | AWS account ID                        | `123456789012`                    |
+| `my-eks-cluster`                    | EKS cluster name                      | `datahub-cluster`                 |
+| `us-west-2`                         | AWS region                            | `us-west-2`                       |
+| `EXAMPLED539D4633E53DE44288EXAMPLE` | EKS OIDC provider ID                  | (from `aws eks describe-cluster`) |
+| **Azure**                           |                                       |                                   |
+| `my-resource-group`                 | Azure resource group                  | `datahub-rg`                      |
+| `my-aks-cluster`                    | AKS cluster name                      | `datahub-cluster`                 |
+| `<IDENTITY_CLIENT_ID>`              | Managed identity client ID            | (from `az identity show`)         |
+
 ## Overview
 
 Cloud workload identity enables pods to authenticate as cloud service accounts without explicit credentials:
@@ -155,14 +179,28 @@ helm install datahub-executor ./charts/datahub-executor-worker \
 
 ### 6. Verify Configuration
 
+:::note CLI Tool Availability
+The verification commands below use `gcloud` and `bq` CLI tools. These are **not pre-installed** in the executor worker image. To run these commands, use `kubectl exec` with a temporary container that includes the Google Cloud SDK, or verify connectivity through a DataHub ingestion test run instead.
+:::
+
+```bash
+# Verify the service account annotation is correct
+kubectl describe sa datahub-executor-sa -n datahub
+
+# Verify the pod metadata server returns the expected service account
+kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
+  curl -s -H "Metadata-Flavor: Google" \
+  http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email
+```
+
+If you have `gcloud`/`bq` available in a debug container:
+
 ```bash
 # Verify the pod is authenticated to GCP
-kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
-  gcloud auth list
+gcloud auth list
 
 # Test BigQuery access
-kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
-  bq ls --project_id=my-gcp-project
+bq ls --project_id=my-gcp-project
 ```
 
 ---
@@ -238,6 +276,19 @@ Create a policy file (`rds-policy.json`):
   ]
 }
 ```
+
+:::tip Production Hardening
+In production, scope `"Resource"` to specific ARNs instead of `"*"` to follow least-privilege principles. For example:
+
+```json
+"Resource": [
+  "arn:aws:rds:us-west-2:123456789012:db:my-database",
+  "arn:aws:rds:us-west-2:123456789012:cluster:my-cluster"
+]
+```
+
+See [AWS IAM policy best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege) for guidance on restricting resource scope.
+:::
 
 Create the policy:
 
@@ -327,13 +378,24 @@ helm install datahub-executor ./charts/datahub-executor-worker \
 
 ### 5. Verify Configuration
 
-```bash
-# Verify the pod has AWS credentials
-kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- env | grep AWS
+:::note CLI Tool Availability
+The `aws` CLI is **not pre-installed** in the executor worker image. The environment variable check below works without the CLI. To test AWS API access, use a DataHub ingestion test run or a temporary debug container with the AWS CLI installed.
+:::
 
+```bash
+# Verify the service account annotation is correct
+kubectl describe sa datahub-executor-sa -n datahub
+
+# Verify the pod has AWS credentials injected by IRSA
+kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- env | grep AWS
+# Expected: AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE
+```
+
+If you have the `aws` CLI available in a debug container:
+
+```bash
 # Test RDS access
-kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
-  aws rds describe-db-instances --region us-west-2
+aws rds describe-db-instances --region us-west-2
 ```
 
 ---
@@ -478,7 +540,11 @@ global:
       pool_id: "remote"
 ```
 
-**Note:** The chart needs to support `podLabels` or `extraPodLabels` for Azure Workload Identity to work. If using the existing chart, use `extraPodLabels`:
+:::caution Helm Chart Pod Label Support
+Azure Workload Identity requires the label `azure.workload.identity/use: "true"` on pods. The executor worker Helm chart may not yet support `podLabels` or `extraPodLabels` natively. If your chart version does not support these values, use the `extraPodLabels` workaround shown below. Track [datahub-helm#XXX](https://github.com/acryldata/datahub-helm/issues) for native support.
+:::
+
+If the chart supports `extraPodLabels`, use this configuration:
 
 ```yaml
 serviceAccount:
@@ -516,16 +582,27 @@ helm install datahub-executor ./charts/datahub-executor-worker \
 
 ### 6. Verify Configuration
 
+:::note CLI Tool Availability
+The `az` CLI is **not pre-installed** in the executor worker image. The label and environment variable checks below work without the CLI. To test Azure API access, use a DataHub ingestion test run or a temporary debug container with the Azure CLI installed.
+:::
+
 ```bash
+# Verify the service account annotation is correct
+kubectl describe sa datahub-executor-sa -n datahub
+
 # Verify the pod has the workload identity label
 kubectl get pod -n datahub -l app.kubernetes.io/name=datahub-executor-worker -o jsonpath='{.items[0].metadata.labels}'
 
-# Verify environment variables
+# Verify environment variables injected by workload identity
 kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- env | grep AZURE
+# Expected: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE
+```
 
+If you have the `az` CLI available in a debug container:
+
+```bash
 # Test Azure SQL access
-kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub -- \
-  az sql server list --resource-group $RESOURCE_GROUP
+az sql server list --resource-group my-resource-group
 ```
 
 ---
@@ -568,6 +645,14 @@ kubectl exec -it deployment/datahub-executor-datahub-executor-worker -n datahub 
 ---
 
 ## Additional Resources
+
+**DataHub Documentation:**
+
+- [Configuring Remote Executor](./setting-up-remote-ingestion-executor.md) - Base executor setup and Helm chart reference
+- [DataHub Executor Worker Helm Chart](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub-executor-worker) - Chart values and configuration options
+- [DataHub Cloud Security](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview#security) - Security overview for managed deployments
+
+**Cloud Provider Documentation:**
 
 - [GKE Workload Identity Documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
 - [AWS IRSA Documentation](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
