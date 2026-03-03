@@ -40,6 +40,7 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -63,6 +64,7 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -96,6 +98,7 @@ class AzurePathParts:
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -122,12 +125,14 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
     storage_options: Dict[str, str]
+    domain_registry: Optional[DomainRegistry]
 
     def __init__(self, config: DeltaLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
         self.source_config = config
         self.report: DeltaLakeSourceReport = DeltaLakeSourceReport()
+        self.domain_registry = None
         if self.source_config.is_s3:
             if (
                 self.source_config.s3 is None
@@ -135,6 +140,11 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             ):
                 raise ValueError("AWS Config must be provided for S3 base path.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
+        if self.source_config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.source_config.domain],
+                graph=self.ctx.graph,
+            )
 
         # self.profiling_times_taken = []
         config_report = {
@@ -207,6 +217,17 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn,
                 aspect=operation_aspect,
             ).as_workunit()
+
+    def _get_domain_wu(
+        self, dataset_name: str, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.source_config.domain,
+                domain_registry=self.domain_registry,
+            )
 
     def ingest_table(
         self, delta_table: DeltaTable, path: str
@@ -296,6 +317,9 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 dataset_snapshot.aspects.append(s3_tags)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
+        yield from self._get_domain_wu(
+            dataset_name=browse_path, dataset_urn=dataset_urn
+        )
 
         yield from self.container_WU_creator.create_container_hierarchy(
             browse_path, dataset_urn

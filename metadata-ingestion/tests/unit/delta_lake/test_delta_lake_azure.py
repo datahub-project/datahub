@@ -6,6 +6,7 @@ from datahub.ingestion.source.delta_lake.config import (
     DeltaLakeSourceConfig,
 )
 from datahub.ingestion.source.delta_lake.source import DeltaLakeSource
+from datahub.metadata.schema_classes import DomainsClass
 
 
 @pytest.mark.parametrize(
@@ -81,3 +82,33 @@ def test_delta_lake_az_path_requires_account_name() -> None:
         match="For `az://` and `adl://` paths, set `source.config.azure.account_name`.",
     ):
         source.get_storage_options()
+
+
+def test_delta_lake_domain_assignment_workunit() -> None:
+    config = DeltaLakeSourceConfig.model_validate(
+        {
+            "base_path": "abfss://container@acct.dfs.core.windows.net/delta",
+            "azure": {"account_key": "my-secret"},
+            "domain": {
+                "urn:li:domain:karol-test": {
+                    "allow": ["container/delta/.*"],
+                }
+            },
+        }
+    )
+    source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-domain-test"))
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:delta-lake,container/delta/table,PROD)"
+    )
+
+    domain_workunits = list(
+        source._get_domain_wu(
+            dataset_name="container/delta/table",
+            dataset_urn=dataset_urn,
+        )
+    )
+
+    assert len(domain_workunits) == 1
+    domain_aspect = domain_workunits[0].get_aspect_of_type(DomainsClass)
+    assert domain_aspect is not None
+    assert list(domain_aspect.domains) == ["urn:li:domain:karol-test"]
