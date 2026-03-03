@@ -51,8 +51,8 @@ dependencies {
     implementation(externalDependency.guava) {
       because("CVE-2023-2976")
     }
-    implementation('io.airlift:aircompressor:0.27') {
-      because("CVE-2024-36114")
+    implementation("io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}") {
+      because("CVE-2024-36114, CVE-2025-67721")
     }
     implementation('dnsjava:dnsjava:3.6.1') {
       because("CVE-2024-25638")

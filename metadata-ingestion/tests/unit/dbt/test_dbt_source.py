@@ -32,6 +32,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
+    parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -1817,6 +1818,67 @@ def test_make_assertion_result_from_freshness(
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
     assert mcp.aspect.result.type == expected
+
+
+def test_parse_freshness_criteria_with_null_fields() -> None:
+    """When dbt serializes error_after as {"count": null, "period": null},
+    parse_freshness_criteria should return None."""
+    assert parse_freshness_criteria({"count": None, "period": None}) is None
+    assert parse_freshness_criteria({"count": 1, "period": None}) is None
+    assert parse_freshness_criteria({"count": None, "period": "hour"}) is None
+    assert parse_freshness_criteria(None) is None
+    assert parse_freshness_criteria({}) is None
+    result = parse_freshness_criteria({"count": 1, "period": "hour"})
+    assert result is not None
+    assert result.count == 1
+    assert result.period == "hour"
+
+
+def test_make_assertion_from_freshness_warn_only() -> None:
+    """Freshness assertion with warn_after only (no error_after) should be valid."""
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.test.raw.users",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.freshness_info = DBTFreshnessInfo(
+        invocation_id="test-123",
+        status="warn",
+        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        max_loaded_at_time_ago_in_s=7200.0,
+        warn_after=DBTFreshnessCriteria(count=1, period="day"),
+        error_after=None,
+    )
+
+    mcp = make_assertion_from_freshness(
+        {}, node, "urn:li:assertion:test", "urn:li:dataset:test"
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.customProperties is not None
+    assert mcp.aspect.customProperties.get("warn_after_count") == "1"
+    assert mcp.aspect.customProperties.get("warn_after_period") == "day"
+    assert "error_after_count" not in mcp.aspect.customProperties
+    assert "error_after_period" not in mcp.aspect.customProperties
+    # Validate that the aspect can be serialized without errors
+    mcp.aspect.to_obj()
 
 
 def test_extract_dbt_exposures_basic():

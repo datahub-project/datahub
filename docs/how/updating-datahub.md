@@ -39,6 +39,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Hadoop upgraded from 2.7.2 to 3.3.6 (addresses Hadoop CVEs, bundled with Spark 3.3+)
   - Note: If you're a self-hosted user still running Java 11, you must upgrade to Java 17 before deploying this release. Spark lineage users must upgrade to Spark 3.3.0+.
 - (Frontend) CustomHttpClientFactory now restricts TLS to 1.2 and 1.3 only when using a custom truststore; TLS 1.0 and 1.1 are disabled for security. If the frontend uses a custom truststore to reach GMS or an IdP that only supports TLS 1.0/1.1, those connections will fail until the server is upgraded to support at least TLS 1.2.
+- #16176: Vertex AI Source - Two breaking changes:
+  1. **Pipeline URN structure changed**: Previously, each pipeline run created a new DataFlow entity. Now, Vertex AI pipelines are modeled as stable DataFlow entities (one per pipeline template), with DataJobs for tasks and DataProcessInstances for individual runs. This enables proper incremental lineage aggregation. Pipeline URNs now use the compiled pipeline spec name (`pipelineInfo.name`, e.g. the `@pipeline(name="...")` argument in Kubeflow Pipelines) as the stable identifier; non-Kubeflow pipelines fall back to `display_name` with any timestamp suffix stripped. After upgrading, existing pipeline entities will appear as separate entities from new ingestion runs. To clean up old entities, enable stateful ingestion with stale entity removal.
+  2. **ML Metadata extraction now enabled by default**: Enhanced ML Metadata extraction for CustomJob lineage, hyperparameters, metrics, and model evaluations is now enabled by default. This requires additional GCP permissions: `aiplatform.metadataStores.get`, `aiplatform.metadataStores.list`, `aiplatform.executions.get`, and `aiplatform.executions.list`. If these permissions are missing, the connector gracefully falls back with warnings. To disable these features, set `use_ml_metadata_for_lineage: false`, `extract_execution_metrics: false`, and `include_evaluations: false`.
 - #16149 (Ingestion) DataHub source: now uses URN pattern filtering to exclude environment-specific entities by default. This prevents copying credentials and creating invalid entities.
   - **Default behavior change**: Previously `exclude_aspects` contained `dataHubIngestionSourceInfo`, `dataHubSecretValue`, `dataHubExecutionRequestInput`, `globalSettingsInfo`. Now `urn_pattern.deny` contains `urn:li:dataHubIngestionSource:.*`, `urn:li:dataHubSecret:.*`, `urn:li:globalSettings:.*`, `urn:li:dataHubExecutionRequest:.*` to exclude entire entity types instead of individual aspects.
   - **Note**: If you override `urn_pattern` or `exclude_aspects` in recipe, carefully configure them based on your requirements to avoid syncing sensitive data or creating invalid entities. Recommended to keep new defaults.
@@ -49,8 +52,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- #16176: Vertex AI Source - The `region` configuration field is deprecated in favor of `regions` (list type). The `region` field continues to work for backward compatibility.
+- #16176: Vertex AI Source - Partition handling behavior will change in a future major version. Currently, `normalize_external_dataset_paths` defaults to `false`, meaning partitioned paths like `gs://bucket/data/year=2024/month=01/` create separate dataset entities. In the next major version, this will default to `true`, normalizing paths to `gs://bucket/data/` for stable dataset URNs with lineage aggregation across partitions. To opt-in to the new behavior now, set `normalize_external_dataset_paths: true` in your configuration.
+
 ### Other Notable Changes
 
+- #16176: Vertex AI Source Connector - Additional improvements beyond breaking changes:
+  - Cross-platform lineage to external data sources (GCS, BigQuery, S3, Azure Blob Storage, Snowflake) referenced in training jobs, with configurable platform instances via `platform_instance_map` to ensure URNs match native connectors
+  - UI organization improved with hierarchical folders: model versions appear under their model group folders, and pipeline tasks nest under their parent pipelines
+  - Enhanced lineage relationships: direct model→dataset relationships via TrainingData aspect; experiment run→model outputs and pipeline task run→model/dataset lineage via DataProcessInstance aspects
+  - For performance with large projects (1000+ training jobs), use stateful ingestion (recommended) which only processes new/changed resources on subsequent runs. Limits like `max_training_jobs_per_type` control which resources are processed and sent to DataHub (most recently updated N items)
+  - Optional `platform_instance` configuration field for environments running multiple Vertex AI instances
+  - Existing ingestion configurations continue to work without modification, and URNs remain unchanged unless `platform_instance` is explicitly configured
 - #16142: Oracle ingestion: Fixed database container naming when using `service_name` instead of `database` configuration. Previously, Oracle containers had no name (only an ID) when using `service_name` with `data_dictionary_mode: ALL` (the default). Container URNs will change for affected users as the database name is now properly populated in the container GUID. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up the old containers and create properly named ones. This fix also ensures database names are normalized consistently with schema and table names.
 
 ## v1.4.0
