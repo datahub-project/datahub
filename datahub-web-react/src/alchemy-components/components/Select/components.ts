@@ -1,5 +1,4 @@
 import { Button } from '@components';
-import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
@@ -15,7 +14,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import { colors, radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+import { radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -23,8 +22,8 @@ const sharedTransition = `${transition.property.colors} ${transition.easing['eas
  * Base Select component styling
  */
 export const SelectBase = styled.div<SelectStyleProps>(
-    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position }) => ({
-        ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen }),
+    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position, theme }) => ({
+        ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen, theme }),
         display: 'flex',
         flexDirection: 'row' as const,
         gap: spacing.xsm,
@@ -35,7 +34,7 @@ export const SelectBase = styled.div<SelectStyleProps>(
         alignItems: 'center',
         overflow: 'auto',
         textWrapMode: 'nowrap',
-        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
+        backgroundColor: 'inherit',
         width: width === 'full' ? '100%' : 'max-content',
     }),
 );
@@ -96,13 +95,13 @@ export const Container = styled.div<ContainerProps>(({ size, width, $minWidth, $
     };
 });
 
-export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
+export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight, theme }) => ({
     ...getDropdownStyle(),
-    borderRadius: radius.md,
-    background: colors.white,
+    borderRadius: radius.lg,
+    background: theme.colors.bg,
     zIndex: zIndices.dropdown,
     transition: sharedTransition,
-    boxShadow: shadows.dropdown,
+    boxShadow: theme.colors.shadowMd,
     padding: spacing.xsm,
     display: 'flex',
     flexDirection: 'column',
@@ -114,15 +113,15 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
 }));
 
 // Styled components for SelectValue (Selected value display)
-export const SelectValue = styled.span({
+export const SelectValue = styled.span(({ theme }) => ({
     ...inputValueTextStyles(),
-    color: colors.gray[600],
-});
+    color: theme.colors.textSecondary,
+}));
 
-export const Placeholder = styled.span({
+export const Placeholder = styled.span(({ theme }) => ({
     ...inputPlaceholderTextStyles,
-    color: colors.gray[1800],
-});
+    color: theme.colors.text,
+}));
 
 export const ActionButtonsContainer = styled.div({
     display: 'flex',
@@ -154,16 +153,16 @@ export const OptionContainer = styled.div({
     flexDirection: 'column',
 });
 
-export const DescriptionContainer = styled.span({
+export const DescriptionContainer = styled.span(({ theme }) => ({
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     width: '100%',
-    color: colors.gray[500],
+    color: theme.colors.textSecondary,
     lineHeight: 'normal',
     fontSize: typography.fontSizes.sm,
     marginTop: spacing.xxsm,
-});
+}));
 
 export const LabelsWrapper = styled.div<{ shouldShowGap?: boolean }>(({ shouldShowGap = false }) => ({
     display: 'flex',
@@ -178,8 +177,8 @@ export const OptionLabel = styled.label<{
     isMultiSelect?: boolean;
     isDisabled?: boolean;
     applyHoverWidth?: boolean;
-}>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth }) => ({
-    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth),
+}>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme }) => ({
+    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme),
 }));
 
 export const SelectLabel = styled.label({
@@ -188,63 +187,58 @@ export const SelectLabel = styled.label({
     textAlign: 'left',
 });
 
-export const StyledIcon = styled(Icon)({
+export const StyledIcon = styled(Icon)(({ theme }) => ({
     flexShrink: 0,
-    color: colors.gray[1800],
-});
+    color: theme.colors.text,
+}));
 
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
-})({
-    color: colors.gray[1800],
+})(({ theme }) => ({
+    color: theme.colors.text,
     padding: '0px',
 
     '&:hover': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        borderColor: colors.transparent,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
         boxShadow: shadows.none,
     },
 
     '&:focus': {
         border: 'none',
-        backgroundColor: colors.transparent,
-        boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
+        backgroundColor: 'transparent',
+        boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${theme.colors.borderBrand}`,
     },
-});
+}));
 
 export const ClearIcon = styled.span({
     cursor: 'pointer',
     marginLeft: '8px',
 });
 
-export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
+export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) => ({
     marginLeft: 'auto',
-    border: 'solid black',
+    border: `solid ${theme.colors.text}`,
     borderWidth: '0 1px 1px 0',
     display: 'inline-block',
     padding: '3px',
     transform: isOpen ? 'rotate(-135deg)' : 'rotate(45deg)',
 }));
 
-export const StyledCheckbox = styled(Checkbox)({
-    '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
-        backgroundColor: `${(props) => props.theme.styles['primary-color']}`,
-        borderColor: `${(props) => props.theme.styles['primary-color']} !important`,
-    },
-});
+export { Checkbox as StyledCheckbox } from '@components/components/Checkbox';
 
-export const StyledBubbleButton = styled(Button)({
-    backgroundColor: colors.gray[200],
-    border: `1px solid ${colors.gray[200]}`,
-    color: colors.black,
+export const StyledBubbleButton = styled(Button)(({ theme }) => ({
+    backgroundColor: theme.colors.bgHover,
+    border: `1px solid ${theme.colors.bgHover}`,
+    color: theme.colors.text,
     padding: '1px',
-});
+}));
 
 export const HighlightedLabel = styled.span`
-    background-color: ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgHighlight};
     padding: 4px 6px;
-    border-radius: 8px;
+    border-radius: ${radius.md};
     font-size: ${typography.fontSizes.sm};
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;

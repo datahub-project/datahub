@@ -2,12 +2,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { LabelContainer, StyledCheckbox } from '@components/components/Select/components';
-import { colors, spacing, typography } from '@components/theme';
+import { spacing, typography } from '@components/theme';
 
-const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(({ isSelected, isDisabled }) => ({
+const SelectAllOption = styled.div<{ isDisabled?: boolean }>(({ isDisabled, theme }) => ({
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     padding: spacing.xsm,
-    color: isSelected ? colors.violet[700] : colors.gray[500],
+    color: theme.colors.text,
     fontWeight: typography.fontWeights.semiBold,
     fontSize: typography.fontSizes.md,
     display: 'flex',
@@ -23,10 +23,15 @@ interface Props {
 
 export default function DropdownSelectAllOption({ label, selected, onClick, disabled }: Props) {
     return (
-        <SelectAllOption isSelected={selected} onClick={onClick} isDisabled={disabled}>
+        <SelectAllOption onClick={onClick} isDisabled={disabled}>
             <LabelContainer>
                 <span>{label}</span>
-                <StyledCheckbox checked={selected} disabled={disabled} />
+                <StyledCheckbox
+                    isChecked={selected}
+                    isDisabled={disabled}
+                    onCheckboxChange={() => onClick?.()}
+                    size="sm"
+                />
             </LabelContainer>
         </SelectAllOption>
     );

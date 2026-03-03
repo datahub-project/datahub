@@ -1,10 +1,12 @@
-import { Dropdown, Text, colors } from '@components';
+import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
 
 import {
     ActionButtonsContainer,
     Container,
+    DescriptionContainer,
     DropdownContainer,
     LabelContainer,
     OptionContainer,
@@ -71,6 +73,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     visibilityDeps,
     ...props
 }: SelectProps<OptionType>) => {
+    const theme = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -223,41 +226,31 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                         <span>{option.label}</span>
                                                         {!!option.description && [
                                                             <br />,
-                                                            <span style={{ color: colors.gray[400] }}>
+                                                            <span style={{ color: theme.colors.textTertiary }}>
                                                                 {option.description}
                                                             </span>,
                                                         ]}
                                                     </div>
                                                 )}
                                                 <StyledCheckbox
-                                                    onClick={() => handleOptionChange(option)}
-                                                    checked={tempValues.includes(option.value)}
-                                                    disabled={disabledValues?.includes(option.value)}
+                                                    onCheckboxChange={() => handleOptionChange(option)}
+                                                    isChecked={tempValues.includes(option.value)}
+                                                    isDisabled={disabledValues?.includes(option.value)}
+                                                    size="sm"
                                                 />
                                             </LabelContainer>
                                         ) : (
                                             <OptionContainer>
                                                 <ActionButtonsContainer>
                                                     {option.icon}
-                                                    <Text
-                                                        color={
-                                                            selectedValues.includes(option.value) ? 'violet' : 'gray'
-                                                        }
-                                                        weight="semiBold"
-                                                        size="md"
-                                                    >
+                                                    <Text weight="semiBold" size="md">
                                                         {option.label}
                                                     </Text>
                                                 </ActionButtonsContainer>
                                                 {!!option.description && (
-                                                    <Text
-                                                        color="gray"
-                                                        weight="normal"
-                                                        size="sm"
-                                                        style={{ maxWidth: descriptionMaxWidth }}
-                                                    >
+                                                    <DescriptionContainer style={{ maxWidth: descriptionMaxWidth }}>
                                                         {option.description}
-                                                    </Text>
+                                                    </DescriptionContainer>
                                                 )}
                                             </OptionContainer>
                                         )}

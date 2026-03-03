@@ -53,6 +53,7 @@ const darkTheme: ColorTheme = {
     radioButtonBorder: colors.gray400,
     radioButtonDotFill: colors.gray400,
     radioButtonDotDisabled: colors.gray500,
+    borderCheckbox: colors.gray600,
     avatarBorderBrand: colors.violet500,
     avatarBorderInformation: colors.blue600,
     border: colors.gray900,

@@ -1,63 +1,35 @@
-import theme, { colors } from '@components/theme';
-
+import ColorTheme from '@conf/theme/colorThemes/types';
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
-const checkboxBackgroundDefault = {
-    default: colors.white,
-    checked: theme.semanticTokens.colors.primary,
-    error: theme.semanticTokens.colors.error,
-    disabled: colors.gray[1500],
-};
-
-const checkboxHoverColors = {
-    default: colors.gray[100],
-    error: colors.red[100],
-    checked: colors.violet[100],
-};
-
-export function getCheckboxColor(checked: boolean, error: string, disabled: boolean, mode: 'background' | undefined) {
-    if (disabled) {
-        return mode === 'background' ? checkboxBackgroundDefault.disabled : colors.gray[100];
-    }
-    if (error) return checkboxBackgroundDefault.error;
-    if (checked) return checkboxBackgroundDefault.checked;
-    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[1800];
-}
-
-export function getCheckboxHoverBackgroundColor(checked: boolean, error: string) {
-    if (error) return checkboxHoverColors.error;
-    if (checked) return checkboxHoverColors.checked;
-    return checkboxHoverColors.default;
+export function getCheckboxBorder(checked: boolean, error: boolean, disabled: boolean, colors: ColorTheme) {
+    if (checked) return 'none';
+    if (error) return `1px solid ${colors.borderError}`;
+    if (disabled) return `1px solid ${colors.borderDisabled}`;
+    return `1px solid ${colors.borderCheckbox}`;
 }
 
 const sizeMap: Record<SizeOptions, string> = {
-    xs: '16px',
-    sm: '18px',
-    md: '20px',
-    lg: '22px',
-    xl: '24px',
+    xs: '14px',
+    sm: '16px',
+    md: '18px',
+    lg: '20px',
+    xl: '22px',
     inherit: 'inherit',
 };
 
 export function getCheckboxSize(size: SizeOptions) {
-    return {
-        height: sizeMap[size],
-        width: sizeMap[size],
-    };
+    return sizeMap[size];
 }
 
-const offsetMap: Record<SizeOptions, string> = {
-    xs: '7px',
-    sm: '6px',
-    md: '5px',
-    lg: '4px',
-    xl: '3px',
-    inherit: 'inherit',
+const iconSizeMap: Record<SizeOptions, number> = {
+    xs: 10,
+    sm: 12,
+    md: 14,
+    lg: 16,
+    xl: 18,
+    inherit: 14,
 };
 
-export function getCheckmarkPosition(size: SizeOptions) {
-    return {
-        top: offsetMap[size],
-        left: offsetMap[size],
-    };
+export function getCheckIconSize(size: SizeOptions) {
+    return iconSizeMap[size];
 }
