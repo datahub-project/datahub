@@ -723,12 +723,30 @@ def _make_dbt_source(dbt_is_primary_sibling: bool = True) -> DBTCoreSource:
 
 
 @pytest.mark.parametrize("dbt_is_primary_sibling", [True, False])
-def test_dbt_sibling_created_regardless_of_primary_setting(
-    dbt_is_primary_sibling: bool,
-):
-    """Siblings are always created for entities that exist in target platform."""
+def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) -> None:
+    """Regression test for CUS-7718: semantic views showed as duplicate search
+    results because the SiblingAssociationHook only handles the "source" subtype."""
     source = _make_dbt_source(dbt_is_primary_sibling)
-    assert source._should_create_sibling_relationships(_make_dbt_node()) is True
+    node = _make_dbt_node(materialization="semantic_view")
+    assert source._should_create_sibling_relationships(node) is True
+
+
+def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
+    """Standard models rely on the SiblingAssociationHook for sibling creation
+    when dbt is primary. Only semantic views need explicit emission."""
+    source = _make_dbt_source(dbt_is_primary_sibling=True)
+    for materialization in ("table", "view", "incremental"):
+        node = _make_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is False
+
+
+def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
+    """When target platform is primary (dbt_is_primary_sibling=False),
+    the dbt source emits siblings for all nodes."""
+    source = _make_dbt_source(dbt_is_primary_sibling=False)
+    for materialization in ("table", "view", "incremental", "semantic_view"):
+        node = _make_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is True
 
 
 @pytest.mark.parametrize(
@@ -737,28 +755,10 @@ def test_dbt_sibling_created_regardless_of_primary_setting(
 )
 def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
     materialization: str, node_type: str
-):
+) -> None:
     source = _make_dbt_source()
     node = _make_dbt_node(materialization=materialization, node_type=node_type)
     assert source._should_create_sibling_relationships(node) is False
-
-
-@pytest.mark.parametrize("dbt_is_primary_sibling", [True, False])
-def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool):
-    """Regression test for CUS-7718: semantic views showed as duplicate search
-    results because the SiblingAssociationHook only handles the "source" subtype."""
-    source = _make_dbt_source(dbt_is_primary_sibling)
-    node = _make_dbt_node(materialization="semantic_view")
-    assert source._should_create_sibling_relationships(node) is True
-
-
-@pytest.mark.parametrize(
-    "materialization", ["table", "view", "incremental", "semantic_view"]
-)
-def test_dbt_sibling_created_for_all_materializations(materialization: str):
-    source = _make_dbt_source()
-    node = _make_dbt_node(materialization=materialization)
-    assert source._should_create_sibling_relationships(node) is True
 
 
 def test_dbt_cloud_source_description_precedence() -> None:

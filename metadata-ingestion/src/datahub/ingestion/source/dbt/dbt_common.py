@@ -3064,12 +3064,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _should_create_sibling_relationships(self, node: DBTNode) -> bool:
         """Whether to emit sibling relationships for a dbt node.
 
-        Always emits for entities that exist in the target platform, rather than
-        relying on the SiblingAssociationHook which only handles the "source"
-        subtype and misses semantic views and other model types.
-        The hook skips when siblings already exist, so there is no conflict.
+        When dbt_is_primary_sibling=False, always emits so the dbt source
+        controls primary/secondary designation.
+
+        When dbt_is_primary_sibling=True, emits for semantic views because
+        the SiblingAssociationHook doesn't handle them (it only recognizes
+        the "source" subtype on the dbt side, and the warehouse-side handler
+        is unreliable for semantic views). Standard models and sources are
+        left to the hook.
         """
-        return node.exists_in_target_platform
+        if not node.exists_in_target_platform:
+            return False
+        if self.config.dbt_is_primary_sibling is False:
+            return True
+        return node.materialization == "semantic_view"
 
     def get_report(self):
         return self.report
