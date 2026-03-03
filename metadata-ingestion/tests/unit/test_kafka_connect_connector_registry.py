@@ -473,6 +473,44 @@ class TestConnectorRegistrySchemaResolver:
         # But schema resolver should be None
         assert connector.schema_resolver is None
 
+    def test_schema_resolver_uses_mssql_for_sqlserver_connector(self) -> None:
+        """Test that Debezium SQL Server connector creates SchemaResolver with platform='mssql'.
+
+        Debezium's connector class uses 'sqlserver' in its name, but DataHub's
+        canonical platform for SQL Server is 'mssql'. The SchemaResolver must use
+        'mssql' to match tables ingested via the mssql-odbc source.
+        """
+        manifest = create_manifest(
+            SOURCE, "io.debezium.connector.sqlserver.SqlServerConnector"
+        )
+        manifest.config["database.dbname"] = "mydb"
+        config = create_mock_config()
+        config.use_schema_resolver = True
+        report = create_mock_report()
+
+        mock_schema_resolver = Mock()
+        mock_graph = Mock()
+        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
+            mock_schema_resolver
+        )
+        ctx = Mock(spec=PipelineContext)
+        ctx.graph = mock_graph
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report, ctx=ctx
+        )
+
+        assert connector is not None
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert connector.schema_resolver == mock_schema_resolver
+
+        # The key assertion: SchemaResolver must be initialized with "mssql", not "sqlserver"
+        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
+            platform="mssql",
+            platform_instance=None,
+            env="PROD",
+        )
+
 
 class TestConnectorRegistryTopicExtraction:
     """Test get_topics_from_config() method."""
