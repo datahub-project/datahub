@@ -15,7 +15,11 @@ class PostHogCIReporter:
         posthog.host = POSTHOG_HOST
 
     def send(self, data: dict[str, Any]) -> None:
-        """Capture step, job, and workflow events then flush."""
+        """
+        Capture step, job, and workflow events then flush.
+        Note: The posthog.capture queues and returns. Will need to monitor logs
+        for any errors.
+        """
         repo = data["repository"]
         workflow_props = self._workflow_props(data)
 
