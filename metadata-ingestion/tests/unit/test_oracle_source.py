@@ -123,6 +123,29 @@ def test_oracle_config_data_dictionary_mode():
         OracleConfig.parse_obj({**base_config, "data_dictionary_mode": "INVALID"})
 
 
+def test_oracle_get_db_name_alias_takes_precedence():
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "urn_db_name": "MY_PDB",
+        }
+    )
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, PipelineContext(run_id="test"))
+
+        mock_inspector = Mock()
+        mock_inspector.dialect.normalize_name.return_value = "my_pdb"
+
+        db_name = source.get_db_name(mock_inspector)
+
+    assert db_name == "my_pdb"
+    mock_inspector.bind.execute.assert_not_called()
+
+
 def test_oracle_get_db_name_with_service_name():
     """Test getting database name when using service_name with ALL mode."""
 
@@ -166,9 +189,10 @@ def test_oracle_get_db_name_with_service_name():
         assert db_name == "testdb"  # Should be normalized to lowercase
         mock_bind.execute.assert_called_once()
         call_args = mock_bind.execute.call_args
-        # Verify the exact SQL query is used
         query_text = str(call_args[0][0]).upper()
-        assert "SYS_CONTEXT('USERENV','DB_NAME')" in query_text
+        # Query should prefer CON_NAME (PDB name) over DB_NAME (CDB name)
+        assert "CON_NAME" in query_text
+        assert "DB_NAME" in query_text
         assert "FROM DUAL" in query_text
         mock_dialect.normalize_name.assert_called_once_with("TESTDB")
 
@@ -1193,6 +1217,157 @@ def test_oracle_sample_query_uses_where_rownum():
     executed_query = mock_conn.execute.call_args[0][0]
     assert "WHERE ROWNUM <= 100" in executed_query
     assert "AND ROWNUM" not in executed_query
+
+
+def test_oracle_get_identifier_uses_urn_db_name():
+    """get_identifier must prefix the DB name from urn_db_name when add_database_name_to_urn=True
+    and service_name is used (so config.database is None).
+
+    ALL_UPPERCASE urn_db_name must be normalised to lowercase, matching Oracle's
+    normalize_name convention used in get_db_name, so entity URNs and lineage URNs
+    share the same db component and can be joined.
+    """
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "add_database_name_to_urn": True,
+            "urn_db_name": "MY_PDB",
+        }
+    )
+
+    # MY_PDB (all-caps) must be normalised to my_pdb so entity and lineage URNs match
+    assert (
+        config.get_identifier(schema="EDW", table="AERODROME_H")
+        == "my_pdb.EDW.AERODROME_H"
+    )
+
+    # already-lowercase value must be preserved as-is
+    config2 = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "add_database_name_to_urn": True,
+            "urn_db_name": "my_pdb",
+        }
+    )
+    assert (
+        config2.get_identifier(schema="EDW", table="AERODROME_H")
+        == "my_pdb.EDW.AERODROME_H"
+    )
+
+
+def test_oracle_get_db_schema_avoids_none_string():
+    """get_db_schema must not return the string "None" as the db component when
+    service_name is used and the identifier is only two parts (schema.table)."""
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "add_database_name_to_urn": True,
+        }
+    )
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, PipelineContext(run_id="test"))
+
+    db_name, schema_name = source.get_db_schema("EDW.AERODROME_H")
+    assert db_name != "None", "db_name must not be the string 'None'"
+    assert db_name is None
+    assert schema_name == "EDW"
+
+
+def test_oracle_get_db_schema_uses_urn_db_name_for_two_part_identifier():
+    """When urn_db_name is set and the identifier is two-part, get_db_schema must
+    return urn_db_name as the db component so view lineage URNs match entity URNs."""
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "add_database_name_to_urn": True,
+            "urn_db_name": "MY_PDB",
+        }
+    )
+
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        source = OracleSource(config, PipelineContext(run_id="test"))
+
+    db_name, schema_name = source.get_db_schema("EDW.AERODROME_H")
+    # MY_PDB (all-caps) must be normalised to my_pdb to match entity URNs
+    assert db_name == "my_pdb"
+    assert schema_name == "EDW"
+
+
+def test_oracle_eager_graph_load_when_table_pattern_restricted():
+    """eager_graph_load must be True when not ingesting both tables and views,
+    so the schema resolver can pre-fetch schemas for tables outside table_pattern."""
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "include_tables": True,
+            "include_views": False,
+        }
+    )
+
+    captured: dict = {}
+    original_init = SqlParsingAggregator.__init__
+
+    def capture_init(self, *args, **kwargs):
+        captured.update(kwargs)
+        return original_init(self, *args, **kwargs)
+
+    with (
+        patch("datahub.ingestion.source.sql.oracle.oracledb"),
+        patch.object(SqlParsingAggregator, "__init__", capture_init),
+    ):
+        OracleSource(config, PipelineContext(run_id="test"))
+
+    assert captured["eager_graph_load"] is True
+
+
+def test_oracle_eager_graph_load_off_when_ingesting_all():
+    """eager_graph_load must be False when ingesting both tables and views,
+    since the schema resolver is populated incrementally during extraction."""
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "include_tables": True,
+            "include_views": True,
+        }
+    )
+
+    captured: dict = {}
+    original_init = SqlParsingAggregator.__init__
+
+    def capture_init(self, *args, **kwargs):
+        captured.update(kwargs)
+        return original_init(self, *args, **kwargs)
+
+    with (
+        patch("datahub.ingestion.source.sql.oracle.oracledb"),
+        patch.object(SqlParsingAggregator, "__init__", capture_init),
+    ):
+        OracleSource(config, PipelineContext(run_id="test"))
+
+    assert captured["eager_graph_load"] is False
 
 
 def test_extra_oracle_types_registered_during_workunits_iteration():
