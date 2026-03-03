@@ -9,7 +9,7 @@ POSTHOG_HOST = "https://us.i.posthog.com"
 
 class PostHogCIReporter:
     def __init__(self, api_key: str) -> None:
-        posthog.project_api_key = api_key
+        posthog.api_key = api_key
         posthog.host = POSTHOG_HOST
 
     def send(self, data: dict[str, Any]) -> None:
