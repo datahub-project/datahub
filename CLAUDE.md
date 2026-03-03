@@ -193,6 +193,33 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
   - **Error Handling**: Robust error handling with layers of protection for known failure points
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
+### Frontend Theming (Colors)
+
+**Always use semantic color tokens** from `datahub-web-react/src/conf/theme/colorThemes/types.ts`. Never use hardcoded hex values, `REDESIGN_COLORS`, `ANTD_GRAY`, or direct alchemy `colors.gray[X]` imports.
+
+**In styled-components** (no import needed — `theme` is available via props):
+
+```typescript
+background: ${(props) => props.theme.colors.bg};
+color: ${(props) => props.theme.colors.text};
+border: 1px solid ${(props) => props.theme.colors.border};
+```
+
+**In React component bodies:**
+
+```typescript
+import { useTheme } from 'styled-components';
+const theme = useTheme();
+<Icon color={theme.colors.icon} />
+```
+
+**For alchemy components** (`<Text>`, `<Icon>`, etc.) — do not pass `color`/`colorLevel` props. Let them inherit from themed parent styled-components.
+
+**Do not import from:**
+
+- `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
+- `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
+
 ### Code Comments
 
 Only add comments that provide real value beyond what the code already expresses.
@@ -380,6 +407,21 @@ Example: `feat(parser): add ability to parse arrays`
 
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
+
+## Agent Development Workflow
+
+See [`docs/dev-guides/agent-workflow.md`](docs/dev-guides/agent-workflow.md) for the full agent
+workflow reference. Quick summary:
+
+1. **Start**: `scripts/dev/datahub-dev.sh start`
+2. **Code**: Make changes
+3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
+5. **Iterate**: Repeat 2–4
+
+## Python Virtual Environments
+
+Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
 
 ## Important Notes
 

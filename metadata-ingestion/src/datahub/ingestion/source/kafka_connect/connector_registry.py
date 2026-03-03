@@ -296,14 +296,17 @@ class _GenericConnector(BaseConnector):
         """Create basic lineage from generic configuration."""
         from datahub.ingestion.source.kafka_connect.common import KafkaConnectLineage
 
-        return [
-            KafkaConnectLineage(
-                source_platform=self.generic_config.source_platform,
-                source_dataset=self.generic_config.source_dataset,
-                target_dataset="",  # Will be filled by kafka_connect.py
-                target_platform="kafka",
+        lineages: List[KafkaConnectLineage] = []
+        for topic in self.connector_manifest.topic_names:
+            lineages.append(
+                KafkaConnectLineage(
+                    source_platform=self.generic_config.source_platform,
+                    source_dataset=self.generic_config.source_dataset,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
             )
-        ]
+        return lineages
 
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from manifest configuration."""

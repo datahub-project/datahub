@@ -1,4 +1,4 @@
-query getMLModelGroup($urn: String!) {
+query getMLModelGroup($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlModelGroup(urn: $urn) {
         urn
         type

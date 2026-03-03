@@ -1,10 +1,10 @@
 # DataHub MCP Server
 
-The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), which standardizes how applications provide context to LLMs and AI agents. This enables AI agents to query DataHub metadata and use it to find relevant assets, traverse lineage, and more.
+The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Cursor, Windsurf, Claude Desktop, and OpenAI.
 
 Want to learn more about the motivation, architecture, and advanced use cases? Check out our [deep dive blog post](https://datahub.com/blog/datahub-mcp-server-block-ai-agents-use-case/).
 
-There's two ways to use the MCP server, which vary in setup required but offer the same capabilities.
+## Deployment Options
 
 - [Managed MCP Server](#managed-mcp-server-usage) - Available on DataHub Cloud v0.3.12+
 - [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Available for DataHub Core
@@ -12,48 +12,19 @@ There's two ways to use the MCP server, which vary in setup required but offer t
 ## Capabilities
 
 **Search for Data** <br />
-Find the right data to use for your projects & analysis by asking questions in plain English - skip the tribal knowledge.
+Find the right data by asking questions in plain English. Supports wildcard matching (`revenue_*`), field searches (`tag:PII`), and boolean logic (`(sales OR revenue) AND quarterly`).
 
 **Dive Deeper** <br />
-Separate the signal from noise with rich context about your data, including usage, ownership, documentation, tags, and quality.
+Get usage stats, ownership, documentation, tags, glossary terms, and quality signals for any table, column, dashboard, & more — so agents can separate signal from noise.
 
 **Lineage & Impact Analysis** <br />
-Understand the impact of upcoming changes to tables, reports, and dashboards using DataHub’s end-to-end lineage graph.
+Trace data flow at table and column level, upstream or downstream, across multiple hops. Understand the origins of your data, and plan for upcoming changes.
 
 **Query Analysis & Authoring** <br />
-Understand how your mission-critical data is typically queried, or build custom queries for your tables.
+Surface real SQL queries that reference a dataset — see join patterns, common filters, and aggregation behavior — then generate new queries grounded in actual usage.
 
 **Works Where You Work** <br />
-Seamlessly integrates with AI-native tools like Cursor, Windsurf, Claude Desktop, and OpenAI to supercharge your workflows.
-
-## Why DataHub MCP Server?
-
-With DataHub MCP Server, you can instantly give AI agents visibility into of your entire data ecosystem. Find and understand data stored in your databases, data lake, data warehouse, BI visualization tools, and AI/ML Feature stores. Explore data lineage, understand usage & use cases, identify the data experts, and generate SQL - all through natural language.
-
-### **Structured Search with Context Filtering**
-
-Go beyond keyword matching with powerful query & filtering syntax:
-
-- Wildcard matching: `/q revenue_*` finds `revenue_kpis`, `revenue_daily`, `revenue_forecast`
-- Field searches: `/q tag:PII` finds all PII-tagged data
-- Boolean logic: `/q (sales OR revenue) AND quarterly` for complex queries
-
-### **SQL Intelligence & Query Generation**
-
-Access popular SQL queries, and generate new ones with accuracy:
-
-- See how analysts query tables (perfect for SQL generation)
-- Understand join patterns and common filters
-- Learn from production query patterns
-
-### **Table & Column-Level Lineage**
-
-Trace data flow at both the table and column level:
-
-- Track how `user_id` becomes `customer_key` downstream
-- Understand transformation logic
-- Upstream and downstream exploration (1-3+ hops)
-- Handle enterprise-scale lineage graphs
+Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
 
 ## Tools
 
@@ -143,55 +114,49 @@ Save standalone documents (insights, decisions, FAQs, notes) to DataHub's knowle
 
 ## Managed MCP Server Usage
 
-For folks on DataHub Cloud v0.3.12+, you can use our hosted MCP server endpoint.
+For DataHub Cloud v0.3.12+, you can connect directly to the hosted MCP server endpoint — no local installation required.
 
 :::info
-
-The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. For DataHub Core and older versions of DataHub Cloud, you'll need to [self-host the MCP server](#self-hosted-mcp-server-usage).
-
+The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. For DataHub Core and older versions of DataHub Cloud, [self-host the MCP server](#self-hosted-mcp-server-usage) instead.
 :::
 
 :::note Streamable HTTP Only
-
-There are two [transports types](https://modelcontextprotocol.io/docs/concepts/transports) for remote MCP servers: streamable HTTP and server-sent events (SSE). SSE has been deprecated in favor of streamable HTTP, so DataHub only supports the newer streamable HTTP transport. Some older MCP clients (e.g. chatgpt.com) may still only support SSE. For those cases, you'll need to use something like [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
-
+DataHub's managed MCP server uses the [streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports). Some older MCP clients (e.g. chatgpt.com) may only support the deprecated SSE transport — for those, use [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
 :::
 
 ### Prerequisites
 
-To connect to the MCP server, you'll need the following:
-
-- **Node.js 18+** - Required for AI tools that use the `npx` command (for example Claude Desktop)
-
-  ```bash
-  # Check if Node.js is installed
-  node --version
-
-  # If not installed, download from https://nodejs.org/
-  # Or use a package manager:
-
-  # macOS (using Homebrew)
-  brew install node
-
-  # Linux (using apt)
-  sudo apt update && sudo apt install nodejs npm
-
-  # Or use nvm (Node Version Manager) for easier version management
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-  nvm install --lts
-  ```
-
-- The URL of your DataHub Cloud instance e.g. `https://<tenant>.acryl.io`
+- The URL of your DataHub Cloud instance, e.g. `https://<tenant>.acryl.io`
 - A [personal access token](../../authentication/personal-access-tokens.md)
 
-Your hosted MCP server URL is `https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`.
+### Connecting & Authenticating
+
+Your managed MCP server URL is:
+
+```
+https://<tenant>.acryl.io/integrations/ai/mcp/
+```
+
+There are two ways to authenticate:
+
+1. **Authorization header** — pass your token as a Bearer token in the `Authorization` header:
+
+   ```
+   Authorization: Bearer <token>
+   ```
+
+2. **Token in URL** — append your token as a query parameter:
+
+   ```
+   https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
+   ```
+
+   This is a convenient alternative when your MCP client doesn't support custom headers.
 
 <details>
   <summary>On-Premises DataHub Cloud</summary>
 
-For on-premises DataHub Cloud, your hosted MCP server URL is `https://<datahub-fqdn>/integrations/ai/mcp/?token=<token>`.
-
-For example, it might look something like `https://datahub.example.com/integrations/ai/mcp/?token=eyJh...`.
+For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/?token=<token>`.
 
 </details>
 
@@ -224,7 +189,7 @@ For example, it might look something like `https://datahub.example.com/integrati
   <summary>Cursor</summary>
 
 1. Make sure you're using Cursor v1.1 or newer.
-2. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server
+2. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
 3. Enter the following into the file:
 
 ```json
@@ -237,19 +202,22 @@ For example, it might look something like `https://datahub.example.com/integrati
 }
 ```
 
-3. Once you've saved the file, confirm that the MCP settings page shows a green dot and a couple tools associated with the server.
+4. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
 
 </details>
 
 <details>
   <summary>Other</summary>
 
-Most AI tools support remote MCP servers. For those, you'll typically need to:
+Most AI tools support remote MCP servers. Provide the hosted MCP server URL:
 
-- Provide the hosted MCP server URL: `https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
-- Ensure that the authentication mode is _not_ set to "OAuth" (if applicable)
+```
+https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
+```
 
-For AI tools that don't yet support remote MCP servers, you can use the `mcp-remote` tool to connect to the MCP server.
+Make sure authentication mode is _not_ set to "OAuth" (if applicable).
+
+For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 - Command: `npx`
 - Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
@@ -258,20 +226,28 @@ For AI tools that don't yet support remote MCP servers, you can use the `mcp-rem
 
 ## Self-Hosted MCP Server Usage
 
-You can run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) locally.
+Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) locally. This works with any DataHub instance — both DataHub Core and DataHub Cloud.
 
 ### Prerequisites
 
-1. Install [`uv`](https://github.com/astral-sh/uv)
+1. Install [`uv`](https://github.com/astral-sh/uv):
 
    ```bash
-   # On macOS and Linux.
+   # macOS and Linux
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. For authentication, you'll need the following:
-   - The URL of your DataHub instance's GMS endpoint; e.g. `http://<localhost>:8080` or `https://<tenant>.acryl.io`
-   - A [personal access token](../../authentication/personal-access-tokens.md)
+2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
+3. A [personal access token](../../authentication/personal-access-tokens.md)
+
+### Connecting & Authenticating
+
+The self-hosted server authenticates via environment variables:
+
+- `DATAHUB_GMS_URL` — your DataHub GMS endpoint
+- `DATAHUB_GMS_TOKEN` — your personal access token
+
+These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
 ### Configure
 
@@ -282,7 +258,7 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
 
 1. Open your `claude_desktop_config.json` file. You can find it by navigating to Claude Desktop -> Settings -> Developer -> Edit Config.
 
-1. Update the file to include the following content. Be sure to replace `<tenant>` and `<token>` with your own values.
+1. Update the file to include the following content. Be sure to replace the placeholder values.
 
 ```js
 {
@@ -304,7 +280,7 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
 <details>
   <summary>Cursor</summary>
 
-1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server
+1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
 2. Enter the following into the file:
 
 ```json
@@ -322,14 +298,14 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
 }
 ```
 
-3. Once you've saved the file, confirm that the MCP settings page shows a green dot and a couple tools associated with the server.
+3. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
 
 </details>
 
 <details>
   <summary>Other</summary>
 
-For other AI tools, you'll typically need to provide the following configuration:
+For other AI tools, provide the following configuration:
 
 - Command: `uvx`
 - Args: `mcp-server-datahub@latest`

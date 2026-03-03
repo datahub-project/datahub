@@ -71,8 +71,11 @@ public class SearchQueryBuilder {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
-    this.searchValidationConfiguration = searchConfiguration.getValidation();
-    this.validationRegex = Pattern.compile(searchConfiguration.getValidation().getRegex());
+    this.searchValidationConfiguration =
+        searchConfiguration.getValidation() != null
+            ? searchConfiguration.getValidation()
+            : new SearchValidationConfiguration();
+    this.validationRegex = Pattern.compile(this.searchValidationConfiguration.getRegex());
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();

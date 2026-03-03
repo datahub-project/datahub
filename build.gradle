@@ -3,34 +3,21 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 buildscript {
   ext.jdkVersionDefault = 17
-  ext.javaClassVersionDefault = 11
+  ext.javaClassVersionDefault = 17
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
   ext.jdkVersion = { p ->
-    // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any{
-      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
-      || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
-    }} || springModules.contains(p.name)) {
-      return 17
-    } else {
-      // otherwise we can use the preferred default which can be overridden with a property: -PjdkVersionDefault
-      return p.hasProperty('jdkVersionDefault') ? Integer.valueOf((String) p.getProperty('jdkVersionDefault')) : ext.jdkVersionDefault
-    }
+    return p.hasProperty('jdkVersionDefault')
+      ? Integer.valueOf((String) p.getProperty('jdkVersionDefault'))
+      : ext.jdkVersionDefault
   }
 
+  // Main bytecode version selector
   ext.javaClassVersion = { p ->
-    // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any {
-      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
-              || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
-    }} || springModules.contains(p.name)) {
-      return 17
-    } else {
-      // otherwise we can use the preferred default which can be overridden with a property: -PjavaClassVersionDefault
-      return p.hasProperty('javaClassVersionDefault') ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault')) : ext.javaClassVersionDefault
-    }
+    return p.hasProperty('javaClassVersionDefault')
+      ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault'))
+      : ext.javaClassVersionDefault
   }
 
   ext.junitJupiterVersion = '5.12.2'
@@ -47,15 +34,17 @@ buildscript {
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.4'
+  ext.jacksonVersion = '2.18.6'
   ext.jettyVersion = '12.0.32'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   ext.log4jVersion = '2.25.3'
+  ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
@@ -64,13 +53,12 @@ buildscript {
   ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.21'
-  ext.hadoop3Version = '3.3.6'
+  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
-  ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
 
@@ -220,7 +208,6 @@ project.ext.externalDependency = [
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
-    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
@@ -450,22 +437,38 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
-    resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
+    resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
+    resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
-    // Substitute org.lz4:lz4-java with at.yawk.lz4 fork 1.10.1 (CVE-2025-12183); lockfile then shows 1.10.1 not 1.8.x
+    resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
+    // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
         details.because("CVE-2025-12183, upgrade to 1.10.1")
       }
+      if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
+        details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
+        details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
+      }
+      // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
+        def v = rootProject.ext.jacksonVersion
+        details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
+        details.because("Jackson aligned to ${v}")
+      }
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
     }
@@ -511,6 +514,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
 configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
   configurations.all {
+    resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"
     resolutionStrategy.force "com.nimbusds:nimbus-jose-jwt:${rootProject.ext.sparkLineageNimbusJoseJwtVersion}"
@@ -618,7 +622,7 @@ subprojects {
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
-        implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
+        implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
@@ -712,6 +716,7 @@ tasks.register('format') {
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
   dependsOn('spotlessApply')
+  dependsOn(':scripts:dev:lintFix')
 }
 
 tasks.register('formatChanged') {
@@ -719,6 +724,7 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
   dependsOn('spotlessApply')
+  dependsOn(':scripts:dev:lintFix')
 }
 
 tasks.register('resolveAndLockAll') {

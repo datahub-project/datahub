@@ -604,6 +604,65 @@ class TestMongoSourceConnector:
         assert lineages[0].source_dataset == "my-new-database.users"
         assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
 
+    def test_mongo_source_fine_grained_lineage(self) -> None:
+        """Test MongoDB connector produces column-level lineage when schema resolver is available."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo",
+            },
+            tasks=[],
+            topic_names=["prod.mongo.mydb.users"],
+        )
+
+        mock_resolver = Mock()
+        mock_resolver.resolve_table.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+            {"_id": "string", "name": "string", "email": "string"},
+        )
+
+        connector = MongoSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].target_dataset == "prod.mongo.mydb.users"
+        assert lineages[0].fine_grained_lineages is not None
+        assert len(lineages[0].fine_grained_lineages) == 3
+
+    def test_mongo_source_no_fine_grained_without_schema_resolver(self) -> None:
+        """Test MongoDB connector skips column-level lineage when schema resolver is disabled."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo.avro",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = MongoSourceConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert all(lin.fine_grained_lineages is None for lin in lineages)
+
 
 class TestConfluentCloudConnectors:
     """Test Confluent Cloud connector compatibility with Platform connectors."""
@@ -4054,6 +4113,56 @@ class TestPlatformDetection:
 
         platform = connector._extract_platform_from_jdbc_url("")
         assert platform == "unknown"
+
+    def test_debezium_get_platform_returns_mssql_for_sqlserver(self) -> None:
+        """Test that Debezium SQL Server connector returns 'mssql' (DataHub canonical name)."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        assert connector.get_platform() == "mssql"
+
+    def test_debezium_get_platform_other_connectors(self) -> None:
+        """Test get_platform for other Debezium connector types."""
+        test_cases = {
+            "io.debezium.connector.postgresql.PostgresConnector": "postgres",
+            "io.debezium.connector.mysql.MySqlConnector": "mysql",
+            "io.debezium.connector.oracle.OracleConnector": "oracle",
+            "io.debezium.connector.db2.Db2Connector": "db2",
+            "io.debezium.connector.mongodb.MongoDbConnector": "mongodb",
+            "io.debezium.connector.vitess.VitessConnector": "vitess",
+            "com.unknown.SomeConnector": "unknown",
+        }
+
+        for connector_class, expected_platform in test_cases.items():
+            manifest = ConnectorManifest(
+                name="test",
+                type="source",
+                config={"connector.class": connector_class},
+                tasks=[],
+                topic_names=[],
+            )
+
+            config = create_mock_kafka_connect_config()
+            report = Mock(spec=KafkaConnectSourceReport)
+            connector = DebeziumSourceConnector(manifest, config, report)
+
+            assert connector.get_platform() == expected_platform, (
+                f"Expected '{expected_platform}' for {connector_class}, "
+                f"got '{connector.get_platform()}'"
+            )
 
 
 class TestTransformPluginAdditionalCoverage:

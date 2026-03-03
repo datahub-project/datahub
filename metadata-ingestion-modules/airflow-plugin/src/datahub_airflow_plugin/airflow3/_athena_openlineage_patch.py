@@ -9,9 +9,12 @@ DataHub's SQL parser instead, enabling column-level lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub_airflow_plugin._config import get_configured_env
+from datahub_airflow_plugin._config import (
+    get_configured_env,
+    get_enable_multi_statement,
+)
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._sql_parsing_common import parse_sql_with_datahub
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -91,21 +94,25 @@ def patch_athena_operator() -> None:
                         # Get the SQL query - templates are already rendered by Airflow during task execution
                         rendered_query = self.query
 
+                        enable_multi_statement = get_enable_multi_statement()
+
                         logger.debug(
                             f"Running DataHub SQL parser for Athena (platform={platform}, "
-                            f"default_db={default_database}): {rendered_query[:200] if rendered_query else 'None'}"
+                            f"default_db={default_database}, multi_statement={enable_multi_statement}): "
+                            f"{rendered_query[:200] if rendered_query else 'None'}"
                         )
 
                         env = get_configured_env()
 
                         # Use DataHub's SQL parser
-                        sql_parsing_result = create_lineage_sql_parsed_result(
-                            query=rendered_query,
+                        sql_parsing_result = parse_sql_with_datahub(
+                            sql=rendered_query,
+                            default_database=default_database,
                             platform=platform,
-                            platform_instance=None,
                             env=env,
-                            default_db=default_database,
                             default_schema=None,
+                            graph=None,
+                            enable_multi_statement=enable_multi_statement,
                         )
 
                         # Store the SQL parsing result in run_facets for DataHub listener

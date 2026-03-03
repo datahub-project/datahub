@@ -130,10 +130,12 @@ task lineageGen(type: Exec, dependsOn: [codegen]) {
 }
 
 task testScripts(type: Exec, dependsOn: [installDev]) {
-  inputs.files(project.fileTree(dir: "scripts/tests/", include: "**/*.py"))
-  outputs.dir("${venv_name}")
+  inputs.files(project.fileTree(dir: "scripts/", include: "**/*.py"))
+  inputs.file file("scripts/pytest.ini")
+  outputs.dir("scripts/test-results")
+  outputs.file file("scripts/.coverage")
 
-  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && cp ../setup.cfg . && PYTHONPATH=${project.projectDir} pytest -vvv tests/ --cov=. --cov-report=term --cov-report=html:./cov_html && rm setup.cfg"
+  commandLine 'bash', '-c', "set +x && source ${project.projectDir}/${venv_name}/bin/activate && set -x && cd ${project.projectDir}/scripts && PYTHONPATH=${project.projectDir} pytest -vv tests ${get_coverage_args('scripts')} --cov=."
 }
 
 task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
@@ -155,8 +157,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
 }
 
-def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets
-def pytest_default_args = "--durations=20 -vv --continue-on-collection-errors"
+def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed socket
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -166,10 +167,11 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   inputs.file file("setup.cfg")
   inputs.file file("setup.py")
   outputs.dir("${venv_name}")
+  outputs.dir("test-results")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/unit ${pytest_default_args} --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
 task installDocs(type: Exec, dependsOn: [install]) {
@@ -200,7 +202,7 @@ task testSingle(dependsOn: [installDevTest]) {
   if (testFile != 'unknown')  {
     exec {
       commandLine 'bash', '-c',
-        "${venv_activate_command} ${pytest_default_env} pytest ${testFile} ${pytest_default_args}"
+        "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
   } else {
    throw new GradleException("No file provided. Use -PtestFile=<test_file>")
@@ -225,7 +227,7 @@ integrationBatchIds.each { batchId ->
         inputs.file file("setup.py")
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} pytest ${cvgArg} ${pytest_default_args} -m '${markerName}' --junit-xml=${junitXml}"
+            "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
@@ -235,9 +237,10 @@ task testFull(type: Exec, dependsOn: [installDevTest]) {
   inputs.file file("pyproject.toml")
   inputs.file file("setup.cfg")
   inputs.file file("setup.py")
+  outputs.dir("test-results")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} pytest ${get_coverage_args('full')} ${pytest_default_args}"
+    "${pytest_default_env} pytest ${get_coverage_args('full')}"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDocs]) {
@@ -293,21 +296,26 @@ build.dependsOn install
 check.dependsOn lint
 check.dependsOn testQuick
 
-clean {
-  delete venv_name
-  delete 'build'
-  delete 'dist'
-  delete 'src/datahub/metadata'
-  delete '../docs/generated'
-  delete 'generated'
-  delete '.ruff_cache'
-  delete '.mypy_cache'
-  delete '.pytest_cache'
-  delete '.preflight_sentinel'
-  delete '.coverage'
-  delete 'scripts/cov_html'
+task cleanGeneratedFiles(type: Delete) {
+    delete venv_name
+    delete 'build'
+    delete 'dist'
+    delete 'src/datahub/metadata'
+    delete '../docs/generated'
+    delete 'generated'
+    delete '.ruff_cache'
+    delete '.mypy_cache'
+    delete '.pytest_cache'
+    delete 'test-results'
+    delete '.preflight_sentinel'
+    delete '.coverage'
+    delete 'scripts/cov_html'
+    delete 'scripts/.coverage'
+    delete 'scripts/.pytest_cache'
+    delete 'scripts/test-results'
 }
-clean.dependsOn cleanPythonCache
+
+clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 
 idea {
   module {
