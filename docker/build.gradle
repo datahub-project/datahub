@@ -338,6 +338,9 @@ dockerCompose {
             environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
+            if (config.isDebug) {
+                environment.put "DEV_TOOLING_ENABLED", "true"
+            }
             environment.put "DATAHUB_REPO", "${docker_registry}"
 
 
@@ -725,6 +728,9 @@ tasks.register("reloadEnv", Exec) {
         environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
         environment.put "METADATA_TESTS_ENABLED", "true"
+        if (matchingConfig?.isDebug) {
+            environment.put "DEV_TOOLING_ENABLED", "true"
+        }
         environment.put "DATAHUB_REPO", "${docker_registry}"
 
         // Additional environment variables if specified

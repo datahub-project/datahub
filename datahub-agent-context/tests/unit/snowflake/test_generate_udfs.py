@@ -70,16 +70,17 @@ class TestGenerateAllUdfs:
         """Test that all UDFs are generated when mutations are enabled."""
         udfs = generate_all_udfs(include_mutations=True)
 
-        # Should have all 20 tools
-        assert len(udfs) == 20
+        # Should have all 21 tools
+        assert len(udfs) == 21
 
-        # Read-only tools (9)
+        # Read-only tools (10)
         assert "SEARCH_DATAHUB" in udfs
         assert "GET_ENTITIES" in udfs
         assert "LIST_SCHEMA_FIELDS" in udfs
         assert "GET_LINEAGE" in udfs
         assert "GET_LINEAGE_PATHS_BETWEEN" in udfs
         assert "GET_DATASET_QUERIES" in udfs
+        assert "GET_DATASET_ASSERTIONS" in udfs
         assert "SEARCH_DOCUMENTS" in udfs
         assert "GREP_DOCUMENTS" in udfs
         assert "GET_ME" in udfs
@@ -101,8 +102,8 @@ class TestGenerateAllUdfs:
         """Test that only read-only UDFs are generated when mutations are disabled."""
         udfs = generate_all_udfs(include_mutations=False)
 
-        # Should have only 9 read-only tools
-        assert len(udfs) == 9
+        # Should have only 10 read-only tools
+        assert len(udfs) == 10
 
         # Read-only tools present
         assert "SEARCH_DATAHUB" in udfs
@@ -111,6 +112,7 @@ class TestGenerateAllUdfs:
         assert "GET_LINEAGE" in udfs
         assert "GET_LINEAGE_PATHS_BETWEEN" in udfs
         assert "GET_DATASET_QUERIES" in udfs
+        assert "GET_DATASET_ASSERTIONS" in udfs
         assert "SEARCH_DOCUMENTS" in udfs
         assert "GREP_DOCUMENTS" in udfs
         assert "GET_ME" in udfs
@@ -157,8 +159,8 @@ class TestGenerateDatahubUdfsSql:
         assert "Step 2: DataHub API UDFs for Cortex Agent" in sql
         assert "using datahub-agent-context" in sql
 
-        # Should mention total count (20 UDFs)
-        assert "20 Python UDFs" in sql or "20" in sql
+        # Should mention total count (21 UDFs)
+        assert "21 Python UDFs" in sql or "21" in sql
 
         # Should contain USE statements
         assert "USE DATABASE IDENTIFIER($SF_DATABASE);" in sql
@@ -180,8 +182,8 @@ class TestGenerateDatahubUdfsSql:
         """Test SQL script generation with mutations disabled."""
         sql = generate_datahub_udfs_sql(include_mutations=False)
 
-        # Should mention 9 UDFs (read-only)
-        assert "9 Python UDFs" in sql or "9" in sql
+        # Should mention 10 UDFs (read-only)
+        assert "10 Python UDFs" in sql or "10" in sql
 
         # Should contain read-only UDFs
         assert "CREATE OR REPLACE FUNCTION SEARCH_DATAHUB" in sql
@@ -221,7 +223,7 @@ class TestGenerateDatahubUdfsSql:
 
         # Should have final SELECT statement with all functions
         assert "SELECT" in sql
-        assert "'All 20 DataHub UDFs created successfully!'" in sql or "All 20" in sql
+        assert "'All 21 DataHub UDFs created successfully!'" in sql or "All 21" in sql
         assert "$SF_DATABASE || '.' || $SF_SCHEMA || '.SEARCH_DATAHUB'" in sql
 
 
