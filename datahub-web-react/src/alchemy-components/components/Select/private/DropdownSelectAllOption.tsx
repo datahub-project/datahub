@@ -7,7 +7,7 @@ import { spacing, typography } from '@components/theme';
 const SelectAllOption = styled.div<{ isDisabled?: boolean }>(({ isDisabled, theme }) => ({
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     padding: spacing.xsm,
-    color: theme.colors.text,
+    color: theme?.colors?.text,
     fontWeight: typography.fontWeights.semiBold,
     fontSize: typography.fontSizes.md,
     display: 'flex',

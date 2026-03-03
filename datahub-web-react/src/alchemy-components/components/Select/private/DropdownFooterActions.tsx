@@ -11,7 +11,7 @@ const FooterBase = styled.div(({ theme }) => ({
     justifyContent: 'flex-end',
     gap: spacing.sm,
     paddingTop: spacing.sm,
-    borderTop: `1px solid ${theme.colors.border}`,
+    borderTop: `1px solid ${theme?.colors?.border}`,
 }));
 
 interface Props {

@@ -10,7 +10,7 @@ import { shadows } from '@src/alchemy-components/theme';
 export const StyledClearButton = styled(Button).attrs({
     variant: 'text',
 })(({ theme }) => ({
-    color: theme.colors.text,
+    color: theme?.colors?.text,
     padding: '0px',
 
     '&:hover': {
@@ -23,7 +23,7 @@ export const StyledClearButton = styled(Button).attrs({
     '&:focus': {
         border: 'none',
         backgroundColor: 'transparent',
-        boxShadow: `0 0 0 2px ${theme.colors.bg}, 0 0 0 4px ${theme.colors.borderBrand}`,
+        boxShadow: `0 0 0 2px ${theme?.colors?.bg}, 0 0 0 4px ${theme?.colors?.borderBrand}`,
     },
 }));
 
