@@ -1,6 +1,6 @@
+import importlib.resources as pkg_resources
 import json
 import logging
-import pathlib
 from typing import Any, Dict, List, Optional
 
 import click
@@ -161,23 +161,16 @@ def execute_search(
     # Compile filters to GraphQL format
     types, compiled_filters = compile_filters(filters)
 
-    # Load appropriate GraphQL query
-    # Navigate from metadata-ingestion/src/datahub/cli/ to datahub-agent-context/
-    gql_dir = (
-        pathlib.Path(__file__).parent.parent.parent.parent.parent
-        / "datahub-agent-context"
-        / "src"
-        / "datahub_agent_context"
-        / "mcp_tools"
-        / "gql"
+    # Load from bundled package resources — both operations live in a single GQL file.
+    search_gql = (
+        pkg_resources.files("datahub.cli.gql")
+        .joinpath("search_queries.gql")
+        .read_text(encoding="utf-8")
     )
-
     if semantic:
-        search_gql = (gql_dir / "semantic_search.gql").read_text()
         operation_name = "semanticSearch"
         graphql_field = "semanticSearchAcrossEntities"
     else:
-        search_gql = (gql_dir / "search.gql").read_text()
         operation_name = "search"
         graphql_field = "searchAcrossEntities"
 
@@ -303,11 +296,11 @@ def format_table_output(results: Dict[str, Any]) -> str:
         if "platform" in entity:
             platform = entity["platform"].get("name", "")
 
-        # Extract description (truncated)
+        # Extract description (truncated); guard against null from GraphQL
         description = ""
         if "properties" in entity:
-            desc = entity["properties"].get("description", "")
-            description = desc[:77] + "..." if desc and len(desc) > 80 else desc
+            desc = entity["properties"].get("description") or ""
+            description = desc[:77] + "..." if len(desc) > 80 else desc
 
         rows.append([urn, name or "(unnamed)", platform, description])
 
