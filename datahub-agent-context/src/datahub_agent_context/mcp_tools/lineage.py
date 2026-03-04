@@ -143,7 +143,7 @@ def get_lineage(
     urn: str,
     column: Optional[str] = None,
     query: Optional[str] = None,
-    filters: Optional[str] = None,
+    filter: Optional[str] = None,
     upstream: bool = True,
     max_hops: int = 1,
     max_results: int = 30,
@@ -159,7 +159,7 @@ def get_lineage(
         urn: Entity URN
         column: Optional column name for column-level lineage
         query: Optional search query to filter lineage results
-        filters: Optional SQL-like filter string (same syntax as search tool)
+        filter: Optional SQL-like filter string (same syntax as search tool)
         upstream: True for upstream, False for downstream
         max_hops: Maximum number of hops (1-3+)
         max_results: Maximum number of results to return
@@ -223,7 +223,7 @@ def get_lineage(
         column = None
 
     parsed_filters: Optional[Filter] = (
-        parse_filter_string(filters.strip()) if isinstance(filters, str) else None
+        parse_filter_string(filter.strip()) if isinstance(filter, str) else None
     )
 
     lineage_api = AssetLineageAPI()
