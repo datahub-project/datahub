@@ -1,6 +1,6 @@
 import logging
-import re
 from typing import Dict, Optional
+from urllib.parse import urlparse
 
 from cached_property import cached_property
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -27,9 +27,24 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-_AZURE_HTTPS_REGEX = re.compile(
-    r"https?://[a-z0-9]{3,24}\.(blob|dfs)\.core\.windows\.net/.*"
-)
+AZURE_FILESYSTEM_SCHEMES = ("abfs", "abfss")
+AZURE_CONTAINER_SCHEMES = ("az", "adl")
+AZURE_URI_SCHEMES = (*AZURE_FILESYSTEM_SCHEMES, *AZURE_CONTAINER_SCHEMES)
+AZURE_HTTP_HOST_SUFFIXES = (".blob.core.windows.net", ".dfs.core.windows.net")
+AZURE_SUPPORTED_FORMATS_HINT = "abfss://, abfs://, az://, adl://, and Azure HTTPS"
+
+
+def is_azure_http_netloc(netloc: str) -> bool:
+    lowered = netloc.lower()
+    return any(lowered.endswith(suffix) for suffix in AZURE_HTTP_HOST_SUFFIXES)
+
+
+def is_azure_path(path: str) -> bool:
+    parsed = urlparse(path or "")
+    scheme = parsed.scheme.lower()
+    return scheme in AZURE_URI_SCHEMES or (
+        scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc)
+    )
 
 
 class S3(ConfigModel):
@@ -195,14 +210,7 @@ class DeltaLakeSourceConfig(
 
     @cached_property
     def is_azure(self) -> bool:
-        base_path = (self.base_path or "").lower()
-        return (
-            base_path.startswith("abfs://")
-            or base_path.startswith("abfss://")
-            or base_path.startswith("az://")
-            or base_path.startswith("adl://")
-            or bool(_AZURE_HTTPS_REGEX.match(base_path))
-        )
+        return is_azure_path(self.base_path or "")
 
     @cached_property
     def complete_path(self):

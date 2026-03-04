@@ -34,7 +34,13 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
-from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
+from datahub.ingestion.source.delta_lake.config import (
+    AZURE_CONTAINER_SCHEMES,
+    AZURE_FILESYSTEM_SCHEMES,
+    AZURE_SUPPORTED_FORMATS_HINT,
+    DeltaLakeSourceConfig,
+    is_azure_http_netloc,
+)
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
@@ -406,7 +412,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
         parsed = urlparse(path)
         scheme = parsed.scheme.lower()
 
-        if scheme in {"abfs", "abfss"}:
+        if scheme in AZURE_FILESYSTEM_SCHEMES:
             container_name, account_domain = parsed.netloc.split("@", 1)
             account_name = account_domain.split(".")[0]
             return AzurePathParts(
@@ -415,7 +421,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 object_path=parsed.path.lstrip("/"),
             )
 
-        if scheme in {"az", "adl"}:
+        if scheme in AZURE_CONTAINER_SCHEMES:
             container_name = parsed.netloc
             object_path = parsed.path.lstrip("/")
             if (
@@ -431,10 +437,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 object_path=object_path,
             )
 
-        if scheme in {"http", "https"} and (
-            ".blob.core.windows.net" in parsed.netloc
-            or ".dfs.core.windows.net" in parsed.netloc
-        ):
+        if scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc):
             account_name = parsed.netloc.split(".")[0]
             stripped_path = parsed.path.lstrip("/")
             parts = stripped_path.split("/", 1)
@@ -447,7 +450,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             )
 
         raise ValueError(
-            f"Unsupported Azure path format: {path}. Supported formats: abfss://, abfs://, az://, adl://, and Azure HTTPS."
+            f"Unsupported Azure path format: {path}. Supported formats: {AZURE_SUPPORTED_FORMATS_HINT}."
         )
 
     def _get_data_lake_service_client(self, account_name: str) -> DataLakeServiceClient:
