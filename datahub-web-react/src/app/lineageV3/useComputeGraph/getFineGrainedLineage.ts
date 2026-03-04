@@ -36,7 +36,7 @@ interface TentativeEdge {
  * @param nodes Map of nodes containing schema metadata
  * @returns true if the field exists, false otherwise
  */
-function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
+export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
     if (!node?.entity?.schemaMetadata?.fields) {
         return false;
