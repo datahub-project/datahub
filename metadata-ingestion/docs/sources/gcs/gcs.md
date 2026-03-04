@@ -23,6 +23,7 @@ source:
 Configure Workload Identity Federation using one of three options:
 
 **Option 1: Configuration file**
+
 ```yaml
 source:
   type: gcs
@@ -32,6 +33,7 @@ source:
 ```
 
 **Option 2: Inline configuration (dict)**
+
 ```yaml
 source:
   type: gcs
@@ -47,6 +49,7 @@ source:
 ```
 
 **Option 3: JSON string (copy-paste from file)**
+
 ```yaml
 source:
   type: gcs
