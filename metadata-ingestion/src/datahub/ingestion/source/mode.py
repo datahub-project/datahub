@@ -143,6 +143,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Default API limit for items returned per API call
 # Used for the default per_page value for paginated API requests
 DEFAULT_API_ITEMS_PER_PAGE = 30
+MAX_API_ITEMS_PER_PAGE = 1000
 
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
@@ -323,11 +324,11 @@ class ModeConfig(
     @field_validator("items_per_page", mode="after")
     @classmethod
     def validate_items_per_page(cls, v):
-        if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
+        if 1 <= v <= MAX_API_ITEMS_PER_PAGE:
             return v
         else:
             raise ValueError(
-                f"items_per_page must be between 1 and {DEFAULT_API_ITEMS_PER_PAGE}"
+                f"items_per_page must be between 1 and {MAX_API_ITEMS_PER_PAGE}"
             )
 
 
