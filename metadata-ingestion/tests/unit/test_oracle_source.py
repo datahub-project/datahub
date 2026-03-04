@@ -22,9 +22,13 @@ from datahub.ingestion.source.sql.oracle import (
     extra_oracle_types,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
+    SqlAlchemyTableDataReader,
+)
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
+    SqlParsingAggregator,
 )
 
 
@@ -1201,10 +1205,6 @@ class TestOracleProcedureLineage:
 
 
 def test_oracle_sample_query_uses_where_rownum():
-    from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
-        SqlAlchemyTableDataReader,
-    )
-
     mock_conn = MagicMock()
     mock_conn.dialect.name = "oracle"
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -1309,8 +1309,6 @@ def test_oracle_get_db_schema_uses_urn_db_name_for_two_part_identifier():
 def test_oracle_eager_graph_load_when_table_pattern_restricted():
     """eager_graph_load must be True when not ingesting both tables and views,
     so the schema resolver can pre-fetch schemas for tables outside table_pattern."""
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
     config = OracleConfig.parse_obj(
         {
             "username": "user",
@@ -1341,8 +1339,6 @@ def test_oracle_eager_graph_load_when_table_pattern_restricted():
 def test_oracle_eager_graph_load_off_when_ingesting_all():
     """eager_graph_load must be False when ingesting both tables and views,
     since the schema resolver is populated incrementally during extraction."""
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
     config = OracleConfig.parse_obj(
         {
             "username": "user",
@@ -1351,6 +1347,37 @@ def test_oracle_eager_graph_load_off_when_ingesting_all():
             "service_name": "my_pdb.example.com",
             "include_tables": True,
             "include_views": True,
+        }
+    )
+
+    captured: dict = {}
+    original_init = SqlParsingAggregator.__init__
+
+    def capture_init(self, *args, **kwargs):
+        captured.update(kwargs)
+        return original_init(self, *args, **kwargs)
+
+    with (
+        patch("datahub.ingestion.source.sql.oracle.oracledb"),
+        patch.object(SqlParsingAggregator, "__init__", capture_init),
+    ):
+        OracleSource(config, PipelineContext(run_id="test"))
+
+    assert captured["eager_graph_load"] is False
+
+
+def test_oracle_lazy_schema_resolver_suppresses_eager_load():
+    """lazy_schema_resolver=True must disable eager_graph_load even when
+    table_pattern is restricted."""
+    config = OracleConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1521",
+            "service_name": "my_pdb.example.com",
+            "include_tables": True,
+            "include_views": False,
+            "lazy_schema_resolver": True,
         }
     )
 

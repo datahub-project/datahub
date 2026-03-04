@@ -353,6 +353,17 @@ VSQL_USAGE_QUERY = (
 """
 )
 
+
+def _normalize_db_name(name: str) -> str:
+    """Replicate Oracle's normalize_name: ALL_UPPERCASE identifiers are lowercased.
+
+    Oracle stores unquoted identifiers in uppercase; SQLAlchemy's normalize_name
+    converts them to lowercase for consistency. We apply the same rule wherever
+    we use urn_db_name without access to the dialect (e.g. in OracleConfig methods).
+    """
+    return name.lower() if name.isupper() else name
+
+
 DB_NAME_QUERY = """
     SELECT
         CASE
@@ -426,11 +437,13 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default=None,
         description=(
             "Override the database name used in URN construction. "
-            "The connector auto-detects this by querying sys_context('USERENV','CON_NAME') "
+            "Only relevant when add_database_name_to_urn is true and service_name is used "
+            "(i.e. database is not set). "
+            "The connector auto-detects the name by querying sys_context('USERENV','CON_NAME') "
             "(the PDB name in multitenant setups) with a fallback to DB_NAME. "
             "Set this explicitly if auto-detection returns the wrong value — for example "
             "if your service_name does not route directly to the target PDB. "
-            "Only relevant when add_database_name_to_urn is true."
+            "Do not set this alongside database; only one should be used."
         ),
     )
     add_database_name_to_urn: Optional[bool] = Field(
@@ -486,6 +499,13 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_operational_stats: bool = Field(
         default=False,
         description="Generate operation statistics from audit trail data (CREATE, INSERT, UPDATE, DELETE operations).",
+    )
+
+    lazy_schema_resolver: bool = Field(
+        default=False,
+        description="If enabled, skips the upfront bulk fetch of all known schemas from DataHub "
+        "when resolving lineage. Useful on large DataHub instances where the bulk fetch "
+        "causes memory or performance issues.",
     )
 
     # Query extraction configuration for usage statistics
@@ -586,14 +606,9 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if self.add_database_name_to_urn:
             db = self.database
             if not db and self.urn_db_name:
-                # Replicate Oracle's normalize_name: ALL_UPPERCASE → lowercase.
-                # get_db_name does this via the dialect, so entity URNs and lineage
-                # URNs must use the same casing or they will never match.
-                db = (
-                    self.urn_db_name.lower()
-                    if self.urn_db_name.isupper()
-                    else self.urn_db_name
-                )
+                # get_db_name normalises via the dialect; replicate that here so
+                # entity URNs and lineage URNs share the same db casing.
+                db = _normalize_db_name(self.urn_db_name)
             if db:
                 return f"{db}.{regular}"
         return regular
@@ -1280,9 +1295,9 @@ class OracleSource(SQLAlchemySource):
                 # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
                 oracledb.init_oracle_client()
 
-        # Eagerly pre-fetch schemas from DataHub when running with a restricted
-        # table_pattern, so view definitions and V$SQL queries can resolve
-        # references to tables outside the current scope without per-URN fetches.
+        # Pre-fetch schemas from DataHub when not ingesting all tables/views so that
+        # V$SQL queries and view definitions can resolve lineage against tables outside
+        # the current run. lazy_schema_resolver lets large instances opt out.
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -1292,8 +1307,9 @@ class OracleSource(SQLAlchemySource):
             generate_usage_statistics=self.config.include_usage_stats,
             generate_operations=self.config.include_operational_stats,
             usage_config=self.config if self.config.include_usage_stats else None,
-            eager_graph_load=not (
-                self.config.include_tables and self.config.include_views
+            eager_graph_load=(
+                not (self.config.include_tables and self.config.include_views)
+                and not self.config.lazy_schema_resolver
             ),
         )
         self.report.sql_aggregator = self.aggregator.report
@@ -1390,9 +1406,11 @@ class OracleSource(SQLAlchemySource):
                     # Using str(None) here would produce "None.schema.table" URNs.
                     # Normalise urn_db_name the same way as get_identifier so that
                     # view-lineage default_db matches entity URN db components.
-                    urn_db = self.config.urn_db_name
-                    if urn_db:
-                        urn_db = urn_db.lower() if urn_db.isupper() else urn_db
+                    urn_db = (
+                        _normalize_db_name(self.config.urn_db_name)
+                        if self.config.urn_db_name
+                        else None
+                    )
                     db_name = self.config.database or urn_db or None
                     return db_name, parts[-2]  # db (or None), schema
             else:
@@ -2128,8 +2146,8 @@ class OracleSource(SQLAlchemySource):
         # V$SQL second: observed queries are added to the aggregator after the
         # schema resolver is populated. _generate_aggregator_workunits is a no-op
         # in the parent call above (overridden below) so lineage is not emitted yet.
-        with self.report.new_stage(QUERIES_EXTRACTION):
-            self._populate_aggregator_from_queries()
+        # _populate_aggregator_from_queries opens its own QUERIES_EXTRACTION stage.
+        self._populate_aggregator_from_queries()
 
         with self.report.new_stage(LINEAGE_EXTRACTION):
             yield from super()._generate_aggregator_workunits()
