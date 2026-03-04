@@ -30,6 +30,7 @@ import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
+from sqlglot.optimizer.scope import find_all_in_scope
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
@@ -1434,7 +1435,7 @@ def _list_joins(
         cooperate()
         # PART 1: Handle regular explicit JOINs (updated API)
         join: sqlglot.exp.Join
-        for join in scope.expression.find_all(sqlglot.exp.Join):
+        for join in find_all_in_scope(scope.expression, sqlglot.exp.Join):
             left_side_tables: OrderedSet[_TableName] = OrderedSet()
             from_clause: sqlglot.exp.From
             for from_clause in scope.find_all(sqlglot.exp.From):
