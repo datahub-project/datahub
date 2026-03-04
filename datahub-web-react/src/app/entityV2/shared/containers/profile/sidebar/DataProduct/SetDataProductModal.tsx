@@ -5,6 +5,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -22,7 +23,6 @@ import { getModalDomContainer } from '@src/utils/focus';
 import { useBatchAddToDataProductsMutation, useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, DataProduct, Entity, EntityType } from '@types';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 
 const LoadingWrapper = styled.div`
     display: flex;
