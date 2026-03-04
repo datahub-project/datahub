@@ -11,7 +11,6 @@ import {
     EXECUTION_REQUEST_STATUS_ROLLED_BACK,
     EXECUTION_REQUEST_STATUS_ROLLING_BACK,
     EXECUTION_REQUEST_STATUS_RUNNING,
-    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
     EXECUTION_REQUEST_STATUS_UP_FOR_RETRY,
 } from '@app/ingestV2/executions/constants';
@@ -39,7 +38,6 @@ export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
             options={[
                 { label: 'All Statuses', value: RESULT_STATUS_ALL_VALUE },
                 { label: 'Success', value: EXECUTION_REQUEST_STATUS_SUCCESS },
-                { label: 'Success with Warnings', value: EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS },
                 { label: 'Failed', value: EXECUTION_REQUEST_STATUS_FAILURE },
                 { label: 'Running', value: EXECUTION_REQUEST_STATUS_RUNNING },
                 { label: 'Cancelled', value: EXECUTION_REQUEST_STATUS_CANCELLED },
