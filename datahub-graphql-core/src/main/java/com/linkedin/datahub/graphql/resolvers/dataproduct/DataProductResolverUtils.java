@@ -4,10 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.DataProductService;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /** Utility methods shared across Data Product GraphQL resolvers. */
@@ -59,12 +57,7 @@ public class DataProductResolverUtils {
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
     for (String dataProductUrn : dataProductUrns) {
-      if (!dataProductService.verifyEntityExists(
-          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn))) {
-        throw new RuntimeException(
-            String.format(
-                "Failed to update data products, data product %s does not exist", dataProductUrn));
-      }
+      verifyDataProduct(dataProductUrn, context, dataProductService);
     }
   }
 
@@ -88,34 +81,5 @@ public class DataProductResolverUtils {
               "Failed to update data products, data product %s does not exist",
               maybeDataProductUrn));
     }
-  }
-
-  /**
-   * Converts a list of URN strings to ResourceReference objects.
-   *
-   * @param urnStrings list of URN strings
-   * @return list of ResourceReference objects
-   */
-  @Nonnull
-  public static List<ResourceReference> convertToResourceReferences(
-      @Nonnull final List<String> urnStrings) {
-    return urnStrings.stream()
-        .map(UrnUtils::getUrn)
-        .map(urn -> new ResourceReference(urn, null, null))
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * Converts a list of Urn objects to ResourceReference objects.
-   *
-   * @param urns list of Urn objects
-   * @return list of ResourceReference objects
-   */
-  @Nonnull
-  public static List<ResourceReference> convertUrnsToResourceReferences(
-      @Nonnull final List<Urn> urns) {
-    return urns.stream()
-        .map(urn -> new ResourceReference(urn, null, null))
-        .collect(Collectors.toList());
   }
 }

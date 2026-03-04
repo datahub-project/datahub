@@ -2,18 +2,19 @@ package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductsInput;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,13 +51,12 @@ public class BatchAddToDataProductsResolver implements DataFetcher<CompletableFu
               dataProductUrns, context, _dataProductService);
 
           try {
-            // Convert URNs to ResourceReferences
-            final List<ResourceReference> resourceReferences =
-                DataProductResolverUtils.convertToResourceReferences(resourceUrns);
+            final List<Urn> resourceUrnList =
+                resourceUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
             // Add resources to each data product
             for (String dataProductUrn : dataProductUrns) {
-              batchAddToDataProduct(dataProductUrn, resourceReferences, context);
+              batchAddToDataProduct(dataProductUrn, resourceUrnList, context);
             }
 
             return true;
@@ -76,14 +76,14 @@ public class BatchAddToDataProductsResolver implements DataFetcher<CompletableFu
   }
 
   private void batchAddToDataProduct(
-      @Nonnull String dataProductUrn, List<ResourceReference> resources, QueryContext context) {
+      @Nonnull String dataProductUrn, List<Urn> resourceUrnList, QueryContext context) {
     log.debug(
         "Batch adding to Data Product. dataProduct urn: {}, resources: {}",
         dataProductUrn,
-        resources);
+        resourceUrnList);
     try {
       _dataProductService.batchAddToDataProduct(
-          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resources);
+          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceUrnList);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to batch add resources to Data Product %s!", dataProductUrn), e);

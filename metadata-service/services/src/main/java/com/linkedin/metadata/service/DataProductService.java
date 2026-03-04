@@ -21,7 +21,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -312,12 +311,12 @@ public class DataProductService {
    * class have already authorized the operation
    *
    * @param dataProductUrn the urn of the Data Product to set
-   * @param resources references to the resources to change
+   * @param resourceUrns the urns of the entities to add the Data Product to
    */
   public void batchSetDataProduct(
       @Nonnull OperationContext opContext,
       @Nonnull Urn dataProductUrn,
-      @Nonnull List<ResourceReference> resources) {
+      @Nonnull List<Urn> resourceUrns) {
     try {
       DataProductProperties dataProductProperties =
           getDataProductProperties(opContext, dataProductUrn);
@@ -335,17 +334,16 @@ public class DataProductService {
           dataProductAssociations.stream()
               .map(DataProductAssociation::getDestinationUrn)
               .collect(Collectors.toList());
-      List<ResourceReference> newResources =
-          resources.stream()
-              .filter(resource -> !existingResourceUrns.contains(resource.getUrn()))
+      List<Urn> newResourceUrns =
+          resourceUrns.stream()
+              .filter(urn -> !existingResourceUrns.contains(urn))
               .collect(Collectors.toList());
 
       AuditStamp nowAuditStamp =
           new AuditStamp()
               .setTime(System.currentTimeMillis())
               .setActor(opContext.getActorContext().getActorUrn());
-      for (ResourceReference resource : newResources) {
-        Urn resourceUrn = resource.getUrn();
+      for (Urn resourceUrn : newResourceUrns) {
         DataProductAssociation association = new DataProductAssociation();
         association.setDestinationUrn(resourceUrn);
         association.setCreated(nowAuditStamp);
@@ -376,14 +374,14 @@ public class DataProductService {
    *
    * @param opContext the operation context
    * @param dataProductUrn the urn of the data product to add assets to
-   * @param resources the list of entities to add to the data product
+   * @param resourceUrns the urns of the entities to add to the data product
    */
   public void batchAddToDataProduct(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn dataProductUrn,
-      @Nonnull final List<ResourceReference> resources) {
+      @Nonnull final List<Urn> resourceUrns) {
     // Delegate to existing batchSetDataProduct which already does additive operations
-    batchSetDataProduct(opContext, dataProductUrn, resources);
+    batchSetDataProduct(opContext, dataProductUrn, resourceUrns);
   }
 
   /**
@@ -395,12 +393,12 @@ public class DataProductService {
    *
    * @param opContext the operation context
    * @param dataProductUrn the urn of the data product to remove assets from
-   * @param resources the list of entities to remove from the data product
+   * @param resourceUrns the urns of the entities to remove from the data product
    */
   public void batchRemoveFromDataProduct(
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn dataProductUrn,
-      @Nonnull final List<ResourceReference> resources) {
+      @Nonnull final List<Urn> resourceUrns) {
     try {
       final DataProductProperties dataProductProperties =
           getDataProductProperties(opContext, dataProductUrn);
@@ -415,8 +413,7 @@ public class DataProductService {
       }
 
       // Create a set of URNs to remove for efficient lookup
-      final Set<Urn> urnsToRemove =
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet());
+      final Set<Urn> urnsToRemove = resourceUrns.stream().collect(Collectors.toSet());
 
       // Filter out associations for the resources being removed
       final DataProductAssociationArray finalAssociations =
@@ -482,25 +479,22 @@ public class DataProductService {
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
    * class have already authorized the operation
    *
-   * @param resources references to the resources to change
+   * @param resourceUrns the urns of the resources to change
    */
   public void batchUnsetDataProduct(
-      @Nonnull OperationContext opContext, @Nonnull List<ResourceReference> resources) {
-    if (resources.isEmpty()) return;
+      @Nonnull OperationContext opContext, @Nonnull List<Urn> resourceUrns) {
+    if (resourceUrns.isEmpty()) return;
 
     try {
       // Process each entity to unset its data product
-      for (ResourceReference resource : resources) {
-        unsetDataProduct(opContext, resource.getUrn(), opContext.getActorContext().getActorUrn());
+      for (Urn resourceUrn : resourceUrns) {
+        unsetDataProduct(opContext, resourceUrn, opContext.getActorContext().getActorUrn());
       }
-      log.info("Successfully unset data products for {} entities", resources.size());
+      log.info("Successfully unset data products for {} entities", resourceUrns.size());
     } catch (Exception e) {
       log.error("Failed to batch unset data products for entities: {}", e.getMessage(), e);
       throw new RuntimeException(
-          String.format(
-              "Failed to batch unset data products for entities %s",
-              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
-          e);
+          String.format("Failed to batch unset data products for entities %s", resourceUrns), e);
     }
   }
 

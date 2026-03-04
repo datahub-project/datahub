@@ -2,18 +2,19 @@ package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductsInput;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,13 +52,12 @@ public class BatchRemoveFromDataProductsResolver
               dataProductUrns, context, _dataProductService);
 
           try {
-            // Convert URNs to ResourceReferences
-            final List<ResourceReference> resourceReferences =
-                DataProductResolverUtils.convertToResourceReferences(resourceUrns);
+            final List<Urn> resourceUrnList =
+                resourceUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
             // Remove resources from each data product
             for (String dataProductUrn : dataProductUrns) {
-              batchRemoveFromDataProduct(dataProductUrn, resourceReferences, context);
+              batchRemoveFromDataProduct(dataProductUrn, resourceUrnList, context);
             }
 
             return true;
@@ -77,14 +77,14 @@ public class BatchRemoveFromDataProductsResolver
   }
 
   private void batchRemoveFromDataProduct(
-      @Nonnull String dataProductUrn, List<ResourceReference> resources, QueryContext context) {
+      @Nonnull String dataProductUrn, List<Urn> resourceUrnList, QueryContext context) {
     log.debug(
         "Batch removing from Data Product. dataProduct urn: {}, resources: {}",
         dataProductUrn,
-        resources);
+        resourceUrnList);
     try {
       _dataProductService.batchRemoveFromDataProduct(
-          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resources);
+          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceUrnList);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to batch remove resources from Data Product %s!", dataProductUrn),

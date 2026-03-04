@@ -2,16 +2,17 @@ package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,12 +38,12 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
               maybeDataProductUrn, context, _dataProductService);
 
           try {
-            final List<ResourceReference> resourceReferences =
-                DataProductResolverUtils.convertToResourceReferences(resources);
+            List<Urn> resourceUrns =
+                resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             if (maybeDataProductUrn != null) {
-              batchSetDataProduct(maybeDataProductUrn, resourceReferences, context);
+              batchSetDataProduct(maybeDataProductUrn, resourceUrns, context);
             } else {
-              batchUnsetDataProduct(resourceReferences, context);
+              batchUnsetDataProduct(resourceUrns, context);
             }
             return true;
           } catch (Exception e) {
@@ -58,34 +59,33 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
 
   private void batchSetDataProduct(
       @Nonnull final String dataProductUrn,
-      @Nonnull final List<ResourceReference> resourceReferences,
+      @Nonnull final List<Urn> resourceUrns,
       @Nonnull final QueryContext context) {
     log.debug(
         "Batch setting Data Product. dataProduct urn: {}, resources: {}",
         dataProductUrn,
-        resourceReferences);
+        resourceUrns);
     try {
       _dataProductService.batchSetDataProduct(
-          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceReferences);
+          context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceUrns);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
               "Failed to batch set Data Product %s to resources with urns %s!",
-              dataProductUrn, resourceReferences),
+              dataProductUrn, resourceUrns),
           e);
     }
   }
 
   private void batchUnsetDataProduct(
-      @Nonnull final List<ResourceReference> resourceReferences,
-      @Nonnull final QueryContext context) {
-    log.debug("Batch unsetting Data Product. resources: {}", resourceReferences);
+      @Nonnull final List<Urn> resourceUrns, @Nonnull final QueryContext context) {
+    log.debug("Batch unsetting Data Product. resources: {}", resourceUrns);
     try {
-      _dataProductService.batchUnsetDataProduct(context.getOperationContext(), resourceReferences);
+      _dataProductService.batchUnsetDataProduct(context.getOperationContext(), resourceUrns);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
-              "Failed to batch unset data product for resources with urns %s!", resourceReferences),
+              "Failed to batch unset data product for resources with urns %s!", resourceUrns),
           e);
     }
   }
