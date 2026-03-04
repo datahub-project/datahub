@@ -290,8 +290,8 @@ public class DomainExtractionUtils {
    *
    * <p>dataHubExecutionRequest entities are explicitly excluded because they are internal system
    * entities (category: internal) not configurable via policies. Without this exclusion,
-   * domain-based authorization would always reject them since they have no domain and no policy
-   * can be created to allow them.
+   * domain-based authorization would always reject them since they have no domain and no policy can
+   * be created to allow them.
    *
    * @return Map of entity URN to set of NEW domain URNs being proposed. Only contains entries for
    *     entities that are changing their domains aspect.
@@ -336,8 +336,8 @@ public class DomainExtractionUtils {
    *
    * <p>dataHubExecutionRequest entities are explicitly excluded because they are internal system
    * entities (category: internal) not configurable via policies. Without this exclusion,
-   * domain-based authorization would always reject them since they have no domain and no policy
-   * can be created to allow them.
+   * domain-based authorization would always reject them since they have no domain and no policy can
+   * be created to allow them.
    *
    * @param entities List of Entity objects with their URNs
    * @return Map of entity URN to set of domain URNs found in the entities. Only contains entries

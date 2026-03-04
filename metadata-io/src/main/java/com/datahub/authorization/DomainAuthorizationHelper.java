@@ -30,6 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Helper class for domain-based authorization of MetadataChangeProposals.
  *
+ * <p>Only invoked when domain-based authorization is enabled AND the batch contains domain changes.
+ * For all other cases the standard authorization path in the API layer (e.g. AspectResource) is
+ * used unchanged.
+ *
  * <p>This class implements a 3-step authorization approach:
  *
  * <ol>
@@ -46,49 +50,27 @@ public class DomainAuthorizationHelper {
   }
 
   /**
-   * Authorize MetadataChangeProposals with optional domain-based authorization.
+   * Authorize MetadataChangeProposals with domain-based authorization.
    *
-   * <p>AUTHORIZATION MODES:
-   *
-   * <ul>
-   *   <li><b>Domain-based authorization ENABLED</b> (newDomainsByEntity != null && !empty): For
-   *       entities changing domains, performs dual authorization: - Check 1: NEW domains using
-   *       EntitySpec with proposedAspects - Check 2: EXISTING domains using standard URN
-   *       authorization (only if entity exists) For entities not changing domains, uses standard
-   *       URN authorization
-   *   <li><b>Domain-based authorization DISABLED</b> (newDomainsByEntity == null || empty): Uses
-   *       standard entity URN authorization without domain context
-   * </ul>
+   * <p>Only called when domain-based authorization is enabled and the batch contains domain
+   * changes.
    *
    * @param opContext Operation context containing authorization session
    * @param entityRegistry Entity registry for URN resolution
    * @param mcps Collection of MCPs to authorize
    * @param newDomainsByEntity Map of entity URN to their NEW domain URNs being proposed in MCPs.
-   *     Only contains entries for entities that are changing their domains aspect. Pass null or
-   *     empty map to use standard authorization without domain context.
-   * @param aspectRetriever AspectRetriever for checking entity existence (required for domain-based
-   *     auth)
+   *     Only contains entries for entities that are changing their domains aspect. Must be
+   *     non-empty — callers should only invoke this method when there are domain changes.
+   * @param aspectRetriever AspectRetriever for checking entity existence
    * @return Map of MCP to authorization result (true if authorized, false otherwise)
    */
   public static Map<MetadataChangeProposal, Boolean> authorizeWithDomains(
       @Nonnull final OperationContext opContext,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Collection<MetadataChangeProposal> mcps,
-      @Nullable final Map<Urn, Set<Urn>> newDomainsByEntity,
+      @Nonnull final Map<Urn, Set<Urn>> newDomainsByEntity,
       @Nullable final AspectRetriever aspectRetriever) {
 
-    boolean useDomainAuth = newDomainsByEntity != null && !newDomainsByEntity.isEmpty();
-
-    if (!useDomainAuth) {
-      // Domain-based authorization is DISABLED - use existing standard flow
-      Map<MetadataChangeProposal, Boolean> results = new HashMap<>();
-      Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation =
-          groupMCPsByOperation(mcps, entityRegistry);
-      authorizeMCPsStandard(opContext, mcpsByOperation, results);
-      return results;
-    }
-
-    // Domain-based authorization is ENABLED - use new dual-check flow
     return authorizeMCPsWithDomainBasedAuth(
         opContext, entityRegistry, mcps, newDomainsByEntity, aspectRetriever);
   }
@@ -118,9 +100,9 @@ public class DomainAuthorizationHelper {
         groupMCPsByOperation(mcps, entityRegistry);
 
     if (aspectRetriever == null) {
-      log.warn("AspectRetriever not available - cannot perform domain-based authorization checks");
-      // Fall back to standard authorization
-      authorizeMCPsStandard(opContext, mcpsByOperation, results);
+      log.warn(
+          "AspectRetriever not available for domain-based authorization — denying all MCPs as fail-safe");
+      mcps.forEach(mcp -> results.put(mcp, false));
       return results;
     }
 
@@ -258,42 +240,6 @@ public class DomainAuthorizationHelper {
     }
 
     return mcpsByOperation;
-  }
-
-  /**
-   * Authorize MCPs using standard entity URN authorization (no domain context). All operations use
-   * basic entity-level permissions only.
-   *
-   * <p>IMPORTANT: Uses "all or nothing" authorization - if ANY entity in the batch is denied, the
-   * ENTIRE batch is denied.
-   */
-  private static void authorizeMCPsStandard(
-      @Nonnull final OperationContext opContext,
-      @Nonnull final Map<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> mcpsByOperation,
-      @Nonnull final Map<MetadataChangeProposal, Boolean> results) {
-
-    for (Map.Entry<ApiOperation, List<Pair<MetadataChangeProposal, Urn>>> entry :
-        mcpsByOperation.entrySet()) {
-      ApiOperation operation = entry.getKey();
-      List<Pair<MetadataChangeProposal, Urn>> mcpUrnPairs = entry.getValue();
-
-      // Check each URN individually to detect partial authorization
-      boolean allAuthorized = true;
-      for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
-        Urn urn = pair.getSecond();
-        boolean authorized =
-            isAPIAuthorizedEntityUrns(opContext, operation, Collections.singletonList(urn));
-        if (!authorized) {
-          allAuthorized = false;
-          break; // Short-circuit: if any is denied, entire batch is denied
-        }
-      }
-
-      // Apply "all or nothing" result to all MCPs in this batch
-      for (Pair<MetadataChangeProposal, Urn> pair : mcpUrnPairs) {
-        results.put(pair.getFirst(), allAuthorized);
-      }
-    }
   }
 
   /** Extract URN from MCP, generating it from entity key if not present. */

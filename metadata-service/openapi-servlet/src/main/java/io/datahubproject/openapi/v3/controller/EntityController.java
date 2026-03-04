@@ -430,7 +430,6 @@ public class EntityController
 
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
-
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {

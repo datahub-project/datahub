@@ -264,28 +264,27 @@ public class DatasetType
   public Dataset update(
       @Nonnull String urn, @Nonnull DatasetUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
-    final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-    final Collection<MetadataChangeProposal> proposals =
-        DatasetUpdateInputMapper.map(context, input, actor);
-    proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
+    if (isAuthorized(urn, input, context)) {
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      final Collection<MetadataChangeProposal> proposals =
+          DatasetUpdateInputMapper.map(context, input, actor);
+      proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
-    if (!isAuthorized(urn, input, context)) {
-      throw new AuthorizationException(
-          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      try {
+        entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
+      } catch (RemoteInvocationException e) {
+        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+      }
+
+      return load(urn, context).getData();
     }
-
-    try {
-      entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
-    }
-
-    return load(urn, context).getData();
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
   private boolean isAuthorized(
       @Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
-    // Privilege-based authorization (used when domain-based authorization is disabled)
+    // Decide whether the current principal should be allowed to update the Dataset.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);

@@ -66,48 +66,6 @@ public class DomainAuthorizationHelperTest {
   }
 
   @Test
-  public void testAuthorizeWithDomains_NoDomainMap() throws Exception {
-    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
-
-    MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(datasetUrn);
-    mcp.setEntityType("dataset");
-    mcp.setChangeType(ChangeType.UPSERT);
-
-    // Call with null domains map - should use standard authorization
-    Map<MetadataChangeProposal, Boolean> results =
-        DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
-
-    assertNotNull(results);
-    assertEquals(results.size(), 1);
-    assertTrue(results.get(mcp), "Should be authorized with standard auth");
-  }
-
-  @Test
-  public void testAuthorizeWithDomains_EmptyDomainMap() throws Exception {
-    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
-
-    MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(datasetUrn);
-    mcp.setEntityType("dataset");
-    mcp.setChangeType(ChangeType.UPSERT);
-
-    // Call with empty domains map - should use standard authorization
-    Map<MetadataChangeProposal, Boolean> results =
-        DomainAuthorizationHelper.authorizeWithDomains(
-            opContext,
-            mockEntityRegistry,
-            List.of(mcp),
-            Collections.emptyMap(),
-            mockAspectRetriever);
-
-    assertNotNull(results);
-    assertEquals(results.size(), 1);
-    assertTrue(results.get(mcp), "Should be authorized with standard auth");
-  }
-
-  @Test
   public void testAuthorizeWithDomains_WithDomains_Authorized() throws Exception {
     Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
     Urn domainUrn = Urn.createFromString(DOMAIN_URN_STRING);
@@ -272,10 +230,20 @@ public class DomainAuthorizationHelperTest {
   }
 
   @Test
-  public void testAuthorizeWithDomains_EmptyMCPList() {
+  public void testAuthorizeWithDomains_EmptyMCPList() throws Exception {
+    Urn domainUrn = Urn.createFromString(DOMAIN_URN_STRING);
+    Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+
+    Map<Urn, Set<Urn>> domainsByEntity = new HashMap<>();
+    domainsByEntity.put(datasetUrn, Set.of(domainUrn));
+
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, Collections.emptyList(), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            Collections.emptyList(),
+            domainsByEntity,
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertTrue(results.isEmpty());
@@ -284,15 +252,21 @@ public class DomainAuthorizationHelperTest {
   @Test
   public void testAuthorizeWithDomains_RestateChangeType() throws Exception {
     Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+    Urn domainUrn = Urn.createFromString(DOMAIN_URN_STRING);
 
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(datasetUrn);
     mcp.setEntityType("dataset");
     mcp.setChangeType(ChangeType.RESTATE);
 
+    Map<Urn, Set<Urn>> domainsByEntity = new HashMap<>();
+    domainsByEntity.put(datasetUrn, Set.of(domainUrn));
+
+    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext, mockEntityRegistry, List.of(mcp), domainsByEntity, mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -302,15 +276,21 @@ public class DomainAuthorizationHelperTest {
   @Test
   public void testAuthorizeWithDomains_PatchChangeType() throws Exception {
     Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+    Urn domainUrn = Urn.createFromString(DOMAIN_URN_STRING);
 
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(datasetUrn);
     mcp.setEntityType("dataset");
     mcp.setChangeType(ChangeType.PATCH);
 
+    Map<Urn, Set<Urn>> domainsByEntity = new HashMap<>();
+    domainsByEntity.put(datasetUrn, Set.of(domainUrn));
+
+    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext, mockEntityRegistry, List.of(mcp), domainsByEntity, mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -320,15 +300,21 @@ public class DomainAuthorizationHelperTest {
   @Test
   public void testAuthorizeWithDomains_CreateEntityChangeType() throws Exception {
     Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
+    Urn domainUrn = Urn.createFromString(DOMAIN_URN_STRING);
 
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(datasetUrn);
     mcp.setEntityType("dataset");
     mcp.setChangeType(ChangeType.CREATE_ENTITY);
 
+    Map<Urn, Set<Urn>> domainsByEntity = new HashMap<>();
+    domainsByEntity.put(datasetUrn, Set.of(domainUrn));
+
+    when(mockAspectRetriever.entityExists(any())).thenReturn(Collections.emptyMap());
+
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext, mockEntityRegistry, List.of(mcp), domainsByEntity, mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);

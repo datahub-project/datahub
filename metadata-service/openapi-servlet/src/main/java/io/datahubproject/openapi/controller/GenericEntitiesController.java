@@ -70,7 +70,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -558,8 +557,16 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard auth: type-level check. When domain-based auth is enabled this is superseded by
+      // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
+      if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+      }
+    }
 
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {

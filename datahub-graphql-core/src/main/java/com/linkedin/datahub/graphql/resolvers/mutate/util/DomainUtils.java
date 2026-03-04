@@ -88,7 +88,6 @@ public class DomainUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(opContext, domainUrn, resource, actor, entityService));
     }
-
     EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 

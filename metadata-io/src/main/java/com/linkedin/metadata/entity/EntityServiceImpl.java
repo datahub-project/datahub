@@ -1709,25 +1709,27 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (!mcps.isEmpty()) {
         Map<com.linkedin.common.urn.Urn, Set<com.linkedin.common.urn.Urn>> newDomainsByEntity =
             DomainExtractionUtils.extractNewDomainsFromMCPs(mcps);
-        Map<MetadataChangeProposal, Boolean> authResults =
-            DomainAuthorizationHelper.authorizeWithDomains(
-                opContext,
-                opContext.getEntityRegistry(),
-                mcps,
-                newDomainsByEntity,
-                opContext.getAspectRetriever());
-        List<MetadataChangeProposal> failures =
-            authResults.entrySet().stream()
-                .filter(entry -> !entry.getValue())
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-        if (!failures.isEmpty()) {
-          String errorMessages =
-              failures.stream()
-                  .map(mcp -> String.valueOf(mcp.getEntityUrn()))
-                  .collect(Collectors.joining(", "));
-          throw new com.linkedin.metadata.entity.validation.ValidationException(
-              "User is unauthorized to modify entities (async): " + errorMessages);
+        if (!newDomainsByEntity.isEmpty()) {
+          Map<MetadataChangeProposal, Boolean> authResults =
+              DomainAuthorizationHelper.authorizeWithDomains(
+                  opContext,
+                  opContext.getEntityRegistry(),
+                  mcps,
+                  newDomainsByEntity,
+                  opContext.getAspectRetriever());
+          List<MetadataChangeProposal> failures =
+              authResults.entrySet().stream()
+                  .filter(entry -> !entry.getValue())
+                  .map(Map.Entry::getKey)
+                  .collect(Collectors.toList());
+          if (!failures.isEmpty()) {
+            String errorMessages =
+                failures.stream()
+                    .map(mcp -> String.valueOf(mcp.getEntityUrn()))
+                    .collect(Collectors.joining(", "));
+            throw new com.linkedin.metadata.entity.validation.ValidationException(
+                "User is unauthorized to modify entities (async): " + errorMessages);
+          }
         }
       }
     }
@@ -3033,7 +3035,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
-
                   Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
                   long minVersion = Math.max(0, versionRange.getFirst());
                   long maxVersion = Math.max(0, versionRange.getSecond());
