@@ -132,7 +132,7 @@ Key commands during development:
 pytest tests/unit/myconnector/test_myconnector_source.py -v
 ```
 
-See [CLAUDE.md](../CLAUDE.md) and [developing.md](./developing.md) for the complete command reference.
+See the [developing guide](./developing.md) for the complete command reference.
 
 ### 4. Review the connector
 
