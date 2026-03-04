@@ -743,6 +743,8 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
+    # dlt reads from local filesystem only; dlt package itself is optional
+    "dlt": set(),
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "sigma": sqlglot_lib | {"requests<3.0.0"},
@@ -1071,6 +1073,7 @@ entry_points = {
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
+        "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
