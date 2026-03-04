@@ -7,10 +7,21 @@ const Wrapper = styled.div`
     flex-direction: column;
 `;
 
-const TopRow = styled.div<{ $isClickable?: boolean }>`
+const TopRow = styled.div`
     display: flex;
     flex-direction: row;
     margin-top: 12px;
+`;
+
+const Spacer = styled.div`
+    flex: 1;
+`;
+
+const LeftSection = styled.div<{ $isClickable?: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
     ${(props) =>
         props.$isClickable &&
         `
@@ -20,24 +31,24 @@ const TopRow = styled.div<{ $isClickable?: boolean }>`
         `}
 `;
 
-const Spacer = styled.div`
-    flex: 1;
-`;
-
 interface Props {
     name: string;
     description?: string;
     topRowRightItems?: React.ReactNode;
-    onClick?: () => void;
+    topRowLeftItems?: React.ReactNode;
+    onHeaderClick?: () => void;
 }
 
-export function SectionName({ name, description, topRowRightItems, onClick }: Props) {
+export function SectionName({ name, description, topRowRightItems, topRowLeftItems, onHeaderClick }: Props) {
     return (
         <Wrapper>
-            <TopRow onClick={onClick} $isClickable={!!onClick}>
-                <Text weight="semiBold" size="lg">
-                    {name}
-                </Text>
+            <TopRow>
+                <LeftSection onClick={onHeaderClick} $isClickable={!!onHeaderClick}>
+                    {topRowLeftItems}
+                    <Text weight="semiBold" size="lg">
+                        {name}
+                    </Text>
+                </LeftSection>
                 <Spacer />
                 {topRowRightItems}
             </TopRow>
