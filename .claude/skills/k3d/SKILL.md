@@ -175,3 +175,38 @@ cd k3d && uv run pytest -v
 ## Running smoke/Cypress tests against the deployment
 
 See the `k3d-tests` skill for the full workflow on running the repo's smoke tests and Cypress E2E tests against a live k3d deployment.
+
+## k3d-specific gotchas
+
+### Always use `--local` for Cypress tests
+
+Deploying without `--local` pulls pre-built Docker Hub images (`head` tag), which may not match the Cypress test specs in your branch. This causes false failures (e.g., V2 theme "Not Found", missing UI elements, `"Welcome back, undefined"`). Always use `k3d/dh deploy --local` when running Cypress.
+
+### `ES_BULK_REFRESH_POLICY` must be `NONE`
+
+The Helm values template (`k3d/values/datahub-worktree.yaml.tpl`) should set `ES_BULK_REFRESH_POLICY=NONE`. Using `WAIT_UNTIL` forces ES to refresh the shard on each write (~3s per op), causing massive consumer backlog with 5000+ queued messages. CI uses `NONE` by default.
+
+### `wait_for_writes_to_sync()` uses `docker exec`
+
+The smoke test utility `smoke-test/tests/consistency_utils.py` checks Kafka consumer lag via `docker exec` on the broker container. In k3d, Kafka runs inside a Kubernetes pod, so this fails and falls back to a static sleep (insufficient for tests that need data consistency). When running in k3d, set `USE_STATIC_SLEEP=true` with a generous `ELASTICSEARCH_REFRESH_INTERVAL_SECONDS`, or rewrite the lag check to use GMS's Kafka lag REST endpoints:
+
+```
+GET /openapi/operations/kafka/mcp/consumer/offsets?skipCache=true&detailed=true
+GET /openapi/operations/kafka/mcl/consumer/offsets?skipCache=true&detailed=true
+GET /openapi/operations/kafka/mcl-timeseries/consumer/offsets?skipCache=true&detailed=true
+```
+
+These return `totalLag`, `maxLag`, `medianLag`, `avgLag` and work in any environment.
+
+### Cypress `baseUrl` override
+
+`cypress.config.js` hardcodes `baseUrl: "http://localhost:9002/"`. In k3d the frontend is at `{name}.datahub.localhost`. The env var `CYPRESS_BASE_URL` does **not** work — Cypress requires `CYPRESS_baseUrl` (camelCase after prefix). Safest approach: pass `--config baseUrl=http://{name}.datahub.localhost` directly to `npx cypress run`.
+
+### Resource constraints on single-node cluster
+
+Aggressive testing can overwhelm the MCL consumer, causing 5k+ lag and effective downtime. Recovery: `kubectl rollout restart deployment/<gms-deployment> -n <namespace>`. Monitor lag via:
+
+```bash
+kubectl exec -n <namespace> <kafka-pod> -- kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 --describe --all-groups
+```
