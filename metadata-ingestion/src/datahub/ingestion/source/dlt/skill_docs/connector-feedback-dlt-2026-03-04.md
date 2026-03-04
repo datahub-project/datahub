@@ -1,7 +1,7 @@
 # Community Feedback: dlt Connector
 
 **PR/Version:** `mh--dlt-ingestion-source` branch
-**Tested by:** @maggiehayes
+**Tested by:** @maggiehays
 **Date:** 2026-03-04
 
 ---
