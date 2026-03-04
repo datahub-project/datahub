@@ -8,9 +8,10 @@ from pydantic import BaseModel
 
 from datahub.errors import ItemNotFoundError
 from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
+from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import clean_gql_response, execute_graphql
+from datahub_agent_context.mcp_tools.search_filter_parser import parse_filter_string
 from datahub_agent_context.mcp_tools.helpers import (
     _extract_lineage_columns_from_paths,
     _select_results_within_budget,
@@ -138,7 +139,7 @@ def get_lineage(
     urn: str,
     column: Optional[str] = None,
     query: Optional[str] = None,
-    filters: Optional[Filter | str] = None,
+    filters: Optional[str] = None,
     upstream: bool = True,
     max_hops: int = 1,
     max_results: int = 30,
@@ -149,13 +150,12 @@ def get_lineage(
     Set upstream to True for upstream lineage, False for downstream lineage.
     Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
     Setting max_hops to 3 is equivalent to unlimited hops.
-    Usage and format of filters is same as that in search tool.
 
     Args:
         urn: Entity URN
         column: Optional column name for column-level lineage
         query: Optional search query to filter lineage results
-        filters: Optional filters to apply
+        filters: Optional SQL-like filter string (same syntax as search tool)
         upstream: True for upstream, False for downstream
         max_hops: Maximum number of hops (1-3+)
         max_results: Maximum number of results to return
@@ -204,6 +204,40 @@ def get_lineage(
     - Large lineage (>30 items) → Keep count=30, use facets for aggregation
     - Need complete list → Increase count only if total ≤100
 
+    FILTER SYNTAX (SQL-like WHERE clause, same as search tool):
+      Basic filters:
+        platform = snowflake
+        entity_type = dataset
+        env = PROD
+
+      Multiple values (IN):
+        platform IN (snowflake, bigquery, redshift)
+        entity_type IN (dataset, dashboard)
+
+      Combining filters:
+        platform = snowflake AND env = PROD
+        entity_type = dataset AND (platform = snowflake OR platform = bigquery)
+
+      NOT:
+        NOT env = DEV
+        entity_type = dataset AND NOT platform = looker
+
+      Existence checks (IS NULL / IS NOT NULL):
+        tag IS NOT NULL
+        owner IS NULL
+
+      SUPPORTED FILTER FIELDS:
+      - entity_type: dataset, dashboard, chart, corp_user, corp_group, etc.
+      - entity_subtype (or subtype): Table, View, Model, etc.
+      - platform: snowflake, bigquery, looker, tableau, etc.
+      - domain: full URN required, e.g. urn:li:domain:marketing
+      - container: full URN required, e.g. urn:li:container:abc123
+      - tag: full URN required, e.g. urn:li:tag:PII
+      - glossary_term: full URN required, e.g. urn:li:glossaryTerm:uuid
+      - owner: full URN required, e.g. urn:li:corpuser:alice
+      - env: PROD, DEV, STAGING
+      - deprecated: true or false
+
     Example:
         from datahub_agent_context.context import DataHubContext
 
@@ -216,9 +250,9 @@ def get_lineage(
     if column == "null" or column == "":
         column = None
 
-    # Parse filters if provided as string
-    if isinstance(filters, str):
-        filters = load_filters(filters)
+    parsed_filters: Optional[Filter] = (
+        parse_filter_string(filters.strip()) if isinstance(filters, str) else None
+    )
 
     lineage_api = AssetLineageAPI()
 
@@ -228,7 +262,7 @@ def get_lineage(
         upstream=upstream,
         downstream=not upstream,
         max_hops=max_hops,
-        extra_filters=filters,
+        extra_filters=parsed_filters,
         max_results=max_results,
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive, query=query)
