@@ -1,7 +1,8 @@
+import atexit
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Union
 
 from google.auth import load_credentials_from_file
 from google.auth.transport.requests import Request
@@ -49,6 +50,24 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
+# Temp files created for WIF config (JSON/string); cleaned in close() and at process exit
+_wif_temp_files_to_clean: Set[str] = set()
+
+
+def _cleanup_wif_temp_files() -> None:
+    """Remove any WIF config temp files that were not cleaned up in close()."""
+    for path in _wif_temp_files_to_clean:
+        try:
+            if os.path.exists(path):
+                os.unlink(path)
+                logger.debug("Removed WIF temp config file: %s", path)
+        except OSError as e:
+            logger.warning("Failed to remove WIF temp file %s: %s", path, e)
+    _wif_temp_files_to_clean.clear()
+
+
+atexit.register(_cleanup_wif_temp_files)
 
 # S3 API operations used by the S3 source when browsing/reading GCS
 _GCS_OAUTH_S3_OPERATIONS = (
@@ -275,6 +294,7 @@ class GCSSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
+        self._wif_temp_file: Optional[str] = None
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -296,7 +316,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 wif_config_file,
             )
         elif self.config.gcp_wif_configuration_json:
-            # Write dict/string to temp file
+            # Write dict/string to temp file; path is tracked for cleanup in close()
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False
             ) as f:
@@ -305,16 +325,20 @@ class GCSSource(StatefulIngestionSourceBase):
                 else:
                     f.write(self.config.gcp_wif_configuration_json)
                 wif_config_file = f.name
+            self._wif_temp_file = wif_config_file
+            _wif_temp_files_to_clean.add(wif_config_file)
             logger.info(
                 "Using Workload Identity Federation configuration from JSON content"
             )
         elif self.config.gcp_wif_configuration_json_string:
-            # Write string to temp file
+            # Write string to temp file; path is tracked for cleanup in close()
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False
             ) as f:
                 f.write(self.config.gcp_wif_configuration_json_string)
                 wif_config_file = f.name
+            self._wif_temp_file = wif_config_file
+            _wif_temp_files_to_clean.add(wif_config_file)
             logger.info(
                 "Using Workload Identity Federation configuration from JSON string"
             )
@@ -495,9 +519,29 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         """Clean up resources when the source is closed."""
+        if self._wif_temp_file and os.path.exists(self._wif_temp_file):
+            try:
+                os.unlink(self._wif_temp_file)
+                logger.debug("Removed WIF temp config file: %s", self._wif_temp_file)
+            except OSError as e:
+                logger.warning(
+                    "Failed to remove WIF temp file %s: %s",
+                    self._wif_temp_file,
+                    e,
+                )
+            _wif_temp_files_to_clean.discard(self._wif_temp_file)
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == self._wif_temp_file:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            self._wif_temp_file = None
         super().close()
 
-    def __del__(self):
-        """Destructor to ensure cleanup even if close() is not called explicitly."""
-        # No cleanup needed since we use Google Auth library directly
-        pass
+    def __del__(self) -> None:
+        """Clean up WIF temp file if close() was not called (e.g. process exit)."""
+        if getattr(self, "_wif_temp_file", None) and os.path.exists(
+            self._wif_temp_file
+        ):
+            try:
+                os.unlink(self._wif_temp_file)
+            except OSError:
+                pass
+            _wif_temp_files_to_clean.discard(self._wif_temp_file)
