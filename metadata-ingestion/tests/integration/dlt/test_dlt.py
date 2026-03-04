@@ -11,12 +11,15 @@ To regenerate golden files after intentional changes:
 from __future__ import annotations
 
 import pathlib
+from datetime import datetime, timezone
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.dlt.data_classes import DltLoadInfo
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2026-01-15 10:00:00+00:00"
@@ -91,9 +94,21 @@ def test_dlt_ingest_golden(pytestconfig: pytest.Config, tmp_path: pathlib.Path) 
     """
     output_file = str(tmp_path / "dlt_output.json")
 
+    # Configure a source_table_dataset_urns inlet for players_games so that
+    # column-level lineage (fineGrainedLineages) is exercised in the golden file.
+    # A single inlet + single outlet triggers the 1:1 CLL code path.
     _run_dlt_pipeline(
         pipelines_dir=str(TESTDATA_DIR),
         output_file=output_file,
+        extra_config={
+            "source_table_dataset_urns": {
+                "chess_pipeline": {
+                    "players_games": [
+                        "urn:li:dataset:(urn:li:dataPlatform:chess_api,players_games,DEV)"
+                    ]
+                }
+            }
+        },
     )
 
     mce_helpers.check_golden_file(
@@ -288,6 +303,11 @@ def test_dlt_include_lineage_false(tmp_path: pathlib.Path) -> None:
     with open(output_file) as f:
         records = json.load(f)
 
+    # Guard: confirm DataFlow/DataJob entities are present so the loop below is not vacuous.
+    assert any(r.get("entityType") in ("dataFlow", "dataJob") for r in records), (
+        "Expected DataFlow/DataJob entities to be present even when include_lineage=False"
+    )
+
     for record in records:
         aspect_json = record.get("aspect", {}).get("json", {})
         output_datasets = aspect_json.get("outputDatasets", [])
@@ -320,4 +340,68 @@ def test_dlt_pipeline_pattern_filter(tmp_path: pathlib.Path) -> None:
     flow_or_job = [r for r in records if r.get("entityType") in ("dataFlow", "dataJob")]
     assert len(flow_or_job) == 0, (
         f"Expected no DataFlow/DataJob when pipeline is filtered, got {len(flow_or_job)}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+@pytest.mark.integration
+def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> None:
+    """
+    When include_run_history=True and get_run_history returns load records,
+    dataProcessInstance entities are emitted end-to-end through the full
+    Pipeline.create() → file sink path.
+
+    get_run_history is mocked so no destination credentials or live database
+    are required. This tests the DPI serialization path, not the SQL query path
+    (which is covered by DltClient.get_run_history's own error handling).
+    """
+    import json
+
+    fake_loads = [
+        DltLoadInfo(
+            load_id="1000000001.0",
+            schema_name="chess_pipeline",
+            status=0,  # success
+            inserted_at=datetime(2026, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
+            schema_version_hash="abc",
+        ),
+        DltLoadInfo(
+            load_id="1000000002.0",
+            schema_name="chess_pipeline",
+            status=1,  # failure/in-progress
+            inserted_at=datetime(2026, 1, 14, 11, 0, 0, tzinfo=timezone.utc),
+            schema_version_hash="def",
+        ),
+    ]
+
+    output_file = str(tmp_path / "dlt_dpi_output.json")
+
+    with patch(
+        "datahub.ingestion.source.dlt.dlt_client.DltClient.get_run_history",
+        return_value=fake_loads,
+    ):
+        _run_dlt_pipeline(
+            pipelines_dir=str(TESTDATA_DIR),
+            output_file=output_file,
+            extra_config={"include_run_history": True},
+        )
+
+    with open(output_file) as f:
+        records = json.load(f)
+
+    # DataProcessInstance entities must be present
+    dpi_records = [r for r in records if r.get("entityType") == "dataProcessInstance"]
+    assert len(dpi_records) > 0, (
+        "Expected dataProcessInstance entities when include_run_history=True"
+    )
+
+    # Two loads → two distinct DPI URNs
+    dpi_urns = {r.get("entityUrn") for r in dpi_records}
+    assert len(dpi_urns) == 2, (
+        f"Expected 2 distinct DPI entities (one per load), got {len(dpi_urns)}: {dpi_urns}"
+    )
+
+    # Two loads must produce two distinct DPI URNs (URNs are hashed, not raw load_ids)
+    assert len(dpi_urns) == 2, (
+        f"Expected 2 distinct DPI URNs (one per load), got {len(dpi_urns)}: {dpi_urns}"
     )

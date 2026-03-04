@@ -274,7 +274,6 @@ def test_run_history_emits_dataprocess_instance() -> None:
     """
     pipeline_info = _make_pipeline_info()
     source = _make_source(extra_config={"include_run_history": True})
-    dataflow = source._build_dataflow(pipeline_info)
 
     load_success = DltLoadInfo(
         load_id="1234567890.0",
@@ -294,7 +293,7 @@ def test_run_history_emits_dataprocess_instance() -> None:
     with patch.object(
         source.client, "get_run_history", return_value=[load_success, load_failure]
     ):
-        workunits = list(source._emit_run_history(pipeline_info, dataflow))
+        workunits = list(source._emit_run_history(pipeline_info))
 
     # Both loads must produce workunits (generate_mcp + start_event + end_event per load)
     assert len(workunits) > 0

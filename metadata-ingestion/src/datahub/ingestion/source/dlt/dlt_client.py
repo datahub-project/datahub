@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yaml
 
@@ -23,6 +23,9 @@ from datahub.ingestion.source.dlt.data_classes import (
     DltSchemaInfo,
     DltTableInfo,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dlt.dlt_report import DltSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +85,7 @@ def _parse_schema_file(schema_path: Path) -> Optional[DltSchemaInfo]:
         with schema_path.open() as f:
             raw = json.load(f) if suffix == ".json" else (yaml.safe_load(f) or {})
     except Exception as e:
-        logger.warning(f"Failed to read schema file {schema_path}: {e}")
+        logger.warning("Failed to read schema file %s: %s", schema_path, e)
         return None
 
     tables = [
@@ -107,8 +110,13 @@ class DltClient:
     Falls back to parsing schema YAML files directly when dlt is not installed.
     """
 
-    def __init__(self, pipelines_dir: str) -> None:
+    def __init__(
+        self,
+        pipelines_dir: str,
+        report: Optional["DltSourceReport"] = None,
+    ) -> None:
         self.pipelines_dir = Path(pipelines_dir)
+        self.report = report
         self._dlt_available = self._check_dlt()
 
     def _check_dlt(self) -> bool:
@@ -153,7 +161,7 @@ class DltClient:
 
         Uses the dlt SDK when available; falls back to filesystem parsing.
         """
-        if self._dlt_available:
+        if self.dlt_available:
             return self._get_pipeline_info_via_sdk(pipeline_name)
         return self._get_pipeline_info_from_filesystem(pipeline_name)
 
@@ -201,7 +209,9 @@ class DltClient:
             )
         except Exception as e:
             logger.warning(
-                f"dlt SDK failed for pipeline '{pipeline_name}', falling back to filesystem: {e}"
+                "dlt SDK failed for pipeline '%s', falling back to filesystem: %s",
+                pipeline_name,
+                e,
             )
             return self._get_pipeline_info_from_filesystem(pipeline_name)
 
@@ -228,7 +238,14 @@ class DltClient:
                 tables=tables,
             )
         except Exception as e:
-            logger.warning(f"Could not convert schema '{schema_name}' from SDK: {e}")
+            logger.warning("Could not convert schema '%s' from SDK: %s", schema_name, e)
+            if self.report is not None:
+                self.report.warning(
+                    title="Failed to read schema from dlt SDK",
+                    message="Schema could not be converted from the dlt SDK object. Skipping.",
+                    context=schema_name,
+                )
+                self.report.report_schema_read_error()
             return None
 
     def _get_pipeline_info_from_filesystem(
@@ -241,7 +258,7 @@ class DltClient:
 
         schemas = self._read_schemas_from_filesystem(pipeline_name)
         if not schemas:
-            logger.warning(f"No schemas found for pipeline '{pipeline_name}'")
+            logger.warning("No schemas found for pipeline '%s'", pipeline_name)
 
         # Try to read destination and dataset_name from state.json
         destination = ""
@@ -264,6 +281,13 @@ class DltClient:
                     pipeline_name,
                     e,
                 )
+        else:
+            # state.json is absent — normal for pipelines that haven't completed a run.
+            # destination and dataset_name will be empty; outlet lineage will not be constructed.
+            logger.debug(
+                "No state.json found for pipeline '%s'; destination info unavailable.",
+                pipeline_name,
+            )
 
         return DltPipelineInfo(
             pipeline_name=pipeline_name,
@@ -288,6 +312,16 @@ class DltClient:
             schema = _parse_schema_file(yaml_file)
             if schema:
                 schemas.append(schema)
+            else:
+                # _parse_schema_file logged the specific parse error; surface to report here
+                # since _read_schemas_from_filesystem has access to self.report.
+                if self.report is not None:
+                    self.report.warning(
+                        title="Failed to read schema file",
+                        message="A schema YAML file could not be parsed. Tables from this schema will be skipped.",
+                        context=str(yaml_file),
+                    )
+                    self.report.report_schema_read_error()
         return schemas
 
     # ------------------------------------------------------------------
@@ -303,7 +337,7 @@ class DltClient:
         Requires dlt package and destination credentials in ~/.dlt/secrets.toml.
         Returns an empty list if anything fails — run history is opt-in.
         """
-        if not self._dlt_available:
+        if not self.dlt_available:
             return []
         try:
             import dlt
@@ -337,6 +371,6 @@ class DltClient:
             return loads
         except Exception as e:
             logger.warning(
-                f"Failed to query _dlt_loads for pipeline '{pipeline_name}': {e}"
+                "Failed to query _dlt_loads for pipeline '%s': %s", pipeline_name, e
             )
             return []

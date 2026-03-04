@@ -40,6 +40,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dlt.config import DltSourceConfig
 from datahub.ingestion.source.dlt.data_classes import (
+    DltLoadInfo,
     DltPipelineInfo,
     DltTableInfo,
 )
@@ -110,7 +111,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config: DltSourceConfig = config
         self.report = DltSourceReport()
-        self.client = DltClient(pipelines_dir=config.pipelines_dir)
+        self.client = DltClient(pipelines_dir=config.pipelines_dir, report=self.report)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DltSource":
@@ -204,7 +205,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
 
         # Run history (opt-in)
         if self.config.include_run_history:
-            yield from self._emit_run_history(pipeline_info, dataflow)
+            yield from self._emit_run_history(pipeline_info)
 
     # ------------------------------------------------------------------
     # Entity builders
@@ -368,9 +369,9 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     def _emit_run_history(
-        self, pipeline_info: DltPipelineInfo, dataflow: DataFlow
+        self, pipeline_info: DltPipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """Query _dlt_loads and emit DataProcessInstance entities for each run."""
+        """Query _dlt_loads and emit DataProcessInstance entities for each completed run."""
         start_time = self.config.run_history_config.start_time
 
         loads = self.client.get_run_history(
@@ -393,48 +394,53 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         for load in loads:
-            result = _DLT_LOAD_STATUS_MAP.get(load.status, InstanceRunResult.FAILURE)
-            start_ts = int(load.inserted_at.timestamp() * 1000)
-
-            # Build a minimal V1 DataJob for DPI construction
-            flow_urn = DataFlowUrn.create_from_ids(
-                orchestrator=self.platform,
-                flow_id=pipeline_info.pipeline_name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-            # Use the schema_name as the job name for the DPI, linking to the
-            # pipeline-level DataJob rather than a specific table.
-            datajob_v1 = DataJobV1(
-                id=load.schema_name or pipeline_info.pipeline_name,
-                flow_urn=flow_urn,
-                platform_instance=self.config.platform_instance,
-                name=load.schema_name or pipeline_info.pipeline_name,
-            )
-
-            dpi = DataProcessInstance.from_datajob(
-                datajob=datajob_v1,
-                id=f"{pipeline_info.pipeline_name}_{load.load_id}",
-                clone_inlets=False,
-                clone_outlets=False,
-            )
-
-            for mcp in dpi.generate_mcp(
-                created_ts_millis=start_ts, materialize_iolets=False
-            ):
-                yield mcp.as_workunit()
-
-            for mcp in dpi.start_event_mcp(start_ts):
-                yield mcp.as_workunit()
-
-            for mcp in dpi.end_event_mcp(
-                end_timestamp_millis=start_ts,
-                result=result,
-                result_type=self.platform,
-            ):
-                yield mcp.as_workunit()
+            yield from self._emit_dpi_for_load(pipeline_info, load)
 
         self.report.report_run_history_loaded(len(loads))
+
+    def _emit_dpi_for_load(
+        self, pipeline_info: DltPipelineInfo, load: DltLoadInfo
+    ) -> Iterable[MetadataWorkUnit]:
+        """Construct and emit a DataProcessInstance for a single _dlt_loads row."""
+        result = _DLT_LOAD_STATUS_MAP.get(load.status, InstanceRunResult.FAILURE)
+        start_ts = int(load.inserted_at.timestamp() * 1000)
+
+        # DataProcessInstance.from_datajob requires the V1 DataJob type.
+        # This is a known platform constraint — the same pattern is used in fivetran.
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=self.platform,
+            flow_id=pipeline_info.pipeline_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        datajob_v1 = DataJobV1(
+            id=load.schema_name or pipeline_info.pipeline_name,
+            flow_urn=flow_urn,
+            platform_instance=self.config.platform_instance,
+            name=load.schema_name or pipeline_info.pipeline_name,
+        )
+
+        dpi = DataProcessInstance.from_datajob(
+            datajob=datajob_v1,
+            id=f"{pipeline_info.pipeline_name}_{load.load_id}",
+            clone_inlets=False,
+            clone_outlets=False,
+        )
+
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_ts, materialize_iolets=False
+        ):
+            yield mcp.as_workunit()
+
+        for mcp in dpi.start_event_mcp(start_ts):
+            yield mcp.as_workunit()
+
+        for mcp in dpi.end_event_mcp(
+            end_timestamp_millis=start_ts,
+            result=result,
+            result_type=self.platform,
+        ):
+            yield mcp.as_workunit()
 
     # ------------------------------------------------------------------
     # Test connection
@@ -476,12 +482,14 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                     CapabilityReport(capable=True)
                 )
             except ImportError:
+                # Filesystem fallback works without dlt — lineage is still capable.
+                # Use mitigation_message (not failure_reason) to signal an optional improvement.
                 report.capability_report[SourceCapability.LINEAGE_COARSE] = (
                     CapabilityReport(
                         capable=True,
-                        failure_reason=(
-                            "dlt package not installed — will use filesystem YAML fallback. "
-                            "Install with: pip install dlt"
+                        mitigation_message=(
+                            "dlt package not installed — using filesystem YAML fallback. "
+                            "Install dlt for richer metadata: pip install dlt"
                         ),
                     )
                 )
