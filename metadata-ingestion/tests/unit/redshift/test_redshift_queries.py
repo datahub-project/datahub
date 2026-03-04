@@ -1,10 +1,8 @@
-"""Tests for boundary-aware segment stitching in Redshift query reconstruction.
+"""Tests for Redshift query generation and validation.
 
-Redshift stores SQL queries in fixed-width character(200) segments (provisioned)
-or character(4000) segments (serverless). When reconstructing queries via LISTAGG,
-trailing spaces at segment boundaries get stripped, merging keywords like
-`GROUP BY` -> `GROUPBY`. The boundary-aware pattern adds a space back when
-the trimmed segment is shorter than the segment size, preserving word boundaries.
+Covers query patterns used across RedshiftProvisionedQuery and RedshiftServerlessQuery,
+including segment stitching strategies that preserve word boundaries when reconstructing
+queries from fixed-width character segments (200 bytes provisioned, 4000 bytes serverless).
 """
 
 from datetime import datetime
@@ -49,7 +47,7 @@ SERVERLESS_LISTAGG_PATTERN_QUERYTXT = (
 )
 
 
-class TestProvisionedQueryStitching:
+class TestProvisionedQueries:
     def test_list_insert_create_queries_uses_boundary_aware_listagg(self):
         sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
@@ -94,7 +92,7 @@ class TestProvisionedQueryStitching:
             assert "LEN(RTRIM(text)) = 0" not in sql
 
 
-class TestServerlessQueryStitching:
+class TestServerlessQueries:
     def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
         sql = RedshiftServerlessQuery.stl_scan_based_lineage_query(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
