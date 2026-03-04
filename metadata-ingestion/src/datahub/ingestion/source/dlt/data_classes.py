@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
@@ -74,5 +74,3 @@ class DltPipelineInfo:
     working_dir: str  # Absolute path to local state directory
     pipelines_dir: str  # Parent directory (may contain multiple pipelines)
     schemas: List[DltSchemaInfo]
-    last_load_info: Optional[DltLoadInfo]
-    run_history: List[DltLoadInfo] = field(default_factory=list)

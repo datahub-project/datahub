@@ -321,7 +321,8 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         for urn_str in pipeline_urns + table_urns:
             try:
                 inlets.append(DatasetUrn.from_string(urn_str))
-            except Exception:
+            except Exception as e:
+                logger.warning("Could not parse inlet URN '%s': %s", urn_str, e)
                 self.report.warning(
                     title="Invalid inlet dataset URN",
                     message="Could not parse source_dataset_urns entry. Skipping.",
@@ -372,25 +373,33 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         self, pipeline_info: DltPipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
         """Query _dlt_loads and emit DataProcessInstance entities for each completed run."""
-        start_time = self.config.run_history_config.start_time
+        # Check dlt availability before querying — get_run_history returns [] (not None)
+        # when dlt is unavailable, so we need to handle this case explicitly.
+        if not self.client.dlt_available:
+            self.report.warning(
+                title="Run history unavailable",
+                message="dlt package is not installed. Install with: pip install dlt",
+                context=pipeline_info.pipeline_name,
+            )
+            self.report.report_run_history_error()
+            return
 
+        start_time = self.config.run_history_config.start_time
         loads = self.client.get_run_history(
             pipeline_info.pipeline_name, start_time=start_time
         )
-        if not loads:
-            if not self.client.dlt_available:
-                self.report.warning(
-                    title="Run history unavailable",
-                    message="dlt package is not installed. Install with: pip install dlt",
-                    context=pipeline_info.pipeline_name,
-                )
-            else:
-                self.report.warning(
-                    title="Run history query failed",
-                    message="Could not query _dlt_loads. Check destination credentials and connectivity.",
-                    context=pipeline_info.pipeline_name,
-                )
+
+        if loads is None:
+            # Hard failure — get_run_history already logged and reported the error.
             self.report.report_run_history_error()
+            return
+
+        if not loads:
+            # Legitimately empty — no runs exist in the configured time window.
+            logger.debug(
+                "No run history found for pipeline '%s' in the configured time window.",
+                pipeline_info.pipeline_name,
+            )
             return
 
         for load in loads:
@@ -447,34 +456,42 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _check_pipelines_dir(pipelines_dir: str) -> Optional[CapabilityReport]:
+        """Validate that pipelines_dir exists and is a directory.
+
+        Returns a CapabilityReport with capable=False if invalid, or None if valid.
+        """
+        pipelines_path = Path(pipelines_dir)
+        if not pipelines_path.exists():
+            return CapabilityReport(
+                capable=False,
+                failure_reason=(
+                    f"pipelines_dir '{pipelines_dir}' does not exist. "
+                    "Run a dlt pipeline first to create it."
+                ),
+            )
+        if not pipelines_path.is_dir():
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"pipelines_dir '{pipelines_dir}' is not a directory.",
+            )
+        return None
+
+    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         """Verify pipelines_dir is accessible and optionally that dlt is installed."""
         report = TestConnectionReport()
         try:
             config = DltSourceConfig.model_validate(config_dict)
-            pipelines_path = Path(config.pipelines_dir)
 
-            if not pipelines_path.exists():
-                report.basic_connectivity = CapabilityReport(
-                    capable=False,
-                    failure_reason=(
-                        f"pipelines_dir '{config.pipelines_dir}' does not exist. "
-                        "Run a dlt pipeline first to create it."
-                    ),
-                )
-                return report
-
-            if not pipelines_path.is_dir():
-                report.basic_connectivity = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"pipelines_dir '{config.pipelines_dir}' is not a directory.",
-                )
+            dir_error = DltSource._check_pipelines_dir(config.pipelines_dir)
+            if dir_error is not None:
+                report.basic_connectivity = dir_error
                 return report
 
             report.basic_connectivity = CapabilityReport(capable=True)
             report.capability_report = {}
 
-            # Check dlt package
             try:
                 import dlt  # noqa: F401
 

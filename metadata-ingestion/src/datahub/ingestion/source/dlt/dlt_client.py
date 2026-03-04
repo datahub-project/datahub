@@ -205,7 +205,6 @@ class DltClient:
                 working_dir=pipeline.working_dir or "",
                 pipelines_dir=str(self.pipelines_dir),
                 schemas=schemas,
-                last_load_info=None,  # populated later via get_run_history if needed
             )
         except Exception as e:
             logger.warning(
@@ -296,7 +295,6 @@ class DltClient:
             working_dir=str(pipeline_dir),
             pipelines_dir=str(self.pipelines_dir),
             schemas=schemas,
-            last_load_info=None,
         )
 
     def _read_schemas_from_filesystem(self, pipeline_name: str) -> List[DltSchemaInfo]:
@@ -330,12 +328,18 @@ class DltClient:
 
     def get_run_history(
         self, pipeline_name: str, start_time: Optional[datetime] = None
-    ) -> List[DltLoadInfo]:
+    ) -> Optional[List[DltLoadInfo]]:
         """
         Query _dlt_loads from the destination to get run history.
 
         Requires dlt package and destination credentials in ~/.dlt/secrets.toml.
-        Returns an empty list if anything fails — run history is opt-in.
+
+        Returns:
+            List[DltLoadInfo] — successful query (may be empty if no rows in time window)
+            None              — hard failure (exception during query)
+
+        Returns [] (not None) when dlt is not installed; the caller checks
+        dlt_available separately to distinguish that case.
         """
         if not self.dlt_available:
             return []
@@ -373,4 +377,10 @@ class DltClient:
             logger.warning(
                 "Failed to query _dlt_loads for pipeline '%s': %s", pipeline_name, e
             )
-            return []
+            if self.report is not None:
+                self.report.warning(
+                    title="Run history query failed",
+                    message="Exception while querying _dlt_loads. Check destination credentials and see logs.",
+                    context=pipeline_name,
+                )
+            return None

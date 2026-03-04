@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
 
+import time_machine
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dlt.data_classes import (
     DltColumnInfo,
@@ -30,6 +32,7 @@ from datahub.ingestion.source.dlt.data_classes import (
 from datahub.ingestion.source.dlt.dlt import DltSource
 from datahub.ingestion.source.dlt.dlt_client import DltClient
 
+# Frozen timestamp used by run history unit tests to ensure deterministic DPI timestamps.
 FROZEN_TIME = "2026-02-24 12:00:00+00:00"
 
 # ---------------------------------------------------------------------------
@@ -84,7 +87,6 @@ def _make_pipeline_info(
                 tables=tables,
             )
         ],
-        last_load_info=None,
     )
 
 
@@ -235,15 +237,15 @@ def test_destination_urn_construction_bigquery() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dlt_system_columns_not_included_in_outlets() -> None:
-    """_dlt_id and _dlt_load_id do not produce outlet Dataset URNs."""
-    from datahub.ingestion.source.dlt.data_classes import DLT_SYSTEM_COLUMNS
+def test_system_columns_excluded_from_column_level_lineage() -> None:
+    """
+    When a table contains only dlt system columns (_dlt_id, _dlt_load_id, etc.),
+    _build_fine_grained_lineages must return [] — no CLL entries should be produced
+    because system columns have no corresponding columns in the source system.
 
-    assert "_dlt_id" in DLT_SYSTEM_COLUMNS
-    assert "_dlt_load_id" in DLT_SYSTEM_COLUMNS
-    assert "_dlt_parent_id" in DLT_SYSTEM_COLUMNS
-
-    # Verify a table with only system columns still maps correctly
+    This is the meaningful edge case: even with one inlet and one outlet, a table
+    with no user columns produces no column-level lineage.
+    """
     system_only_table = DltTableInfo(
         table_name="players_games",
         write_disposition="append",
@@ -251,14 +253,37 @@ def test_dlt_system_columns_not_included_in_outlets() -> None:
         columns=[
             DltColumnInfo("_dlt_id", "string", False, False, True),
             DltColumnInfo("_dlt_load_id", "string", False, False, True),
+            DltColumnInfo("_dlt_parent_id", "string", False, False, True),
         ],
         resource_name=None,
     )
-    source = _make_source()
+    source = _make_source(
+        extra_config={
+            "include_lineage": True,
+            "destination_platform_map": {
+                "postgres": {"platform_instance": None, "env": "DEV"}
+            },
+            "source_table_dataset_urns": {
+                "chess_pipeline": {
+                    "players_games": [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,src.players_games,DEV)"
+                    ]
+                }
+            },
+        }
+    )
     pipeline_info = _make_pipeline_info(tables=[system_only_table])
-    # Outlets are table-level, not column-level — should still produce one outlet
+
+    inlets = source._build_inlet_urns("chess_pipeline", "players_games")
     outlets = source._build_outlet_urns(pipeline_info, system_only_table)
-    assert len(outlets) == 1
+    fgl = source._build_fine_grained_lineages(system_only_table, inlets, outlets)
+
+    assert len(inlets) == 1, "Expected one inlet from source_table_dataset_urns"
+    assert len(outlets) == 1, "Expected one outlet from destination_platform_map"
+    assert fgl == [], (
+        "Tables with only dlt system columns must produce no column-level lineage — "
+        "system columns (_dlt_id, etc.) have no corresponding source columns"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +291,7 @@ def test_dlt_system_columns_not_included_in_outlets() -> None:
 # ---------------------------------------------------------------------------
 
 
+@time_machine.travel(FROZEN_TIME)
 def test_run_history_emits_dataprocess_instance() -> None:
     """
     When get_run_history returns a load with status=0, _emit_run_history
@@ -514,6 +540,61 @@ def test_column_level_lineage_emitted_for_single_inlet_outlet() -> None:
 
 # ---------------------------------------------------------------------------
 # Test 11: Empty pipelines_dir emits no workunits
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Test 12: _emit_dpi_for_load maps status=0 → SUCCESS, others → FAILURE
+# ---------------------------------------------------------------------------
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_emit_dpi_for_load_status_mapping() -> None:
+    """
+    _emit_dpi_for_load must produce a DPI with status SUCCESS for status=0
+    and FAILURE for status=1. This verifies the _DLT_LOAD_STATUS_MAP is
+    actually applied in the serialization path, not just defined as a constant.
+    """
+    from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+
+    pipeline_info = _make_pipeline_info()
+    source = _make_source()
+
+    def _get_result_from_load(status: int) -> str:
+        """Run _emit_dpi_for_load and extract the run result string from the end event MCP."""
+        load = DltLoadInfo(
+            load_id=f"load_{status}",
+            schema_name="chess_pipeline",
+            status=status,
+            inserted_at=datetime(2026, 2, 24, 12, 0, 0, tzinfo=timezone.utc),
+            schema_version_hash="abc",
+        )
+        workunits = list(source._emit_dpi_for_load(pipeline_info, load))
+        # The end_event_mcp produces a dataProcessRunEvent with a result field
+        for wu in workunits:
+            if not (hasattr(wu, "metadata") and wu.metadata is not None):
+                continue
+            aspect = getattr(wu.metadata, "aspect", None)
+            if aspect is None:
+                continue
+            result = getattr(aspect, "result", None)
+            if result is not None:
+                return str(result)
+        return ""
+
+    success_result = _get_result_from_load(0)
+    failure_result = _get_result_from_load(1)
+
+    assert "SUCCESS" in success_result.upper() or success_result == str(
+        InstanceRunResult.SUCCESS
+    ), f"Expected SUCCESS for status=0, got: {success_result}"
+    assert "FAILURE" in failure_result.upper() or failure_result == str(
+        InstanceRunResult.FAILURE
+    ), f"Expected FAILURE for status=1, got: {failure_result}"
+
+
+# ---------------------------------------------------------------------------
+# Test 13: Empty pipelines_dir emits no workunits
 # ---------------------------------------------------------------------------
 
 
