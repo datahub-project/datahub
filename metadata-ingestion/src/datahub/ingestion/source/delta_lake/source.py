@@ -3,9 +3,10 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
+from azure.core.credentials import TokenCredential
 from azure.identity import ClientSecretCredential
 from azure.storage.filedatalake import DataLakeServiceClient
 from deltalake import DeltaTable
@@ -454,6 +455,7 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
         )
 
     def _get_data_lake_service_client(self, account_name: str) -> DataLakeServiceClient:
+        credential: Union[str, TokenCredential, None]
         if (
             self.source_config.azure
             and self.source_config.azure.client_id

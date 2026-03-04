@@ -1,8 +1,8 @@
 import logging
+from functools import cached_property
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
-from cached_property import cached_property
 from pydantic import Field, SecretStr, field_validator, model_validator
 from typing_extensions import Literal
 
