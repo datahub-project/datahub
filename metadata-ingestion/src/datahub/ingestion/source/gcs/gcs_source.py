@@ -537,11 +537,10 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def __del__(self) -> None:
         """Clean up WIF temp file if close() was not called (e.g. process exit)."""
-        if getattr(self, "_wif_temp_file", None) and os.path.exists(
-            self._wif_temp_file
-        ):
+        wif_temp_file: Optional[str] = getattr(self, "_wif_temp_file", None)
+        if wif_temp_file is not None and os.path.exists(wif_temp_file):
             try:
-                os.unlink(self._wif_temp_file)
+                os.unlink(wif_temp_file)
             except OSError:
                 pass
-            _wif_temp_files_to_clean.discard(self._wif_temp_file)
+            _wif_temp_files_to_clean.discard(wif_temp_file)

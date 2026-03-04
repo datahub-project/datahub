@@ -1,5 +1,6 @@
 import pathlib
 import re
+from typing import cast
 from unittest import mock
 
 import pytest
@@ -577,7 +578,7 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_client():
         object.__setattr__(config, "_gcs_oauth_credentials", mock.MagicMock())
         object.__setattr__(config, "_gcs_oauth_project_id", "my-proj")
 
-        client = config.get_s3_client()
+        client = cast(mock.MagicMock, config.get_s3_client())
 
         assert client.meta.events.register.call_count == len(_GCS_OAUTH_S3_OPERATIONS)
 
@@ -602,7 +603,7 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_resource():
         object.__setattr__(config, "_gcs_oauth_credentials", mock.MagicMock())
         object.__setattr__(config, "_gcs_oauth_project_id", None)
 
-        resource = config.get_s3_resource()
+        resource = cast(mock.MagicMock, config.get_s3_resource())
 
         assert resource.meta.client.meta.events.register.call_count == len(
             _GCS_OAUTH_S3_OPERATIONS
@@ -624,6 +625,6 @@ def test_gcs_oauth_aws_config_no_hooks_without_creds():
         )
         assert not hasattr(config, "_gcs_oauth_credentials")
 
-        client = config.get_s3_client()
+        client = cast(mock.MagicMock, config.get_s3_client())
 
         client.meta.events.register.assert_not_called()
