@@ -50,7 +50,7 @@ public class BatchAddToDataProductsResolverTest {
     Mockito.verify(mockService, Mockito.times(4))
         .verifyEntityExists(any(), any()); // 2 resources + 2 data products
     Mockito.verify(mockService, Mockito.times(2))
-        .batchAddToDataProduct(any(), any(Urn.class), anyList(), isNull()); // 2 data products
+        .batchAddToDataProduct(any(), any(Urn.class), anyList()); // 2 data products
   }
 
   @Test
@@ -78,8 +78,7 @@ public class BatchAddToDataProductsResolverTest {
     Mockito.verify(mockService, Mockito.times(2))
         .verifyEntityExists(any(), any()); // 1 resource + 1 data product
     Mockito.verify(mockService, Mockito.times(1))
-        .batchAddToDataProduct(
-            any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1)), anyList(), isNull());
+        .batchAddToDataProduct(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1)), anyList());
   }
 
   @Test
@@ -102,7 +101,7 @@ public class BatchAddToDataProductsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(Exception.class, () -> resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any(), any());
+    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any());
   }
 
   @Test
@@ -127,7 +126,7 @@ public class BatchAddToDataProductsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any(), any());
+    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any());
   }
 
   @Test
@@ -155,6 +154,6 @@ public class BatchAddToDataProductsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any(), any());
+    Mockito.verify(mockService, Mockito.times(0)).batchAddToDataProduct(any(), any(), any());
   }
 }
