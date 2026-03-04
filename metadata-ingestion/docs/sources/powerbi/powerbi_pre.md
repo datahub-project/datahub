@@ -1,8 +1,8 @@
-## User and Ownership Handling
+### User and Ownership Handling
 
 PowerBI Source supports two modes for handling user ownership:
 
-### Soft References Mode (Recommended - Default)
+#### Soft References Mode (Recommended - Default)
 
 When `ownership.create_corp_user: false` (default), PowerBI will:
 
@@ -17,7 +17,7 @@ ownership:
   create_corp_user: false # Default - soft references only
 ```
 
-### Full User Creation Mode (Opt-in)
+#### Full User Creation Mode (Opt-in)
 
 When `ownership.create_corp_user: true`, PowerBI will:
 
@@ -31,7 +31,7 @@ ownership:
   create_corp_user: true # Opt-in - creates user entities
 ```
 
-### Filtering Owners by Access Rights
+#### Filtering Owners by Access Rights
 
 You can limit which users become owners using `owner_criteria`. Only users with at least one of the specified access rights will be assigned as owners:
 
@@ -45,7 +45,7 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
-## Configuration Notes
+### Configuration Notes
 
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
 2. Enable admin access if you want to ingest data source and dataset information, including lineage, and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail.
@@ -56,7 +56,7 @@ Valid values depend on the PowerBI access right types for your resources (e.g., 
    - Enhance admin APIs responses with detailed metadata
    - Enhance admin APIs responses with DAX and mashup expressions
 
-## Concept mapping
+### Concept mapping
 
 | PowerBI           | Datahub             |
 | ----------------- | ------------------- |
@@ -73,7 +73,7 @@ Valid values depend on the PowerBI access right types for your resources (e.g., 
 - If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
 - The `Page` is unavailable for PowerBI PaginatedReport.
 
-## Lineage
+### Lineage
 
 This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.
 
@@ -99,7 +99,7 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
 
-### Athena Federated Query Platform Override
+#### Athena Federated Query Platform Override
 
 When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
 
@@ -159,7 +159,7 @@ in
 
 Use full-table-name in `from` clause. For example dev.public.category
 
-## M-Query Pattern Supported For Lineage Extraction
+### M-Query Pattern Supported For Lineage Extraction
 
 Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.
 
@@ -189,13 +189,13 @@ combine_result
 
 `Pattern-1` is supported as it first assigns the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
 
-## Extract endorsements to tags
+### Extract endorsements to tags
 
 By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
-## Profiling
+### Profiling
 
 The profiling implementation is done through querying [DAX query endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries). Therefore, the principal needs to have permission to query the datasets to be profiled. Usually this means that the service principal should have `Contributor` role for the workspace to be ingested. Profiling is done with column-based queries to be able to handle wide datasets without timeouts.
 
@@ -203,7 +203,7 @@ Take into account that the profiling implementation executes a fairly big number
 
 The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
 
-## Admin Ingestion vs. Basic Ingestion
+### Admin Ingestion vs. Basic Ingestion
 
 PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/).
 
@@ -213,7 +213,7 @@ or doesn't grant access explicitly on resources.
 
 The Admin Ingestion (explained below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
 
-### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
+#### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
 
 To grant admin access to the service principal, visit your PowerBI tenant Settings.
 
@@ -242,7 +242,7 @@ Caveats of setting `admin_apis_only` to `true`:
 - [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
 - Dataset profiling is unavailable, as it requires access to the workspace API
 
-### Basic Ingestion: Service Principal As Member In Workspace
+#### Basic Ingestion: Service Principal As Member In Workspace
 
 If you have added service principal as `member` in workspace then PowerBI Source would be able to ingest below metadata of that particular workspace
 

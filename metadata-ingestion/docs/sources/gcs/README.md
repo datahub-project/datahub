@@ -2,7 +2,7 @@ This connector ingests Google Cloud Storage datasets into DataHub. It allows map
 To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. This source leverages [Interoperability of GCS with S3](https://cloud.google.com/storage/docs/interoperability)
 and uses DataHub S3 Data Lake integration source under the hood. Refer section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) from S3 connector for more details.
 
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -13,7 +13,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | GCS bucket                                 | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `GCS bucket` |
 | GCS folder                                 | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder`     |
 
-### Supported file types
+#### Supported file types
 
 Supported file types are as follows:
 
@@ -30,7 +30,7 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
-### Prerequisites
+#### Prerequisites
 
 1. Create a service account with "Storage Object Viewer" Role - https://cloud.google.com/iam/docs/service-accounts-create
 2. Make sure you meet following requirements to generate HMAC key - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#before-you-begin

@@ -1,4 +1,4 @@
-:::note Version Compatbility
+:::note Version Compatibility
 
 This connector requires an MLflow server version **1.28.0 or later**.  
 If you're using an earlier version, ingestion of **Experiments** and **Runs** will be skipped.

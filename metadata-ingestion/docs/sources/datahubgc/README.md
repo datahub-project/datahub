@@ -1,16 +1,16 @@
 # DataHub Garbage Collection Source Documentation
 
-## Overview
+### Overview
 
 The DataHub Garbage Collection (GC) source is a maintenance component responsible for cleaning up various types of metadata to maintain system performance and data quality. It performs multiple cleanup tasks, each focusing on different aspects of DataHub's metadata.
 
-## Cleanup Tasks
+### Cleanup Tasks
 
-### 1. Index Cleanup
+#### 1. Index Cleanup
 
 Manages Elasticsearch indices in DataHub, particularly focusing on time-series data.
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -22,7 +22,7 @@ source:
     truncation_sleep_between_seconds: 30
 ```
 
-#### Features
+##### Features
 
 - Truncates old Elasticsearch indices for the following timeseries aspects:
   - DatasetOperations
@@ -35,11 +35,11 @@ source:
 - Implements safe deletion with monitoring thresholds
 - Supports gradual truncation with sleep intervals
 
-### 2. Expired Token Cleanup
+#### 2. Expired Token Cleanup
 
 Manages access tokens in DataHub to maintain security and prevent token accumulation.
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -48,7 +48,7 @@ source:
     cleanup_expired_tokens: true
 ```
 
-#### Features
+##### Features
 
 - Automatically identifies and revokes expired access tokens
 - Processes tokens in batches for efficiency
@@ -56,11 +56,11 @@ source:
 - Reports number of tokens revoked
 - Uses GraphQL API for token management
 
-### 3. Data Process Cleanup
+#### 3. Data Process Cleanup
 
 Manages the lifecycle of data processes, jobs, and their instances (DPIs) within DataHub.
 
-#### Features
+##### Features
 
 - Cleans up Data Process Instances (DPIs) based on age and count
 - Can remove empty DataJobs and DataFlows
@@ -68,7 +68,7 @@ Manages the lifecycle of data processes, jobs, and their instances (DPIs) within
 - Uses parallel processing for efficient cleanup
 - Maintains configurable retention policies
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -86,15 +86,15 @@ source:
       delay: 0.25
 ```
 
-### Limitations
+#### Limitations
 
 - Maximum 9000 DPIs per job for performance
 
-### 4. Execution Request Cleanup
+#### 4. Execution Request Cleanup
 
 Manages DataHub execution request records to prevent accumulation of historical execution data.
 
-#### Features
+##### Features
 
 - Maintains execution history per ingestion source
 - Preserves minimum number of recent requests
@@ -102,7 +102,7 @@ Manages DataHub execution request records to prevent accumulation of historical 
 - Special handling for running/pending requests
 - Automatic cleanup of corrupted records
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -118,11 +118,11 @@ source:
       max_read_errors: 10
 ```
 
-### 5. Soft-Deleted Entities Cleanup
+#### 5. Soft-Deleted Entities Cleanup
 
 Manages the permanent removal of soft-deleted entities after a retention period.
 
-#### Features
+##### Features
 
 - Permanently removes soft-deleted entities after retention period
 - Handles entity references cleanup
@@ -130,7 +130,7 @@ Manages the permanent removal of soft-deleted entities after a retention period.
 - Supports filtering by entity type, platform, or environment
 - Concurrent processing with safety limits
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -151,14 +151,14 @@ source:
       runtime_limit_seconds: 7200
 ```
 
-### Performance Considerations
+#### Performance Considerations
 
 - Concurrent processing using thread pools
 - Configurable batch sizes for optimal performance
 - Rate limiting through configurable delays
 - Maximum limits on concurrent operations
 
-## Reporting
+### Reporting
 
 Each cleanup task maintains detailed reports including:
 

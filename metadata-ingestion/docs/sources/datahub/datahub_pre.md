@@ -1,20 +1,15 @@
 ### Overview
 
-This source pulls data from two locations:
+Pulls data from two locations:
 
-- The DataHub database, containing a single table holding all versioned aspects
-- The DataHub Kafka cluster, reading from the [MCL Log](../../../../docs/what/mxe.md#metadata-change-log-mcl)
-  topic for timeseries aspects.
+- **DataHub database**: Versioned aspects
+- **DataHub Kafka**: [MCL Log](../../../../docs/what/mxe.md#metadata-change-log-mcl) timeseries aspects
 
-All data is first read from the database, before timeseries data is ingested from kafka.
-To prevent this source from potentially running forever, it will not ingest data produced after the
-datahub_source ingestion job is started. This `stop_time` is reflected in the report.
+Reads database first, then Kafka. Ingests only data produced before job start (`stop_time` shown in report).
 
-Data from the database and kafka are read in chronological order, specifically by the
-createdon timestamp in the database and by kafka offset per partition. In order to
-properly read from the database, please ensure that the `createdon` column is indexed.
-Newly created databases should have this index, named `timeIndex`, by default, but older
-ones you may have to create yourself, with the statement:
+Reads data chronologically: by `createdon` timestamp (database) and Kafka offset (Kafka).
+
+**Required:** Ensure `createdon` column is indexed. Newer databases have the `timeIndex` index by default; older databases require manual creation:
 
 ```
 CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);

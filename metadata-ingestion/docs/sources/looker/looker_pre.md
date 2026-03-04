@@ -1,8 +1,8 @@
 ### Prerequisites
 
-#### Set up the right permissions
+#### Required Permissions
 
-You need to provide the following permissions for ingestion to work correctly.
+Grant the following permissions:
 
 ```
 access_data
@@ -27,9 +27,9 @@ Here is an example permission set after configuration.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/looker_datahub_permission_set.png"/>
 </p>
 
-#### Get an API key
+#### API Key
 
-You need to get an API key for the account with the above privileges to perform ingestion. See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
+Generate an API key (client ID and secret) for the account with the above permissions. See [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk).
 
 ### Ingestion through UI
 

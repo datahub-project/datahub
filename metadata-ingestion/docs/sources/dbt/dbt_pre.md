@@ -15,7 +15,7 @@ The artifacts used by this source are:
   - This file contains metadata from the result of a dbt run, e.g. dbt test
   - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
 
-To generate these files, we recommend this workflow for dbt build and datahub ingestion.
+**Recommended workflow for dbt build and DataHub ingestion:**
 
 ```sh
 dbt source snapshot-freshness

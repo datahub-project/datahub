@@ -1,10 +1,10 @@
-## Troubleshooting
+### Troubleshooting
 
-### Schema Discovery Issues
+#### Schema Discovery Issues
 
 If you're not seeing all schemas or tables after following the setup steps, check the following:
 
-#### Missing Schemas
+##### Missing Schemas
 
 **1. Check schema filtering configuration:**
 
@@ -39,7 +39,7 @@ GRANT SELECT ON pg_catalog.svv_external_tables TO datahub_user;
 GRANT SELECT ON pg_catalog.svv_external_columns TO datahub_user;
 ```
 
-#### Missing Tables Within Schemas
+##### Missing Tables Within Schemas
 
 **1. Check table filtering:**
 
@@ -69,7 +69,7 @@ FROM SVV_EXTERNAL_TABLES
 WHERE schemaname = 'your_schema';
 ```
 
-#### Configuration Issues
+##### Configuration Issues
 
 **1. Database specification:**
 Ensure you're connecting to the correct database - Redshift ingestion works per database:
@@ -100,7 +100,7 @@ If using datashare consumers, add:
 is_shared_database: true
 ```
 
-#### Permission Test Queries
+##### Permission Test Queries
 
 Run these to verify your permissions are working:
 
@@ -114,9 +114,9 @@ SELECT COUNT(*) FROM svv_external_schemas;
 SELECT COUNT(*) FROM svv_external_tables;
 ```
 
-### Data Profiling Issues
+#### Data Profiling Issues
 
-#### Profile Data Not Appearing
+##### Profile Data Not Appearing
 
 **1. Check data access permissions:**
 Ensure you have `USAGE` on schemas and `SELECT` on tables:
@@ -137,9 +137,9 @@ profiling:
   profile_table_level_only: true
 ```
 
-### Lineage Issues
+#### Lineage Issues
 
-#### Missing Lineage Information
+##### Missing Lineage Information
 
 **1. Check lineage configuration:**
 
@@ -158,7 +158,7 @@ WHERE usename = 'datahub_user';
 -- usesyslog should be 't' (true)
 ```
 
-#### Cross-Cluster Lineage (Datashares)
+##### Cross-Cluster Lineage (Datashares)
 
 For lineage across datashares, ensure:
 

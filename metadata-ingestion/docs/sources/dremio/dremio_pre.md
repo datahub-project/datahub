@@ -1,10 +1,6 @@
 ### Setup
 
-This integration pulls metadata directly from the Dremio APIs.
-
-You'll need to have a Dremio instance up and running with access to the necessary datasets, and API access should be enabled with a valid token.
-
-The API token should have the necessary permissions to **read metadata** and **retrieve lineage**.
+Requires a Dremio API token with permissions to **read metadata** and **retrieve lineage**.
 
 #### Steps to Get the Required Information
 

@@ -1,18 +1,16 @@
-Ingesting metadata from VertexAI requires using the **Vertex AI** module.
-
 #### Prerequisites
 
-Please refer to the [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for basic information on Vertex AI.
+Refer to [Vertex AI documentation](https://cloud.google.com/vertex-ai/docs) for Vertex AI basics.
 
-#### Credentials to access to GCP
+#### GCP Authentication
 
-Please read the section to understand how to set up application default Credentials to [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
+Set up Application Default Credentials (ADC) following [GCP docs](https://cloud.google.com/docs/authentication/provide-credentials-adc#how-to).
 
 ##### Permissions
 
-- Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+Grant the following permissions to the service account on all target projects.
 
-Default GCP Role which contains these permissions [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
+**Default GCP Role:** [roles/aiplatform.viewer](https://cloud.google.com/vertex-ai/docs/general/access-control#aiplatform.viewer)
 
 | Permission                          | Description                                                          |
 | ----------------------------------- | -------------------------------------------------------------------- |
@@ -39,10 +37,10 @@ Default GCP Role which contains these permissions [roles/aiplatform.viewer](http
 
 #### Create a service account and assign roles
 
-1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously created role to this service account.
-2. Download a service account JSON keyfile.
+1. Create a service account following [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the role above
+2. Download the service account JSON keyfile
 
-   - Example credential file:
+   Example credential file:
 
    ```json
    {

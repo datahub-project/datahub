@@ -23,9 +23,9 @@ source_mapping_to_platform:
   http: s3 # Maps HTTP data sources to s3 platform
 ```
 
-By default, DataHub will attempt to connect lineage with existing datasets based on the platform and name, but will not create new datasets if they don't exist.
+**Default behavior:** Links to existing datasets by platform and name; does not create new datasets.
 
-To enable automatic dataset creation and lineage mapping, use the `materialize_dataset_inputs` option:
+To create datasets automatically, enable `materialize_dataset_inputs`:
 
 ```yaml
 materlize_dataset_inputs: true # Creates new datasets if they don't exist

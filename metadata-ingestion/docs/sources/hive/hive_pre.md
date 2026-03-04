@@ -1,12 +1,10 @@
 ### Prerequisites
 
-The Hive source connects directly to the HiveServer2 service to extract metadata. Before configuring the DataHub connector, ensure you have:
+1. **Network Access**: Access to HiveServer2 on port 10000 (or 10001 for TLS)
 
-1. **Network Access**: The machine running DataHub ingestion must be able to reach your HiveServer2 instance on the configured port (typically 10000 or 10001 for TLS).
+2. **User Account**: Hive user with read permissions on target databases and tables
 
-2. **Hive User Account**: A Hive user account with appropriate permissions to read metadata from the databases and tables you want to ingest.
-
-3. **PyHive Dependencies**: The connector uses PyHive for connectivity. Install the appropriate dependencies:
+3. **Dependencies**: Install PyHive connectivity:
    ```bash
    pip install 'acryl-datahub[hive]'
    ```

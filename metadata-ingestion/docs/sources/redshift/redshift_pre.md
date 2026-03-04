@@ -1,18 +1,18 @@
 ### Prerequisites
 
-The DataHub Redshift connector requires specific database privileges to extract metadata, lineage, and usage statistics from your Amazon Redshift cluster.
+Requires specific database privileges for metadata extraction, lineage, and usage statistics.
 
-## Permission Overview
+#### Permission Overview
 
-DataHub requires three categories of permissions:
+Three categories of permissions:
 
 1. **System Table Access** - Access to Redshift system tables for lineage and usage statistics
 2. **System View Access** - Access to system views for metadata discovery
 3. **Data Access** - Access to user schemas and tables for profiling and classification
 
-## System Table and View Permissions
+#### System Table and View Permissions
 
-Execute the following commands as a database superuser or user with sufficient privileges to grant these permissions:
+Execute as a superuser or user with grant privileges:
 
 ```sql
 -- Core system access (required for lineage and usage statistics)
@@ -57,9 +57,9 @@ GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with
 GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;
 ```
 
-## Detailed Permission Breakdown
+#### Detailed Permission Breakdown
 
-The following sections provide detailed information about which permissions are required for specific features and configurations.
+Feature-specific permission requirements:
 
 ### Core System Views (Always Required)
 

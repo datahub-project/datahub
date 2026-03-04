@@ -1,6 +1,6 @@
-### Prerequisities
+### Prerequisites
 
-In order to execute this source, you will need to create a policy with below permissions and attach it to the the aws role or credentials used in ingestion recipe.
+Create a policy with the following permissions and attach it to the AWS role or credentials used in your ingestion recipe.
 
 ```json
 {
@@ -69,4 +69,4 @@ In order to execute this source, you will need to create a policy with below per
 }
 ```
 
-Replace `${var}` with appropriate values as per your athena setup.
+Replace `${var}` with values appropriate for your Athena setup.

@@ -1,9 +1,8 @@
 ### Prerequisites
 
-In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
-from your warehouse.
+Requires specific privileges to read metadata from your Snowflake warehouse.
 
-A Snowflake system admin can follow this guide to create a DataHub-specific role, assign it the required privileges, and assign it to a new DataHub user by executing the following Snowflake commands from a user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
+Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` privilege to create a DataHub-specific role:
 
 ```sql
 create or replace role datahub_role;

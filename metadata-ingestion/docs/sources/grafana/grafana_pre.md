@@ -12,12 +12,12 @@
 
 ### Compatibility
 
-The connector supports extracting metadata from any Grafana instance accessible via API. For SQL-based data sources, column-level lineage can be extracted when the queries are parseable. The connector supports various panel types and their transformations, and can work with both standalone Grafana instances and those integrated with other platforms.
+Supports any Grafana instance accessible via API. Extracts column-level lineage from parseable SQL queries in data sources.
 
-For optimal lineage extraction from SQL-based data sources:
+For optimal SQL lineage extraction:
 
-- Database/schema information should be properly configured in the connection settings
-- The platform mapping (`connection_to_platform_map`) should be configured to match your data sources
+- Configure database/schema information in data source connection settings
+- Set `connection_to_platform_map` to match your data sources
 
 ### Prerequisites:
 

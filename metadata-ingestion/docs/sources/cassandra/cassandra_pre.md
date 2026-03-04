@@ -1,8 +1,6 @@
 ### Setup
 
-This integration pulls metadata directly from Cassandra databases, including both **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
-
-You’ll need to have a Cassandra instance or an Astra DB setup with appropriate access permissions.
+Supports **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
 
 #### Steps to Get the Required Information
 

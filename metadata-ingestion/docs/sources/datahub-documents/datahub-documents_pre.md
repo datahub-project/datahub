@@ -34,13 +34,13 @@ This creates a managed ingestion source in DataHub that automatically processes 
 
 :::
 
-## Overview
+### Overview
 
 The DataHub Documents source processes Document entities already stored in DataHub and enriches them with semantic embeddings for semantic search. This source is designed to work with DataHub's native Document entities that have been created via GraphQL, Python SDK, or other ingestion sources (like Notion, Confluence, etc.).
 
-### Key Features
+#### Key Features
 
-#### 1. Smart Defaults with Server Configuration Sync
+##### 1. Smart Defaults with Server Configuration Sync
 
 The source **automatically fetches embedding configuration from your DataHub server**, ensuring perfect alignment:
 
@@ -49,7 +49,7 @@ The source **automatically fetches embedding configuration from your DataHub ser
 - Validates local config against server (if provided)
 - Works with minimal `config: {}` in your recipe
 
-#### 2. Dual Operating Modes
+##### 2. Dual Operating Modes
 
 **Event-Driven Mode (Recommended):**
 
@@ -64,22 +64,22 @@ The source **automatically fetches embedding configuration from your DataHub ser
 - Good for initial setup or periodic full refreshes
 - Processes all matching documents
 
-#### 3. Incremental Processing
+##### 3. Incremental Processing
 
 - Tracks document content hashes to skip unchanged documents
 - Uses DataHub's stateful ingestion framework
 - Reduces processing time and API costs
 - Force reprocess option available
 
-#### 4. Flexible Platform Filtering
+##### 4. Flexible Platform Filtering
 
 - Process all NATIVE documents (default)
 - Filter by specific platforms (e.g., `["notion", "confluence"]`)
 - Process all documents regardless of source type
 
-## Prerequisites
+### Prerequisites
 
-### 1. DataHub Server Configuration
+#### 1. DataHub Server Configuration
 
 **You MUST configure semantic search on your DataHub server before using this source.**
 
@@ -91,7 +91,7 @@ Required server configuration:
 - AWS Bedrock or Cohere embedding provider configured
 - Semantic search enabled in `application.yml`
 
-### 2. Document Entities in DataHub
+#### 2. Document Entities in DataHub
 
 This source processes existing Document entities. Documents can be created through:
 
@@ -99,7 +99,7 @@ This source processes existing Document entities. Documents can be created throu
 - **Python SDK**: Use `datahub.sdk.document.Document`
 - **External Sources**: Notion, Confluence, SharePoint sources that emit Document entities
 
-### 3. AWS Credentials (for Bedrock)
+#### 3. AWS Credentials (for Bedrock)
 
 If using AWS Bedrock for embeddings:
 
@@ -107,7 +107,7 @@ If using AWS Bedrock for embeddings:
 - AWS credentials configured (env vars, instance role, or ECS task role)
 - Bedrock model access enabled in AWS Console
 
-### 4. Environment Variables
+#### 4. Environment Variables
 
 ```bash
 # Required for DataHub connection
@@ -122,9 +122,9 @@ export AWS_SECRET_ACCESS_KEY="your-secret"
 export AWS_REGION="us-west-2"
 ```
 
-## Common Use Cases
+### Common Use Cases
 
-### 1. Event-Driven Processing (Production)
+#### 1. Event-Driven Processing (Production)
 
 Process documents in real-time as they're created or updated:
 
@@ -148,7 +148,7 @@ sink:
 - Continuous document updates
 - Real-time semantic search needs
 
-### 2. Batch Processing (Initial Load)
+#### 2. Batch Processing (Initial Load)
 
 Process all documents in a single run:
 
@@ -173,7 +173,7 @@ sink:
 - Periodic full refreshes
 - Backfilling embeddings
 
-### 3. Platform-Specific Processing
+#### 3. Platform-Specific Processing
 
 Process documents from specific platforms only:
 
@@ -192,7 +192,7 @@ sink:
   config: {}
 ```
 
-### 4. Force Reprocessing
+#### 4. Force Reprocessing
 
 Reprocess all documents regardless of content changes:
 
@@ -214,7 +214,7 @@ sink:
   config: {}
 ```
 
-### 5. Custom Chunking and Embedding
+#### 5. Custom Chunking and Embedding
 
 Override server configuration with local settings:
 
@@ -243,9 +243,9 @@ sink:
 
 **⚠️ Warning:** Custom embedding configs are validated against the server. Mismatches will cause errors.
 
-## How It Works
+### How It Works
 
-### Processing Pipeline
+#### Processing Pipeline
 
 ```
 1. Fetch Mode Selection
@@ -267,7 +267,7 @@ sink:
    └─ Event Mode: Track Kafka offsets
 ```
 
-### Event Mode Flow
+#### Event Mode Flow
 
 **First Run (No State):**
 
@@ -285,7 +285,7 @@ sink:
 4. Updates offset after each batch
 5. Exits after idle timeout (no new events)
 
-### Incremental Processing
+#### Incremental Processing
 
 **Content Hash Calculation:**
 
@@ -307,9 +307,9 @@ content_hash = sha256(json.dumps(hash_input))
 - Partition strategy changes
 - `force_reprocess: true` is set
 
-## Configuration Deep Dive
+### Configuration Deep Dive
 
-### Platform Filtering
+#### Platform Filtering
 
 The `platform_filter` setting controls which documents are processed:
 
@@ -339,7 +339,7 @@ platform_filter: ["*"] # or ["ALL"]
 
 - Processes ALL documents regardless of source type or platform
 
-### Event Mode Configuration
+#### Event Mode Configuration
 
 ```yaml
 event_mode:
@@ -366,7 +366,7 @@ event_mode:
   poll_limit: 100
 ```
 
-### Chunking Strategies
+#### Chunking Strategies
 
 **by_title (Recommended):**
 
@@ -395,7 +395,7 @@ chunking:
 - Configurable overlap
 - No structure awareness
 
-### Embedding Configuration
+#### Embedding Configuration
 
 **Default (Fetch from Server):**
 
@@ -437,7 +437,7 @@ embedding:
 - **May break semantic search**
 - Only use for debugging or special cases
 
-### Stateful Ingestion
+#### Stateful Ingestion
 
 ```yaml
 stateful_ingestion:
@@ -458,9 +458,9 @@ stateful_ingestion:
   ignore_new_state: false
 ```
 
-## Performance Tuning
+### Performance Tuning
 
-### Batch Size
+#### Batch Size
 
 ```yaml
 embedding:
@@ -470,7 +470,7 @@ embedding:
   # - Bedrock: Up to 100 (but rate-limited)
 ```
 
-### Event Mode Settings
+#### Event Mode Settings
 
 ```yaml
 event_mode:
@@ -479,7 +479,7 @@ event_mode:
   poll_limit: 500  # Process more events per batch
 ```
 
-### Filtering
+#### Filtering
 
 ```yaml
 # Skip short or empty documents
@@ -492,9 +492,9 @@ document_urns: # Specific documents only
   - "urn:li:document:abc123"
 ```
 
-## Monitoring and Observability
+### Monitoring and Observability
 
-### Report Metrics
+#### Report Metrics
 
 The source reports the following metrics:
 
@@ -511,7 +511,7 @@ report = {
 }
 ```
 
-### Logging
+#### Logging
 
 Enable debug logging for detailed insights:
 
@@ -532,9 +532,9 @@ Look for these log messages:
 - `"Incremental mode enabled, state file: ..."`
 - `"Skipping document {urn} (unchanged content hash)"`
 
-## Troubleshooting
+### Troubleshooting
 
-### Issue: "Semantic search is not enabled on the DataHub server"
+#### Issue: "Semantic search is not enabled on the DataHub server"
 
 **Cause:** Server does not have semantic search configured.
 
@@ -544,7 +544,7 @@ Look for these log messages:
 2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
 
-### Issue: "Server does not support semantic search configuration API"
+#### Issue: "Server does not support semantic search configuration API"
 
 **Cause:** Old DataHub server version (pre-v0.14.0).
 
@@ -562,7 +562,7 @@ embedding:
   aws_region: us-west-2
 ```
 
-### Issue: Embedding Configuration Validation Fails
+#### Issue: Embedding Configuration Validation Fails
 
 **Error:**
 
@@ -579,7 +579,7 @@ Embedding configuration mismatch with server:
 2. Or update server config to match local settings
 3. Or update local config to match server
 
-### Issue: No Documents Being Processed
+#### Issue: No Documents Being Processed
 
 **Possible Causes:**
 
@@ -602,7 +602,7 @@ Embedding configuration mismatch with server:
    - Verify documents have content in `Document.text` field
    - Check `min_text_length` threshold
 
-### Issue: Event Mode Not Working
+#### Issue: Event Mode Not Working
 
 **Symptoms:** Falls back to batch mode every run.
 
@@ -631,7 +631,7 @@ Embedding configuration mismatch with server:
            server: "http://correct-host:8080" # Correct URL
    ```
 
-### Issue: AWS Credentials Error
+#### Issue: AWS Credentials Error
 
 **Error:**
 
@@ -659,7 +659,7 @@ Unable to load credentials from any provider in the chain
    - Verify task definition has correct IAM role
    - Check ECS task logs for IAM-related errors
 
-### Issue: Slow Processing
+#### Issue: Slow Processing
 
 **Optimization Strategies:**
 
@@ -688,9 +688,9 @@ Unable to load credentials from any provider in the chain
      max_characters: 1000 # Larger chunks = fewer embeddings
    ```
 
-## Cost Estimation
+### Cost Estimation
 
-### AWS Bedrock Pricing (Cohere Embed v3)
+#### AWS Bedrock Pricing (Cohere Embed v3)
 
 As of December 2024 in us-west-2:
 
@@ -715,25 +715,25 @@ As of December 2024 in us-west-2:
 - ~50 tokens per search query
 - 10,000 queries = **$0.05**
 
-## Limitations
+### Limitations
 
-### Processing Limitations
+#### Processing Limitations
 
 - **Text Only:** Only processes `Document.text` field (markdown format expected)
 - **No Binary Content:** Images, PDFs, etc. must be converted to text first
 - **Markdown Partitioning:** Uses `unstructured.partition.md` which may not handle all markdown variants
 
-### Platform Filtering
+#### Platform Filtering
 
 - **Source Type Required:** Documents must have `sourceType` field (defaults to NATIVE if missing)
 - **Platform Identification:** Relies on `dataPlatformInstance` or URL-based platform extraction
 
-### State Management
+#### State Management
 
 - **State Size:** State file grows with number of documents (includes hash for each)
 - **State Backend:** Requires DataHub or file-based state provider
 
-## Related Documentation
+### Related Documentation
 
 - [Semantic Search Configuration](/docs/how-to/semantic-search-configuration) - **Start Here**
 - [Notion Source](/docs/generated/ingestion/sources/notion) - Example document source with embeddings

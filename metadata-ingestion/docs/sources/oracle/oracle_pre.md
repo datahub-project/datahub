@@ -1,8 +1,11 @@
 ### Prerequisites
 
-#### Data Dictionary Mode/Views
+#### Data Dictionary Mode
 
-The Oracle ingestion source supports two modes for extracting metadata information (see `data_dictionary_mode` option): `ALL` and `DBA`. In the `ALL` mode, the SQLAlchemy backend queries `ALL_` data dictionary views to extract metadata information. In the `DBA` mode, the Oracle ingestion source directly queries `DBA_` data dictionary views to extract metadata information. `ALL_` views only provide information accessible to the user used for ingestion while `DBA_` views provide information for the entire database (that is, all schema objects in the database).
+Oracle supports two extraction modes via the `data_dictionary_mode` option:
+
+- **`ALL` (default)**: Queries `ALL_*` views — extracts only objects accessible to the ingestion user
+- **`DBA`**: Queries `DBA_*` views — extracts all schema objects in the database (requires elevated privileges)
 
 The following table contains a brief description of what each data dictionary view is used for:
 
@@ -23,10 +26,10 @@ The following table contains a brief description of what each data dictionary vi
 | `ALL_DEPENDENCIES` or `DBA_DEPENDENCIES`           | Get dependency information for database objects       |
 | `ALL_MVIEWS` or `DBA_MVIEWS`                       | Get materialized views and their definitions          |
 
-#### Data Dictionary Views accessible information and required privileges
+#### Required Privileges by Mode
 
-- `ALL_` views display all the information accessible to the user used for ingestion, including information from the user's schema as well as information from objects in other schemas, if the user has access to those objects by way of grants of privileges or roles.
-- `DBA_` views display all relevant information in the entire database. They can be queried only by users with the `SYSDBA` system privilege or `SELECT ANY DICTIONARY` privilege, or `SELECT_CATALOG_ROLE` role, or by users with direct privileges granted to them.
+- **`ALL_` views**: Accessible with standard user privileges — shows only objects the user can access
+- **`DBA_` views**: Requires `SYSDBA`, `SELECT ANY DICTIONARY` privilege, or `SELECT_CATALOG_ROLE` role
 
 #### Required Permissions
 

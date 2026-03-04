@@ -2,9 +2,9 @@
 This connector is for **Azure Data Factory** (classic), not Azure Fabric's Data Factory. Azure Fabric support is planned for a future release.
 :::
 
-## Prerequisites
+### Prerequisites
 
-### Authentication
+#### Authentication
 
 The connector supports multiple authentication methods:
 
@@ -17,7 +17,7 @@ The connector supports multiple authentication methods:
 
 For service principal setup, see [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
 
-### Required Permissions
+#### Required Permissions
 
 The connector only performs **read operations**. Grant one of the following:
 
@@ -42,9 +42,9 @@ az role assignment create \
 
 For detailed instructions, see [Azure custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles).
 
-## Lineage Extraction
+### Lineage Extraction
 
-### Which Activities Produce Lineage?
+#### Which Activities Produce Lineage?
 
 The connector extracts **table-level lineage** from these ADF activity types:
 
@@ -57,7 +57,7 @@ The connector extracts **table-level lineage** from these ADF activity types:
 
 Lineage is enabled by default (`include_lineage: true`).
 
-### How Lineage Resolution Works
+#### How Lineage Resolution Works
 
 For lineage to connect properly to datasets ingested from other sources (e.g., Snowflake, BigQuery), the connector needs to know which DataHub platform each ADF linked service corresponds to.
 
@@ -135,15 +135,15 @@ source:
 
 Without matching `platform_instance` values, lineage will create separate dataset entities instead of connecting to your existing ingested datasets.
 
-### Data Flow Transformation Scripts
+#### Data Flow Transformation Scripts
 
 For Data Flow activities, the connector extracts the transformation script and stores it in the `dataTransformLogic` aspect, visible in the DataHub UI under activity details.
 
-### Column-Level Lineage
+#### Column-Level Lineage
 
 The connector extracts **column-level lineage** from Copy activities, enabled by default (`include_column_lineage: true`).
 
-#### Supported Mapping Formats
+##### Supported Mapping Formats
 
 | Format                | Description                                                                 | ADF Configuration                                       |
 | --------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -151,12 +151,12 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 | **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]` |
 | **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings    |
 
-#### Limitations
+##### Limitations
 
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
 - **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
 
-## Execution History
+### Execution History
 
 Pipeline runs are extracted as `DataProcessInstance` entities by default:
 
@@ -170,9 +170,9 @@ source:
 
 This provides run status, duration, timestamps, trigger info, parameters, and activity-level details.
 
-## Advanced: Multi-Environment Setup
+### Advanced: Multi-Environment Setup
 
-### When to Use `platform_instance`
+#### When to Use `platform_instance`
 
 Use the ADF connector's `platform_instance` config to distinguish **separate ADF deployments** when ingesting from multiple subscriptions or tenants:
 
@@ -195,7 +195,7 @@ source:
 Factory names are unique within Azure, but different tenants could have identically-named factories. Use `platform_instance` to prevent entity overwrites.
 :::
 
-### URN Format
+#### URN Format
 
 Pipeline URNs follow this format:
 

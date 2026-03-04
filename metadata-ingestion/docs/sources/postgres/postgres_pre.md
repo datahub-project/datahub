@@ -1,8 +1,6 @@
-# Query-Based Lineage for PostgreSQL
-
 DataHub can extract table-level lineage from your PostgreSQL query history using the `pg_stat_statements` extension. This feature analyzes executed SQL queries to automatically discover upstream and downstream dataset dependencies.
 
-## Overview
+### Overview
 
 The query-based lineage feature:
 
@@ -11,7 +9,7 @@ The query-based lineage feature:
 - **Respects your filters** using configurable exclude patterns
 - **Generates usage statistics** showing which tables are queried and by whom
 
-## Prerequisites
+### Prerequisites
 
 ### 0. PostgreSQL Version Requirement
 
@@ -118,7 +116,7 @@ pg_stat_statements.track = all
 
 After changing these settings, restart PostgreSQL.
 
-## Configuration
+### Configuration
 
 Enable query-based lineage in your DataHub recipe:
 
@@ -158,7 +156,7 @@ source:
 | `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries. Patterns are case-insensitive. Example: `"%pg_catalog%"` excludes all queries containing `pg_catalog`.                                          |
 | `include_usage_statistics` | boolean      | `false` | Generate dataset usage metrics from query history. Requires `include_query_lineage: true`. Shows unique user counts, query frequencies, and column access patterns in the DataHub UI. |
 
-## Supported Lineage Patterns
+### Supported Lineage Patterns
 
 The lineage extractor recognizes common SQL patterns:
 
@@ -212,7 +210,7 @@ WHERE c.active = true;
 
 **Lineage:** `transactions`, `customers` → `customer_metrics`
 
-## Verification
+### Verification
 
 After running ingestion, verify that lineage was extracted:
 
@@ -246,7 +244,7 @@ LIMIT 10;
 
 Navigate to a dataset in DataHub and check the "Lineage" tab. You should see upstream and downstream dependencies derived from query history.
 
-## Troubleshooting
+### Troubleshooting
 
 ### PostgreSQL Version Too Old
 
@@ -370,7 +368,7 @@ track_activity_query_size = 4096
 - Use `max_queries_to_extract` to limit extraction time
 - Schedule ingestion during off-peak hours for large query volumes
 
-## Limitations
+### Limitations
 
 1. **Historical data only**
 
@@ -391,7 +389,7 @@ track_activity_query_size = 4096
    - Currently supports table-level lineage only
    - Column-level lineage may be added in future releases
 
-## Best Practices
+### Best Practices
 
 1. **Reset pg_stat_statements periodically**
 
@@ -423,7 +421,7 @@ track_activity_query_size = 4096
    - Run ingestion daily or weekly to capture lineage from new queries
    - More frequent ingestion provides more up-to-date lineage graphs
 
-## See Also
+### See Also
 
 - [Postgres Source Configuration](https://datahubproject.io/docs/generated/ingestion/sources/postgres)
 - [pg_stat_statements Documentation](https://www.postgresql.org/docs/current/pgstatstatements.html)

@@ -1,4 +1,4 @@
-## Configuration Notes
+### Configuration Notes
 
 1. Refer to [Manage OAuth Clients](https://help.sap.com/docs/SAP_ANALYTICS_CLOUD/00f68c2e08b941f081002fd3691d86a7/4f43b54398fc4acaa5efa32badfe3df6.html) to create an OAuth client in SAP Analytics Cloud. The OAuth client is required to have the following properties:
 
@@ -26,7 +26,7 @@ connection_mapping:
 
 The key in the connection mapping dictionary represents the name of the connection created in SAP Analytics Cloud.
 
-## Concept mapping
+### Concept mapping
 
 | SAP Analytics Cloud | DataHub     |
 | ------------------- | ----------- |
@@ -36,7 +36,7 @@ The key in the connection mapping dictionary represents the name of the connecti
 | `Import Data Model` | `Dataset`   |
 | `Model`             | `Dataset`   |
 
-## Limitations
+### Limitations
 
 - Only models which are used in a Story or an Application will be ingested because there is no dedicated API to retrieve models (only for Stories and Applications).
 - Browse Paths for models cannot be created because the folder where the models are saved is not returned by the API.

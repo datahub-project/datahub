@@ -6,7 +6,7 @@ This connector can also be used to ingest local files.
 Just replace `s3://` in your path_specs with an absolute path to files on the machine running ingestion.
 :::
 
-### Supported file types
+#### Supported file types
 
 Supported file types are as follows:
 
@@ -23,7 +23,7 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -34,7 +34,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | s3 bucket                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
 | s3 folder                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
 
-### Profiling
+#### Profiling
 
 This plugin extracts:
 

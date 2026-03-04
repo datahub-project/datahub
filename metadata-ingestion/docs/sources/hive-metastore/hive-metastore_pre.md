@@ -14,13 +14,13 @@ Choose your connection mode based on your environment:
 | **Port**           | Database port (3306/5432)        | Thrift port (9083)               |
 | **Dependencies**   | Database drivers                 | `pymetastore`, `thrift-sasl`     |
 
-Before configuring the DataHub connector, ensure you have:
+**Requirements:**
 
-1. **Database Access**: Direct read access to the Hive metastore database (typically MySQL or PostgreSQL).
+1. **Database Access**: Direct read access to the Hive metastore database (MySQL or PostgreSQL)
 
-2. **Network Access**: The machine running DataHub ingestion must be able to reach your metastore database on the configured port.
+2. **Network Access**: Access to metastore database on configured port
 
-3. **Database Driver**: Install the appropriate Python database driver:
+3. **Database Driver**: Install the appropriate Python driver:
 
    ```bash
    # For PostgreSQL metastore
@@ -30,7 +30,7 @@ Before configuring the DataHub connector, ensure you have:
    pip install 'acryl-datahub[hive]' PyMySQL
    ```
 
-4. **Metastore Schema Knowledge**: Familiarity with your metastore database schema (typically `public` for PostgreSQL, or the database name for MySQL).
+4. **Metastore Schema**: Typically `public` (PostgreSQL) or database name (MySQL)
 
 ### Required Database Permissions
 

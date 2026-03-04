@@ -15,7 +15,7 @@ The connector will attempt to identify which cells contain table data. A table i
 
 Rows that are directly above or directly below the table where only the first two columns have values are assumed to contain metadata. If such rows are located, they are converted to custom properties where the first column is the key, and the second column is the value. Additionally, the workbook standard and custom properties are also imported as dataset custom properties.
 
-## Data Model Mapping
+### Data Model Mapping
 
 The following table shows how Excel entities are mapped to DataHub entities:
 

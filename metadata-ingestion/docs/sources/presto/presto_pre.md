@@ -1,14 +1,10 @@
 ### Prerequisites
 
-The Presto source connects directly to your Presto cluster via SQL to extract metadata about tables, views, schemas, and catalogs.
+1. **Network Access**: Access to Presto coordinator on port 8080 (or 443 for HTTPS)
 
-Before configuring the DataHub connector, ensure you have:
+2. **User Account**: Presto user with permissions to query metadata
 
-1. **Network Access**: The machine running DataHub ingestion must be able to reach your Presto coordinator on the configured port (typically 8080 or 443 for HTTPS).
-
-2. **Presto User Account**: A Presto user with appropriate permissions to query metadata.
-
-3. **PyHive Dependencies**: The connector uses PyHive for connectivity. Install the appropriate dependencies:
+3. **Dependencies**: Install PyHive connectivity:
    ```bash
    pip install 'acryl-datahub[presto]'
    ```

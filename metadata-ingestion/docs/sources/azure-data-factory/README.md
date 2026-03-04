@@ -2,11 +2,11 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../../../../metadata-ingestion/README.md).
 
-## Setup
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[azure-data-factory]'`.
 
-## Quickstart Recipe
+### Quickstart Recipe
 
 ```yaml
 source:
@@ -38,7 +38,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-## Authentication Methods
+### Authentication Methods
 
 | Method            | Config Value        | Use Case          |
 | ----------------- | ------------------- | ----------------- |
@@ -47,7 +47,7 @@ sink:
 | Azure CLI         | `cli`               | Local development |
 | Auto-detect       | `default`           | Flexible          |
 
-## Config Details
+### Config Details
 
 | Field                              | Required | Description                               |
 | ---------------------------------- | -------- | ----------------------------------------- |
@@ -65,7 +65,7 @@ sink:
 | `platform_instance_map`            |          | Map linked services to platform instances |
 | `env`                              |          | Environment (default: `PROD`)             |
 
-## Entity Mapping
+### Entity Mapping
 
 | ADF Concept  | DataHub Entity      |
 | ------------ | ------------------- |
@@ -75,6 +75,6 @@ sink:
 | Dataset      | Dataset             |
 | Pipeline Run | DataProcessInstance |
 
-## Questions
+### Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/).

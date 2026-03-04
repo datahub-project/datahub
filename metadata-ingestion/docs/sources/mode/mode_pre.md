@@ -1,9 +1,8 @@
 ### Authentication
 
-See Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/) on how to generate an API `token` and `password`.
+Generate an API `token` and `password` following Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/).
 
-Mode does not support true "service accounts", so you must use a user account for authentication.
-Depending on your requirements, you may want to create a dedicated user account for usage with DataHub ingestion.
+Mode requires a user account for authentication (no service accounts). Consider creating a dedicated user for DataHub ingestion.
 
 ### Permissions
 

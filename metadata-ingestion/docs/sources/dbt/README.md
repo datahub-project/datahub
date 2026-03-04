@@ -1,6 +1,6 @@
 Ingesting metadata from dbt requires either using the **dbt** module or the **dbt-cloud** module.
 
-### Concept Mapping
+#### Concept Mapping
 
 | Source Concept | DataHub Concept                                                        | Notes                   |
 | -------------- | ---------------------------------------------------------------------- | ----------------------- |

@@ -1,6 +1,6 @@
 This connector ingests [Hex](https://hex.tech/) assets into DataHub.
 
-### Concept Mapping
+#### Concept Mapping
 
 | Hex Concept | DataHub Concept                                                                           | Notes               |
 | ----------- | ----------------------------------------------------------------------------------------- | ------------------- |
@@ -12,7 +12,7 @@ This connector ingests [Hex](https://hex.tech/) assets into DataHub.
 
 Other Hex concepts are not mapped to DataHub entities yet.
 
-### Limitations
+#### Limitations
 
 Currently, the [Hex API](https://learn.hex.tech/docs/api/api-reference) has some limitations that affect the completeness of the extracted metadata:
 

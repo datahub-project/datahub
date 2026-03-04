@@ -4,32 +4,30 @@
 
 To use LookML ingestion through the UI, or automate github checkout through the cli, you must set up a GitHub deploy key for your Looker GitHub repository. Read [this](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) document for how to set up deploy keys for your Looker git repo.
 
-In a nutshell, there are three steps:
+**Three steps:**
 
-1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key). Do not add a passphrase.
+1. **Generate SSH key pair** without passphrase (creates `looker_datahub_deploy_key` and `looker_datahub_deploy_key.pub`):
    ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
 
-2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
+2. **Add public key** to Looker git repo as read-only deploy key ([guide](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys)):
    ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
 
-3. Make note of the private key file, you will need to paste the contents of the file into the **GitHub Deploy Key** field later while setting up [ingestion using the UI](#ui-based-ingestion-recommended-for-ease-of-use).
+3. **Save private key** file contents for the **GitHub Deploy Key** field in [UI-based ingestion](#ui-based-ingestion-recommended-for-ease-of-use)
 
 ### Setup your connection mapping
 
-The connection mapping enables DataHub to accurately generate lineage to your upstream warehouse.
-It maps Looker connection names to the platform and database that they're pointing to.
+Connection mapping enables accurate lineage to upstream warehouses by mapping Looker connection names to platforms and databases.
 
-There's two ways to configure this:
+**Two configuration options:**
 
-1. Provide Looker **admin** API credentials, and we'll automatically map lineage correctly. Details on how to do this are below.
-2. Manually populate the `connection_to_platform_map` and `project_name` configuration fields. See the starter recipe for an example of what this should look like.
+1. **Automatic** (recommended): Provide Looker **admin** API credentials for automatic mapping (details below)
+2. **Manual**: Populate `connection_to_platform_map` and `project_name` fields (see starter recipe)
 
 #### [Optional] Create an API key with admin privileges
 
-See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
-You need to ensure that the API key is attached to a user that has Admin privileges.
+Create a client ID and secret following [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk). Ensure the API key has Admin privileges.
 
-If you don't want to provide admin API credentials, you can manually populate the `connection_to_platform_map` and `project_name` in the ingestion configuration.
+Without admin API credentials, manually populate `connection_to_platform_map` and `project_name` in your recipe.
 
 ### Ingestion Options
 

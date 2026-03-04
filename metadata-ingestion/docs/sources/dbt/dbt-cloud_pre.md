@@ -1,9 +1,8 @@
 ### Setup
 
-This source pulls dbt metadata directly from the dbt Cloud APIs.
+Extracts dbt metadata from dbt Cloud APIs.
 
-Create a [service account token](https://docs.getdbt.com/docs/dbt-cloud-apis/service-tokens) with the "Metadata Only" permission.
-This is a read-only permission.
+Create a [service account token](https://docs.getdbt.com/docs/dbt-cloud-apis/service-tokens) with "Metadata Only" permission (read-only).
 
 #### Operating Modes
 
@@ -11,9 +10,7 @@ The dbt Cloud source supports two modes of operation:
 
 ##### 1. Explicit Mode (Default)
 
-Specify a single dbt Cloud job to ingest metadata from. You'll need to have a dbt Cloud job set up to run your dbt project, and "Generate docs on run" should be enabled.
-
-Note: As this is ingesting only one job, we expect it to process all/most of the models, or else multiple job ingestion might be required.
+Specify a single dbt Cloud job to ingest metadata from. The job must have "Generate docs on run" enabled and should process all/most models (otherwise multiple job ingestion may be required).
 
 To get the required IDs, go to the job details page (this is the one with the "Run History" table), and look at the URL.
 It should look something like this: https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094.

@@ -4,17 +4,19 @@ The Dataplex connector will overwrite metadata from other Google Cloud source co
 
 ### Prerequisites
 
-Please refer to the [Dataplex documentation](https://cloud.google.com/dataplex/docs) for basic information on Google Dataplex.
+Refer to [Dataplex documentation](https://cloud.google.com/dataplex/docs) for Dataplex basics.
 
 #### Authentication
 
-Google Cloud uses Application Default Credentials (ADC) for authentication. Refer to the [GCP documentation](https://cloud.google.com/docs/authentication/provide-credentials-adc) to set up ADC based on your environment. If you prefer to use a service account then use the following instructions.
+Supports Application Default Credentials (ADC). See [GCP documentation](https://cloud.google.com/docs/authentication/provide-credentials-adc) for ADC setup.
+
+For service account authentication, follow these instructions:
 
 #### Create a service account and assign roles
 
-1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously mentioned roles to this service account.
+1. Create a service account following [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the required roles
 
-2. Download a service account JSON keyfile.
+2. Download the service account JSON keyfile
 
    Example credential file:
 
@@ -56,11 +58,11 @@ Google Cloud uses Application Default Credentials (ADC) for authentication. Refe
 
 #### Permissions
 
-Grant the following permissions to the Service Account on every project where you would like to extract metadata from.
+Grant the following permissions to the service account on all target projects.
 
-**For Universal Catalog Entries API:**
+**Universal Catalog Entries API:**
 
-Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
 
 | Permission                  | Description                           |
 | --------------------------- | ------------------------------------- |
@@ -70,9 +72,9 @@ Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/datapl
 | `dataplex.entries.getData`  | View data aspects within entries      |
 | `dataplex.entries.list`     | Enumerate entries within groups       |
 
-**For lineage extraction** (optional, `include_lineage: true`):
+**Lineage extraction** (optional, `include_lineage: true`):
 
-Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
+**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
 
 | Permission                 | Description                               |
 | -------------------------- | ----------------------------------------- |

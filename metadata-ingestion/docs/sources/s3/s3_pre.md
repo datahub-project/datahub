@@ -1,8 +1,10 @@
 ### Prerequisites
 
-To allow the S3 ingestion source ingest metadata from an S3 bucket, you need to grant the necessary permissions to an IAM user or role. Follow these steps:
+Grant necessary S3 permissions to an IAM user or role:
 
-1. **Create an IAM Policy**: Create a policy that grants read access to the S3 bucket.
+**1. Create an IAM Policy**
+
+Grant read access to the S3 bucket:
 
 ```json
 {
@@ -21,12 +23,16 @@ To allow the S3 ingestion source ingest metadata from an S3 bucket, you need to 
 }
 ```
 
-**Permissions Explanation**:
+**Permissions:**
 
-- `s3:ListBucket`: Allows listing the objects in the bucket. This permission is necessary for the S3 ingestion source to know which objects are available to read.
-- `s3:GetBucketLocation`: Allows retrieving the location of the bucket.
-- `s3:GetObject`: Allows reading the actual content of the objects in the bucket. This is needed to infer schema from sample files.
+- `s3:ListBucket`: List objects in the bucket
+- `s3:GetBucketLocation`: Retrieve bucket location
+- `s3:GetObject`: Read object content (required for schema inference)
 
-2. **Attach the Policy to an IAM User or Role**: Attach the created policy to the IAM user or role that the S3 ingestion source will use.
+**2. Attach the Policy**
 
-3. **Configure the S3 Ingestion Source**: Configure the user in s3 ingestion who you attached the role above.
+Attach the policy to the IAM user or role used by the S3 ingestion source.
+
+**3. Configure the Source**
+
+Use the IAM user/role credentials in your S3 ingestion recipe.

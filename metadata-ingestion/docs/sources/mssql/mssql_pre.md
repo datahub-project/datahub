@@ -1,12 +1,12 @@
 ### Prerequisites
 
-If you want to ingest MSSQL Jobs and stored procedures (with code) the user credentials needs the proper privileges.
+Requires specific privileges to ingest SQL Server Jobs and stored procedures.
 
-The DataHub MSSQL source automatically detects your environment and uses the optimal method:
+The connector automatically detects your environment and uses the optimal method:
 
-- **RDS/Managed SQL Server**: Uses stored procedures (recommended for managed environments)
-- **On-premises SQL Server**: Uses direct table access (typically faster when available)
-- **Automatic fallback**: If the primary method fails, it automatically tries the alternative approach
+- **RDS/Managed SQL Server**: Stored procedures (recommended for managed environments)
+- **On-premises SQL Server**: Direct table access (typically faster)
+- **Automatic fallback**: Tries alternative method if primary fails
 
 #### Permissions for All Environments
 
@@ -74,14 +74,14 @@ The DataHub source will automatically handle fallback between methods and provid
 
 ---
 
-## Query-Based Lineage and Usage Statistics
+### Query-Based Lineage and Usage Statistics
 
-DataHub can extract lineage and usage statistics by analyzing SQL queries executed on your MS SQL Server. This provides insights into:
+Extracts lineage and usage statistics by analyzing SQL queries:
 
-- **Table-level lineage**: Understand which tables are read from and written to
-- **Column-level lineage**: Track how data flows between specific columns
-- **Usage patterns**: Identify frequently accessed tables and user activity
-- **Query performance**: Monitor execution counts and timing
+- **Table-level lineage**: Tables read from and written to
+- **Column-level lineage**: Data flow between columns
+- **Usage patterns**: Frequently accessed tables and user activity
+- **Query performance**: Execution counts and timing
 
 ### Known Limitations
 

@@ -1,4 +1,4 @@
-## Integration Details
+### Integration Details
 
 This source extracts the following:
 
@@ -7,14 +7,15 @@ This source extracts the following:
 - Connector destination - DataJob output Datasets.
 - Connector runs - DataProcessInstances as DataJob runs.
 
-## Configuration Notes
+### Configuration Notes
 
-1. Fivetran supports the [fivetran platform connector](https://fivetran.com/docs/logs/fivetran-platform) to dump the log events and connectors, destinations, users and roles metadata in your destination.
-2. You need to setup and start the initial sync of the fivetran platform connector before using this source. Refer [link](https://fivetran.com/docs/logs/fivetran-platform/setup-guide).
-3. Once initial sync up of your fivetran platform connector is done, you need to provide the fivetran platform connector's destination platform and its configuration in the recipe.
-4. We expect our users to enable automatic schema updates (default) in fivetran platform connector configured for DataHub, this ensures latest schema changes are applied and avoids inconsistency data syncs.
+**Prerequisites:**
 
-### Database and Schema Name Handling
+1. Set up and complete initial sync of the [Fivetran Platform Connector](https://fivetran.com/docs/logs/fivetran-platform/setup-guide)
+2. Enable automatic schema updates (default) to avoid sync inconsistencies
+3. Configure the destination platform (Snowflake, BigQuery, or Databricks) in your recipe
+
+#### Database and Schema Name Handling
 
 The Fivetran source uses **quoted identifiers** for database and schema names to properly handle special characters and case-sensitive names. This follows Snowflake's quoted identifier convention, which is then transpiled to the target database dialect (Snowflake, BigQuery, or Databricks).
 
@@ -42,7 +43,7 @@ The Fivetran source uses **quoted identifiers** for database and schema names to
   - No configuration changes are required for standard identifiers (letters, numbers, underscores only)
 - **Recommended**: For best practices and to ensure consistency, maintain the exact case of your database and schema names in your configuration to match what's stored in Snowflake
 
-## Concept mapping
+### Concept mapping
 
 | Fivetran        | Datahub                                                                                               |
 | --------------- | ----------------------------------------------------------------------------------------------------- |
@@ -53,9 +54,9 @@ The Fivetran source uses **quoted identifiers** for database and schema names to
 
 Source and destination are mapped to Dataset as an Input and Output of Connector.
 
-## Current limitations
+### Current limitations
 
-### Supported Destinations
+#### Supported Destinations
 
 Works only for:
 
@@ -63,7 +64,7 @@ Works only for:
 - Bigquery destination
 - Databricks destination
 
-### Ingestion Limits
+#### Ingestion Limits
 
 To prevent excessive data ingestion, the following configurable limits apply per connector:
 
@@ -86,7 +87,7 @@ source:
       max_column_lineage_per_connector: 5000 # Increase column lineage limit
 ```
 
-## Snowflake destination Configuration Guide
+### Snowflake destination Configuration Guide
 
 1. If your fivetran platform connector destination is snowflake, you need to provide user details and its role with correct privileges in order to fetch metadata.
 2. Snowflake system admin can follow this guide to create a fivetran_datahub role, assign it the required privileges, and assign it to a user by executing the following Snowflake commands from a user with the ACCOUNTADMIN role or MANAGE GRANTS privilege.
@@ -109,12 +110,12 @@ grant select on all tables in SCHEMA "<fivetran-log-database>"."<fivetran-log-sc
 grant role fivetran_datahub to user snowflake_user;
 ```
 
-## Bigquery destination Configuration Guide
+### Bigquery destination Configuration Guide
 
 1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles.
 2. Create and Download a service account JSON keyfile and provide bigquery connection credential in bigquery destination config.
 
-## Databricks destination Configuration Guide
+### Databricks destination Configuration Guide
 
 1. Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
 2. Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
@@ -130,13 +131,13 @@ grant role fivetran_datahub to user snowflake_user;
    5. [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
 5. Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
 
-## Configuration Options
+### Configuration Options
 
-### Fivetran REST API Configuration
+#### Fivetran REST API Configuration
 
 The Fivetran REST API configuration is **required** for Google Sheets connectors and optional for other use cases. It provides access to connection details that aren't available in the Platform Connector logs.
 
-#### Setup
+##### Setup
 
 To obtain API credentials:
 
@@ -152,7 +153,7 @@ api_config:
   request_timeout_sec: 30 # Optional, defaults to 30 seconds
 ```
 
-#### Permissions Required
+##### Permissions Required
 
 To use the Fivetran REST API integration, you need:
 
@@ -162,16 +163,16 @@ To use the Fivetran REST API integration, you need:
 - The API key must be associated with a user or service account that has access to the connectors you want to ingest
 - The API key inherits permissions from the user or service account it's associated with
 
-## Google Sheets Connector Support
+### Google Sheets Connector Support
 
 Google Sheets connectors require special handling because Google Sheets is not yet natively supported as a DataHub source. As a workaround, the Fivetran source creates Dataset entities for Google Sheets and includes them in the lineage.
 
-### Requirements
+#### Requirements
 
 - **Fivetran REST API configuration** (`api_config`) is required for Google Sheets connectors
 - The API is used to fetch connection details that aren't available in Platform Connector logs
 
-### What Gets Created
+#### What Gets Created
 
 For each Google Sheets connector, two Dataset entities are created:
 
@@ -187,13 +188,13 @@ For each Google Sheets connector, two Dataset entities are created:
    - Contains the named range identifier
    - Has upstream lineage to the Google Sheet Dataset
 
-### Limitations
+#### Limitations
 
 - **Column lineage is disabled** for Google Sheets connectors due to stale metadata issues in the Fivetran Platform Connector (as of October 2025)
 - This is a workaround that will be removed once DataHub natively supports Google Sheets as a source
 - If the Fivetran API is unavailable or the connector details can't be fetched, the connector will be skipped with a warning
 
-### Example Configuration
+#### Example Configuration
 
 ```yaml
 source:
@@ -207,9 +208,9 @@ source:
     # ... other configuration ...
 ```
 
-## Advanced Configurations
+### Advanced Configurations
 
-### Working with Platform Instances
+#### Working with Platform Instances
 
 If you have multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://docs.datahub.com/docs/platform-instances) to understand more about this.
 
@@ -230,7 +231,7 @@ destination_to_platform_instance:
     env: PROD
 ```
 
-#### Example - Multiple Postgres Source Connectors each reading from different postgres instance
+##### Example - Multiple Postgres Source Connectors each reading from different postgres instance
 
 ```yml
 # Map of connector source to platform instance
@@ -244,7 +245,7 @@ sources_to_platform_instance:
     env: DEV
 ```
 
-#### Example - Multiple Snowflake Destinations each writing to different snowflake instance
+##### Example - Multiple Snowflake Destinations each writing to different snowflake instance
 
 ```yml
 # Map of destination to platform instance

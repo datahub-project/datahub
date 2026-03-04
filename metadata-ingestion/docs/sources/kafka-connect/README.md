@@ -1,4 +1,4 @@
-## Integration Details
+### Integration Details
 
 This plugin extracts the following:
 
@@ -6,7 +6,7 @@ This plugin extracts the following:
 - For Source connectors - Data Jobs to represent lineage information between source dataset to Kafka topic per `{connector_name}:{source_dataset}` combination
 - For Sink connectors - Data Jobs to represent lineage information between Kafka topic to destination dataset per `{connector_name}:{topic}` combination
 
-### Requirements
+#### Requirements
 
 **Java Runtime Dependency:**
 
@@ -18,18 +18,18 @@ This source requires Java to be installed and available on the system for transf
 
 **Note for Docker users**: If you're building custom Docker images for DataHub ingestion, ensure a Java Runtime Environment (JRE) is included in your image to support full transform pipeline functionality.
 
-### Environment Support
+#### Environment Support
 
 DataHub's Kafka Connect source supports both **self-hosted** and **Confluent Cloud** environments with automatic detection and environment-specific topic retrieval strategies:
 
-#### Self-hosted Kafka Connect
+##### Self-hosted Kafka Connect
 
 - **Topic Discovery**: Uses runtime `/connectors/{name}/topics` API endpoint
 - **Accuracy**: Returns actual topics that connectors are currently reading from/writing to
 - **Benefits**: Most accurate topic information as it reflects actual runtime state
 - **Requirements**: Standard Kafka Connect REST API access
 
-#### Confluent Cloud
+##### Confluent Cloud
 
 - **Topic Discovery**: Uses comprehensive Kafka REST API v3 for optimal transform pipeline support with config-based fallback
 - **Method**: Gets all topics from Kafka cluster via REST API, applies reverse transform pipeline for accurate mappings
@@ -38,7 +38,7 @@ DataHub's Kafka Connect source supports both **self-hosted** and **Confluent Clo
 
 **Environment Detection**: Automatically detects environment based on `connect_uri` patterns containing `confluent.cloud`.
 
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -48,11 +48,11 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks) | [DataFlow](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)          |       |
 | Kafka Topic                                                                     | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |       |
 
-## Supported Connectors and Lineage Extraction
+### Supported Connectors and Lineage Extraction
 
 DataHub supports different connector types with varying levels of lineage extraction capabilities depending on the environment (self-hosted vs Confluent Cloud):
 
-### Source Connectors
+#### Source Connectors
 
 | Connector Type                                                                   | Self-hosted Support | Confluent Cloud Support | Topic Discovery Method      | Lineage Extraction             |
 | -------------------------------------------------------------------------------- | ------------------- | ----------------------- | --------------------------- | ------------------------------ |
@@ -71,7 +71,7 @@ DataHub supports different connector types with varying levels of lineage extrac
 | **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | 🔧 Config Required      | Runtime API / Manual config | Collection → Topic mapping     |
 | **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
 
-### Sink Connectors
+#### Sink Connectors
 
 | Connector Type                                                                 | Self-hosted Support | Confluent Cloud Support | Topic Discovery Method     | Lineage Extraction        |
 | ------------------------------------------------------------------------------ | ------------------- | ----------------------- | -------------------------- | ------------------------- |
@@ -88,17 +88,17 @@ DataHub supports different connector types with varying levels of lineage extrac
 - ✅ **Partial**: Lineage extraction supported but topic discovery may be limited (config-based only)
 - 🔧 **Config Required**: Requires `generic_connectors` configuration for lineage mapping
 
-### Supported Transforms
+#### Supported Transforms
 
 DataHub uses an **advanced transform pipeline strategy** that automatically handles complex transform chains by applying the complete pipeline to all topics and checking if results exist. This provides robust support for any combination of transforms.
 
-#### Topic Routing Transforms
+##### Topic Routing Transforms
 
 - **RegexRouter**: `org.apache.kafka.connect.transforms.RegexRouter`
 - **Cloud RegexRouter**: `io.confluent.connect.cloud.transforms.TopicRegexRouter`
 - **Debezium EventRouter**: `io.debezium.transforms.outbox.EventRouter` (Outbox pattern)
 
-#### Non-Topic Routing Transforms
+##### Non-Topic Routing Transforms
 
 DataHub recognizes but passes through these transforms (they don't affect lineage):
 
@@ -106,7 +106,7 @@ DataHub recognizes but passes through these transforms (they don't affect lineag
 - SetSchemaMetadata, Flatten, Cast, HeadersFrom, TimestampConverter
 - Filter, InsertHeader, DropHeaders, Drop, TombstoneHandler
 
-#### Transform Pipeline Strategy
+##### Transform Pipeline Strategy
 
 DataHub uses an improved **reverse transform pipeline approach** that:
 
@@ -123,9 +123,9 @@ DataHub uses an improved **reverse transform pipeline approach** that:
 - ✅ **Future-proof** for new transform types
 - ✅ **Works identically** for both self-hosted and Confluent Cloud environments
 
-## Capabilities and Limitations
+### Capabilities and Limitations
 
-### Transform Pipeline Support
+#### Transform Pipeline Support
 
 **✅ Fully Supported:**
 
@@ -139,28 +139,28 @@ DataHub uses an improved **reverse transform pipeline approach** that:
 - For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings
 - Some advanced connector-specific features may not be fully supported
 
-### Environment-Specific Behavior
+#### Environment-Specific Behavior
 
-#### Self-hosted Kafka Connect
+##### Self-hosted Kafka Connect
 
 - **Topic Discovery**: Uses runtime `/connectors/{name}/topics` API endpoint for maximum accuracy
 - **Requirements**: Standard Kafka Connect REST API access
 - **Fallback**: If runtime API fails, falls back to config-based derivation
 
-#### Confluent Cloud
+##### Confluent Cloud
 
 - **Topic Discovery**: Uses comprehensive Kafka REST API v3 to get all topics, with automatic credential reuse
 - **Transform Support**: Full support for all transform combinations via reverse pipeline strategy using actual cluster topics
 - **Auto-derivation**: Automatically derives Kafka REST endpoint from connector configurations
 
-### Configuration Control
+#### Configuration Control
 
 The `use_connect_topics_api` flag controls topic retrieval behavior:
 
 - **When `true` (default)**: Uses environment-specific topic discovery with full transform support
 - **When `false`**: Disables all topic discovery for air-gapped environments or performance optimization
 
-### Advanced Scenarios
+#### Advanced Scenarios
 
 **Complex Transform Chains:**
 The new reverse transform pipeline strategy handles complex scenarios automatically:

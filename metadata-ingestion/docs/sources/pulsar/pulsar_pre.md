@@ -2,9 +2,8 @@
 
 ### Prerequisites
 
-In order to ingest metadata from Apache Pulsar, you will need:
+- **Pulsar Instance**: Access with valid access token (if authentication enabled)
+- **Version**: Pulsar 2.7.0 or later
+- **Role**: `superUser` required to list all tenants
 
-- Access to a Pulsar Instance, if authentication is enabled a valid access token.
-- Pulsar version >= 2.7.0
-
-> **_NOTE:_** A _superUser_ role is required for listing all existing tenants within a Pulsar instance.
+> **_NOTE:_** A `superUser` role is required for listing all existing tenants within a Pulsar instance.

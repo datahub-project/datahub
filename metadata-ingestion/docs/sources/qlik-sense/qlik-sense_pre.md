@@ -1,4 +1,4 @@
-## Integration Details
+### Integration Details
 
 This source extracts the following:
 
@@ -6,12 +6,12 @@ This source extracts the following:
 - Qlik Datasets as Datahub Datasets with schema metadata.
 - Sheets as Datahub dashboard and charts present inside sheets.
 
-## Configuration Notes
+### Configuration Notes
 
 1. Refer [doc](https://qlik.dev/authenticate/api-key/generate-your-first-api-key/) to generate an API key from the hub.
 2. Get tenant hostname from About tab after login to qlik sense account.
 
-## Concept mapping
+### Concept mapping
 
 | Qlik Sense | Datahub                                                     | Notes                    |
 | ---------- | ----------------------------------------------------------- | ------------------------ |

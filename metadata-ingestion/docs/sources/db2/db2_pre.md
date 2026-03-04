@@ -1,6 +1,6 @@
 ### Permissions
 
-In order to execute this source the user needs `SELECT` privileges on the system schema and tables:
+The user requires `SELECT` privileges on the system schema and tables:
 
 - Db2 for LUW: `SYSCAT.*`
 - Db2 for z/OS: `SYSIBM.*`

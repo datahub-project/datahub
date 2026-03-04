@@ -2,27 +2,27 @@
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
-## Overview
+### Overview
 
 The Confluence source ingests pages and spaces from Confluence workspaces (Cloud or Data Center) as DataHub Document entities with optional semantic embeddings for semantic search.
 
-### Key Features
+#### Key Features
 
-#### 1. Content Extraction
+##### 1. Content Extraction
 
 - **Page Content**: Full text extraction from Confluence pages including all content types
 - **Space Discovery**: Automatic discovery of all pages within specified spaces
 - **Hierarchical Structure**: Maintains parent-child relationships between pages
 - **Metadata Extraction**: Captures creation/modification timestamps, authors, labels, and custom properties
 
-#### 2. Hierarchical Relationships
+##### 2. Hierarchical Relationships
 
 - **Parent-Child Links**: Preserves Confluence page hierarchy in DataHub
 - **Recursive Discovery**: Recursively discovers nested pages starting from root pages or entire spaces
 - **Space Organization**: Maintains space context as custom properties
 - **Flexible Navigation**: Browse documentation structure in DataHub UI
 
-#### 3. Embedding Generation
+##### 3. Embedding Generation
 
 Optional semantic search support with sensible defaults:
 
@@ -32,7 +32,7 @@ Optional semantic search support with sensible defaults:
 
 See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for detailed setup and advanced options.
 
-#### 4. Stateful Ingestion
+##### 4. Stateful Ingestion
 
 Supports smart incremental updates via stateful ingestion:
 
@@ -41,11 +41,11 @@ Supports smart incremental updates via stateful ingestion:
 - **Flexible Discovery**: Ingest entire spaces, specific pages, or page trees
 - **State Persistence**: Maintains processing state between runs to skip unchanged documents
 
-## Prerequisites
+### Prerequisites
 
-### 1. Confluence API Access
+#### 1. Confluence API Access
 
-#### For Confluence Cloud
+##### For Confluence Cloud
 
 Create an API token:
 
@@ -60,7 +60,7 @@ You'll need:
 - **Username**: Your Atlassian account email
 - **API Token**: The token you just created
 
-#### For Confluence Data Center / Server
+##### For Confluence Data Center / Server
 
 Create a Personal Access Token:
 
@@ -76,7 +76,7 @@ You'll need:
 
 **Note**: For Data Center, you can also use username/password, but Personal Access Tokens are recommended.
 
-### 2. Required Permissions
+#### 2. Required Permissions
 
 The API credentials must have:
 
@@ -84,7 +84,7 @@ The API credentials must have:
 - For Cloud: User must be added to spaces or have site-wide read access
 - For Data Center: User must have "View" permissions on spaces
 
-### 3. Embedding Provider (Optional)
+#### 3. Embedding Provider (Optional)
 
 If you want semantic search capabilities, configure an embedding provider in your DataHub instance.
 
@@ -92,9 +92,9 @@ Supported providers include Cohere (API key) and AWS Bedrock (IAM roles). The co
 
 See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for detailed provider setup and configuration options.
 
-## Common Use Cases
+### Common Use Cases
 
-### 1. Auto-Discover All Spaces (Default)
+#### 1. Auto-Discover All Spaces (Default)
 
 By default, the connector discovers and ingests all accessible spaces:
 
@@ -113,7 +113,7 @@ source:
     max_spaces: 100
 ```
 
-### 2. Include Specific Spaces
+#### 2. Include Specific Spaces
 
 Ingest only specific Confluence spaces:
 
@@ -134,7 +134,7 @@ source:
         - "DESIGN"
 ```
 
-### 3. Exclude Personal and Archive Spaces
+#### 3. Exclude Personal and Archive Spaces
 
 Ingest all spaces except specific ones:
 
@@ -156,7 +156,7 @@ source:
         - "OLD_DOCS"
 ```
 
-### 4. Specific Page Trees Only
+#### 4. Specific Page Trees Only
 
 Ingest specific pages and their descendants:
 
@@ -177,7 +177,7 @@ source:
     recursive: true # Include all child pages
 ```
 
-### 5. Combined Space and Page Filtering
+#### 5. Combined Space and Page Filtering
 
 Combine space and page filters for fine-grained control:
 
@@ -206,7 +206,7 @@ source:
         - "888888" # Archived page
 ```
 
-### 6. Data Center / Server Setup
+#### 6. Data Center / Server Setup
 
 Connect to Confluence Data Center or Server:
 
@@ -225,7 +225,7 @@ source:
         - "DOCS"
 ```
 
-### 7. Production Setup with Stateful Ingestion
+#### 7. Production Setup with Stateful Ingestion
 
 Enterprise setup with incremental updates:
 
@@ -250,7 +250,7 @@ source:
 
 **Note**: Embedding configuration is managed by your DataHub instance. See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for setup.
 
-### 8. Using URLs for Allow/Deny
+#### 8. Using URLs for Allow/Deny
 
 You can specify spaces and pages using full URLs for both allow and deny lists:
 
@@ -279,11 +279,11 @@ source:
         - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/999999/Draft"
 ```
 
-## Filtering Content
+### Filtering Content
 
 The connector provides flexible filtering options through allow and deny lists for both spaces and pages.
 
-### Space Filtering
+#### Space Filtering
 
 Control which Confluence spaces are ingested:
 
@@ -307,7 +307,7 @@ spaces:
     - "TEST" # Test space
 ```
 
-### Page Filtering
+#### Page Filtering
 
 Control which pages are ingested:
 
@@ -331,7 +331,7 @@ pages:
     - "888888" # Archived page
 ```
 
-### Filtering Rules
+#### Filtering Rules
 
 **Precedence**:
 
@@ -349,7 +349,7 @@ pages:
 - Page IDs: `"123456789"` (numeric string)
 - Full URLs: Both space URLs and page URLs are automatically parsed
 
-### Common Filtering Patterns
+#### Common Filtering Patterns
 
 **Exclude all personal spaces:**
 
@@ -391,9 +391,9 @@ pages:
     - "888888" # WIP page ID
 ```
 
-## How It Works
+### How It Works
 
-### Processing Pipeline
+#### Processing Pipeline
 
 1. **Discovery**: Confluence API discovers spaces and pages
 2. **Download**: Downloads page content via Confluence REST API
@@ -402,7 +402,7 @@ pages:
 5. **Embedding**: Generates vector embeddings for each chunk (if embeddings enabled)
 6. **Emission**: Emits Document entities with SemanticContent aspects to DataHub
 
-### URL Format Support
+#### URL Format Support
 
 The connector supports multiple input formats for spaces and pages in allow/deny lists:
 
@@ -419,7 +419,7 @@ The connector supports multiple input formats for spaces and pages in allow/deny
 
 The connector automatically extracts space keys and page IDs from URLs, so you can use either format interchangeably in `space_allow`, `space_deny`, `page_allow`, and `page_deny` lists.
 
-### Stateful Ingestion Details
+#### Stateful Ingestion Details
 
 The source uses content-based change detection:
 
@@ -434,29 +434,29 @@ This means:
 - **Subsequent runs**: Only processes new/changed documents
 - **Deleted pages**: Automatically soft-deleted from DataHub
 
-## Limitations and Considerations
+### Limitations and Considerations
 
-### Confluence API Limits
+#### Confluence API Limits
 
 - **Rate Limits**: Confluence enforces rate limits (Cloud: varies by plan, Data Center: configurable)
 - **Content Types**: Complex macros may not extract perfectly (e.g., embedded content, custom macros)
 - **Attachments**: File attachments are not ingested (only page content)
 
-### Performance Considerations
+#### Performance Considerations
 
 - **Large Spaces**: First run may take significant time for large spaces (1000+ pages)
 - **Embedding Generation**: Adds processing time proportional to content volume
 - **API Costs**: Embedding providers may incur costs based on usage
 
-### Content Extraction
+#### Content Extraction
 
 - **Supported Content**: Text, headings, lists, code blocks, tables, panels
 - **Limited Support**: Some macros extract as text/links
 - **Not Supported**: Attachments, complex custom macros, embedded Jira issues (content only)
 
-## Troubleshooting
+### Troubleshooting
 
-### Common Issues
+#### Common Issues
 
 **"401 Unauthorized" or "Authentication failed" errors:**
 
@@ -520,9 +520,9 @@ This means:
 - **Page ID (Data Center)**: In the URL query parameter: `https://confluence.company.com/pages/viewpage.action?pageId=123456` → ID is `123456`
 - **Personal space key**: Format is `~username` (e.g., `~john.doe` for user john.doe)
 
-## Performance Tuning
+### Performance Tuning
 
-### Parallelism Settings
+#### Parallelism Settings
 
 ```yaml
 processing:
@@ -537,7 +537,7 @@ processing:
 - Medium spaces (100-500 pages): `num_processes: 4`
 - Large spaces (>500 pages): `num_processes: 8`
 
-### Filtering
+#### Filtering
 
 ```yaml
 filtering:
@@ -545,7 +545,7 @@ filtering:
   skip_empty_documents: true # Skip empty pages (default: true)
 ```
 
-### Space Selection
+#### Space Selection
 
 Instead of ingesting all spaces, select specific ones:
 
@@ -560,7 +560,7 @@ spaces:
     - "TEST" # Exclude test spaces
 ```
 
-## Related Documentation
+### Related Documentation
 
 - [Confluence Cloud REST API](https://developer.atlassian.com/cloud/confluence/rest/v1/intro/)
 - [Confluence Data Center REST API](https://docs.atlassian.com/ConfluenceServer/rest/)

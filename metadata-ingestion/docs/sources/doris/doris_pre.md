@@ -6,7 +6,7 @@ Doris 3.0.x is required. Doris 2.0+ may work but is untested.
 
 #### Required Permissions
 
-In order to execute this source, your Doris user will need specific privileges for extracting metadata.
+Your Doris user requires specific privileges to extract metadata.
 
 ```sql
 -- Create user
@@ -17,7 +17,8 @@ GRANT SELECT_PRIV ON *.* TO 'datahub'@'%';
 GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
 ```
 
-`SELECT_PRIV` is required to extract table and column metadata. `SHOW_VIEW_PRIV` is required to extract view definitions and lineage.
+- `SELECT_PRIV`: Required for table and column metadata
+- `SHOW_VIEW_PRIV`: Required for view definitions and lineage
 
 ### Profiling
 

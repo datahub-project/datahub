@@ -1,24 +1,24 @@
 ### Prerequisites
 
-To understand how BigQuery ingestion needs to be set up, first familiarize yourself with the concepts in the diagram below:
+Familiarize yourself with BigQuery ingestion architecture:
 
 <p align="center">
   <img width="70%"  src="https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/source-bigquery-setup.png"/>
 </p>
 
-There are two important concepts to understand and identify:
+Two key concepts:
 
-- _Extractor Project_: This is the project associated with a service-account, whose credentials you will be configuring in the connector. The connector uses this service-account to run jobs (including queries) within the project.
-- _Bigquery Projects_ are the projects from which table metadata, lineage, usage, and profiling data need to be collected. By default, the extractor project is included in the list of projects that DataHub collects metadata from, but you can control that by passing in a specific list of project ids that you want to collect metadata from. Read the configuration section below to understand how to limit the list of projects that DataHub extracts metadata from.
+- **Extractor Project**: Project containing the service account used to run metadata extraction queries
+- **BigQuery Projects**: Projects from which DataHub collects metadata (tables, lineage, usage, profiling). By default includes the extractor project; configure `project_ids` to specify projects explicitly
 
 #### Create a datahub profile in GCP
 
-1. Create a custom role for datahub as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role).
-2. Follow the sections below to grant permissions to this role on this project and other projects.
+1. Create a custom role for DataHub following [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
+2. Grant permissions to this role on the extractor project and all target projects (see below)
 
 ##### Basic Requirements (needed for metadata ingestion)
 
-1. Identify your Extractor Project where the service account will run queries to extract metadata.
+**1. Grant the following permissions on the Extractor Project:**
 
 | permission                       | Description                                                                                                                         | Capability                                                                                                    |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -27,11 +27,11 @@ There are two important concepts to understand and identify:
 | `bigquery.readsessions.create`   | Create a session for streaming large results. _This only needs for the extractor project where the service account belongs_         |                                                                                                               |
 | `bigquery.readsessions.getData`  | Get data from the read session. _This only needs for the extractor project where the service account belongs_                       |
 
-2. Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+**2. Grant the following permissions on all target projects for metadata extraction:**
 
 :::info
 
-If you have multiple projects in your BigQuery setup, the role should be granted these permissions in each of the projects.
+These permissions must be granted on **every project** you want to extract metadata from.
 
 :::
 | Permission | Description | Capability | Default GCP Role Which Contains This Permission |
@@ -63,9 +63,8 @@ Without this permission, you'll encounter errors when the connector tries to acc
 
 #### Create a service account in the Extractor Project
 
-1. Setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)
-   and assign the previously created role to this service account.
-2. Download a service account JSON keyfile.
+1. Create a service account following [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the custom role created above
+2. Download a service account JSON keyfile
    Example credential file:
 
 ```json
@@ -106,7 +105,14 @@ Without this permission, you'll encounter errors when the connector tries to acc
 
 ##### Profiling Requirements
 
-To profile BigQuery external tables backed by Google Drive document, you need to grant document's "Viewer" access to service account's email address (`client_email` in credentials json file). To find the Google Drive document linked to BigQuery table, open the BigQuery console, locate the needed table, select "Details" from the drop-down menu in the top-right corner and refer "Source" field . To share access of Google Drive document, open the document, click "Share" in the top-right corner, add the service account's email address that needs "Viewer" access. ![Google Drive Sharing Dialog](https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/google_drive_share.png)
+**For external tables backed by Google Drive:**
+
+Grant "Viewer" access to the service account's email (`client_email` from credentials JSON) on the Google Drive documents:
+
+1. Find the source document: BigQuery Console → Table → Details → "Source" field
+2. Share the document: Open document → Share → Add service account email with "Viewer" access
+
+![Google Drive Sharing Dialog](https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/google_drive_share.png)
 
 ### Lineage and Usage Computation Details
 

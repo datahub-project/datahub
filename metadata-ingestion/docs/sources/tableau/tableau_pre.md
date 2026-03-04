@@ -1,9 +1,7 @@
 ### Prerequisites
 
-In order to ingest metadata from Tableau, you will need:
-
-- Tableau Server Version 2021.1.10 and above. It may also work for older versions.
-- [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled. This is always enabled for Tableau Cloud.
+- **Tableau Server** 2021.1.10 or later (may work with older versions)
+- **Metadata API enabled** ([enable for Server](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server); always enabled for Tableau Cloud)
 
 ### Authentication
 
@@ -53,9 +51,9 @@ The following video shows you how to get started with ingesting Tableau metadata
 
 ### Integration Details
 
-This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
-on a Tableau site. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
-in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
+Extracts metadata for Sheets, Dashboards, Workbooks, and Data Sources (Embedded and Published) from Tableau projects via the GraphQL Metadata API.
+
+Queries: `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
 #### Concept Mapping
 

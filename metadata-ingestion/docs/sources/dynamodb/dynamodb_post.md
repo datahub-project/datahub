@@ -1,6 +1,6 @@
-## Advanced Configurations
+### Advanced Configurations
 
-### Using `schema_sampling_size` config
+#### Using `schema_sampling_size` config
 
 By default, the connector samples 100 items from each table to infer the schema. You can adjust this using the `schema_sampling_size` configuration option if you need more comprehensive schema coverage:
 
@@ -9,7 +9,7 @@ By default, the connector samples 100 items from each table to infer the schema.
 schema_sampling_size: 500
 ```
 
-### Using `include_table_item` config
+#### Using `include_table_item` config
 
 If there are items that have most representative fields of the table, users could use the `include_table_item` option to provide a list of primary keys of the table in dynamodb format. We include these items in addition to the items sampled based on `schema_sampling_size` (default 100) when we scan the table.
 

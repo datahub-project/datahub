@@ -1,4 +1,4 @@
-## Migration from MySQL Connector
+### Migration from MySQL Connector
 
 If you were previously ingesting Doris using the MySQL connector, switch to the dedicated Doris connector for better support:
 

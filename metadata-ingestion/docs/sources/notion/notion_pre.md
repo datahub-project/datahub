@@ -2,26 +2,26 @@
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
-## Overview
+### Overview
 
 The Notion source ingests pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings for semantic search.
 
-### Key Features
+#### Key Features
 
-#### 1. Content Extraction
+##### 1. Content Extraction
 
 - **Page Content**: Full text extraction from Notion pages including all supported block types
 - **Database Rows**: Ingests database entries as individual documents
 - **Hierarchical Structure**: Maintains parent-child relationships between pages
 - **Metadata Extraction**: Captures creation/modification timestamps, authors, and custom properties
 
-#### 2. Hierarchical Relationships
+##### 2. Hierarchical Relationships
 
 - **Parent-Child Links**: Preserves Notion's page hierarchy in DataHub
 - **Automatic Discovery**: Recursively discovers nested pages starting from root pages
 - **Flexible Navigation**: Browse documentation structure in DataHub UI
 
-#### 3. Embedding Generation
+##### 3. Embedding Generation
 
 Optional semantic search support:
 
@@ -30,7 +30,7 @@ Optional semantic search support:
 - **Configurable chunk size**: Optimize for your embedding model (in characters)
 - **Automatic deduplication**: Prevents duplicate chunk embeddings
 
-#### 4. Stateful Ingestion
+##### 4. Stateful Ingestion
 
 Supports smart incremental updates via stateful ingestion:
 
@@ -39,9 +39,9 @@ Supports smart incremental updates via stateful ingestion:
 - **Recursive Discovery**: Start from root pages/databases, automatically discovers and ingests child pages
 - **State Persistence**: Maintains processing state between runs to skip unchanged documents
 
-## Prerequisites
+### Prerequisites
 
-### 1. Notion Integration
+#### 1. Notion Integration
 
 Create a Notion internal integration:
 
@@ -51,7 +51,7 @@ Create a Notion internal integration:
 4. Select the workspace
 5. Copy the **Internal Integration Token** (starts with `secret_`)
 
-### 2. Share Pages with Integration
+#### 2. Share Pages with Integration
 
 The integration can only access pages explicitly shared with it:
 
@@ -62,17 +62,17 @@ The integration can only access pages explicitly shared with it:
 
 **Important**: For recursive ingestion, only share top-level pages. Child pages inherit access automatically.
 
-### 3. Embedding Provider (Optional)
+#### 3. Embedding Provider (Optional)
 
 If you want semantic search capabilities, set up one of these providers:
 
-#### Cohere
+##### Cohere
 
 - Sign up at https://cohere.ai/
 - Create an API key
 - Supports: `embed-english-v3.0`, `embed-multilingual-v3.0`
 
-#### AWS Bedrock
+##### AWS Bedrock
 
 - AWS account with Bedrock access
 - Enable Cohere models in AWS Console → Bedrock → Model access
@@ -81,9 +81,9 @@ If you want semantic search capabilities, set up one of these providers:
 
 See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for detailed embedding setup.
 
-## Common Use Cases
+### Common Use Cases
 
-### 1. Workspace-wide Documentation Search
+#### 1. Workspace-wide Documentation Search
 
 Ingest entire workspace documentation with semantic search:
 
@@ -105,7 +105,7 @@ source:
       api_key: "${COHERE_API_KEY}"
 ```
 
-### 2. Specific Database Ingestion
+#### 2. Specific Database Ingestion
 
 Ingest a specific Notion database (e.g., "Product Requirements"):
 
@@ -121,7 +121,7 @@ source:
     recursive: false # Only database entries, not child pages
 ```
 
-### 3. Multi-workspace Setup
+#### 3. Multi-workspace Setup
 
 Ingest from multiple workspaces (requires multiple integrations):
 
@@ -138,7 +138,7 @@ source:
     recursive: true
 ```
 
-### 4. Production Setup with AWS Bedrock
+#### 4. Production Setup with AWS Bedrock
 
 Enterprise setup using AWS Bedrock for embeddings:
 
@@ -163,9 +163,9 @@ source:
       enabled: true
 ```
 
-## How It Works
+### How It Works
 
-### Processing Pipeline
+#### Processing Pipeline
 
 1. **Discovery**: Notion API discovers pages/databases
 2. **Download**: Unstructured.io downloads and converts content to structured format
@@ -174,7 +174,7 @@ source:
 5. **Embedding**: Generates vector embeddings for each chunk (if embeddings enabled)
 6. **Emission**: Emits Document entities with SemanticContent aspects to DataHub
 
-### Stateful Ingestion Details
+#### Stateful Ingestion Details
 
 The source uses content-based change detection:
 
@@ -189,29 +189,29 @@ This means:
 - **Subsequent runs**: Only processes new/changed documents
 - **Deleted pages**: Automatically soft-deleted from DataHub
 
-## Limitations and Considerations
+### Limitations and Considerations
 
-### Notion API Limits
+#### Notion API Limits
 
 - **Rate Limits**: Notion enforces rate limits (3 requests/second for paid workspaces, 1/second for free)
 - **Access Scope**: Integration only sees explicitly shared pages
 - **Content Types**: Some Notion blocks may not extract perfectly (e.g., complex embeds, synced blocks)
 
-### Performance Considerations
+#### Performance Considerations
 
 - **Large Workspaces**: First run may take significant time for large workspaces
 - **Embedding Generation**: Adds processing time proportional to content volume
 - **API Costs**: Unstructured API and embedding providers may incur costs
 
-### Content Extraction
+#### Content Extraction
 
 - **Supported Blocks**: Text, headings, lists, code blocks, tables, callouts, toggles, quotes
 - **Limited Support**: Embeds, equations, files (extracted as links/references)
 - **Not Supported**: Live charts, board/gallery/timeline views (database views)
 
-## Troubleshooting
+### Troubleshooting
 
-### Common Issues
+#### Common Issues
 
 **"Integration not found" or "Unauthorized" errors:**
 
@@ -254,9 +254,9 @@ This means:
 - Ensure `recursive: true` to discover parent-child relationships
 - Parent pages must be accessible to the integration
 
-## Performance Tuning
+### Performance Tuning
 
-### Parallelism Settings
+#### Parallelism Settings
 
 ```yaml
 processing:
@@ -271,7 +271,7 @@ processing:
 - Medium workspaces (100-1000 pages): `num_processes: 4`
 - Large workspaces (>1000 pages): `num_processes: 8`
 
-### Filtering
+#### Filtering
 
 ```yaml
 filtering:
@@ -279,7 +279,7 @@ filtering:
   skip_empty_documents: true # Skip empty pages (default: true)
 ```
 
-### Chunking Optimization
+#### Chunking Optimization
 
 ```yaml
 chunking:
@@ -288,7 +288,7 @@ chunking:
   combine_text_under_n_chars: 100 # Merge small chunks (default: 100)
 ```
 
-## Related Documentation
+### Related Documentation
 
 - [Notion API Documentation](https://developers.notion.com/)
 - [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md)
