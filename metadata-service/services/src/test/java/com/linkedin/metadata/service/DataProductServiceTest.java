@@ -23,7 +23,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -80,12 +79,9 @@ public class DataProductServiceTest {
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
         .thenReturn(TEST_DATA_PRODUCT_URN.toString());
 
-    final List<ResourceReference> resources =
-        ImmutableList.of(
-            new ResourceReference(TEST_RESOURCE_URN_1, null, null),
-            new ResourceReference(TEST_RESOURCE_URN_2, null, null));
+    final List<Urn> resources = ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2);
 
-    service.batchAddToDataProduct(opContext, TEST_DATA_PRODUCT_URN, resources, null);
+    service.batchAddToDataProduct(opContext, TEST_DATA_PRODUCT_URN, resources);
 
     final ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -151,12 +147,9 @@ public class DataProductServiceTest {
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
         .thenReturn(TEST_DATA_PRODUCT_URN.toString());
 
-    final List<ResourceReference> resources =
-        ImmutableList.of(
-            new ResourceReference(TEST_RESOURCE_URN_1, null, null),
-            new ResourceReference(TEST_RESOURCE_URN_2, null, null));
+    final List<Urn> resources = ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2);
 
-    service.batchAddToDataProduct(opContext, TEST_DATA_PRODUCT_URN, resources, null);
+    service.batchAddToDataProduct(opContext, TEST_DATA_PRODUCT_URN, resources);
 
     final ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -217,10 +210,9 @@ public class DataProductServiceTest {
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
         .thenReturn(TEST_DATA_PRODUCT_URN.toString());
 
-    final List<ResourceReference> resourcesToRemove =
-        ImmutableList.of(new ResourceReference(TEST_RESOURCE_URN_1, null, null));
+    final List<Urn> resourcesToRemove = ImmutableList.of(TEST_RESOURCE_URN_1);
 
-    service.batchRemoveFromDataProduct(opContext, TEST_DATA_PRODUCT_URN, resourcesToRemove, null);
+    service.batchRemoveFromDataProduct(opContext, TEST_DATA_PRODUCT_URN, resourcesToRemove);
 
     final ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -280,12 +272,9 @@ public class DataProductServiceTest {
             any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
         .thenReturn(TEST_DATA_PRODUCT_URN.toString());
 
-    final List<ResourceReference> resourcesToRemove =
-        ImmutableList.of(
-            new ResourceReference(TEST_RESOURCE_URN_1, null, null),
-            new ResourceReference(TEST_RESOURCE_URN_2, null, null));
+    final List<Urn> resourcesToRemove = ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2);
 
-    service.batchRemoveFromDataProduct(opContext, TEST_DATA_PRODUCT_URN, resourcesToRemove, null);
+    service.batchRemoveFromDataProduct(opContext, TEST_DATA_PRODUCT_URN, resourcesToRemove);
 
     final ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
