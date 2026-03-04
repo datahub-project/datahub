@@ -14,6 +14,7 @@ Standards compliance:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,7 @@ from unittest.mock import MagicMock, patch
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dlt.data_classes import (
     DltColumnInfo,
+    DltLoadInfo,
     DltPipelineInfo,
     DltSchemaInfo,
     DltTableInfo,
@@ -260,21 +262,58 @@ def test_dlt_system_columns_not_included_in_outlets() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 6: Run history status mapping
+# Test 6: Run history emission — status=0 produces DataProcessInstance
 # ---------------------------------------------------------------------------
 
 
-def test_run_history_status_mapping() -> None:
-    """status=0 → SUCCESS; status=1 → FAILURE."""
-    from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+def test_run_history_emits_dataprocess_instance() -> None:
+    """
+    When get_run_history returns a load with status=0, _emit_run_history
+    must yield MetadataWorkUnit records containing DataProcessInstance aspects.
+    A load with status=1 must still yield a DPI (marked FAILURE).
+    """
+    pipeline_info = _make_pipeline_info()
+    source = _make_source(extra_config={"include_run_history": True})
+    dataflow = source._build_dataflow(pipeline_info)
 
-    # The DltSource uses {0: InstanceRunResult.SUCCESS} for the status map
-    # and defaults to FAILURE for anything else.
-    status_map = {0: InstanceRunResult.SUCCESS}
+    load_success = DltLoadInfo(
+        load_id="1234567890.0",
+        schema_name="chess_pipeline",
+        status=0,
+        inserted_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        schema_version_hash="abc",
+    )
+    load_failure = DltLoadInfo(
+        load_id="1234567891.0",
+        schema_name="chess_pipeline",
+        status=1,
+        inserted_at=datetime(2026, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+        schema_version_hash="def",
+    )
 
-    assert status_map.get(0) == InstanceRunResult.SUCCESS
-    assert status_map.get(1, InstanceRunResult.FAILURE) == InstanceRunResult.FAILURE
-    assert status_map.get(2, InstanceRunResult.FAILURE) == InstanceRunResult.FAILURE
+    with patch.object(
+        source.client, "get_run_history", return_value=[load_success, load_failure]
+    ):
+        workunits = list(source._emit_run_history(pipeline_info, dataflow))
+
+    # Both loads must produce workunits (generate_mcp + start_event + end_event per load)
+    assert len(workunits) > 0
+
+    # All workunits must reference DataProcessInstance entities
+    entity_types = {
+        wu.metadata.entityType
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and wu.metadata is not None
+        and hasattr(wu.metadata, "entityType")
+        and wu.metadata.entityType is not None
+    }
+    assert "dataProcessInstance" in entity_types, (
+        "Expected DataProcessInstance entities in run history workunits"
+    )
+
+    # Report counter must reflect both loads
+    assert source.report.run_history_loaded == 2
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +438,83 @@ def test_merge_write_disposition_emitted_as_custom_property() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 10: Empty pipelines_dir emits no workunits
+# Test 10: Column-level lineage for 1:1 sql_database pipelines
+# ---------------------------------------------------------------------------
+
+
+def test_column_level_lineage_emitted_for_single_inlet_outlet() -> None:
+    """
+    When there is exactly one inlet and one outlet, _build_fine_grained_lineages
+    must emit one FineGrainedLineageClass per user column, mapping the same
+    column name in the inlet dataset to the outlet dataset.
+    dlt system columns (_dlt_id, _dlt_load_id, etc.) must be excluded.
+    """
+    from datahub.metadata.schema_classes import FineGrainedLineageClass
+
+    source = _make_source(
+        extra_config={
+            "include_lineage": True,
+            "destination_platform_map": {
+                "postgres": {"platform_instance": None, "env": "DEV"}
+            },
+            "source_table_dataset_urns": {
+                "chess_pipeline": {
+                    "players_games": [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,src.public.players_games,DEV)"
+                    ]
+                }
+            },
+        }
+    )
+
+    table = DltTableInfo(
+        table_name="players_games",
+        write_disposition="append",
+        parent_table=None,
+        columns=[
+            DltColumnInfo("url", "string", True, False, False),
+            DltColumnInfo("time_class", "string", True, False, False),
+            DltColumnInfo("_dlt_id", "string", False, False, True),
+            DltColumnInfo("_dlt_load_id", "string", False, False, True),
+        ],
+        resource_name="players_games",
+    )
+    pipeline_info = _make_pipeline_info(tables=[table])
+
+    inlets = source._build_inlet_urns("chess_pipeline", "players_games")
+    outlets = source._build_outlet_urns(pipeline_info, table)
+    fgl = source._build_fine_grained_lineages(table, inlets, outlets)
+
+    assert len(inlets) == 1
+    assert len(outlets) == 1
+    # Two user columns → two FineGrainedLineage entries
+    assert len(fgl) == 2
+
+    def _extract_field_name(schema_field_urn: str) -> str:
+        # Schema field URN format: urn:li:schemaField:(urn:li:dataset:(...),fieldPath)
+        # The field name is the last comma-separated token before the closing paren.
+        return schema_field_urn.rsplit(",", 1)[-1].rstrip(")")
+
+    col_names = set()
+    for entry in fgl:
+        assert isinstance(entry, FineGrainedLineageClass)
+        assert len(entry.upstreams) == 1
+        assert len(entry.downstreams) == 1
+        upstream_field = _extract_field_name(entry.upstreams[0])
+        downstream_field = _extract_field_name(entry.downstreams[0])
+        # Same column name must appear in both inlet and outlet field URNs
+        assert upstream_field == downstream_field, (
+            f"Expected same column name in upstream/downstream: {upstream_field} != {downstream_field}"
+        )
+        col_names.add(upstream_field)
+
+    assert col_names == {"url", "time_class"}, (
+        "Only user columns should appear in CLL — _dlt_id and _dlt_load_id must be excluded"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 11: Empty pipelines_dir emits no workunits
 # ---------------------------------------------------------------------------
 
 

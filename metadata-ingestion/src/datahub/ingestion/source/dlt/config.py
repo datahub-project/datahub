@@ -74,12 +74,8 @@ class DltRunHistoryConfig(BaseTimeWindowConfig):
 
     Extends BaseTimeWindowConfig which provides start_time, end_time, and
     bucket_duration — the DataHub standard for all time-windowed queries.
+    Use include_run_history on DltSourceConfig to enable/disable run history.
     """
-
-    enabled: bool = Field(
-        default=True,
-        description="Whether to query _dlt_loads and emit DataProcessInstance run history.",
-    )
 
 
 class DltSourceConfig(
@@ -205,8 +201,3 @@ class DltSourceConfig(
     def expand_user(cls, v: str) -> str:
         """Expand ~ in pipelines_dir to the user's home directory."""
         return str(Path(v).expanduser())
-
-    @property
-    def get_pipelines_dir(self) -> Path:
-        """Returns the resolved pipelines directory as a Path."""
-        return Path(self.pipelines_dir)

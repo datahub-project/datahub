@@ -11,7 +11,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -23,9 +23,6 @@ from datahub.ingestion.source.dlt.data_classes import (
     DltSchemaInfo,
     DltTableInfo,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +46,35 @@ def _dlt_type_to_display(dlt_type: str) -> str:
     return DLT_TYPE_MAP.get(dlt_type, dlt_type)
 
 
+def _parse_columns(columns_dict: Optional[Dict[str, Any]]) -> List[DltColumnInfo]:
+    """Parse a {col_name: col_def} dict into DltColumnInfo objects."""
+    result: List[DltColumnInfo] = []
+    for col_name, col_def in (columns_dict or {}).items():
+        if col_def is None:
+            continue
+        result.append(
+            DltColumnInfo(
+                name=col_name,
+                data_type=_dlt_type_to_display(col_def.get("data_type", "text")),
+                nullable=bool(col_def.get("nullable", True)),
+                primary_key=bool(col_def.get("primary_key", False)),
+                is_dlt_system_column=col_name in DLT_SYSTEM_COLUMNS,
+            )
+        )
+    return result
+
+
+def _parse_table(table_name: str, table_def: Dict[str, Any]) -> DltTableInfo:
+    """Parse a single table dict entry into a DltTableInfo."""
+    return DltTableInfo(
+        table_name=table_name,
+        write_disposition=table_def.get("write_disposition", "append"),
+        parent_table=table_def.get("parent"),
+        columns=_parse_columns(table_def.get("columns")),
+        resource_name=table_def.get("resource"),
+    )
+
+
 def _parse_schema_file(schema_path: Path) -> Optional[DltSchemaInfo]:
     """Parse a dlt schema YAML file into a DltSchemaInfo."""
     try:
@@ -59,33 +85,11 @@ def _parse_schema_file(schema_path: Path) -> Optional[DltSchemaInfo]:
         logger.warning(f"Failed to read schema file {schema_path}: {e}")
         return None
 
-    tables: List[DltTableInfo] = []
-    for table_name, table_def in (raw.get("tables") or {}).items():
-        if table_def is None:
-            continue
-        columns: List[DltColumnInfo] = []
-        for col_name, col_def in (table_def.get("columns") or {}).items():
-            if col_def is None:
-                continue
-            columns.append(
-                DltColumnInfo(
-                    name=col_name,
-                    data_type=_dlt_type_to_display(col_def.get("data_type", "text")),
-                    nullable=bool(col_def.get("nullable", True)),
-                    primary_key=bool(col_def.get("primary_key", False)),
-                    is_dlt_system_column=col_name in DLT_SYSTEM_COLUMNS,
-                )
-            )
-
-        tables.append(
-            DltTableInfo(
-                table_name=table_name,
-                write_disposition=table_def.get("write_disposition", "append"),
-                parent_table=table_def.get("parent"),
-                columns=columns,
-                resource_name=table_def.get("resource"),
-            )
-        )
+    tables = [
+        _parse_table(table_name, table_def)
+        for table_name, table_def in (raw.get("tables") or {}).items()
+        if table_def is not None
+    ]
 
     return DltSchemaInfo(
         schema_name=raw.get("name", schema_path.stem.replace(".schema", "")),
@@ -118,6 +122,11 @@ class DltClient:
             )
             return False
 
+    @property
+    def dlt_available(self) -> bool:
+        """Whether the dlt Python package is installed and importable."""
+        return self._dlt_available
+
     # ------------------------------------------------------------------
     # Pipeline discovery
     # ------------------------------------------------------------------
@@ -126,13 +135,13 @@ class DltClient:
         """Return all pipeline names found in pipelines_dir."""
         if not self.pipelines_dir.exists():
             return []
-        names = []
-        for entry in self.pipelines_dir.iterdir():
-            if entry.is_dir() and not entry.name.startswith("."):
-                # A pipeline dir contains a schemas/ subdirectory
-                if (entry / "schemas").is_dir():
-                    names.append(entry.name)
-        return sorted(names)
+        return sorted(
+            entry.name
+            for entry in self.pipelines_dir.iterdir()
+            if entry.is_dir()
+            and not entry.name.startswith(".")
+            and (entry / "schemas").is_dir()
+        )
 
     # ------------------------------------------------------------------
     # Pipeline info
@@ -199,36 +208,19 @@ class DltClient:
     def _schema_obj_to_info(
         self, schema_name: str, schema_obj: Any
     ) -> Optional[DltSchemaInfo]:
-        """Convert a dlt Schema object to DltSchemaInfo."""
+        """Convert a dlt Schema object to DltSchemaInfo.
+
+        schema_obj is typed as Any because dlt is an optional runtime dependency
+        and dlt.Schema is not importable at type-check time without a hard import.
+        The dlt SDK exposes schema.tables as a plain dict, so _parse_table applies
+        identically to both the SDK and filesystem paths.
+        """
         try:
-            tables: List[DltTableInfo] = []
-            for table_name, table_def in (schema_obj.tables or {}).items():
-                if table_def is None:
-                    continue
-                columns: List[DltColumnInfo] = []
-                for col_name, col_def in (table_def.get("columns") or {}).items():
-                    if col_def is None:
-                        continue
-                    columns.append(
-                        DltColumnInfo(
-                            name=col_name,
-                            data_type=_dlt_type_to_display(
-                                col_def.get("data_type", "text")
-                            ),
-                            nullable=bool(col_def.get("nullable", True)),
-                            primary_key=bool(col_def.get("primary_key", False)),
-                            is_dlt_system_column=col_name in DLT_SYSTEM_COLUMNS,
-                        )
-                    )
-                tables.append(
-                    DltTableInfo(
-                        table_name=table_name,
-                        write_disposition=table_def.get("write_disposition", "append"),
-                        parent_table=table_def.get("parent"),
-                        columns=columns,
-                        resource_name=table_def.get("resource"),
-                    )
-                )
+            tables = [
+                _parse_table(table_name, table_def)
+                for table_name, table_def in (schema_obj.tables or {}).items()
+                if table_def is not None
+            ]
             return DltSchemaInfo(
                 schema_name=schema_name,
                 version=int(getattr(schema_obj, "version", 0) or 0),
@@ -266,8 +258,12 @@ class DltClient:
                 )
                 destination = raw_dest.rsplit(".", 1)[-1] if raw_dest else ""
                 dataset_name = state.get("dataset_name", "")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "Failed to parse state.json for pipeline '%s': %s",
+                    pipeline_name,
+                    e,
+                )
 
         return DltPipelineInfo(
             pipeline_name=pipeline_name,

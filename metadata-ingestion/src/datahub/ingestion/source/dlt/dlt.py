@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -66,6 +66,12 @@ logger = logging.getLogger(__name__)
 # dlt system tables — these exist in every dlt destination schema but are
 # not meaningful as lineage targets in DataHub.
 DLT_SYSTEM_TABLES = frozenset({"_dlt_loads", "_dlt_version", "_dlt_pipeline_state"})
+
+# dlt load status codes: 0 = complete (success); all other values indicate
+# in-progress or failed loads.
+_DLT_LOAD_STATUS_MAP: Dict[int, InstanceRunResult] = {
+    0: InstanceRunResult.SUCCESS,
+}
 
 
 @platform_name("dlt")
@@ -152,6 +158,14 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_schema_read_error()
                 continue
 
+            if not pipeline_info.schemas:
+                self.report.warning(
+                    title="No schemas found for pipeline",
+                    message="Pipeline directory exists but no schema files were readable. DataJobs will not be emitted.",
+                    context=pipeline_name,
+                )
+                self.report.report_schema_read_error()
+
             yield from self._process_pipeline(pipeline_info)
             self.report.report_pipeline_scanned()
 
@@ -161,9 +175,6 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         """Emit DataFlow + DataJobs for a single dlt pipeline."""
         dataflow = self._build_dataflow(pipeline_info)
         yield from dataflow.as_workunits()
-
-        # Collect outlet URNs per table for run history DPI construction
-        table_outlet_urns: dict[str, List[DatasetUrn]] = {}
 
         for schema in pipeline_info.schemas:
             for table in schema.tables:
@@ -190,8 +201,6 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 yield from datajob.as_workunits()
                 self.report.report_resource_scanned()
-
-                table_outlet_urns[table.table_name] = outlets
 
         # Run history (opt-in)
         if self.config.include_run_history:
@@ -231,7 +240,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
     ) -> DataJob:
         """Build a DataJob entity for a single dlt table/resource."""
-        custom_props: dict[str, str] = {
+        custom_props: Dict[str, str] = {
             "write_disposition": table.write_disposition,
             "schema_name": schema_name,
         }
@@ -362,30 +371,29 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         self, pipeline_info: DltPipelineInfo, dataflow: DataFlow
     ) -> Iterable[MetadataWorkUnit]:
         """Query _dlt_loads and emit DataProcessInstance entities for each run."""
-        start_time = None
-        if self.config.run_history_config.enabled:
-            start_time = self.config.run_history_config.start_time
+        start_time = self.config.run_history_config.start_time
 
         loads = self.client.get_run_history(
             pipeline_info.pipeline_name, start_time=start_time
         )
         if not loads:
-            if not self.client._dlt_available:
+            if not self.client.dlt_available:
                 self.report.warning(
                     title="Run history unavailable",
                     message="dlt package is not installed. Install with: pip install dlt",
                     context=pipeline_info.pipeline_name,
                 )
-                self.report.report_run_history_error()
+            else:
+                self.report.warning(
+                    title="Run history query failed",
+                    message="Could not query _dlt_loads. Check destination credentials and connectivity.",
+                    context=pipeline_info.pipeline_name,
+                )
+            self.report.report_run_history_error()
             return
 
-        # Map to InstanceRunResult
-        status_map = {
-            0: InstanceRunResult.SUCCESS,
-        }
-
         for load in loads:
-            result = status_map.get(load.status, InstanceRunResult.FAILURE)
+            result = _DLT_LOAD_STATUS_MAP.get(load.status, InstanceRunResult.FAILURE)
             start_ts = int(load.inserted_at.timestamp() * 1000)
 
             # Build a minimal V1 DataJob for DPI construction

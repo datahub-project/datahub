@@ -228,6 +228,77 @@ def test_dlt_nested_table_has_parent_property(tmp_path: pathlib.Path) -> None:
 
 @time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
+def test_dlt_outlet_urns_fallback_when_destination_not_in_map(
+    tmp_path: pathlib.Path,
+) -> None:
+    """
+    When a pipeline's destination is not present in destination_platform_map,
+    outlet URNs are constructed using dataset_name.table_name (2-part) rather
+    than database.dataset_name.table_name (3-part), falling back to the
+    connector's global env setting.
+    """
+    import json
+
+    output_file = str(tmp_path / "dlt_output.json")
+    _run_dlt_pipeline(
+        pipelines_dir=str(TESTDATA_DIR),
+        output_file=output_file,
+        extra_config={"destination_platform_map": {}},
+    )
+
+    with open(output_file) as f:
+        records = json.load(f)
+
+    outlet_urns = []
+    for record in records:
+        aspect_json = record.get("aspect", {}).get("json", {})
+        outlet_urns.extend(aspect_json.get("outputDatasets", []))
+
+    assert len(outlet_urns) > 0, (
+        "Expected outlet URNs even without destination_platform_map"
+    )
+
+    for urn in outlet_urns:
+        # Fallback path: no database prefix → 2-part name (chess_data.table_name)
+        assert "chess_data." in urn, (
+            f"Expected 2-part dataset_name.table_name in fallback URN, got: {urn}"
+        )
+        # Must NOT contain the 3-part prefix (database.chess_data.table_name)
+        assert "chess.chess_data" not in urn, (
+            f"3-part URN should only appear when database is set in destination_platform_map, got: {urn}"
+        )
+
+
+@time_machine.travel(FROZEN_TIME)
+@pytest.mark.integration
+def test_dlt_include_lineage_false(tmp_path: pathlib.Path) -> None:
+    """
+    When include_lineage=False, all dataJobInputOutput aspects must have
+    empty outputDatasets — no outlet URNs should be constructed.
+    """
+    import json
+
+    output_file = str(tmp_path / "dlt_output.json")
+    _run_dlt_pipeline(
+        pipelines_dir=str(TESTDATA_DIR),
+        output_file=output_file,
+        extra_config={"include_lineage": False},
+    )
+
+    with open(output_file) as f:
+        records = json.load(f)
+
+    for record in records:
+        aspect_json = record.get("aspect", {}).get("json", {})
+        output_datasets = aspect_json.get("outputDatasets", [])
+        assert output_datasets == [], (
+            f"Expected no outputDatasets when include_lineage=False, "
+            f"but found {output_datasets} on {record.get('entityUrn')}"
+        )
+
+
+@time_machine.travel(FROZEN_TIME)
+@pytest.mark.integration
 def test_dlt_pipeline_pattern_filter(tmp_path: pathlib.Path) -> None:
     """
     When pipeline_pattern denies chess_pipeline, no DataFlow or DataJob is emitted.
