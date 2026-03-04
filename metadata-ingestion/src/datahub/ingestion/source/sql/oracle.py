@@ -354,7 +354,7 @@ VSQL_USAGE_QUERY = (
 )
 
 
-def _normalize_db_name(name: str) -> str:
+def normalize_db_name(name: str) -> str:
     """Replicate Oracle's normalize_name: ALL_UPPERCASE identifiers are lowercased.
 
     Oracle stores unquoted identifiers in uppercase; SQLAlchemy's normalize_name
@@ -579,6 +579,15 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return value
 
     @model_validator(mode="after")
+    def check_database_and_urn_db_name_mutually_exclusive(self):
+        if self.database and self.urn_db_name:
+            raise ValueError(
+                "Only one of 'database' or 'urn_db_name' may be set. "
+                "'urn_db_name' is only for service_name connections where 'database' is not set."
+            )
+        return self
+
+    @model_validator(mode="after")
     def check_thick_mode_lib_dir(self):
         if (
             self.thick_mode_lib_dir is None
@@ -608,7 +617,7 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             if not db and self.urn_db_name:
                 # get_db_name normalises via the dialect; replicate that here so
                 # entity URNs and lineage URNs share the same db casing.
-                db = _normalize_db_name(self.urn_db_name)
+                db = normalize_db_name(self.urn_db_name)
             if db:
                 return f"{db}.{regular}"
         return regular
@@ -1407,7 +1416,7 @@ class OracleSource(SQLAlchemySource):
                     # Normalise urn_db_name the same way as get_identifier so that
                     # view-lineage default_db matches entity URN db components.
                     urn_db = (
-                        _normalize_db_name(self.config.urn_db_name)
+                        normalize_db_name(self.config.urn_db_name)
                         if self.config.urn_db_name
                         else None
                     )
