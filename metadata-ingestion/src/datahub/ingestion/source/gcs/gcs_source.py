@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 from google.auth import load_credentials_from_file
@@ -42,6 +41,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.utilities.str_enum import StrEnum
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client, S3ServiceResource
@@ -118,7 +118,7 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
         return resource
 
 
-class GCSAuthType(str, Enum):
+class GCSAuthType(StrEnum):
     HMAC = "hmac"
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
 
