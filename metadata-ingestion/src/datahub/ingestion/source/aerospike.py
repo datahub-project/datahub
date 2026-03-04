@@ -204,7 +204,9 @@ class AerospikeSet:
 
         info_list = info_string.split(":")
         for item in info_list:
-            key, value = item.split("=")
+            if "=" not in item:
+                continue
+            key, value = item.split("=", 1)
             if value.isdigit():
                 setattr(self, key, int(value))
             elif value.lower() in ["true", "false"]:
@@ -494,7 +496,14 @@ class AerospikeSource(StatefulIngestionSourceBase):
         ]
 
     def get_sets(self) -> List[AerospikeSet]:
-        sets_info: str = self.aerospike_client.info_random_node("sets")
+        try:
+            sets_info: str = self.aerospike_client.info_random_node("sets")
+        except Exception as e:
+            self.report.failure(
+                message="Failed to retrieve sets info from Aerospike",
+                exc=e,
+            )
+            raise
         sets_info = (
             sets_info[len("sets\t") :] if sets_info.startswith("sets\t") else sets_info
         )
@@ -615,42 +624,65 @@ class AerospikeSource(StatefulIngestionSourceBase):
 
     def xdr_sets(self, namespace: str, sets: List[str]) -> Dict[str, List[str]]:
         sets_dc: Dict[str, List[str]] = {key: [] for key in sets}
-        shipped_sets = []
-        dcs = (
-            self.aerospike_client.info_random_node("get-config:context=xdr")
-            .split("dcs=")[1]
-            .split(";")[0]
-            .split(",")
-        )
+        try:
+            dcs = (
+                self.aerospike_client.info_random_node("get-config:context=xdr")
+                .split("dcs=")[1]
+                .split(";")[0]
+                .split(",")
+            )
+        except Exception as e:
+            self.report.warning(
+                message="Failed to retrieve XDR config from Aerospike",
+                context=namespace,
+                exc=e,
+            )
+            return sets_dc
         if dcs == [""]:
             logger.debug("No DCs found")
             return sets_dc
         for dc in dcs:
-            xdr_info: str = (
-                self.aerospike_client.info_random_node(
-                    f"get-config:context=xdr;namespace={namespace};dc={dc}"
+            try:
+                xdr_info: str = (
+                    self.aerospike_client.info_random_node(
+                        f"get-config:context=xdr;namespace={namespace};dc={dc}"
+                    )
+                    .split("\t")[1]
+                    .split("\n")[0]
                 )
-                .split("\t")[1]
-                .split("\n")[0]
-            )
-            xdr = {
-                pair.split("=")[0]: pair.split("=")[1] for pair in xdr_info.split(";")
-            }
-            if xdr["enabled"] == "true":
-                if xdr["ship-only-specified-sets"] == "false":
-                    ignored_sets = xdr["ignored-sets"].split(",")
-                    shipped_sets = [
-                        as_set for as_set in sets if as_set not in ignored_sets
-                    ]
-                else:
-                    shipped_sets = xdr["shipped-sets"].split(",")
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to retrieve XDR config for DC",
+                    context=f"{namespace}/{dc}",
+                    exc=e,
+                )
+                continue
+            shipped_sets = AerospikeSource._get_dc_shipped_sets(xdr_info, sets)
             for as_set in shipped_sets:
                 sets_dc[as_set].append(dc)
         return sets_dc
+
+    @staticmethod
+    def _get_dc_shipped_sets(xdr_info: str, sets: List[str]) -> List[str]:
+        xdr = {
+            k: v
+            for pair in xdr_info.split(";")
+            if "=" in pair
+            for k, v in [pair.split("=", 1)]
+        }
+        if xdr["enabled"] != "true":
+            return []
+        if xdr["ship-only-specified-sets"] == "false":
+            ignored_sets = xdr["ignored-sets"].split(",")
+            return [as_set for as_set in sets if as_set not in ignored_sets]
+        return xdr["shipped-sets"].split(",")
 
     def get_report(self) -> AerospikeSourceReport:
         return self.report
 
     def close(self) -> None:
-        self.aerospike_client.close()
+        try:
+            self.aerospike_client.close()
+        except Exception as e:
+            logger.warning(f"Failed to close Aerospike client: {e}")
         super().close()
