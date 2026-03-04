@@ -138,6 +138,10 @@ class AerospikeConfig(
         default=0,
         description="Number of records per second for Aerospike query. Default is 0, which means no limit.",
     )
+    schema_query_timeout_ms: Optional[int] = Field(
+        default=None,
+        description="Socket timeout in milliseconds for schema inference queries. Default None uses the Aerospike client default.",
+    )
     login_timeout_ms: Optional[int] = Field(
         default=None,
         description="Login timeout in milliseconds. Default None, using the default value of the Aerospike Python client.",
@@ -221,6 +225,7 @@ def construct_schema_aerospike(
     delimiter: str,
     records_per_second: int = 0,
     sample_size: Optional[int] = None,
+    socket_timeout_ms: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
     Calls construct_schema on an Aerospike set
@@ -241,12 +246,16 @@ def construct_schema_aerospike(
         sample_size:
             number of items in the set to sample
             (reads entire set if not provided)
+        socket_timeout_ms:
+            socket timeout in milliseconds for the query
     """
 
     query = client.query(as_set.ns, as_set.set)
     if sample_size:
         query.max_records = sample_size
     query.records_per_second = records_per_second
+    if socket_timeout_ms is not None:
+        query.socket_timeout = socket_timeout_ms
 
     try:
         res = query.results()
@@ -531,6 +540,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 delimiter=".",
                 records_per_second=self.config.records_per_second,
                 sample_size=self.config.schemaSamplingSize,
+                socket_timeout_ms=self.config.schema_query_timeout_ms,
             )
         )
 
