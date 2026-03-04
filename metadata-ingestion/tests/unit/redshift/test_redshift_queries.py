@@ -12,18 +12,6 @@ from datahub.ingestion.source.redshift.query import (
     RedshiftServerlessQuery,
 )
 
-
-def _simulate_boundary_aware_stitching(segments: list, segment_size: int) -> str:
-    """Simulate SQL LISTAGG stitching: unconditional space at short boundaries."""
-    parts = []
-    for seg in segments:
-        trimmed = seg.rstrip()
-        if len(trimmed) < segment_size:
-            trimmed += " "
-        parts.append(trimmed)
-    return "".join(parts).rstrip()
-
-
 START_TIME = datetime(2024, 1, 1, 12, 0, 0)
 END_TIME = datetime(2024, 1, 10, 12, 0, 0)
 
@@ -127,54 +115,3 @@ class TestServerlessQueries:
             # Should not have bare LISTAGG without RTRIM wrapper
             assert 'LISTAGG(qt."text")' not in sql
             assert "LEN(RTRIM(querytxt)) = 0" not in sql
-
-
-class TestBoundaryAwareStitchingLogic:
-    """Verify actual stitching behavior with realistic edge cases."""
-
-    def test_keywords_separated_at_boundary(self):
-        """GROUP BY split across boundary should be separated."""
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT col GROUP ".ljust(200), "BY col FROM t".ljust(200)], 200
-        )
-        assert "GROUP BY" in result
-
-    def test_identifier_split_at_boundary(self):
-        """cast_770 split as cast_|770 gets space (unconditional approach)."""
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT cast_".ljust(200), "770 FROM t".ljust(200)], 200
-        )
-        assert "cast_" in result and "770" in result
-
-    def test_sql_comments_preserved(self):
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT * -- comment".ljust(200), "FROM t".ljust(200)], 200
-        )
-        assert "comment" in result and "FROM t" in result
-
-    def test_multiline_queries(self):
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT col\nFROM t".ljust(200), "WHERE id > 0".ljust(200)], 200
-        )
-        assert "SELECT" in result and "WHERE" in result
-
-    def test_full_segment_no_space(self):
-        """Segment at exactly 200 chars (full) doesn't get space."""
-        seg1 = "x" * 200
-        result = _simulate_boundary_aware_stitching([seg1, "yz".ljust(200)], 200)
-        assert result.startswith("x" * 200 + "yz")
-
-    def test_short_segments_get_spaces(self):
-        """Multiple short segments all get spaces."""
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT".ljust(200), "col1,".ljust(200), "col2 FROM t".ljust(200)],
-            200,
-        )
-        assert "SELECT col1, col2 FROM t" in result
-
-    def test_identifier_split_across_boundary(self):
-        """Identifier split mid-word at 200 chars (known limitation)."""
-        result = _simulate_boundary_aware_stitching(
-            ["SELECT col FROM ta".ljust(200), "ble_name WHERE id > 0".ljust(200)], 200
-        )
-        assert "ta" in result and "ble_name" in result
