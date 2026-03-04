@@ -579,3 +579,302 @@ def test_threading_produces_same_entities_as_sequential(tmp_path):
         f"only_in_seq={seq_urns - par_urns}, "
         f"only_in_par={par_urns - seq_urns}"
     )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Cross-space parallelization tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _build_multi_space_perf_response_map() -> Dict[str, dict]:
+    """Build mock API responses for 3 spaces with varying report counts.
+
+    Space A: 2 reports, Space B: 4 reports, Space C: 4 reports = 10 total.
+    Each report has 1 query and explorations_count=0 (skips chart API calls).
+    """
+    responses: Dict[str, dict] = {}
+
+    responses["https://app.mode.com/api/verify"] = {"authenticated": True}
+    responses["https://app.mode.com/api/acryl/data_sources"] = {
+        "_embedded": {
+            "data_sources": [
+                {
+                    "id": 34499,
+                    "adapter": "jdbc:postgresql",
+                    "name": "test_db",
+                    "database": "test_database",
+                }
+            ]
+        }
+    }
+    responses["https://app.mode.com/api/acryl/definitions"] = {
+        "_embedded": {"definitions": []}
+    }
+    responses["https://app.mode.com/api/modeuser"] = {
+        "username": "testuser",
+        "email": "test@example.com",
+    }
+
+    spaces_config = [
+        ("space_a", "Space A", 2),
+        ("space_b", "Space B", 4),
+        ("space_c", "Space C", 4),
+    ]
+
+    space_objects: List[dict] = []
+    for space_token, space_name, num_reports in spaces_config:
+        space_objects.append(
+            {
+                "token": space_token,
+                "id": hash(space_token) % 10000,
+                "name": space_name,
+                "restricted": False,
+                "default_access_level": "view",
+                "_links": {"creator": {"href": "/api/modeuser"}},
+            }
+        )
+
+        reports: List[dict] = []
+        for i in range(num_reports):
+            report_token = f"rpt_{space_token}_{i:02d}"
+            query_token = f"qry_{space_token}_{i:02d}"
+
+            reports.append(
+                {
+                    "token": report_token,
+                    "id": hash(report_token) % 10000,
+                    "name": f"{space_name} Report {i}",
+                    "description": f"Report {i} in {space_name}",
+                    "created_at": PERF_TIMESTAMP,
+                    "updated_at": PERF_TIMESTAMP,
+                    "edited_at": PERF_TIMESTAMP,
+                    "last_saved_at": PERF_TIMESTAMP,
+                    "last_run_at": PERF_TIMESTAMP,
+                    "archived": False,
+                    "view_count": i,
+                    "imported_datasets": [],
+                    "_links": {"creator": {"href": "/api/modeuser"}},
+                }
+            )
+
+            responses[
+                f"https://app.mode.com/api/acryl/reports/{report_token}/queries"
+            ] = {
+                "_embedded": {
+                    "queries": [
+                        {
+                            "id": hash(query_token) % 10000,
+                            "token": query_token,
+                            "raw_query": f"SELECT * FROM {space_token}_table_{i}",
+                            "name": f"Query {i}",
+                            "created_at": PERF_TIMESTAMP,
+                            "updated_at": PERF_TIMESTAMP,
+                            "data_source_id": 34499,
+                            "last_run_id": 99999,
+                            "explorations_count": 0,
+                            "_links": {"creator": {"href": "/api/modeuser"}},
+                        }
+                    ]
+                }
+            }
+
+        responses[f"https://app.mode.com/api/acryl/spaces/{space_token}/reports"] = {
+            "_embedded": {"reports": reports},
+            "_links": {"self": {"href": f"/api/acryl/spaces/{space_token}/reports"}},
+        }
+
+        responses[f"https://app.mode.com/api/acryl/spaces/{space_token}/datasets"] = {
+            "_embedded": {"reports": []},
+            "_links": {"self": {"href": f"/api/acryl/spaces/{space_token}/datasets"}},
+        }
+
+    responses["https://app.mode.com/api/acryl/spaces"] = {
+        "_embedded": {"spaces": space_objects},
+        "_links": {"self": {"href": "/api/acryl/spaces"}},
+    }
+
+    return responses
+
+
+def test_cross_space_parallelization_speedup(tmp_path):
+    """Verify that reports from multiple spaces are processed concurrently.
+
+    Uses 3 spaces (2 + 4 + 4 = 10 reports). Adds extra latency for a
+    straggler report in Space A. With cross-space parallelization, other
+    spaces' reports should proceed while the straggler blocks.
+
+    Note: No @freeze_time -- freezegun patches time.monotonic() which
+    would make our wall-clock measurements return 0.
+    """
+    responses = _build_multi_space_perf_response_map()
+    latency = 0.03  # 30ms per request
+    straggler_url = "https://app.mode.com/api/acryl/reports/rpt_space_a_00/queries"
+    straggler_extra_latency = 0.3  # 300ms extra for the straggler
+
+    class StragglerMockSession(ThreadSafeMockSession):
+        """Adds extra delay for one specific report to simulate a straggler."""
+
+        def get(self, url: str, timeout: int = 40) -> ThreadSafeResponse:
+            base_url = url.split("?")[0]
+            if base_url == straggler_url and "page=2" not in url:
+                time.sleep(straggler_extra_latency)
+            return super().get(url, timeout=timeout)
+
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=lambda *a, **kw: StragglerMockSession(responses, latency=latency),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-cross-space-parallel",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                        "max_threads": 4,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/cross_space.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    # Verify all 10 reports across 3 spaces produced dashboard entities
+    with open(f"{tmp_path}/cross_space.json") as f:
+        data = json.load(f)
+
+    dashboard_urns = set()
+    for item in data:
+        urn: Optional[str] = None
+        if "entityUrn" in item:
+            urn = item["entityUrn"]
+        elif "proposedSnapshot" in item:
+            snapshot = item["proposedSnapshot"]
+            if isinstance(snapshot, dict):
+                urn = snapshot.get("urn") or snapshot.get(
+                    list(snapshot.keys())[0], {}
+                ).get("urn")
+        if urn and urn.startswith("urn:li:dashboard:"):
+            dashboard_urns.add(urn)
+
+    # All 10 reports (2+4+4) across 3 spaces should produce dashboard entities
+    assert len(dashboard_urns) == 10, (
+        f"Expected 10 dashboards (2+4+4 reports across 3 spaces), "
+        f"got {len(dashboard_urns)}: {dashboard_urns}"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# SQL parsing process pool tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+@freeze_time(FROZEN_TIME)
+def test_process_pool_created_when_multithreaded(tmp_path):
+    """Process pool for SQL parsing is created when max_threads > 1."""
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=make_thread_safe_session,
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-test-pool",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                        "max_threads": 2,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/mode_mces_pool.json",
+                    },
+                },
+            }
+        )
+
+        # Patch ProcessPoolExecutor to verify it's created
+        with patch(
+            "datahub.ingestion.source.mode.concurrent.futures.ProcessPoolExecutor"
+        ) as mock_pool_cls:
+            mock_pool = mock_pool_cls.return_value
+            mock_pool.submit.side_effect = lambda fn, *a, **kw: _FakePoolFuture(
+                fn, *a, **kw
+            )
+            mock_pool.shutdown = lambda wait=True: None
+
+            pipeline.run()
+
+            mock_pool_cls.assert_called_once()
+            _, kwargs = mock_pool_cls.call_args
+            assert kwargs["max_workers"] >= 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_graceful_degradation_on_pool_failure(pytestconfig, tmp_path):
+    """If ProcessPoolExecutor creation fails, ingestion continues in-thread."""
+    with patch(
+        "datahub.ingestion.source.mode.requests.Session",
+        side_effect=make_thread_safe_session,
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mode-test-pool-fail",
+                "source": {
+                    "type": "mode",
+                    "config": {
+                        "token": "xxxx",
+                        "password": "xxxx",
+                        "connect_uri": "https://app.mode.com/",
+                        "workspace": "acryl",
+                        "max_threads": 2,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/mode_mces_no_pool.json",
+                    },
+                },
+            }
+        )
+
+        # Force pool creation to fail
+        with patch(
+            "datahub.ingestion.source.mode.concurrent.futures.ProcessPoolExecutor",
+            side_effect=OSError("spawn not supported"),
+        ):
+            pipeline.run()
+            pipeline.raise_from_status()
+
+        # Should still produce correct output (fallback to in-thread parsing)
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/mode_mces_no_pool.json",
+            golden_path=test_resources_dir / "mode_mces_golden.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )
+
+
+class _FakePoolFuture:
+    """Executes the function synchronously, mimicking Future.result()."""
+
+    def __init__(self, fn, *args, **kwargs):
+        self._result = fn(*args, **kwargs)
+
+    def result(self):
+        return self._result

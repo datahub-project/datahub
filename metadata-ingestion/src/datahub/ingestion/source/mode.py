@@ -1,9 +1,12 @@
+import concurrent.futures
 import dataclasses
 import logging
+import multiprocessing
 import os
 import re
 import threading
 import time
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -119,17 +122,15 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
+    SQL_LINEAGE_TIMEOUT_SECONDS,
     ColumnLineageInfo,
     SqlParsingResult,
-    _sqlglot_lineage_cached,
     create_and_cache_schema_resolver,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    _parse_statement,
     parse_statements_and_pick,
-    try_format_query,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
@@ -142,11 +143,62 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Default API limit for items returned per API call
 # Used for the default per_page value for paginated API requests
 DEFAULT_API_ITEMS_PER_PAGE = 30
+MAX_API_ITEMS_PER_PAGE = 1000
 
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
 # than per-call to avoid redundant global mutation from worker threads.
 Undefined.__str__ = lambda self: "NULL"  # type: ignore
+
+# ──────────────────────────────────────────────────────────────────────
+# Process-pool worker functions for CPU-bound SQL parsing.
+# Module-level so they are picklable by ProcessPoolExecutor.
+# ──────────────────────────────────────────────────────────────────────
+
+_worker_graph: Optional[object] = None
+
+
+def _init_sql_parse_worker(graph_config_dict: Optional[dict]) -> None:
+    """Per-process initializer: create a DataHubGraph connection for schema resolution."""
+    global _worker_graph
+    if graph_config_dict:
+        from datahub.ingestion.graph.client import DataHubGraph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        _worker_graph = DataHubGraph(DatahubClientConfig(**graph_config_dict))
+
+
+def _parse_sql_in_worker(
+    sql: str,
+    platform: str,
+    env: str,
+    default_db: Optional[str],
+    platform_instance: Optional[str],
+) -> SqlParsingResult:
+    """Parse SQL and compute lineage in a worker process.
+
+    Each process has its own SchemaResolver (via create_and_cache_schema_resolver)
+    backed by _worker_graph, avoiding cross-process sharing of caches or connections.
+    """
+    schema_resolver = create_and_cache_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=_worker_graph,
+        platform_instance=platform_instance,
+    )
+    try:
+        parsed = parse_statements_and_pick(sql, platform)
+        sql_to_parse = parsed.sql(dialect=platform)
+    except Exception:
+        sql_to_parse = sql
+    try:
+        return sqlglot_lineage(
+            sql=sql_to_parse,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+        )
+    except Exception as e:
+        return SqlParsingResult.make_from_error(e)
 
 
 class SpaceKey(ContainerKey):
@@ -272,11 +324,11 @@ class ModeConfig(
     @field_validator("items_per_page", mode="after")
     @classmethod
     def validate_items_per_page(cls, v):
-        if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
+        if 1 <= v <= MAX_API_ITEMS_PER_PAGE:
             return v
         else:
             raise ValueError(
-                f"items_per_page must be between 1 and {DEFAULT_API_ITEMS_PER_PAGE}"
+                f"items_per_page must be between 1 and {MAX_API_ITEMS_PER_PAGE}"
             )
 
 
@@ -455,6 +507,7 @@ class ModeSource(StatefulIngestionSourceBase):
         self.ctx = ctx
         self._data_sources_by_id_cache: Optional[Dict[int, dict]] = None
         self._definitions_map_cache: Optional[Dict[str, str]] = None
+        self._sql_parse_pool: Optional[concurrent.futures.ProcessPoolExecutor] = None
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_options.requests_per_minute, period=60
         )
@@ -1291,43 +1344,48 @@ class ModeSource(StatefulIngestionSourceBase):
             if matches and matches.group(1):
                 upstream_warehouse_db_name = matches.group(1)
 
-        # Parse multi-statement SQL and pick the last meaningful statement.
-        # Uses cached parse_statement internally, with proper dialect.
-        sql_parse_start = time.perf_counter()
-        try:
-            parsed_expression = parse_statements_and_pick(
-                normalized_query, upstream_warehouse_platform
-            )
-            query_to_parse = parsed_expression.sql(dialect=upstream_warehouse_platform)
-        except Exception as e:
-            logger.debug(
-                f"parse_statements_and_pick failed on: {normalized_query}, error: {e}"
-            )
-            query_to_parse = normalized_query
-
-        # Use create_and_cache_schema_resolver + sqlglot_lineage directly.
-        # This enables the _sqlglot_lineage_cached lru_cache to get hits,
-        # since the same SchemaResolver instance is reused for the same
-        # (platform, env, graph, platform_instance) combination.
+        # SQL parsing + lineage extraction (CPU-bound).
+        # Offloaded to process pool when available; falls back to in-thread.
         platform_instance = (
             self.config.platform_instance_map.get(upstream_warehouse_platform)
             if upstream_warehouse_platform and self.config.platform_instance_map
             else None
         )
-        try:
-            schema_resolver = create_and_cache_schema_resolver(
-                platform=upstream_warehouse_platform,
-                env=self.config.env,
-                graph=self.ctx.graph,
-                platform_instance=platform_instance,
+        sql_parse_start = time.perf_counter()
+        pool = getattr(self, "_sql_parse_pool", None)
+        if pool is not None:
+            try:
+                future = pool.submit(
+                    _parse_sql_in_worker,
+                    normalized_query,
+                    upstream_warehouse_platform,
+                    self.config.env,
+                    upstream_warehouse_db_name,
+                    platform_instance,
+                )
+                parsed_query_object = future.result(
+                    timeout=SQL_LINEAGE_TIMEOUT_SECONDS * 2
+                )
+            except (BrokenProcessPool, TimeoutError):
+                logger.warning(
+                    "SQL parsing process pool is broken, falling back to in-thread parsing"
+                )
+                self._sql_parse_pool = None
+                parsed_query_object = _parse_sql_in_worker(
+                    normalized_query,
+                    upstream_warehouse_platform,
+                    self.config.env,
+                    upstream_warehouse_db_name,
+                    platform_instance,
+                )
+        else:
+            parsed_query_object = _parse_sql_in_worker(
+                normalized_query,
+                upstream_warehouse_platform,
+                self.config.env,
+                upstream_warehouse_db_name,
+                platform_instance,
             )
-            parsed_query_object = sqlglot_lineage(
-                sql=query_to_parse,
-                schema_resolver=schema_resolver,
-                default_db=upstream_warehouse_db_name,
-            )
-        except Exception as e:
-            parsed_query_object = SqlParsingResult.make_from_error(e)
         sql_parse_elapsed = time.perf_counter() - sql_parse_start
         with self.report._lock:
             self.report.sql_parsing_total_sec += sql_parse_elapsed
@@ -1344,11 +1402,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 self.report.num_sql_parser_success += 1
         if parsed_query_object.debug_info.table_error:
             logger.info(
-                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
+                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{normalized_query}]"
             )
         elif parsed_query_object.debug_info.column_error:
             logger.info(
-                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
+                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{normalized_query}]"
             )
 
         schema_fields = infer_output_schema(parsed_query_object)
@@ -1926,6 +1984,33 @@ class ModeSource(StatefulIngestionSourceBase):
                     exc_info=True,
                 )
 
+    def _process_dataset(
+        self, space_token: str, dataset: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single dataset: queries and lineage."""
+        dataset_token = dataset.get("token", "")
+        try:
+            queries = self._get_queries(dataset_token)
+            for query in queries:
+                yield from self.construct_query_or_dataset(
+                    dataset_token,
+                    query,
+                    space_token=space_token,
+                    report_info=dataset,
+                    is_mode_dataset=True,
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to process dataset {dataset_token} in space {space_token}",
+                exc_info=True,
+            )
+            self.report.report_failure(
+                title="Failed to Process Dataset",
+                message=f"Unexpected error processing dataset {dataset_token}.",
+                context=f"Space Token: {space_token}, Error: {str(e)}",
+                exc=e,
+            )
+
     def _process_report_inner(
         self,
         space_token: str,
@@ -2031,54 +2116,30 @@ class ModeSource(StatefulIngestionSourceBase):
                     query_name=query.get("name", query.get("token", "unknown")),
                 )
 
-    def _emit_workunits_for_space(
+    def _collect_space_work_items(
         self, space_token: str, space_name: str
-    ) -> Iterable[MetadataWorkUnit]:
-        yield from self.construct_space_container(space_token, space_name)
+    ) -> Tuple[
+        List[Tuple[str, dict]],
+        List[Tuple[str, dict]],
+        List[MetadataWorkUnit],
+    ]:
+        """Collect report and dataset work items for a space.
 
-        all_reports = [
-            report
-            for report_page in self._get_reports(space_token)
-            for report in report_page
-        ]
+        Returns (report_args, dataset_args, container_workunits).
+        """
+        container_wus = list(self.construct_space_container(space_token, space_name))
 
-        if self.config.max_threads > 1:
-            yield from ThreadedIteratorExecutor.process(
-                worker_func=self._process_report,
-                args_list=[(space_token, report) for report in all_reports],
-                max_workers=self.config.max_threads,
-            )
-        else:
-            for report in all_reports:
-                yield from self._process_report(space_token, report)
+        report_args: List[Tuple[str, dict]] = []
+        for report_page in self._get_reports(space_token):
+            for report in report_page:
+                report_args.append((space_token, report))
 
-        # Datasets use a separate API endpoint
+        dataset_args: List[Tuple[str, dict]] = []
         for dataset_page in self._get_datasets(space_token):
-            for dataset_report in dataset_page:
-                try:
-                    report_token = dataset_report.get("token", "")
-                    queries = self._get_queries(report_token)
-                    for query in queries:
-                        yield from self.construct_query_or_dataset(
-                            report_token,
-                            query,
-                            space_token=space_token,
-                            report_info=dataset_report,
-                            is_mode_dataset=True,
-                        )
-                except Exception as e:
-                    dataset_token = dataset_report.get("token", "")
-                    logger.warning(
-                        f"Failed to process dataset {dataset_token} "
-                        f"in space {space_token}",
-                        exc_info=True,
-                    )
-                    self.report.report_failure(
-                        title="Failed to Process Dataset",
-                        message=f"Unexpected error processing dataset {dataset_token}.",
-                        context=f"Space Token: {space_token}, Error: {str(e)}",
-                        exc=e,
-                    )
+            for dataset in dataset_page:
+                dataset_args.append((space_token, dataset))
+
+        return report_args, dataset_args, container_wus
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
@@ -2093,23 +2154,64 @@ class ModeSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    @staticmethod
-    def _clear_sql_parsing_caches() -> None:
-        """Release memory held by the global SQL parsing LRU caches.
-
-        These caches store large sqlglot ASTs and parsing results keyed by
-        the full SQL string. For Mode's definition-expanded queries (often
-        64 KB+), the cached ASTs can be 10-100x larger than the source SQL.
-        Clearing between spaces prevents unbounded memory growth.
-        """
-        _parse_statement.cache_clear()
-        _sqlglot_lineage_cached.cache_clear()
-        try_format_query.cache_clear()
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Phase 1: Emit space containers and collect all work items
+        all_report_args: List[Tuple[str, dict]] = []
+        all_dataset_args: List[Tuple[str, dict]] = []
         for space_token, space_name in self.space_tokens.items():
-            yield from self._emit_workunits_for_space(space_token, space_name)
-            self._clear_sql_parsing_caches()
+            report_args, dataset_args, container_wus = self._collect_space_work_items(
+                space_token, space_name
+            )
+            yield from container_wus
+            all_report_args.extend(report_args)
+            all_dataset_args.extend(dataset_args)
+
+        # Create a process pool for CPU-bound SQL parsing (sqlglot).
+        # Threads handle I/O (API calls); processes handle CPU (parsing).
+        num_workers = max(1, min((os.cpu_count() or 2) - 1, self.config.max_threads))
+        graph_config_dict = self.ctx.graph.config.dict() if self.ctx.graph else None
+        self._sql_parse_pool = None
+        try:
+            self._sql_parse_pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=num_workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_init_sql_parse_worker,
+                initargs=(graph_config_dict,),
+            )
+            logger.info(f"Created SQL parsing process pool with {num_workers} workers")
+        except Exception:
+            logger.warning(
+                "Failed to create SQL parsing process pool, falling back to in-thread parsing",
+                exc_info=True,
+            )
+            self._sql_parse_pool = None
+
+        try:
+            # Phase 2: Process ALL reports across ALL spaces in one global pool
+            if self.config.max_threads > 1:
+                yield from ThreadedIteratorExecutor.process(
+                    worker_func=self._process_report,
+                    args_list=all_report_args,
+                    max_workers=self.config.max_threads,
+                )
+            else:
+                for args in all_report_args:
+                    yield from self._process_report(*args)
+
+            # Phase 3: Process ALL datasets across ALL spaces
+            if self.config.max_threads > 1 and all_dataset_args:
+                yield from ThreadedIteratorExecutor.process(
+                    worker_func=self._process_dataset,
+                    args_list=all_dataset_args,
+                    max_workers=self.config.max_threads,
+                )
+            else:
+                for args in all_dataset_args:
+                    yield from self._process_dataset(*args)
+        finally:
+            if self._sql_parse_pool is not None:
+                self._sql_parse_pool.shutdown(wait=True)
+                self._sql_parse_pool = None
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)
