@@ -42,8 +42,6 @@ export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
                 { label: 'Running', value: EXECUTION_REQUEST_STATUS_RUNNING },
                 { label: 'Cancelled', value: EXECUTION_REQUEST_STATUS_CANCELLED },
                 { label: 'Aborted', value: EXECUTION_REQUEST_STATUS_ABORTED },
-                { label: 'Pending', value: EXECUTION_REQUEST_STATUS_PENDING },
-                { label: 'Up for Retry', value: EXECUTION_REQUEST_STATUS_UP_FOR_RETRY },
                 { label: 'Rolled Back', value: EXECUTION_REQUEST_STATUS_ROLLED_BACK },
                 { label: 'Rolling Back', value: EXECUTION_REQUEST_STATUS_ROLLING_BACK },
                 { label: 'Rollback Failed', value: EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED },
