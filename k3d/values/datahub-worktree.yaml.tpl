@@ -116,6 +116,8 @@ opensearch:
 # ── GMS (with embedded MAE/MCE/PE consumers) ───────────────────────────────
 datahub-gms:
   enabled: true
+  service:
+    type: ClusterIP
   image:
     repository: "acryldata/datahub-gms"
     tag: "${DH_VERSION}"
@@ -149,6 +151,8 @@ datahub-gms:
 # ── Frontend ────────────────────────────────────────────────────────────────
 datahub-frontend:
   enabled: true
+  service:
+    type: ClusterIP
   image:
     repository: "acryldata/datahub-frontend-react"
     tag: "${DH_VERSION}"
