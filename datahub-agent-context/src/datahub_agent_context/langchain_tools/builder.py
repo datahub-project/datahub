@@ -3,7 +3,7 @@
 import functools
 from typing import TYPE_CHECKING, Callable
 
-from datahub_agent_context.context import set_graph
+from datahub_agent_context.context import set_client
 from datahub_agent_context.mcp_tools import get_me
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
@@ -32,6 +32,7 @@ from datahub_agent_context.mcp_tools.lineage import (
 )
 from datahub_agent_context.mcp_tools.owners import add_owners, remove_owners
 from datahub_agent_context.mcp_tools.queries import get_dataset_queries
+from datahub_agent_context.mcp_tools.save_document import save_document
 from datahub_agent_context.mcp_tools.search import search
 from datahub_agent_context.mcp_tools.tags import add_tags, remove_tags
 from datahub_agent_context.mcp_tools.terms import (
@@ -57,14 +58,14 @@ def create_context_wrapper(func: Callable, client: "DataHubClient") -> Callable:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # Set graph in context for this function call
-        token = set_graph(client._graph)
+        token = set_client(client)
         try:
             return func(*args, **kwargs)
         finally:
             # Always reset context, even if function raises
-            from datahub_agent_context.context import reset_graph
+            from datahub_agent_context.context import reset_client
 
-            reset_graph(token)
+            reset_client(token)
 
     return wrapper
 
@@ -123,5 +124,6 @@ def build_langchain_tools(
         tools.append(tool(create_context_wrapper(remove_tags, client)))
         tools.append(tool(create_context_wrapper(add_glossary_terms, client)))
         tools.append(tool(create_context_wrapper(remove_glossary_terms, client)))
+        tools.append(tool(create_context_wrapper(save_document, client)))
 
     return tools

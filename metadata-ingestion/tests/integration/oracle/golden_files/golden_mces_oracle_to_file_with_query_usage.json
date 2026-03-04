@@ -1,0 +1,3806 @@
+[
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+        "changeType": "UPSERT",
+        "aspectName": "containerProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "platform": "oracle",
+                    "env": "PROD",
+                    "database": "xepdb1"
+                },
+                "name": "xepdb1",
+                "env": "PROD"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Database"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": []
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "containerProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "platform": "oracle",
+                    "env": "PROD",
+                    "database": "xepdb1",
+                    "schema": "analytics_schema"
+                },
+                "name": "analytics_schema",
+                "env": "PROD"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Schema"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "is_view": "True",
+                                "view_definition": "SELECT\n    SYSDATE AS refresh_date,\n    'Analytics Data' AS description,\n    1 AS record_count\nFROM DUAL"
+                            },
+                            "name": "simple_analytics",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "analytics_schema.simple_analytics",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "refresh_date",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "description",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "CHAR(14)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "record_count",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "View"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "viewProperties",
+        "aspect": {
+            "json": {
+                "materialized": false,
+                "viewLogic": "SELECT\n    SYSDATE AS refresh_date,\n    'Analytics Data' AS description,\n    1 AS record_count\nFROM DUAL",
+                "viewLanguage": "SQL"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+                        "urn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "dataFlowInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "name": "xepdb1.analytics_schema.stored_procedures"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Procedures Container"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PACKAGE",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE)"
+                },
+                "name": "ANALYTICS_PKG",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PACKAGE analytics_pkg AS\n    PROCEDURE generate_sales_report(p_month IN VARCHAR2);\n    FUNCTION calculate_commission(p_emp_id IN NUMBER, p_rate IN NUMBER) RETURN NUMBER;\nEND analytics_pkg;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+                        "urn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PROCEDURE",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), PUBLIC.DBMS_MVIEW (SYNONYM)"
+                },
+                "name": "REFRESH_ANALYTICS_DATA",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PROCEDURE refresh_analytics_data AS\nBEGIN\n    -- Refresh materialized views (creates dependencies)\n    DBMS_MVIEW.REFRESH('employee_sales_summary');\n    DBMS_MVIEW.REFRESH('monthly_order_summary');\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d",
+                        "urn": "urn:li:container:c5142abc6f25940cbb060fc5ff05126d"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "containerProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "platform": "oracle",
+                    "env": "PROD",
+                    "database": "xepdb1",
+                    "schema": "hr_schema"
+                },
+                "name": "hr_schema",
+                "env": "PROD"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Schema"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {},
+                            "name": "departments",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "hr_schema.departments",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "department_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(4, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": true
+                                },
+                                {
+                                    "fieldPath": "department_name",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(30 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "manager_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "location_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(4, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Table"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {},
+                            "name": "employees",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "hr_schema.employees",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "employee_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": true
+                                },
+                                {
+                                    "fieldPath": "first_name",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(20 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "last_name",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(25 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "email",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(25 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "phone_number",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(20 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "hire_date",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "job_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(10 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "salary",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(8, 2)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "commission_pct",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(2, 2)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "manager_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "department_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(4, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "foreignKeys": [
+                                {
+                                    "name": "emp_dept_fk",
+                                    "foreignFields": [
+                                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD),department_id)"
+                                    ],
+                                    "sourceFields": [
+                                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),department_id)"
+                                    ],
+                                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Table"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "is_view": "True",
+                                "view_definition": "SELECT\n    department_id,\n    COUNT(*) AS employee_count,\n    AVG(salary) AS avg_salary,\n    MAX(salary) AS max_salary,\n    MIN(salary) AS min_salary\nFROM employees\nGROUP BY department_id"
+                            },
+                            "name": "employee_summary",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "hr_schema.employee_summary",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "department_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(4, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "employee_count",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "avg_salary",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "max_salary",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "min_salary",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "View"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "viewProperties",
+        "aspect": {
+            "json": {
+                "materialized": false,
+                "viewLogic": "SELECT\n    department_id,\n    COUNT(*) AS employee_count,\n    AVG(salary) AS avg_salary,\n    MAX(salary) AS max_salary,\n    MIN(salary) AS min_salary\nFROM employees\nGROUP BY department_id",
+                "viewLanguage": "SQL"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "dataFlowInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "name": "xepdb1.hr_schema.stored_procedures"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Procedures Container"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PROCEDURE",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.DEPARTMENTS (TABLE), HR_SCHEMA.EMPLOYEES (TABLE)"
+                },
+                "name": "GET_EMPLOYEE_INFO",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PROCEDURE get_employee_info(p_emp_id IN NUMBER, p_cursor OUT SYS_REFCURSOR) AS\nBEGIN\n    OPEN p_cursor FOR\n    SELECT e.employee_id, e.first_name, e.last_name, e.salary, d.department_name\n    FROM employees e\n    JOIN departments d ON e.department_id = d.department_id\n    WHERE e.employee_id = p_emp_id;\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "FUNCTION",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE)"
+                },
+                "name": "CALCULATE_ANNUAL_SALARY",
+                "type": {
+                    "string": "Function"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Function"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:95eca163199143e2636cac2685c9d809"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "FUNCTION calculate_annual_salary(p_emp_id IN NUMBER) RETURN NUMBER AS\n    v_salary NUMBER;\n    v_commission NUMBER;\nBEGIN\n    SELECT salary, NVL(commission_pct, 0) INTO v_salary, v_commission\n    FROM employees\n    WHERE employee_id = p_emp_id;\n\n    RETURN v_salary * 12 * (1 + v_commission);\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:95eca163199143e2636cac2685c9d809",
+                        "urn": "urn:li:container:95eca163199143e2636cac2685c9d809"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "containerProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "platform": "oracle",
+                    "env": "PROD",
+                    "database": "xepdb1",
+                    "schema": "sales_schema"
+                },
+                "name": "sales_schema",
+                "env": "PROD"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Schema"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "container",
+        "entityUrn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {},
+                            "name": "orders",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "sales_schema.orders",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "order_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(12, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": true
+                                },
+                                {
+                                    "fieldPath": "order_date",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "DATE",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "order_status",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(8 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "order_total",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(8, 2)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "sales_rep_id",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Table"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {},
+                            "name": "order_items",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "sales_schema.order_items",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "order_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(12, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": true
+                                },
+                                {
+                                    "fieldPath": "line_item_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(3, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": true
+                                },
+                                {
+                                    "fieldPath": "product_id",
+                                    "nullable": false,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(6, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "unit_price",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(8, 2)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "quantity",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER(8, 0)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ],
+                            "foreignKeys": [
+                                {
+                                    "name": "order_items_order_fk",
+                                    "foreignFields": [
+                                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_id)"
+                                    ],
+                                    "sourceFields": [
+                                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD),order_id)"
+                                    ],
+                                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Table"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "is_view": "True",
+                                "view_definition": "SELECT\n    TO_CHAR(order_date, 'YYYY-MM') AS order_month,\n    COUNT(*) AS order_count,\n    SUM(order_total) AS total_revenue,\n    AVG(order_total) AS avg_order_value\nFROM orders\nGROUP BY TO_CHAR(order_date, 'YYYY-MM')"
+                            },
+                            "name": "order_summary",
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "sales_schema.order_summary",
+                            "platform": "urn:li:dataPlatform:oracle",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "order_month",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "VARCHAR(7 CHAR)",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "order_count",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "total_revenue",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                },
+                                {
+                                    "fieldPath": "avg_order_value",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "NUMBER",
+                                    "recursive": false,
+                                    "isPartOfKey": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "View"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "viewProperties",
+        "aspect": {
+            "json": {
+                "materialized": false,
+                "viewLogic": "SELECT\n    TO_CHAR(order_date, 'YYYY-MM') AS order_month,\n    COUNT(*) AS order_count,\n    SUM(order_total) AS total_revenue,\n    AVG(order_total) AS avg_order_value\nFROM orders\nGROUP BY TO_CHAR(order_date, 'YYYY-MM')",
+                "viewLanguage": "SQL"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "dataFlowInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "name": "xepdb1.sales_schema.stored_procedures"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Procedures Container"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "FUNCTION",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), SALES_SCHEMA.ORDER_ITEMS (TABLE)"
+                },
+                "name": "GET_ORDER_TOTAL",
+                "type": {
+                    "string": "Function"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Function"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "FUNCTION get_order_total(p_order_id IN NUMBER) RETURN NUMBER AS\n    v_total NUMBER := 0;\nBEGIN\n    SELECT SUM(unit_price * quantity) INTO v_total\n    FROM order_items\n    WHERE order_id = p_order_id;\n\n    RETURN NVL(v_total, 0);\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD)"
+                ],
+                "outputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD)"
+                ],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD),quantity)",
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_items,PROD),unit_price)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD),sum%28\"order_items\".\"unit_price\" * \"order_items\".\"quantity\"%29)"
+                        ],
+                        "transformOperation": "SQL: SUM(\"ORDER_ITEMS\".\"UNIT_PRICE\" * \"ORDER_ITEMS\".\"QUANTITY\") AS \"_col_0\"",
+                        "confidenceScore": 0.35
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PROCEDURE",
+                    "status": "VALID",
+                    "upstream_dependencies": "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), HR_SCHEMA.EMPLOYEES (TABLE), SALES_SCHEMA.ORDERS (TABLE)"
+                },
+                "name": "PROCESS_ORDER",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PROCEDURE process_order(p_order_id IN NUMBER) AS\n    v_sales_rep_id NUMBER;\n    v_emp_name VARCHAR2(50);\nBEGIN\n    -- Get sales rep info from HR schema\n    SELECT o.sales_rep_id INTO v_sales_rep_id\n    FROM orders o\n    WHERE o.order_id = p_order_id;\n\n    -- Get employee name from HR schema (creates dependency)\n    SELECT first_name || ' ' || last_name INTO v_emp_name\n    FROM hr_schema.employees\n    WHERE employee_id = v_sales_rep_id;\n\n    -- Update order status\n    UPDATE orders\n    SET order_status = 'PROCESSED'\n    WHERE order_id = p_order_id;\n\n    -- Log processing (this would create dependency on a log table if it existed)\n    NULL; -- Placeholder for logging logic\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)"
+                ],
+                "outputDatasets": [
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_sales_rep_id,PROD)"
+                ],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),first_name)",
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),last_name)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD),\"employees\".\"first_name\" || ' ' || \"employees\".\"last_name\")"
+                        ],
+                        "transformOperation": "SQL: \"EMPLOYEES\".\"FIRST_NAME\" || ' ' || \"EMPLOYEES\".\"LAST_NAME\" AS \"_col_0\"",
+                        "confidenceScore": 0.35
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),sales_rep_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_sales_rep_id,PROD),sales_rep_id)"
+                        ],
+                        "transformOperation": "COPY: \"O\".\"SALES_REP_ID\" AS \"SALES_REP_ID\"",
+                        "confidenceScore": 0.35
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "json": {
+                "upstreams": [
+                    {
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.dual,PROD)",
+                        "type": "VIEW",
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "queryProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "statement": {
+                    "value": "SELECT\n  SYSDATE AS refresh_date,\n  'Analytics Data' AS description,\n  1 AS record_count\nFROM DUAL",
+                    "language": "SQL"
+                },
+                "source": "SYSTEM",
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "querySubjects",
+        "aspect": {
+            "json": {
+                "subjects": [
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.dual,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD),refresh_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD),description)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD),record_count)"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "json": {
+                "upstreams": [
+                    {
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+                        "type": "VIEW",
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    }
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),department_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),department_id)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),salary)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),avg_salary)"
+                        ],
+                        "transformOperation": "SQL: AVG(\"EMPLOYEES\".\"SALARY\") AS \"AVG_SALARY\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),salary)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),max_salary)"
+                        ],
+                        "transformOperation": "SQL: MAX(\"EMPLOYEES\".\"SALARY\") AS \"MAX_SALARY\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),salary)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),min_salary)"
+                        ],
+                        "transformOperation": "SQL: MIN(\"EMPLOYEES\".\"SALARY\") AS \"MIN_SALARY\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "queryProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "statement": {
+                    "value": "SELECT\n  department_id,\n  COUNT(*) AS employee_count,\n  AVG(salary) AS avg_salary,\n  MAX(salary) AS max_salary,\n  MIN(salary) AS min_salary\nFROM employees\nGROUP BY\n  department_id",
+                    "language": "SQL"
+                },
+                "source": "SYSTEM",
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "querySubjects",
+        "aspect": {
+            "json": {
+                "subjects": [
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),department_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD),salary)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),department_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),employee_count)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),avg_salary)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),max_salary)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employee_summary,PROD),min_salary)"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "json": {
+                "upstreams": [
+                    {
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
+                        "type": "VIEW",
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                    }
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_date)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),order_month)"
+                        ],
+                        "transformOperation": "SQL: TO_CHAR(\"ORDERS\".\"ORDER_DATE\", 'YYYY-MM') AS \"ORDER_MONTH\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_total)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),total_revenue)"
+                        ],
+                        "transformOperation": "SQL: SUM(\"ORDERS\".\"ORDER_TOTAL\") AS \"TOTAL_REVENUE\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_total)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),avg_order_value)"
+                        ],
+                        "transformOperation": "SQL: AVG(\"ORDERS\".\"ORDER_TOTAL\") AS \"AVG_ORDER_VALUE\"",
+                        "confidenceScore": 0.9,
+                        "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "queryProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "statement": {
+                    "value": "SELECT\n  TO_CHAR(order_date, 'YYYY-MM') AS order_month,\n  COUNT(*) AS order_count,\n  SUM(order_total) AS total_revenue,\n  AVG(order_total) AS avg_order_value\nFROM orders\nGROUP BY\n  TO_CHAR(order_date, 'YYYY-MM')",
+                    "language": "SQL"
+                },
+                "source": "SYSTEM",
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1643871600000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "querySubjects",
+        "aspect": {
+            "json": {
+                "subjects": [
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD),order_total)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),order_month)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),order_count)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),total_revenue)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.order_summary,PROD),avg_order_value)"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "json": {
+                "upstreams": [
+                    {
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "created": {
+                            "time": 1770987565000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD)",
+                        "type": "TRANSFORMED",
+                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
+                    }
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_date)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),order_date)"
+                        ],
+                        "transformOperation": "COPY: \"ORDERS\".\"ORDER_DATE\" AS \"ORDER_DATE\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_total)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),sum%28\"orders\".\"order_total\"%29)"
+                        ],
+                        "transformOperation": "SQL: SUM(\"ORDERS\".\"ORDER_TOTAL\") AS \"_col_1\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
+        "changeType": "UPSERT",
+        "aspectName": "queryProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "statement": {
+                    "value": "INSERT INTO staging_schema.daily_revenue (\n  order_date,\n  total_revenue\n)\nSELECT\n  order_date,\n  SUM(order_total)\nFROM sales_schema.orders\nGROUP BY\n  order_date",
+                    "language": "SQL"
+                },
+                "source": "SYSTEM",
+                "created": {
+                    "time": 1770987565000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1770987565000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
+        "changeType": "UPSERT",
+        "aspectName": "querySubjects",
+        "aspect": {
+            "json": {
+                "subjects": [
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.sales_schema.orders,PROD),order_total)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),order_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD),sum%28\"orders\".\"order_total\"%29)"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "upstreamLineage",
+        "aspect": {
+            "json": {
+                "upstreams": [
+                    {
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "created": {
+                            "time": 1770987565000,
+                            "actor": "urn:li:corpuser:_ingestion"
+                        },
+                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD)",
+                        "type": "TRANSFORMED",
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    }
+                ],
+                "fineGrainedLineages": [
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),employee_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),employee_id)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"EMPLOYEE_ID\" AS \"EMPLOYEE_ID\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),first_name)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),first_name)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"FIRST_NAME\" AS \"FIRST_NAME\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),last_name)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),last_name)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"LAST_NAME\" AS \"LAST_NAME\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),email)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),email)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"EMAIL\" AS \"EMAIL\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),phone_number)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),phone_number)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"PHONE_NUMBER\" AS \"PHONE_NUMBER\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),hire_date)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),hire_date)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"HIRE_DATE\" AS \"HIRE_DATE\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),job_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),job_id)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"JOB_ID\" AS \"JOB_ID\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),salary)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),salary)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"SALARY\" AS \"SALARY\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),commission_pct)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),commission_pct)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"COMMISSION_PCT\" AS \"COMMISSION_PCT\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),manager_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),manager_id)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"MANAGER_ID\" AS \"MANAGER_ID\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    },
+                    {
+                        "upstreamType": "FIELD_SET",
+                        "upstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),department_id)"
+                        ],
+                        "downstreamType": "FIELD",
+                        "downstreams": [
+                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),department_id)"
+                        ],
+                        "transformOperation": "COPY: \"EMPLOYEES\".\"DEPARTMENT_ID\" AS \"DEPARTMENT_ID\"",
+                        "confidenceScore": 0.2,
+                        "query": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
+        "changeType": "UPSERT",
+        "aspectName": "queryProperties",
+        "aspect": {
+            "json": {
+                "customProperties": {},
+                "statement": {
+                    "value": "INSERT INTO staging_schema.employee_backup (\n  employee_id,\n  first_name,\n  last_name,\n  email,\n  phone_number,\n  hire_date,\n  job_id,\n  salary,\n  commission_pct,\n  manager_id,\n  department_id\n)\nSELECT\n  employee_id,\n  first_name,\n  last_name,\n  email,\n  phone_number,\n  hire_date,\n  job_id,\n  salary,\n  commission_pct,\n  manager_id,\n  department_id\nFROM hr_schema.employees\nWHERE\n  department_id = 10",
+                    "language": "SQL"
+                },
+                "source": "SYSTEM",
+                "created": {
+                    "time": 1770987565000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1770987565000,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
+        "changeType": "UPSERT",
+        "aspectName": "querySubjects",
+        "aspect": {
+            "json": {
+                "subjects": [
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),commission_pct)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),department_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),email)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),employee_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),first_name)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),hire_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),job_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),last_name)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),manager_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),phone_number)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.hr_schema.employees,PROD),salary)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),employee_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),first_name)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),last_name)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),email)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),phone_number)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),hire_date)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),job_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),salary)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),commission_pct)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),manager_id)"
+                    },
+                    {
+                        "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD),department_id)"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
+        "changeType": "UPSERT",
+        "aspectName": "dataPlatformInstance",
+        "aspect": {
+            "json": {
+                "platform": "urn:li:dataPlatform:oracle"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataFlow",
+        "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),ANALYTICS_PKG)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:5b35830fee8fc4165609a4c36296e27f87323d807c05a1d68b18091452a18fda",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:9452efc4bb0a7a59623c294c8efbaa0806ef90c951f3e75060a1db47205dee1c",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Canalytics_schema.simple_analytics%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Chr_schema.employee_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "query",
+        "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aoracle%2Csales_schema.order_summary%2CPROD%29",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    }
+]

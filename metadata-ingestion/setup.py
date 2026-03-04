@@ -1,3 +1,4 @@
+import sysconfig
 from typing import Dict, Set
 
 import setuptools
@@ -28,6 +29,10 @@ base_requirements = {
     # This constraint is NOT included here to maintain Airflow compatibility.
     # Security is enforced for Docker image builds via docker/snippets/ingestion/constraints.txt.
     "sentry-sdk>=1.33.1,<3.0.0",
+    # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
+    "python-json-logger>=2.0.0,<5.0.0",
+    # setuptools 82.0.0 deprecated pkg_resource
+    "setuptools<82.0.0",
 }
 
 framework_common = {
@@ -51,6 +56,9 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
+    # (not enforced here due to Airflow constraint file conflicts in CI)
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -102,8 +110,12 @@ usage_common = {
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but not longer do.
-    "sqlglot[rs]==27.27.0",
+    # but no longer do.
+    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
+    # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
+    # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
+    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
+    "sqlglot[c]==29.0.1",
     "patchy==2.8.0",
 }
 
@@ -261,7 +273,9 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    # Lower bound >=1.4.6: Versions 1.4.3-1.4.5 require snowflake-connector-python<3.0.0,
+    # but we need snowflake-connector-python>=3.4.0. Version 1.4.6+ supports connector 3.x.
+    # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
     # table column name reflection for non-uppercase table names. While we do not
@@ -276,14 +290,21 @@ snowflake_common = {
     #
     # Reflection failures for case-sensitive object names are a known issue:
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/388
-    #
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
-    "snowflake-sqlalchemy>=1.4.3,<1.7.4",
-    "snowflake-connector-python>=3.4.0,<4.0.0",
+    #
+    # Upper bound <1.7.4 was (accidentally?) removed 
+    # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
+    #
+    # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
+    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
+    # incompatible with cryptography 46+. 3.8.0 was yanked.
+    "snowflake-connector-python>=4.0.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography<47.0.0",
+    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
     "msal<2.0.0",
+    "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
     *classification_lib,
 }
@@ -302,7 +323,9 @@ pyhive_common = {
     # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
     # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
     # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    "acryl-pyhive[hive-pure-sasl]==0.6.17",
+    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
+    #   (https://github.com/acryldata/PyHive/pull/11)
+    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
     # of thrift broke PyHive's hive+http transport.
@@ -366,7 +389,9 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core>=1.31.0,<2.0.0",
+    # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
+    # redirect handling in the pipeline transport layer, fixed in 1.38.0.
+    "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
@@ -406,6 +431,10 @@ slack = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
+# Snowplow uses base requirements only (requests, pydantic)
+# No additional dependencies needed
+snowplow = set()
+
 databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
@@ -427,6 +456,7 @@ databricks = {
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
+mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
@@ -460,6 +490,12 @@ unstructured_lib = {
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
     "unstructured-ingest[notion]==0.7.2",
+} | unstructured_lib
+
+confluence_common = {
+    # Confluence-specific connector adds atlassian-python-api and related dependencies
+    "unstructured-ingest[confluence]==0.7.2",
+    "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
@@ -601,7 +637,13 @@ plugins: Dict[str, Set[str]] = {
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0", "pymetastore>=0.4.2,<1.0.0", "tenacity>=8.0.1,<9.0.0", "kerberos>=1.3.0,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
@@ -622,13 +664,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-documents": unstructured_lib,
-    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"} | sqlglot_lib,
-    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
+    "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
+    | sqlglot_lib,
+    "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
+    "mysql": mysql_common,
+    "mariadb": mysql_common,
+    "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -659,8 +702,12 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowplow": snowplow,
     "sqlalchemy": sql_common,
-    "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1,<8.0.0"},
+    "sql-queries": usage_common
+    | sqlglot_lib
+    | aws_common
+    | {"smart-open[s3]>=5.2.1,<8.0.0"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
@@ -689,6 +736,7 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
+    "confluence": confluence_common,
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -803,6 +851,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "freezegun<2.0.0",  # TODO: fully remove and use time-machine
     "time-machine<4.0.0",  # better Pydantic v2 compatibility
@@ -818,8 +867,10 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "confluence",
             # Note: datahub-documents removed from dev deps due to Python 3.10+ requirement
             # It's available as a separate extra and in the docs extra for doc generation
+            # TODO: Re-add datahub-documents here now that Python 3.9 support was dropped
             "dataplex",
             "delta-lake",
             "dremio",
@@ -848,18 +899,21 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snowplow",
             "snaplogic",
             "slack",
             "tableau",
             "teradata",
             "trino",
             "hive",
+            "hive-metastore",
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
             "nifi",
+            "notion",
             "vertica",
             "mode",
             "fivetran",
@@ -879,8 +933,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Include unstructured for testing datahub-documents source
-    *unstructured_lib,
 }
 
 # Documentation generation requirements
@@ -902,6 +954,7 @@ full_test_dev_requirements = {
             "db2",
             "debug-recording",
             "delta-lake",
+            "doris",
             "druid",
             "excel",
             "feast",
@@ -928,6 +981,9 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "sqlalchemy.dialects": [
+        "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
+    ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
@@ -943,6 +999,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
+        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
@@ -979,7 +1036,8 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
-        "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
@@ -989,6 +1047,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
+        "snowplow = datahub.ingestion.source.snowplow.snowplow:SnowplowSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
@@ -1044,6 +1103,7 @@ entry_points = {
         "add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:AddDatasetProperties",
         "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
+        "set_attribution = datahub.ingestion.transformer.set_attribution:SetAttributionTransformer",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
         "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
@@ -1127,6 +1187,11 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
         "datahub.ingestion.autogenerated": ["*.json"],
     },
+    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
+    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    data_files=[
+        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+    ],
     entry_points=entry_points,
     # Dependencies.
     install_requires=list(base_requirements | framework_common),
@@ -1147,11 +1212,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
-        "docs": list(docs_requirements),  # For documentation generation (requires Python 3.10+)
+        "docs": list(
+            docs_requirements
+        ),  # For documentation generation (requires Python 3.10+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),
     },
 )
-

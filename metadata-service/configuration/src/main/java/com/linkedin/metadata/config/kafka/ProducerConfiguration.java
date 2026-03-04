@@ -18,4 +18,6 @@ public class ProducerConfiguration {
   private int maxRequestSize;
 
   private String bootstrapServers;
+  private String securityProtocol;
+  private String schemaRegistryUrl;
 }

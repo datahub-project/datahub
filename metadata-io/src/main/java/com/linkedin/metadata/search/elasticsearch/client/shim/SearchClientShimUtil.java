@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -125,6 +126,13 @@ import org.opensearch.search.aggregations.pipeline.ParsedSimpleValue;
 import org.opensearch.search.aggregations.pipeline.ParsedStatsBucket;
 import org.opensearch.search.aggregations.pipeline.PercentilesBucketPipelineAggregationBuilder;
 import org.opensearch.search.aggregations.pipeline.StatsBucketPipelineAggregationBuilder;
+import org.opensearch.search.suggest.Suggest;
+import org.opensearch.search.suggest.completion.CompletionSuggestion;
+import org.opensearch.search.suggest.completion.CompletionSuggestionBuilder;
+import org.opensearch.search.suggest.phrase.PhraseSuggestion;
+import org.opensearch.search.suggest.phrase.PhraseSuggestionBuilder;
+import org.opensearch.search.suggest.term.TermSuggestion;
+import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 
 /**
  * Factory for creating appropriate SearchClientShim implementations based on the target search
@@ -135,6 +143,8 @@ public class SearchClientShimUtil {
 
   private static final Map<String, ContextParser<Object, ? extends Aggregation>>
       AGGREGATION_TYPE_MAP = new HashMap<>();
+  private static final Map<String, ContextParser<Object, ? extends Suggest.Suggestion<?>>>
+      SUGGESTION_TYPE_MAP = new HashMap<>();
   public static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
   static {
@@ -337,6 +347,19 @@ public class SearchClientShimUtil {
         MatrixStatsAggregationBuilder.NAME,
         (parser, context) -> ParsedMatrixStats.fromXContent(parser, (String) context));
 
+    // ============ SUGGESTIONS ============
+    // Required for ES8 shim to parse search responses containing suggestions
+
+    SUGGESTION_TYPE_MAP.put(
+        TermSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> TermSuggestion.fromXContent(parser, (String) context));
+    SUGGESTION_TYPE_MAP.put(
+        PhraseSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> PhraseSuggestion.fromXContent(parser, (String) context));
+    SUGGESTION_TYPE_MAP.put(
+        CompletionSuggestionBuilder.SUGGESTION_NAME,
+        (parser, context) -> CompletionSuggestion.fromXContent(parser, (String) context));
+
     SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
     List<NamedXContentRegistry.Entry> namedXContents = searchModule.getNamedXContents();
     List<NamedXContentRegistry.Entry> aggregationEntries =
@@ -354,6 +377,23 @@ public class SearchClientShimUtil {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
     namedXContents.addAll(aggregationEntries);
+
+    List<NamedXContentRegistry.Entry> suggestionEntries =
+        SUGGESTION_TYPE_MAP.entrySet().stream()
+            .map(
+                entry -> {
+                  try {
+                    return new NamedXContentRegistry.Entry(
+                        Suggest.Suggestion.class, new ParseField(entry.getKey()), entry.getValue());
+                  } catch (Exception e) {
+                    log.warn("Unable to get PARSER for suggestion type: {}", entry.getKey());
+                    return null;
+                  }
+                })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    namedXContents.addAll(suggestionEntries);
+
     X_CONTENT_REGISTRY = new NamedXContentRegistry(namedXContents);
   }
 
@@ -423,6 +463,9 @@ public class SearchClientShimUtil {
   @Nonnull
   private static SearchEngineType detectEngineType(
       @Nonnull ShimConfiguration config, ObjectMapper objectMapper) throws IOException {
+    List<String> failures = new ArrayList<>();
+    String endpoint = config.getHost() + ":" + config.getPort();
+
     // Try OpenSearch 2.x first (most commonly deployed currently)
     try {
       ShimConfiguration testConfig =
@@ -433,12 +476,15 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("2.")) {
+        if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
         }
+        failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x)");
       }
     } catch (Exception e) {
-      log.debug("OpenSearch detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("OpenSearch: " + msg);
+      log.debug("OpenSearch detection failed: {}", msg);
     }
 
     // Try Elasticsearch 7.x with high-level client
@@ -451,12 +497,15 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("7.")) {
+        if (version != null && version.startsWith("7.")) {
           return SearchEngineType.ELASTICSEARCH_7;
         }
+        failures.add("ES7: connected but version='" + version + "' (expected 7.x)");
       }
     } catch (Exception e) {
-      log.debug("Elasticsearch 7.x detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("ES7: " + msg);
+      log.debug("Elasticsearch 7.x detection failed: {}", msg);
     }
 
     // Try Elasticsearch 8.x/9.x with new Java client
@@ -469,18 +518,32 @@ public class SearchClientShimUtil {
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
         String version = testShim.getEngineVersion();
 
-        if (version.startsWith("8.")) {
+        if (version != null && version.startsWith("8.")) {
           return SearchEngineType.ELASTICSEARCH_8;
-        } else if (version.startsWith("9.")) {
+        } else if (version != null && version.startsWith("9.")) {
           return SearchEngineType.ELASTICSEARCH_9;
         }
+        failures.add(
+            "ES8: connected but version='"
+                + version
+                + "' (expected 8.x/9.x). Misconfiguration? ES8 client may be talking to an ES7 cluster.");
       }
     } catch (Exception e) {
-      log.debug("Elasticsearch 8.x/9.x detection failed: {}", e.getMessage());
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      failures.add("ES8: " + msg);
+      log.debug("Elasticsearch 8.x/9.x detection failed: {}", msg);
     }
 
+    String detail = String.join("; ", failures);
+    log.warn(
+        "Search engine type detection failed for {} (no matching probe). Details: {}",
+        endpoint,
+        detail);
     throw new IOException(
-        "Unable to detect search engine type. Ensure the cluster is accessible and running a supported version.");
+        "Unable to detect search engine type for "
+            + endpoint
+            + ". Ensure the cluster is accessible and running a supported version. Details: "
+            + detail);
   }
 
   /** Builder class for creating ShimConfiguration instances */
@@ -496,6 +559,7 @@ public class SearchClientShimUtil {
     private String region;
     private Integer threadCount = 1;
     private Integer connectionRequestTimeout = 5000;
+    private Integer socketTimeout = 30000;
     private SSLContext sSLContext;
 
     public ShimConfigurationBuilder() {}
@@ -512,6 +576,7 @@ public class SearchClientShimUtil {
       this.region = existing.getRegion();
       this.threadCount = existing.getThreadCount();
       this.connectionRequestTimeout = existing.getConnectionRequestTimeout();
+      this.socketTimeout = existing.getSocketTimeout();
       this.sSLContext = existing.getSSLContext();
     }
 
@@ -562,6 +627,11 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withSocketTimeout(Integer socketTimeout) {
+      this.socketTimeout = socketTimeout;
+      return this;
+    }
+
     public ShimConfigurationBuilder withSSLContext(SSLContext sSLContext) {
       this.sSLContext = sSLContext;
       return this;
@@ -580,6 +650,7 @@ public class SearchClientShimUtil {
           region,
           threadCount,
           connectionRequestTimeout,
+          socketTimeout,
           sSLContext);
     }
   }
@@ -598,6 +669,7 @@ public class SearchClientShimUtil {
     private final String region;
     private final Integer threadCount;
     private final Integer connectionRequestTimeout;
+    private final Integer socketTimeout;
     private final SSLContext sSLContext;
 
     public ShimConfigurationImpl(
@@ -612,6 +684,7 @@ public class SearchClientShimUtil {
         String region,
         Integer threadCount,
         Integer connectionRequestTimeout,
+        Integer socketTimeout,
         SSLContext sslContext) {
       this.engineType = engineType;
       this.host = host;
@@ -624,6 +697,7 @@ public class SearchClientShimUtil {
       this.region = region;
       this.threadCount = threadCount;
       this.connectionRequestTimeout = connectionRequestTimeout;
+      this.socketTimeout = socketTimeout;
       this.sSLContext = sslContext;
     }
   }

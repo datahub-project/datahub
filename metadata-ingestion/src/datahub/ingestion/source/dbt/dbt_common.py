@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import abstractmethod
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -10,12 +11,14 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
     Union,
 )
 
+import dateutil.parser
 import more_itertools
 import pydantic
 from pydantic import field_validator, model_validator
@@ -58,9 +61,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    make_assertion_from_freshness,
     make_assertion_from_test,
+    make_assertion_result_from_freshness,
     make_assertion_result_from_test,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
@@ -94,6 +100,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeAuditStampsClass,
+    DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -102,6 +111,12 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SiblingsClass,
     StatusClass,
     SubTypesClass,
@@ -109,7 +124,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DashboardUrn, DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -133,7 +148,66 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
-_DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
+_DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
+_DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
+# URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
+# collide with "Revenue [USD]" - duplicates are detected and skipped with warnings.
+_QUERY_URN_SANITIZE_PATTERN = re.compile(r"[^a-zA-Z0-9_\-\.]+")
+
+
+class DBTQueryDefinition(pydantic.BaseModel):
+    """Pydantic model for validating query definitions in meta.queries."""
+
+    model_config = pydantic.ConfigDict(extra="forbid")  # Catch typos in field names
+
+    name: str = Field(..., min_length=1, description="Unique name for the query")
+    sql: str = Field(..., min_length=1, description="SQL statement for the query")
+    description: Optional[str] = Field(None, description="Human-readable description")
+    tags: Optional[List[str]] = Field(None, description="Tags for categorization")
+    terms: Optional[List[str]] = Field(None, description="Glossary terms")
+
+    @field_validator("name", "sql", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                raise ValueError("cannot be empty or whitespace-only")
+        return v
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def coerce_description(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            logger.warning(
+                f"meta.queries: description must be string, got {type(v).__name__}"
+            )
+            return None
+        return v.strip() or None
+
+    @field_validator("tags", "terms", mode="before")
+    @classmethod
+    def coerce_string_list(
+        cls, v: Any, info: pydantic.ValidationInfo
+    ) -> Optional[List[str]]:
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            logger.warning(
+                f"meta.queries: {info.field_name} must be list, got {type(v).__name__}"
+            )
+            return None
+        return [str(item).strip() for item in v if item and str(item).strip()]
+
+    @staticmethod
+    def _list_to_csv(values: Optional[List[str]]) -> Optional[str]:
+        """Convert list to comma-separated string for customProperties storage."""
+        if not values:
+            return None
+        return ", ".join(values)
+
 
 # =============================================================================
 # Regex patterns for Snowflake semantic view CLL (Column-Level Lineage) parsing
@@ -176,6 +250,10 @@ _SV_DERIVED_METRIC_RE = re.compile(
 _SV_TABLE_METRIC_REF_RE = re.compile(
     rf"{_SV_IDENTIFIER}\.{_SV_IDENTIFIER}", re.IGNORECASE
 )
+
+
+def parse_dbt_timestamp(timestamp: str) -> datetime:
+    return dateutil.parser.parse(timestamp)
 
 
 def _add_cll_entry(
@@ -226,6 +304,18 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
 
+    # Query entity emission statistics
+    num_queries_emitted: int = 0
+    num_queries_failed: int = 0
+    queries_failed_list: LossyList[str] = field(default_factory=LossyList)
+    query_timestamps_fallback_used: bool = False
+
+    # Exposure entity emission statistics
+    num_exposures_emitted: int = 0
+    num_exposures_by_type: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -268,6 +358,15 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
     )
+    exposures: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt exposures when set to Yes or Only. "
+        "Exposures represent downstream consumers like dashboards, notebooks, or applications.",
+    )
+    queries: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit Query entities from meta.queries field when set to Yes or Only.",
+    )
 
     @field_validator("*", mode="before")
     @classmethod
@@ -306,6 +405,7 @@ class DBTEntitiesEnabled(ConfigModel):
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
+            "exposure": self.exposures,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -331,6 +431,14 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_model_performance(self) -> bool:
         return self.model_performance == EmitDirective.YES
+
+    @property
+    def can_emit_exposures(self) -> bool:
+        return self.exposures == EmitDirective.YES
+
+    @property
+    def can_emit_queries(self) -> bool:
+        return self.queries == EmitDirective.YES
 
 
 class MaterializedNodePatternConfig(ConfigModel):
@@ -435,6 +543,12 @@ class DBTCommonConfig(
     enable_owner_extraction: bool = Field(
         default=True,
         description="When enabled, ownership info will be extracted from the dbt meta",
+    )
+    max_queries_per_model: int = Field(
+        default=100,
+        ge=0,
+        description="Maximum number of Query entities to emit per dbt model. "
+        "Prevents metadata explosion from malformed manifests. Set to 0 for unlimited.",
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
@@ -792,6 +906,9 @@ class DBTNode:
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_results: List["DBTTestResult"] = field(default_factory=list)
+    freshness_info: Optional["DBTFreshnessInfo"] = (
+        None  # only populated for sources with freshness
+    )
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
@@ -891,6 +1008,53 @@ class DBTNode:
             )
             for i, schema_field in enumerate(schema_fields)
         ]
+
+
+DBT_EXPOSURE_TYPES: Tuple[str, ...] = (
+    "dashboard",
+    "notebook",
+    "ml",
+    "application",
+    "analysis",
+)
+
+DBT_EXPOSURE_MATURITY: Tuple[str, ...] = ("high", "medium", "low")
+
+
+@dataclass
+class DBTExposure:
+    """
+    Represents a dbt exposure - a downstream consumer of dbt models.
+    Exposures can be dashboards, notebooks, ML models, applications, or analysis tools.
+    See https://docs.getdbt.com/docs/build/exposures
+    """
+
+    name: str
+    unique_id: str  # e.g., "exposure.my_project.my_dashboard"
+    type: Literal["dashboard", "notebook", "ml", "application", "analysis"]
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+    maturity: Optional[Literal["high", "medium", "low"]] = None
+    depends_on: List[str] = field(
+        default_factory=list
+    )  # list of upstream dbt node unique_ids
+    tags: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)
+    dbt_package_name: Optional[str] = None
+    dbt_file_path: Optional[str] = None
+
+    def get_urn(
+        self,
+        platform_instance: Optional[str],
+    ) -> str:
+        """Generate a Dashboard URN for this exposure."""
+        return DashboardUrn.create_from_ids(
+            platform=DBT_PLATFORM,
+            name=self.unique_id,
+            platform_instance=platform_instance,
+        ).urn()
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -1100,6 +1264,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.config, ctx
         )
+        # Cached timestamp for Query entities (ensures reproducible output)
+        self._query_timestamp_cache: Optional[int] = None
+        # Exposures loaded by subclass (manifest or dbt Cloud API)
+        self._exposures: List[DBTExposure] = []
+
+    def _get_query_timestamp(self) -> int:
+        """Get timestamp for Query entities, cached for reproducibility."""
+        if self._query_timestamp_cache is not None:
+            return self._query_timestamp_cache
+
+        manifest_info = getattr(self.report, "manifest_info", None)
+        if isinstance(manifest_info, dict):
+            generated_at = manifest_info.get("generated_at")
+            if generated_at and generated_at != "unknown":
+                try:
+                    self._query_timestamp_cache = datetime_to_ts_millis(
+                        dateutil.parser.parse(generated_at)
+                    )
+                    return self._query_timestamp_cache
+                except (ValueError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                    )
+
+        # Fallback to current time (manifest timestamp unavailable or unparseable)
+        self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
+        self.report.query_timestamps_fallback_used = True
+        return self._query_timestamp_cache
 
     def create_test_entity_mcps(
         self,
@@ -1182,10 +1374,218 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
                         )
 
+    def create_freshness_assertion_mcps(
+        self,
+        source_nodes: List[DBTNode],
+        extra_custom_props: Dict[str, str],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Create assertions for dbt freshness tests on source nodes."""
+        for node in sorted(source_nodes, key=lambda n: n.dbt_name):
+            # Only process source nodes that have freshness info
+            if node.node_type != "source" or not node.freshness_info:
+                continue
+
+            upstream_urn = node.get_urn(
+                target_platform=self.config.target_platform,
+                data_platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            assertion_urn = mce_builder.make_assertion_urn(
+                mce_builder.datahub_guid(
+                    {
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": f"{node.dbt_name}_freshness",
+                            "instance": self.config.platform_instance,
+                            # Ideally we'd include the env unconditionally. However, we started out
+                            # not including env in the guid, so we need to maintain backwards compatibility
+                            # with existing PROD assertions.
+                            **(
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
+                    }
+                )
+            )
+
+            custom_props = {
+                "dbt_unique_id": node.dbt_name,
+                **extra_custom_props,
+            }
+
+            if self.config.entities_enabled.can_emit_test_definitions:
+                assertion_mcp = make_assertion_from_freshness(
+                    custom_props,
+                    node,
+                    assertion_urn,
+                    upstream_urn,
+                )
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=self._make_data_platform_instance_aspect(),
+                )
+                yield assertion_mcp
+
+            if self.config.entities_enabled.can_emit_test_results:
+                yield make_assertion_result_from_freshness(
+                    node,
+                    assertion_urn,
+                    upstream_urn,
+                    test_warnings_are_errors=self.config.test_warnings_are_errors,
+                )
+            else:
+                logger.debug(
+                    f"Skipping freshness result for {node.name} emission since it is turned off."
+                )
+
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         # return dbt nodes (including semantic models) + global custom properties
         raise NotImplementedError()
+
+    def load_exposures(self) -> List[DBTExposure]:
+        """Return dbt exposures. Subclasses populate self._exposures during load."""
+        return self._exposures
+
+    def create_exposure_mcps(
+        self,
+        exposures: List[DBTExposure],
+        all_nodes_map: Dict[str, DBTNode],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Generate MCPs for dbt exposures as Dashboard entities with upstream lineage."""
+        for exposure in sorted(exposures, key=lambda e: e.unique_id):
+            exposure_urn = exposure.get_urn(
+                platform_instance=self.config.platform_instance,
+            )
+
+            # Platform instance aspect
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=self._make_data_platform_instance_aspect(),
+            )
+
+            # Build custom properties
+            custom_properties: Dict[str, str] = {
+                "dbt_unique_id": exposure.unique_id,
+                "exposure_type": exposure.type,
+            }
+            if exposure.maturity:
+                custom_properties["maturity"] = exposure.maturity
+            if exposure.dbt_package_name:
+                custom_properties["dbt_package_name"] = exposure.dbt_package_name
+            if exposure.dbt_file_path:
+                custom_properties["dbt_file_path"] = exposure.dbt_file_path
+            # Add meta properties
+            for key, value in exposure.meta.items():
+                custom_properties[str(key)] = str(value)
+
+            # Generate upstream lineage from depends_on
+            upstream_urns: List[str] = []
+            for upstream_dbt_name in exposure.depends_on:
+                upstream_node = all_nodes_map.get(upstream_dbt_name)
+                if upstream_node:
+                    upstream_urn = upstream_node.get_urn(
+                        target_platform=DBT_PLATFORM,
+                        env=self.config.env,
+                        data_platform_instance=self.config.platform_instance,
+                    )
+                    upstream_urns.append(upstream_urn)
+                else:
+                    logger.warning(
+                        f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
+                    )
+
+            # Dashboard info aspect
+            # Use current ingestion time for audit stamps since dbt exposures
+            # don't have created/modified timestamps
+            current_timestamp = int(datetime.now().timestamp() * 1000)
+            audit_stamp = AuditStampClass(
+                time=current_timestamp,
+                actor=mce_builder.make_user_urn("dbt_ingestion"),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=DashboardInfoClass(
+                    title=exposure.name,
+                    description=exposure.description or "",
+                    customProperties=custom_properties,
+                    externalUrl=exposure.url,
+                    lastModified=ChangeAuditStampsClass(
+                        created=audit_stamp,
+                        lastModified=audit_stamp,
+                    ),
+                    datasets=upstream_urns if upstream_urns else None,
+                ),
+            )
+
+            # Status aspect
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=StatusClass(removed=False),
+            )
+
+            # SubTypes aspect - use exposure type as subtype
+            subtype_mapping = {
+                "dashboard": "Dashboard",
+                "notebook": "Notebook",
+                "analysis": "Analysis",
+                "ml": "ML Model",
+                "application": "Application",
+            }
+            subtype = subtype_mapping.get(exposure.type.lower(), exposure.type.title())
+            yield MetadataChangeProposalWrapper(
+                entityUrn=exposure_urn,
+                aspect=SubTypesClass(typeNames=[subtype]),
+            )
+
+            # Ownership aspect - respects enable_owner_extraction config like other dbt assets
+            if self.config.enable_owner_extraction and (
+                exposure.owner_email or exposure.owner_name
+            ):
+                owner_value = exposure.owner_email or exposure.owner_name
+                if owner_value:
+                    # Apply strip_user_ids_from_email consistently with other dbt assets
+                    if self.config.strip_user_ids_from_email and "@" in owner_value:
+                        owner_value = owner_value.split("@")[0]
+                        logger.debug(f"Owner (after stripping email): {owner_value}")
+                    elif not exposure.owner_email:
+                        # Fallback to name-based URN when email not available
+                        owner_value = owner_value.replace(" ", "_").lower()
+                        logger.debug(
+                            f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
+                            f"without email - URN may not match existing users"
+                        )
+
+                    owner_urn = mce_builder.make_user_urn(owner_value)
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=exposure_urn,
+                        aspect=OwnershipClass(
+                            owners=[
+                                OwnerClass(
+                                    owner=owner_urn,
+                                    type=OwnershipTypeClass.DATAOWNER,
+                                )
+                            ]
+                        ),
+                    )
+
+            # Tags aspect
+            if exposure.tags:
+                tag_associations = [
+                    TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
+                    for tag in exposure.tags
+                ]
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=GlobalTagsClass(tags=tag_associations),
+                )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -1252,6 +1652,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             all_nodes_map,
         )
+
+        yield from self.create_freshness_assertion_mcps(
+            non_test_nodes,
+            additional_custom_props_filtered,
+        )
+
+        # Load and emit exposures if enabled
+        if self.config.entities_enabled.can_emit_exposures:
+            exposures = self.load_exposures()
+            if exposures:
+                self.report.num_exposures_emitted = len(exposures)
+                for e in exposures:
+                    self.report.num_exposures_by_type[e.type] += 1
+                logger.info(
+                    f"Creating dbt exposure metadata for {len(exposures)} exposures"
+                )
+                yield from self.create_exposure_mcps(exposures, all_nodes_map)
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
         """
@@ -1897,6 +2314,134 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
+    def _create_query_entity_mcps(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Create Query entities from meta.queries field in dbt models."""
+        # Check if query emission is enabled via entities_enabled.queries
+        if self.config.entities_enabled.queries == EmitDirective.NO:
+            return
+
+        if not node.meta:
+            return
+
+        queries = node.meta.get("queries")
+        if queries is None:
+            return
+
+        if not isinstance(queries, list):
+            msg = f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
+            logger.warning(msg)
+            self.report.report_warning(node.dbt_name, msg)
+            return
+
+        # Ephemeral models don't exist in target platform, so queries can't be linked
+        if node.is_ephemeral_model():
+            logger.warning(
+                f"Queries on ephemeral model {node.dbt_name} skipped: "
+                "ephemeral models don't exist in target platform"
+            )
+            return
+
+        # Limit queries to prevent metadata explosion (0 = unlimited)
+        max_queries = self.config.max_queries_per_model
+        if max_queries > 0 and len(queries) > max_queries:
+            logger.warning(
+                f"Too many queries in {node.dbt_name}: {len(queries)} exceeds limit of "
+                f"{max_queries}, only processing first {max_queries}"
+            )
+            queries = queries[:max_queries]
+
+        # Get timestamp (computed once from manifest, cached for reproducibility)
+        query_timestamp = self._get_query_timestamp()
+
+        seen_urns: Dict[str, str] = {}
+
+        for idx, query_def in enumerate(queries):
+            try:
+                query = DBTQueryDefinition.model_validate(query_def)
+            except pydantic.ValidationError as e:
+                error_msg = "; ".join(
+                    f"{err['loc'][0]}: {err['msg']}" if err.get("loc") else err["msg"]
+                    for err in e.errors()
+                )
+                logger.warning(f"Invalid query at {node.dbt_name}[{idx}]: {error_msg}")
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}[{idx}]: {error_msg}"
+                )
+                continue
+
+            query_name = query.name
+            query_sql = query.sql
+            sql_truncated = False
+            if len(query_sql) > _DBT_MAX_SQL_LENGTH:
+                logger.warning(
+                    f"Query '{query_name}' in {node.dbt_name}: SQL exceeds 1MB, truncating"
+                )
+                query_sql = f"{query_sql[:_DBT_MAX_SQL_LENGTH]}..."
+                sql_truncated = True
+
+            query_id = _QUERY_URN_SANITIZE_PATTERN.sub(
+                "_", f"{node.dbt_name}_{query_name}"
+            )
+            query_urn_str = QueryUrn(query_id).urn()
+
+            # Skip duplicates (can occur when different names sanitize to same URN)
+            if query_urn_str in seen_urns:
+                msg = f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
+                logger.warning(msg)
+                self.report.report_warning(node.dbt_name, msg)
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}.{query_name}: URN collision"
+                )
+                continue
+            seen_urns[query_urn_str] = query_name
+
+            # Build custom properties
+            # Note: Tags/terms stored as CSV strings because Query entities don't
+            # currently support native GlobalTags/GlossaryTerms aspects.
+            custom_properties: Dict[str, str] = {}
+            if tags_csv := DBTQueryDefinition._list_to_csv(query.tags):
+                custom_properties["tags"] = tags_csv
+            if terms_csv := DBTQueryDefinition._list_to_csv(query.terms):
+                custom_properties["terms"] = terms_csv
+            if sql_truncated:
+                custom_properties["sql_truncated"] = "true"
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn_str,
+                aspect=QueryPropertiesClass(
+                    statement=QueryStatementClass(
+                        value=query_sql, language=QueryLanguageClass.SQL
+                    ),
+                    source=QuerySourceClass.MANUAL,  # User-defined, not auto-discovered
+                    name=query_name,
+                    description=query.description,
+                    created=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    lastModified=AuditStampClass(
+                        time=query_timestamp, actor=_DBT_EXECUTOR_ACTOR
+                    ),
+                    origin=node_datahub_urn,
+                    customProperties=custom_properties or None,
+                ),
+            )
+
+            # Links query to dataset so it appears in the Queries tab
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn_str,
+                aspect=QuerySubjectsClass(
+                    subjects=[QuerySubjectClass(entity=node_datahub_urn)]
+                ),
+            )
+
+            self.report.num_queries_emitted += 1
+
     def create_target_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
@@ -1912,14 +2457,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
+
+            # Check if node exists in target platform first - needed for all emissions
+            # (queries need a target dataset to link to, other aspects need the dataset to exist)
+            if not node.exists_in_target_platform:
+                continue
+
+            # Emit Query entities independently of node type setting.
+            # This allows queries=YES/ONLY to work even when models=NO.
+            # (https://github.com/datahub-project/datahub/issues/15150)
+            if self.config.entities_enabled.can_emit_queries:
+                yield from auto_workunit(
+                    self._create_query_entity_mcps(node, node_datahub_urn)
+                )
+
+            # Check if we should emit other aspects (sibling, lineage) for this node type
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
-                continue
-
-            # We are creating empty node for platform and only add lineage/keyaspect.
-            if not node.exists_in_target_platform:
                 continue
 
             # Emit sibling patch for target platform entity BEFORE any other aspects.
@@ -2072,9 +2628,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             compiled_code = try_format_query(
                 node.compiled_code, platform=self.config.target_platform
             )
-            compiled_code = self._truncate_code(
-                compiled_code, _DBT_MAX_COMPILED_CODE_LENGTH
-            )
+            compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(

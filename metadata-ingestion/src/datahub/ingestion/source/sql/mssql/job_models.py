@@ -315,7 +315,7 @@ class MSSQLDataFlow:
         type = (
             FlowContainerSubTypes.MSSQL_JOB
             if isinstance(self.entity, MSSQLJob)
-            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+            else FlowContainerSubTypes.PROCEDURE_CONTAINER
         )
         return SubTypesClass(
             typeNames=[type],

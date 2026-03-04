@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from datahub_agent_context import get_datahub_client
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.langchain_tools.builder import (
     build_langchain_tools,
@@ -16,8 +17,8 @@ def mock_client():
     """Create a mock DataHubClient."""
     mock = Mock()
     mock._graph = Mock()
-    mock._graph.execute_graphql = Mock()
-    mock._graph.frontend_base_url = "http://localhost:9002"
+    mock.graph.execute_graphql = Mock()
+    mock.graph.frontend_base_url = "http://localhost:9002"
     return mock
 
 
@@ -26,23 +27,23 @@ def test_create_context_wrapper_sets_and_resets_context(mock_client):
 
     def sample_tool():
         """Sample tool that retrieves graph from context."""
-        return get_graph()
+        return get_datahub_client()
 
     wrapped = create_context_wrapper(sample_tool, mock_client)
 
     # Context should not be set initially
-    with pytest.raises(RuntimeError, match="No DataHubGraph in context"):
-        get_graph()
+    with pytest.raises(RuntimeError, match="No DataHubClient in context"):
+        get_datahub_client()
 
     # Call wrapped function - it should set and reset context
     result = wrapped()
 
     # Should return the client's graph
-    assert result == mock_client._graph
+    assert result == mock_client
 
     # Context should be reset after function returns
-    with pytest.raises(RuntimeError, match="No DataHubGraph in context"):
-        get_graph()
+    with pytest.raises(RuntimeError, match="No DataHubClient in context"):
+        get_datahub_client()
 
 
 def test_create_context_wrapper_resets_on_exception(mock_client):
@@ -61,7 +62,7 @@ def test_create_context_wrapper_resets_on_exception(mock_client):
         wrapped()
 
     # Context should still be reset after exception
-    with pytest.raises(RuntimeError, match="No DataHubGraph in context"):
+    with pytest.raises(RuntimeError, match="No DataHubClient in context"):
         get_graph()
 
 
@@ -140,7 +141,7 @@ def test_wrapped_tools_manage_context_automatically(mock_client):
     search_tool = next(t for t in tools if t.name == "search")
 
     # Context should not be set initially
-    with pytest.raises(RuntimeError, match="No DataHubGraph in context"):
+    with pytest.raises(RuntimeError, match="No DataHubClient in context"):
         get_graph()
 
     # Call the tool - context should be managed automatically
@@ -151,5 +152,5 @@ def test_wrapped_tools_manage_context_automatically(mock_client):
     assert result is not None
 
     # Context should be reset after tool execution
-    with pytest.raises(RuntimeError, match="No DataHubGraph in context"):
+    with pytest.raises(RuntimeError, match="No DataHubClient in context"):
         get_graph()

@@ -2,6 +2,10 @@ package utils;
 
 import com.linkedin.util.Configuration;
 import com.typesafe.config.Config;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ConfigUtil {
 
@@ -16,6 +20,11 @@ public class ConfigUtil {
   public static final String METADATA_SERVICE_USE_SSL_CONFIG_PATH = "metadataService.useSsl";
   public static final String METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH =
       "metadataService.sslProtocol";
+
+  /** TLS protocols for the frontend HTTP client (outbound to GMS/IdP), not server-side. */
+  public static final String METADATA_SERVICE_CLIENT_SSL_ENABLED_PROTOCOLS_CONFIG_PATH =
+      "metadataService.clientSslEnabledProtocols";
+
   public static final String METADATA_SERVICE_SSL_TRUST_STORE_PATH =
       "metadataService.truststore.path";
   public static final String METADATA_SERVICE_SSL_TRUST_STORE_PASSWORD =
@@ -29,6 +38,8 @@ public class ConfigUtil {
   public static final String GMS_BASE_PATH_ENV_VAR = "DATAHUB_GMS_BASE_PATH";
   public static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
   public static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
+  public static final String GMS_CLIENT_SSL_ENABLED_PROTOCOLS_VAR =
+      "DATAHUB_GMS_CLIENT_SSL_ENABLED_PROTOCOLS";
 
   // Default values
   public static final String DEFAULT_GMS_HOST = "localhost";
@@ -48,6 +59,10 @@ public class ConfigUtil {
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =
       Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR);
 
+  /** Default TLS protocols for the frontend client (outbound to GMS/IdP); TLS 1.0/1.1 disabled. */
+  public static final List<String> DEFAULT_CLIENT_SSL_ENABLED_PROTOCOLS =
+      Collections.unmodifiableList(Arrays.asList("TLSv1.2", "TLSv1.3"));
+
   public static boolean getBoolean(Config config, String key) {
     return config.hasPath(key) && config.getBoolean(key);
   }
@@ -62,5 +77,20 @@ public class ConfigUtil {
 
   public static String getString(Config config, String key, String defaultValue) {
     return config.hasPath(key) ? config.getString(key) : defaultValue;
+  }
+
+  /**
+   * Returns a list of strings from a comma-delimited config value (e.g. from env var). Uses {@link
+   * #getString(Config, String, String)}; blank or missing returns defaultValue.
+   */
+  public static List<String> getStringList(Config config, String key, List<String> defaultValue) {
+    String s = getString(config, key, null);
+    if (s == null || s.isBlank()) {
+      return defaultValue;
+    }
+    return Arrays.stream(s.split(","))
+        .map(String::trim)
+        .filter(p -> !p.isEmpty())
+        .collect(Collectors.toList());
   }
 }

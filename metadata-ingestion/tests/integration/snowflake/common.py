@@ -265,9 +265,13 @@ def default_query_results(  # noqa: C901
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
             },
         ]
-    elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
+    elif query == SnowflakeQuery.tables_for_database(
+        "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         raise Exception("Information schema query returned too much data")
-    elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
+    elif query == SnowflakeQuery.tables_for_schema(
+        "TEST_SCHEMA", "TEST_DB", table_types={"BASE TABLE", "EXTERNAL TABLE"}
+    ):
         return [
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
@@ -282,6 +286,7 @@ def default_query_results(  # noqa: C901
                 "IS_ICEBERG": "YES" if tbl_idx == 1 else "NO",
                 "IS_DYNAMIC": "YES" if tbl_idx == 2 else "NO",
                 "IS_HYBRID": "YES" if tbl_idx == 3 else "NO",
+                "RETENTION_TIME": 1,
             }
             for tbl_idx in range(1, num_tables + 1)
         ]

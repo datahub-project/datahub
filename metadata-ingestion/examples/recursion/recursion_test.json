@@ -1,0 +1,74 @@
+[
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:RecursionTestRoot",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {"json": {"customProperties": {}, "definition": "Root node for glossary recursion test. All test nodes and terms sit under this so the /glossary page shows a root and recursion (parent chain) stops here.", "name": "Glossary Recursion Test Root"}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:RecursionTestRoot", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:RecursionTestRoot", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {"json": {"customProperties": {}, "definition": "Test node for glossary recursion / cycle detection (EntityRelationshipsResultResolver, ParentNodesResolver).", "name": "Glossary Recursion Test Node", "parentNode": "urn:li:glossaryNode:RecursionTestRoot"}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:cycle-parent",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {"json": {"customProperties": {}, "definition": "Child node under the test node; forms a deep parent chain for testing recursion limits.", "name": "Cycle Parent Node", "parentNode": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414"}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:cycle-parent", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryNode", "entityUrn": "urn:li:glossaryNode:cycle-parent", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermA",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {"json": {"customProperties": {}, "definition": "Term under the test node for nested HasA resolution.", "name": "Term A", "parentNode": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414", "termSource": "INTERNAL"}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermA", "changeType": "UPSERT", "aspectName": "glossaryRelatedTerms", "aspect": {"json": {"hasRelatedTerms": ["urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermB"]}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermA", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermA", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermB", "changeType": "UPSERT", "aspectName": "glossaryTermInfo", "aspect": {"json": {"customProperties": {}, "definition": "Term under the test node (HasA target from Term A).", "name": "Term B", "parentNode": "urn:li:glossaryNode:0fdc52a7d97255a4568a3255ad7e8414", "termSource": "INTERNAL"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermB", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:0fdc52a7d97255a4568a3255ad7e8414.TermB", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:RecursionTestRootTerm", "changeType": "UPSERT", "aspectName": "glossaryTermInfo", "aspect": {"json": {"customProperties": {}, "definition": "Root-level term (no parent). Exercises GetRootGlossaryTermsResolver.", "name": "Root Term", "termSource": "INTERNAL"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:RecursionTestRootTerm", "changeType": "UPSERT", "aspectName": "ownership", "aspect": {"json": {"owners": [{"owner": "urn:li:corpuser:datahub", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "glossaryTerm", "entityUrn": "urn:li:glossaryTerm:RecursionTestRootTerm", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {
+    "entityType": "document",
+    "entityUrn": "urn:li:document:recursion-test-root",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {"json": {"title": "Recursion Test Root Document", "definition": "Root document for parent-document recursion test. ParentDocumentsResolver should stop here.", "status": {"state": "PUBLISHED"}, "contents": {"text": ""}, "created": {"time": 0, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "document", "entityUrn": "urn:li:document:recursion-test-root", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {
+    "entityType": "document",
+    "entityUrn": "urn:li:document:recursion-test-child",
+    "changeType": "UPSERT",
+    "aspectName": "documentInfo",
+    "aspect": {"json": {"title": "Recursion Test Child", "definition": "Child document under root. Exercises ParentDocumentsResolver depth and visited set.", "status": {"state": "PUBLISHED"}, "contents": {"text": ""}, "created": {"time": 0, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}, "parentDocument": {"document": "urn:li:document:recursion-test-root"}}},
+    "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}
+  },
+  {"entityType": "document", "entityUrn": "urn:li:document:recursion-test-child", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "domain", "entityUrn": "urn:li:domain:recursion-test-root", "changeType": "UPSERT", "aspectName": "domainProperties", "aspect": {"json": {"name": "Recursion Test Root Domain", "description": "Root domain for parent-domains recursion test. ParentDomainsResolver stops here."}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "domain", "entityUrn": "urn:li:domain:recursion-test-child", "changeType": "UPSERT", "aspectName": "domainProperties", "aspect": {"json": {"name": "Recursion Test Child Domain", "description": "Child domain under root. Exercises ParentDomainsResolver depth and cycle limits.", "parentDomain": "urn:li:domain:recursion-test-root"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "container", "entityUrn": "urn:li:container:recursion-test-root", "changeType": "UPSERT", "aspectName": "containerProperties", "aspect": {"json": {"name": "Recursion Test Root Container"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "container", "entityUrn": "urn:li:container:recursion-test-root", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "container", "entityUrn": "urn:li:container:recursion-test-child", "changeType": "UPSERT", "aspectName": "container", "aspect": {"json": {"container": "urn:li:container:recursion-test-root"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "container", "entityUrn": "urn:li:container:recursion-test-child", "changeType": "UPSERT", "aspectName": "containerProperties", "aspect": {"json": {"name": "Recursion Test Child Container"}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}},
+  {"entityType": "container", "entityUrn": "urn:li:container:recursion-test-child", "changeType": "UPSERT", "aspectName": "status", "aspect": {"json": {"removed": false}}, "systemMetadata": {"lastObserved": 0, "runId": "recursion-test", "lastRunId": "no-run-id-provided"}}
+]

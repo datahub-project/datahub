@@ -1,4 +1,4 @@
-import { FolderOutlined } from '@ant-design/icons';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -37,7 +37,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<FolderOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarksSimple size={20} color="currentColor" />}
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
             headerDropdownItems={headerDropdownItems}

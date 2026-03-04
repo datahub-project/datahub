@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
@@ -19,6 +19,9 @@ import { Document, DocumentSourceType } from '@types';
 export function useLoadDocumentTree() {
     const { initializeTree, setNodeChildren, getRootNodes } = useDocumentTree();
     const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
+
+    // Track whether tree initialization is in progress (prevents race condition)
+    const [isInitializing, setIsInitializing] = useState(true);
 
     // Load root documents
     const { documents: rootDocuments, loading: loadingRoot } = useSearchDocuments({
@@ -136,9 +139,14 @@ export function useLoadDocumentTree() {
 
                     initializeTree(rootNodes);
                 }
+                // Mark initialization as complete after async work finishes
+                setIsInitializing(false);
             };
 
             initializeAsync();
+        } else if (!loadingRoot && rootDocuments.length === 0) {
+            // No documents exist - mark initialization as complete immediately
+            setIsInitializing(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadingRoot, rootDocuments]);
@@ -146,6 +154,6 @@ export function useLoadDocumentTree() {
     return {
         loadChildren,
         checkForChildren,
-        loading: loadingRoot,
+        loading: loadingRoot || isInitializing,
     };
 }

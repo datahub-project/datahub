@@ -27,13 +27,15 @@ import { CorpGroup } from '@types';
 const GroupContainer = styled.div`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    height: calc(100vh - 240px);
 `;
 
 const GroupStyledList = styled(List)`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    flex: 1;
+    overflow-y: scroll;
+    min-height: 0;
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
