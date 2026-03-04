@@ -266,4 +266,87 @@ public class DailyReportTest {
 
     assertEquals(result, 5, "getServiceAccountCount should return the total hits count");
   }
+
+  /**
+   * Data provider for testing anonymizeToBucket with various inputs.
+   *
+   * @return test cases as [input, expectedOutput]
+   */
+  @DataProvider(name = "anonymizeToBucketTestCases")
+  public Object[][] anonymizeToBucketTestCases() {
+    return new Object[][] {
+      // Zero
+      {0, "0"},
+      // 0-10 bucket
+      {1, "0-10"},
+      {5, "0-10"},
+      {10, "0-10"},
+      // 10-100 bucket
+      {11, "10-100"},
+      {50, "10-100"},
+      {100, "10-100"},
+      // 100-1K bucket
+      {101, "100-1K"},
+      {500, "100-1K"},
+      {1000, "100-1K"},
+      // 1K-10K bucket
+      {1001, "1K-10K"},
+      {5000, "1K-10K"},
+      {10000, "1K-10K"},
+      // 10K-100K bucket
+      {10001, "10K-100K"},
+      {50000, "10K-100K"},
+      {100000, "10K-100K"},
+      // 100K-1M bucket
+      {100001, "100K-1M"},
+      {500000, "100K-1M"},
+      {1000000, "100K-1M"},
+      // 1M+ bucket
+      {1000001, "1M+"},
+      {5000000, "1M+"},
+      {10000000, "1M+"},
+    };
+  }
+
+  @Test(dataProvider = "anonymizeToBucketTestCases")
+  public void testAnonymizeToBucket(int input, String expectedOutput) throws Exception {
+    DailyReport dailyReport = createDailyReportForTesting();
+
+    // Use reflection to call the private method
+    java.lang.reflect.Method anonymizeToBucketMethod =
+        DailyReport.class.getDeclaredMethod("anonymizeToBucket", int.class);
+    anonymizeToBucketMethod.setAccessible(true);
+
+    String result = (String) anonymizeToBucketMethod.invoke(dailyReport, input);
+
+    assertEquals(
+        result,
+        expectedOutput,
+        String.format(
+            "anonymizeToBucket(%d) should return \"%s\" but got \"%s\"",
+            input, expectedOutput, result));
+  }
+
+  @Test
+  public void testAnonymizeToBucketBoundaries() throws Exception {
+    DailyReport dailyReport = createDailyReportForTesting();
+    java.lang.reflect.Method anonymizeToBucketMethod =
+        DailyReport.class.getDeclaredMethod("anonymizeToBucket", int.class);
+    anonymizeToBucketMethod.setAccessible(true);
+
+    // Test boundaries explicitly
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 0), "0");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 10), "0-10");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 11), "10-100");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 100), "10-100");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 101), "100-1K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1000), "100-1K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1001), "1K-10K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 10000), "1K-10K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 10001), "10K-100K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 100000), "10K-100K");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 100001), "100K-1M");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1000000), "100K-1M");
+    assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1000001), "1M+");
+  }
 }

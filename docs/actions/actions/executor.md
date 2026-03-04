@@ -16,7 +16,7 @@ This Action executes ingestion recipes that are configured via the UI.
 
 ### Supported Events
 
-- `MetadataChangeLog_v1`
+- `MetadataChangeLogEvent_v1`
 
 Specifically, changes to the `dataHubExecutionRequestInput` and `dataHubExecutionRequestSignal` aspects of the `dataHubExecutionRequest` entity are required.
 

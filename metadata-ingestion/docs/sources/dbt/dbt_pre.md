@@ -39,3 +39,204 @@ Most other dbt commands generate a partial catalog file, which may impact the co
 Following the above workflow should ensure that the catalog file is generated correctly.
 
 :::
+
+### Query Entities from dbt Meta
+
+DataHub can ingest Query entities from the `meta.queries` field in your dbt models. This allows you to document "blessed" or commonly-used query patterns directly in dbt and surface them in DataHub's Queries tab for easy discovery and reuse by your team.
+
+**Config Options:**
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: target/manifest.json
+    # Control Query entity emission (default: YES)
+    entities_enabled:
+      queries: "NO" # or "YES" (default), "ONLY"
+    # Limit queries per model (default: 100, set 0 for unlimited)
+    max_queries_per_model: 100
+```
+
+:::note Integration with Warehouse Query Ingestion
+
+If you're also using warehouse query ingestion (e.g., Snowflake usage, BigQuery audit logs), dbt-emitted queries will coexist with warehouse-discovered queries in the Queries tab. They're differentiated by source: dbt queries have `source: MANUAL` while warehouse queries typically have `source: SYSTEM`.
+
+:::
+
+#### How to Configure
+
+The `meta.queries` field is defined in your dbt model's properties file (e.g., `schema.yml`, `models.yml`, or any `.yml` file in your dbt project). When you run `dbt docs generate` or `dbt compile`, this metadata is included in the `manifest.json` file, which DataHub then ingests.
+
+**Add queries to your model's `meta` field in your dbt properties file:**
+
+```yaml
+# models/schema.yml or models/customers.yml
+version: 2
+
+models:
+  - name: customers
+    description: "Customer dimension table"
+    meta:
+      queries:
+        - name: "Active customers (30d)"
+          description: "Customers active in the last 30 days"
+          sql: |
+            SELECT *
+            FROM {{ ref('customers') }}
+            WHERE active = true
+              AND last_seen > CURRENT_DATE - INTERVAL '30 days'
+          tags: ["production", "analytics"]
+          terms: ["CustomerData", "Engagement"]
+
+        - name: "Revenue by customer"
+          description: "Total revenue aggregated by customer"
+          sql: |
+            SELECT
+              customer_id,
+              SUM(amount) as total_revenue
+            FROM {{ ref('customers') }}
+            GROUP BY customer_id
+          tags: ["finance", "reporting"]
+```
+
+**Then generate your dbt artifacts:**
+
+```sh
+dbt docs generate
+# This creates/updates target/manifest.json with the meta.queries data
+```
+
+**Finally, run DataHub ingestion:**
+
+```sh
+datahub ingest -c your_dbt_recipe.yml
+# DataHub reads manifest.json and creates Query entities
+```
+
+#### Field Reference
+
+Each query in the `queries` list supports the following fields:
+
+| Field         | Required | Type            | Description                                                    |
+| ------------- | -------- | --------------- | -------------------------------------------------------------- |
+| `name`        | ✅ Yes   | string          | Unique name for the query                                      |
+| `sql`         | ✅ Yes   | string          | SQL statement for the query                                    |
+| `description` | ❌ No    | string          | Human-readable description                                     |
+| `tags`        | ❌ No    | list of strings | Tags for categorization (stored in customProperties)           |
+| `terms`       | ❌ No    | list of strings | Glossary terms for classification (stored in customProperties) |
+
+#### How It Works
+
+1. **dbt Configuration**: You define `queries` in the `meta` field of your dbt model properties
+2. **Manifest Generation**: When you run `dbt docs generate`, the `meta.queries` data is included in `manifest.json`
+3. **DataHub Ingestion**: DataHub reads the manifest.json and extracts the `meta.queries` field
+4. **Query Entity Creation**: Each query in `meta.queries` becomes a Query entity in DataHub
+5. **URN Generation**: Query URN is generated as `urn:li:query:{dbt_unique_id}_{sanitized_query_name}` (e.g., `urn:li:query:model.my_project.customers_Active_customers_30d_`)
+6. **Dataset Linking**: Queries are linked to the **target platform** dataset (e.g., Snowflake, Postgres) via QuerySubjects aspect, so they appear where analysts actually query
+7. **UI Visibility**: Queries appear in the "Queries" tab of the target platform dataset in DataHub UI
+
+#### Technical Details
+
+- **Actor**: All queries are attributed to the `dbt_executor` actor
+- **Timestamps**: Uses manifest `generated_at` for reproducibility; falls back to current time if unavailable
+- **Custom Properties**: Tags/terms stored in `customProperties` (see [Known Limitations](#known-limitations) below)
+- **SQL Truncation**: SQL exceeding 1MB is truncated with "..." suffix
+- **URN Sanitization**: Consecutive special characters collapsed into single underscore (`[^a-zA-Z0-9_\-\.]+` → `_`)
+
+#### Error Handling
+
+| Scenario                           | Behavior                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `meta.queries` not a list          | Skipped with WARNING log                                                             |
+| Query missing `name` or `sql`      | Skipped, all validation errors shown in log and `queries_failed_list`                |
+| Duplicate query names              | Duplicate skipped, first definition wins (WARNING)                                   |
+| Invalid `description` (not string) | Field ignored with WARNING log                                                       |
+| Invalid `tags`/`terms` (not list)  | Field ignored with WARNING log                                                       |
+| Empty values in tags/terms list    | Filtered out automatically                                                           |
+| Manifest timestamp unparseable     | Falls back to current time with WARNING; tracked in `query_timestamps_fallback_used` |
+| Queries on ephemeral model         | Skipped with WARNING (ephemeral models don't exist in target platform)               |
+| Exceeds `max_queries_per_model`    | Only first N processed (configurable, default 100), WARNING logged                   |
+
+All validation errors are logged at WARNING level and tracked in the ingestion report.
+
+#### Example Output in DataHub
+
+After ingestion, you'll see:
+
+- Query entities in DataHub with name, description, and SQL statement
+- Queries linked to the target platform dataset (visible in the dataset's "Queries" tab)
+- Tags and terms visible in custom properties
+- Creation/modification timestamps from dbt manifest
+- Queries attributed to `dbt_executor` actor
+
+#### Use Cases
+
+- **Blessed Query Patterns**: Document approved query patterns for common analytics use cases
+- **Query Templates**: Provide reusable query templates for team members
+- **Best Practices**: Share optimized queries that follow your organization's standards
+- **Self-Service Analytics**: Enable analysts to discover and reuse proven queries
+
+#### Integration with Other dbt Features
+
+The `meta.queries` feature works alongside other dbt metadata capabilities in DataHub:
+
+| Feature                      | Purpose                                          | Config Key                 |
+| ---------------------------- | ------------------------------------------------ | -------------------------- |
+| **meta.queries**             | Define Query entities for discovery              | `entities_enabled.queries` |
+| **meta_mapping**             | Map dbt meta fields to DataHub tags/terms/owners | `meta_mapping`             |
+| **column_meta_mapping**      | Map column-level meta to DataHub aspects         | `column_meta_mapping`      |
+| **owner_extraction_pattern** | Extract owners from meta fields                  | `owner_extraction_pattern` |
+| **tag_prefix**               | Prefix for auto-generated tags                   | `tag_prefix`               |
+
+**Example combining features:**
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: target/manifest.json
+    catalog_path: target/catalog.json
+    target_platform: snowflake
+
+    # Enable query entities from meta.queries
+    entities_enabled:
+      queries: "YES"
+    max_queries_per_model: 100
+
+    # Map other meta fields to DataHub aspects
+    meta_mapping:
+      business_owner:
+        match: ".*"
+        operation: "add_owner"
+        config:
+          owner_type: user
+      data_tier:
+        match: ".*"
+        operation: "add_tag"
+
+    # Extract owners from specific meta patterns
+    enable_meta_mapping: true
+```
+
+#### Known Limitations
+
+1. **Tags/Terms in Custom Properties**: Query entities don't currently support native `GlobalTags` or `GlossaryTerms` aspects. Tags and terms are stored as comma-separated strings in `customProperties`. This means:
+
+   - Cannot filter queries by tags in the DataHub UI search
+   - Cannot apply tag-based governance policies to queries
+   - Tags/terms appear as plain text in the Properties tab, not as clickable links
+
+2. **No SQL Validation Against Model**: The `sql` field in `meta.queries` is not validated against the model it's defined on. You could define `sql: "SELECT * FROM products"` under the `customers` model. DataHub trusts that users define meaningful queries. Consider documenting your team's conventions for query definitions.
+
+3. **URN Collision on Similar Names**: Query names are sanitized for URN generation. Names like `"Revenue (USD)"` and `"Revenue [USD]"` both become `Revenue_USD_`, causing a collision (second one is skipped with a warning). Use distinct, alphanumeric query names to avoid this.
+
+4. **Ephemeral Models Not Supported**: Queries defined on ephemeral models (`materialized: ephemeral`) are skipped because ephemeral models don't exist as physical tables in the target platform. Queries are linked to target platform datasets, so there's no dataset to link to.
+
+:::tip Choosing Between meta.queries and meta_mapping
+
+- Use **meta.queries** for defining reusable SQL query patterns that should appear in the Queries tab
+- Use **meta_mapping** for mapping arbitrary meta fields to DataHub tags, terms, and owners
+- Both features can be used together - they operate on different parts of the meta object
+
+:::

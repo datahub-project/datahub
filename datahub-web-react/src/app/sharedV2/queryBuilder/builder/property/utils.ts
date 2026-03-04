@@ -45,6 +45,13 @@ const isTimeProperty = (property: Property): boolean => {
 };
 
 /**
+ * Returns true if a Property uses aggregation-based value fetching.
+ */
+const isAggregationProperty = (property: Property): boolean => {
+    return !!property.valueOptions?.aggregationField;
+};
+
+/**
  * Returns a list of properties supported fora given entity type.
  */
 export const getPropertiesForEntityType = (type: EntityType): Property[] => {
@@ -116,6 +123,16 @@ export const getOperatorOptions = (valueType: ValueTypeId): Operator[] | undefin
 export const getValueOptions = (property: Property, predicate: PropertyPredicate): ValueOptions | undefined => {
     if (!predicate.operator || isUnaryOperator(predicate.operator)) {
         return undefined;
+    }
+    // Display an aggregation-based values input.
+    if (isAggregationProperty(property)) {
+        return {
+            inputType: ValueInputType.AGGREGATION,
+            options: {
+                facetField: property.valueOptions.aggregationField,
+                mode: property.valueOptions.mode,
+            },
+        };
     }
     // Display an Entity Search values input.
     if (isSearchableProperty(property)) {

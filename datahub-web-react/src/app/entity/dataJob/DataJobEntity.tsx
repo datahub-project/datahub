@@ -263,6 +263,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

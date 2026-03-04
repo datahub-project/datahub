@@ -8,12 +8,14 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "DEV",
                 "workspace": "64ED5CAD-7C10-4684-8180-826122881108",
                 "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
                 "workspace_name": "demo-workspace",
                 "workspace_type": "Workspace"
             },
-            "name": "demo-workspace"
+            "name": "demo-workspace",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -1440,9 +1442,11 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "DEV",
                 "dataset": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
             },
-            "name": "hr_pbi_test"
+            "name": "hr_pbi_test",
+            "env": "DEV"
         }
     },
     "systemMetadata": {

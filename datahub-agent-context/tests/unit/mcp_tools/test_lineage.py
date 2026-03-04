@@ -15,10 +15,11 @@ from datahub_agent_context.mcp_tools.lineage import (
 
 
 @pytest.fixture
-def mock_graph():
-    """Create a mock DataHubGraph."""
+def mock_client():
+    """Create a mock DataHubClient."""
     mock = Mock()
-    mock.execute_graphql = Mock()
+    mock._graph = Mock()
+    mock.graph.execute_graphql = Mock()
     return mock
 
 
@@ -56,43 +57,43 @@ def sample_lineage_response():
 class TestAssetLineageAPI:
     """Tests for AssetLineageAPI class."""
 
-    def test_get_degree_filter_single_hop(self, mock_graph):
+    def test_get_degree_filter_single_hop(self, mock_client):
         """Test degree filter for max_hops=1."""
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
             filter = api.get_degree_filter(max_hops=1)
 
         assert filter is not None
 
-    def test_get_degree_filter_two_hops(self, mock_graph):
+    def test_get_degree_filter_two_hops(self, mock_client):
         """Test degree filter for max_hops=2."""
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
             filter = api.get_degree_filter(max_hops=2)
 
         assert filter is not None
 
-    def test_get_degree_filter_three_plus_hops(self, mock_graph):
+    def test_get_degree_filter_three_plus_hops(self, mock_client):
         """Test degree filter for max_hops>=3."""
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
             filter = api.get_degree_filter(max_hops=3)
 
         assert filter is not None
 
-    def test_get_degree_filter_invalid_hops(self, mock_graph):
+    def test_get_degree_filter_invalid_hops(self, mock_client):
         """Test that invalid max_hops raises ValueError."""
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
 
             with pytest.raises(ValueError):
                 api.get_degree_filter(max_hops=0)
 
-    def test_get_lineage_upstream(self, mock_graph, sample_lineage_response):
+    def test_get_lineage_upstream(self, mock_client, sample_lineage_response):
         """Test getting upstream lineage."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
             directive = AssetLineageDirective(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
@@ -108,11 +109,11 @@ class TestAssetLineageAPI:
         assert "upstreams" in result
         assert "downstreams" not in result
 
-    def test_get_lineage_downstream(self, mock_graph, sample_lineage_response):
+    def test_get_lineage_downstream(self, mock_client, sample_lineage_response):
         """Test getting downstream lineage."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             api = AssetLineageAPI()
             directive = AssetLineageDirective(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
@@ -132,11 +133,11 @@ class TestAssetLineageAPI:
 class TestGetLineage:
     """Tests for get_lineage function."""
 
-    def test_basic_upstream_lineage(self, mock_graph, sample_lineage_response):
+    def test_basic_upstream_lineage(self, mock_client, sample_lineage_response):
         """Test basic upstream lineage query."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 upstream=True,
@@ -147,11 +148,11 @@ class TestGetLineage:
         assert "upstreams" in result
         assert "searchResults" in result["upstreams"]
 
-    def test_basic_downstream_lineage(self, mock_graph, sample_lineage_response):
+    def test_basic_downstream_lineage(self, mock_client, sample_lineage_response):
         """Test basic downstream lineage query."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 upstream=False,
@@ -161,9 +162,9 @@ class TestGetLineage:
 
         assert "downstreams" in result
 
-    def test_column_level_lineage(self, mock_graph):
+    def test_column_level_lineage(self, mock_client):
         """Test column-level lineage with paths."""
-        mock_graph.execute_graphql.return_value = {
+        mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {
                 "start": 0,
                 "count": 1,
@@ -188,7 +189,7 @@ class TestGetLineage:
             }
         }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 column="user_id",
@@ -199,11 +200,11 @@ class TestGetLineage:
         assert "metadata" in result
         assert result["metadata"]["queryType"] == "column-level-lineage"
 
-    def test_lineage_with_query_filter(self, mock_graph, sample_lineage_response):
+    def test_lineage_with_query_filter(self, mock_client, sample_lineage_response):
         """Test lineage with query parameter."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 query="specific_table",
@@ -211,15 +212,15 @@ class TestGetLineage:
             )
 
         # Verify query parameter was passed
-        call_args = mock_graph.execute_graphql.call_args
+        call_args = mock_client._graph.execute_graphql.call_args
         variables = call_args.kwargs["variables"]
         assert variables["input"]["query"] == "specific_table"
 
-    def test_lineage_with_pagination(self, mock_graph, sample_lineage_response):
+    def test_lineage_with_pagination(self, mock_client, sample_lineage_response):
         """Test lineage pagination with offset."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 upstream=True,
@@ -234,11 +235,11 @@ class TestGetLineage:
         assert "returned" in upstreams
         assert "hasMore" in upstreams
 
-    def test_column_normalization(self, mock_graph, sample_lineage_response):
+    def test_column_normalization(self, mock_client, sample_lineage_response):
         """Test that column='null' is normalized to None."""
-        mock_graph.execute_graphql.return_value = sample_lineage_response
+        mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             get_lineage(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
                 column="null",  # Should be normalized to None
@@ -284,11 +285,11 @@ class TestGetLineagePathsBetween:
     @pytest.mark.xfail(
         reason="Requires complex mocking of _find_lineage_path internal calls"
     )
-    def test_dataset_level_path_downstream(self, mock_graph, sample_path_response):
+    def test_dataset_level_path_downstream(self, mock_client, sample_path_response):
         """Test finding dataset-level path downstream."""
-        mock_graph.execute_graphql.return_value = sample_path_response
+        mock_client._graph.execute_graphql.return_value = sample_path_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage_paths_between(
                 source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)",
                 target_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)",
@@ -304,9 +305,9 @@ class TestGetLineagePathsBetween:
     @pytest.mark.xfail(
         reason="Requires complex mocking of URN parsing and _find_lineage_path"
     )
-    def test_column_level_path(self, mock_graph):
+    def test_column_level_path(self, mock_client):
         """Test finding column-level path."""
-        mock_graph.execute_graphql.return_value = {
+        mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {
                 "searchResults": [
                     {
@@ -330,7 +331,7 @@ class TestGetLineagePathsBetween:
             }
         }
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage_paths_between(
                 source_urn="urn:li:dataset:source",
                 target_urn="urn:li:dataset:target",
@@ -343,11 +344,11 @@ class TestGetLineagePathsBetween:
         assert result["source"]["column"] == "user_id"
         assert result["target"]["column"] == "customer_id"
 
-    def test_auto_discover_direction(self, mock_graph, sample_path_response):
+    def test_auto_discover_direction(self, mock_client, sample_path_response):
         """Test auto-discovery of lineage direction."""
-        mock_graph.execute_graphql.return_value = sample_path_response
+        mock_client._graph.execute_graphql.return_value = sample_path_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage_paths_between(
                 source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)",
                 target_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)",
@@ -357,26 +358,26 @@ class TestGetLineagePathsBetween:
         assert "direction" in result["metadata"]
         assert "auto-discovered" in result["metadata"]["direction"]
 
-    def test_path_not_found_raises_error(self, mock_graph):
+    def test_path_not_found_raises_error(self, mock_client):
         """Test that no path found raises ItemNotFoundError."""
-        mock_graph.execute_graphql.return_value = {
+        mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {"searchResults": []}
         }
 
         with pytest.raises(ItemNotFoundError, match="No lineage"):
-            with DataHubContext(mock_graph):
+            with DataHubContext(mock_client):
                 get_lineage_paths_between(
                     source_urn="urn:li:dataset:source",
                     target_urn="urn:li:dataset:target",
                     direction="downstream",
                 )
 
-    def test_column_mismatch_raises_error(self, mock_graph):
+    def test_column_mismatch_raises_error(self, mock_client):
         """Test that mismatched column parameters raise ValueError."""
         with pytest.raises(
             ValueError, match="Both source_column and target_column must be provided"
         ):
-            with DataHubContext(mock_graph):
+            with DataHubContext(mock_client):
                 get_lineage_paths_between(
                     source_urn="urn:li:dataset:source",
                     target_urn="urn:li:dataset:target",
@@ -387,11 +388,11 @@ class TestGetLineagePathsBetween:
     @pytest.mark.xfail(
         reason="Requires complex mocking of _find_lineage_path internal calls"
     )
-    def test_query_entities_in_path(self, mock_graph, sample_path_response):
+    def test_query_entities_in_path(self, mock_client, sample_path_response):
         """Test that QUERY entities in path trigger metadata note."""
-        mock_graph.execute_graphql.return_value = sample_path_response
+        mock_client._graph.execute_graphql.return_value = sample_path_response
 
-        with DataHubContext(mock_graph):
+        with DataHubContext(mock_client):
             result = get_lineage_paths_between(
                 source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)",
                 target_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)",

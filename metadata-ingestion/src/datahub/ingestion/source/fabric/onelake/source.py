@@ -290,7 +290,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         # Process tables
         yield from self._process_item_tables(
-            workspace, lakehouse.id, "Lakehouse", lakehouse_key
+            workspace,
+            lakehouse.id,
+            "Lakehouse",
+            lakehouse_key,
+            item_display_name=lakehouse.name,
         )
 
     def _process_warehouse(
@@ -319,7 +323,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         # Process tables
         yield from self._process_item_tables(
-            workspace, warehouse.id, "Warehouse", warehouse_key
+            workspace,
+            warehouse.id,
+            "Warehouse",
+            warehouse_key,
+            item_display_name=warehouse.name,
         )
 
     def _process_item_tables(
@@ -328,6 +336,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_id: str,
         item_type: Literal["Lakehouse", "Warehouse"],
         item_container_key: ContainerKey,
+        item_display_name: str,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -341,44 +350,51 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # Fetch all schemas at item level for efficiency (single query per item)
             schema_map: dict[tuple[str, str], list[FabricColumn]] = {}
             if self.config.extract_schema.enabled and self.config.sql_endpoint:
-                try:
-                    from datahub.ingestion.source.fabric.onelake.schema_client import (
-                        create_schema_extraction_client,
+                if not tables:
+                    logger.info(
+                        f"Skipping schema extraction for {item_type} {item_id}: "
+                        "0 tables found, nothing to describe."
                     )
+                else:
+                    try:
+                        from datahub.ingestion.source.fabric.onelake.schema_client import (
+                            create_schema_extraction_client,
+                        )
 
-                    # Create schema client for this specific workspace/item
-                    # (endpoint URL is item-specific, so we create it here)
-                    # Use the schema report from the source report
-                    schema_client = create_schema_extraction_client(
-                        method=self.config.extract_schema.method,
-                        auth_helper=self.client.auth_helper,
-                        config=self.config.sql_endpoint,
-                        report=self.report.schema_report,
-                        workspace_id=workspace.id,
-                        item_id=item_id,
-                        item_type=item_type,
-                        base_client=self.client,
-                    )
+                        # Create schema client for this specific workspace/item
+                        # (endpoint URL is item-specific, so we create it here)
+                        # Use the schema report from the source report
+                        schema_client = create_schema_extraction_client(
+                            method=self.config.extract_schema.method,
+                            auth_helper=self.client.auth_helper,
+                            config=self.config.sql_endpoint,
+                            report=self.report.schema_report,
+                            workspace_id=workspace.id,
+                            item_id=item_id,
+                            item_type=item_type,
+                            base_client=self.client,
+                            item_display_name=item_display_name,
+                        )
 
-                    # Get all table schemas for this item in a single batch query
-                    schema_map = schema_client.get_all_table_columns(
-                        workspace_id=workspace.id,
-                        item_id=item_id,
-                    )
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.warning(
-                        f"Failed to extract schema for item {item_id}: {error_msg}. "
-                        "Tables will be ingested without column metadata."
-                    )
-                    # Report as warning in the main report
-                    self.report.report_warning(
-                        title="Schema Extraction Failed",
-                        message="Failed to extract schema metadata from SQL Analytics Endpoint.",
-                        context=f"item_id={item_id}, item_type={item_type}, error={error_msg[:200]}",
-                    )
-                    # Schema extraction failed, continue without schema metadata
-                    schema_map = {}
+                        # Get all table schemas for this item in a single batch query
+                        schema_map = schema_client.get_all_table_columns(
+                            workspace_id=workspace.id,
+                            item_id=item_id,
+                        )
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.warning(
+                            f"Failed to extract schema for item {item_id}: {error_msg}. "
+                            "Tables will be ingested without column metadata."
+                        )
+                        # Report as warning in the main report
+                        self.report.report_warning(
+                            title="Schema Extraction Failed",
+                            message="Failed to extract schema metadata from SQL Analytics Endpoint.",
+                            context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
+                        )
+                        # Schema extraction failed, continue without schema metadata
+                        schema_map = {}
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)

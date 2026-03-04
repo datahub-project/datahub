@@ -60,6 +60,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
     dataTestId?: string;
+    visibilityDeps?: React.DependencyList;
+    placement?: 'topLeft' | 'topCenter' | 'topRight' | 'bottomLeft' | 'bottomCenter' | 'bottomRight';
 }
 
 export interface SelectStyleProps {

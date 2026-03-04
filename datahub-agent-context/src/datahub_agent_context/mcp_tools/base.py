@@ -152,9 +152,12 @@ def _is_datahub_cloud(graph: DataHubGraph) -> bool:
         )
         return False
 
-    is_cloud = hasattr(graph, "frontend_base_url") and graph.frontend_base_url
-    logger.debug(f"Cloud detection: {is_cloud}")
-    return bool(is_cloud)
+    try:
+        is_cloud = hasattr(graph, "frontend_base_url") and graph.frontend_base_url
+        logger.debug(f"Cloud detection: {is_cloud}")
+        return bool(is_cloud)
+    except ValueError:
+        return False
 
 
 def _is_field_validation_error(error_msg: str) -> bool:

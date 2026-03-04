@@ -2,7 +2,11 @@ from typing import Optional
 
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -30,7 +34,7 @@ class CassandraCloudConfig(ConfigModel):
     Configuration for connecting to DataStax Astra DB in the cloud.
     """
 
-    token: str = Field(
+    token: TransparentSecretStr = Field(
         description="The Astra DB application token used for authentication.",
     )
 
@@ -69,7 +73,7 @@ class CassandraSourceConfig(
         description=f"Username credential with read access to the {SYSTEM_SCHEMA_KEYSPACE_NAME} keyspace.",
     )
 
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Password credential associated with the specified username.",
     )
