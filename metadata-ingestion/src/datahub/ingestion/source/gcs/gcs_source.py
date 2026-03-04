@@ -168,7 +168,7 @@ class GCSSourceConfig(
         description="Path to the Google Cloud Workload Identity Federation configuration JSON file. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration_json is not provided.",
     )
 
-    gcp_wif_configuration_json: Optional[Union[str, Dict]] = Field(
+    gcp_wif_configuration_json: Optional[Union[str, Dict[str, Any]]] = Field(
         default=None,
         description="Google Cloud Workload Identity Federation configuration as JSON string or dict. Alternative to gcp_wif_configuration file path. Required when auth_type is 'workload_identity_federation' and gcp_wif_configuration is not provided.",
     )
