@@ -12,7 +12,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/health/live,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
+  excludedPaths: /schema-registry/*,/health,/health/live,/health/detailed,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus,/openapi/operations/dev/featureFlags,/openapi/operations/dev/featureFlags/*
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -365,6 +365,7 @@ elasticsearch:
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
@@ -800,6 +801,9 @@ springdoc:
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
 
+devTooling:
+  enabled: ${DEV_TOOLING_ENABLED:false}
+
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
@@ -1015,6 +1019,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
