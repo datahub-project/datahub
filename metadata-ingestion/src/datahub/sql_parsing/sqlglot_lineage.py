@@ -71,6 +71,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 )
 from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
+    cooperate,
     cooperative_timeout,
 )
 from datahub.utilities.ordered_set import OrderedSet
@@ -1030,6 +1031,7 @@ def _select_statement_cll(
         logger.debug("output columns: %s", [col[0] for col in output_columns])
 
         for output_col, _original_col_expression in output_columns:
+            cooperate()
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -1236,6 +1238,7 @@ def _get_direct_raw_col_upstreams(
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
     for node in lineage_node.walk():
+        cooperate()
         if node.downstream:
             # We only want the leaf nodes.
             pass
@@ -1405,6 +1408,7 @@ def _get_raw_col_upstreams_for_expression(
 
     try:
         scope.expression.args["expressions"] = [select]
+        cooperate()
         node = sqlglot.lineage.to_node(
             column=0,
             scope=scope,
@@ -1427,6 +1431,7 @@ def _list_joins(
 
     scope: sqlglot.optimizer.Scope
     for scope in root_scope.traverse():
+        cooperate()
         # PART 1: Handle regular explicit JOINs (updated API)
         join: sqlglot.exp.Join
         for join in scope.expression.find_all(sqlglot.exp.Join):

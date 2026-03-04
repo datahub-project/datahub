@@ -122,6 +122,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
+    SQL_LINEAGE_TIMEOUT_SECONDS,
     ColumnLineageInfo,
     SqlParsingResult,
     create_and_cache_schema_resolver,
@@ -1361,8 +1362,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     upstream_warehouse_db_name,
                     platform_instance,
                 )
-                parsed_query_object = future.result()
-            except BrokenProcessPool:
+                parsed_query_object = future.result(
+                    timeout=SQL_LINEAGE_TIMEOUT_SECONDS * 2
+                )
+            except (BrokenProcessPool, TimeoutError):
                 logger.warning(
                     "SQL parsing process pool is broken, falling back to in-thread parsing"
                 )
