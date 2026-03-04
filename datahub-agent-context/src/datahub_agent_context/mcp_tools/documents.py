@@ -2,6 +2,7 @@
 
 import logging
 import pathlib
+import textwrap
 from typing import Any, Dict, List, Literal, Optional
 
 import re2  # type: ignore[import-untyped]
@@ -15,7 +16,10 @@ from datahub_agent_context.mcp_tools.base import (
     execute_graphql,
     fetch_global_default_view,
 )
-from datahub_agent_context.mcp_tools.search_filter_parser import parse_filter_string
+from datahub_agent_context.mcp_tools.search_filter_parser import (
+    FILTER_DOCS,
+    parse_filter_string,
+)
 
 # Load GraphQL queries at module level
 document_search_gql = (
@@ -356,40 +360,7 @@ def search_documents(
     - Only use when the query expresses intent/meaning, not for keyword lookups
     - Example: "how to deploy" finds deployment guides, CI/CD docs, release runbooks
 
-    FILTER SYNTAX (SQL-like WHERE clause):
-      Uses simple SQL-like syntax with AND, OR, NOT, and parentheses.
-
-      Basic filters:
-        platform = notion
-        subtype = Runbook
-        domain = urn:li:domain:engineering
-
-      Multiple values (IN):
-        platform IN (notion, confluence)
-        subtype IN (Runbook, FAQ, Tutorial)
-
-      Combining filters:
-        platform = notion AND domain = urn:li:domain:engineering
-        subtype = Runbook AND tag = urn:li:tag:critical
-
-      OR and parentheses:
-        platform = notion OR platform = confluence
-        subtype = Runbook AND (platform = notion OR platform = confluence)
-
-      NOT:
-        NOT platform = datahub
-        subtype = Runbook AND NOT tag = urn:li:tag:deprecated
-
-      SUPPORTED FILTER FIELDS:
-      - subtype (or entity_subtype): Runbook, FAQ, Tutorial, Reference, etc.
-      - platform: notion, confluence, datahub, etc.
-      - domain: full URN required, e.g. urn:li:domain:engineering
-      - tag: full URN required, e.g. urn:li:tag:critical
-      - glossary_term: full URN required, e.g. urn:li:glossaryTerm:pii
-      - owner: full URN required, e.g. urn:li:corpuser:alice or urn:li:corpGroup:team
-
-      Values containing special characters (spaces, =, parentheses) must be quoted:
-        tag = "urn:li:tag:my tag"
+    {FILTER_DOCS}
 
     PAGINATION:
     - num_results: Number of results per page (max: 50)
@@ -475,6 +446,11 @@ def search_documents(
         )
 
     return result
+
+
+search_documents.__doc__ = (search_documents.__doc__ or "").format(
+    FILTER_DOCS=textwrap.indent(FILTER_DOCS, "    ")
+)
 
 
 def _search_documents_impl(

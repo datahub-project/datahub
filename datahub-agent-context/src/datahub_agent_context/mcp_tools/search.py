@@ -2,6 +2,7 @@
 
 import logging
 import pathlib
+import textwrap
 from typing import Any, Dict, Literal, Optional
 
 from datahub.sdk.search_client import compile_filters
@@ -11,7 +12,10 @@ from datahub_agent_context.mcp_tools.base import (
     execute_graphql,
     fetch_global_default_view,
 )
-from datahub_agent_context.mcp_tools.search_filter_parser import parse_filter_string
+from datahub_agent_context.mcp_tools.search_filter_parser import (
+    FILTER_DOCS,
+    parse_filter_string,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,66 +72,7 @@ def search(
        -> Get entities with specific tag using URN from step 1
     3. Get details: Use get_entities() on specific results
 
-    FILTER SYNTAX (SQL-like WHERE clause):
-      Uses simple SQL-like syntax with AND, OR, NOT, and parentheses.
-
-      Basic filters:
-        platform = snowflake
-        entity_type = dataset
-        env = PROD
-
-      Multiple values (IN):
-        platform IN (snowflake, bigquery, redshift)
-        entity_type IN (dataset, dashboard)
-
-      Combining filters:
-        platform = snowflake AND env = PROD
-        entity_type = dataset AND platform IN (snowflake, bigquery)
-
-      OR and parentheses:
-        platform = snowflake OR platform = bigquery
-        entity_type = dataset AND (platform = snowflake OR platform = bigquery)
-
-      NOT:
-        NOT env = DEV
-        entity_type = dataset AND NOT platform = looker
-
-      Comparison operators (>, >=, <, <=):
-        columnCount > 10
-        columnCount >= 5
-        columnCount <= 100
-
-      Existence checks (IS NULL / IS NOT NULL):
-        glossary_term IS NOT NULL
-        tag IS NOT NULL
-        owner IS NULL
-
-      Complex:
-        entity_type = dataset AND env = PROD AND (platform = snowflake OR platform = bigquery)
-
-      SUPPORTED FILTER FIELDS:
-      - entity_type: dataset, dashboard, chart, corp_user, corp_group, dataProduct, etc.
-      - entity_subtype (or subtype): Table, View, Model, etc.
-      - platform: snowflake, bigquery, looker, tableau, etc.
-      - domain: full URN required, e.g. urn:li:domain:marketing
-      - container: full URN required, e.g. urn:li:container:abc123
-      - tag: full URN required, e.g. urn:li:tag:PII
-      - glossary_term: full URN required, e.g. urn:li:glossaryTerm:uuid
-      - owner: full URN required, e.g. urn:li:corpuser:alice or urn:li:corpGroup:team
-      - env: PROD, DEV, STAGING (only use if explicitly requested)
-      - status: NOT_SOFT_DELETED, ALL, ONLY_SOFT_DELETED
-      - deprecated: true or false (whether the entity is marked as deprecated)
-      - hasActiveIncidents: true or false (whether the entity has active incidents)
-      - hasFailingAssertions: true or false (whether the entity has failing assertions)
-      - columnCount: number of columns (from dataset profiling)
-
-      IMPORTANT: Domain, container, tag, glossary_term, and owner filters require
-      full URN format (urn:li:...). Search with entity_type = domain first to find
-      valid domain URNs, then use the exact URN from the results.
-
-      Values containing special characters (spaces, =, parentheses) must be quoted:
-        tag = "urn:li:tag:my tag"
-        customProperties = "key=value"
+    {FILTER_DOCS}
 
     SEARCH STRATEGY EXAMPLES:
     - /q customer+behavior -> finds tables with both terms (works with customer_behavior fields)
@@ -212,3 +157,8 @@ def search(
         response.pop("count", None)
 
     return clean_gql_response(response)
+
+
+search.__doc__ = (search.__doc__ or "").format(
+    FILTER_DOCS=textwrap.indent(FILTER_DOCS, "    ")
+)

@@ -94,7 +94,14 @@ class TestGetEntitiesUdf:
         result = generate_get_entities_udf()
 
         assert "from datahub_agent_context.mcp_tools import get_entities" in result
-        assert "return get_entities(" in result
+        assert "get_entities([entity_urn])" in result
+
+    def test_unwraps_single_result(self) -> None:
+        """Test that UDF returns a single dict (first element), not a list."""
+        result = generate_get_entities_udf()
+
+        assert "results = get_entities([entity_urn])" in result
+        assert "return results[0]" in result
 
 
 class TestListSchemaFieldsUdf:

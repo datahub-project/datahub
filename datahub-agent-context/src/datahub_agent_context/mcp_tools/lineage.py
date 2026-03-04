@@ -2,6 +2,7 @@
 
 import logging
 import pathlib
+import textwrap
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
@@ -11,7 +12,6 @@ from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import clean_gql_response, execute_graphql
-from datahub_agent_context.mcp_tools.search_filter_parser import parse_filter_string
 from datahub_agent_context.mcp_tools.helpers import (
     _extract_lineage_columns_from_paths,
     _select_results_within_budget,
@@ -19,6 +19,10 @@ from datahub_agent_context.mcp_tools.helpers import (
     inject_urls_for_urns,
     maybe_convert_to_schema_field_urn,
     truncate_descriptions,
+)
+from datahub_agent_context.mcp_tools.search_filter_parser import (
+    FILTER_DOCS,
+    parse_filter_string,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,39 +208,7 @@ def get_lineage(
     - Large lineage (>30 items) → Keep count=30, use facets for aggregation
     - Need complete list → Increase count only if total ≤100
 
-    FILTER SYNTAX (SQL-like WHERE clause, same as search tool):
-      Basic filters:
-        platform = snowflake
-        entity_type = dataset
-        env = PROD
-
-      Multiple values (IN):
-        platform IN (snowflake, bigquery, redshift)
-        entity_type IN (dataset, dashboard)
-
-      Combining filters:
-        platform = snowflake AND env = PROD
-        entity_type = dataset AND (platform = snowflake OR platform = bigquery)
-
-      NOT:
-        NOT env = DEV
-        entity_type = dataset AND NOT platform = looker
-
-      Existence checks (IS NULL / IS NOT NULL):
-        tag IS NOT NULL
-        owner IS NULL
-
-      SUPPORTED FILTER FIELDS:
-      - entity_type: dataset, dashboard, chart, corp_user, corp_group, etc.
-      - entity_subtype (or subtype): Table, View, Model, etc.
-      - platform: snowflake, bigquery, looker, tableau, etc.
-      - domain: full URN required, e.g. urn:li:domain:marketing
-      - container: full URN required, e.g. urn:li:container:abc123
-      - tag: full URN required, e.g. urn:li:tag:PII
-      - glossary_term: full URN required, e.g. urn:li:glossaryTerm:uuid
-      - owner: full URN required, e.g. urn:li:corpuser:alice
-      - env: PROD, DEV, STAGING
-      - deprecated: true or false
+    {FILTER_DOCS}
 
     Example:
         from datahub_agent_context.context import DataHubContext
@@ -342,6 +314,11 @@ def get_lineage(
         }
 
     return lineage
+
+
+get_lineage.__doc__ = (get_lineage.__doc__ or "").format(
+    FILTER_DOCS=textwrap.indent(FILTER_DOCS, "    ")
+)
 
 
 def _find_result_with_target_urn(
