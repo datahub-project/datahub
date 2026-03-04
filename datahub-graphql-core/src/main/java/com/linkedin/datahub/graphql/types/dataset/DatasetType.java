@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.DomainAuthorizationHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -15,7 +14,6 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
@@ -39,7 +37,6 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -102,11 +99,9 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient entityClient;
-  private final FeatureFlags featureFlags;
 
-  public DatasetType(final EntityClient entityClient, final FeatureFlags featureFlags) {
+  public DatasetType(final EntityClient entityClient) {
     this.entityClient = entityClient;
-    this.featureFlags = featureFlags;
   }
 
   @Override
@@ -274,32 +269,9 @@ public class DatasetType
         DatasetUpdateInputMapper.map(context, input, actor);
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
-    // Authorization - handles both domain-based and privilege-based modes
-    if (!featureFlags.isDomainBasedAuthorizationEnabled()) {
-      // Domain-based authorization DISABLED: Use privilege-based authorization
-      if (!isAuthorized(urn, input, context)) {
-        throw new AuthorizationException(
-            "Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
-    } else {
-      // Domain-based authorization ENABLED: Use domain-based authorization
-      Map<Urn, Set<Urn>> newDomainsByEntity =
-          DomainExtractionUtils.extractNewDomainsFromMCPs(proposals);
-
-      Map<MetadataChangeProposal, Boolean> authResults =
-          DomainAuthorizationHelper.authorizeWithDomains(
-              context.getOperationContext(),
-              context.getOperationContext().getEntityRegistry(),
-              new ArrayList<>(proposals),
-              newDomainsByEntity,
-              context.getOperationContext().getAspectRetriever());
-
-      // Check authorization results
-      boolean allAuthorized = authResults.values().stream().allMatch(authorized -> authorized);
-      if (!allAuthorized) {
-        throw new AuthorizationException(
-            "Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
+    if (!isAuthorized(urn, input, context)) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     try {

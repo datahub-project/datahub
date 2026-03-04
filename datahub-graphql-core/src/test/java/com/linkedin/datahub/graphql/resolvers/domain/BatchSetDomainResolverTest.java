@@ -11,7 +11,6 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
@@ -70,11 +69,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
         .thenReturn(true);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -141,11 +136,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
         .thenReturn(true);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -217,11 +208,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_2_URN)), eq(true)))
         .thenReturn(true);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -266,11 +253,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(false);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -315,11 +298,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_DOMAIN_1_URN)), eq(true)))
         .thenReturn(true);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -342,11 +321,7 @@ public class BatchSetDomainResolverTest {
     EntityService<?> mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -373,11 +348,7 @@ public class BatchSetDomainResolverTest {
         .when(mockService)
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    BatchSetDomainResolver resolver =
-        new BatchSetDomainResolver(mockService, mockClient, mockFlags);
+    BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService, mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

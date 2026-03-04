@@ -246,13 +246,34 @@ public class OperationContext implements AuthorizationSession {
       return retrieverContext;
     }
 
-    // Otherwise, rebuild with this OperationContext as the authorization session
+    // Capture only the two fields needed for auth to avoid a circular back-reference to `this`.
+    // Behavior is identical: OperationContext.authorize() delegates to exactly these two.
+    final AuthorizationContext capturedAuthCtx = this.authorizationContext;
+    final ActorContext capturedActorCtx = this.sessionActorContext;
     return io.datahubproject.metadata.context.RetrieverContext.builder()
         .graphRetriever(retrieverContext.getGraphRetriever())
         .aspectRetriever(retrieverContext.getAspectRetriever())
         .cachingAspectRetriever(retrieverContext.getCachingAspectRetriever())
         .searchRetriever(retrieverContext.getSearchRetriever())
-        .authorizationSession(this) // Inject the OperationContext as the authorization session
+        .authorizationSession(
+            new com.datahub.authorization.AuthorizationSession() {
+              @Override
+              public com.datahub.authorization.AuthorizationResult authorize(
+                  @javax.annotation.Nonnull String privilege,
+                  @javax.annotation.Nullable com.datahub.authorization.EntitySpec resourceSpec) {
+                return capturedAuthCtx.authorize(capturedActorCtx, privilege, resourceSpec);
+              }
+
+              @Override
+              public com.datahub.authorization.AuthorizationResult authorize(
+                  @javax.annotation.Nonnull String privilege,
+                  @javax.annotation.Nullable com.datahub.authorization.EntitySpec resourceSpec,
+                  @javax.annotation.Nonnull
+                      java.util.Collection<com.datahub.authorization.EntitySpec> subResources) {
+                return capturedAuthCtx.authorize(
+                    capturedActorCtx, privilege, resourceSpec, subResources);
+              }
+            })
         .build();
   }
 

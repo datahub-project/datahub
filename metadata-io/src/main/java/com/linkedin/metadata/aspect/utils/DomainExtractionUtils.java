@@ -38,6 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DomainExtractionUtils {
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   private DomainExtractionUtils() {
     // Utility class - prevent instantiation
   }
@@ -131,6 +133,9 @@ public class DomainExtractionUtils {
    */
   @Nonnull
   public static Set<Urn> extractDomainsFromMCP(@Nonnull MetadataChangeProposal mcp) {
+    if (!DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())) {
+      return Collections.emptySet();
+    }
     try {
       if (mcp.getAspect() == null || mcp.getAspect().getValue() == null) {
         return Collections.emptySet();
@@ -210,8 +215,7 @@ public class DomainExtractionUtils {
 
     try {
       // Deserialize to GenericJsonPatch for structured access
-      ObjectMapper mapper = new ObjectMapper();
-      GenericJsonPatch patch = mapper.readValue(patchDocument, GenericJsonPatch.class);
+      GenericJsonPatch patch = OBJECT_MAPPER.readValue(patchDocument, GenericJsonPatch.class);
 
       // Iterate through patch operations
       for (GenericJsonPatch.PatchOp op : patch.getPatch()) {
@@ -219,7 +223,9 @@ public class DomainExtractionUtils {
         Object value = op.getValue();
 
         // Check if this operation is modifying domains
-        if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
+        if (path != null
+            && (path.startsWith("/" + DOMAINS_ASPECT_NAME)
+                || path.equals("/" + DOMAINS_ASPECT_NAME))) {
           if (value != null) {
             domainUrns.addAll(extractDomainUrnsFromValue(value));
           }
@@ -246,12 +252,13 @@ public class DomainExtractionUtils {
     // Handle String (single domain)
     if (value instanceof String) {
       String urnStr = (String) value;
-      if (urnStr.startsWith("urn:li:domain:")) {
-        try {
-          domainUrns.add(Urn.createFromString(urnStr));
-        } catch (Exception e) {
-          log.warn("Invalid domain URN in patch: {}", urnStr);
+      try {
+        Urn urn = Urn.createFromString(urnStr);
+        if ("domain".equals(urn.getEntityType())) {
+          domainUrns.add(urn);
         }
+      } catch (Exception e) {
+        log.warn("Invalid domain URN in patch: {}", urnStr);
       }
     }
     // Handle List (multiple domains)
@@ -259,12 +266,13 @@ public class DomainExtractionUtils {
       for (Object item : (List<?>) value) {
         if (item instanceof String) {
           String urnStr = (String) item;
-          if (urnStr.startsWith("urn:li:domain:")) {
-            try {
-              domainUrns.add(Urn.createFromString(urnStr));
-            } catch (Exception e) {
-              log.warn("Invalid domain URN in patch: {}", urnStr);
+          try {
+            Urn urn = Urn.createFromString(urnStr);
+            if ("domain".equals(urn.getEntityType())) {
+              domainUrns.add(urn);
             }
+          } catch (Exception e) {
+            log.warn("Invalid domain URN in patch: {}", urnStr);
           }
         }
       }
@@ -280,9 +288,11 @@ public class DomainExtractionUtils {
    * the provided MCPs. It extracts the NEW/proposed domains from the MCP itself, not from the
    * database.
    *
-   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization.
+   * <p>dataHubExecutionRequest entities are explicitly excluded because they are internal system
+   * entities (category: internal) not configurable via policies. Without this exclusion,
+   * domain-based authorization would always reject them since they have no domain and no policy
+   * can be created to allow them.
    *
-   * @param mcps MetadataChangeProposals to process
    * @return Map of entity URN to set of NEW domain URNs being proposed. Only contains entries for
    *     entities that are changing their domains aspect.
    */
@@ -296,7 +306,11 @@ public class DomainExtractionUtils {
     for (MetadataChangeProposal mcp : mcps) {
       Urn entityUrn = mcp.getEntityUrn();
 
-      // Skip if no URN or system entity
+      // Skip dataHubExecutionRequest: it is an internal system entity (category: internal in
+      // entity-registry.yml) that is absent from ENTITY_RESOURCE_PRIVILEGES in PoliciesConfig.
+      // No policy can be created to grant access to it, so domain-based authorization would
+      // always reject execution requests (which have no domain assigned). Explicit exclusion
+      // here ensures the system remains functional.
       if (entityUrn == null || EXECUTION_REQUEST_ENTITY_NAME.equals(entityUrn.getEntityType())) {
         continue;
       }
@@ -320,7 +334,10 @@ public class DomainExtractionUtils {
    * entities that have the Domains aspect in their snapshot, regardless of whether they're changing
    * or not (since we can't tell from the Entity object alone).
    *
-   * <p>Special entities like dataHubExecutionRequest are excluded from domain-based authorization.
+   * <p>dataHubExecutionRequest entities are explicitly excluded because they are internal system
+   * entities (category: internal) not configurable via policies. Without this exclusion,
+   * domain-based authorization would always reject them since they have no domain and no policy
+   * can be created to allow them.
    *
    * @param entities List of Entity objects with their URNs
    * @return Map of entity URN to set of domain URNs found in the entities. Only contains entries
@@ -336,7 +353,11 @@ public class DomainExtractionUtils {
       Urn entityUrn = pair.getFirst();
       Entity entity = pair.getSecond();
 
-      // Skip system entities
+      // Skip dataHubExecutionRequest: it is an internal system entity (category: internal in
+      // entity-registry.yml) that is absent from ENTITY_RESOURCE_PRIVILEGES in PoliciesConfig.
+      // No policy can be created to grant access to it, so domain-based authorization would
+      // always reject execution requests (which have no domain assigned). Explicit exclusion
+      // here ensures the system remains functional.
       if (EXECUTION_REQUEST_ENTITY_NAME.equals(entityUrn.getEntityType())) {
         continue;
       }
@@ -353,6 +374,8 @@ public class DomainExtractionUtils {
 
   /**
    * Validate that all domain URNs exist in the system.
+   *
+   * <p>Note: includeSoftDeleted=true means soft-deleted domains are treated as existing.
    *
    * @param opContext Operation context
    * @param entityService Entity service for existence checks

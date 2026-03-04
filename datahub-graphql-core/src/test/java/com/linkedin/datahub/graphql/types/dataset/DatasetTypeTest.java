@@ -11,7 +11,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
@@ -32,12 +31,6 @@ public class DatasetTypeTest {
       "urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)";
   private static final String TEST_DOMAIN_URN = "urn:li:domain:test-domain";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
-
-  private FeatureFlags getMockFeatureFlags() {
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
-    return mockFlags;
-  }
 
   @Test
   public void testUpdateDatasetWithoutDomainOldAuthorizationPattern() throws Exception {
@@ -61,7 +54,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input (empty update to demonstrate authorization)
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -110,7 +103,7 @@ public class DatasetTypeTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(existingDomains.data())))))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input (empty update to demonstrate authorization)
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -159,7 +152,7 @@ public class DatasetTypeTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(existingDomains.data())))))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input (empty update to demonstrate authorization)
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -199,7 +192,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(dataset2Urn))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create batch update input
     com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput[] input =
@@ -278,7 +271,7 @@ public class DatasetTypeTest {
                                 Constants.DOMAINS_ASPECT_NAME,
                                 new EnvelopedAspect().setValue(new Aspect(domain2.data())))))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create batch update input
     com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput[] input =
@@ -346,7 +339,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(dataset2Urn))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create batch update input
     com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput[] input =
@@ -409,11 +402,7 @@ public class DatasetTypeTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(existingDomains.data())))))));
 
-    // Create feature flags with domain-based authorization ENABLED
-    FeatureFlags mockFeatureFlagsEnabled = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFeatureFlagsEnabled.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    DatasetType datasetType = new DatasetType(mockClient, mockFeatureFlagsEnabled);
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with various update fields
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -449,7 +438,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with editable properties
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -489,7 +478,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with ownership - set required owners list
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -529,7 +518,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with deprecation - set required note field
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -570,7 +559,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with tags - set required tags list
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -610,7 +599,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with institutional memory - set required elements list
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -650,7 +639,7 @@ public class DatasetTypeTest {
                     .setUrn(Urn.createFromString(TEST_DATASET_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    DatasetType datasetType = new DatasetType(mockClient, getMockFeatureFlags());
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input with editable schema metadata - set required field info list
     DatasetUpdateInput input = new DatasetUpdateInput();
@@ -704,11 +693,7 @@ public class DatasetTypeTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(existingDomains.data())))))));
 
-    // Create feature flags with domain-based authorization ENABLED
-    FeatureFlags mockFeatureFlagsEnabled = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFeatureFlagsEnabled.isDomainBasedAuthorizationEnabled()).thenReturn(true);
-
-    DatasetType datasetType = new DatasetType(mockClient, mockFeatureFlagsEnabled);
+    DatasetType datasetType = new DatasetType(mockClient);
 
     // Create update input - adding editable properties to generate proposals
     DatasetUpdateInput input = new DatasetUpdateInput();

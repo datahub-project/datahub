@@ -5,7 +5,6 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -20,7 +19,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -34,12 +32,6 @@ public class BatchGetEntitiesResolverTest {
     _entityService = mock(EntityService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _entityClient = mock(EntityClient.class);
-  }
-
-  private FeatureFlags getMockFeatureFlags() {
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
-    return mockFlags;
   }
 
   List<Entity> getRequestEntities(List<String> urnList) {
@@ -71,8 +63,7 @@ public class BatchGetEntitiesResolverTest {
     when(entityProvider.apply(any())).thenReturn(inputEntities);
     BatchGetEntitiesResolver resolver =
         new BatchGetEntitiesResolver(
-            ImmutableList.of(new DatasetType(_entityClient, getMockFeatureFlags())),
-            entityProvider);
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
 
     DataLoaderRegistry mockDataLoaderRegistry = mock(DataLoaderRegistry.class);
     when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(mockDataLoaderRegistry);
@@ -106,8 +97,7 @@ public class BatchGetEntitiesResolverTest {
     when(entityProvider.apply(any())).thenReturn(inputEntities);
     BatchGetEntitiesResolver resolver =
         new BatchGetEntitiesResolver(
-            ImmutableList.of(new DatasetType(_entityClient, getMockFeatureFlags())),
-            entityProvider);
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
 
     DataLoaderRegistry mockDataLoaderRegistry = mock(DataLoaderRegistry.class);
     when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(mockDataLoaderRegistry);

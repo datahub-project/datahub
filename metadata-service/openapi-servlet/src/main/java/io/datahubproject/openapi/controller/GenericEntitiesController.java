@@ -12,7 +12,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +26,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -562,47 +560,6 @@ public abstract class GenericEntitiesController<
 
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
 
-    // Convert batch items to MCPs for authorization
-    List<MetadataChangeProposal> mcps =
-        batch.getMCPItems().stream()
-            .map(item -> item.getMetadataChangeProposal())
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
-
-    // Perform authorization at API layer for all MCPs (both sync and async modes)
-    // This is critical for async mode where transactions run under system account
-    if (!mcps.isEmpty()) {
-      // Extract NEW domains when domain-based authorization is enabled
-      Map<Urn, Set<Urn>> newDomainsByEntity =
-          configurationProvider.getFeatureFlags() != null
-                  && configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()
-              ? DomainExtractionUtils.extractNewDomainsFromMCPs(mcps)
-              : null;
-
-      Map<MetadataChangeProposal, Boolean> authResults =
-          DomainAuthorizationHelper.authorizeWithDomains(
-              opContext, entityRegistry, mcps, newDomainsByEntity, opContext.getAspectRetriever());
-
-      // Check for authorization failures
-      List<MetadataChangeProposal> failures =
-          authResults.entrySet().stream()
-              .filter(entry -> !entry.getValue())
-              .map(Map.Entry::getKey)
-              .collect(Collectors.toList());
-
-      if (!failures.isEmpty()) {
-        String errorMessages =
-            failures.stream()
-                .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
-                .collect(Collectors.joining(", "));
-        throw new UnauthorizedException(
-            "User "
-                + authentication.getActor().toUrnStr()
-                + " is unauthorized to modify entities: "
-                + errorMessages);
-      }
-    }
-
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -701,16 +658,9 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Domain-based authorization (when enabled) is now handled inside the transaction
-    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-    // Only perform standard authorization here when domain-based auth is disabled
-    if (configurationProvider.getFeatureFlags() == null
-        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      // Standard entity URN authorization when domain auth is disabled
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
-        throw new UnauthorizedException(
-            authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-      }
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
@@ -784,16 +734,9 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Domain-based authorization (when enabled) is now handled inside the transaction
-    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-    // Only perform standard authorization here when domain-based auth is disabled
-    if (configurationProvider.getFeatureFlags() == null
-        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      // Standard entity URN authorization when domain auth is disabled
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
-        throw new UnauthorizedException(
-            actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-      }
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
+      throw new UnauthorizedException(
+          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();

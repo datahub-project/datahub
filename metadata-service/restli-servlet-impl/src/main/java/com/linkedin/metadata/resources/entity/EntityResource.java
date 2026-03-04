@@ -1,8 +1,6 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.*;
-import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
-import com.datahub.authorization.DomainAuthorizationHelper;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
@@ -30,7 +28,6 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -41,7 +38,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.util.Pair;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.datahub.util.RecordUtils;
@@ -299,30 +295,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
     }
 
-    // Extract NEW domains from entity for authorization when domain-based auth is enabled
-    Map<Urn, Set<Urn>> newDomainsByEntity = null;
-    if (isDomainBasedAuthorizationEnabled(authorizer)) {
-      List<Pair<Urn, Entity>> entityList =
-          Collections.singletonList(new Pair<>(urn, entity));
-      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromEntities(entityList);
-    }
-
-    // Authorize with domain-based authorization if enabled
-    // Create a temporary MCP for authorization purposes
-    MetadataChangeProposal tempMcp = new MetadataChangeProposal();
-    tempMcp.setEntityUrn(urn);
-    tempMcp.setEntityType(urn.getEntityType());
-    tempMcp.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
-
-    Map<MetadataChangeProposal, Boolean> authResults =
-        DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, opContext.getEntityRegistry(), List.of(tempMcp), newDomainsByEntity, opContext.getAspectRetriever());
-
-    if (!authResults.getOrDefault(tempMcp, false)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
-    }
-
     SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(providedSystemMetadata);
 
     final AuditStamp auditStamp =
@@ -361,39 +333,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         validateTrimOrThrow(entity);
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
-      }
-    }
-
-    // Extract NEW domains from all entities for authorization when domain-based auth is enabled
-    Map<Urn, Set<Urn>> newDomainsByEntity = null;
-    if (isDomainBasedAuthorizationEnabled(authorizer)) {
-      List<Pair<Urn, Entity>> entityList = new ArrayList<>();
-      for (int i = 0; i < entities.length; i++) {
-        entityList.add(new Pair<>(urns.get(i), entities[i]));
-      }
-      newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromEntities(entityList);
-    }
-
-    // Authorize with domain-based authorization if enabled
-    // Create temporary MCPs for authorization purposes
-    List<MetadataChangeProposal> tempMcps = new ArrayList<>();
-    for (Urn urn : urns) {
-      MetadataChangeProposal tempMcp = new MetadataChangeProposal();
-      tempMcp.setEntityUrn(urn);
-      tempMcp.setEntityType(urn.getEntityType());
-      tempMcp.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
-      tempMcps.add(tempMcp);
-    }
-
-    Map<MetadataChangeProposal, Boolean> authResults =
-        DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, opContext.getEntityRegistry(), tempMcps, newDomainsByEntity, opContext.getAspectRetriever());
-
-    // Check for any unauthorized MCPs
-    for (MetadataChangeProposal mcp : tempMcps) {
-      if (!authResults.getOrDefault(mcp, false)) {
-        throw new RestLiServiceException(
-            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + mcp.getEntityUrn());
       }
     }
 

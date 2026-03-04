@@ -1,17 +1,9 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.Set;
-
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
-import static com.datahub.authorization.AuthorizerChain.isDomainBasedAuthorizationEnabled;
-import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -26,7 +18,6 @@ import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.DomainAuthorizationHelper;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.linkedin.entity.EnvelopedAspect;
@@ -37,7 +28,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -136,8 +126,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     @Inject
     @Named("authorizerChain")
     private Authorizer _authorizer;
-
-    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     @VisibleForTesting
     void setAuthorizer(Authorizer authorizer) {
@@ -318,52 +306,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         return RestliUtils.toTask(opContext, () -> {
                 log.debug("Proposals: {}", metadataChangeProposals);
                 try {
-                    // Separate MCPs into those that need authorization and system entities that don't
-                    // System entities like dataHubExecutionRequest bypass authorization
-                    List<MetadataChangeProposal> mcpsToAuthorize = metadataChangeProposals.stream()
-                        .filter(mcp -> mcp.getEntityUrn() == null ||
-                                      !EXECUTION_REQUEST_ENTITY_NAME.equals(mcp.getEntityUrn().getEntityType()))
-                        .collect(Collectors.toList());
-                    
-                    if (mcpsToAuthorize.size() < metadataChangeProposals.size()) {
-                        log.info("Skipping authorization for {} system entities (e.g., dataHubExecutionRequest)",
-                            metadataChangeProposals.size() - mcpsToAuthorize.size());
-                    }
-
-                    // Perform API-layer authorization for all MCPs (critical for async mode)
-                    // In async mode, the transaction runs under system account, so we must authorize here
-                    if (!mcpsToAuthorize.isEmpty()) {
-                        // Extract NEW domains from MCPs when domain-based authorization is enabled
-                        final Map<Urn, Set<Urn>> newDomainsByEntity;
-                        if (isDomainBasedAuthorizationEnabled(_authorizer)) {
-                            log.info("Domain-based authorization is ENABLED. Extracting NEW domains for {} proposals.",
-                                mcpsToAuthorize.size());
-                            newDomainsByEntity = DomainExtractionUtils.extractNewDomainsFromMCPs(mcpsToAuthorize);
-                        } else {
-                            log.info("Domain-based authorization is DISABLED. Using standard authorization for {} proposals.",
-                                mcpsToAuthorize.size());
-                            newDomainsByEntity = null;
-                        }
-
-                        // Authorize all MCPs with unified method (handles both domain-based and standard auth)
-                        Map<MetadataChangeProposal, Boolean> authResults = DomainAuthorizationHelper.authorizeWithDomains(
-                            opContext, opContext.getEntityRegistry(), mcpsToAuthorize, newDomainsByEntity, opContext.getAspectRetriever());
-
-                        // Check for authorization failures
-                        List<MetadataChangeProposal> failures = authResults.entrySet().stream()
-                            .filter(entry -> !entry.getValue())
-                            .map(Map.Entry::getKey)
-                            .collect(Collectors.toList());
-
-                        if (!failures.isEmpty()) {
-                            String errorMessages = failures.stream()
-                                .map(mcp -> String.format("Urn: %s", mcp.getEntityUrn()))
-                                .collect(Collectors.joining(", "));
-                            throw new RestLiServiceException(
-                                HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entities: " + errorMessages);
-                        }
-                    }
-
                     final AspectsBatch batch = AspectsBatchImpl.builder()
                         .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                             opContext.getValidationContext().isAlternateValidation())

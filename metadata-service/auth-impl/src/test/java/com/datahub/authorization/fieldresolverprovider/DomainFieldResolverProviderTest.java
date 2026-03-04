@@ -194,7 +194,10 @@ public class DomainFieldResolverProviderTest
 
   @Test
   public void testGetDomainsWithProposedAspect()
-      throws ExecutionException, InterruptedException, RemoteInvocationException {
+      throws ExecutionException,
+          InterruptedException,
+          RemoteInvocationException,
+          URISyntaxException {
     // Test the proposedAspects path: domain authorization before commit
     Urn domainUrn1 = UrnUtils.getUrn("urn:li:domain:engineering");
     Urn domainUrn2 = UrnUtils.getUrn("urn:li:domain:platform");

@@ -7,7 +7,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -31,7 +30,6 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
-  private final FeatureFlags _featureFlags;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -77,11 +75,9 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateInputResource(ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!_featureFlags.isDomainBasedAuthorizationEnabled()) {
-      if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn, _entityClient)) {
-        throw new AuthorizationException(
-            "Unauthorized to perform this action. Please contact your DataHub administrator.");
-      }
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn, _entityClient)) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
         context.getOperationContext(),
@@ -100,8 +96,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
           maybeDomainUrn == null ? null : UrnUtils.getUrn(maybeDomainUrn),
           resources,
           UrnUtils.getUrn(context.getActorUrn()),
-          _entityService,
-          _featureFlags.isDomainBasedAuthorizationEnabled());
+          _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

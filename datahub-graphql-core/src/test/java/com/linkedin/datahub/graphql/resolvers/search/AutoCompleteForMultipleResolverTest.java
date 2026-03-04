@@ -11,7 +11,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -42,12 +41,6 @@ public class AutoCompleteForMultipleResolverTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private AutoCompleteForMultipleResolverTest() {}
-
-  private static FeatureFlags getMockFeatureFlags() {
-    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
-    Mockito.when(mockFlags.isDomainBasedAuthorizationEnabled()).thenReturn(false);
-    return mockFlags;
-  }
 
   public static void testAutoCompleteResolverSuccess(
       EntityClient mockClient,
@@ -98,7 +91,7 @@ public class AutoCompleteForMultipleResolverTest {
         viewService,
         Constants.DATASET_ENTITY_NAME,
         EntityType.DATASET,
-        new DatasetType(mockClient, getMockFeatureFlags()),
+        new DatasetType(mockClient),
         null,
         null);
 
@@ -164,7 +157,7 @@ public class AutoCompleteForMultipleResolverTest {
         viewService,
         Constants.DATASET_ENTITY_NAME,
         EntityType.DATASET,
-        new DatasetType(mockClient, getMockFeatureFlags()),
+        new DatasetType(mockClient),
         TEST_VIEW_URN,
         viewInfo.getDefinition().getFilter());
   }
@@ -216,7 +209,7 @@ public class AutoCompleteForMultipleResolverTest {
 
     final AutoCompleteForMultipleResolver resolver =
         new AutoCompleteForMultipleResolver(
-            ImmutableList.of(new DatasetType(mockClient, getMockFeatureFlags())), viewService);
+            ImmutableList.of(new DatasetType(mockClient)), viewService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();

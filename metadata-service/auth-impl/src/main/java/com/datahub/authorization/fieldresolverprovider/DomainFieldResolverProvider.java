@@ -116,7 +116,9 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       } catch (Exception e) {
         log.error(
             "Error while processing proposed domains aspect for entitySpec {}", entitySpec, e);
-        return FieldResolver.emptyFieldValue();
+        // Fail closed: throw rather than returning empty, which could allow a permissive
+        // non-domain policy to grant access when proposed-domain auth should have blocked it.
+        throw new RuntimeException("Failed to process proposed domains for authorization", e);
       }
     }
 
