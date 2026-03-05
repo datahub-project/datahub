@@ -415,6 +415,31 @@ class TrinoSource(SQLAlchemySource):
             ),
         ).as_workunit()
 
+    def _emit_connector_lineage(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        entity: str,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.ingest_lineage_to_connectors:
+            return
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        source_dataset_urn = self._get_source_dataset_urn(
+            dataset_name, inspector, schema, entity
+        )
+        if source_dataset_urn:
+            yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+            yield from self.gen_lineage_workunit(
+                dataset_urn, source_dataset_urn, schema_metadata
+            )
+
     def _process_table(
         self,
         dataset_name: str,
@@ -433,23 +458,9 @@ class TrinoSource(SQLAlchemySource):
                 schema_metadata = sm
             yield wu
 
-        if self.config.ingest_lineage_to_connectors:
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, table
-            )
-            if source_dataset_urn:
-                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                yield from self.gen_lineage_workunit(
-                    dataset_urn,
-                    source_dataset_urn,
-                    schema_metadata if self.config.include_column_lineage else None,
-                )
+        yield from self._emit_connector_lineage(
+            dataset_name, inspector, schema, table, schema_metadata
+        )
 
     def _process_view(
         self,
@@ -468,23 +479,9 @@ class TrinoSource(SQLAlchemySource):
                 schema_metadata = sm
             yield wu
 
-        if self.config.ingest_lineage_to_connectors:
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, view
-            )
-            if source_dataset_urn:
-                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                yield from self.gen_lineage_workunit(
-                    dataset_urn,
-                    source_dataset_urn,
-                    schema_metadata if self.config.include_column_lineage else None,
-                )
+        yield from self._emit_connector_lineage(
+            dataset_name, inspector, schema, view, schema_metadata
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
