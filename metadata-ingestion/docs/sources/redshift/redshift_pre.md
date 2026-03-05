@@ -218,7 +218,7 @@ To enable cross-cluster lineage through datashares, grant the following privileg
 GRANT SHARE ON your_datashare_name TO datahub;
 ```
 
-## Ingestion of multiple redshift databases, namespaces
+### Ingestion of multiple redshift databases, namespaces
 
 - If multiple databases are present in the Redshift namespace (or provisioned cluster),
   you would need to set up a separate ingestion per database.
@@ -229,7 +229,7 @@ GRANT SHARE ON your_datashare_name TO datahub;
   you specify a platform_instance equivalent to namespace in recipe. It can be same as namespace id or other
   human readable name however it should be unique across all your redshift namespaces.
 
-## Lineage
+### Lineage
 
 There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
 
@@ -284,14 +284,14 @@ The redshift stl redshift tables which are used for getting data lineage retain 
 
 :::
 
-## Datashares Lineage
+### Datashares Lineage
 
 This is enabled by default, can be disabled via setting `include_share_lineage: False`
 
 It is mandatory to run redshift ingestion of datashare producer namespace at least once so that lineage
 shows up correctly after datashare consumer namespace is ingested.
 
-## Profiling
+### Profiling
 
 Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
 
