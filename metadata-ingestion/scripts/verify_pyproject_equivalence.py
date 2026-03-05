@@ -14,7 +14,10 @@ import sys
 from pathlib import Path
 from typing import Dict, Set
 
+sys.path.insert(0, str(Path(__file__).parent))
+
 import toml
+from generate_pyproject_deps import merge_duplicate_deps
 
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
@@ -77,12 +80,16 @@ def normalize_entry_point(ep: str) -> tuple:
 
 
 def compare_sets(label: str, setup_set: Set[str], pyproject_set: Set[str]) -> bool:
-    if setup_set == pyproject_set:
-        print(f"  {label}... OK ({len(setup_set)} deps)")
+    # Normalize both sides to handle duplicate specifiers from set math
+    # (e.g. botocore!=1.23.0 + botocore!=1.23.0,<2.0.0 → botocore!=1.23.0,<2.0.0)
+    setup_merged = merge_duplicate_deps(setup_set)
+    pyproject_merged = merge_duplicate_deps(pyproject_set)
+    if setup_merged == pyproject_merged:
+        print(f"  {label}... OK ({len(setup_merged)} deps)")
         return True
 
-    only_setup = setup_set - pyproject_set
-    only_pyproject = pyproject_set - setup_set
+    only_setup = setup_merged - pyproject_merged
+    only_pyproject = pyproject_merged - setup_merged
     print(f"  {label}... MISMATCH")
     if only_setup:
         print(f"    In setup.py only: {sorted(only_setup)}")

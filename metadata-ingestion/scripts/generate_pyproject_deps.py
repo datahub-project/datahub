@@ -15,8 +15,12 @@ Usage:
 """
 
 import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
+
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
@@ -43,8 +47,126 @@ def load_setup_py_variables() -> Dict:
     return namespace
 
 
+def _spec_sort_key(spec_str: str) -> Tuple[int, str]:
+    """Sort specifiers: >= > == ~= != <= <"""
+    order = {">=": 0, ">": 1, "==": 2, "~=": 3, "!=": 4, "<=": 5, "<": 6}
+    for op in sorted(order.keys(), key=len, reverse=True):
+        if spec_str.startswith(op):
+            return (order[op], spec_str[len(op) :])
+    return (99, spec_str)
+
+
+def _parse_spec(spec_str: str) -> Tuple[str, str]:
+    """Split a specifier string into (operator, version)."""
+    for op in (">=", ">", "<=", "<", "!=", "==", "~="):
+        if spec_str.startswith(op):
+            return (op, spec_str[len(op) :])
+    return ("", spec_str)
+
+
+def _narrow_specifiers(specs: Set[str]) -> Set[str]:
+    """Simplify redundant specifiers to the narrowest constraint.
+
+    For upper bounds (<, <=): keep only the lowest (most restrictive).
+    For lower bounds (>=, >): keep only the highest (most restrictive).
+    For exclusions and pins (!=, ==, ~=): keep all unique.
+    """
+    by_op: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
+    for spec_str in specs:
+        op, ver = _parse_spec(spec_str)
+        by_op[op].append((ver, spec_str))
+
+    result: Set[str] = set()
+    for op, entries in by_op.items():
+        if op in (">=", ">"):
+            # Keep highest version = most restrictive lower bound
+            # Tiebreaker: prefer longer string (more explicit, e.g. 2.0.0 > 2.0)
+            try:
+                best = max(entries, key=lambda x: (Version(x[0]), len(x[0])))
+                result.add(best[1])
+            except Exception:
+                result.update(s for _, s in entries)
+        elif op in ("<=", "<"):
+            # Keep lowest version = most restrictive upper bound
+            # Tiebreaker: prefer longer string (more explicit, e.g. 3.0.0 > 3.0)
+            try:
+                best = min(entries, key=lambda x: (Version(x[0]), -len(x[0])))
+                result.add(best[1])
+            except Exception:
+                result.update(s for _, s in entries)
+        else:
+            # !=, ==, ~=: keep all unique
+            result.update(s for _, s in entries)
+
+    return result
+
+
+def merge_duplicate_deps(deps: Set[str]) -> Set[str]:
+    """Merge duplicate package specifiers in a dependency set.
+
+    When flattening setup.py's set math, the same package can appear multiple
+    times with different specifiers or extras (e.g. from sql_common and aws_common).
+    This merges them into a single entry per (package, marker) pair:
+    - Union extras: smart-open[s3] + smart-open[azure] -> smart-open[azure,s3]
+    - Narrow specifiers: pandas<2.2.0 + pandas<3.0.0 -> pandas<2.2.0
+    - Entries with different environment markers are kept separate.
+    """
+    groups: Dict[Tuple[str, str], List[Requirement]] = defaultdict(list)
+    originals: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+
+    for dep_str in deps:
+        try:
+            req = Requirement(dep_str)
+        except Exception:
+            # Unparseable — keep original string as-is
+            key = ("__unparseable__", dep_str)
+            groups[key].append(None)  # type: ignore[arg-type]
+            originals[key].append(dep_str)
+            continue
+
+        marker_str = str(req.marker) if req.marker else ""
+        key = (req.name.lower().replace("-", "_"), marker_str)
+        groups[key].append(req)
+        originals[key].append(dep_str)
+
+    result: Set[str] = set()
+    for key, reqs in groups.items():
+        if key[0] == "__unparseable__" or len(reqs) == 1:
+            result.add(originals[key][0])
+            continue
+
+        # Merge extras (union)
+        merged_extras: Set[str] = set()
+        for req in reqs:
+            merged_extras |= req.extras
+
+        # Collect all specifier clauses, then narrow to tightest constraint
+        all_specs: Set[str] = set()
+        for req in reqs:
+            for spec in req.specifier:
+                all_specs.add(str(spec))
+        narrowed = _narrow_specifiers(all_specs)
+
+        # Reconstruct using original package name casing
+        pkg_name = reqs[0].name
+        marker_str = key[1]
+
+        parts = [pkg_name]
+        if merged_extras:
+            parts.append("[" + ",".join(sorted(merged_extras)) + "]")
+        if narrowed:
+            parts.append(",".join(sorted(narrowed, key=_spec_sort_key)))
+        if marker_str:
+            parts.append(" ; " + marker_str)
+
+        result.add("".join(parts))
+
+    return result
+
+
 def sort_deps(deps: Set[str]) -> List[str]:
-    return sorted(deps, key=lambda x: x.lower())
+    merged = merge_duplicate_deps(deps)
+    return sorted(merged, key=lambda x: x.lower())
 
 
 def format_toml_list(items: List[str], indent: str = "    ") -> str:
