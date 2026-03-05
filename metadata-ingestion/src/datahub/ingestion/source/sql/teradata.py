@@ -1157,6 +1157,10 @@ ORDER by DataBaseName, TableName;
                                     pool_wait_time
                                 )
 
+                        # Set database context once per connection/thread
+                        # This allows HELP commands to work without requiring database in connection string
+                        conn.execute(text(f'DATABASE "{schema}"'))
+
                         # Measure view processing setup
                         processing_start = time.time()
                         thread_inspector = inspect(conn)
@@ -1256,6 +1260,11 @@ ORDER by DataBaseName, TableName;
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
+
+                # Set database context once for all views in this schema
+                # This allows HELP commands to work without requiring database in connection string
+                conn.execute(text(f'DATABASE "{schema}"'))
+                logger.debug(f"Set database context to {schema} for view processing")
 
                 for view_name in view_names:
                     view_start_time = time.time()
