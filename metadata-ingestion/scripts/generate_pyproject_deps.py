@@ -1,74 +1,25 @@
 #!/usr/bin/env python3
 """
-Generate pyproject.toml dependencies from setup.py.
+Generate pyproject.toml dependency sections from setup.py.
 
-Uses self-referencing extras (PEP 621) to avoid duplicating shared dependency
-sets across plugins. Shared sets like sql_common, aws_common, etc. become
-their own extras, and plugins reference them via acryl-datahub[sql-common].
+Resolves all Python set math (sql_common | postgres_common | aws_common) in
+memory and outputs fully flattened, inlined dependency arrays per plugin.
+No self-referencing extras — pyproject.toml is treated as compiled output.
+
+setup.py remains the human-readable source of truth where developers use DRY
+Python set composition and maintain comments (CVE refs, version history, etc.).
 
 Usage:
     python scripts/generate_pyproject_deps.py > pyproject_deps.toml
-    # Then manually merge into pyproject.toml
+    # Then manually append the [tool.uv] and [tool.ruff] sections
 """
 
 import sys
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Set, Tuple
+from typing import Dict, List, Set
 
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
-
-# Shared dependency sets from setup.py that become their own extras.
-# Order matters: larger/composite sets first so greedy matching works correctly.
-SHARED_SET_NAMES: List[str] = [
-    # Composite sets (contain other shared sets)
-    "sql_common",
-    "mysql_common",
-    "looker_common",
-    "s3_base",
-    "delta_lake",
-    "notion_common",
-    "confluence_common",
-    "unstructured_lib",
-    # Medium shared sets
-    "snowflake_common",
-    "bigquery_common",
-    "redshift_common",
-    "iceberg_common",
-    "databricks_common",
-    "databricks",
-    "abs_base",
-    "data_lake_profiling",
-    "aws_common",
-    "kafka_common",
-    "kafka_protobuf",
-    "pyhive_common",
-    "mssql_common",
-    "postgres_common",
-    "clickhouse_common",
-    "dataplex_common",
-    "superset_common",
-    "embedding_common",
-    # Small shared sets
-    "sqlglot_lib",
-    "sqlalchemy_lib",
-    "classification_lib",
-    "great_expectations_lib",
-    "dbt_common",
-    "usage_common",
-    "cachetools_lib",
-    "pyarrow_common",
-    "path_spec_common",
-    "rest_common",
-    "microsoft_common",
-    "threading_timeout_common",
-    "azure_data_factory",
-    "powerbi_report_server",
-    "slack",
-    "trino",
-    "mysql",
-    "sac",
-]
 
 # Extras that create circular dependencies with uv lock
 CIRCULAR_EXTRAS = {"airflow", "great-expectations"}
@@ -92,13 +43,8 @@ def load_setup_py_variables() -> Dict:
     return namespace
 
 
-def sort_deps(deps) -> List[str]:
+def sort_deps(deps: Set[str]) -> List[str]:
     return sorted(deps, key=lambda x: x.lower())
-
-
-def to_extra_name(var_name: str) -> str:
-    """Convert Python variable name to PEP 621 extra name."""
-    return var_name.replace("_", "-")
 
 
 def format_toml_list(items: List[str], indent: str = "    ") -> str:
@@ -112,39 +58,7 @@ def format_toml_list(items: List[str], indent: str = "    ") -> str:
     return "\n".join(lines)
 
 
-def decompose_plugin(
-    plugin_deps: FrozenSet[str],
-    framework_common: FrozenSet[str],
-    shared_sets: List[Tuple[str, FrozenSet[str]]],
-) -> Tuple[List[str], List[str]]:
-    """Decompose a plugin's deps into self-references + unique deps.
-
-    Returns (extra_refs, unique_deps) where extra_refs are like
-    "acryl-datahub[sql-common]" and unique_deps are individual packages.
-    """
-    plugin_unique = plugin_deps - framework_common
-    remaining = set(plugin_unique)
-    refs: List[str] = []
-
-    for var_name, shared_deps in shared_sets:
-        overlap = shared_deps - framework_common
-        # Shared set's deps must all be within the plugin's full dep set
-        # (don't reference a shared set that would add unwanted deps).
-        # But only require it to contribute at least one dep still in remaining
-        # (other deps may already be covered by an earlier shared set reference).
-        if overlap and overlap <= plugin_unique:
-            contribution = overlap & remaining
-            if contribution:
-                refs.append(to_extra_name(var_name))
-                remaining -= contribution
-
-    extra_refs = []
-    if refs:
-        extra_refs = [f"acryl-datahub[{','.join(sorted(refs))}]"]
-    return extra_refs, sort_deps(remaining)
-
-
-def generate_pyproject_toml():
+def generate_pyproject_toml() -> str:
     ns = load_setup_py_variables()
 
     base_requirements: Set[str] = ns["base_requirements"]
@@ -159,20 +73,32 @@ def generate_pyproject_toml():
     debug_requirements: Set[str] = ns["debug_requirements"]
     entry_points: Dict = ns["entry_points"]
 
-    fw_frozen = frozenset(framework_common)
-
-    # Load shared sets from setup.py namespace, skipping names that
-    # collide with plugin names (those are handled as plugins directly)
-    plugin_extra_names = {p.replace("_", "-") for p in plugins}
-    shared_sets: List[Tuple[str, FrozenSet[str]]] = []
-    for var_name in SHARED_SET_NAMES:
-        extra_name = to_extra_name(var_name)
-        if extra_name in plugin_extra_names:
-            continue
-        if var_name in ns and isinstance(ns[var_name], set):
-            shared_sets.append((var_name, frozenset(ns[var_name])))
+    # framework_common deps are in [project].dependencies, so plugin extras
+    # only need their unique deps (deps beyond the base).
+    fw = frozenset(base_requirements | framework_common)
 
     output_lines: List[str] = []
+
+    # Header
+    output_lines.append("# ===== DO NOT EDIT dependency sections by hand =====")
+    output_lines.append("#")
+    output_lines.append("# This file is generated from setup.py by:")
+    output_lines.append(
+        "#   python scripts/generate_pyproject_deps.py > /tmp/pyproject_deps.toml"
+    )
+    output_lines.append(
+        "# Then merged with the manually maintained [tool.uv] and [tool.ruff] sections below."
+    )
+    output_lines.append("#")
+    output_lines.append(
+        "# setup.py is the human-readable source of truth for dependencies."
+    )
+    output_lines.append("# After regenerating, verify equivalence with setup.py:")
+    output_lines.append("#   python scripts/verify_pyproject_equivalence.py")
+    output_lines.append("#")
+    output_lines.append("# Then regenerate the lock file:")
+    output_lines.append("#   uv lock")
+    output_lines.append("")
 
     # Build system
     output_lines.append("[build-system]")
@@ -210,12 +136,12 @@ def generate_pyproject_toml():
     output_lines.append("]")
     output_lines.append("")
 
-    # Base dependencies
+    # Base dependencies (base_requirements + framework_common)
     base_deps = sort_deps(base_requirements | framework_common)
     output_lines.append("dependencies = " + format_toml_list(base_deps))
     output_lines.append("")
 
-    # Project URLs (must come after all [project] keys)
+    # Project URLs
     output_lines.append("[project.urls]")
     output_lines.append('Homepage = "https://docs.datahub.com/"')
     output_lines.append('Documentation = "https://docs.datahub.com/docs/"')
@@ -226,70 +152,44 @@ def generate_pyproject_toml():
     output_lines.append('Releases = "https://github.com/acryldata/datahub/releases"')
     output_lines.append("")
 
-    # === Optional dependencies ===
+    # === Optional dependencies (fully flattened) ===
     output_lines.append("[project.optional-dependencies]")
     output_lines.append("")
 
-    # base extra: referenced in Docker builds (e.g., [base,datahub-rest,...]).
-    # Its deps are already in [project].dependencies, so this is an empty marker.
+    # base extra: empty marker referenced in Docker builds
     output_lines.append("base = []")
     output_lines.append("")
 
-    # Shared dependency sets as extras (enables self-referencing)
-    output_lines.append("# --- Shared dependency sets ---")
-    output_lines.append(
-        "# These mirror the named sets in setup.py (sql_common, aws_common, etc.)."
-    )
-    output_lines.append(
-        "# Plugins reference them via acryl-datahub[sql-common] instead of"
-    )
-    output_lines.append("# duplicating every dependency.")
-    output_lines.append("")
-
-    for var_name, shared_deps in shared_sets:
-        extra_name = to_extra_name(var_name)
-        # Exclude self from decomposition targets to avoid self-matching
-        other_shared = [(n, d) for n, d in shared_sets if n != var_name]
-        own_refs, own_unique = decompose_plugin(shared_deps, fw_frozen, other_shared)
-        all_items = own_refs + own_unique
-        if all_items:
-            output_lines.append(f"{extra_name} = " + format_toml_list(all_items))
-            output_lines.append("")
-
-    # Plugin extras
-    output_lines.append("# --- Plugin extras ---")
+    # Plugin extras — each plugin's deps are fully inlined (no self-references)
     output_lines.append("# airflow and great-expectations excluded (circular deps).")
     output_lines.append(
-        "# Use acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly."
+        "# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly."
     )
     output_lines.append("")
 
     for plugin_name in sorted(plugins.keys()):
         if plugin_name in CIRCULAR_EXTRAS:
             continue
-        plugin_deps = frozenset(plugins[plugin_name])
-        refs, unique = decompose_plugin(plugin_deps, fw_frozen, shared_sets)
-        all_items = refs + unique
-        if all_items:
-            output_lines.append(f"{plugin_name} = " + format_toml_list(all_items))
-        else:
-            output_lines.append(f"{plugin_name} = []")
+        plugin_deps = plugins[plugin_name]
+        unique_deps = plugin_deps - fw
+        output_lines.append(
+            f"{plugin_name} = " + format_toml_list(sort_deps(unique_deps))
+        )
         output_lines.append("")
 
     # "all" extra
     output_lines.append(
         "# All plugins (excluding: " + ", ".join(sorted(all_exclude_plugins)) + ")"
     )
-    all_deps = framework_common.copy()
+    all_deps: Set[str] = set()
     for plugin_name, plugin_deps in plugins.items():
         if plugin_name not in all_exclude_plugins:
             all_deps |= plugin_deps
-    all_frozen = frozenset(all_deps)
-    all_refs, all_unique = decompose_plugin(all_frozen, fw_frozen, shared_sets)
-    output_lines.append("all = " + format_toml_list(all_refs + all_unique))
+    all_unique = all_deps - fw
+    output_lines.append("all = " + format_toml_list(sort_deps(all_unique)))
     output_lines.append("")
 
-    # Cloud, dev, docs, lint, testing-utils, integration-tests, debug
+    # Meta extras: cloud, dev, docs, lint, testing-utils, integration-tests, debug
     output_lines.append('cloud = ["acryl-datahub-cloud"]')
     output_lines.append("")
     output_lines.append("dev = " + format_toml_list(sort_deps(dev_requirements)))
@@ -345,6 +245,10 @@ def generate_pyproject_toml():
         '"datahub.ingestion.source.powerbi" = ["powerbi-lexical-grammar.rule"]'
     )
     output_lines.append('"datahub.ingestion.autogenerated" = ["*.json"]')
+    output_lines.append("")
+
+    # End of generated section marker
+    output_lines.append("# ===== END OF GENERATED SECTION =====")
     output_lines.append("")
 
     return "\n".join(output_lines)
