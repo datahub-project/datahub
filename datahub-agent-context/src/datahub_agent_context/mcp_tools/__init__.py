@@ -12,6 +12,7 @@ from datahub_agent_context.mcp_tools.lineage import (
 )
 from datahub_agent_context.mcp_tools.owners import add_owners, remove_owners
 from datahub_agent_context.mcp_tools.queries import get_dataset_queries
+from datahub_agent_context.mcp_tools.save_document import save_document
 from datahub_agent_context.mcp_tools.search import search
 from datahub_agent_context.mcp_tools.structured_properties import (
     add_structured_properties,
@@ -45,4 +46,5 @@ __all__ = [
     "add_structured_properties",
     "remove_structured_properties",
     "get_me",
+    "save_document",
 ]

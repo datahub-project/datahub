@@ -67,6 +67,8 @@ import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryRes
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchAddToDataProductsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchRemoveFromDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
@@ -1419,6 +1421,13 @@ public class GmsGraphQLEngine {
                   "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
               .dataFetcher(
                   "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "batchAddToDataProducts",
+                  new BatchAddToDataProductsResolver(this.dataProductService, this.featureFlags))
+              .dataFetcher(
+                  "batchRemoveFromDataProducts",
+                  new BatchRemoveFromDataProductsResolver(
+                      this.dataProductService, this.featureFlags))
               .dataFetcher(
                   "createApplication",
                   new CreateApplicationResolver(this.applicationService, this.entityService))
