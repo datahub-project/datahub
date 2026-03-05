@@ -442,6 +442,10 @@ slack = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
+snowplow = {
+    *cachetools_lib,
+}
+
 databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
@@ -673,7 +677,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib,
-    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
+    "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
     "mysql": mysql_common,
@@ -709,6 +713,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowplow": snowplow,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -905,12 +910,14 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snowplow",
             "snaplogic",
             "slack",
             "tableau",
             "teradata",
             "trino",
             "hive",
+            "hive-metastore",
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
@@ -1051,6 +1058,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
+        "snowplow = datahub.ingestion.source.snowplow.snowplow:SnowplowSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
