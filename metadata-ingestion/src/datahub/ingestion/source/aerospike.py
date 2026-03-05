@@ -15,7 +15,7 @@ from typing import (
 
 import aerospike
 import aerospike_helpers
-from pydantic import PositiveInt, SecretStr
+from pydantic import PositiveInt, SecretStr, field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -95,6 +95,23 @@ class AerospikeConfig(
     hosts: List[tuple] = Field(
         default=[("localhost", 3000)], description="Aerospike hosts list."
     )
+
+    @field_validator("hosts")
+    @classmethod
+    def validate_hosts(cls, hosts: List[tuple]) -> List[tuple]:
+        for host in hosts:
+            if len(host) < 2:
+                raise ValueError(
+                    f"Each host must have at least a hostname and port, got: {host!r}"
+                )
+            try:
+                int(host[1])
+            except (ValueError, TypeError) as e:
+                raise ValueError(
+                    f"Port must be an integer, got {host[1]!r} for host {host[0]!r}"
+                ) from e
+        return hosts
+
     username: Optional[str] = Field(default=None, description="Aerospike username.")
     password: Optional[SecretStr] = Field(
         default=None, description="Aerospike password."
