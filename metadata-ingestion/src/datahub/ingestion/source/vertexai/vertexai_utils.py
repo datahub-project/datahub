@@ -1,7 +1,7 @@
 import logging
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Iterator, List, Optional, TypeVar
+from typing import Dict, Iterable, Iterator, List, Optional, TypeVar, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -24,6 +24,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     VertexAIResourceCategoryKey,
 )
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -231,3 +232,35 @@ def sort_by_update_time(
         or datetime.min.replace(tzinfo=timezone.utc),
         reverse=reverse,
     )
+
+
+def paginated_list_with_rate_limit(
+    pager: Iterable[T],
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+) -> List[T]:
+    results: List[T] = []
+
+    if hasattr(pager, "pages"):
+        for page in pager.pages:
+            with rate_limiter:
+                results.extend(list(page))
+    else:
+        with rate_limiter:
+            results = list(pager)
+
+    return results
+
+
+def iterate_pager_with_rate_limit(
+    pager: Iterable[T],
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+) -> Iterator[T]:
+    if hasattr(pager, "pages"):
+        for page in pager.pages:
+            with rate_limiter:
+                for item in page:
+                    yield item
+    else:
+        with rate_limiter:
+            for item in pager:
+                yield item

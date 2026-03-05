@@ -174,10 +174,10 @@ class VertexAIConfig(
         "Enable if you see '429 Quota Exceeded' errors during ingestion.",
     )
     requests_per_min: int = Field(
-        default=60,
-        description="How many Vertex AI API calls to allow per minute when rate_limit is enabled. "
-        "Start low (30–60) and increase only if ingestion is too slow — some calls fetch multiple "
-        "pages of results internally, so the real quota usage is higher than this number suggests.",
+        default=300,
+        description="Max API calls per minute when rate_limit is enabled. "
+        "Google's default quota is 600/min/region. Start with 300 (50% of quota) and adjust based on "
+        "whether you see 429 errors or if ingestion is too slow.",
     )
     # Optional multi-project / filter support
     project_ids: List[str] = Field(
