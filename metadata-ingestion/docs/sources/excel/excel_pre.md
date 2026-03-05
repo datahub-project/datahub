@@ -8,8 +8,8 @@ By default, this connector will ingest all worksheets in a workbook (an Excel fi
 
 Supported file types are as follows:
 
-- Excel workbook (\*.xlsx)
-- Excel macro-enabled workbook (\*.xlsm)
+- Excel workbook (`*.xlsx`)
+- Excel macro-enabled workbook (`*.xlsm`)
 
 The connector will attempt to identify which cells contain table data. A table is defined as a header row, which is used to derive the column names, followed by data rows. The schema is inferred from the data types that are present in a column.
 

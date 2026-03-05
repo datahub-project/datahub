@@ -517,11 +517,11 @@ def generate(  # noqa: C901
                 f.write(f"\n{section_heading} Install the Plugin\n")
                 if plugin.extra_deps and len(plugin.extra_deps):
                     f.write("```shell\n")
-                    f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
+                    f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
                     f.write("```\n")
                 else:
                     f.write(
-                        f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
+                        f"The `{plugin_name}` source works out of the box with `acryl-datahub`.\n"
                     )
                 if plugin.starter_recipe:
                     f.write(f"\n{section_heading} Starter Recipe\n")

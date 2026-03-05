@@ -10,12 +10,12 @@ Just replace `s3://` in your path_specs with an absolute path to files on the ma
 
 Supported file types are as follows:
 
-- CSV (\*.csv)
-- TSV (\*.tsv)
-- JSONL (\*.jsonl)
-- JSON (\*.json)
-- Parquet (\*.parquet)
-- Apache Avro (\*.avro)
+- CSV (`*.csv`)
+- TSV (`*.tsv`)
+- JSONL (`*.jsonl`)
+- JSON (`*.json`)
+- Parquet (`*.parquet`)
+- Apache Avro (`*.avro`)
 
 Schemas for Parquet and Avro files are extracted as provided.
 

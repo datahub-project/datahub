@@ -1,4 +1,4 @@
-### Setup
+### Prerequisites
 
 The artifacts used by this source are:
 

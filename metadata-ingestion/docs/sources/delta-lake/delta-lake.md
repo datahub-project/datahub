@@ -1,4 +1,4 @@
-## Usage Guide
+### Usage Guide
 
 If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide.
 

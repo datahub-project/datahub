@@ -1,5 +1,7 @@
 ### Setup
 
+#### Concept Mapping
+
 Requires a Dremio API token with permissions to **read metadata** and **retrieve lineage**.
 
 #### Steps to Get the Required Information

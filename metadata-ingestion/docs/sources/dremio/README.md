@@ -1,5 +1,3 @@
-#### Concept Mapping
-
 Here's a table for **Concept Mapping** between Dremio and DataHub to provide a clear overview of how entities and concepts in Dremio are mapped to corresponding entities in DataHub:
 
 | Source Concept             | DataHub Concept | Notes                                                      |

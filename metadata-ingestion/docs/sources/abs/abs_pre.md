@@ -3,7 +3,7 @@ file or a folder of files to a dataset in DataHub.
 To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer
 section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
 
-#### Concept Mapping
+### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -16,16 +16,16 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 This connector supports both local files and those stored on Azure Blob Storage (which must be identified using the
 prefix `http(s)://<account>.blob.core.windows.net/` or `azure://`).
 
-#### Supported file types
+### Supported file types
 
 Supported file types are as follows:
 
-- CSV (\*.csv)
-- TSV (\*.tsv)
-- JSONL (\*.jsonl)
-- JSON (\*.json)
-- Parquet (\*.parquet)
-- Apache Avro (\*.avro)
+- CSV (`*.csv`)
+- TSV (`*.tsv`)
+- JSONL (`*.jsonl`)
+- JSON (`*.json`)
+- Parquet (`*.parquet`)
+- Apache Avro (`*.avro`)
 
 Schemas for Parquet and Avro files are extracted as provided.
 
@@ -34,7 +34,5 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few
 objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
-
-#### Profiling
 
 Profiling is not available in the current release.
