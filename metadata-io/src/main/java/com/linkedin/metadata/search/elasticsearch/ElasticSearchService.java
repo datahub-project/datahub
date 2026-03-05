@@ -310,6 +310,32 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     }
   }
 
+  /**
+   * Appends a run ID to the runId list on a document in a V3 search group index. Used by
+   * MAE-consumer when updating the search index so runId is written in the same bulk batch as the
+   * document.
+   */
+  public void appendRunIdBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nullable String runId) {
+    log.debug(
+        "Appending run id for searchGroup '{}', docId='{}', runId='{}'", searchGroup, docId, runId);
+
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("urn", urn.toString());
+    upsert.put("runId", Collections.singletonList(runId));
+
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("runId", runId);
+    scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, docId, SCRIPT_SOURCE, scriptParams, upsert);
+  }
+
   @Nonnull
   @Override
   public SearchResult search(
