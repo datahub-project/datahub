@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import azureAdConfig from '@app/ingestV2/source/conf/azure/azure';
 import bigqueryConfig from '@app/ingestV2/source/conf/bigquery/bigquery';
 import csvConfig from '@app/ingestV2/source/conf/csv/csv';
+import flinkConfig from '@app/ingestV2/source/conf/flink/flink';
 import glueConfig from '@app/ingestV2/source/conf/glue/glue';
 import hiveConfig from '@app/ingestV2/source/conf/hive/hive';
 import kafkaConfig from '@app/ingestV2/source/conf/kafka/kafka';
@@ -39,6 +40,7 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     redshiftConfig,
     snowflakeConfig,
     kafkaConfig,
+    flinkConfig,
     lookerConfig,
     tableauConfig,
     mysqlConfig,
