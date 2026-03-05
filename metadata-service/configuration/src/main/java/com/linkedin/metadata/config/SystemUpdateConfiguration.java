@@ -14,4 +14,8 @@ public class SystemUpdateConfiguration {
 
   /** Entity consistency checking configuration */
   private EntityConsistencyConfiguration entityConsistency;
+
+  /** Kubernetes scale-down during system-update (GMS/MAE/MCE) */
+  private com.linkedin.metadata.config.kubernetes.KubernetesScaleDownConfiguration
+      kubernetesScaleDown;
 }

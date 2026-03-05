@@ -8,6 +8,10 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
+# Kubernetes environment (global). When the process runs in a K8 pod, the cluster sets KUBERNETES_SERVICE_HOST.
+kubernetes:
+  serviceHost: ${KUBERNETES_SERVICE_HOST:}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
@@ -940,6 +944,23 @@ systemUpdate:
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  kubernetesScaleDown:
+    enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
+    useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
+    maxRetries: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES:3}
+    stateConfigMapName: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_STATE_CONFIG_MAP:}
+    # Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE). Set via Helm.
+    scaleDownDeploymentLabelSelectors: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS:}
+    # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
+    # label selector get env set when scaling down; state stores previous env per deployment for restore.
+    # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
+    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
+    kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
+    kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
+    kedaScaledObjectsPlural: ${DATAHUB_UPGRADE_K8_KEDA_SCALED_OBJECTS_PLURAL:scaledobjects}
+    rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
+    # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
+    rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
