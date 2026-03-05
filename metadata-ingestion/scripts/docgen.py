@@ -513,17 +513,16 @@ def generate(  # noqa: C901
                 # Insert custom pre section
                 f.write(plugin.custom_docs_pre or "")
 
-                # Install the Plugin section (only if extra_deps exist)
+                # Always show Install the Plugin section
+                f.write(f"\n{section_heading} Install the Plugin\n")
                 if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write(f"\n{section_heading} Install the Plugin\n")
-                    if plugin.extra_deps != []:
-                        f.write("```shell\n")
-                        f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
-                        f.write("```\n")
-                    else:
-                        f.write(
-                            f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
-                        )
+                    f.write("```shell\n")
+                    f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
+                    f.write("```\n")
+                else:
+                    f.write(
+                        f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
+                    )
                 if plugin.starter_recipe:
                     f.write(f"\n{section_heading} Starter Recipe\n")
                     f.write(

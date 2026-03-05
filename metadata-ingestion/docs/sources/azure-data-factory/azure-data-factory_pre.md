@@ -2,6 +2,16 @@
 This connector is for **Azure Data Factory** (classic), not Azure Fabric's Data Factory. Azure Fabric support is planned for a future release.
 :::
 
+### Concept Mapping
+
+| ADF Concept  | DataHub Entity      |
+| ------------ | ------------------- |
+| Data Factory | Container           |
+| Pipeline     | DataFlow            |
+| Activity     | DataJob             |
+| Dataset      | Dataset             |
+| Pipeline Run | DataProcessInstance |
+
 ### Prerequisites
 
 #### Authentication

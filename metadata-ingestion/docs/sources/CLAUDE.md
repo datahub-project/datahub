@@ -42,7 +42,7 @@ Only edit `_pre.md`, `_post.md`, and `_recipe.yml`. Everything else is generated
 ## Module `plugin-name` (H2) ← auto-generated (always shown)
 ### Important Capabilities (H3) ← auto-generated
 [_pre.md content with H3 sections]
-### Install the Plugin (H3) ← auto-generated (if extra_deps exist)
+### Install the Plugin (H3) ← auto-generated (always shown)
 ### Starter Recipe (H3) ← auto-generated (if recipe exists)
 ### Config Details (H3) ← auto-generated
 [_post.md content with H3 sections]
