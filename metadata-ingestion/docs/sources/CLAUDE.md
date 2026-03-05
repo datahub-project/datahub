@@ -39,12 +39,14 @@ Only edit `_pre.md`, `_post.md`, and `_recipe.yml`. Everything else is generated
 ```
 # Platform Name (H1) ← auto-generated
 [README.md content with H3 sections]
-## Module `plugin-name` (H2) ← auto-generated (if multiple plugins)
+## Module `plugin-name` (H2) ← auto-generated (always shown)
 ### Important Capabilities (H3) ← auto-generated
 [_pre.md content with H3 sections]
-### CLI based Ingestion (H3) ← auto-generated
+### Install the Plugin (H3) ← auto-generated (if extra_deps exist)
+### Starter Recipe (H3) ← auto-generated (if recipe exists)
 ### Config Details (H3) ← auto-generated
 [_post.md content with H3 sections]
+### Code Coordinates (H3) ← auto-generated
 ```
 
 Using H3 as baseline ensures proper hierarchy whether there's one plugin or multiple plugins per platform.
