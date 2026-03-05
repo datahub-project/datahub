@@ -13,6 +13,10 @@ set -x
 mkdir -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 
+# Generate temporary token signing keys
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY=$(openssl rand -base64 32)
+DATAHUB_TOKEN_SERVICE_SALT=$(openssl rand -base64 32)
+
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
 DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.19.3}"
@@ -36,6 +40,8 @@ DATAHUB_VERSION=${DATAHUB_VERSION} \
 ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
 POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10 \
 DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY} \
+DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT} \
 DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
 docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
 
