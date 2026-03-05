@@ -1,4 +1,4 @@
-## Integration Details
+### Integration Details
 
 <!-- Plain-language description of what this integration is meant to do.  -->
 <!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
@@ -9,7 +9,7 @@ The data that is returned will be parsed
 and will be displayed as Nodes and Relationships in DataHub. Each object will be tagged with describing what kind of DataHub
 object it is. The defaults are 'Node' and 'Relationship'. These tag values can be overwritten in the recipe.
 
-## Metadata Ingestion Quickstart
+### Metadata Ingestion Quickstart
 
 ### Prerequisites
 

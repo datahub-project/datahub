@@ -1,6 +1,6 @@
 # Snowplow
 
-## Overview
+### Overview
 
 The Snowplow source extracts metadata from Snowplow's behavioral data platform, including:
 
@@ -15,7 +15,7 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
 - **Snowplow BDP** (Behavioral Data Platform) - Managed Snowplow with Console API
 - **Open-source Snowplow** - Self-hosted with Iglu schema registry
 
-## Supported Capabilities
+### Supported Capabilities
 
 | Capability              | Status       | Notes                                                     |
 | ----------------------- | ------------ | --------------------------------------------------------- |
@@ -27,7 +27,7 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
 | Pipelines & Enrichments | ✅ Supported | Extract data pipelines and enrichment jobs (BDP only)     |
 | Deletion Detection      | ✅ Supported | Via stateful ingestion                                    |
 
-## Prerequisites
+### Prerequisites
 
 ### For Snowplow BDP (Managed)
 
@@ -47,14 +47,14 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
 - Python 3.8 or newer
 - DataHub CLI installed
 
-## Installation
+### Installation
 
 ```bash
 # Install DataHub with Snowplow support
 pip install 'acryl-datahub[snowplow]'
 ```
 
-## Required Permissions
+### Required Permissions
 
 ### Snowplow BDP API Permissions
 
@@ -99,7 +99,7 @@ For **open-source Snowplow** with Iglu:
 - **Public registries**: No authentication required (e.g., Iglu Central)
 - **Private registries**: API key with read access to schemas
 
-## Configuration
+### Configuration
 
 See the recipe files for complete configuration examples:
 
@@ -204,7 +204,7 @@ See the recipe files for complete configuration examples:
 | `stateful_ingestion.enabled`               | bool | false   | Enable stateful ingestion for deletion detection |
 | `stateful_ingestion.remove_stale_metadata` | bool | true    | Remove schemas that no longer exist              |
 
-## Quick Start
+### Quick Start
 
 ### 1. BDP Console (Managed Snowplow)
 
@@ -318,7 +318,7 @@ sink:
 
 **Requirements**: Data Models must be configured in your BDP organization.
 
-## Schema Versioning
+### Schema Versioning
 
 Snowplow uses **SchemaVer** (semantic versioning for schemas) with the format `MODEL-REVISION-ADDITION`:
 
@@ -337,7 +337,7 @@ In DataHub, schemas are represented as:
 - **Dataset name**: `{vendor}.{name}.{version}` (e.g., `com.example.page_view.1-0-0`)
 - **Schema version**: Tracked in dataset properties
 
-## Entity Mapping: Snowplow → DataHub
+### Entity Mapping: Snowplow → DataHub
 
 This section explains how Snowplow concepts are modeled as DataHub entities.
 
@@ -526,7 +526,7 @@ Each entity type includes relevant custom properties:
 - `input_fields`, `output_fields`
 - `configuration` details
 
-## Troubleshooting
+### Troubleshooting
 
 ### Authentication Errors
 
@@ -618,7 +618,7 @@ Each entity type includes relevant custom properties:
 - Rate limits should be handled automatically
 - If issues persist, contact Snowplow support to increase limits
 
-## Limitations
+### Limitations
 
 1. **BDP-specific features**:
 
@@ -636,7 +636,7 @@ Each entity type includes relevant custom properties:
    - PII/sensitive field detection requires BDP deployment metadata
    - Not available when using Iglu-only mode
 
-## Advanced Configuration
+### Advanced Configuration
 
 ### Custom Platform Instance
 
@@ -688,7 +688,7 @@ source:
       remove_stale_metadata: true
 ```
 
-## Testing the Connection
+### Testing the Connection
 
 Use DataHub's built-in test-connection command:
 
@@ -704,7 +704,7 @@ This will:
 - Verify required permissions
 - Report capability availability
 
-## References
+### References
 
 - [Snowplow Documentation](https://docs.snowplow.io/)
 - [Snowplow BDP Console API](https://console.snowplowanalytics.com/api/msc/v1/docs/)
@@ -712,7 +712,7 @@ This will:
 - [SchemaVer Specification](https://docs.snowplow.io/docs/api-reference/iglu/common-architecture/schemaver/)
 - [Snowplow GitHub](https://github.com/snowplow/snowplow)
 
-## Support
+### Support
 
 For issues or questions:
 

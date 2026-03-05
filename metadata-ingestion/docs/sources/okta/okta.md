@@ -1,6 +1,6 @@
 As a prerequisite, you should create a DataHub Application within the Okta Developer Console with full permissions to read your organization's Users and Groups.
 
-## Compatibility
+### Compatibility
 
 Validated against Okta API Versions:
 

@@ -9,7 +9,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | `"OpenAPI"`    | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                        |
 | API Endpoint   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT` |
 
-## Capabilities
+### Capabilities
 
 The OpenAPI source extracts metadata from OpenAPI specifications and optionally makes live API calls to gather schema information. It supports:
 
@@ -21,7 +21,7 @@ The OpenAPI source extracts metadata from OpenAPI specifications and optionally 
 - **Tag extraction** - Preserves tags from OpenAPI specifications
 - **Description extraction** - Extracts endpoint descriptions and summaries
 
-## Schema Extraction Behavior
+### Schema Extraction Behavior
 
 The source uses a multi-step approach to extract schemas for API endpoints:
 
@@ -57,7 +57,7 @@ When multiple HTTP methods are available for an endpoint, the source prioritizes
 
 The description, tags, and schema metadata all come from the same priority method to ensure consistency.
 
-## Browse Paths
+### Browse Paths
 
 All ingested endpoints are organized in DataHub's browse interface using browse paths based on their endpoint path structure. This makes it easy to navigate and discover related endpoints.
 
@@ -69,7 +69,7 @@ For example:
 
 Endpoints are grouped by their path segments, making it easy to find all endpoints related to a particular resource or feature.
 
-## Prerequisites
+### Prerequisites
 
 ### OpenAPI Specification Access
 
@@ -187,7 +187,7 @@ source:
       - /internal/debug
 ```
 
-## Examples
+### Examples
 
 ### Basic Configuration (Schema from Spec Only)
 
@@ -264,14 +264,14 @@ sink:
     server: "http://localhost:8080"
 ```
 
-## Limitations
+### Limitations
 
 - **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
 - **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
 - **200 response codes only**: Only endpoints with 200 response codes are ingested.
 - **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
 
-## Troubleshooting
+### Troubleshooting
 
 ### No schemas extracted
 

@@ -28,6 +28,6 @@ If needed it is possible to exclude collections from other users by setting the 
 exclude_other_user_collections: true
 ```
 
-## Compatibility
+### Compatibility
 
 Metabase version [v0.48.3](https://www.metabase.com/start/oss/)
