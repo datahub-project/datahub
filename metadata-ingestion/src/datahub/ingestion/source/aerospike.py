@@ -272,7 +272,7 @@ def construct_schema_aerospike(
         query.max_records = sample_size
     query.records_per_second = records_per_second
     if socket_timeout_ms is not None:
-        query.socket_timeout = socket_timeout_ms
+        query.socket_timeout = socket_timeout_ms  # type: ignore[attr-defined]
 
     try:
         res = query.results()

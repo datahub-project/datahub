@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any, Dict
 
 import aerospike
@@ -17,6 +18,7 @@ def test_aerospike_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         test_resources_dir / "docker-compose.yml", "aerospike"
     ) as docker_services:
         wait_for_port(docker_services, "testaerospike", 3000, pause=10)
+        time.sleep(5)  # Give Aerospike time to fully initialize after port opens
 
         populate_aerospike(test_resources_dir)
         # Run the metadata ingestion pipeline.
@@ -85,7 +87,7 @@ def populate_aerospike(test_resources_dir):
     policies = {"write": write_policy}
 
     client_config: Dict[str, Any] = {
-        "hosts": [("localhost", 3000, None)],
+        "hosts": [("localhost", 3000)],
         "auth_mode": aerospike.AUTH_INTERNAL,
         "tls": {"enable": False},
         "policies": policies,
