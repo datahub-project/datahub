@@ -405,6 +405,7 @@ def test_default_convert_column_urns_to_lowercase():
 
 
 def test_default_convert_urns_to_lowercase():
+    """convert_urns_to_lowercase is opt-in only, never auto-enabled."""
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
@@ -415,20 +416,21 @@ def test_default_convert_urns_to_lowercase():
     config = DBTCoreConfig.model_validate({**config_dict})
     assert config.convert_urns_to_lowercase is False
 
+    # Snowflake should NOT auto-enable convert_urns_to_lowercase.
     config = DBTCoreConfig.model_validate(
         {**config_dict, "target_platform": "snowflake"}
     )
-    assert config.convert_urns_to_lowercase is True
+    assert config.convert_urns_to_lowercase is False
 
-    # Check that we respect the user's setting if provided.
+    # Explicit opt-in should work.
     config = DBTCoreConfig.model_validate(
         {
             **config_dict,
-            "convert_urns_to_lowercase": False,
+            "convert_urns_to_lowercase": True,
             "target_platform": "snowflake",
         }
     )
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
 
 def test_convert_urns_to_lowercase_affects_dbt_urns():
@@ -459,28 +461,29 @@ def test_convert_urns_to_lowercase_affects_dbt_urns():
         missing_from_catalog=False,
     )
 
+    # Without the flag, dbt platform URNs preserve original casing.
     dbt_urn_without_flag = node.get_urn(
         target_platform="dbt",
         env="PROD",
         data_platform_instance=None,
-        convert_urns_to_lowercase=False,
     )
     assert "MY_DB.APP_SALES.dim_industry" in dbt_urn_without_flag
 
+    # With the flag set on the node, dbt platform URNs are lowercased.
+    node.convert_urns_to_lowercase = True
     dbt_urn_with_flag = node.get_urn(
         target_platform="dbt",
         env="PROD",
         data_platform_instance=None,
-        convert_urns_to_lowercase=True,
     )
     assert "my_db.app_sales.dim_industry" in dbt_urn_with_flag
 
     # Target platform URNs are always lowercased regardless of the flag.
+    node.convert_urns_to_lowercase = False
     target_urn = node.get_urn(
         target_platform="snowflake",
         env="PROD",
         data_platform_instance=None,
-        convert_urns_to_lowercase=False,
     )
     assert "my_db.app_sales.dim_industry" in target_urn
 

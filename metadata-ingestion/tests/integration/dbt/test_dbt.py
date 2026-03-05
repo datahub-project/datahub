@@ -13,6 +13,7 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -665,7 +666,7 @@ def test_dbt_convert_urns_to_lowercase(
     }
     assert len(dbt_urns) > 0, "Expected at least one dbt platform URN in output"
     for urn in dbt_urns:
-        dataset_name = urn.split(",")[1]
+        dataset_name = DatasetUrn.from_string(urn).name
         assert dataset_name == dataset_name.lower(), (
             f"dbt URN dataset name should be lowercase: {urn}"
         )

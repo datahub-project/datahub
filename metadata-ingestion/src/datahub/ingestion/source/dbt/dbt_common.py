@@ -634,7 +634,6 @@ class DBTCommonConfig(
 
         if values.get("target_platform", "").lower() == "snowflake":
             values.setdefault("convert_column_urns_to_lowercase", True)
-            values.setdefault("convert_urns_to_lowercase", True)
         return values
 
     @field_validator("write_semantics", mode="after")
@@ -913,6 +912,8 @@ class DBTNode:
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
+    convert_urns_to_lowercase: bool = False
+
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
         joined = ".".join([part for part in parts if part])
@@ -931,10 +932,9 @@ class DBTNode:
         # If target_platform = dbt, this is the dbt platform instance.
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
-        convert_urns_to_lowercase: bool = False,
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if target_platform != DBT_PLATFORM or convert_urns_to_lowercase:
+        if target_platform != DBT_PLATFORM or self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
@@ -963,7 +963,6 @@ class DBTNode:
         target_platform_instance: Optional[str],
         env: str,
         skip_sources_in_lineage: bool,
-        convert_urns_to_lowercase: bool = False,
     ) -> str:
         """
         Get the urn to use when referencing this node in a dbt node's upstream lineage.
@@ -991,7 +990,6 @@ class DBTNode:
             target_platform=platform_value,
             env=env,
             data_platform_instance=platform_instance_value,
-            convert_urns_to_lowercase=convert_urns_to_lowercase,
         )
 
     @property
@@ -1119,7 +1117,6 @@ def get_upstreams(
     environment: str,
     platform_instance: Optional[str],
     skip_sources_in_lineage: bool,
-    convert_urns_to_lowercase: bool = False,
 ) -> List[str]:
     upstream_urns = []
 
@@ -1139,7 +1136,6 @@ def get_upstreams(
             target_platform_instance=target_platform_instance,
             env=environment,
             skip_sources_in_lineage=skip_sources_in_lineage,
-            convert_urns_to_lowercase=convert_urns_to_lowercase,
         )
         upstream_urns.append(urn)
 
@@ -1151,7 +1147,6 @@ def get_upstreams_for_test(
     all_nodes_map: Dict[str, DBTNode],
     platform_instance: Optional[str],
     environment: str,
-    convert_urns_to_lowercase: bool = False,
 ) -> Dict[str, str]:
     upstreams = {}
 
@@ -1168,7 +1163,6 @@ def get_upstreams_for_test(
             target_platform=DBT_PLATFORM,
             data_platform_instance=platform_instance,
             env=environment,
-            convert_urns_to_lowercase=convert_urns_to_lowercase,
         )
 
     return upstreams
@@ -1313,7 +1307,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 all_nodes_map=all_nodes_map,
                 platform_instance=self.config.platform_instance,
                 environment=self.config.env,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             # In case a dbt test depends on multiple tables, we create separate assertions for each.
@@ -1398,7 +1391,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform=self.config.target_platform,
                 data_platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             assertion_urn = mce_builder.make_assertion_urn(
@@ -1505,7 +1497,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         target_platform=DBT_PLATFORM,
                         env=self.config.env,
                         data_platform_instance=self.config.platform_instance,
-                        convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                     )
                     upstream_urns.append(upstream_urn)
                 else:
@@ -1624,6 +1615,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
         all_nodes, additional_custom_props = self.load_nodes()
+
+        if self.config.convert_urns_to_lowercase:
+            for node in all_nodes:
+                node.convert_urns_to_lowercase = True
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         additional_custom_props_filtered = {
@@ -1893,7 +1888,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 )
                 should_fetch_target_node_schema = True
             elif node.is_ephemeral_model():
@@ -2170,7 +2164,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 DBT_PLATFORM,
                 self.config.env,
                 self.config.platform_instance,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             meta_aspects: Dict[str, Any] = {}
@@ -2238,7 +2231,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         self.config.target_platform,
                         self.config.env,
                         self.config.target_platform_instance,
-                        convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                     )
 
                     yield MetadataChangeProposalWrapper(
@@ -2277,7 +2269,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             DBT_PLATFORM,
             self.config.env,
             self.config.platform_instance,
-            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
         )
 
         for model_performance in node.model_performances:
@@ -2471,7 +2462,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
                 mce_platform_instance,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             # Check if node exists in target platform first - needed for all emissions
@@ -2502,7 +2492,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     DBT_PLATFORM,
                     self.config.env,
                     self.config.platform_instance,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 )
 
                 # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
@@ -2528,7 +2517,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     DBT_PLATFORM,
                     self.config.env,
                     self.config.platform_instance,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 )
 
                 upstreams_lineage_class = make_mapping_upstream_lineage(
@@ -2883,7 +2871,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             target_platform=DBT_PLATFORM,
             env=self.config.env,
             data_platform_instance=self.config.platform_instance,
-            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -2894,7 +2881,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 ),
                 downstream_urn=node_urn,
                 node=node,
@@ -2910,7 +2896,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 self.config.platform_instance,
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
@@ -2920,7 +2905,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_platform_instance=self.config.target_platform_instance,
                     env=self.config.env,
                     skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
                 )
 
             if node.cll_debug_info and node.cll_debug_info.error:
@@ -3007,7 +2991,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.target_platform,
                 self.config.env,
                 self.config.target_platform_instance,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             )
             return UpstreamLineageClass(
                 upstreams=[
