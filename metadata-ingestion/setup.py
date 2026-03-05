@@ -431,9 +431,9 @@ slack = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
-# Snowplow uses base requirements only (requests, pydantic)
-# No additional dependencies needed
-snowplow = set()
+snowplow = {
+    *cachetools_lib,
+}
 
 databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
