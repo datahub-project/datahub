@@ -1,6 +1,7 @@
 import importlib.resources as pkg_resources
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 import click
@@ -122,6 +123,181 @@ def validate_and_merge_filters(
         return None
 
 
+_PROJECTION_BLOCKED_PATTERNS = [
+    (
+        re.compile(r"\b(mutation|subscription)\b", re.IGNORECASE),
+        "Projection must be a selection set, not a {match} operation",
+    ),
+    (
+        re.compile(r"__schema|__type", re.IGNORECASE),
+        "Introspection queries not allowed in projection",
+    ),
+    (re.compile(r"\$"), "Variable definitions ($) not allowed in projection"),
+    (re.compile(r"@"), "Directives (@) not allowed in projection"),
+    (re.compile(r"#"), "Comments (#) not allowed in projection"),
+]
+_PROJECTION_MAX_LENGTH = 5000
+
+_PLATFORM_FIELDS_FRAGMENT = """\
+fragment PlatformFields on DataPlatform {
+  urn
+  name
+  properties {
+    displayName
+    logoUrl
+  }
+}
+"""
+
+_SEARCH_QUERY_TEMPLATE = """\
+{platform_fragment}query {operation}(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $start: Int!
+  $viewUrn: String
+  $sortInput: SearchSortInput
+) {{
+  {gql_field}(
+    input: {{
+      query: $query
+      count: $count
+      start: $start
+      types: $types
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      sortInput: $sortInput
+      {extra_input}
+    }}
+  ) {{
+    start
+    count
+    total
+    searchResults {{
+      entity {{
+        {entity_projection}
+      }}
+      {extra_result_fields}
+    }}
+    facets {{
+      field
+      displayName
+      aggregations {{
+        value
+        count
+        displayName
+        entity {{
+          ...FacetEntityInfo
+        }}
+      }}
+    }}
+  }}
+}}
+
+fragment FacetEntityInfo on Entity {{
+  urn
+  type
+}}
+"""
+
+
+def _validate_projection(projection: str) -> None:
+    """Validate a projection string, rejecting injection attempts and malformed input."""
+    if len(projection) > _PROJECTION_MAX_LENGTH:
+        raise click.UsageError(
+            f"Projection too long ({len(projection)} chars, max {_PROJECTION_MAX_LENGTH})"
+        )
+    for pattern, msg_template in _PROJECTION_BLOCKED_PATTERNS:
+        match = pattern.search(projection)
+        if match:
+            raise click.UsageError(msg_template.format(match=match.group()))
+    if projection.count("{") != projection.count("}"):
+        raise click.UsageError("Unbalanced braces in projection")
+
+
+def _load_projection(value: str) -> str:
+    """Load projection from inline string or @file path."""
+    if value.startswith("@"):
+        file_path = value[1:]
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError as e:
+            raise click.UsageError(f"Projection file not found: {file_path}") from e
+        except OSError as e:
+            raise click.UsageError(f"Error reading projection file: {e}") from e
+    return value
+
+
+def _strip_outer_braces(projection: str) -> str:
+    """Strip outer { } from projection if present, so both '{ urn }' and 'urn' work."""
+    stripped = projection.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped[1:-1].strip()
+    return stripped
+
+
+def _build_search_query(
+    semantic: bool,
+    projection: Optional[str] = None,
+) -> str:
+    """Build the GraphQL query string.
+
+    When projection is None, returns the full bundled .gql file.
+    When projection is provided, uses the template with the user's selection set.
+    """
+    if projection is None:
+        full_gql = (
+            pkg_resources.files("datahub.cli.gql")
+            .joinpath("search_queries.gql")
+            .read_text(encoding="utf-8")
+        )
+        # The .gql file contains both search and semanticSearch operations.
+        # GraphQL servers validate ALL operations in a document, so sending
+        # the semanticSearch operation to a server that lacks it causes a
+        # validation error — even when only the search operation is named.
+        # Strip the unused operation to avoid this.
+        if semantic:
+            # Keep fragments + semanticSearch, drop the search operation
+            marker = "\nquery search("
+            fragments_end = full_gql.index(marker)
+            semantic_start = full_gql.index("\nquery semanticSearch(")
+            return full_gql[:fragments_end] + full_gql[semantic_start:]
+        else:
+            # Keep fragments + search, drop the semanticSearch operation
+            marker = "\nquery semanticSearch("
+            if marker in full_gql:
+                return full_gql[: full_gql.index(marker)]
+            return full_gql
+
+    entity_projection = _strip_outer_braces(projection)
+
+    if semantic:
+        operation = "semanticSearch"
+        gql_field = "semanticSearchAcrossEntities"
+        extra_input = ""
+        extra_result_fields = "matchedFields {\n        name\n        value\n      }"
+    else:
+        operation = "search"
+        gql_field = "searchAcrossEntities"
+        extra_input = "searchFlags: { skipHighlighting: true, maxAggValues: 5 }"
+        extra_result_fields = ""
+
+    # Only include PlatformFields fragment if the projection references it
+    needs_platform = "PlatformFields" in entity_projection
+    platform_fragment = _PLATFORM_FIELDS_FRAGMENT if needs_platform else ""
+
+    return _SEARCH_QUERY_TEMPLATE.format(
+        platform_fragment=platform_fragment,
+        operation=operation,
+        gql_field=gql_field,
+        extra_input=extra_input,
+        entity_projection=entity_projection,
+        extra_result_fields=extra_result_fields,
+    )
+
+
 def execute_search(
     query: str,
     filters: Optional[Filter],
@@ -132,6 +308,8 @@ def execute_search(
     semantic: bool,
     facets_only: bool,
     view_urn: Optional[str],
+    dry_run: bool = False,
+    projection: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute search using GraphQL.
 
@@ -145,28 +323,20 @@ def execute_search(
         semantic: Use semantic search instead of keyword search
         facets_only: Return only facets, no search results
         view_urn: DataHub View URN to apply
+        dry_run: If True, return the compiled query info without executing
 
     Returns:
-        Search results dict with searchResults, facets, total, etc.
+        Search results dict, or dry-run info dict when dry_run=True.
 
     Raises:
         click.ClickException: If search fails or semantic search is not enabled
     """
-    # Get graph client
-    graph = get_default_graph(ClientMode.CLI)
-
     # Cap num_results at 50
     num_results = min(num_results, 50)
 
     # Compile filters to GraphQL format
     types, compiled_filters = compile_filters(filters)
 
-    # Load from bundled package resources — both operations live in a single GQL file.
-    search_gql = (
-        pkg_resources.files("datahub.cli.gql")
-        .joinpath("search_queries.gql")
-        .read_text(encoding="utf-8")
-    )
     if semantic:
         operation_name = "semanticSearch"
         graphql_field = "semanticSearchAcrossEntities"
@@ -179,6 +349,8 @@ def execute_search(
         "query": query,
         "types": types,
         "orFilters": compiled_filters,
+        # count=1 for facets_only: the backend doesn't support count=0, so we
+        # fetch the minimum and discard the result below.
         "count": max(num_results, 1) if not facets_only else 1,
         "start": offset,
         "viewUrn": view_urn,
@@ -190,6 +362,25 @@ def execute_search(
         variables["sortInput"] = {
             "sortCriteria": [{"field": sort_by, "sortOrder": sort_order_enum}]
         }
+
+    if dry_run:
+        info: Dict[str, Any] = {
+            "operation_name": operation_name,
+            "graphql_field": graphql_field,
+            "variables": variables,
+        }
+        if projection is not None:
+            info["projection"] = projection
+            info["query"] = _build_search_query(
+                semantic=semantic, projection=projection
+            )
+        return info
+
+    # Get graph client
+    graph = get_default_graph(ClientMode.CLI)
+
+    # Build the GQL query — uses full bundled file by default, or template with projection.
+    search_gql = _build_search_query(semantic=semantic, projection=projection)
 
     # Execute search
     try:
@@ -235,39 +426,31 @@ def format_json_output(results: Dict[str, Any]) -> str:
 
 
 def _extract_entity_name(entity: Dict[str, Any]) -> Optional[str]:
-    """Extract display name from entity following DataHub's entity patterns.
+    """Extract display name from entity by resolving DataHub's per-type name field.
 
-    DataHub entities store names in different locations based on type:
-    - Most entities: properties.name or properties.displayName
-    - CorpUser: username
-    - Document: info.title
-    - Some entities: name (top-level)
-
-    Args:
-        entity: Entity dict from GraphQL response
-
-    Returns:
-        Entity name/title or None if not found
+    The DataHub schema stores names in different locations depending on entity type.
+    We try all known paths in priority order, falling through on None/empty:
+      - properties.name          → Dataset, Chart, Dashboard, DataJob, DataFlow,
+                                   Domain, Container, GlossaryTerm, Tag
+      - properties.displayName   → CorpUser (preferred over username), CorpGroup
+      - info.title               → Document
+      - username                 → CorpUser (fallback when displayName is null)
+      - name (top-level)         → MLModel, MLFeature, MLFeatureTable,
+                                   MLPrimaryKey, MLModelGroup, CorpGroup, Tag,
+                                   GlossaryTerm, Dataset
     """
-    # Pattern 1: properties.name / properties.displayName (Dataset, Chart, Dashboard, etc.)
-    if "properties" in entity:
-        return entity["properties"].get("name") or entity["properties"].get(
-            "displayName"
-        )
+    props = entity.get("properties") or {}
+    return (
+        props.get("name")
+        or props.get("displayName")
+        or (entity.get("info") or {}).get("title")
+        or entity.get("username")
+        or entity.get("name")
+    )
 
-    # Pattern 2: info.title (Document entities)
-    if "info" in entity and "title" in entity["info"]:
-        return entity["info"]["title"]
 
-    # Pattern 3: username (CorpUser entities)
-    if "username" in entity:
-        return entity["username"]
-
-    # Pattern 4: name (top-level, e.g., CorpGroup, Tag, GlossaryTerm)
-    if "name" in entity:
-        return entity["name"]
-
-    return None
+_DESC_TRUNCATE_MAX_LEN = 80
+_DESC_TRUNCATE_AT = 77
 
 
 def format_table_output(results: Dict[str, Any]) -> str:
@@ -300,7 +483,11 @@ def format_table_output(results: Dict[str, Any]) -> str:
         description = ""
         if "properties" in entity:
             desc = entity["properties"].get("description") or ""
-            description = desc[:77] + "..." if len(desc) > 80 else desc
+            description = (
+                desc[:_DESC_TRUNCATE_AT] + "..."
+                if len(desc) > _DESC_TRUNCATE_MAX_LEN
+                else desc
+            )
 
         rows.append([urn, name or "(unnamed)", platform, description])
 
@@ -642,7 +829,7 @@ def print_semantic_diagnostics() -> None:
         ) from e
 
 
-def diagnose_semantic_search() -> dict:
+def diagnose_semantic_search() -> Dict[str, Any]:
     """Diagnose semantic search configuration.
 
     Returns:
@@ -667,7 +854,8 @@ def diagnose_semantic_search() -> dict:
             field["name"] for field in introspection.get("__type", {}).get("fields", [])
         ]
         semantic_available = "semanticSearchAcrossEntities" in fields
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed introspection: %s", e)
         semantic_available = False
 
     # Fetch detailed semantic search configuration
@@ -812,6 +1000,16 @@ def search() -> None:
     "--facets-only", is_flag=True, help="Return only facets, no search results"
 )
 @click.option("--view", help="DataHub View URN to apply")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show the compiled GraphQL operation and variables without executing the search",
+)
+@click.option(
+    "--projection",
+    default=None,
+    help="GraphQL selection set for Entity type (inline GQL or @file path)",
+)
 @upgrade.check_upgrade
 def query(
     query: str,
@@ -829,6 +1027,8 @@ def query(
     describe_filter: Optional[str],
     facets_only: bool,
     view: Optional[str],
+    dry_run: bool,
+    projection: Optional[str],
 ) -> None:
     """Execute search query across DataHub entities (default command).
 
@@ -907,6 +1107,30 @@ def query(
     except Exception as e:
         raise click.UsageError(str(e)) from e
 
+    # Load and validate projection
+    loaded_projection: Optional[str] = None
+    if projection is not None:
+        loaded_projection = _load_projection(projection)
+        _validate_projection(loaded_projection)
+
+    # Handle dry-run mode: build query info without connecting to DataHub
+    if dry_run:
+        dry_run_info = execute_search(
+            query=query,
+            filters=filter_obj,
+            num_results=limit,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=offset,
+            semantic=semantic,
+            facets_only=facets_only,
+            view_urn=view,
+            dry_run=True,
+            projection=loaded_projection,
+        )
+        click.echo(json.dumps(dry_run_info, indent=2))
+        return
+
     # Execute search
     try:
         results = execute_search(
@@ -919,7 +1143,10 @@ def query(
             semantic=semantic,
             facets_only=facets_only,
             view_urn=view,
+            projection=loaded_projection,
         )
+    except click.ClickException:
+        raise
     except Exception as e:
         raise click.ClickException(str(e)) from e
 
@@ -932,6 +1159,8 @@ def query(
         output = format_table_output(results)
     elif output_format == "urns":
         output = format_urns_output(results)
+    else:
+        raise RuntimeError(f"Unexpected output format: {output_format}")
 
     # Show beta notice for semantic search (non-JSON formats)
     if semantic and output_format != "json":
