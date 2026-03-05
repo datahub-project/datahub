@@ -61,7 +61,7 @@ export default function IngestionSourceNavigationButtons() {
             buttons.push(
                 <ButtonWithoutWrapping
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     disabled={!isCurrentStepCompleted() || isSaveAndRunInProgress}
                     onClick={onSave}
                     data-testid="save-button"
