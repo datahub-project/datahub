@@ -112,7 +112,7 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 
 Connector documentation follows a structured format with specific file types and heading conventions.
 
-**For complete authoring guidelines**, see [docs/sources/CLAUDE.md](docs/sources/CLAUDE.md), which covers:
+**Authoring guidelines**: See `docs/sources/CLAUDE.md` in this directory for:
 
 - File structure (`_pre.md`, `_post.md`, `_recipe.yml`)
 - Heading level rules (H3 baseline, H2 reserved for module headings)

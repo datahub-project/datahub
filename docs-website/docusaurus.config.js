@@ -351,6 +351,8 @@ module.exports = {
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
+          // Exclude CLAUDE.md files - these are internal development guides, not public docs
+          exclude: ['**/CLAUDE.md'],
         },
         blog: {
           blogTitle: "DataHub Learn",
