@@ -17,6 +17,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
@@ -115,6 +116,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("authorizerChain")
   private Authorizer _authorizer;
+
+  @Inject
+  private DataHubAppConfiguration _appConfiguration;
 
   @VisibleForTesting
   void setAuthorizer(Authorizer authorizer) {
@@ -291,16 +295,20 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
-    List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
-             opContext.getEntityRegistry(), metadataChangeProposals)
-             .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
-             .collect(Collectors.toList());
-    if (!exceptions.isEmpty()) {
-        String errorMessages = exceptions.stream()
-                 .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
-                 .collect(Collectors.joining(", "));
-        throw new RestLiServiceException(
-                 HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entity: " + errorMessages);
+    if (!_appConfiguration.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard auth: per-MCP check. When domain-based auth is enabled this is superseded by
+      // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
+      List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
+               opContext.getEntityRegistry(), metadataChangeProposals)
+               .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+               .collect(Collectors.toList());
+      if (!exceptions.isEmpty()) {
+          String errorMessages = exceptions.stream()
+                   .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+                   .collect(Collectors.joining(", "));
+          throw new RestLiServiceException(
+                   HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entity: " + errorMessages);
+      }
     }
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));

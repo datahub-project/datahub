@@ -41,6 +41,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+
           // First, validate the domain
           validateDomain(context.getOperationContext(), maybeDomainUrn);
           validateInputResources(resources, context);
