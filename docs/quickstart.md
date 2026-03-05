@@ -125,8 +125,8 @@ Required steps to upgrade:
 
 From version 1.5 DataHub quickstart now generates a random signing key and salt for use when
 generating and validating authentication tokens instead of a hardcoded default key.
-If no values are provided, a new key is generated each time quickstart is run,
-which will invalidate any Personal Access Tokens (PATs) created in a previous session.
+If no values are provided by the user, a new key is generated the first time quickstart is run and the generated values are stored in `~/.datahub/quickstart/.local-secrets.env`. On subsequent reruns the values are read from this while. If the file is deleted new values will be generated which will invalidate any Personal Access Tokens (PATs) created in a previous session.
+
 It is recommended that users provide their own stable values for these.
 
 To generate random values to use, you can use the output of the following
