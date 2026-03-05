@@ -139,12 +139,13 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 class IcebergSource(StatefulIngestionSourceBase):
     """
-    ## Integration Details
+    Source that extracts metadata from Iceberg tables via pyiceberg library.
 
-    The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
-    Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
-    implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
-    [pyiceberg library](https://py.iceberg.apache.org/).
+    Implementation notes:
+    - Uses pyiceberg for catalog access (Glue, REST, SQL, filesystem-based)
+    - Supports multiple blob storage backends (S3, ADLS, GCS, MinIO)
+    - Parallel processing of manifest files via processing_threads
+    - Extracts schema, partitioning, and table properties
     """
 
     platform: str = "iceberg"

@@ -488,14 +488,15 @@ def generate(  # noqa: C901
             # all_plugins = platform_docs["plugins"].keys()
 
             for plugin_name, plugin in platform.plugins.items():
-                if len(platform.plugins) > 1:
-                    # We only need to show this if there are multiple modules.
-                    f.write(f"\n\n## Module `{plugin_name}`\n")
+                # Always use ### for all content sections (consistent baseline)
+                section_heading = "###"
 
+                # Always show the module name for consistency (single and multi-plugin)
+                f.write(f"\n\n## Module `{plugin_name}`\n")
                 if plugin.support_status != SupportStatus.UNKNOWN:
                     f.write(get_support_status_badge(plugin.support_status) + "\n\n")
                 if plugin.capabilities and len(plugin.capabilities):
-                    f.write("\n### Important Capabilities\n")
+                    f.write(f"\n{section_heading} Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
@@ -509,12 +510,12 @@ def generate(  # noqa: C901
                         )
                     f.write("\n")
 
-                f.write(f"{plugin.source_docstring or ''}\n")
                 # Insert custom pre section
                 f.write(plugin.custom_docs_pre or "")
-                f.write("\n### CLI based Ingestion\n")
+
+                # Install the Plugin section (only if extra_deps exist)
                 if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write("\n#### Install the Plugin\n")
+                    f.write(f"\n{section_heading} Install the Plugin\n")
                     if plugin.extra_deps != []:
                         f.write("```shell\n")
                         f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
@@ -524,7 +525,7 @@ def generate(  # noqa: C901
                             f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
                         )
                 if plugin.starter_recipe:
-                    f.write("\n### Starter Recipe\n")
+                    f.write(f"\n{section_heading} Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -536,7 +537,7 @@ def generate(  # noqa: C901
                     f.write("\n```\n")
                 if plugin.config_json_schema:
                     assert plugin.config_md is not None
-                    f.write("\n### Config Details\n")
+                    f.write(f"\n{section_heading} Config Details\n")
                     f.write(
                         """<Tabs>
                 <TabItem value="options" label="Options" default>\n\n"""
@@ -565,7 +566,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                 # insert custom plugin docs after config details
                 f.write(plugin.custom_docs_post or "")
                 if plugin.classname:
-                    f.write("\n### Code Coordinates\n")
+                    f.write(f"\n{section_heading} Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin.classname}`\n")
                     if plugin.filename:
                         f.write(
