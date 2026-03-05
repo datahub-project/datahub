@@ -695,6 +695,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             self.report.processed_jobs_list.append(job_id)
             self.report.total_jobs_processed += 1
             for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
+                # Skip semantic models if not enabled
+                if (
+                    node_type == "semanticModels"
+                    and not self.config.entities_enabled.can_emit_semantic_models
+                ):
+                    continue
+
                 try:
                     logger.info(
                         f"Fetching {node_type} from dbt Cloud for job_id: {job_id}"
@@ -720,6 +727,21 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     continue
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
+
+        # Resolve database/schema for semantic models from their upstream nodes
+        nodes_by_name = {node.dbt_name: node for node in nodes}
+        for node in nodes:
+            if node.node_type == "semantic_model" and (
+                not node.database or not node.schema
+            ):
+                for upstream_name in node.upstream_nodes:
+                    if upstream_name in nodes_by_name:
+                        ref_node = nodes_by_name[upstream_name]
+                        if not node.database and ref_node.database:
+                            object.__setattr__(node, "database", ref_node.database)
+                        if not node.schema and ref_node.schema:
+                            object.__setattr__(node, "schema", ref_node.schema)
+                        break
 
         # Parse exposures
         self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
@@ -834,8 +856,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             materialization = node["materializedType"]
         elif resource_type == "snapshot":
             materialization = "snapshot"
-        elif resource_type == "semantic_model":
-            materialization = None  # Semantic models don't have materialization
         else:
             materialization = None
 

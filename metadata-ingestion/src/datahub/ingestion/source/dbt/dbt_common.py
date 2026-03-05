@@ -773,7 +773,7 @@ def convert_semantic_model_fields_to_columns(
         columns.append(
             DBTColumn(
                 name=entity["name"],
-                comment=f"entity:{entity_type}",
+                comment="",
                 description=description,
                 index=index,
                 data_type=f"entity:{entity_type}",
@@ -787,7 +787,7 @@ def convert_semantic_model_fields_to_columns(
         columns.append(
             DBTColumn(
                 name=dimension["name"],
-                comment=f"dimension:{dim_type}",
+                comment="",
                 description=description,
                 index=index,
                 data_type=f"dimension:{dim_type}",
@@ -801,7 +801,7 @@ def convert_semantic_model_fields_to_columns(
         columns.append(
             DBTColumn(
                 name=measure["name"],
-                comment=f"measure:{agg_type}",
+                comment="",
                 description=description,
                 index=index,
                 data_type=f"measure:{agg_type}",
@@ -971,7 +971,7 @@ class DBTNode:
     language: Optional[str]
     raw_code: Optional[str]
 
-    dbt_adapter: Optional[str]  # None for semantic models
+    dbt_adapter: Optional[str]
     dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present

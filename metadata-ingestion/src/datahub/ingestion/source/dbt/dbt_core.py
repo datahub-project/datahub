@@ -411,6 +411,7 @@ def extract_dbt_exposures(
 def extract_semantic_models(
     manifest_semantic_models: Dict[str, Dict[str, Any]],
     manifest_nodes: Dict[str, Dict[str, Any]],
+    manifest_adapter: Optional[str],
     tag_prefix: str,
 ) -> List[DBTNode]:
     """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
@@ -461,7 +462,7 @@ def extract_semantic_models(
         semantic_model_nodes.append(
             DBTNode(
                 dbt_name=key,
-                dbt_adapter=None,
+                dbt_adapter=manifest_adapter,
                 dbt_package_name=sm_node.get("package_name"),
                 database=database,
                 schema=schema,
@@ -772,6 +773,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             semantic_model_nodes = extract_semantic_models(
                 manifest_semantic_models=manifest_semantic_models,
                 manifest_nodes=manifest_nodes,
+                manifest_adapter=manifest_adapter,
                 tag_prefix=self.config.tag_prefix,
             )
             nodes.extend(semantic_model_nodes)

@@ -18,6 +18,10 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
+    SemanticModelDimension,
+    SemanticModelEntity,
+    SemanticModelMeasure,
+    convert_semantic_model_fields_to_columns,
     get_column_type,
     parse_semantic_view_cll,
 )
@@ -25,6 +29,7 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
     extract_dbt_exposures,
+    extract_semantic_models,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -2213,13 +2218,6 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    from datahub.ingestion.source.dbt.dbt_common import (
-        SemanticModelDimension,
-        SemanticModelEntity,
-        SemanticModelMeasure,
-        convert_semantic_model_fields_to_columns,
-    )
-
     entities: list[SemanticModelEntity] = [
         {"name": "order_id", "type": "primary", "description": "Primary order key"},
         {"name": "customer_id", "type": "foreign", "description": ""},
@@ -2256,13 +2254,6 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    from datahub.ingestion.source.dbt.dbt_common import (
-        SemanticModelDimension,
-        SemanticModelEntity,
-        SemanticModelMeasure,
-        convert_semantic_model_fields_to_columns,
-    )
-
     entities: list[SemanticModelEntity] = [
         {"name": "id", "type": "primary", "description": ""},
     ]
@@ -2292,8 +2283,6 @@ def test_convert_semantic_model_fields_empty_descriptions():
 
 def test_extract_semantic_models_partial_node_relation():
     """Test fallback when node_relation has only database (schema from depends_on)."""
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_models
-
     manifest_semantic_models: Dict[str, Any] = {
         "semantic_model.my_project.partial_metrics": {
             "name": "partial_metrics",
@@ -2319,6 +2308,7 @@ def test_extract_semantic_models_partial_node_relation():
     nodes = extract_semantic_models(
         manifest_semantic_models=manifest_semantic_models,
         manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
         tag_prefix="",
     )
 
@@ -2326,6 +2316,7 @@ def test_extract_semantic_models_partial_node_relation():
     node = nodes[0]
     assert node.database == "my_database"
     assert node.schema == "ref_schema"
+    assert node.dbt_adapter == "snowflake"
 
 
 def test_dbt_semantic_model_subtype() -> None:
@@ -2370,8 +2361,6 @@ def test_dbt_semantic_model_subtype() -> None:
 
 def test_extract_semantic_models_basic():
     """Test extracting semantic models from manifest.json."""
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_models
-
     manifest_semantic_models: Dict[str, Any] = {
         "semantic_model.my_project.order_metrics": {
             "name": "order_metrics",
@@ -2408,6 +2397,7 @@ def test_extract_semantic_models_basic():
     nodes = extract_semantic_models(
         manifest_semantic_models=manifest_semantic_models,
         manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
         tag_prefix="dbt:",
     )
 
@@ -2418,6 +2408,7 @@ def test_extract_semantic_models_basic():
     assert node.description == "Metrics for order analysis"
     assert node.node_type == "semantic_model"
     assert node.database == "analytics"
+    assert node.dbt_adapter == "snowflake"
     assert node.schema == "public"
     assert node.language == "yaml"
     assert node.materialization is None
@@ -2436,9 +2427,6 @@ def test_extract_semantic_models_basic():
 
 def test_extract_semantic_models_fallback_to_depends_on():
     """Test extracting semantic models when node_relation is missing db/schema."""
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_models
-
-    # Semantic model without node_relation database/schema
     manifest_semantic_models: Dict[str, Any] = {
         "semantic_model.my_project.customer_metrics": {
             "name": "customer_metrics",
@@ -2467,13 +2455,13 @@ def test_extract_semantic_models_fallback_to_depends_on():
     nodes = extract_semantic_models(
         manifest_semantic_models=manifest_semantic_models,
         manifest_nodes=manifest_nodes,
+        manifest_adapter="postgres",
         tag_prefix="dbt:",
     )
 
     assert len(nodes) == 1
     node = nodes[0]
 
-    # Should have resolved database/schema from depends_on node
     assert node.database == "warehouse"
     assert node.schema == "analytics"
     assert node.name == "customer_metrics"
@@ -2482,8 +2470,6 @@ def test_extract_semantic_models_fallback_to_depends_on():
 
 def test_extract_semantic_models_no_db_schema():
     """Test extracting semantic models when neither node_relation nor depends_on has db/schema."""
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_models
-
     manifest_semantic_models: Dict[str, Any] = {
         "semantic_model.my_project.orphan_metrics": {
             "name": "orphan_metrics",
@@ -2501,15 +2487,16 @@ def test_extract_semantic_models_no_db_schema():
     nodes = extract_semantic_models(
         manifest_semantic_models=manifest_semantic_models,
         manifest_nodes={},
+        manifest_adapter=None,
         tag_prefix="",
     )
 
     assert len(nodes) == 1
     node = nodes[0]
 
-    # Database and schema should be None
     assert node.database is None
     assert node.schema is None
+    assert node.dbt_adapter is None
     assert node.name == "orphan_metrics"
 
 
@@ -2546,9 +2533,6 @@ def test_dbt_entities_enabled_semantic_models_only():
 
 def test_dbt_cloud_parse_semantic_model_node():
     """Test parsing semantic model nodes from dbt Cloud GraphQL response."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
-
     config = DBTCloudConfig(
         access_url="https://cloud.getdbt.com",
         token="dummy_token",
@@ -2560,14 +2544,12 @@ def test_dbt_cloud_parse_semantic_model_node():
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
     source = DBTCloudSource(config, ctx)
 
-    # Mock semantic model node from GraphQL
+    # Mock semantic model node from GraphQL (no database/schema - API doesn't expose these)
     semantic_model_node = {
         "uniqueId": "semantic_model.my_project.order_metrics",
         "name": "order_metrics",
         "description": "Order metrics for analysis",
         "resourceType": "semantic_model",
-        "database": "analytics_db",
-        "schema": "metrics",
         "packageName": "my_project",
         "meta": {},
         "tags": ["metrics"],
@@ -2604,11 +2586,15 @@ def test_dbt_cloud_parse_semantic_model_node():
 
     assert node.name == "order_metrics"
     assert node.node_type == "semantic_model"
-    assert node.database == "analytics_db"
-    assert node.schema == "metrics"
-    assert node.materialization is None  # Semantic models have no materialization
-    assert node.language == "yaml"  # Semantic models are YAML
-    assert len(node.columns) == 3  # 1 entity + 1 dimension + 1 measure
+    assert (
+        node.database is None
+    )  # dbt Cloud API doesn't expose database for semantic models
+    assert (
+        node.schema is None
+    )  # dbt Cloud API doesn't expose schema for semantic models
+    assert node.materialization is None
+    assert node.language == "yaml"
+    assert len(node.columns) == 3
 
     # Verify columns were converted correctly
     column_names = [c.name for c in node.columns]
@@ -2619,9 +2605,6 @@ def test_dbt_cloud_parse_semantic_model_node():
 
 def test_dbt_cloud_semantic_model_column_types():
     """Test that semantic model columns have correct data types."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
-
     config = DBTCloudConfig(
         access_url="https://cloud.getdbt.com",
         token="dummy_token",
@@ -2638,8 +2621,6 @@ def test_dbt_cloud_semantic_model_column_types():
         "name": "test_metrics",
         "description": "",
         "resourceType": "semantic_model",
-        "database": "db",
-        "schema": "schema",
         "packageName": "my_project",
         "meta": {},
         "tags": [],
@@ -2679,11 +2660,6 @@ def test_dbt_cloud_semantic_model_column_types():
 
 def test_dbt_common_semantic_model_subtype_assignment():
     """Test that _create_subType_wu assigns correct subtypes for different node types."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-    from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-    from datahub.metadata.schema_classes import SubTypesClass
-
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     config = DBTCoreConfig(**create_base_dbt_config())
     source = DBTCoreSource(config, ctx)
