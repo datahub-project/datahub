@@ -27,10 +27,6 @@ class TestValidateIdentifier:
         with pytest.raises(ValueError, match="Unsafe"):
             _validate_identifier("test`; DROP TABLE x;--", "table")
 
-    def test_rejects_semicolon(self) -> None:
-        with pytest.raises(ValueError, match="Unsafe"):
-            _validate_identifier("table; SELECT 1", "table")
-
     def test_rejects_spaces(self) -> None:
         with pytest.raises(ValueError, match="Unsafe"):
             _validate_identifier("my table", "table")

@@ -1,7 +1,7 @@
 import { FormOutlined } from '@ant-design/icons';
 import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import azureAdConfig from '@app/ingestV2/source/conf/azure/azure';
 import bigqueryConfig from '@app/ingestV2/source/conf/bigquery/bigquery';
 import csvConfig from '@app/ingestV2/source/conf/csv/csv';
@@ -28,12 +28,17 @@ source:
   type: <source-type>
   config:
     # Source-type specifics config
-    <source-configs> 
+    <source-configs>
 
 sink:
   type: datahub-rest
   config:
     server: "${baseUrl}/api/gms"`;
+
+const StyledFormOutlined = styled(FormOutlined)`
+    color: ${(props) => props.theme.colors.icon};
+    font-size: 28px;
+`;
 
 export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     bigqueryConfig,
@@ -58,6 +63,6 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
         placeholderRecipe: DEFAULT_PLACEHOLDER_RECIPE,
         displayName: 'Other',
         docsUrl: 'https://docs.datahub.com/docs/metadata-ingestion/',
-        logoComponent: <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />,
+        logoComponent: <StyledFormOutlined />,
     },
 ];

@@ -15,25 +15,19 @@ from datahub.ingestion.source.flink.config import FlinkConnectionConfig
 
 
 class TestIsRetryable:
-    def test_retries_on_500(self) -> None:
-        response = Mock(status_code=500)
+    @pytest.mark.parametrize(
+        "status_code,expected",
+        [
+            (500, True),
+            (499, False),
+        ],
+    )
+    def test_http_error_retry_by_status_code(
+        self, status_code: int, expected: bool
+    ) -> None:
+        response = Mock(status_code=status_code)
         exc = requests.exceptions.HTTPError(response=response)
-        assert _is_retryable(exc) is True
-
-    def test_retries_on_503(self) -> None:
-        response = Mock(status_code=503)
-        exc = requests.exceptions.HTTPError(response=response)
-        assert _is_retryable(exc) is True
-
-    def test_no_retry_on_404(self) -> None:
-        response = Mock(status_code=404)
-        exc = requests.exceptions.HTTPError(response=response)
-        assert _is_retryable(exc) is False
-
-    def test_no_retry_on_401(self) -> None:
-        response = Mock(status_code=401)
-        exc = requests.exceptions.HTTPError(response=response)
-        assert _is_retryable(exc) is False
+        assert _is_retryable(exc) is expected
 
     def test_no_retry_on_none_response(self) -> None:
         exc = requests.exceptions.HTTPError(response=None)

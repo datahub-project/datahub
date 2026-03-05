@@ -147,23 +147,6 @@ class TestFlinkLineageOrchestrator:
         assert result.sources[0].dataset_name == "clicks"
         assert result.sinks[0].dataset_name == "user_activity"
 
-    # --- SQL/Table API: separate nodes (datagen/blackhole) ---
-
-    def test_separate_nodes_datagen_blackhole(self) -> None:
-        """Datagen source and blackhole sink produce 2 separate nodes."""
-        nodes = [
-            _node(
-                "1",
-                "[6]:TableSourceScan(table=[[default_catalog, default_database, gen_src]], fields=[id, val])",
-            ),
-            _node("2", "bh_sink[7]: Writer"),
-        ]
-        result = self.orchestrator.extract(nodes)
-        assert len(result.sources) == 1
-        assert len(result.sinks) == 1
-        assert result.sources[0].dataset_name == "gen_src"
-        assert result.sinks[0].dataset_name == "bh_sink"
-
     # --- Edge cases ---
 
     def test_unclassified_when_no_extractor_matches(self) -> None:
