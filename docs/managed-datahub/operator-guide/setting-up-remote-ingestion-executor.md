@@ -105,7 +105,7 @@ The DataHub Team will provide a [Cloudformation Template](https://raw.githubuser
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
 - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
-- Executor Pool ID you set in the Datahub UI
+- Executor Pool ID you set in the DataHub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
