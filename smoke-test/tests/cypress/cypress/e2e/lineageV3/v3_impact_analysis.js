@@ -1,5 +1,5 @@
 import { getTimestampMillisNumDaysAgo } from "../../support/commands";
-import { setFeatureFlags } from "./utils";
+import { setLineageV3FeatureFlags } from "./utils";
 
 const JAN_1_2021_TIMESTAMP = 1609553357755;
 const JAN_1_2022_TIMESTAMP = 1641089357755;
@@ -21,7 +21,7 @@ const startAtDataSetLineage = () => {
 
 describe("impact analysis", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    setLineageV3FeatureFlags();
   });
 
   it("can see 1 hop of lineage by default", () => {

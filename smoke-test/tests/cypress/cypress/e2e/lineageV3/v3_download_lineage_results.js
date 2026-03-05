@@ -1,3 +1,5 @@
+import { setLineageV3FeatureFlags } from "./utils";
+
 const test_dataset =
   "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 const first_degree = [
@@ -31,7 +33,7 @@ const downloadCsvFile = (filename) => {
 
 describe("download lineage results to .csv file", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    setLineageV3FeatureFlags();
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 

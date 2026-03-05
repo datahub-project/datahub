@@ -1,4 +1,4 @@
-import { setFeatureFlags } from "./utils";
+import { setLineageV3FeatureFlags } from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =
@@ -12,7 +12,7 @@ const expandContractColumns = (asset) => {
 
 describe("column-level lineage graph test", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    setLineageV3FeatureFlags();
   });
 
   it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {

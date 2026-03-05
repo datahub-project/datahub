@@ -1,5 +1,5 @@
-import { aliasQuery } from "../utils";
-import { expandColumns, setFeatureFlags } from "./utils";
+import { expandColumns } from "../lineageV2/utils";
+import { setLineageV3FeatureFlags } from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =
@@ -22,7 +22,7 @@ const verifyColumnPathModal = (from, to) => {
 
 describe("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
-    setFeatureFlags();
+    setLineageV3FeatureFlags();
   });
 
   it("verify column-level lineage path at lineage praph and impact analysis ", () => {
