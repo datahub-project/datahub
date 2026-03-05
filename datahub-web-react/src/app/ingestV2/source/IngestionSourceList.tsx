@@ -146,7 +146,12 @@ export const IngestionSourceList = ({
 }: Props) => {
     const location = useLocation();
 
-    const { createdOrUpdatedSource, shouldRunCreatedOrUpdatedSource } = useIngestionContext();
+    const {
+        createdOrUpdatedSource,
+        shouldRunCreatedOrUpdatedSource,
+        setCreatedOrUpdatedSource,
+        setShouldRunCreatedOrUpdatedSource,
+    } = useIngestionContext();
 
     // Query inputs after redirect to restore initial state of query and sorting
     const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
@@ -481,6 +486,15 @@ export const IngestionSourceList = ({
         createdOrUpdatedSource,
         shouldRunCreatedOrUpdatedSource,
     ]);
+
+    // Cleanup context values on unmount to prevent stale values when navigating away and back
+    useEffect(() => {
+        return () => {
+            setCreatedOrUpdatedSource(undefined);
+            setShouldRunCreatedOrUpdatedSource(false);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
