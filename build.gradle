@@ -34,7 +34,7 @@ buildscript {
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.4'
+  ext.jacksonVersion = '2.18.6'
   ext.jettyVersion = '12.0.32'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
@@ -457,16 +457,18 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
-      // CVE-2023-35116: upgrade jackson-databind only when < 2.16.0 (do not downgrade 2.19.x)
-      if (details.requested.group == 'com.fasterxml.jackson.core' && details.requested.name == 'jackson-databind') {
-        def v = details.requested.version
-        if (v != null && (v.startsWith('2.10.') || v.startsWith('2.11.') || v.startsWith('2.12.') || v.startsWith('2.13.') || v.startsWith('2.14.') || v.startsWith('2.15.'))) {
-          details.useTarget("com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}")
-          details.because("CVE-2023-35116: 2.15.3 => 2.16.0+")
-        }
+      // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
+        def v = rootProject.ext.jacksonVersion
+        details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
+        details.because("Jackson aligned to ${v}")
       }
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
     }
@@ -620,7 +622,7 @@ subprojects {
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
-        implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
+        implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)

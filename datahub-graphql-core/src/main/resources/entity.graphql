@@ -945,6 +945,24 @@ type Mutation {
   ): Boolean
 
   """
+  Adds multiple assets to multiple data products (additive - preserves existing memberships).
+  Available when multipleDataProductsPerAsset feature flag is enabled.
+  """
+  batchAddToDataProducts(
+    "Input for batch adding assets to data products"
+    input: BatchSetDataProductsInput!
+  ): Boolean
+
+  """
+  Removes multiple assets from multiple data products (does not affect other memberships).
+  Available when multipleDataProductsPerAsset feature flag is enabled.
+  """
+  batchRemoveFromDataProducts(
+    "Input for batch removing assets from data products"
+    input: BatchSetDataProductsInput!
+  ): Boolean
+
+  """
   Create a new Application
   """
   createApplication(
@@ -13485,6 +13503,22 @@ input BatchSetDataProductInput {
 
   """
   The urns of the entities the given data product should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+Input for batch adding/removing assets to/from multiple data products.
+Available when multipleDataProductsPerAsset feature flag is enabled.
+"""
+input BatchSetDataProductsInput {
+  """
+  The urns of the data products to add/remove assets to/from
+  """
+  dataProductUrns: [String!]!
+
+  """
+  The urns of the entities (assets) to add/remove
   """
   resourceUrns: [String!]!
 }

@@ -1,58 +1,53 @@
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
-import {
-    BreadcrumbButton,
-    BreadcrumbItemContainer,
-    BreadcrumbLink,
-    Wrapper,
-} from '@components/components/Breadcrumb/components';
+import { BreadcrumbItem } from '@components/components/Breadcrumb/BreadcrumbItem';
+import { BreadcrumbItemContainer, NoShrinkIcon, Wrapper } from '@components/components/Breadcrumb/components';
+import { breadcrumbDefaults } from '@components/components/Breadcrumb/defaults';
 import { BreadcrumbProps } from '@components/components/Breadcrumb/types';
-import { Icon } from '@components/components/Icon';
-import { Text } from '@components/components/Text';
+import { Popover } from '@components/components/Popover';
 
-export const Breadcrumb = ({ items }: BreadcrumbProps) => {
-    const defaultSeparator = <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />;
+export const Breadcrumb = ({ items, showPopover = breadcrumbDefaults.showPopover }: BreadcrumbProps) => {
+    const defaultSeparator = (
+        <NoShrinkIcon icon="CaretRight" source="phosphor" color="gray" colorLevel={1800} size="sm" />
+    );
+
+    const [itemsTruncationState, setItemsTruncationState] = useState<Map<string, boolean>>(new Map());
+
+    const hasAnyTruncatedItem = useMemo(
+        () => [...itemsTruncationState.values()].includes(true),
+        [itemsTruncationState],
+    );
+
+    const shouldShowPopover = useMemo(() => showPopover && hasAnyTruncatedItem, [hasAnyTruncatedItem, showPopover]);
+
+    const updateTruncationState = useCallback((itemKey: string, isTruncated: boolean) => {
+        setItemsTruncationState((prev) => {
+            // do not update the map if there are no changes
+            if (prev.get(itemKey) === isTruncated) return prev;
+
+            const newMap = new Map(prev);
+            newMap.set(itemKey, isTruncated);
+            return newMap;
+        });
+    }, []);
 
     return (
-        <Wrapper>
-            {items.map((item, index) => {
-                const isLast = index === items.length - 1;
+        <Popover content={shouldShowPopover ? <Breadcrumb items={items} showPopover={false} /> : null}>
+            <Wrapper>
+                {items.map((item, index) => {
+                    const isLast = index === items.length - 1;
 
-                let content;
-
-                if (item.href) {
-                    content = (
-                        <BreadcrumbLink to={item.href} $isCurrent={item.isCurrent}>
-                            {item.label}
-                        </BreadcrumbLink>
+                    return (
+                        <BreadcrumbItemContainer key={item.key}>
+                            <BreadcrumbItem
+                                item={item}
+                                updateIsTruncated={(isTruncated) => updateTruncationState(item.key, isTruncated)}
+                            />
+                            {!isLast && <>{item.separator || defaultSeparator}</>}
+                        </BreadcrumbItemContainer>
                     );
-                } else if (item.onClick) {
-                    content = (
-                        <BreadcrumbButton
-                            size="sm"
-                            color="gray"
-                            colorLevel={1800}
-                            onClick={item.onClick}
-                            $isCurrent={item.isCurrent}
-                        >
-                            {item.label}
-                        </BreadcrumbButton>
-                    );
-                } else {
-                    content = (
-                        <Text size="sm" weight="medium" color="gray" colorLevel={item.isCurrent ? 600 : 1800}>
-                            {item.label}
-                        </Text>
-                    );
-                }
-
-                return (
-                    <BreadcrumbItemContainer>
-                        {content}
-                        {!isLast && <>{item.separator || defaultSeparator}</>}
-                    </BreadcrumbItemContainer>
-                );
-            })}
-        </Wrapper>
+                })}
+            </Wrapper>
+        </Popover>
     );
 };
