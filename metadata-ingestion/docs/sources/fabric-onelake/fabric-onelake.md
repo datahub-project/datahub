@@ -2,7 +2,7 @@
 
 This connector extracts metadata from Microsoft Fabric OneLake, including workspaces, lakehouses, warehouses, schemas, and tables.
 
-## Concept Mapping
+### Concept Mapping
 
 | Microsoft Fabric | DataHub Entity                            | Notes                                       |
 | ---------------- | ----------------------------------------- | ------------------------------------------- |
@@ -29,7 +29,7 @@ Platform (fabric-onelake)
 
 The Fabric REST API does not expose tenant-level endpoints. To represent tenant-level organization in DataHub, set the `platform_instance` configuration field to your tenant identifier (e.g., "contoso-tenant"). This will be included in all container and dataset URNs, effectively grouping all workspaces under the specified platform instance/tenant.
 
-## Prerequisites
+### Prerequisites
 
 ### Authentication
 
@@ -101,7 +101,7 @@ For detailed information on permissions, see:
 2. Assign the managed identity to Fabric workspaces with **Viewer** role or higher
 3. The connector will automatically use the managed identity for authentication
 
-## Configuration
+### Configuration
 
 ### Basic Recipe
 
@@ -256,7 +256,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-## Schema Extraction
+### Schema Extraction
 
 Schema extraction (column metadata) is supported via the SQL Analytics Endpoint. This feature extracts column names, data types, nullability, and ordinal positions from tables in both Lakehouses and Warehouses.
 
@@ -422,7 +422,7 @@ source:
       enabled: false
 ```
 
-## Schemas-Enabled vs Schemas-Disabled Lakehouses
+### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
 
@@ -433,7 +433,7 @@ The connector automatically handles both schemas-enabled and schemas-disabled la
 
 The connector automatically detects the lakehouse type and uses the appropriate API endpoint. No configuration changes are needed.
 
-## Stateful Ingestion
+### Stateful Ingestion
 
 The connector supports stateful ingestion to track ingested entities and remove stale metadata. Enable it with:
 
@@ -449,7 +449,7 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
-## References
+### References
 
 ### Azure Authentication
 

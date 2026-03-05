@@ -1,4 +1,4 @@
-## Setting up connection to an Iceberg catalog
+### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
 library to extract metadata from them. The recipe for the source consists of 2 parts:
@@ -417,7 +417,7 @@ source:
         adlfs.client-secret: <Azure Client Secret>
 ```
 
-## Concept Mapping
+### Concept Mapping
 
 <!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
 <!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
@@ -435,7 +435,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Table parent folders (excluding [warehouse catalog location](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)) | Container                                                              | Available in a future release                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types)                                                                 | SchemaField                                                            | Maps to the fields defined within the Iceberg table schema definition.                                                                                                                                                                                                                                                                                                                                                                         |
 
-## Troubleshooting
+### Troubleshooting
 
 ### Exceptions while increasing `processing_threads`
 
@@ -443,6 +443,6 @@ Each processing thread will open several files/sockets to download manifest file
 exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
 files (e.g. using `ulimit` in Linux).
 
-## DataHub Iceberg REST Catalog
+### DataHub Iceberg REST Catalog
 
 DataHub also implements the Iceberg REST Catalog. See the [Iceberg Catalog documentation](docs/iceberg-catalog.md) for more details.

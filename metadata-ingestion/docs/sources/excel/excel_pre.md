@@ -26,7 +26,7 @@ The following table shows how Excel entities are mapped to DataHub entities:
 
 Note: The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
 
-## Prerequisites
+### Prerequisites
 
 ### AWS S3
 
@@ -80,7 +80,7 @@ To access files on Azure Blob Storage, you will need the following:
    - For client secret: Appropriate Azure role assignments (like Storage Blob Data Contributor)
    - For SAS token: Permissions are defined within the token itself
 
-## Starter Recipes
+### Starter Recipes
 
 Check out the following recipes to get started with ingestion.
 

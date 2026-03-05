@@ -1,4 +1,4 @@
-## Advanced Configurations
+### Advanced Configurations
 
 ### Environment-Specific Topic Discovery
 
@@ -610,7 +610,7 @@ provided_configs:
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
 
-## Troubleshooting
+### Troubleshooting
 
 ### Topic Discovery Issues
 
