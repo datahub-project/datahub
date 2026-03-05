@@ -125,6 +125,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
+    )
 
     @field_validator("catalog", mode="before")
     @classmethod
