@@ -193,13 +193,17 @@ def test_dlt_outlet_urns_match_postgres_format(tmp_path: pathlib.Path) -> None:
 
     assert len(outlet_urns) > 0, "Expected at least one outlet Dataset URN"
 
-    # All postgres outlets must follow chess.chess_data.<table> format
+    # All postgres outlets must follow the 3-part chess.chess_data.<table> format.
+    # The 3-part prefix (chess. = database, chess_data = dataset_name) confirms that
+    # destination_platform_map.postgres.database is correctly prepended — this is the
+    # critical lineage-stitching format that must match the postgres connector's URNs.
     for urn in outlet_urns:
         assert "dataPlatform:postgres" in urn, (
             f"Expected postgres platform in URN: {urn}"
         )
-        assert "chess_data" in urn, (
-            f"Expected chess_data (dlt dataset_name) in URN: {urn}"
+        assert "chess.chess_data." in urn, (
+            f"Expected 3-part chess.chess_data.<table> format when database='chess' is "
+            f"set in destination_platform_map, got: {urn}"
         )
         assert "DEV" in urn, f"Expected DEV env in URN: {urn}"
 
@@ -402,8 +406,8 @@ def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> 
     )
 
     # The two loads have different statuses (0=success, 1=failure).
-    # Verify the run result distinction is reflected in the emitted aspects.
-    # The end_event_mcp produces a dataProcessRunEvent aspect with a result field.
+    # Verify that two distinct run result types are emitted — if the status mapping
+    # were broken and both loads produced the same result, this would catch it.
     run_results = set()
     for record in records:
         if record.get("entityType") != "dataProcessInstance":
@@ -413,6 +417,8 @@ def test_dlt_run_history_emits_dataprocess_instances(tmp_path: pathlib.Path) -> 
         if result:
             run_results.add(str(result.get("type", result)))
 
-    assert len(run_results) >= 1, (
-        "Expected run result aspects from dataProcessRunEvent MCPs"
+    assert len(run_results) == 2, (
+        f"Expected 2 distinct run result types from the two loads (success + failure), "
+        f"got {len(run_results)}: {run_results}. "
+        f"This likely means the _DLT_LOAD_STATUS_MAP is not being applied correctly."
     )

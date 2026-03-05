@@ -212,6 +212,12 @@ class DltClient:
                 pipeline_name,
                 e,
             )
+            if self.report is not None:
+                self.report.warning(
+                    title="dlt SDK unavailable",
+                    message="Failed to attach to pipeline via dlt SDK; using filesystem fallback.",
+                    context=pipeline_name,
+                )
             return self._get_pipeline_info_from_filesystem(pipeline_name)
 
     def _schema_obj_to_info(
@@ -327,12 +333,20 @@ class DltClient:
     # ------------------------------------------------------------------
 
     def get_run_history(
-        self, pipeline_name: str, start_time: Optional[datetime] = None
+        self,
+        pipeline_name: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> Optional[List[DltLoadInfo]]:
         """
         Query _dlt_loads from the destination to get run history.
 
         Requires dlt package and destination credentials in ~/.dlt/secrets.toml.
+
+        Args:
+            pipeline_name: The dlt pipeline name.
+            start_time: Only return loads inserted after this time.
+            end_time: Only return loads inserted before this time.
 
         Returns:
             List[DltLoadInfo] — successful query (may be empty if no rows in time window)
@@ -362,6 +376,8 @@ class DltClient:
                         if inserted_at.tzinfo is None:
                             inserted_at = inserted_at.replace(tzinfo=timezone.utc)
                         if start_time and inserted_at < start_time:
+                            continue
+                        if end_time and inserted_at > end_time:
                             continue
                         loads.append(
                             DltLoadInfo(

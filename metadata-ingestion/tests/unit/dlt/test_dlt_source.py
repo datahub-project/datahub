@@ -201,6 +201,10 @@ def test_destination_urn_construction_postgres() -> None:
     assert "dataPlatform:postgres" in urn_str
     assert "chess_data.players_games" in urn_str
     assert "DEV" in urn_str
+    # No database configured → 2-part path only; 3-part prefix must be absent
+    assert "chess.chess_data" not in urn_str, (
+        "Expected 2-part dataset_name.table URN when database= is not configured"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +343,34 @@ def test_run_history_emits_dataprocess_instance() -> None:
 
     # Report counter must reflect both loads
     assert source.report.run_history_loaded == 2
+
+
+# ---------------------------------------------------------------------------
+# Test 6b: Run history — query failure (None return) increments error counter
+# ---------------------------------------------------------------------------
+
+
+def test_emit_run_history_with_query_failure_increments_error_count() -> None:
+    """
+    When get_run_history returns None (SQL exception or credential failure),
+    _emit_run_history must:
+    - Emit zero workunits
+    - Call report_run_history_error() once
+    - NOT call report_run_history_loaded()
+    """
+    pipeline_info = _make_pipeline_info()
+    source = _make_source(extra_config={"include_run_history": True})
+
+    with patch.object(source.client, "get_run_history", return_value=None):
+        workunits = list(source._emit_run_history(pipeline_info))
+
+    assert len(workunits) == 0, "Expected no workunits on hard failure"
+    assert source.report.run_history_errors == 1, (
+        "Expected run_history_errors to be incremented on hard failure"
+    )
+    assert source.report.run_history_loaded == 0, (
+        "Expected run_history_loaded to remain 0 on hard failure"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -536,11 +568,6 @@ def test_column_level_lineage_emitted_for_single_inlet_outlet() -> None:
     assert col_names == {"url", "time_class"}, (
         "Only user columns should appear in CLL — _dlt_id and _dlt_load_id must be excluded"
     )
-
-
-# ---------------------------------------------------------------------------
-# Test 11: Empty pipelines_dir emits no workunits
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------

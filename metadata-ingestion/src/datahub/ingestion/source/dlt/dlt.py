@@ -373,8 +373,10 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         self, pipeline_info: DltPipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
         """Query _dlt_loads and emit DataProcessInstance entities for each completed run."""
-        # Check dlt availability before querying — get_run_history returns [] (not None)
-        # when dlt is unavailable, so we need to handle this case explicitly.
+        # Check dlt availability before querying. get_run_history() returns [] (not None)
+        # when dlt is unavailable — which would fall through to a silent debug log with no
+        # user-visible warning or error count. The pre-check upgrades that path into a
+        # report.warning() + report_run_history_error() so operators see the issue.
         if not self.client.dlt_available:
             self.report.warning(
                 title="Run history unavailable",
@@ -385,12 +387,16 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         start_time = self.config.run_history_config.start_time
+        end_time = self.config.run_history_config.end_time
         loads = self.client.get_run_history(
-            pipeline_info.pipeline_name, start_time=start_time
+            pipeline_info.pipeline_name,
+            start_time=start_time,
+            end_time=end_time,
         )
 
         if loads is None:
-            # Hard failure — get_run_history already logged and reported the error.
+            # Hard failure — get_run_history already logged a warning and called
+            # self.report.warning(). Increment the error counter here.
             self.report.report_run_history_error()
             return
 
