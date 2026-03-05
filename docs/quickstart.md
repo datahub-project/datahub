@@ -72,6 +72,27 @@ datahub docker quickstart
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
 If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
+Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md) is configured.
+
+Quickstart resolves the values in the following order:
+
+1. If the envrionment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT` defined, their values are used.
+2. If the file `~/.datahub/quickstart/.local-secrets.env` exists and the variables mentioned above are defined in it thier values are used.
+3. If both of the above are not available, new random values are generated and used. The values are written to the file mentioned above and used in subsequent invocations.
+
+It is recommended that users provide their own stable values for the environment values before running quickstart.
+
+```
+export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
+export DATAHUB_TOKEN_SERVICE_SALT=<value>
+```
+
+To generate values to use, you can use the output of the following
+
+```
+openssl rand -base64 32
+```
+
 If things go well, you should see messages like the ones below:
 
 ```shell-session
@@ -123,25 +144,9 @@ Required steps to upgrade:
 
 ### DataHub Authentication Changes in default signing key
 
-From version 1.5 DataHub quickstart now generates a random signing key and salt for use when
-generating and validating authentication tokens instead of a hardcoded default key.
-If no values are provided by the user, a new key is generated the first time quickstart is run and the generated values are stored in `~/.datahub/quickstart/.local-secrets.env`. On subsequent reruns the values are read from this while. If the file is deleted new values will be generated which will invalidate any Personal Access Tokens (PATs) created in a previous session.
+From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously if the user does not provide thier own keys.
 
-It is recommended that users provide their own stable values for these.
-
-To generate random values to use, you can use the output of the following
-
-```
-openssl rand -base64 32
-```
-
-To provide your own values set the following environment variables before running quickstart.
-
-```
-export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
-export DATAHUB_TOKEN_SERVICE_SALT=<value>
-```
-
+⚠️ For users upgrading from previous versions of the cli, due to the change in the signing key, existing PAT tokens will be invalidated.
 :::
 
 ### Sign In
