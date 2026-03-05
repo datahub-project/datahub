@@ -1212,7 +1212,7 @@ class TestDataHubRestEmitter:
         assert mock_session.get.call_count == 1
 
         # Cache should still be empty
-        assert not hasattr(emitter, "_server_config") or emitter._server_config is None
+        assert emitter._server_config is None
         assert emitter._config_fetch_time is None
 
         # Fix the error and set up successful response

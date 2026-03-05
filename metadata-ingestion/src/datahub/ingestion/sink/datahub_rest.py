@@ -286,7 +286,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 events.append(event)
 
         trace_data = self.emitter.emit_mcps(events, emit_mode=_DEFAULT_EMIT_MODE)
-        num_chunks = len(trace_data)
+        num_chunks = max(len(trace_data), 1)
         self.report.async_batches_prepared += 1
         if num_chunks > 1:
             self.report.async_batches_split += num_chunks
