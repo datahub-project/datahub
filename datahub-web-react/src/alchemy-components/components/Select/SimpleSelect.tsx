@@ -82,6 +82,7 @@ export const SimpleSelect = ({
     isLoading = false,
     dataTestId,
     visibilityDeps,
+    placement = 'bottomLeft',
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -181,7 +182,7 @@ export const SimpleSelect = ({
                 <Dropdown
                     open={isOpen}
                     disabled={isDisabled}
-                    placement="bottomRight"
+                    placement={placement}
                     dropdownRender={() => (
                         <DropdownContainer
                             ref={dropdownRef}
