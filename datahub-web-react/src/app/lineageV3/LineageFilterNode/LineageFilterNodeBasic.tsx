@@ -25,7 +25,7 @@ export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
-    border: 1px solid ${(props) => props.theme.colors.border};
+    border: 1px solid ${(props) => props.theme.colors.borderFocused};
     border-radius: 12px;
     cursor: pointer;
     padding: 8px;
