@@ -72,10 +72,9 @@ datahub docker quickstart
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
 If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
-Starting CLI version 1.5 signing key is automatically generated which is used to generate and validate PATs created by Metadata Service Authentication. These are saved to `~/.datahub/quickstart/.local-secrets.env` and used in subsequent invocations.
-If no values are provided by the user via environment variables, a new key is generated the first time quickstart is run and the generated values are stored in `~/.datahub/quickstart/.local-secrets.env`. On subsequent reruns the values are read from this while. If the file is deleted new values will be generated which will invalidate any Personal Access Tokens (PATs) created in a previous session.
+Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md) is configured.
 
-Quickstart resolves the values in the following order
+Quickstart resolves the values in the following order:
 
 1. If the envrionment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT` defined, their values are used.
 2. If the file `~/.datahub/quickstart/.local-secrets.env` exists and the variables mentioned above are defined in it thier values are used.
@@ -145,7 +144,7 @@ Required steps to upgrade:
 
 ### DataHub Authentication Changes in default signing key
 
-From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously.
+From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously if the user does not provide thier own keys.
 
 ⚠️ For users upgrading from previous versions of the cli, due to the change in the signing key, existing PAT tokens will be invalidated.
 :::
