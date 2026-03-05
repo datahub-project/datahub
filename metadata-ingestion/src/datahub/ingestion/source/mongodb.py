@@ -101,7 +101,11 @@ class MongoDBConfig(
         default=None, description="MongoDB password."
     )
     authMechanism: Optional[str] = Field(
-        default=None, description="MongoDB authentication mechanism."
+        default=None,
+        description="MongoDB authentication mechanism. Supported values: "
+        "DEFAULT, SCRAM-SHA-1, SCRAM-SHA-256, MONGODB-AWS, MONGODB-X509. "
+        "When using MONGODB-AWS, credentials are resolved via boto3. "
+        "See https://pymongo.readthedocs.io/en/stable/examples/authentication.html",
     )
     options: dict = Field(
         default={}, description="Additional options to pass to `pymongo.MongoClient()`."

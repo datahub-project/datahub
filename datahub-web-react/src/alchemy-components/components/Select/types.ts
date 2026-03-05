@@ -1,3 +1,4 @@
+import { DropdownProps } from 'antd';
 import React from 'react';
 
 import { IconNames } from '@components/components/Icon';
@@ -61,6 +62,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     descriptionMaxWidth?: number;
     dataTestId?: string;
     visibilityDeps?: React.DependencyList;
+    placement?: DropdownProps['placement'];
 }
 
 export interface SelectStyleProps {
