@@ -140,6 +140,12 @@ jobs:
         datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
       fail-fast: false
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -176,6 +182,12 @@ jobs:
         datahub_version: ["v1.0.0"]
       fail-fast: false
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -203,6 +215,12 @@ jobs:
         datahub_version: ["v1.1.0", "v1.2.0"]
       fail-fast: false
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
