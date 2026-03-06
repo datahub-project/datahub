@@ -893,34 +893,37 @@ class GlueSource(StatefulIngestionSourceBase):
                 mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
             )
 
+            # get urn for underlying table storage
+            table_storage_urn: Optional[str] = None
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
-                if not is_s3_uri(location):
-                    return None
-                s3_dataset_urn = make_s3_urn_for_lineage(
-                    location, self.source_config.env
-                )
+                if is_s3_uri(location):
+                    table_storage_urn = make_s3_urn_for_lineage(
+                        location, self.source_config.env
+                    )
 
+            # generate lineage
+            if table_storage_urn:
                 if self.source_config.glue_storage_lineage_direction == "upstream":
                     if self.ctx.graph:
-                        schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
-                            s3_dataset_urn
+                        schema_metadata_for_upstream = (
+                            self.ctx.graph.get_schema_metadata(table_storage_urn)
                         )
                     else:
-                        schema_metadata_for_s3 = None
+                        schema_metadata_for_upstream = None
 
                     fine_grained_lineages = None
                     if self.source_config.include_column_lineage and schema_metadata:
                         fine_grained_lineages = self.get_fine_grained_lineages(
                             mce.proposedSnapshot.urn,
-                            s3_dataset_urn,
+                            table_storage_urn,
                             schema_metadata,
-                            schema_metadata_for_s3 or schema_metadata,
+                            schema_metadata_for_upstream or schema_metadata,
                         )
                     upstream_lineage = UpstreamLineageClass(
                         upstreams=[
                             UpstreamClass(
-                                dataset=s3_dataset_urn,
+                                dataset=table_storage_urn,
                                 type=DatasetLineageTypeClass.COPY,
                             )
                         ],
@@ -941,7 +944,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         ]
                     )
                     return MetadataChangeProposalWrapper(
-                        entityUrn=s3_dataset_urn,
+                        entityUrn=table_storage_urn,
                         aspect=upstream_lineage,
                     ).as_workunit()
         return None
@@ -949,26 +952,26 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_fine_grained_lineages(
         self,
         dataset_urn: str,
-        s3_dataset_urn: str,
+        upstream_urn: str,
         schema_metadata: SchemaMetadata,
-        schema_metadata_for_s3: SchemaMetadata,
+        schema_metadata_for_upstream: SchemaMetadata,
     ) -> Optional[List[FineGrainedLineageClass]]:
         def simplify_field_path(field_path):
             return Dataset._simplify_field_path(field_path)
 
-        if schema_metadata and schema_metadata_for_s3:
+        if schema_metadata and schema_metadata_for_upstream:
             fine_grained_lineages: List[FineGrainedLineageClass] = []
             for field in schema_metadata.fields:
                 field_path_v1 = simplify_field_path(field.fieldPath)
-                matching_s3_field = next(
+                matching_upstream_field = next(
                     (
                         f
-                        for f in schema_metadata_for_s3.fields
+                        for f in schema_metadata_for_upstream.fields
                         if simplify_field_path(f.fieldPath) == field_path_v1
                     ),
                     None,
                 )
-                if matching_s3_field:
+                if matching_upstream_field:
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -980,8 +983,10 @@ class GlueSource(StatefulIngestionSourceBase):
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
                                 mce_builder.make_schema_field_urn(
-                                    s3_dataset_urn,
-                                    simplify_field_path(matching_s3_field.fieldPath),
+                                    upstream_urn,
+                                    simplify_field_path(
+                                        matching_upstream_field.fieldPath
+                                    ),
                                 )
                             ],
                         )
