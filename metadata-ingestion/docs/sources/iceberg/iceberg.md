@@ -1,3 +1,13 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
 ### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
@@ -176,7 +186,7 @@ PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's App
      --project=PROJECT_ID
    ```
 
-#### Configuration
+#### Authentication Setup
 
 BigLake authentication uses Application Default Credentials (ADC). DataHub provides automatic OAuth scope fixing for seamless integration.
 
@@ -434,8 +444,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties)                                                | CorpGroup                                                              | The value of a table property can be used as the name of a CorpGroup owner. This table property name can be configured with the source option `group_ownership_property`.                                                                                                                                                                                                                                                                      |
 | Table parent folders (excluding [warehouse catalog location](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)) | Container                                                              | Available in a future release                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types)                                                                 | SchemaField                                                            | Maps to the fields defined within the Iceberg table schema definition.                                                                                                                                                                                                                                                                                                                                                                         |
-
-### Troubleshooting
 
 ### Exceptions while increasing `processing_threads`
 

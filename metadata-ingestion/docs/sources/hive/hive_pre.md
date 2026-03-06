@@ -1,3 +1,7 @@
+### Overview
+
+The `hive` module ingests metadata from Hive into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 1. **Network Access**: Access to HiveServer2 on port 10000 (or 10001 for TLS)
@@ -306,51 +310,6 @@ For Hive clusters with thousands of tables, consider:
    - Hive is case-insensitive by default
    - DataHub automatically lowercases URNs for consistency
 4. **View Lineage Parsing**: Complex views using non-standard SQL may not have complete lineage extracted.
-
-### Troubleshooting
-
-#### Connection Issues
-
-**Problem**: `Could not connect to HiveServer2`
-
-**Solutions**:
-
-- Verify `host_port` is correct and accessible
-- Check firewall rules allow traffic on the Hive port
-- Confirm HiveServer2 service is running: `beeline -u jdbc:hive2://<host>:<port>`
-
-#### Authentication Failures
-
-**Problem**: `Authentication failed`
-
-**Solutions**:
-
-- Verify username and password are correct
-- Check authentication method matches your Hive configuration
-- For Kerberos: Ensure valid ticket exists (`klist`)
-- Review HiveServer2 logs for detailed error messages
-
-#### Missing Tables
-
-**Problem**: Not all tables appear in DataHub
-
-**Solutions**:
-
-- Verify user has SELECT permissions on missing tables
-- Check if tables are in filtered databases
-- Review warnings in ingestion logs
-- Ensure tables are not temporary or views with complex definitions
-
-#### Storage Lineage Not Appearing
-
-**Problem**: No storage lineage relationships visible
-
-**Solutions**:
-
-- Verify `emit_storage_lineage: true` is set
-- Check tables have defined storage locations: `DESCRIBE FORMATTED <table>`
-- Review logs for "Failed to parse storage location" warnings
-- See the "Storage Lineage" section above for more troubleshooting tips
 
 ### Related Documentation
 

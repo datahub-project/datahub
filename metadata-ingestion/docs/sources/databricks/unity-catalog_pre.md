@@ -1,3 +1,7 @@
+### Overview
+
+The `unity-catalog` module ingests metadata from Databricks into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 - Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)

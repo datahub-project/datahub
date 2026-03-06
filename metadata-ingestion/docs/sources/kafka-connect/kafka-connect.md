@@ -1,3 +1,13 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
 ### Advanced Configurations
 
 ### Environment-Specific Topic Discovery
@@ -609,8 +619,6 @@ provided_configs:
     path_key: MYSQL_CONNECTION_URL
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
-
-### Troubleshooting
 
 ### Topic Discovery Issues
 

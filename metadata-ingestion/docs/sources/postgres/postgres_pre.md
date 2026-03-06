@@ -1,5 +1,3 @@
-DataHub can extract table-level lineage from your PostgreSQL query history using the `pg_stat_statements` extension. This feature analyzes executed SQL queries to automatically discover upstream and downstream dataset dependencies.
-
 ### Overview
 
 The query-based lineage feature:
@@ -244,8 +242,6 @@ LIMIT 10;
 
 Navigate to a dataset in DataHub and check the "Lineage" tab. You should see upstream and downstream dependencies derived from query history.
 
-### Troubleshooting
-
 ### PostgreSQL Version Too Old
 
 **Error message:**
@@ -367,27 +363,6 @@ track_activity_query_size = 4096
 - Extracting 1000 queries takes 1-5 seconds depending on database load
 - Use `max_queries_to_extract` to limit extraction time
 - Schedule ingestion during off-peak hours for large query volumes
-
-### Limitations
-
-1. **Historical data only**
-
-   - Lineage is extracted from executed queries, not from schema definitions
-   - Queries must have been executed since the last `pg_stat_statements_reset()`
-
-2. **Dynamic SQL**
-
-   - Parameterized queries show parameter placeholders, not actual values
-   - Example: `SELECT * FROM users WHERE id = $1` (value not captured)
-
-3. **Complex transformations**
-
-   - The extractor may not parse extremely complex queries with nested CTEs or exotic syntax
-   - Failed queries are logged but don't block ingestion
-
-4. **No column-level lineage**
-   - Currently supports table-level lineage only
-   - Column-level lineage may be added in future releases
 
 ### Best Practices
 

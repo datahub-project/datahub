@@ -1,3 +1,7 @@
+### Overview
+
+The `lookml` module ingests metadata from Looker into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 #### [Recommended] Create a GitHub Deploy Key

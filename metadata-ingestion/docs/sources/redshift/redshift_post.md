@@ -1,3 +1,64 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Permission Overview
+
+Three categories of permissions:
+
+1. **System Table Access** - Access to Redshift system tables for lineage and usage statistics
+2. **System View Access** - Access to system views for metadata discovery
+3. **Data Access** - Access to user schemas and tables for profiling and classification
+
+#### System Table and View Permissions
+
+Execute as a superuser or user with grant privileges:
+
+```sql
+-- Core system access (required for lineage and usage statistics)
+ALTER USER datahub WITH SYSLOG ACCESS UNRESTRICTED;
+
+-- Core metadata extraction (always required)
+GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub;    -- Database information and properties
+GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub;      -- Schema information within databases
+GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub;      -- External schemas (Spectrum, federated)
+GRANT SELECT ON pg_catalog.svv_table_info TO datahub;           -- Table metadata, statistics, and properties
+GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;       -- External table definitions (Spectrum)
+GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;      -- External table column information
+GRANT SELECT ON pg_catalog.pg_class_info TO datahub;            -- Table creation timestamps and basic info
+
+-- Essential pg_catalog tables for table discovery
+GRANT SELECT ON pg_catalog.pg_class TO datahub;                 -- Table and view definitions
+GRANT SELECT ON pg_catalog.pg_namespace TO datahub;             -- Schema namespace information
+GRANT SELECT ON pg_catalog.pg_description TO datahub;           -- Table and column descriptions/comments
+GRANT SELECT ON pg_catalog.pg_database TO datahub;              -- Database catalog information
+GRANT SELECT ON pg_catalog.pg_attribute TO datahub;             -- Column definitions and properties
+GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;               -- Column default values
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for ownership
+
+-- Datashare lineage (enabled by default)
+GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
+
+-- Choose ONE based on your Redshift type:
+-- For Provisioned Clusters:
+GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized view information (provisioned)
+
+-- For Serverless Workgroups:
+-- GRANT SELECT ON pg_catalog.svv_user_info TO datahub;          -- User information (serverless alternative)
+-- GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;           -- Materialized view information (serverless)
+
+-- Schema access (required to read tables in each schema)
+GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with actual schema names
+```
+
+#### Detailed Permission Breakdown
+
+Feature-specific permission requirements:
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
 ### Troubleshooting
 
 #### Schema Discovery Issues

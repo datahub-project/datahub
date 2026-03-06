@@ -96,3 +96,7 @@ source:
         - ^urn:li:globalSettings.*
         - ^urn:li:dataHubStepState.*
 ```
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

@@ -1,3 +1,7 @@
+### Overview
+
+The `hex` module ingests metadata from Hex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 #### Workspace Name

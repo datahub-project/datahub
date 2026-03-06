@@ -1,3 +1,7 @@
+### Overview
+
+The `doris` module ingests metadata from Doris into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 #### Doris Version

@@ -2,6 +2,45 @@
 Stateful Ingestion is available only when a Platform Instance is assigned to this source.
 :::
 
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### `PROTOBUF` Schema Type Limitations
+
+The current implementation of the support for `PROTOBUF` schema type has the following limitations:
+
+- Recursive types are not supported.
+- If the schemas of different topics define a type in the same package, the source would raise an exception.
+
+In addition to this, maps are represented as arrays of messages. The following message,
+
+```
+message MessageWithMap {
+  map<int, string> map_1 = 1;
+}
+```
+
+becomes:
+
+```
+message Map1Entry {
+  int key = 1;
+  string value = 2/
+}
+message MessageWithMap {
+  repeated Map1Entry map_1 = 1;
+}
+```
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
 ### Connecting to Confluent Cloud
 
 If using Confluent Cloud you can use a recipe like this. In this `consumer_config.sasl.username` and `consumer_config.sasl.password` are the API credentials that you get (in the Confluent UI) from your cluster -> Data Integration -> API Keys. `schema_registry_config.basic.auth.user.info` has API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.
@@ -167,33 +206,6 @@ sink:
         sasl.mechanism: "OAUTHBEARER"
         sasl.oauthbearer.method: "default"
         oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
-```
-
-### Limitations of `PROTOBUF` schema types implementation
-
-The current implementation of the support for `PROTOBUF` schema type has the following limitations:
-
-- Recursive types are not supported.
-- If the schemas of different topics define a type in the same package, the source would raise an exception.
-
-In addition to this, maps are represented as arrays of messages. The following message,
-
-```
-message MessageWithMap {
-  map<int, string> map_1 = 1;
-}
-```
-
-becomes:
-
-```
-message Map1Entry {
-  int key = 1;
-  string value = 2/
-}
-message MessageWithMap {
-  repeated Map1Entry map_1 = 1;
-}
 ```
 
 ### Enriching DataHub metadata with automated meta mapping

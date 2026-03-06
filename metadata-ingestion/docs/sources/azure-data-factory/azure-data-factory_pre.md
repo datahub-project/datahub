@@ -1,16 +1,6 @@
-:::note Not Azure Fabric
-This connector is for **Azure Data Factory** (classic), not Azure Fabric's Data Factory. Azure Fabric support is planned for a future release.
-:::
+### Overview
 
-### Concept Mapping
-
-| ADF Concept  | DataHub Entity      |
-| ------------ | ------------------- |
-| Data Factory | Container           |
-| Pipeline     | DataFlow            |
-| Activity     | DataJob             |
-| Dataset      | Dataset             |
-| Pipeline Run | DataProcessInstance |
+The `azure-data-factory` module ingests metadata from Azure Data Factory into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
 ### Prerequisites
 
@@ -51,6 +41,16 @@ az role assignment create \
 ```
 
 For detailed instructions, see [Azure custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles).
+
+### Concept Mapping
+
+| ADF Concept  | DataHub Entity      |
+| ------------ | ------------------- |
+| Data Factory | Container           |
+| Pipeline     | DataFlow            |
+| Activity     | DataJob             |
+| Dataset      | Dataset             |
+| Pipeline Run | DataProcessInstance |
 
 ### Lineage Extraction
 

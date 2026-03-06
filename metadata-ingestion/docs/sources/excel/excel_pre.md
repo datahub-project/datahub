@@ -1,8 +1,8 @@
-This connector ingests Excel worksheet datasets into DataHub. Workbooks (Excel files) can be ingested from the local filesystem, from S3 buckets, or from Azure Blob Storage. An asterisk (`*`) can be used in place of a directory or as part of a file name to match multiple directories or files with a single path specification.
+### Overview
 
-:::tip
-By default, this connector will ingest all worksheets in a workbook (an Excel file). To filter worksheets use the `worksheet_pattern` config option, or to only ingest the active worksheet use the `active_sheet_only` config option.
-:::
+The `excel` module ingests metadata from Excel into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
 
 ### Supported file types
 
@@ -25,8 +25,6 @@ The following table shows how Excel entities are mapped to DataHub entities:
 | **File/Directory Structure** | **Container**  | Directory hierarchy creates containers with obfuscated URNs for organizing datasets                                                  |
 
 Note: The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
-
-### Prerequisites
 
 ### AWS S3
 

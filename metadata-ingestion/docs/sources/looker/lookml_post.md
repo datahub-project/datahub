@@ -1,3 +1,216 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+#### Large View Lineage Extraction
+
+If you have Looker views with many fields (100+) and are experiencing lineage extraction issues, the following troubleshooting steps can help:
+
+:::important
+
+**Prerequisites:** Field splitting requires Looker API configuration. Ensure you have:
+
+- `api` section with valid credentials configured
+- `use_api_for_view_lineage: true` enabled
+
+:::
+
+#### Issue: Field splitting not working
+
+**Symptoms:**
+
+- Large views still fail even with field splitting configuration
+- No field splitting messages in logs
+- Views fall back to regex-based parsing
+
+**Solutions:**
+
+1. **Verify API configuration:**
+
+   ```yml
+   source:
+     type: lookml
+     config:
+       api:
+         base_url: "https://your-instance.cloud.looker.com"
+         client_id: ${LOOKER_CLIENT_ID}
+         client_secret: ${LOOKER_CLIENT_SECRET}
+       use_api_for_view_lineage: true # Must be enabled
+   ```
+
+2. **Check API credentials:**
+
+   - Verify credentials have admin privileges (required for API access)
+   - Test API connection separately if needed
+   - Check logs for authentication errors
+
+3. **Verify view-to-explore mapping:**
+   - Field splitting requires views to be mapped to explores (views must be reachable from explores)
+   - Check logs for warnings about missing explore mappings
+   - Ensure your views are referenced by at least one explore in your model files
+   - If `emit_reachable_views_only: true` (default), unreachable views are skipped entirely
+
+#### Issue: Lineage extraction fails for large views
+
+**Symptoms:**
+
+- Views with 100+ fields show no lineage
+- Error messages about SQL parsing failures
+- Incomplete lineage information
+
+**Solutions:**
+
+1. **Verify field splitting is working:**
+   Check your ingestion logs for messages like:
+
+   ```
+   View 'your_view' has 150 fields, exceeding threshold of 100. Splitting into multiple queries for partial lineage.
+   ```
+
+   If you don't see this message, field splitting may not be triggered. Lower the threshold:
+
+   ```yml
+   field_threshold_for_splitting: 50 # Lower threshold
+   ```
+
+2. **Check success rates:**
+   Look for statistics in logs:
+
+   ```
+   Combined results for view 'your_view': 5 tables, 120 column lineages, success rate: 80.0%
+   ```
+
+   - **High success rate (>80%)**: System is working well
+   - **Medium success rate (50-80%)**: Some fields may be problematic, but partial lineage is available
+   - **Low success rate (<50%)**: Consider investigating specific fields or lowering threshold
+
+3. **Enable individual field fallback:**
+   If chunks are failing, enable individual field processing to identify problematic fields:
+
+   ```yml
+   enable_individual_field_fallback: true
+   ```
+
+   Check logs for warnings about specific fields that fail.
+
+4. **Adjust parallel processing:**
+   If you're hitting API rate limits, reduce workers:
+   ```yml
+   max_workers_for_parallel_processing: 5 # Reduce from default 10
+   ```
+
+#### Issue: Slow processing for large views
+
+**Symptoms:**
+
+- Ingestion takes a long time for views with many fields
+- Processing appears sequential
+
+**Solutions:**
+
+1. **Increase parallel workers:**
+
+   ```yml
+   max_workers_for_parallel_processing: 20 # Increase from default 10
+   ```
+
+   **Note:** Monitor system resources and API rate limits
+
+2. **Enable API caching:**
+
+   ```yml
+   use_api_cache_for_view_lineage: true # Enable server-side caching
+   ```
+
+3. **Verify parallel processing is active:**
+   Check logs for concurrent processing indicators. If processing appears sequential, verify `max_workers_for_parallel_processing` is set correctly.
+
+#### Issue: Memory or resource exhaustion
+
+**Symptoms:**
+
+- Ingestion process runs out of memory
+- System becomes unresponsive during ingestion
+
+**Solutions:**
+
+1. **Reduce parallel workers:**
+
+   ```yml
+   max_workers_for_parallel_processing: 5 # Reduce concurrent processing
+   ```
+
+2. **Process sequentially:**
+
+   ```yml
+   max_workers_for_parallel_processing: 1 # Disable parallel processing
+   ```
+
+3. **Increase chunk size:**
+   ```yml
+   field_threshold_for_splitting: 150 # Larger chunks = fewer concurrent operations
+   ```
+
+#### Issue: Incomplete lineage for some fields
+
+**Symptoms:**
+
+- Some fields show lineage, others don't
+- Partial lineage information available
+
+**Solutions:**
+
+1. **This is expected behavior** when `allow_partial_lineage_results: true` (default)
+
+   - Partial lineage is better than no lineage
+   - Check logs for specific fields that fail
+
+2. **To identify problematic fields:**
+
+   - Enable `enable_individual_field_fallback: true` (default)
+   - Check logs for warnings about specific fields
+   - Review those fields in Looker to identify issues
+
+3. **For strict validation:**
+   ```yml
+   allow_partial_lineage_results: false # Fail completely if any chunk fails
+   ```
+   **Note:** This may result in no lineage for large views if any chunk fails
+
+#### Best Practices
+
+1. **Start with defaults:** The default configuration works well for most cases
+2. **Monitor logs:** Check field splitting statistics and success rates
+3. **Tune gradually:** Adjust one parameter at a time and monitor results
+4. **Consider your environment:**
+   - **High-resource systems:** Can increase `max_workers_for_parallel_processing`
+   - **Rate-limited APIs:** Should decrease `max_workers_for_parallel_processing`
+   - **Many problematic fields:** Enable `enable_individual_field_fallback`
+   - **Strict validation needs:** Disable `allow_partial_lineage_results`
+
+#### Debugging LookML Parsing Errors
+
+If you see messages like `my_file.view.lkml': "failed to load view file: Unable to find a matching expression for '<literal>' on line 5"` in the failure logs, it indicates a parsing error for the LookML file.
+
+The first thing to check is that the Looker IDE can validate the file without issues. You can check this by clicking this "Validate LookML" button in the IDE when in development mode.
+
+If that's not the issue, it might be because DataHub's parser, which is based on the [joshtemple/lkml](https://github.com/joshtemple/lkml) library, is slightly more strict than the official Looker parser.
+Note that there's currently only one known discrepancy between the two parsers, and it's related to using [leading colons in blocks](https://github.com/joshtemple/lkml/issues/90).
+
+To check if DataHub can parse your LookML file syntax, you can use the `lkml` CLI tool. If this raises an exception, DataHub will fail to parse the file.
+
+```sh
+pip install lkml
+
+lkml path/to/my_file.view.lkml
+```
+
 ### Configuration Notes
 
 #### API-Based Lineage Extraction and Reachable Views
@@ -297,206 +510,3 @@ source:
 - **Low success rate (<50%)**: Consider lowering `field_threshold_for_splitting` or investigating problematic fields
 - **API rate limiting**: Reduce `max_workers_for_parallel_processing` to decrease concurrent requests
 - **Memory issues**: Reduce `max_workers_for_parallel_processing` if you experience memory pressure
-
-### Troubleshooting Large View Lineage Extraction
-
-If you have Looker views with many fields (100+) and are experiencing lineage extraction issues, the following troubleshooting steps can help:
-
-:::important
-
-**Prerequisites:** Field splitting requires Looker API configuration. Ensure you have:
-
-- `api` section with valid credentials configured
-- `use_api_for_view_lineage: true` enabled
-
-:::
-
-#### Issue: Field splitting not working
-
-**Symptoms:**
-
-- Large views still fail even with field splitting configuration
-- No field splitting messages in logs
-- Views fall back to regex-based parsing
-
-**Solutions:**
-
-1. **Verify API configuration:**
-
-   ```yml
-   source:
-     type: lookml
-     config:
-       api:
-         base_url: "https://your-instance.cloud.looker.com"
-         client_id: ${LOOKER_CLIENT_ID}
-         client_secret: ${LOOKER_CLIENT_SECRET}
-       use_api_for_view_lineage: true # Must be enabled
-   ```
-
-2. **Check API credentials:**
-
-   - Verify credentials have admin privileges (required for API access)
-   - Test API connection separately if needed
-   - Check logs for authentication errors
-
-3. **Verify view-to-explore mapping:**
-   - Field splitting requires views to be mapped to explores (views must be reachable from explores)
-   - Check logs for warnings about missing explore mappings
-   - Ensure your views are referenced by at least one explore in your model files
-   - If `emit_reachable_views_only: true` (default), unreachable views are skipped entirely
-
-#### Issue: Lineage extraction fails for large views
-
-**Symptoms:**
-
-- Views with 100+ fields show no lineage
-- Error messages about SQL parsing failures
-- Incomplete lineage information
-
-**Solutions:**
-
-1. **Verify field splitting is working:**
-   Check your ingestion logs for messages like:
-
-   ```
-   View 'your_view' has 150 fields, exceeding threshold of 100. Splitting into multiple queries for partial lineage.
-   ```
-
-   If you don't see this message, field splitting may not be triggered. Lower the threshold:
-
-   ```yml
-   field_threshold_for_splitting: 50 # Lower threshold
-   ```
-
-2. **Check success rates:**
-   Look for statistics in logs:
-
-   ```
-   Combined results for view 'your_view': 5 tables, 120 column lineages, success rate: 80.0%
-   ```
-
-   - **High success rate (>80%)**: System is working well
-   - **Medium success rate (50-80%)**: Some fields may be problematic, but partial lineage is available
-   - **Low success rate (<50%)**: Consider investigating specific fields or lowering threshold
-
-3. **Enable individual field fallback:**
-   If chunks are failing, enable individual field processing to identify problematic fields:
-
-   ```yml
-   enable_individual_field_fallback: true
-   ```
-
-   Check logs for warnings about specific fields that fail.
-
-4. **Adjust parallel processing:**
-   If you're hitting API rate limits, reduce workers:
-   ```yml
-   max_workers_for_parallel_processing: 5 # Reduce from default 10
-   ```
-
-#### Issue: Slow processing for large views
-
-**Symptoms:**
-
-- Ingestion takes a long time for views with many fields
-- Processing appears sequential
-
-**Solutions:**
-
-1. **Increase parallel workers:**
-
-   ```yml
-   max_workers_for_parallel_processing: 20 # Increase from default 10
-   ```
-
-   **Note:** Monitor system resources and API rate limits
-
-2. **Enable API caching:**
-
-   ```yml
-   use_api_cache_for_view_lineage: true # Enable server-side caching
-   ```
-
-3. **Verify parallel processing is active:**
-   Check logs for concurrent processing indicators. If processing appears sequential, verify `max_workers_for_parallel_processing` is set correctly.
-
-#### Issue: Memory or resource exhaustion
-
-**Symptoms:**
-
-- Ingestion process runs out of memory
-- System becomes unresponsive during ingestion
-
-**Solutions:**
-
-1. **Reduce parallel workers:**
-
-   ```yml
-   max_workers_for_parallel_processing: 5 # Reduce concurrent processing
-   ```
-
-2. **Process sequentially:**
-
-   ```yml
-   max_workers_for_parallel_processing: 1 # Disable parallel processing
-   ```
-
-3. **Increase chunk size:**
-   ```yml
-   field_threshold_for_splitting: 150 # Larger chunks = fewer concurrent operations
-   ```
-
-#### Issue: Incomplete lineage for some fields
-
-**Symptoms:**
-
-- Some fields show lineage, others don't
-- Partial lineage information available
-
-**Solutions:**
-
-1. **This is expected behavior** when `allow_partial_lineage_results: true` (default)
-
-   - Partial lineage is better than no lineage
-   - Check logs for specific fields that fail
-
-2. **To identify problematic fields:**
-
-   - Enable `enable_individual_field_fallback: true` (default)
-   - Check logs for warnings about specific fields
-   - Review those fields in Looker to identify issues
-
-3. **For strict validation:**
-   ```yml
-   allow_partial_lineage_results: false # Fail completely if any chunk fails
-   ```
-   **Note:** This may result in no lineage for large views if any chunk fails
-
-#### Best Practices
-
-1. **Start with defaults:** The default configuration works well for most cases
-2. **Monitor logs:** Check field splitting statistics and success rates
-3. **Tune gradually:** Adjust one parameter at a time and monitor results
-4. **Consider your environment:**
-   - **High-resource systems:** Can increase `max_workers_for_parallel_processing`
-   - **Rate-limited APIs:** Should decrease `max_workers_for_parallel_processing`
-   - **Many problematic fields:** Enable `enable_individual_field_fallback`
-   - **Strict validation needs:** Disable `allow_partial_lineage_results`
-
-### Debugging LookML Parsing Errors
-
-If you see messages like `my_file.view.lkml': "failed to load view file: Unable to find a matching expression for '<literal>' on line 5"` in the failure logs, it indicates a parsing error for the LookML file.
-
-The first thing to check is that the Looker IDE can validate the file without issues. You can check this by clicking this "Validate LookML" button in the IDE when in development mode.
-
-If that's not the issue, it might be because DataHub's parser, which is based on the [joshtemple/lkml](https://github.com/joshtemple/lkml) library, is slightly more strict than the official Looker parser.
-Note that there's currently only one known discrepancy between the two parsers, and it's related to using [leading colons in blocks](https://github.com/joshtemple/lkml/issues/90).
-
-To check if DataHub can parse your LookML file syntax, you can use the `lkml` CLI tool. If this raises an exception, DataHub will fail to parse the file.
-
-```sh
-pip install lkml
-
-lkml path/to/my_file.view.lkml
-```

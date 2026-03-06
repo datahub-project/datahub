@@ -6,10 +6,6 @@ The `snaplogic` module ingests metadata from SnapLogic into DataHub. It is inten
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-### Capabilities
-
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
-
 ### Integration Details
 
 Extracts data lineage from the SnapLogic Lineage API to track data transformations and dependencies across SnapLogic pipelines.
@@ -71,7 +67,3 @@ source:
 | `case_insensitive_namespaces`   |    ❌    |                               | List of case insensitive namespaces                                                                                        |
 
 </details>
-
-### Troubleshooting
-
-#### [Common Issue]

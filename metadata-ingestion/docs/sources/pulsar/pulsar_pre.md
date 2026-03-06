@@ -1,4 +1,6 @@
-> **_NOTE:_** Always use TLS encryption in a production environment and use variable substitution for sensitive information (e.g. ${CLIENT_ID} and ${CLIENT_SECRET}).
+### Overview
+
+The `pulsar` module ingests metadata from Pulsar into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
 ### Prerequisites
 

@@ -1,7 +1,10 @@
-This connector ingests Azure Blob Storage (abbreviated to abs) datasets into DataHub. It allows mapping an individual
-file or a folder of files to a dataset in DataHub.
-To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer
-section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
+### Overview
+
+The `abs` module ingests metadata from Abs into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
 ### Concept Mapping
 

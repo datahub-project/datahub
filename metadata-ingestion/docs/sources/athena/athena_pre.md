@@ -1,3 +1,7 @@
+### Overview
+
+The `athena` module ingests metadata from Athena into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 Create a policy with the following permissions and attach it to the AWS role or credentials used in your ingestion recipe.

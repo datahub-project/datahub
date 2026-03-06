@@ -1,3 +1,7 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Limitations
 
 - Ingestion is focused on report-server catalog assets and does not model all report-server object types as first-class DataHub entities.

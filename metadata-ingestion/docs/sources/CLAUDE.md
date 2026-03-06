@@ -4,68 +4,86 @@ This directory contains hand-authored documentation for DataHub source connector
 The public docs site assembles each connector's final page by combining these files in order:
 
 ```
-{connector}_pre.md          → Prerequisites, setup instructions
+README.md                    → Platform-level Overview + Concept Mapping
+[Auto-generated]             → Module heading + support badge + Important Capabilities
+{connector}_pre.md           → Module narrative before injected sections
 [Auto-generated]            → Capabilities table, install command
 {connector}_recipe.yml      → Example configuration
 [Auto-generated]            → Config options table + JSON schema
-{connector}_post.md         → Additional notes, troubleshooting
+{connector}_post.md / {connector}.md → Module narrative after injected sections
+[Auto-generated]            → Code Coordinates
 ```
 
 ## What to author
 
-Only edit `_pre.md`, `_post.md`, and `_recipe.yml`. Everything else is generated at build time and will be overwritten.
+Only edit `README.md`, `_pre.md`, `_post.md` / `{connector}.md`, and `_recipe.yml`.
+Everything in `docs/generated/...` is generated at build time and will be overwritten.
 
-| File                     | Purpose                                                   | Required? |
-| ------------------------ | --------------------------------------------------------- | --------- |
-| `{connector}_pre.md`     | Prerequisites, credentials, permissions, setup steps      | Yes       |
-| `{connector}_recipe.yml` | Minimal working example config                            | Yes       |
-| `{connector}_post.md`    | Troubleshooting, known limitations, advanced config notes | Optional  |
+| File                     | Purpose                                                         | Required?       |
+| ------------------------ | --------------------------------------------------------------- | --------------- |
+| `README.md`              | Platform-level context, common overview, concept mapping        | Yes             |
+| `{connector}_pre.md`     | Module-level pre-injection sections                             | Yes             |
+| `{connector}_recipe.yml` | Minimal working example config                                  | Yes             |
+| `{connector}_post.md`    | Module-level post-injection sections                            | Yes (preferred) |
+| `{connector}.md`         | Legacy post file format (accepted if `_post.md` does not exist) | Legacy          |
 
 ## Style conventions
 
 - **Tone**: second-person ("you"), present tense, direct
 - **Terminology**: use shared vocabulary consistently
 
-### Heading structure (CRITICAL)
+### Required generated structure (CRITICAL)
 
-**All connector docs must use consistent heading hierarchy:**
+Every generated platform page must follow this high-level order:
 
-- **Baseline: H3 (`###`)** for main sections (Prerequisites, Authentication, Setup, etc.)
-- **Maximum depth: H5 (`#####`)** for subsections
-- **Never use H1 or H2** in `_pre.md`, `_post.md`, or `README.md` files
+1. `# Platform Name` (auto-generated)
+2. Platform `README.md` content with:
+   - `## Overview`
+   - `## Concept Mapping`
+3. For each module:
+   - `## Module \`module-name\`` + badge (auto-generated)
+   - `### Important Capabilities` (auto-generated)
+   - PRE sections (authored in `_pre.md`)
+   - injected sections (`Install the Plugin`, `Starter Recipe`, `Config Details`)
+   - POST sections (authored in `_post.md` / `{connector}.md`)
+   - `### Code Coordinates` (auto-generated)
 
-**Rationale:** The docgen script generates this structure:
+### Heading-level rules by file type
 
-```
-# Platform Name (H1) ← auto-generated
-[README.md content with H3 sections]
-## Module `plugin-name` (H2) ← auto-generated (always shown)
-### Important Capabilities (H3) ← auto-generated
-[_pre.md content with H3 sections]
-### Install the Plugin (H3) ← auto-generated (always shown)
-### Starter Recipe (H3) ← auto-generated (if recipe exists)
-### Config Details (H3) ← auto-generated
-[_post.md content with H3 sections]
-### Code Coordinates (H3) ← auto-generated
-```
+- `README.md`: **H2 baseline** (`##`) for platform sections.
+- `_pre.md`, `_post.md`, `{connector}.md`: **H3 baseline** (`###`) for module sections.
+- Maximum depth: H5 (`#####`).
 
-Using H3 as baseline ensures proper hierarchy whether there's one plugin or multiple plugins per platform.
+### Required module section contract
 
-**Example structure for \_pre.md:**
+For each module, ensure the generated page effectively has:
 
 ```markdown
+### Overview
+
+### Important Capabilities (auto-generated)
+
 ### Prerequisites
 
-Your connector requires specific privileges...
+### Install the Plugin (auto-generated)
 
-#### Required Permissions
+### Starter Recipe (auto-generated from \_recipe.yml)
 
-Grant the following permissions:
+### Config Details (auto-generated)
 
-##### Option 1: Using Service Account
+### Capabilities
 
-Follow these steps...
+### Limitations
+
+### Troubleshooting
+
+### Code Coordinates (auto-generated)
 ```
+
+In practice:
+
+- Put `### Overview` and `### Prerequisites` in `{connector}_pre.md`.
+- Put `### Capabilities`, `### Limitations`, and `### Troubleshooting` in `{connector}_post.md` (or legacy `{connector}.md`) so they render after injected `Config Details`.
 
 | Preferred         | Avoid                                  |
 | ----------------- | -------------------------------------- |
@@ -76,7 +94,7 @@ Follow these steps...
 
 ## Snowflake as the canonical reference
 
-When in doubt, use `snowflake_pre.md` and `snowflake_recipe.yml` as the reference for structure, tone, and level of detail.
+When in doubt, use `snowflake/README.md`, `snowflake_pre.md`, and `snowflake_recipe.yml` as references for structure, tone, and level of detail.
 
 ## Formatting gate
 

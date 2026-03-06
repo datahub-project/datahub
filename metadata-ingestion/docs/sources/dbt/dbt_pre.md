@@ -1,3 +1,7 @@
+### Overview
+
+The `dbt` module ingests metadata from Dbt into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 The artifacts used by this source are:

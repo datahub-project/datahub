@@ -1,3 +1,22 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+:::note Version Compatibility
+
+This connector requires an MLflow server version **1.28.0 or later**.  
+If you're using an earlier version, ingestion of **Experiments** and **Runs** will be skipped.
+
+:::
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
 ### Auth Configuration
 
 You can configure the MLflow source to authenticate with the MLflow server using the `username` and `password` configuration options.

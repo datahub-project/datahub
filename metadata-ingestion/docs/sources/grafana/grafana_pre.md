@@ -2,31 +2,6 @@
 
 The `grafana` module ingests metadata from Grafana into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Capabilities
-
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
-
-### Concept Mapping
-
-| Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
-| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                                                            |
-| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                                                           |
-| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                                                        |
-| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE)                                   |
-| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                                                       |
-| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Dashboard creator assigned as TECHNICAL_OWNER; email suffix removal configurable via `remove_email_suffix` |
-| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                                                               |
-
-### Compatibility
-
-Supports any Grafana instance accessible via API. Extracts column-level lineage from parseable SQL queries in data sources.
-
-For optimal SQL lineage extraction:
-
-- Configure database/schema information in data source connection settings
-- Set `connection_to_platform_map` to match your data sources
-
 ### Prerequisites
 
 The Grafana source supports two extraction modes based on your permission level:
@@ -140,3 +115,24 @@ source:
 - **Technical Owner assignment**: Dashboard creators are automatically assigned as Technical Owners
 - **Email suffix control**: Configure how user email addresses are converted to DataHub user URNs via `remove_email_suffix`
 - **Disable ownership**: Set `ingest_owners: false` to skip ownership extraction entirely
+
+### Concept Mapping
+
+| Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
+| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                                                            |
+| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                                                           |
+| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                                                        |
+| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE)                                   |
+| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                                                       |
+| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Dashboard creator assigned as TECHNICAL_OWNER; email suffix removal configurable via `remove_email_suffix` |
+| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                                                               |
+
+### Compatibility
+
+Supports any Grafana instance accessible via API. Extracts column-level lineage from parseable SQL queries in data sources.
+
+For optimal SQL lineage extraction:
+
+- Configure database/schema information in data source connection settings
+- Set `connection_to_platform_map` to match your data sources

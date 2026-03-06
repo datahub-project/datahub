@@ -1,3 +1,7 @@
+### Overview
+
+The `oracle` module ingests metadata from Oracle into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 #### Data Dictionary Mode

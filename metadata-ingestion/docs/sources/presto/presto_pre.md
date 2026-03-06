@@ -1,3 +1,7 @@
+### Overview
+
+The `presto` module ingests metadata from Presto into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 1. **Network Access**: Access to Presto coordinator on port 8080 (or 443 for HTTPS)
@@ -316,64 +320,6 @@ Presto's catalog connectors (Hive, PostgreSQL, etc.) may have different metadata
 3. **View Lineage Parsing**: Complex Presto SQL with window functions, CTEs, or Presto-specific syntax may have incomplete lineage.
 
 4. **Connector-Specific Metadata**: Some Presto connectors (e.g., Cassandra) have limited metadata available through `information_schema`.
-
-### Troubleshooting
-
-#### Connection Issues
-
-**Problem**: `Could not connect to Presto`
-
-**Solutions**:
-
-- Verify `host_port` is correct and points to the Presto coordinator
-- Check firewall rules allow traffic on the Presto port
-- Confirm Presto service is running: `curl http://<host>:<port>/v1/info`
-- Check Presto logs for connection errors
-
-#### Authentication Failures
-
-**Problem**: `Authentication failed`
-
-**Solutions**:
-
-- Verify username and password are correct
-- Check authentication method matches Presto configuration
-- For Kerberos: Ensure valid ticket exists (`klist`)
-- Review Presto coordinator logs: `/var/log/presto/`
-
-#### Missing Catalogs or Tables
-
-**Problem**: Not all catalogs/tables appear in DataHub
-
-**Solutions**:
-
-- Verify user has access to catalogs: `SHOW CATALOGS;` in Presto
-- Check if catalogs are filtered by `database_pattern`
-- Ensure catalog connectors are properly configured in Presto
-- Review warnings in DataHub ingestion logs
-
-#### Slow Ingestion
-
-**Problem**: Metadata extraction takes too long
-
-**Solutions**:
-
-- Use catalog/schema filtering to reduce scope
-- Disable profiling or limit to specific tables
-- Enable stateful ingestion
-- Ensure Presto cluster has adequate resources
-- Check Presto query queue and resource groups
-
-#### View Lineage Not Appearing
-
-**Problem**: No lineage for Presto views
-
-**Solutions**:
-
-- Complex Presto SQL may have limited lineage extraction
-- For Hive-backed views, consider using the [Hive Metastore connector](../hive-metastore) with `mode: presto`
-- Review logs for SQL parsing warnings
-- Simplify view definitions if possible
 
 ### Migration from presto-on-hive
 

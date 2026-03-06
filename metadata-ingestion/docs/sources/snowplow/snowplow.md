@@ -1,5 +1,29 @@
 # Snowplow
 
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+1. **BDP-specific features**:
+
+   - Event specifications only available via BDP Console API
+   - Tracking scenarios only available via BDP Console API
+   - Tracking plans only available via BDP Console API
+   - Open-source Iglu users won't have these features
+
+2. **Iglu Server requirements**:
+
+   - Automatic schema discovery requires Iglu Server 0.6+ with `/api/schemas` endpoint
+   - Older Iglu implementations may not support the list schemas API
+
+3. **Field tagging in Iglu-only mode**:
+   - PII/sensitive field detection requires BDP deployment metadata
+   - Not available when using Iglu-only mode
+
+### Troubleshooting
+
 ### Overview
 
 The Snowplow source extracts metadata from Snowplow's behavioral data platform, including:
@@ -516,8 +540,6 @@ Each entity type includes relevant custom properties:
 - `input_fields`, `output_fields`
 - `configuration` details
 
-### Troubleshooting
-
 ### Authentication Errors
 
 **Error**: `Authentication failed: Invalid API credentials`
@@ -607,24 +629,6 @@ Each entity type includes relevant custom properties:
 - Connector implements automatic retry with exponential backoff
 - Rate limits should be handled automatically
 - If issues persist, contact Snowplow support to increase limits
-
-### Limitations
-
-1. **BDP-specific features**:
-
-   - Event specifications only available via BDP Console API
-   - Tracking scenarios only available via BDP Console API
-   - Tracking plans only available via BDP Console API
-   - Open-source Iglu users won't have these features
-
-2. **Iglu Server requirements**:
-
-   - Automatic schema discovery requires Iglu Server 0.6+ with `/api/schemas` endpoint
-   - Older Iglu implementations may not support the list schemas API
-
-3. **Field tagging in Iglu-only mode**:
-   - PII/sensitive field detection requires BDP deployment metadata
-   - Not available when using Iglu-only mode
 
 ### Advanced Configuration
 

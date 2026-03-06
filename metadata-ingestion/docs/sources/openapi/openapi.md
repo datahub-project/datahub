@@ -1,14 +1,5 @@
 This connector ingests OpenAPI (Swagger) API endpoint metadata into DataHub. It extracts API endpoints from OpenAPI v2 (Swagger) and v3 specifications and represents them as datasets in DataHub, allowing you to catalog and discover your API endpoints alongside your data assets.
 
-### Concept Mapping
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-| Source Concept | DataHub Concept                                                                           | Notes                  |
-| -------------- | ----------------------------------------------------------------------------------------- | ---------------------- |
-| `"OpenAPI"`    | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                        |
-| API Endpoint   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT` |
-
 ### Capabilities
 
 The OpenAPI source extracts metadata from OpenAPI specifications and optionally makes live API calls to gather schema information. It supports:
@@ -20,6 +11,24 @@ The OpenAPI source extracts metadata from OpenAPI specifications and optionally 
 - **Browse path organization** - Endpoints are organized by their path structure in DataHub's browse interface
 - **Tag extraction** - Preserves tags from OpenAPI specifications
 - **Description extraction** - Extracts endpoint descriptions and summaries
+
+### Limitations
+
+- **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
+- **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
+- **200 response codes only**: Only endpoints with 200 response codes are ingested.
+- **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
+
+### Troubleshooting
+
+### Concept Mapping
+
+This ingestion source maps the following Source System Concepts to DataHub Concepts:
+
+| Source Concept | DataHub Concept                                                                           | Notes                  |
+| -------------- | ----------------------------------------------------------------------------------------- | ---------------------- |
+| `"OpenAPI"`    | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                        |
+| API Endpoint   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT` |
 
 ### Schema Extraction Behavior
 
@@ -263,15 +272,6 @@ sink:
   config:
     server: "http://localhost:8080"
 ```
-
-### Limitations
-
-- **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
-- **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
-- **200 response codes only**: Only endpoints with 200 response codes are ingested.
-- **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
-
-### Troubleshooting
 
 ### No schemas extracted
 

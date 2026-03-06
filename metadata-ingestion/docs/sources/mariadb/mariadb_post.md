@@ -1,3 +1,9 @@
+### Capabilities
+
+- Ingests MariaDB tables and views with schema and column metadata.
+- Supports optional profiling and SQL-based lineage extraction when enabled.
+- Supports secure connections through SSL client configuration.
+
 ### Limitations
 
 - Lineage completeness depends on available query logs and SQL parsing coverage.

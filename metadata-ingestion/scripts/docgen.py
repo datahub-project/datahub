@@ -495,8 +495,8 @@ def generate(  # noqa: C901
                 f.write(f"\n\n## Module `{plugin_name}`\n")
                 if plugin.support_status != SupportStatus.UNKNOWN:
                     f.write(get_support_status_badge(plugin.support_status) + "\n\n")
+                f.write(f"\n{section_heading} Important Capabilities\n")
                 if plugin.capabilities and len(plugin.capabilities):
-                    f.write(f"\n{section_heading} Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
@@ -508,7 +508,12 @@ def generate(  # noqa: C901
                         f.write(
                             f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
-                    f.write("\n")
+                else:
+                    f.write(
+                        "Capability metadata is not explicitly declared for this module. "
+                        "Refer to module documentation and configuration sections below.\n"
+                    )
+                f.write("\n")
 
                 # Insert custom pre section
                 f.write(plugin.custom_docs_pre or "")
@@ -523,8 +528,8 @@ def generate(  # noqa: C901
                     f.write(
                         f"The `{plugin_name}` source works out of the box with `acryl-datahub`.\n"
                     )
+                f.write(f"\n{section_heading} Starter Recipe\n")
                 if plugin.starter_recipe:
-                    f.write(f"\n{section_heading} Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -534,9 +539,15 @@ def generate(  # noqa: C901
                     f.write("```yaml\n")
                     f.write(plugin.starter_recipe)
                     f.write("\n```\n")
+                else:
+                    f.write(
+                        "A starter recipe is not currently available for this module. "
+                        "Use the configuration schema below to build a recipe.\n"
+                    )
+
+                f.write(f"\n{section_heading} Config Details\n")
                 if plugin.config_json_schema:
                     assert plugin.config_md is not None
-                    f.write(f"\n{section_heading} Config Details\n")
                     f.write(
                         """<Tabs>
                 <TabItem value="options" label="Options" default>\n\n"""
@@ -560,6 +571,11 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 ```\n\n
 </TabItem>
 </Tabs>\n\n"""
+                    )
+                else:
+                    f.write(
+                        "Configuration schema is not auto-generated for this module. "
+                        "Refer to the source code coordinates and module guidance below.\n\n"
                     )
 
                 # insert custom plugin docs after config details

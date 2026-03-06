@@ -1,3 +1,7 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Limitations
 
 - Some metadata and lineage fields are only available through admin APIs or specific tenant settings.

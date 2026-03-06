@@ -1,3 +1,7 @@
+### Overview
+
+The `mysql` module ingests metadata from Mysql into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 Grant the following privileges to the ingestion user:

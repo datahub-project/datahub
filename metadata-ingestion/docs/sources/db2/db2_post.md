@@ -1,3 +1,15 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
 ### Using the IBM i Access ODBC Driver
 
 This source can connect to Db2 for IBM i (AS/400) directly using the IBM i Access ODBC Driver rather than using the default CLI driver that requires Db2 Connect.

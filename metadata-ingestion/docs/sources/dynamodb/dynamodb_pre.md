@@ -1,3 +1,7 @@
+### Overview
+
+The `dynamodb` module ingests metadata from Dynamodb into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 :::note Breaking Change
