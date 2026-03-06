@@ -55,7 +55,7 @@ buildscript {
   ext.logbackClassic = '1.5.21'
   ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
   ext.kafkaVersion = '8.0.0'
-  ext.hazelcastVersion = '5.3.6'
+  ext.hazelcastVersion = '5.6.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
@@ -239,8 +239,9 @@ project.ext.externalDependency = [
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.20.1',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.15.2',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
+    // 1.16.0+ shades jackson 2.19.2 in parquet-jackson (GHSA-72hv-8253-57qq fix; 1.15.2 had 2.18.1)
+    'parquet': 'org.apache.parquet:parquet-avro:1.16.0',
+    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.16.0',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
     'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
@@ -465,7 +466,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       }
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
