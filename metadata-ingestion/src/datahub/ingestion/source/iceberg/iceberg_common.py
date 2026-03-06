@@ -126,8 +126,13 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=1, description="How many threads will be processing tables"
     )
     domain: Dict[str, AllowDenyPattern] = Field(
-        default=dict(),
-        description="regex patterns for tables to filter to assign domain_key. ",
+        default_factory=dict,
+        description=(
+            "A map of domain names to allow/deny patterns for tables and namespaces. "
+            "Domain key can be a guid like \"urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba\" "
+            "or a string like \"Engineering\". "
+            "If multiple patterns match, at most one domain is assigned to the entity."
+        ),
     )
 
     @field_validator("catalog", mode="before")

@@ -2106,38 +2106,29 @@ class TestDomainAssignment:
             aspects[mcpw.entityUrn][mcpw.aspectName] = mcpw.aspect
         return aspects
 
-    def test_domain_assigned_to_table(self) -> None:
-        """When domain config matches a table name, a DomainsClass aspect should be emitted."""
+    def test_domain_assigned_to_table_and_namespace(self) -> None:
+        """Domain config assigns domains to both matching tables and namespaces."""
         source = with_iceberg_source(
             domain={"Engineering": AllowDenyPattern(allow=[".*"])},
         )
         wus = self._run_ingestion(
             source,
             {
-                "ns": {"my_table": self._make_table("ns", "my_table")},
+                "my_ns": {"my_table": self._make_table("my_ns", "my_table")},
             },
         )
         aspects = self._get_aspects(wus)
 
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ns.my_table,PROD)"
+        # Table should get domain
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,my_ns.my_table,PROD)"
         assert "domains" in aspects[dataset_urn]
-        domain_aspect = aspects[dataset_urn]["domains"]
-        assert domain_aspect.domains == ["urn:li:domain:Engineering"]
+        assert aspects[dataset_urn]["domains"].domains == ["urn:li:domain:Engineering"]
 
-    def test_domain_assigned_to_namespace(self) -> None:
-        """When domain config matches a namespace name, a DomainsClass aspect should be emitted."""
-        source = with_iceberg_source(
-            domain={"DataPlatform": AllowDenyPattern(allow=["my_ns"])},
-        )
-        wus = self._run_ingestion(source, {"my_ns": {}})
-        aspects = self._get_aspects(wus)
-
-        # Find the container URN that has a domains aspect
+        # Namespace container should also get domain
         container_urns = [urn for urn in aspects if urn.startswith("urn:li:container:")]
         assert len(container_urns) == 1
         assert "domains" in aspects[container_urns[0]]
-        domain_aspect = aspects[container_urns[0]]["domains"]
-        assert domain_aspect.domains == ["urn:li:domain:DataPlatform"]
+        assert aspects[container_urns[0]]["domains"].domains == ["urn:li:domain:Engineering"]
 
     def test_no_domain_when_config_empty(self) -> None:
         """When no domain config is provided (default), no domains aspect should be emitted."""
