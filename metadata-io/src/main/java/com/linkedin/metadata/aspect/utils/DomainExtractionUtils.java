@@ -315,12 +315,9 @@ public class DomainExtractionUtils {
         continue;
       }
 
-      // Only process Domains aspect changes
-      if (DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())) {
-        Set<Urn> newDomains = extractDomainsFromMCP(mcp);
-        if (!newDomains.isEmpty()) {
-          newDomainsByEntity.put(entityUrn, newDomains);
-        }
+      Set<Urn> newDomains = extractDomainsFromMCP(mcp);
+      if (!newDomains.isEmpty()) {
+        newDomainsByEntity.put(entityUrn, newDomains);
       }
     }
 
