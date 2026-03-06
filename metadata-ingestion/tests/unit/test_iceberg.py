@@ -2128,7 +2128,9 @@ class TestDomainAssignment:
         container_urns = [urn for urn in aspects if urn.startswith("urn:li:container:")]
         assert len(container_urns) == 1
         assert "domains" in aspects[container_urns[0]]
-        assert aspects[container_urns[0]]["domains"].domains == ["urn:li:domain:Engineering"]
+        assert aspects[container_urns[0]]["domains"].domains == [
+            "urn:li:domain:Engineering"
+        ]
 
     def test_no_domain_when_config_empty(self) -> None:
         """When no domain config is provided (default), no domains aspect should be emitted."""
