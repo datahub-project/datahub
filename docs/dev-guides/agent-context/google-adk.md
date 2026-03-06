@@ -226,8 +226,7 @@ from google.genai import types
 
 # Replace with your MCP server URL.
 # Use https://<tenant>.acryl.io/integrations/ai/mcp for Datahub cloud
-MCP_URL = "http://localhost:8080/mcp?token=YOUR_TOKEN"
-
+MCP_URL = "http://localhost:8080/mcp"
 
 async def main() -> None:
     session_service = InMemorySessionService()
@@ -238,6 +237,7 @@ async def main() -> None:
 
     toolset = McpToolset(
         connection_params=StreamableHTTPConnectionParams(url=MCP_URL),
+        headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
     )
     # Eagerly initialize the MCP session so the AsyncExitStack is owned here —
     # otherwise ADK creates it in a spawned task and close() raises an error.

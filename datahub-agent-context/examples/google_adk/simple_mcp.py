@@ -9,7 +9,7 @@ Prerequisites:
       (or configure via Application Default Credentials for Vertex AI)
 
 Usage:
-    python simple_search.py
+    python simple_mcp.py
 """
 
 import asyncio
@@ -24,8 +24,6 @@ from google.genai import types
 
 from datahub.sdk.main_client import DataHubClient
 
-# from datahub_agent_context.google_adk_tools import build_google_adk_tools
-
 # 1. Connect to DataHub
 datahub_gms_url = os.getenv("DATAHUB_GMS_URL")
 if datahub_gms_url is None:
@@ -36,9 +34,6 @@ else:
 datahub_mcp_server_url = os.getenv(
     "DATAHUB_MCP_SERVER_URL", "http://localhost:8080/mcp"
 )
-
-# 2. Create tools using the builder (read-only tools)
-# tools = build_google_adk_tools(client, include_mutations=False)
 
 
 async def main() -> None:
