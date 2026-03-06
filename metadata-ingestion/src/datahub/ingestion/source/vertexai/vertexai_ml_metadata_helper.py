@@ -39,7 +39,11 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     LineageMetadata,
     MLMetadataConfig,
 )
-from datahub.ingestion.source.vertexai.vertexai_utils import format_api_error_message
+from datahub.ingestion.source.vertexai.vertexai_utils import (
+    format_api_error_message,
+    iterate_pager_with_rate_limit,
+    paginated_list_with_rate_limit,
+)
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 from datahub.utilities.ratelimiter import RateLimiter
 
@@ -152,10 +156,12 @@ class MLMetadataHelper:
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
 
-        with self.rate_limiter:
-            executions: List[Execution] = list(
-                self.client.list_executions(request=request, retry=_METADATA_RETRY)
-            )
+        execution_pager = self.client.list_executions(
+            request=request, retry=_METADATA_RETRY
+        )
+        executions: List[Execution] = paginated_list_with_rate_limit(
+            execution_pager, self.rate_limiter
+        )
 
         if not executions:
             matching = self._find_executions_by_schema_and_name(
@@ -195,14 +201,18 @@ class MLMetadataHelper:
             parent=parent,
             filter=filter_str,
             order_by="LAST_UPDATE_TIME desc",
-            page_size=MLMetadataDefaults.MAX_PAGE_SIZE,  # API max is 100 per page
+            page_size=MLMetadataDefaults.MAX_PAGE_SIZE,
         )
 
-        with self.rate_limiter:
-            paged_response = self.client.list_executions(
-                request=request, retry=_METADATA_RETRY
+        paged_response = self.client.list_executions(
+            request=request, retry=_METADATA_RETRY
+        )
+        executions = list(
+            itertools.islice(
+                iterate_pager_with_rate_limit(paged_response, self.rate_limiter),
+                max_to_retrieve,
             )
-            executions = list(itertools.islice(paged_response, max_to_retrieve))
+        )
         logger.info(
             f"Loaded {len(executions)} executions into cache for ML Metadata matching"
         )
