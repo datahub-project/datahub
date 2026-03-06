@@ -5,13 +5,37 @@ run-name: Post Workflow Actions for ${{ github.event_name == 'workflow_dispatch'
 # NOTE: workflow_run.workflows does not support wildcards —
 # workflow names must be listed explicitly here.
 # This workflow is NOT listed, so it will not trigger itself (no recursion).
+# Listing workflows that run in PR and Post Commit to the list
 on:
   workflow_run:
     workflows:
-      # List to be updated after testing
-      - "Lint actions"
+      - "DataHub Actions"
+      - "DataHub Agent Context"
+      - "Airflow Plugin"
+      - "build & test"
+      - "Check Datahub Jars"
+      - "check python dependencies"
+      - "code check"
+      - "Dagster Plugin"
       - "Docker Build, Scan, Test"
+      - "ingestion smoke"
+      - "documentation"
+      - "github actions format"
+      - "GX Plugin"
+      - "Lint actions"
+      - "markdown format"
       - "Metadata Ingestion"
+      - "metadata-io"
+      - "metadata model generate"
+      - "Metadata Models Custom CI"
+      - "Prefect Plugin"
+      - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
+      - "Python Build"
+      - "Quickstart Test"
+      - "Frontend Preview"
+      - "spark smoke test"
+      - "Verify Quickstart Compose"
+      - "yaml format"
     types:
       - completed
 

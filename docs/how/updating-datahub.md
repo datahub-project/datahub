@@ -47,6 +47,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - **Default behavior change**: Previously `exclude_aspects` contained `dataHubIngestionSourceInfo`, `dataHubSecretValue`, `dataHubExecutionRequestInput`, `globalSettingsInfo`. Now `urn_pattern.deny` contains `urn:li:dataHubIngestionSource:.*`, `urn:li:dataHubSecret:.*`, `urn:li:globalSettings:.*`, `urn:li:dataHubExecutionRequest:.*` to exclude entire entity types instead of individual aspects.
   - **Note**: If you override `urn_pattern` or `exclude_aspects` in recipe, carefully configure them based on your requirements to avoid syncing sensitive data or creating invalid entities. Recommended to keep new defaults.
 - (Ingestion) Kafka Connect: The Debezium SQL Server connector now reports its platform as `mssql` instead of `sqlserver`, matching DataHub's canonical platform name. This fixes column-level lineage when using `use_schema_resolver: true`, as the SchemaResolver now correctly queries for `platform=mssql`. If you have `platform_instance_map` or `connect_to_platform_map` entries keyed on `"sqlserver"` for Debezium SQL Server connectors, update them to use `"mssql"` instead.
+- #16385 Default token signing key and salt have been removed from `metadata-service/configuration/src/main/resources/application.yaml`. It is recommended to set `authentication.tokenService.signingKey` or env var `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `authentication.tokenService.salt` or env var `DATAHUB_TOKEN_SERVICE_SALT` before starting DataHub. Refer the linked pages to know this is handled for [local development](../developers.md) and [CLI quickstart](../quickstart.md).
+  - If you are using helm to deploy DataHub you should be unaffected as the helm charts don't use the default values in application.yaml but rather generate a random secret to use.
+  - IMPACT: Due to the change in signing keys for local development and quickstart, PATs generated before this release will be invalidated and will need to be regenerated in those instances.
 
 ### Known Issues
 
@@ -59,6 +62,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #16358 (Ingestion) dbt: Added `convert_urns_to_lowercase` config option for dbt ingestion (both dbt-core and dbt-cloud). When enabled, dbt platform URNs are lowercased, preventing duplicate entities caused by schema name casing differences (e.g., `app_sales` vs `APP_SALES`). This is an opt-in flag (default: `false` for all platforms). Recommended for case-insensitive platforms like Snowflake or BigQuery where dbt manifests may contain mixed-case identifiers.
 - #16176: Vertex AI Source Connector - Additional improvements beyond breaking changes:
   - Cross-platform lineage to external data sources (GCS, BigQuery, S3, Azure Blob Storage, Snowflake) referenced in training jobs, with configurable platform instances via `platform_instance_map` to ensure URNs match native connectors
   - UI organization improved with hierarchical folders: model versions appear under their model group folders, and pipeline tasks nest under their parent pipelines
