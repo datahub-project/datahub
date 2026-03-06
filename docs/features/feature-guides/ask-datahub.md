@@ -113,7 +113,7 @@ For organization-specific definitions, policies, and procedures, consider docume
 
 ### Selecting a View
 
-You can select a **View** directly from the chat interface to narrow the scope of assets that Ask DataHub searches over for a given conversation. This is useful when you want to focus on a specific subset of your data ecosystem — for example, only datasets owned by your team, a particular domain, or a curated data product collection.
+As of v0.3.17, you can select a **View** directly from the chat interface to narrow the scope of assets that Ask DataHub searches over for a given conversation. This is useful when you want to focus on a specific subset of your data ecosystem — for example, only datasets owned by your team, a particular domain, or a curated data product collection.
 
 To select a view, click the view select dropdown next to the chat input. You can choose from your personal views or any public views shared across your organization.
 
