@@ -82,6 +82,12 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.10"
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+
       - name: install older datahub cli
         run: |
           pip install acryl-datahub==1.0
@@ -92,12 +98,6 @@ jobs:
           datahub docker check
           datahub docker ingest-sample-data
           datahub docker check
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
       - name: Install dependencies
         run: |
           ./gradlew :metadata-ingestion:install
