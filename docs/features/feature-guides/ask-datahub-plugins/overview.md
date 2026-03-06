@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
+
 **Ask DataHub Plugins** let you connect third-party tools — like Snowflake, dbt, GitHub, Glean, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md). Once connected, Ask DataHub can use these tools alongside your metadata catalog to answer richer questions and perform cross-tool workflows.
 
 ## Why Use Plugins?
@@ -150,20 +152,11 @@ For plugins that require authentication, you'll be prompted to provide your cred
 
 ## Using Plugins in Conversations
 
-Once enabled, plugin tools are seamlessly available during Ask DataHub conversations. You don't need to do anything special — just ask your question and the AI assistant will use the appropriate tools automatically.
+Once enabled, plugin tools are seamlessly available during Ask DataHub conversations. Just ask your question and the AI assistant will use the appropriate tools automatically.
 
 **Example workflows:**
 
-- _"What are the most queried tables in Snowflake this month?"_ — Uses DataHub search + Snowflake query tools
-- _"Did the latest dbt run succeed for the revenue model?"_ — Uses dbt Cloud tools to check job history
-- _"Show me recent changes to the ETL pipeline code"_ — Uses GitHub tools to browse commits
-- _"Find our internal documentation about the data retention policy"_ — Uses Glean to search your knowledge base
-
-## Plugin Guides
-
-For step-by-step setup instructions for specific plugins, see:
-
-- [Snowflake Plugin](./snowflake.md)
-- [dbt Cloud Plugin](./dbt.md)
-- [GitHub Plugin](./github.md)
-- [Glean Plugin](./glean.md)
+- _"What are the most queried tables in Snowflake this month?"_ — DataHub search + Snowflake query
+- _"Did the latest dbt run succeed for the revenue model?"_ — dbt Cloud job history
+- _"Show me recent changes to the ETL pipeline code"_ — GitHub commit browsing
+- _"Find our internal documentation about the data retention policy"_ — Glean knowledge search

@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
+
 The **GitHub Plugin** connects Ask DataHub to GitHub via the [GitHub MCP server](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp/use-the-github-mcp-server), enabling the AI assistant to browse repositories, review code changes, manage issues, and more — all from within Ask DataHub.
 
 ## Why Connect GitHub?
@@ -42,19 +44,8 @@ You can create the OAuth App under your **organization** (recommended) or your *
 
 #### Step 1: Create OAuth App in GitHub
 
-1. Open GitHub and navigate to your **Organization Settings**
-
-<!-- TODO: Screenshot of GitHub org settings navigation -->
-
-2. Click **Developer Settings > OAuth Apps**
-
-<!-- TODO: Screenshot of Developer Settings > OAuth Apps -->
-
-3. Click **New OAuth App**
-
-<!-- TODO: Screenshot of New OAuth App button -->
-
-4. Fill in the application details:
+1. Open GitHub and navigate to **Organization Settings > Developer Settings > OAuth Apps**
+2. Click **New OAuth App** and fill in the application details:
 
 | Field                          | Value                                                      |
 | ------------------------------ | ---------------------------------------------------------- |
@@ -62,16 +53,20 @@ You can create the OAuth App under your **organization** (recommended) or your *
 | **Homepage URL**               | `https://<your-datahub-url>`                               |
 | **Authorization callback URL** | `https://<your-datahub-url>/integrations/oauth/callback`   |
 
-<!-- TODO: Screenshot of OAuth App registration form -->
+3. Click **Register application**
 
-5. Click **Register application**
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/github_register_oauth_app.png"/>
+</p>
 
 #### Step 2: Collect Credentials
 
 1. Copy the **Client ID** from the app page
 2. Click **Generate a new client secret** and copy it immediately (it won't be shown again)
 
-<!-- TODO: Screenshot of Client ID and secret generation -->
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/github_client_credentials.png"/>
+</p>
 
 #### Step 3: Create Plugin in DataHub
 
@@ -99,11 +94,11 @@ You can create the OAuth App under your **organization** (recommended) or your *
 | **Token URL**         | `https://github.com/login/oauth/access_token` |
 | **Default Scopes**    | `repo, user`                                  |
 
-<!-- TODO: Screenshot of DataHub plugin OAuth config -->
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/github_plugin_config.png"/>
+</p>
 
-6. Optionally add **Instructions for the AI Assistant**
-7. Ensure **Enable for Ask DataHub** is toggled on
-8. Click **Create**
+6. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
 ### Option B: Personal Account OAuth App
 
@@ -123,18 +118,11 @@ When creating a personal OAuth App, open both GitHub and DataHub side by side. Y
 
 ## User Setup
 
-Once the admin has configured the GitHub plugin:
+Navigate to **Settings > My AI Settings**, find the **GitHub** plugin, and click **Connect**. A popup will open asking you to authorize the OAuth App on GitHub. After authorization, you'll be redirected back to DataHub. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
 
-1. Navigate to **Settings > My AI Settings** in DataHub
-2. Find the **GitHub** plugin and click **Connect**
-3. A popup will open asking you to authorize the OAuth App on GitHub — click **Authorize**
-4. After authorization, you'll be redirected back to DataHub
-5. The plugin is now connected and enabled
-
-<!-- TODO: Screenshot of My AI Settings with GitHub connect button -->
-<!-- TODO: Screenshot of GitHub OAuth authorization prompt -->
-
-You can disconnect or disable the plugin at any time from **My AI Settings** or from the plugin selector in the chat interface.
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/github_user_connect.png"/>
+</p>
 
 ## Troubleshooting
 

@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
+
 The **Snowflake Plugin** connects Ask DataHub to a [Snowflake-managed MCP server](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp), enabling conversational analytics directly from the chat. Users can query tables, explore schemas, and analyze data — all guided by DataHub's metadata catalog.
 
 ## Why Connect Snowflake?
@@ -146,29 +148,25 @@ At this point, you should have all five values needed for the DataHub configurat
 | **Token URL**         | From Step 4                              |
 | **Default Scopes**    | `refresh_token session:role:<ROLE_NAME>` |
 
-<!-- TODO: Screenshot of DataHub plugin config for Snowflake -->
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/snowflake_plugin_config.png"/>
+</p>
 
 :::info Scopes
 The `session:role:<ROLE_NAME>` scope determines which Snowflake role the user assumes when connected. If omitted, the user's default role is used. The user **must** have the specified role granted to them in Snowflake.
 :::
 
-5. Optionally add **Instructions for the AI Assistant**
-6. Ensure **Enable for Ask DataHub** is toggled on
-7. Click **Create**
+5. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
 ## User Setup
 
-Once the admin has configured the Snowflake plugin:
+Navigate to **Settings > My AI Settings**, find the **Snowflake** plugin, and click **Connect**. You'll be redirected to Snowflake to authenticate, then back to DataHub. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
 
-1. Navigate to **Settings > My AI Settings** in DataHub
-2. Find the **Snowflake** plugin and click **Connect**
-3. You'll be redirected to Snowflake to authenticate with your account
-4. After authentication, you'll be redirected back to DataHub
-5. The plugin is now connected and enabled
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/snowflake_user_connect.png"/>
+</p>
 
-<!-- TODO: Screenshot of Snowflake OAuth login flow -->
-
-## FAQ
+## Troubleshooting
 
 ### Users can't log in / OAuth fails
 

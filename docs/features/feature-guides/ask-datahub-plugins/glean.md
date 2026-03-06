@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
+
 The **Glean Plugin** connects Ask DataHub to your organization's [Glean](https://www.glean.com/) instance, bringing enterprise knowledge search into your data conversations.
 
 ## Why Connect Glean?
@@ -55,21 +57,22 @@ Obtain the MCP server URL from your Glean instance. You can find this in your Gl
    - Client registration
 
 5. Review the discovered scopes and select the ones appropriate for your organization
-6. Optionally add **Instructions for the AI Assistant** (e.g., _"Use Glean to search for organizational policies and runbooks when the user asks about processes or guidelines."_)
-7. Ensure **Enable for Ask DataHub** is toggled on
-8. Click **Create**
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/glean_plugin_config.png"/>
+</p>
+
+6. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
 That's it — no need to manually configure OAuth provider details, client IDs, or secrets.
 
 ## User Setup
 
-Once the admin has configured the Glean plugin:
+Navigate to **Settings > My AI Settings**, find the **Glean** plugin, and click **Connect**. You'll be redirected to Glean to authenticate, then back to DataHub. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
 
-1. Navigate to **Settings > My AI Settings** in DataHub
-2. Find the **Glean** plugin and click **Connect**
-3. You'll be redirected to Glean to authenticate
-4. After authentication, you'll be redirected back to DataHub
-5. The plugin is now connected and enabled
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/glean_user_connect.png"/>
+</p>
 
 ## Usage Tips
 
