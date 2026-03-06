@@ -4,7 +4,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-The **Snowflake Plugin** connects Ask DataHub to a [Snowflake MCP server](https://docs.snowflake.com/en/developer-guide/mcp-server), enabling conversational analytics directly from the chat. Users can query tables, explore schemas, and analyze data — all guided by DataHub's metadata catalog.
+The **Snowflake Plugin** connects Ask DataHub to a [Snowflake-managed MCP server](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp), enabling conversational analytics directly from the chat. Users can query tables, explore schemas, and analyze data — all guided by DataHub's metadata catalog.
 
 ## Why Connect Snowflake?
 
@@ -22,7 +22,7 @@ With the Snowflake plugin enabled, Ask DataHub can:
 
 ## Prerequisites
 
-- A Snowflake account with permissions to create MCP servers, security integrations, and grant roles
+- A Snowflake account with `ACCOUNTADMIN` (or equivalent privileges to create MCP servers, security integrations, and grant roles)
 - DataHub Cloud with Ask DataHub Plugins enabled
 - Platform admin access in DataHub to configure the plugin
 
@@ -32,38 +32,48 @@ The Snowflake plugin uses **User OAuth** authentication — each user authentica
 
 ### Step 1: Create an MCP Server in Snowflake
 
-Create an MCP server in Snowflake with the tools you want to expose to Ask DataHub.
+Create an MCP server in Snowflake with the tools you want to expose. The example below creates a server with a SQL execution tool:
 
-<!-- TODO: Screenshot of Snowflake MCP server creation -->
+```sql
+USE ROLE ACCOUNTADMIN;
+USE DATABASE YOUR_DATABASE;
+USE SCHEMA YOUR_SCHEMA;
 
-See the [Snowflake MCP server documentation](https://docs.snowflake.com/en/developer-guide/mcp-server) for details on creating and configuring MCP servers.
+CREATE OR REPLACE MCP SERVER YOUR_MCP_SERVER
+  FROM SPECIFICATION $$
+    tools:
+      - name: "execute_sql"
+        type: "SYSTEM_EXECUTE_SQL"
+        description: "Execute SQL queries against the data warehouse"
+        title: "SQL Executor"
+  $$;
+```
+
+You can also expose Cortex Search, Cortex Analyst, Cortex Agent, and custom UDF/stored procedure tools. See the [Snowflake MCP server documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp) for all available tool types.
 
 ### Step 2: Grant Access
 
-Ensure the appropriate roles have usage on the MCP server:
+Grant usage on the MCP server to the roles that should be able to use it:
 
 ```sql
-GRANT USAGE ON MCP SERVER "your-mcp-server" TO ROLE DATA_ANALYST;
+GRANT USAGE ON DATABASE YOUR_DATABASE TO ROLE YOUR_ROLE;
+GRANT USAGE ON SCHEMA YOUR_DATABASE.YOUR_SCHEMA TO ROLE YOUR_ROLE;
+GRANT USAGE ON MCP SERVER YOUR_DATABASE.YOUR_SCHEMA.YOUR_MCP_SERVER TO ROLE YOUR_ROLE;
 ```
 
-### Step 3: Configure OAuth in Snowflake
+### Step 3: Create an OAuth Security Integration
 
-Create a security integration to use Snowflake as an OAuth provider. Make sure to:
-
-- Set the **OAuth redirect URI** to `https://<your-datahub-url>/integrations/oauth/callback`
-- **Enable refresh tokens** (required for persistent sessions)
-
-<!-- TODO: Screenshot of Snowflake security integration creation -->
+Create a security integration to use Snowflake as an OAuth provider. Make sure to set the redirect URI to your DataHub instance's OAuth callback and enable refresh tokens:
 
 ```sql
-CREATE OR REPLACE SECURITY INTEGRATION "your-integration-name"
+CREATE OR REPLACE SECURITY INTEGRATION YOUR_INTEGRATION_NAME
   TYPE = OAUTH
   ENABLED = TRUE
   OAUTH_CLIENT = CUSTOM
   OAUTH_CLIENT_TYPE = 'CONFIDENTIAL'
   OAUTH_REDIRECT_URI = 'https://<your-datahub-url>/integrations/oauth/callback'
   OAUTH_ISSUE_REFRESH_TOKENS = TRUE
-  OAUTH_REFRESH_TOKEN_VALIDITY = 86400;
+  OAUTH_REFRESH_TOKEN_VALIDITY = 7776000;
 ```
 
 :::caution Refresh Tokens
@@ -72,33 +82,45 @@ Make sure `OAUTH_ISSUE_REFRESH_TOKENS` is set to `TRUE`. Without refresh tokens,
 
 ### Step 4: Collect Authentication Details
 
-Run the following command to retrieve your OAuth client credentials:
+Run the following queries to gather the information you'll need for DataHub:
+
+**OAuth Client Credentials:**
 
 ```sql
-SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('your-integration-name');
+SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('YOUR_INTEGRATION_NAME');
 ```
 
 This returns a JSON object containing `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET`.
 
-Next, retrieve the authorization and token endpoints:
+**Authorization and Token Endpoints:**
 
 ```sql
-DESC SECURITY INTEGRATION "your-integration-name";
+DESC SECURITY INTEGRATION "YOUR_INTEGRATION_NAME";
 ```
 
-Look for the `OAUTH_AUTHORIZATION_ENDPOINT` and `OAUTH_TOKEN_ENDPOINT` values in the output.
+Look for `OAUTH_AUTHORIZATION_ENDPOINT` and `OAUTH_TOKEN_ENDPOINT` in the output.
 
-<!-- TODO: Screenshot of DESC SECURITY INTEGRATION output -->
+**MCP Server URL:**
 
-You'll also need the MCP server URL, which follows this format:
+The URL follows this format:
 
 ```
-https://<account-url>/api/v2/databases/<database>/schemas/<schema>/mcp-servers/<server-name>
+https://<account-url>/api/v2/databases/<DATABASE>/schemas/<SCHEMA>/mcp-servers/<SERVER_NAME>
 ```
 
-You can find your account URL in the Snowflake UI.
+:::note Account URL Format
+Use hyphens (`-`) instead of dots (`.`) in the account locator portion of the URL. For example, if your account locator is `abc12345.us-east-1`, your URL would use `abc12345-us-east-1.snowflakecomputing.com`.
+:::
 
-<!-- TODO: Screenshot showing where to find account URL -->
+At this point, you should have all five values needed for the DataHub configuration:
+
+| Value                 | Example                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **MCP Server URL**    | `https://abc12345-us-east-1.snowflakecomputing.com/api/v2/databases/MY_DB/schemas/PUBLIC/mcp-servers/MY_SERVER` |
+| **Client ID**         | From `SYSTEM$SHOW_OAUTH_CLIENT_SECRETS` output                                                                  |
+| **Client Secret**     | From `SYSTEM$SHOW_OAUTH_CLIENT_SECRETS` output                                                                  |
+| **Authorization URL** | From `DESC SECURITY INTEGRATION` (e.g. `https://abc12345.snowflakecomputing.com/oauth/authorize`)               |
+| **Token URL**         | From `DESC SECURITY INTEGRATION` (e.g. `https://abc12345.snowflakecomputing.com/oauth/token-request`)           |
 
 ### Step 5: Create Plugin in DataHub
 
@@ -106,28 +128,28 @@ You can find your account URL in the Snowflake UI.
 2. Click **+ Create** and select **Custom MCP**
 3. Fill in the plugin details:
 
-| Field                   | Value                                                                             |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| **Name**                | `Snowflake`                                                                       |
-| **Description**         | A description for the plugin                                                      |
-| **MCP Server URL**      | `https://<account-url>/api/v2/databases/<db>/schemas/<schema>/mcp-servers/<name>` |
-| **Authentication Type** | `User OAuth (Each user authenticates)`                                            |
+| Field                   | Value                                  |
+| ----------------------- | -------------------------------------- |
+| **Name**                | `Snowflake`                            |
+| **Description**         | A description for the plugin           |
+| **MCP Server URL**      | The URL from Step 4                    |
+| **Authentication Type** | `User OAuth (Each user authenticates)` |
 
-4. Fill in the OAuth provider details using the values collected in Step 4:
+4. Fill in the OAuth provider details:
 
-| Field                 | Value                                          |
-| --------------------- | ---------------------------------------------- |
-| **Provider Name**     | `Snowflake`                                    |
-| **Client ID**         | From `SYSTEM$SHOW_OAUTH_CLIENT_SECRETS` output |
-| **Client Secret**     | From `SYSTEM$SHOW_OAUTH_CLIENT_SECRETS` output |
-| **Authorization URL** | From `DESC SECURITY INTEGRATION` output        |
-| **Token URL**         | From `DESC SECURITY INTEGRATION` output        |
-| **Default Scopes**    | `refresh_token session:role:<ROLE_NAME>`       |
+| Field                 | Value                                    |
+| --------------------- | ---------------------------------------- |
+| **Provider Name**     | `Snowflake`                              |
+| **Client ID**         | From Step 4                              |
+| **Client Secret**     | From Step 4                              |
+| **Authorization URL** | From Step 4                              |
+| **Token URL**         | From Step 4                              |
+| **Default Scopes**    | `refresh_token session:role:<ROLE_NAME>` |
 
 <!-- TODO: Screenshot of DataHub plugin config for Snowflake -->
 
 :::info Scopes
-The `session:role:<ROLE_NAME>` scope determines which Snowflake role the user assumes. If omitted, the user's default role is used. The user **must** have the specified role granted to them in Snowflake.
+The `session:role:<ROLE_NAME>` scope determines which Snowflake role the user assumes when connected. If omitted, the user's default role is used. The user **must** have the specified role granted to them in Snowflake.
 :::
 
 5. Optionally add **Instructions for the AI Assistant**
@@ -150,19 +172,19 @@ Once the admin has configured the Snowflake plugin:
 
 ### Users can't log in / OAuth fails
 
-The OAuth security integration may be blocking the user's role. Ensure the role is **not** in the blocked roles list:
+The OAuth security integration may be blocking the user's role. Ensure the role you want to assume is **not** in the blocked roles list:
 
 ```sql
-ALTER SECURITY INTEGRATION "your-integration-name"
+ALTER SECURITY INTEGRATION "YOUR_INTEGRATION_NAME"
   SET BLOCKED_ROLES_LIST = ();
 ```
 
 ### Query failures
 
 - Verify the user's Snowflake role has `SELECT` access to the target tables
-- Check that the MCP server's warehouse is running and not suspended
 - Ensure the user has `USAGE` granted on the MCP server
+- Check that the warehouse is running and not suspended
 
 ### Token expiration
 
-If users are being asked to re-authenticate frequently, verify that refresh tokens are enabled on the security integration (`OAUTH_ISSUE_REFRESH_TOKENS = TRUE`).
+If users are being asked to re-authenticate frequently, verify that refresh tokens are enabled on the security integration (`OAUTH_ISSUE_REFRESH_TOKENS = TRUE`) and that `OAUTH_REFRESH_TOKEN_VALIDITY` is set to an appropriate duration.

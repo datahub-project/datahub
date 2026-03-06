@@ -4,7 +4,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-The **GitHub Plugin** connects Ask DataHub to GitHub via the [GitHub Copilot MCP server](https://api.githubcopilot.com/mcp/), enabling the AI assistant to browse repositories, review code changes, manage issues, and more — all from within Ask DataHub.
+The **GitHub Plugin** connects Ask DataHub to GitHub via the [GitHub MCP server](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp/use-the-github-mcp-server), enabling the AI assistant to browse repositories, review code changes, manage issues, and more — all from within Ask DataHub.
 
 ## Why Connect GitHub?
 
@@ -35,8 +35,8 @@ The GitHub plugin uses **User OAuth** authentication — each user authenticates
 
 You can create the OAuth App under your **organization** (recommended) or your **personal account**:
 
-- **Organization app**: Immediately available to all org members, scoped to org repositories
-- **Personal app**: Scoped to your personal repositories only
+- **Organization app**: Immediately available to all org members, not scoped to just one user's repositories
+- **Personal app**: Scoped to your personal repositories by default
 
 ### Option A: Organization OAuth App (Recommended)
 
@@ -86,7 +86,7 @@ You can create the OAuth App under your **organization** (recommended) or your *
 | **MCP Server URL**      | `https://api.githubcopilot.com/mcp/`   |
 | **Authentication Type** | `User OAuth (Each user authenticates)` |
 
-4. Copy the **OAuth Callback URL** shown in DataHub — this should match what you entered in GitHub (`https://<your-datahub-url>/integrations/oauth/callback`)
+4. The **OAuth Callback URL** shown in DataHub should match what you entered in GitHub (`https://<your-datahub-url>/integrations/oauth/callback`)
 
 5. Fill in the OAuth provider details:
 
@@ -97,7 +97,7 @@ You can create the OAuth App under your **organization** (recommended) or your *
 | **Client Secret**     | The client secret from Step 2                 |
 | **Authorization URL** | `https://github.com/login/oauth/authorize`    |
 | **Token URL**         | `https://github.com/login/oauth/access_token` |
-| **Default Scopes**    | `repo, read:org, user`                        |
+| **Default Scopes**    | `repo, user`                                  |
 
 <!-- TODO: Screenshot of DataHub plugin OAuth config -->
 
@@ -107,10 +107,7 @@ You can create the OAuth App under your **organization** (recommended) or your *
 
 ### Option B: Personal Account OAuth App
 
-The steps are the same as above, except:
-
-1. Navigate to **GitHub > Your Profile > Settings > Developer Settings > OAuth Apps** instead of organization settings
-2. The app will only have access to your personal repositories (unless other users separately authorize it)
+The steps are the same as above, except navigate to **GitHub > Your Profile > Settings > Developer Settings > OAuth Apps** instead of organization settings.
 
 :::tip Side-by-Side Setup
 When creating a personal OAuth App, open both GitHub and DataHub side by side. You'll need to copy the OAuth Callback URL from DataHub into GitHub, and the Client ID/Secret from GitHub into DataHub.

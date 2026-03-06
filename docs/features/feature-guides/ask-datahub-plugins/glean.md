@@ -23,17 +23,17 @@ With the Glean plugin enabled, Ask DataHub can:
 
 ## Prerequisites
 
-- A Glean account with access to the MCP server endpoint
+- A Glean account with the MCP server enabled (see [Glean's MCP documentation](https://developers.glean.com/guides/mcp))
 - DataHub Cloud with Ask DataHub Plugins enabled
 - Platform admin access in DataHub to configure the plugin
 
 ## Admin Setup
 
-The Glean plugin is the simplest to set up thanks to DataHub's **OAuth discovery and automatic client registration**. DataHub will automatically discover the OAuth endpoints, available scopes, and register a client with Glean — no manual OAuth configuration required.
+The Glean plugin is the simplest to set up. DataHub supports **OAuth discovery and automatic client registration** for Glean — meaning DataHub will automatically discover the OAuth endpoints, available scopes, and register a client on your behalf. No manual OAuth configuration is required.
 
 ### Step 1: Get the Glean MCP Server URL
 
-Obtain the MCP server URL from your Glean instance. This is typically available in your Glean admin settings or API documentation.
+Obtain the MCP server URL from your Glean instance. You can find this in your Glean settings under **MCP Configurator** (accessible from your profile settings), or refer to [Glean's MCP setup guide](https://developers.glean.com/guides/mcp).
 
 ### Step 2: Create Plugin in DataHub
 
@@ -48,7 +48,7 @@ Obtain the MCP server URL from your Glean instance. This is typically available 
 | **MCP Server URL**      | Your Glean MCP server URL              |
 | **Authentication Type** | `User OAuth (Each user authenticates)` |
 
-4. DataHub will automatically discover the OAuth configuration from Glean, including:
+4. DataHub will automatically discover the OAuth configuration from Glean and register a client. This includes:
 
    - Authorization and token endpoints
    - Available scopes
@@ -82,8 +82,8 @@ Once the admin has configured the Glean plugin:
 ### OAuth Discovery Fails
 
 - Verify the Glean MCP server URL is correct and accessible
-- Ensure your Glean instance supports OAuth discovery (OpenID Connect Discovery)
-- Contact your Glean administrator to verify MCP server access
+- Ensure your Glean instance supports OAuth discovery and dynamic client registration
+- Contact your Glean administrator to verify MCP server access is enabled
 
 ### No Results
 
