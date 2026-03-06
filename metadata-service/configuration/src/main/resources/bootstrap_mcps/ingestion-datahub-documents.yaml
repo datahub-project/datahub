@@ -10,7 +10,7 @@
     name: '{{ingestion.name}}{{^ingestion.name}}datahub-documents{{/ingestion.name}}'
     schedule:
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
-      interval: '{{schedule.interval}}{{^schedule.interval}}0 * * * *{{/schedule.interval}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}*/15 * * * *{{/schedule.interval}}'
     config:
       version: '{{&ingestion.version}}{{^ingestion.version}}{{/ingestion.version}}'
       recipe:
