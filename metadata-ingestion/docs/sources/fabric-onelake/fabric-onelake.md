@@ -353,7 +353,7 @@ pip install 'acryl-datahub[fabric-onelake]'
 
 **Note:** If you encounter `libodbc.so.2: cannot open shared object file` errors, ensure the ODBC driver manager is installed (step 1 above).
 
-### Configuration
+### Schema Extraction Configuration
 
 Schema extraction is enabled by default. You can configure it as follows:
 
@@ -465,3 +465,11 @@ When enabled, the connector will:
 - [Workspaces in Fabric](https://learn.microsoft.com/en-us/fabric/get-started/workspaces)
 - [Lakehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview)
 - [Warehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing)
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

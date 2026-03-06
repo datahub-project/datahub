@@ -1,3 +1,11 @@
+### Overview
+
+The `grafana` module ingests metadata from Grafana into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Concept Mapping
 
 | Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
@@ -19,7 +27,7 @@ For optimal SQL lineage extraction:
 - Configure database/schema information in data source connection settings
 - Set `connection_to_platform_map` to match your data sources
 
-### Prerequisites:
+### Prerequisites
 
 The Grafana source supports two extraction modes based on your permission level:
 

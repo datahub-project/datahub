@@ -1,3 +1,11 @@
+### Overview
+
+The `hive-metastore` module ingests metadata from Hive Metastore into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Prerequisites
 
 The Hive Metastore connector supports two connection modes:
@@ -280,12 +288,6 @@ If your Hive Metastore is configured with `hadoop.rpc.protection` set to `integr
 | `authentication`        | `auth`         | Authentication only (default)           |
 | `integrity`             | `auth-int`     | Authentication + integrity checking     |
 | `privacy`               | `auth-conf`    | Authentication + integrity + encryption |
-
-#### Thrift Mode Dependencies
-
-```bash
-pip install 'acryl-datahub[hive-metastore]'  # Add thrift-sasl for Kerberos
-```
 
 #### Thrift Mode Limitations
 
