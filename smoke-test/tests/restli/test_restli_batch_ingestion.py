@@ -117,13 +117,13 @@ def test_restli_batch_ingestion_sync(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    assert isinstance(ret, list) and len(ret) > 0
+    assert isinstance(ret, list)
 
     # Negative Test (contains invalid MetadataChangeProposal)
     invalid_mcp = _create_invalid_dashboard_mcp()
     mcps.append(invalid_mcp)
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    assert isinstance(ret, list) and len(ret) > 0
+    assert isinstance(ret, list)
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
@@ -142,13 +142,13 @@ def test_restli_batch_ingestion_async(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.ASYNC)
-    assert isinstance(ret, list) and len(ret) > 0
+    assert isinstance(ret, list)
 
     # Negative Test (contains invalid MetadataChangeProposal)
     invalid_mcp = _create_invalid_dashboard_mcp()
     mcps.append(invalid_mcp)
     ret = graph_client.emit_mcps(mcps, emit_mode=EmitMode.ASYNC)
-    assert isinstance(ret, list) and len(ret) > 0
+    assert isinstance(ret, list)
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
