@@ -786,6 +786,22 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
+      - name: Upload Cypress crash report
+        uses: actions/upload-artifact@v4
+        if: failure() && matrix.test_strategy == 'cypress'
+        with:
+          name: cypress-crash-report-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/build/smoke-test-results/cypress-crash-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload Cypress HTML report
+        uses: actions/upload-artifact@v4
+        if: always() && matrix.test_strategy == 'cypress'
+        with:
+          name: cypress-html-report-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/build/smoke-test-results/mochawesome/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
