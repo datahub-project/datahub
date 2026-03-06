@@ -157,7 +157,7 @@ class GlueSourceConfig(
     )
     emit_storage_lineage: bool = Field(
         default=False,
-        description="Whether to emit storage-to-Glue lineage. When enabled, creates lineage relationships between Glue tables and their underlying storage locations (S3).",
+        description="Whether to emit storage-to-Glue lineage. When enabled, creates lineage relationships between Glue tables and their underlying storage locations (S3 or Iceberg).",
     )
     _rename_emit_s3_lineage = pydantic_renamed_field(
         "emit_s3_lineage",
@@ -895,7 +895,16 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # get urn for underlying table storage
             table_storage_urn: Optional[str] = None
-            if dataset_properties and "Location" in dataset_properties.customProperties:
+            if (
+                dataset_properties
+                and dataset_properties.customProperties.get("table_type") == "ICEBERG"
+            ):
+                table_storage_urn = mce.proposedSnapshot.urn.replace(
+                    "urn:li:dataPlatform:glue", "urn:li:dataPlatform:iceberg"
+                )
+            elif (
+                dataset_properties and "Location" in dataset_properties.customProperties
+            ):
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
                     table_storage_urn = make_s3_urn_for_lineage(
