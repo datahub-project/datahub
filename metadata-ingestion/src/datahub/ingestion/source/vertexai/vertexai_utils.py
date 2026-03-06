@@ -243,7 +243,10 @@ def paginated_list_with_rate_limit(
     if hasattr(pager, "pages"):
         for page in pager.pages:
             with rate_limiter:
-                results.extend(list(page))
+                if hasattr(page, "executions"):
+                    results.extend(list(page.executions))
+                else:
+                    results.extend(list(page))
     else:
         with rate_limiter:
             results = list(pager)
@@ -258,7 +261,8 @@ def iterate_pager_with_rate_limit(
     if hasattr(pager, "pages"):
         for page in pager.pages:
             with rate_limiter:
-                for item in page:
+                items = page.executions if hasattr(page, "executions") else page
+                for item in items:
                     yield item
     else:
         with rate_limiter:
