@@ -51,7 +51,7 @@ You may need approval from a workspace admin to do this step. Learn about [what 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_7.png"/>
 </p>
 
-Now proceed to the [Subscriptions and Notifications page](https://docs.datahub.com/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
+Now proceed to [connect your Slack account](#connect-your-slack-account) so you can use Subscriptions & Notifications and Ask DataHub, or visit the [Slack App page](saas-slack-app.md) to learn more about DataHub's Slack capabilities.
 
 ### DataHub Slack bot permissions
 
@@ -176,6 +176,39 @@ To customize the channel where notifications are send, click the button to the r
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used.
 That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving.  -->
 
+## Connect Your Slack Account
+
+:::info
+Starting in v0.3.17, all users are required to connect their DataHub account to Slack via OAuth in order to use **Subscriptions & Notifications** and **Ask DataHub**. This ensures that DataHub can securely link your DataHub user to your corresponding Slack account, and use your credentials when performing actions on DataHub.
+:::
+
+Connecting your Slack account is a one-time setup. Once connected, DataHub will be able to securely identify you across both platforms.
+
+### Steps to Connect
+
+1. Navigate to **Settings > Notifications** in DataHub. You will see a **Connect to Slack** button under Slack Notifications.
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack-oauth-connect.png"/>
+</p>
+
+2. Click the **Connect to Slack** button. You will be redirected to Slack's OAuth login page.
+
+3. Sign in to your Slack workspace if prompted, and authorize DataHub to access your Slack identity.
+
+4. After authorizing, you will be redirected back to DataHub. Your DataHub account is now linked to your Slack account.
+
+If you try to use Ask DataHub in Slack before connecting your account, the bot will prompt you to connect first:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_no_user_bound.png"/>
+</p>
+
+That's it! This is a one-time setup. Once connected, you can use Subscriptions & Notifications and Ask DataHub. If you ever need to reconnect (e.g. you changed Slack workspaces), you can return to this page and click **Reconnect**.
+
+:::note Migrating from Manual Slack User ID Configuration
+If you previously configured your Slack User ID manually (see [legacy instructions below](#how-to-find-user-id-in-slack-legacy)), your existing setup will continue to work until you connect your account using the new OAuth flow. Once you connect via OAuth, DataHub will use the OAuth-linked account going forward. Starting in v0.3.17, manual Slack User ID configuration is no longer available for new setups.
+:::
+
 ## Configure Notifications
 
 For now, we support sending notifications to
@@ -217,7 +250,11 @@ We recommend just using the Slack channel name for simplicity (e.g. `#troublesho
 - Team ID = `TUMKD5EGJ` from above
 - Channel ID = `C029A3M079U` from above
 
-### How to find User ID in Slack
+### How to find User ID in Slack (Legacy)
+
+:::caution Deprecated
+Manual Slack User ID configuration is deprecated as of v0.3.17. Please use the [Connect Your Slack Account](#connect-your-slack-account) flow instead. If you previously configured your Slack User ID manually, it will continue to work until you connect via OAuth.
+:::
 
 **Your User ID**
 
