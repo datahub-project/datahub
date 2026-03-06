@@ -1,5 +1,5 @@
 :::caution Not Supported with Remote Executor
-This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
+This source is available as a private beta feature on DataHub Cloud. Note that running the connector using the Remote Executor is not yet supported. 
 :::
 
 ## Overview

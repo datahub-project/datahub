@@ -14,30 +14,23 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Ask DataHub empowers your organization to navigate and understand your entire data ecosystem with ease—combining technical metadata with your team's tribal knowledge for smarter, more reliable answers.
 
-Key capabilities include:
-
-### Natural Language Search
-
-Search for data assets using plain English instead of memorizing exact table names or technical identifiers. Ask DataHub understands context and synonyms to help you find what you need.
-
 ### Find Trustworthy Data
 
 Discover high-quality, reliable data assets based on usage patterns, documentation quality, ownership information, and data quality metrics. Ask DataHub helps you identify the most authoritative sources for your analysis.
 
-### Impact Analysis
+### Peform Impact Analysis
 
 Quickly assess how changes to a data asset will ripple through your organization. Ask DataHub can trace lineage and identify all downstream dependencies, helping you make informed decisions before making changes.
 
-### Understand Social and Organizational Context
+### Dive Deeper
 
-Get insights into the human side of your data:
+Understand the who, what, when, where, and why about your data ecsosytem:
 
-- **Ownership**: Find out who owns and maintains specific assets
-- **Expertise**: Identify domain experts and frequent users
-- **Collaboration**: Understand which teams work with particular datasets
+- **Ownership**: Find out who owns which data specific assets
+- **Popularity**: Understand which data are most popular and who uses it
 - **History**: Learn about past usage patterns and organizational knowledge
 
-### Answer Questions With Curated Knowledge
+### Capture Tribal Knowledge
 
 Ask DataHub can reference your organization's **Context Documents**, **Glossary Terms**, **Domains**, and more to provide consistent, reliable answers grounded in your team's shared knowledge:
 
@@ -112,18 +105,26 @@ Custom base prompts can be used to:
 - Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties
 - Guide the assistant toward specific recommendations (e.g. helping differentiate production over staging assets)
 
+Once you've changed the custom instructions, it may take up 5 minutes to reflect in Ask DataHub.
+
 :::tip Context Documents + Custom Instructions
 For organization-specific definitions, policies, and procedures, consider documenting them in [Context Documents](context/context-documents.md) instead of (or in addition to) custom instructions. Context Documents are governable, versionable, and can be linked to specific assets—making them easier to maintain as your organization evolves.
 :::
 
-### Default Organization View
+### Selecting a View
 
-By default, Ask DataHub applies your organization's default **Search View** (if one is set). This means the assistant will prioritize finding assets from a narrower set of assets, enabling it to separate the signal from the noise by default.
+As of v0.3.17, you can select a **View** directly from the chat interface to narrow the scope of assets that Ask DataHub searches over for a given conversation. This is useful when you want to focus on a specific subset of your data ecosystem — for example, only datasets owned by your team, a particular domain, or a curated data product collection.
 
-This ensures that Ask DataHub's responses are always relevant to your team's specific data landscape, without requiring additional filtering in your queries.
+To select a view, click the view select dropdown next to the chat input. You can choose from your personal views or any public views shared across your organization.
 
-:::info Note
-After updating custom prompts or organization view settings, it may take up to 5 minutes for changes to take effect.
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/ask_datahub_view_selector.png"/>
+</p>
+
+When a view is active, Ask DataHub will restrict its search to the datasets, dashboards, data products, domains, documents, and other assets included in that view — helping you get to the most relevant answers faster. If no view is explicitly selected, the organization's default view will be used (if one is set).
+
+:::note Slack & Microsoft Teams
+When using Ask DataHub in Slack or Microsoft Teams, the organization's default view is always applied automatically.
 :::
 
 ## How It Works
