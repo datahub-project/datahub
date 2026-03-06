@@ -207,7 +207,7 @@ aws_common = {
     "botocore!=1.23.0",
     # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
     # fixed in urllib3>=2.6.0
-    # We still cannot require >=2.6.0 due to great expectations
+    # We cannot require >=2.6.0 due to great expectations
     "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
