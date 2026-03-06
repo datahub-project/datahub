@@ -1,12 +1,13 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.StatefulTokenService;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -14,17 +15,7 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class DataHubTokenServiceFactory {
 
-  @Value("${authentication.tokenService.signingKey:}")
-  private String signingKey;
-
-  @Value("${authentication.tokenService.salt:}")
-  private String saltingKey;
-
-  @Value("${authentication.tokenService.signingAlgorithm:HS256}")
-  private String signingAlgorithm;
-
-  @Value("${authentication.tokenService.issuer:datahub-metadata-service}")
-  private String issuer;
+  @Autowired private ConfigurationProvider configurationProvider;
 
   /** + @Inject + @Named("entityService") + private EntityService<?> _entityService; + */
   @Autowired
@@ -37,6 +28,28 @@ public class DataHubTokenServiceFactory {
   protected StatefulTokenService getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     return new StatefulTokenService(
-        systemOpContext, signingKey, signingAlgorithm, issuer, _entityService, saltingKey);
+        systemOpContext,
+        configurationProvider.getAuthentication().getTokenService().getSigningKey(),
+        configurationProvider.getAuthentication().getTokenService().getSigningAlgorithm(),
+        configurationProvider.getAuthentication().getTokenService().getIssuer(),
+        _entityService,
+        configurationProvider.getAuthentication().getTokenService().getSalt());
+  }
+
+  @PostConstruct
+  public void validate() {
+    if (!configurationProvider.getAuthentication().isEnabled()) {
+      return;
+    }
+    String signingKey = configurationProvider.getAuthentication().getTokenService().getSigningKey();
+    String salt = configurationProvider.getAuthentication().getTokenService().getSalt();
+    if (signingKey == null || signingKey.isEmpty()) {
+      throw new IllegalArgumentException(
+          "authentication.tokenService.signingKey must be set and not be empty");
+    }
+    if (salt == null || salt.isEmpty()) {
+      throw new IllegalArgumentException(
+          "authentication.tokenService.salt must be set and not be empty");
+    }
   }
 }

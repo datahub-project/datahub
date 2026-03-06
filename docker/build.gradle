@@ -50,6 +50,52 @@ ext {
         return envVars
     }
 
+    // Persisted secrets file — matches *.env so it is covered by the root .gitignore.
+    tokenSecretsFile = project.file("${project.projectDir}/.local-secrets.env")
+
+    // Resolves DATAHUB_TOKEN_SERVICE_SIGNING_KEY and DATAHUB_TOKEN_SERVICE_SALT using this priority:
+    //   1. Shell environment variables (highest priority — lets CI/prod override)
+    //   2. .local-secrets.env file (persists generated values across quickstartDown/up cycles)
+    //   3. Generate random values and save them to .local-secrets.env for future runs
+    resolveTokenServiceSecrets = {
+        // Load persisted values from file if present
+        def persisted = [:]
+        if (tokenSecretsFile.exists()) {
+            tokenSecretsFile.eachLine { line ->
+                line = line.trim()
+                if (line && !line.startsWith("#") && line.contains("=")) {
+                    def parts = line.split("=", 2)
+                    persisted[parts[0].trim()] = parts[1].trim()
+                }
+            }
+        }
+
+        def signingKey = System.getenv("DATAHUB_TOKEN_SERVICE_SIGNING_KEY") ?: persisted["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"]
+        def salt = System.getenv("DATAHUB_TOKEN_SERVICE_SALT") ?: persisted["DATAHUB_TOKEN_SERVICE_SALT"]
+
+        def generated = false
+        if (!signingKey) {
+            def bytes = new byte[32]
+            new java.security.SecureRandom().nextBytes(bytes)
+            signingKey = Base64.encoder.encodeToString(bytes)
+            generated = true
+        }
+        if (!salt) {
+            def bytes = new byte[32]
+            new java.security.SecureRandom().nextBytes(bytes)
+            salt = Base64.encoder.encodeToString(bytes)
+            generated = true
+        }
+
+        // Persist to file so the same values survive quickstartDown / reloadEnv cycles
+        if (generated) {
+            tokenSecretsFile.text = "# Auto-generated local dev secrets — do not commit\nDATAHUB_TOKEN_SERVICE_SIGNING_KEY=${signingKey}\nDATAHUB_TOKEN_SERVICE_SALT=${salt}\n"
+            logger.lifecycle("Generated token service secrets saved to ${tokenSecretsFile.path} for reuse across restarts")
+        }
+
+        return [DATAHUB_TOKEN_SERVICE_SIGNING_KEY: signingKey, DATAHUB_TOKEN_SERVICE_SALT: salt]
+    }
+
     // Common configuration for all tasks
     common_config = [
             captureContainersOutput: true,
@@ -342,6 +388,7 @@ dockerCompose {
                 environment.put "DEV_TOOLING_ENABLED", "true"
             }
             environment.put "DATAHUB_REPO", "${docker_registry}"
+            resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
 
             // Additional environment variables if specified
@@ -389,6 +436,8 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("DATAHUB_APP_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
+        composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
+        composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
 
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
@@ -398,8 +447,12 @@ task generateQuickstartComposeConfig {
         def configOutput = composeExecutor.execute('config')
 
         // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
+        // DATAHUB_TOKEN_SERVICE_SIGNING_KEY and DATAHUB_TOKEN_SERVICE_SALT are also read from the environment when available.
+        // Scripts that run docker compose up have been updated to provide generated values at runtime if the variable is not already set.
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_APP_VERSION}')
+        configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
+        configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -732,6 +785,7 @@ tasks.register("reloadEnv", Exec) {
             environment.put "DEV_TOOLING_ENABLED", "true"
         }
         environment.put "DATAHUB_REPO", "${docker_registry}"
+        resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
         // Additional environment variables if specified
         if (matchingConfig.additionalEnv) {
@@ -766,6 +820,10 @@ quickstart_configs.each { taskName, config ->
       }
     }
   }
+}
+
+clean {
+    delete tokenSecretsFile
 }
 
 // :docker:build builds all docker images.

@@ -21,10 +21,6 @@ authentication:
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
-      configs:
-        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
-        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-        salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
     # OAuth/OIDC JWT token authenticator for service accounts
@@ -67,8 +63,8 @@ authentication:
   # Configurations for DataHub token service
   tokenService:
     # Key used to sign new tokens.
-    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-    salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:}
+    salt: ${DATAHUB_TOKEN_SERVICE_SALT:}
     issuer: ${DATAHUB_TOKEN_SERVICE_ISSUER:datahub-metadata-service}
     signingAlgorithm: ${DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM:HS256}
 
@@ -723,6 +719,10 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
   autoconfigure:
     exclude:
+      # hazelcast-spring 5.6+ registers HazelcastObjectExtractionConfiguration which requires a
+      # HazelcastInstance bean. We only create one when searchService.cacheImplementation=hazelcast
+      # (default is caffeine). Excluding this avoids context failure when Hazelcast cache is not used.
+      - com.hazelcast.spring.HazelcastObjectExtractionConfiguration
       # We don't use these
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
