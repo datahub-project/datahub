@@ -759,7 +759,7 @@ The `user` command allows you to interact with the User entity in DataHub. It su
 
 #### upsert
 
-Create or update users from a YAML file. For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+Create or update users from a YAML file. For detailed information, please refer to [Creating Users and Groups with DataHub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub user upsert -f users.yaml
@@ -813,7 +813,7 @@ datahub user add --email user@example.com --display-name "Jane Smith" --password
 
 The `group` command allows you to interact with the Group entity.
 It currently supports the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users.
-For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+For more information, please refer to [Creating Users and Groups with DataHub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub group upsert -f group.yaml

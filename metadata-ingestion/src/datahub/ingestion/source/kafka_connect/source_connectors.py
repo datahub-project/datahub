@@ -2209,11 +2209,7 @@ class DebeziumSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
-        # Map connector class to platform
         platform = self.get_platform()
-
-        # Map handler platform to parser platform (handler uses "sqlserver", parser expects "mssql")
-        parser_platform = "mssql" if platform == "sqlserver" else platform
 
         # Get database name based on platform
         database_name = self._get_database_name_for_platform(
@@ -2236,7 +2232,7 @@ class DebeziumSourceConnector(BaseConnector):
                     transform[key.replace(f"transforms.{name}.", "")] = config[key]
 
         return self.DebeziumParser(
-            source_platform=parser_platform,
+            source_platform=platform,
             server_name=self.get_server_name(connector_manifest),
             database_name=database_name,
             transforms=transforms,
@@ -2609,7 +2605,7 @@ class DebeziumSourceConnector(BaseConnector):
         """Get database name based on platform-specific configuration."""
         if platform in ["mysql", "mongodb"]:
             return None
-        elif platform in ["sqlserver", "mssql"]:
+        elif platform == "mssql":
             database_name = config.get("database.names") or config.get(
                 "database.dbname"
             )
@@ -2633,7 +2629,7 @@ class DebeziumSourceConnector(BaseConnector):
         elif "postgres" in connector_class.lower():
             return "postgres"
         elif "sqlserver" in connector_class.lower():
-            return "sqlserver"
+            return "mssql"
         elif "oracle" in connector_class.lower():
             return "oracle"
         elif "db2" in connector_class.lower():
