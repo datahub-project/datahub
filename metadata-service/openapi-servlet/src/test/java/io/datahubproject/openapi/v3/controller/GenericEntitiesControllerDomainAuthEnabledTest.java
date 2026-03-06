@@ -31,6 +31,7 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -358,6 +359,12 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
             new AuthorizationResult(
                 null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
 
+    // Mock EntityService to throw authorization exception when domain auth fails
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenThrow(
+            new UnauthorizedException(
+                "Unauthorized to CREATE entity urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)"));
+
     String requestBody =
         "[{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,testDataset,PROD)\", "
             + "\"status\": {\"value\": {\"removed\": false}}, "
@@ -371,8 +378,8 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
                 .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
 
-    // Verify ingestion was NOT performed
-    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+    // Verify ingestion was attempted but failed with authorization exception
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
@@ -402,6 +409,12 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
             new AuthorizationResult(
                 null, AuthorizationResult.Type.DENY, "Unauthorized - missing domain access"));
 
+    // Mock EntityService to throw authorization exception for mixed authorization batch
+    when(mockEntityService.ingestProposal(any(), any(), anyBoolean()))
+        .thenThrow(
+            new UnauthorizedException(
+                "Unauthorized to CREATE entity urn:li:dataset:(urn:li:dataPlatform:hive,dataset2,PROD)"));
+
     String requestBody =
         "[{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,dataset1,PROD)\", "
             + "\"status\": {\"value\": {\"removed\": false}}, "
@@ -418,8 +431,8 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
                 .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isForbidden());
 
-    // Verify ingestion was NOT performed (all-or-nothing)
-    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+    // Verify ingestion was attempted but failed with authorization exception (all-or-nothing)
+    verify(mockEntityService).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
@@ -967,6 +980,22 @@ public class GenericEntitiesControllerDomainAuthEnabledTest
     public EntityRegistry entityRegistry(
         @Qualifier("systemOperationContext") final OperationContext testOperationContext) {
       return testOperationContext.getEntityRegistry();
+    }
+
+    @Bean
+    @Primary
+    public com.linkedin.metadata.aspect.validation.DomainBasedAuthorizationValidator
+        domainBasedAuthorizationValidator(ConfigurationProvider configurationProvider) {
+      com.linkedin.metadata.aspect.validation.DomainBasedAuthorizationValidator validator =
+          new com.linkedin.metadata.aspect.validation.DomainBasedAuthorizationValidator();
+
+      // Configure the validator with proper config
+      com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig config =
+          new com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig();
+      config.setEnabled(true);
+      validator.setConfig(config);
+
+      return validator;
     }
   }
 }

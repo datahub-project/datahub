@@ -92,7 +92,8 @@ public class SystemOperationContextFactory {
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
-                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                    configurationProvider.getFeatureFlags() != null
+                        && configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build(),
             systemTelemetryContext,
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());
@@ -159,7 +160,8 @@ public class SystemOperationContextFactory {
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
-                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                    configurationProvider.getFeatureFlags() != null
+                        && configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build(),
             systemTelemetryContext,
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());

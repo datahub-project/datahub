@@ -556,7 +556,8 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard auth: type-level check. When domain-based auth is enabled this is superseded by
       // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
       if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {

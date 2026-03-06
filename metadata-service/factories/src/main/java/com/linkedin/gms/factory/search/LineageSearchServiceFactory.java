@@ -23,7 +23,9 @@ public class LineageSearchServiceFactory {
       GraphService graphService,
       SearchService searchService,
       ConfigurationProvider configurationProvider) {
-    boolean cacheEnabled = configurationProvider.getFeatureFlags().isLineageSearchCacheEnabled();
+    boolean cacheEnabled =
+        configurationProvider.getFeatureFlags() != null
+            && configurationProvider.getFeatureFlags().isLineageSearchCacheEnabled();
     return new LineageSearchService(
         searchService,
         graphService,

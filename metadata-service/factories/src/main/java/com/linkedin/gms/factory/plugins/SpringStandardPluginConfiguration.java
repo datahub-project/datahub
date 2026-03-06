@@ -134,7 +134,8 @@ public class SpringStandardPluginConfiguration {
   public MCPSideEffect dataProductUnsetSideEffect(ConfigurationProvider configurationProvider) {
     // Only enable this side effect if multiple data products per asset feature is disabled
     final boolean multipleDataProductsEnabled =
-        configurationProvider.getFeatureFlags().isMultipleDataProductsPerAsset();
+        configurationProvider.getFeatureFlags() != null
+            && configurationProvider.getFeatureFlags().isMultipleDataProductsPerAsset();
 
     AspectPluginConfig config =
         AspectPluginConfig.builder()

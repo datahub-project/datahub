@@ -306,7 +306,8 @@ public class EntityController
       @RequestBody @Nonnull VersionPropertiesInput versionPropertiesInput)
       throws URISyntaxException, JsonProcessingException {
 
-    if (!configurationProvider.getFeatureFlags().isEntityVersioning()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isEntityVersioning()) {
       throw new IllegalAccessError(
           "Entity Versioning is not configured, please enable before attempting to use this feature.");
     }
@@ -358,7 +359,8 @@ public class EntityController
           Boolean withSystemMetadata)
       throws URISyntaxException, JsonProcessingException {
 
-    if (!configurationProvider.getFeatureFlags().isEntityVersioning()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isEntityVersioning()) {
       throw new IllegalAccessError(
           "Entity Versioning is not configured, please enable before attempting to use this feature.");
     }
@@ -423,7 +425,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard auth: type-level check. When domain-based auth is enabled this is superseded by
       // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
       if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
@@ -489,7 +492,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (configurationProvider.getFeatureFlags() == null
+        || !configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard auth: type-level check. When domain-based auth is enabled this is superseded by
       // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
       if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {

@@ -34,6 +34,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * Validator that performs domain-based authorization checks inside the transaction using simplified
@@ -60,6 +61,7 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Slf4j
 @Accessors(chain = true)
+@Component
 public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
