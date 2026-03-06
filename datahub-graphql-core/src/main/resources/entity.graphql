@@ -12050,6 +12050,11 @@ enum HealthStatusType {
   Incidents status
   """
   INCIDENTS
+
+  """
+  Tests status
+  """
+  TESTS
 }
 
 """
