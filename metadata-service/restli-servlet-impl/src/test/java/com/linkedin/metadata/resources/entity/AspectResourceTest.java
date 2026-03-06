@@ -10,6 +10,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -40,6 +41,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -65,6 +67,12 @@ public class AspectResourceTest {
   private PreProcessHooks preProcessHooks;
   private Authorizer authorizer;
   private OperationContext opContext;
+
+  private static void setRestApiAuthorizationEnabled(boolean value) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, value);
+  }
 
   @BeforeTest
   public void setup() {
@@ -183,8 +191,10 @@ public class AspectResourceTest {
   }
 
   @Test
-  public void testIngestProposalWithDomain_Authorized() throws URISyntaxException {
+  public void testIngestProposalWithDomain_Authorized() throws Exception {
     reset(producer, aspectDao, authorizer);
+    setRestApiAuthorizationEnabled(true);
+    try {
 
     Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
     Urn domainUrn = Urn.createFromString("urn:li:domain:finance");
@@ -213,11 +223,16 @@ public class AspectResourceTest {
     verify(producer, times(1)).produceMetadataChangeProposal(
         any(OperationContext.class), eq(datasetUrn), any());
     verify(authorizer, atLeastOnce()).authorize(any(AuthorizationRequest.class));
+    } finally {
+      setRestApiAuthorizationEnabled(false);
+    }
   }
 
   @Test(expectedExceptions = RestLiServiceException.class)
   public void testIngestProposalWithDomain_Unauthorized() throws Throwable {
     reset(producer, aspectDao, authorizer);
+    setRestApiAuthorizationEnabled(true);
+    try {
 
     Urn datasetUrn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
     Urn domainUrn = Urn.createFromString("urn:li:domain:finance");
@@ -247,11 +262,17 @@ public class AspectResourceTest {
       verify(producer, never()).produceMetadataChangeProposal(any(), any(), any());
       throw e.getCause() != null ? e.getCause() : e;
     }
+
+    } finally {
+      setRestApiAuthorizationEnabled(false);
+    }
   }
 
   @Test(expectedExceptions = RestLiServiceException.class)
   public void testIngestProposalBatchWithMixedAuthorization() throws Throwable {
     reset(producer, aspectDao, authorizer);
+    setRestApiAuthorizationEnabled(true);
+    try {
 
     Urn dataset1Urn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset1", FabricType.PROD);
     Urn dataset2Urn = new DatasetUrn(new DataPlatformUrn("platform"), "dataset2", FabricType.PROD);
@@ -296,6 +317,10 @@ public class AspectResourceTest {
     } catch (Exception e) {
       verify(producer, never()).produceMetadataChangeProposal(any(), any(), any());
       throw e.getCause() != null ? e.getCause() : e;
+    }
+
+    } finally {
+      setRestApiAuthorizationEnabled(false);
     }
   }
 

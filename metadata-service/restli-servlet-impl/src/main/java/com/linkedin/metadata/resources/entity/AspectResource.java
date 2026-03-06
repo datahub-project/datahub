@@ -295,7 +295,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
-    if (!_appConfiguration.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+    if (_appConfiguration == null || _appConfiguration.getFeatureFlags() == null
+        || !_appConfiguration.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard auth: per-MCP check. When domain-based auth is enabled this is superseded by
       // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
       List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
