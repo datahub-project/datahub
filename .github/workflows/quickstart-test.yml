@@ -27,12 +27,11 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -79,9 +78,6 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -100,6 +96,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Install dependencies
         run: |
           ./gradlew :metadata-ingestion:install
@@ -142,9 +140,6 @@ jobs:
         datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
       fail-fast: false
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -181,9 +176,6 @@ jobs:
         datahub_version: ["v1.0.0"]
       fail-fast: false
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -211,9 +203,6 @@ jobs:
         datahub_version: ["v1.1.0", "v1.2.0"]
       fail-fast: false
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -272,12 +261,11 @@ jobs:
             should_fail: false
       fail-fast: false
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Install Docker Compose (standalone mode)
         if: matrix.compose_type == 'standalone'
         run: |

@@ -154,9 +154,6 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -177,7 +174,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
-
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Install Cypress dependencies on ARM
         if: ${{ matrix.architecture == 'arm' && matrix.test_strategy == 'cypress' }}
         run: |
