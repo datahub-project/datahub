@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -16,10 +16,10 @@ from datahub.ingestion.source.flink.config import FlinkSourceConfig
 from datahub.ingestion.source.flink.lineage import ClassifiedNode, LineageResult
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.metadata.urns import DataJobUrn, DatasetUrn
+from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
-
-DatasetUrnOrStr = Union[str, DatasetUrn]
+from datahub.sdk.dataset import Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,27 @@ def _compute_dataset_urns(
     return urns
 
 
+def _materialize_dataset_workunits(
+    urns: List[DatasetUrnOrStr],
+) -> List[MetadataWorkUnit]:
+    """Emit key aspects for lineage datasets so they exist in DataHub.
+
+    The new SDK DataJob does not auto-materialize inlet/outlet datasets
+    (unlike the legacy API). We emit minimal Dataset entities so the
+    UI can render lineage edges to these entities.
+    """
+    workunits: List[MetadataWorkUnit] = []
+    for urn_str in urns:
+        dataset_urn = DatasetUrn.from_string(str(urn_str))
+        dataset = Dataset(
+            platform=str(dataset_urn.platform),
+            name=dataset_urn.name,
+            env=dataset_urn.env,
+        )
+        workunits.extend(dataset.as_workunits())
+    return workunits
+
+
 class FlinkEntityBuilder:
     """Constructs DataHub entities from Flink job metadata."""
 
@@ -71,7 +92,7 @@ class FlinkEntityBuilder:
         }
         if job_detail.job_type:
             custom_props["job_type"] = job_detail.job_type
-        if job_detail.max_parallelism is not None:
+        if job_detail.max_parallelism is not None and job_detail.max_parallelism > 0:
             custom_props["parallelism"] = str(job_detail.max_parallelism)
         if job_detail.start_time > 0:
             custom_props["start_time"] = str(job_detail.start_time)
@@ -151,17 +172,19 @@ class FlinkEntityBuilder:
             if node.id in sink_by_node:
                 outlets = _compute_dataset_urns([sink_by_node[node.id]], self.config)
 
+            vertex_name = f"{job_detail.name}_{node.id}"
             jobs.append(
                 DataJob(
-                    name=f"{job_detail.name}_{node.id}",
+                    name=vertex_name,
                     flow=dataflow,
                     platform_instance=self.config.platform_instance,
-                    display_name=node.description,
+                    display_name=vertex_name,
                     external_url=self._job_url(job_detail.jid),
                     custom_properties={
                         "flink_job_id": job_detail.jid,
                         "vertex_id": node.id,
                         "parallelism": str(node.parallelism),
+                        "operator_description": node.description[:500],
                     },
                     inlets=inlets or None,
                     outlets=outlets or None,

@@ -28,7 +28,7 @@ def _validate_identifier(name: str, kind: str) -> str:
     return name
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkColumnSchema:
     """Column metadata from Flink SQL Gateway DESCRIBE output."""
 
@@ -162,7 +162,7 @@ class FlinkSQLGatewayClient:
         for batch in batches:
             for row in batch:
                 if isinstance(row, dict) and "fields" in row and row["fields"]:
-                    values.append(row["fields"][0])
+                    values.append(str(row["fields"][0]))
         return values
 
     def get_catalogs(self) -> List[str]:

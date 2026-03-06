@@ -77,10 +77,11 @@ class KafkaLineageExtractor(LineageExtractor):
     KAFKA_DATASTREAM_SOURCE = re.compile(r"KafkaSource-([^\s>]+?)(?:\s*->|$)")
     KAFKA_DATASTREAM_SINK = re.compile(r"KafkaSink-([^\s>]+?)(?:\s*->|$)")
 
-    # SQL/Table API source (all versions): TableSourceScan(table=[[catalog, db, table]])
+    # SQL/Table API source (all versions): TableSourceScan(table=[[catalog, db, table, ...]])
+    # The table name is the 3rd field; additional fields (watermark, etc.) may follow.
     TABLE_SOURCE_SCAN = re.compile(
         r"(?:Source:\s*)?(?:\[\d+\]:)?TableSourceScan\("
-        r"table=\[\[([^,]+),\s*([^,]+),\s*([^\]]+)\]\]"
+        r"table=\[\[([^,]+),\s*([^,]+),\s*([^,\]]+)"
     )
 
     # SQL/Table API sink (legacy format): Sink(table=[[catalog, db, table]])
@@ -188,8 +189,8 @@ class FlinkLineageOrchestrator:
 
     def __init__(
         self,
+        report: "FlinkSourceReport",
         extractors: Optional[List[LineageExtractor]] = None,
-        report: Optional["FlinkSourceReport"] = None,
     ) -> None:
         self.extractors: List[LineageExtractor] = extractors or [
             KafkaLineageExtractor(),
@@ -244,11 +245,10 @@ class FlinkLineageOrchestrator:
                     node.id,
                     exc_info=True,
                 )
-                if self.report:
-                    self.report.warning(
-                        title="Lineage extractor failed",
-                        message="A lineage extractor threw an exception while processing a plan node.",
-                        context=f"extractor={extractor.__class__.__name__}, node_id={node.id}",
-                        exc=e,
-                    )
+                self.report.warning(
+                    title="Lineage extractor failed",
+                    message="A lineage extractor threw an exception while processing a plan node.",
+                    context=f"extractor={extractor.__class__.__name__}, node_id={node.id}",
+                    exc=e,
+                )
         return None

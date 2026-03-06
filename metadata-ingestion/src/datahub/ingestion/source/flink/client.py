@@ -17,7 +17,7 @@ from datahub.ingestion.source.flink.config import FlinkConnectionConfig
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkPlanNode:
     id: str
     description: str
@@ -26,7 +26,7 @@ class FlinkPlanNode:
     inputs: List[Dict[str, Any]] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkJobSummary:
     jid: str
     name: str
@@ -37,7 +37,7 @@ class FlinkJobSummary:
     last_modification: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkJobDetail:
     jid: str
     name: str
@@ -50,7 +50,7 @@ class FlinkJobDetail:
     plan_nodes: List[FlinkPlanNode]
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkCheckpointConfig:
     mode: Optional[str]
     interval: Optional[int]
@@ -61,7 +61,7 @@ class FlinkCheckpointConfig:
     externalized_delete_on_cancellation: Optional[bool] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class FlinkClusterConfig:
     flink_version: str
     timezone: Optional[str] = None

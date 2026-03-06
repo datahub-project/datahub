@@ -7,6 +7,7 @@ from datahub.ingestion.source.flink.lineage import (
     LineageExtractor,
     NodeRole,
 )
+from datahub.ingestion.source.flink.report import FlinkSourceReport
 
 
 def _node(node_id: str, description: str) -> FlinkPlanNode:
@@ -18,8 +19,6 @@ def _node(node_id: str, description: str) -> FlinkPlanNode:
 class TestKafkaLineageExtractor:
     def setup_method(self) -> None:
         self.extractor = KafkaLineageExtractor()
-
-    # --- DataStream API sources ---
 
     def test_datastream_source_extracts_topic(self) -> None:
         node = _node("1", "Source: KafkaSource-transactions -> Filter")
@@ -34,16 +33,12 @@ class TestKafkaLineageExtractor:
         assert result is not None
         assert result.dataset_name == "user-click-events"
 
-    # --- DataStream API sinks ---
-
     def test_datastream_sink_extracts_topic(self) -> None:
         node = _node("2", "Sink: KafkaSink-alerts")
         result = self.extractor.extract_dataset(node.description, node, NodeRole.SINK)
         assert result is not None
         assert result.platform == "kafka"
         assert result.dataset_name == "alerts"
-
-    # --- SQL/Table API sources ---
 
     def test_table_source_scan(self) -> None:
         desc = "[1]:TableSourceScan(table=[[default_catalog, default_database, orders]], fields=[order_id])"
@@ -52,16 +47,12 @@ class TestKafkaLineageExtractor:
         assert result is not None
         assert result.dataset_name == "orders"
 
-    # --- SQL/Table API sinks (legacy format) ---
-
     def test_table_sink_legacy_format(self) -> None:
         desc = "Sink: Sink(table=[[default_catalog, default_database, enriched_orders]], fields=[order_id])"
         node = _node("2", desc)
         result = self.extractor.extract_dataset(node.description, node, NodeRole.SINK)
         assert result is not None
         assert result.dataset_name == "enriched_orders"
-
-    # --- SQL/Table API sinks (operator-chained Writer format, verified on Flink 1.19) ---
 
     def test_sink_writer_format(self) -> None:
         """Operator-chained sink uses 'tableName[N]: Writer' format."""
@@ -82,9 +73,7 @@ class TestKafkaLineageExtractor:
 
 class TestFlinkLineageOrchestrator:
     def setup_method(self) -> None:
-        self.orchestrator = FlinkLineageOrchestrator()
-
-    # --- DataStream API: separate nodes ---
+        self.orchestrator = FlinkLineageOrchestrator(report=FlinkSourceReport())
 
     def test_datastream_separate_nodes(self) -> None:
         nodes = [
@@ -95,7 +84,7 @@ class TestFlinkLineageOrchestrator:
         result = self.orchestrator.extract(nodes)
         assert len(result.sources) == 1
         assert len(result.sinks) == 1
-        assert len(result.unclassified) == 0
+        assert not result.unclassified
         assert result.sources[0].dataset_name == "transactions"
         assert result.sinks[0].dataset_name == "alerts"
 
@@ -110,11 +99,9 @@ class TestFlinkLineageOrchestrator:
         result = self.orchestrator.extract(nodes)
         assert len(result.sources) == 2
         assert len(result.sinks) == 1
-        assert len(result.unclassified) == 0
+        assert not result.unclassified
         source_names = {s.dataset_name for s in result.sources}
         assert source_names == {"orders", "users"}
-
-    # --- SQL/Table API: operator-chained merged node (verified on Flink 1.19) ---
 
     def test_merged_node_extracts_both_source_and_sink(self) -> None:
         """Operator chaining merges source+sink into one node for simple SQL jobs."""
@@ -147,7 +134,19 @@ class TestFlinkLineageOrchestrator:
         assert result.sources[0].dataset_name == "clicks"
         assert result.sinks[0].dataset_name == "user_activity"
 
-    # --- Edge cases ---
+    def test_multiple_sinks_extracted(self) -> None:
+        """Job writing to 2+ Kafka topics (fan-out)."""
+        nodes = [
+            _node("1", "Source: KafkaSource-events -> Map"),
+            _node("2", "Sink: KafkaSink-alerts"),
+            _node("3", "Sink: KafkaSink-metrics"),
+        ]
+        result = self.orchestrator.extract(nodes)
+        assert len(result.sources) == 1
+        assert len(result.sinks) == 2
+        assert not result.unclassified
+        sink_names = {s.dataset_name for s in result.sinks}
+        assert sink_names == {"alerts", "metrics"}
 
     def test_unclassified_when_no_extractor_matches(self) -> None:
         nodes = [
@@ -155,16 +154,16 @@ class TestFlinkLineageOrchestrator:
             _node("2", "Sink: KafkaSink-output"),
         ]
         result = self.orchestrator.extract(nodes)
-        assert len(result.sources) == 0
+        assert not result.sources
         assert len(result.sinks) == 1
         assert len(result.unclassified) == 1
 
     def test_transform_only_node_ignored(self) -> None:
         nodes = [_node("1", "KeyBy -> Window -> Aggregate")]
         result = self.orchestrator.extract(nodes)
-        assert len(result.sources) == 0
-        assert len(result.sinks) == 0
-        assert len(result.unclassified) == 0
+        assert not result.sources
+        assert not result.sinks
+        assert not result.unclassified
 
     def test_extractor_exception_does_not_crash_extraction(self) -> None:
         """A broken extractor is caught and the node goes to unclassified."""
@@ -172,8 +171,10 @@ class TestFlinkLineageOrchestrator:
         broken_extractor.can_extract.return_value = True
         broken_extractor.extract_dataset.side_effect = RuntimeError("bug")
 
-        orchestrator = FlinkLineageOrchestrator(extractors=[broken_extractor])
+        orchestrator = FlinkLineageOrchestrator(
+            report=FlinkSourceReport(), extractors=[broken_extractor]
+        )
         nodes = [_node("1", "Source: KafkaSource-topic1 -> Map")]
         result = orchestrator.extract(nodes)
-        assert len(result.sources) == 0
+        assert not result.sources
         assert len(result.unclassified) == 1

@@ -41,7 +41,7 @@ class FlinkSourceReport(StaleEntityRemovalSourceReport):
         self, job_name: str, error: str, exc: Optional[BaseException] = None
     ) -> None:
         self.jobs_failed.append(job_name)
-        self.report_warning(
+        self.warning(
             title="Failed to process Flink job",
             message="Job metadata extraction failed. Job will be skipped.",
             context=f"job={job_name}, error={error}",
@@ -60,7 +60,7 @@ class FlinkSourceReport(StaleEntityRemovalSourceReport):
         exc: Optional[BaseException] = None,
     ) -> None:
         self.lineage_failed += 1
-        self.report_warning(
+        self.warning(
             title="Failed to extract lineage",
             message="Job lineage could not be extracted from execution plan.",
             context=f"job={job_name}, error={error}",

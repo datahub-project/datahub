@@ -21,12 +21,18 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.flink.catalog import FlinkCatalogExtractor
 from datahub.ingestion.source.flink.client import (
+    FlinkCheckpointConfig,
     FlinkClusterConfig,
+    FlinkJobDetail,
     FlinkJobSummary,
     FlinkRestClient,
 )
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
-from datahub.ingestion.source.flink.entities import FlinkEntityBuilder
+from datahub.ingestion.source.flink.entities import (
+    FlinkEntityBuilder,
+    _compute_dataset_urns,
+    _materialize_dataset_workunits,
+)
 from datahub.ingestion.source.flink.lineage import (
     FlinkLineageOrchestrator,
     LineageResult,
@@ -39,6 +45,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
@@ -228,13 +235,21 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
         cluster_config: FlinkClusterConfig,
     ) -> _JobProcessingResult:
         result = _JobProcessingResult(job_name=summary.name, job_id=summary.jid)
-
         job_detail = self.client.get_job_details(summary.jid)
+        checkpoint_config = self._fetch_checkpoint_config(summary)
+        lineage_result = self._extract_lineage(result, job_detail)
+        datajob_for_dpi = self._build_flow_and_jobs(
+            result, job_detail, checkpoint_config, cluster_config, lineage_result
+        )
+        self._build_dpi(result, job_detail, datajob_for_dpi, lineage_result)
+        return result
 
+    def _fetch_checkpoint_config(
+        self, summary: FlinkJobSummary
+    ) -> Optional[FlinkCheckpointConfig]:
         try:
-            checkpoint_config = self.client.get_checkpoint_config(summary.jid)
+            return self.client.get_checkpoint_config(summary.jid)
         except Exception as e:
-            checkpoint_config = None
             logger.warning(
                 "Failed to fetch checkpoint config for job %s: %s",
                 summary.name,
@@ -248,8 +263,13 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"job={summary.name}",
                 exc=e,
             )
+            return None
 
-        # Extract lineage
+    def _extract_lineage(
+        self,
+        result: _JobProcessingResult,
+        job_detail: FlinkJobDetail,
+    ) -> LineageResult:
         lineage_result = LineageResult()
         if self.config.include_lineage and job_detail.plan_nodes:
             try:
@@ -268,14 +288,21 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                     e,
                     exc_info=True,
                 )
+        return lineage_result
 
-        # Build DataFlow
+    def _build_flow_and_jobs(
+        self,
+        result: _JobProcessingResult,
+        job_detail: FlinkJobDetail,
+        checkpoint_config: Optional[FlinkCheckpointConfig],
+        cluster_config: FlinkClusterConfig,
+        lineage_result: LineageResult,
+    ) -> Optional[DataJob]:
         dataflow = self.entity_builder.build_dataflow(
             job_detail, checkpoint_config, cluster_config.flink_version
         )
         result.workunits.append(dataflow)
 
-        # Build DataJob(s) based on granularity
         if self.config.operator_granularity == "vertex":
             datajobs = self.entity_builder.build_datajobs_per_vertex(
                 dataflow, job_detail, lineage_result
@@ -289,39 +316,63 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
             result.workunits.append(datajob)
             datajob_for_dpi = datajob
 
-        # Build DPI — isolated so failures don't lose DataFlow/DataJob
-        if self.config.include_run_history and datajob_for_dpi:
-            try:
-                dpi_wus = list(
-                    self.entity_builder.build_dpi_workunits(
-                        job_detail=job_detail,
-                        datajob=datajob_for_dpi,
-                        lineage_result=lineage_result,
-                    )
-                )
-                result.workunits.extend(dpi_wus)
-                result.dpis_emitted = 1
-            except Exception as e:
-                result.dpi_exc = e
-                logger.warning(
-                    "DPI construction failed for %s: %s",
-                    job_detail.name,
-                    e,
-                    exc_info=True,
-                )
+        # Materialize lineage dataset entities (new SDK doesn't auto-create them)
+        if self.config.include_lineage:
+            all_urns = _compute_dataset_urns(
+                lineage_result.sources, self.config
+            ) + _compute_dataset_urns(lineage_result.sinks, self.config)
+            result.workunits.extend(_materialize_dataset_workunits(all_urns))
 
-        return result
+        return datajob_for_dpi
+
+    def _build_dpi(
+        self,
+        result: _JobProcessingResult,
+        job_detail: FlinkJobDetail,
+        datajob_for_dpi: Optional[DataJob],
+        lineage_result: LineageResult,
+    ) -> None:
+        if not self.config.include_run_history or not datajob_for_dpi:
+            return
+        try:
+            dpi_wus = list(
+                self.entity_builder.build_dpi_workunits(
+                    job_detail=job_detail,
+                    datajob=datajob_for_dpi,
+                    lineage_result=lineage_result,
+                )
+            )
+            result.workunits.extend(dpi_wus)
+            result.dpis_emitted = 1
+        except Exception as e:
+            result.dpi_exc = e
+            logger.warning(
+                "DPI construction failed for %s: %s",
+                job_detail.name,
+                e,
+                exc_info=True,
+            )
 
     def close(self) -> None:
         try:
             self.client.close()
-        except Exception:
-            logger.warning("Failed to close Flink REST client", exc_info=True)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to close Flink REST client",
+                message="HTTP session may not have been properly closed.",
+                context=self.config.connection.rest_api_url,
+                exc=e,
+            )
         try:
             if self.sql_gateway_client:
                 self.sql_gateway_client.close()
-        except Exception:
-            logger.warning("Failed to close SQL Gateway client", exc_info=True)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to close SQL Gateway client",
+                message="SQL Gateway session may not have been properly closed.",
+                context=str(self.config.connection.sql_gateway_url),
+                exc=e,
+            )
         super().close()
 
     @staticmethod
@@ -362,33 +413,31 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                 }
 
             if config.connection.sql_gateway_url:
-                sql_client = FlinkSQLGatewayClient(config.connection)
-                try:
-                    err = sql_client.test_connection()
-                    if err is None:
-                        test_report.capability_report = {
-                            **test_report.capability_report,
-                            SourceCapability.SCHEMA_METADATA: CapabilityReport(
-                                capable=True
-                            ),
-                            SourceCapability.CONTAINERS: CapabilityReport(capable=True),
-                        }
-                    else:
-                        reason = f"Cannot connect to SQL Gateway: {err}"
-                        test_report.capability_report = {
-                            **test_report.capability_report,
-                            SourceCapability.SCHEMA_METADATA: CapabilityReport(
-                                capable=False,
-                                failure_reason=reason,
-                            ),
-                            SourceCapability.CONTAINERS: CapabilityReport(
-                                capable=False,
-                                failure_reason=reason,
-                            ),
-                        }
-                finally:
-                    sql_client.close()
+                test_report.capability_report.update(
+                    FlinkSource._test_sql_gateway(config)
+                )
 
             return test_report
         finally:
             client.close()
+
+    @staticmethod
+    def _test_sql_gateway(
+        config: FlinkSourceConfig,
+    ) -> Dict[SourceCapability, CapabilityReport]:
+        sql_client = FlinkSQLGatewayClient(config.connection)
+        try:
+            err = sql_client.test_connection()
+            if err is None:
+                report = CapabilityReport(capable=True)
+            else:
+                report = CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Cannot connect to SQL Gateway: {err}",
+                )
+            return {
+                SourceCapability.SCHEMA_METADATA: report,
+                SourceCapability.CONTAINERS: report,
+            }
+        finally:
+            sql_client.close()

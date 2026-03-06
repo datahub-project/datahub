@@ -7,7 +7,10 @@ from datahub.ingestion.source.flink.client import (
     FlinkPlanNode,
 )
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
-from datahub.ingestion.source.flink.entities import FlinkEntityBuilder
+from datahub.ingestion.source.flink.entities import (
+    FlinkEntityBuilder,
+    _materialize_dataset_workunits,
+)
 from datahub.ingestion.source.flink.lineage import (
     ClassifiedNode,
     LineageResult,
@@ -73,6 +76,26 @@ def _lineage() -> LineageResult:
     )
 
 
+class TestMaterializeDatasetWorkunits:
+    def test_emits_workunits_per_urn(self) -> None:
+        urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,transactions,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:kafka,alerts,PROD)",
+        ]
+        wus = _materialize_dataset_workunits(urns)
+        assert len(wus) > 0
+        entity_urns = {
+            wu.metadata.entityUrn
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }
+        assert any("transactions" in str(u) for u in entity_urns)
+        assert any("alerts" in str(u) for u in entity_urns)
+
+    def test_empty_urns_returns_empty(self) -> None:
+        assert _materialize_dataset_workunits([]) == []
+
+
 class TestBuildDataflow:
     def test_includes_checkpoint_custom_properties(self) -> None:
         builder = FlinkEntityBuilder(_config())
@@ -109,7 +132,6 @@ class TestBuildDatajob:
         assert "alerts" in str(datajob.outlets[0])
 
     def test_platform_instance_map_resolves_urns(self) -> None:
-        """platform_instance_map remaps lineage dataset platform instances."""
         config = _config(platform_instance_map={"kafka": "prod-kafka"})
         builder = FlinkEntityBuilder(config)
         job = _job_detail()
@@ -119,17 +141,14 @@ class TestBuildDatajob:
         assert "prod-kafka" in str(datajob.inlets[0])
 
     def test_vertex_granularity_routes_lineage_per_node(self) -> None:
-        """In vertex mode, source node gets inlets and sink node gets outlets."""
         builder = FlinkEntityBuilder(_config())
         job = _job_detail()
         dataflow = builder.build_dataflow(job, None, "1.20.0")
         datajobs = builder.build_datajobs_per_vertex(dataflow, job, _lineage())
         assert len(datajobs) == 2
-        # Source node (id="1") should have inlets
         source_job = [j for j in datajobs if "1" in str(j.urn)][0]
         assert source_job.inlets is not None
         assert "transactions" in str(source_job.inlets[0])
-        # Sink node (id="2") should have outlets
         sink_job = [j for j in datajobs if "2" in str(j.urn)][0]
         assert sink_job.outlets is not None
         assert "alerts" in str(sink_job.outlets[0])
@@ -137,44 +156,58 @@ class TestBuildDatajob:
 
 class TestBuildDpiWorkunits:
     @staticmethod
-    def _mcps(wus: list) -> list:
+    def _build_dpi_mcps(**job_overrides: object) -> list:
+        """Build DPI workunits for a job and return only MCP-wrapped workunits."""
+        builder = FlinkEntityBuilder(_config())
+        job = _job_detail(**job_overrides)
+        dataflow = builder.build_dataflow(job, None, "1.20.0")
+        datajob = builder.build_datajob(dataflow, job, LineageResult())
         return [
-            wu for wu in wus if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            wu
+            for wu in builder.build_dpi_workunits(job, datajob, LineageResult())
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         ]
 
     def test_running_job_emits_start_but_no_end(self) -> None:
-        builder = FlinkEntityBuilder(_config())
-        job = _job_detail(state="RUNNING")
-        dataflow = builder.build_dataflow(job, None, "1.20.0")
-        datajob = builder.build_datajob(dataflow, job, LineageResult())
-        wus = self._mcps(
-            list(builder.build_dpi_workunits(job, datajob, LineageResult()))
-        )
-        aspect_names = [wu.metadata.aspectName for wu in wus]
-        assert "dataProcessInstanceProperties" in aspect_names
-        assert "dataProcessInstanceRunEvent" in aspect_names
-        run_events = [
-            wu.metadata.aspect
-            for wu in wus
-            if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
-        ]
-        assert len(run_events) == 1  # only start, no end
-
-    def test_finished_job_emits_start_and_end(self) -> None:
-        builder = FlinkEntityBuilder(_config())
-        job = _job_detail(state="FINISHED", end_time=1707680400000)
-        dataflow = builder.build_dataflow(job, None, "1.20.0")
-        datajob = builder.build_datajob(dataflow, job, LineageResult())
-        wus = self._mcps(
-            list(builder.build_dpi_workunits(job, datajob, LineageResult()))
-        )
+        wus = self._build_dpi_mcps(state="RUNNING")
         aspect_names = [wu.metadata.aspectName for wu in wus]
         assert "dataProcessInstanceProperties" in aspect_names
         assert "dataProcessInstanceRunEvent" in aspect_names
         run_events = [
             wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
         ]
-        assert len(run_events) == 2  # start + end
+        assert len(run_events) == 1
+
+    def test_finished_job_emits_start_and_end(self) -> None:
+        wus = self._build_dpi_mcps(state="FINISHED", end_time=1707680400000)
+        aspect_names = [wu.metadata.aspectName for wu in wus]
+        assert "dataProcessInstanceProperties" in aspect_names
+        assert "dataProcessInstanceRunEvent" in aspect_names
+        run_events = [
+            wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
+        ]
+        assert len(run_events) == 2
+
+    @pytest.mark.parametrize(
+        "job_type,expected_type",
+        [
+            ("BATCH", "BATCH_SCHEDULED"),
+            ("STREAMING", "STREAMING"),
+            (None, "STREAMING"),
+        ],
+    )
+    def test_dpi_process_type_matches_job_type(
+        self, job_type: str, expected_type: str
+    ) -> None:
+        """BATCH -> BATCH_SCHEDULED, STREAMING/None -> STREAMING in DPI properties."""
+        wus = self._build_dpi_mcps(job_type=job_type, state="RUNNING")
+        props = [
+            wu
+            for wu in wus
+            if wu.metadata.aspectName == "dataProcessInstanceProperties"
+        ]
+        assert len(props) == 1
+        assert expected_type in str(props[0].metadata.aspect)
 
     @pytest.mark.parametrize(
         "state,expected_result",
@@ -186,17 +219,11 @@ class TestBuildDpiWorkunits:
     def test_terminal_state_emits_correct_run_result(
         self, state: str, expected_result: str
     ) -> None:
-        """FAILED→FAILURE, CANCELED→SKIPPED in the end run event."""
-        builder = FlinkEntityBuilder(_config())
-        job = _job_detail(state=state, end_time=1707680400000)
-        dataflow = builder.build_dataflow(job, None, "1.20.0")
-        datajob = builder.build_datajob(dataflow, job, LineageResult())
-        wus = self._mcps(
-            list(builder.build_dpi_workunits(job, datajob, LineageResult()))
-        )
+        """FAILED -> FAILURE, CANCELED -> SKIPPED in the end run event."""
+        wus = self._build_dpi_mcps(state=state, end_time=1707680400000)
         run_events = [
             wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
         ]
-        assert len(run_events) == 2  # start + end
+        assert len(run_events) == 2
         end_event = run_events[-1].metadata.aspect
         assert expected_result in str(end_event)
