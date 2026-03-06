@@ -27,11 +27,15 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -78,16 +82,16 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.10"
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
       - name: install older datahub cli
         run: |
           pip install acryl-datahub==1.0
@@ -98,6 +102,10 @@ jobs:
           datahub docker check
           datahub docker ingest-sample-data
           datahub docker check
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Install dependencies
         run: |
           ./gradlew :metadata-ingestion:install
@@ -279,11 +287,15 @@ jobs:
             should_fail: false
       fail-fast: false
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
       - name: Install Docker Compose (standalone mode)
         if: matrix.compose_type == 'standalone'
         run: |
