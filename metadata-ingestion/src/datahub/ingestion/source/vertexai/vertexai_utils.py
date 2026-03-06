@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
 from typing import Dict, Iterable, Iterator, List, Optional, TypeVar, Union
 
+from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
@@ -18,6 +19,7 @@ from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containe
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PROGRESS_LOG_INTERVAL,
+    MLMetadataDefaults,
     ResourceCategoryType,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -29,6 +31,29 @@ from datahub.utilities.ratelimiter import RateLimiter
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+def create_vertex_retry_without_429() -> api_retry.Retry:
+    """
+    Create a retry policy that excludes ResourceExhausted (429) errors.
+
+    The default Vertex AI SDK retry behavior retries 429 errors for up to 120s,
+    which makes quota problems worse. This retry policy fails fast on 429 errors
+    and lets the rate limiter control the request rate instead.
+    """
+
+    def should_retry(exception):
+        if isinstance(exception, ResourceExhausted):
+            return False
+        return api_retry.if_transient_error(exception)
+
+    return api_retry.Retry(
+        predicate=should_retry,
+        initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
+        maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
+        multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
+        deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
+    )
 
 
 def log_progress(

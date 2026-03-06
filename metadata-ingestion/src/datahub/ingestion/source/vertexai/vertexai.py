@@ -1,14 +1,13 @@
+import functools
 import logging
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
-from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
     InvalidArgument,
     PermissionDenied,
-    ResourceExhausted,
     ServiceUnavailable,
     Unauthenticated,
 )
@@ -52,6 +51,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
+    SDK_CLASSES_TO_PATCH_FOR_RETRY,
     ExternalURLs,
     MLMetadataDefaults,
     ResourceCategory,
@@ -81,6 +81,7 @@ from datahub.ingestion.source.vertexai.vertexai_training_extractor import (
     VertexAITrainingExtractor,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    create_vertex_retry_without_429,
     format_api_error_message,
     get_project_container,
     get_resource_category_container,
@@ -153,23 +154,34 @@ class VertexAISource(StatefulIngestionSourceBase):
             else nullcontext()
         )
 
+        self._custom_retry = create_vertex_retry_without_429()
+        self._patch_sdk_retry_behavior()
+
         self._initialize_builders_and_extractors()
 
     def _patch_sdk_retry_behavior(self) -> None:
         """
-        Patch Vertex AI SDK to not retry on ResourceExhausted (429) errors.
+        Patch Vertex AI SDK list methods to use custom retry.
         The SDK's default retry behavior retries 429s for up to 120s, which
         makes quota problems worse. Instead, fail fast and let our rate limiter
         control the request rate.
         """
-        original_if_transient_error = api_retry.if_transient_error
+        for cls in SDK_CLASSES_TO_PATCH_FOR_RETRY:
+            try:
+                if hasattr(cls, "list"):
+                    original_list = (
+                        cls.list.__func__ if hasattr(cls.list, "__func__") else cls.list
+                    )
 
-        def patched_if_transient_error(exception):
-            if isinstance(exception, ResourceExhausted):
-                return False
-            return original_if_transient_error(exception)
+                    @functools.wraps(original_list)
+                    def patched_list(*args, _orig=original_list, **kwargs):
+                        if "retry" not in kwargs:
+                            kwargs["retry"] = self._custom_retry
+                        return _orig(*args, **kwargs)
 
-        api_retry.if_transient_error = patched_if_transient_error
+                    cls.list = classmethod(patched_list)
+            except (AttributeError, TypeError):
+                pass
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
         """Setup GCP service account credentials from config."""

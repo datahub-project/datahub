@@ -3,7 +3,6 @@ import logging
 from contextlib import AbstractContextManager, nullcontext
 from typing import List, Optional, Sequence, Union
 
-from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
@@ -40,6 +39,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
     MLMetadataConfig,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
+    create_vertex_retry_without_429,
     format_api_error_message,
     iterate_pager_with_rate_limit,
     paginated_list_with_rate_limit,
@@ -49,16 +49,7 @@ from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
-_METADATA_RETRY = api_retry.Retry(
-    predicate=api_retry.if_exception_type(
-        DeadlineExceeded,
-        ServiceUnavailable,
-    ),
-    initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
-    maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
-    multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
-    deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
-)
+_METADATA_RETRY = create_vertex_retry_without_429()
 
 
 class MLMetadataHelper:

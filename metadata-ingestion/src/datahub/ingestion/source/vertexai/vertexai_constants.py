@@ -1,5 +1,7 @@
 import re
-from typing import Literal, Set
+from typing import Any, List, Literal, Set, Type
+
+from google.cloud import aiplatform
 
 # Platform identifier
 PLATFORM: Literal["vertexai"] = "vertexai"
@@ -324,6 +326,29 @@ class MLMetadataDefaults:
     RETRY_MAXIMUM_WAIT_SECS = 60.0
     RETRY_MULTIPLIER = 2.0
     RETRY_DEADLINE_SECS = 120.0
+
+
+SDK_CLASSES_TO_PATCH_FOR_RETRY: List[Type[Any]] = [
+    aiplatform.Model,
+    aiplatform.CustomJob,
+    aiplatform.CustomTrainingJob,
+    aiplatform.CustomContainerTrainingJob,
+    aiplatform.CustomPythonPackageTrainingJob,
+    aiplatform.AutoMLTabularTrainingJob,
+    aiplatform.AutoMLImageTrainingJob,
+    aiplatform.AutoMLTextTrainingJob,
+    aiplatform.AutoMLVideoTrainingJob,
+    aiplatform.AutoMLForecastingTrainingJob,
+    aiplatform.Experiment,
+    aiplatform.ExperimentRun,
+    aiplatform.PipelineJob,
+    aiplatform.Endpoint,
+    aiplatform.TabularDataset,
+    aiplatform.ImageDataset,
+    aiplatform.TextDataset,
+    aiplatform.VideoDataset,
+    aiplatform.TimeSeriesDataset,
+]
 
 
 class IngestionLimits:
