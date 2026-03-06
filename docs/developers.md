@@ -253,6 +253,18 @@ Deploy the entire system using docker-compose:
 ./gradlew quickstartDebug
 ```
 
+:::note
+Starting v1.5.0 the default values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` have been removed. It is recommened that users provided their own values for these. If no values are provided, new keys are generated the first time the above command is run. The generated keys are saved to docker/.local-secrets.env and reused in subsequent runs as long as the file exists.
+
+To provide your own values, either update the above keys in `metadata-service/configuration/src/main/resources/application.yaml` or set the following environment variables
+
+```
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY
+DATAHUB_TOKEN_SERVICE_SALT
+```
+
+If you are upgrading from an earlier version Personal Access Tokens created before will be invalidated and will need to be created again.
+:::
 Access the DataHub UI at `http://localhost:9002`
 
 ### Refreshing the Frontend
