@@ -1060,6 +1060,7 @@ class TestParseIntoDBTNodeExtended:
 
         url = source.get_external_url(node)
 
+        assert url is not None
         assert "/explore/" in url
         assert "model.project.users" in url
 
@@ -1071,6 +1072,7 @@ class TestParseIntoDBTNodeExtended:
 
         url = source.get_external_url(node)
 
+        assert url is not None
         assert "/develop/" in url
 
     def test_parse_exposure(self) -> None:
