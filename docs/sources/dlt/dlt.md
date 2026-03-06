@@ -10,6 +10,7 @@
 - **DataJob** — one per destination table (including nested child tables like `orders__items`)
 - **Outlet lineage** — DataJob → destination Dataset URNs (Postgres, BigQuery, Snowflake, etc.)
 - **Inlet lineage** — user-configured upstream Dataset URNs (dlt doesn't store source connection info)
+- **Column-level lineage** — for direct-copy pipelines with exactly one inlet and one outlet
 - **DataProcessInstance** — per-run history from `_dlt_loads` (opt-in)
 
 ## How dlt Stores Metadata
@@ -24,13 +25,13 @@ dlt writes pipeline state to a local directory after each `pipeline.run()` call:
     state.json                    # Destination type, dataset name, pipeline state
 ```
 
-The DataHub connector reads these files directly — no live connection to dlt or the destination is required for basic metadata extraction.
+The DataHub connector reads these files directly — no live connection to dlt or the destination is required for basic metadata extraction. If the dlt Python package is installed, the connector uses the SDK for richer metadata; otherwise it falls back to parsing the YAML files directly.
 
 ## Prerequisites
 
 - dlt pipeline(s) must have been run at least once (state files are created automatically)
 - The `pipelines_dir` must be accessible from where DataHub ingestion runs
-- For run history: destination credentials configured (see [Run History](#run-history))
+- For run history: dlt package installed + destination credentials configured (see [Run History](#run-history))
 
 ## Where to Find Your `pipelines_dir`
 
@@ -47,11 +48,10 @@ pipelines_dir: "~/.dlt/pipelines"
 dlt runs in one job and DataHub ingestion runs in another. Both must use the same path or shared storage:
 
 ```yaml
-# In your recipe — reference the same path dlt wrote to
 pipelines_dir: "/data/dlt-pipelines"
 ```
 
-Many dlt users already set a `PIPELINES_DIR` environment variable. You can reference it in your recipe:
+Many dlt users already set a `PIPELINES_DIR` environment variable:
 
 ```yaml
 pipelines_dir: "${PIPELINES_DIR:-~/.dlt/pipelines}"
@@ -62,7 +62,7 @@ pipelines_dir: "${PIPELINES_DIR:-~/.dlt/pipelines}"
 dlt runs in one pod and DataHub in another. Mount the same PersistentVolumeClaim in both pods:
 
 ```yaml
-pipelines_dir: "/mnt/dlt-pipelines" # the PVC mount path
+pipelines_dir: "/mnt/dlt-pipelines"
 ```
 
 ## Required Permissions
@@ -94,17 +94,17 @@ See [dlt_recipe.yml](dlt_recipe.yml) for a complete reference recipe.
 
 For outlet lineage to connect to your destination's Dataset URNs, `destination_platform_map` must match the environment and platform instance used by your destination connector.
 
-**Example**: If your Postgres connector uses `env: PROD` and no `platform_instance`, then:
+**Example**: If your Postgres connector uses `env: PROD` and no `platform_instance`:
 
 ```yaml
 destination_platform_map:
   postgres:
     env: PROD
     platform_instance: null
-    database: my_database # the Postgres database name (for 3-part URN: db.schema.table)
+    database: my_database # required for 3-part URN: database.schema.table
 ```
 
-**Why `database` is needed for SQL destinations**: dlt stores the schema name (`dataset_name`) but not the database name. Postgres URNs in DataHub use a 3-part format: `database.schema.table`. Supply the `database` field to match those URNs.
+**Why `database` is needed for SQL destinations**: dlt stores the schema name (`dataset_name`) but not the database name. Postgres URNs in DataHub use a 3-part format (`database.schema.table`). Supply `database` to match those URNs.
 
 Cloud warehouses (BigQuery, Snowflake) use the project or account as `platform_instance` instead:
 
@@ -120,7 +120,7 @@ destination_platform_map:
 
 ### Inlet Lineage (Upstream Sources)
 
-dlt does not record where data came from — only where it went. To enable upstream lineage, manually configure Dataset URNs:
+dlt does not record where data came from — only where it went. To enable upstream lineage, manually configure Dataset URNs.
 
 **For REST API pipelines** (all tables share the same source):
 
@@ -137,8 +137,6 @@ source_table_dataset_urns:
   my_pipeline:
     my_table:
       - "urn:li:dataset:(urn:li:dataPlatform:postgres,prod_db.public.my_table,PROD)"
-    other_table:
-      - "urn:li:dataset:(urn:li:dataPlatform:postgres,prod_db.public.other_table,PROD)"
 ```
 
 ### Run History
@@ -156,6 +154,15 @@ export DESTINATION__POSTGRES__CREDENTIALS__HOST=localhost
 export DESTINATION__POSTGRES__CREDENTIALS__DATABASE=my_db
 export DESTINATION__POSTGRES__CREDENTIALS__USERNAME=dlt
 export DESTINATION__POSTGRES__CREDENTIALS__PASSWORD=secret
+```
+
+The `run_history_config` time window is respected — configure `start_time` and `end_time` to limit which loads are ingested:
+
+```yaml
+include_run_history: true
+run_history_config:
+  start_time: "-7 days"
+  end_time: "now"
 ```
 
 ## Troubleshooting
