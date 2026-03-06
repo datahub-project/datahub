@@ -146,25 +146,32 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         if (isOpen !== undefined) setIsInternalOpen(isOpen);
     }, [isOpen]);
 
-    const { localState, updateLocalState } = userContext;
+    const localStateRef = useRef(userContext.localState);
+    localStateRef.current = userContext.localState;
+    const updateLocalStateRef = useRef(userContext.updateLocalState);
+    updateLocalStateRef.current = userContext.updateLocalState;
 
     useEffect(() => {
-        setSelectedUrn(localState?.selectedViewUrn || undefined);
+        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
         const selectedView =
-            privateViewsData?.listMyViews?.views?.find((view) => view?.urn === localState?.selectedViewUrn) ||
-            publicViewsData?.listGlobalViews?.views?.find((view) => view?.urn === localState?.selectedViewUrn);
+            privateViewsData?.listMyViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            ) ||
+            publicViewsData?.listGlobalViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            );
         if (selectedView === undefined) {
             setSelectedView('');
-            if (localState?.selectedViewUrn && privateViewsData && publicViewsData) {
-                updateLocalState({
-                    ...localState,
+            if (userContext.localState?.selectedViewUrn && privateViewsData && publicViewsData) {
+                updateLocalStateRef.current({
+                    ...localStateRef.current,
                     selectedViewUrn: null,
                 });
             }
         } else {
             setSelectedView(selectedView.name);
         }
-    }, [localState, setSelectedUrn, privateViewsData, publicViewsData, updateLocalState]);
+    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
 
     const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
     const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
