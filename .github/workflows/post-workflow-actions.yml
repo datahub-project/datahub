@@ -21,7 +21,7 @@ on:
       - "ingestion smoke"
       - "documentation"
       - "github actions format"
-      # - "GX Plugin"
+      - "GX Plugin"
       - "Lint actions"
       - "markdown format"
       - "Metadata Ingestion"
@@ -36,7 +36,6 @@ on:
       - "spark smoke test"
       - "Verify Quickstart Compose"
       - "yaml format"
-      - "ABC"
     types:
       - completed
 

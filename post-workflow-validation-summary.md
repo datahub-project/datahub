@@ -2,7 +2,7 @@
 
 :x: **Missing** — have push/PR triggers but are NOT listed:
 
-- `GX Plugin`
+- `Lint actions`
 
 :x: **Extra** — listed but have no push/PR trigger (stale or renamed?):
 

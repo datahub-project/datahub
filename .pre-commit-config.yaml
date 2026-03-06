@@ -548,7 +548,9 @@ repos:
       - id: validate-post-workflow-list
         name: Validate post-workflow-actions.yml workflow list
         entry: python .github/scripts/validate_post_workflow_list.py
-        language: system
+        language: python
+        additional_dependencies:
+          - pyyaml
         files: ^\.github/workflows/.*\.yml$
         pass_filenames: false
 
