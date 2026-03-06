@@ -33,9 +33,10 @@ class TestAutoDiscoveryConfig:
     """Tests for AutoDiscoveryConfig model validation."""
 
     def test_auto_discovery_config_defaults(self) -> None:
-        """Auto-discovery should default to disabled with allow-all pattern."""
+        """Auto-discovery should default to disabled with allow-all pattern and no generate_docs requirement."""
         config = AutoDiscoveryConfig()
         assert config.enabled is False
+        assert config.require_generate_docs is False
         assert config.job_id_pattern.allowed("12345")
         assert config.job_id_pattern.allowed("99999")
 
@@ -284,7 +285,9 @@ class TestAutoDiscoverProjectsAndJobs:
     """Tests for _auto_discover_projects_and_jobs orchestration."""
 
     def _create_source_with_autodiscovery(
-        self, job_id_pattern: Optional[AllowDenyPattern] = None
+        self,
+        job_id_pattern: Optional[AllowDenyPattern] = None,
+        require_generate_docs: bool = False,
     ) -> DBTCloudSource:
         """Helper to create a DBTCloudSource with auto-discovery enabled."""
         pattern = job_id_pattern or AllowDenyPattern.allow_all()
@@ -293,7 +296,11 @@ class TestAutoDiscoverProjectsAndJobs:
             token="dummy_token",
             account_id=123456,
             project_id=1234567,
-            auto_discovery=AutoDiscoveryConfig(enabled=True, job_id_pattern=pattern),
+            auto_discovery=AutoDiscoveryConfig(
+                enabled=True,
+                job_id_pattern=pattern,
+                require_generate_docs=require_generate_docs,
+            ),
             target_platform="snowflake",
         )
         ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
@@ -301,22 +308,45 @@ class TestAutoDiscoverProjectsAndJobs:
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discover_filters_by_generate_docs(
+    def test_auto_discover_default_includes_all_jobs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
     ) -> None:
-        """Should only return jobs with generate_docs=True."""
+        """By default, should return all jobs regardless of generate_docs."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
         mock_get_jobs.return_value = [
             DBTCloudJob(id=100, generate_docs=True),
-            DBTCloudJob(id=200, generate_docs=False),  # Should be filtered out
+            DBTCloudJob(id=200, generate_docs=False),
             DBTCloudJob(id=300, generate_docs=True),
         ]
 
         source = self._create_source_with_autodiscovery()
+        job_ids = source._auto_discover_projects_and_jobs()
+
+        assert len(job_ids) == 3
+        assert set(job_ids) == {100, 200, 300}
+
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discover_filters_by_generate_docs_when_required(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """When require_generate_docs=True, should only return jobs with generate_docs=True."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=False),
+            DBTCloudJob(id=300, generate_docs=True),
+        ]
+
+        source = self._create_source_with_autodiscovery(require_generate_docs=True)
         job_ids = source._auto_discover_projects_and_jobs()
 
         assert len(job_ids) == 2
@@ -391,12 +421,12 @@ class TestAutoDiscoverProjectsAndJobs:
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discover_no_matching_jobs(
+    def test_auto_discover_no_matching_jobs_with_require_generate_docs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
     ) -> None:
-        """Should return empty list when no jobs match filters."""
+        """Should return empty list when require_generate_docs=True and no jobs have it enabled."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
@@ -405,7 +435,29 @@ class TestAutoDiscoverProjectsAndJobs:
             DBTCloudJob(id=200, generate_docs=False),
         ]
 
-        source = self._create_source_with_autodiscovery()
+        source = self._create_source_with_autodiscovery(require_generate_docs=True)
+        job_ids = source._auto_discover_projects_and_jobs()
+
+        assert len(job_ids) == 0
+
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discover_no_matching_jobs_by_pattern(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """Should return empty list when no jobs match the pattern filter."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=False),
+        ]
+
+        pattern = AllowDenyPattern(allow=["^999.*"])
+        source = self._create_source_with_autodiscovery(job_id_pattern=pattern)
         job_ids = source._auto_discover_projects_and_jobs()
 
         assert len(job_ids) == 0
@@ -747,3 +799,310 @@ class TestParseIntoDBTNodeFreshness:
         dbt_node = source._parse_into_dbt_node(node)
 
         assert dbt_node.freshness_info is None
+
+
+class TestParseIntoDBTNodeExtended:
+    """Tests for additional _parse_into_dbt_node code paths."""
+
+    def _create_source(self, external_url_mode: str = "explore") -> DBTCloudSource:
+        """Helper to create a DBTCloudSource instance."""
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=12345678,
+            target_platform="snowflake",
+            external_url_mode=external_url_mode,
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        return DBTCloudSource(config, ctx)
+
+    def test_test_node_parsing(self) -> None:
+        """Should parse test nodes with test_info and test_result."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "test.project.not_null_users_id.abc123",
+            "name": "not_null_users_id",
+            "resourceType": "test",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "state": "pass",
+            "columnName": "id",
+            "status": "pass",
+            "error": None,
+            "dependsOn": ["macro.dbt.test_not_null", "model.project.users"],
+            "fail": False,
+            "warn": False,
+            "skip": False,
+            "rawSql": "select count(*) from {{ model }}",
+            "rawCode": "select count(*) from {{ model }}",
+            "compiledSql": "select count(*) from users",
+            "compiledCode": "select count(*) from users",
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.test_info is not None
+        assert dbt_node.test_info.qualified_test_name == "not_null"
+        assert dbt_node.test_info.column_name == "id"
+        assert len(dbt_node.test_results) == 1
+        assert dbt_node.test_results[0].status == "pass"
+
+    def test_test_node_skipped(self) -> None:
+        """Should parse skipped test node with no test_result."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "test.project.unique_users_id.def456",
+            "name": "unique_users_id",
+            "resourceType": "test",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "state": "pass",
+            "columnName": "id",
+            "status": "pass",
+            "error": None,
+            "dependsOn": ["macro.dbt.test_unique"],
+            "fail": False,
+            "warn": False,
+            "skip": True,
+            "rawSql": "",
+            "rawCode": "",
+            "compiledSql": "",
+            "compiledCode": "",
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.test_info is not None
+        assert len(dbt_node.test_results) == 0
+
+    def test_model_with_columns(self) -> None:
+        """Should parse model columns through _parse_into_dbt_column."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "model.project.users",
+            "name": "users",
+            "resourceType": "model",
+            "database": "db",
+            "schema": "public",
+            "meta": {},
+            "tags": [],
+            "description": "Users table",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "materializedType": "table",
+            "dependsOn": [],
+            "rawCode": "SELECT * FROM raw.users",
+            "compiledCode": "SELECT * FROM raw.users",
+            "status": "success",
+            "error": None,
+            "skip": False,
+            "columns": [
+                {
+                    "name": "id",
+                    "index": 0,
+                    "type": "INTEGER",
+                    "comment": "",
+                    "description": "Primary key",
+                    "tags": [],
+                    "meta": {},
+                },
+                {
+                    "name": "email",
+                    "index": None,
+                    "type": "VARCHAR",
+                    "comment": "",
+                    "description": "User email",
+                    "tags": ["pii"],
+                    "meta": {},
+                },
+            ],
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert len(dbt_node.columns) == 2
+        assert dbt_node.columns[0].name == "id"
+        assert dbt_node.columns[0].index == 0
+        assert dbt_node.columns[1].name == "email"
+        assert dbt_node.columns[1].index == 10**6
+
+    def test_model_missing_status_warns(self) -> None:
+        """Should warn when status is None for non-ephemeral model."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "model.project.stale_model",
+            "name": "stale_model",
+            "resourceType": "model",
+            "database": "db",
+            "schema": "public",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "materializedType": "table",
+            "dependsOn": [],
+            "rawCode": "SELECT 1",
+            "rawSql": "",
+            "compiledCode": "",
+            "compiledSql": "",
+            "status": None,
+            "error": None,
+            "skip": False,
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.compiled_code is None or dbt_node.compiled_code == ""
+
+    def test_snapshot_node_upstream(self) -> None:
+        """Should extract upstream nodes from snapshot's parentsModels/parentsSources."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "snapshot.project.users_snapshot",
+            "name": "users_snapshot",
+            "resourceType": "snapshot",
+            "database": "db",
+            "schema": "snapshots",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "packageName": "project",
+            "alias": None,
+            "rawCode": "SELECT * FROM users",
+            "rawSql": "SELECT * FROM users",
+            "compiledCode": "SELECT * FROM users",
+            "compiledSql": "SELECT * FROM users",
+            "status": "success",
+            "error": None,
+            "skip": False,
+            "columns": [],
+            "type": "BASE TABLE",
+            "owner": "admin",
+            "comment": "",
+            "parentsModels": [{"uniqueId": "model.project.users"}],
+            "parentsSources": [{"uniqueId": "source.project.raw.orders"}],
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.materialization == "snapshot"
+        assert set(dbt_node.upstream_nodes) == {
+            "model.project.users",
+            "source.project.raw.orders",
+        }
+
+    def test_source_with_epoch_max_loaded_at(self) -> None:
+        """Should set max_loaded_at to None when year <= 1 (epoch zero)."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.project.raw.events",
+            "name": "events",
+            "resourceType": "source",
+            "database": "db",
+            "schema": "raw",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "maxLoadedAt": "0001-01-01T00:00:00.000Z",
+            "snapshottedAt": None,
+            "maxLoadedAtTimeAgoInS": 0,
+            "state": None,
+            "freshnessChecked": False,
+            "criteria": {},
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.max_loaded_at is None
+
+    def test_get_external_url_explore_mode(self) -> None:
+        """Should return explore URL by default."""
+        source = self._create_source(external_url_mode="explore")
+        node = mock.Mock()
+        node.dbt_name = "model.project.users"
+
+        url = source.get_external_url(node)
+
+        assert "/explore/" in url
+        assert "model.project.users" in url
+
+    def test_get_external_url_ide_mode(self) -> None:
+        """Should return IDE URL when configured."""
+        source = self._create_source(external_url_mode="ide")
+        node = mock.Mock()
+        node.dbt_name = "model.project.users"
+
+        url = source.get_external_url(node)
+
+        assert "/develop/" in url
+
+    def test_parse_exposure(self) -> None:
+        """Should parse exposure from raw API response."""
+        source = self._create_source()
+        raw_exposure = {
+            "name": "weekly_report",
+            "uniqueId": "exposure.project.weekly_report",
+            "exposureType": "dashboard",
+            "url": "https://bi.example.com/reports/weekly",
+            "maturity": "high",
+            "ownerName": "Data Team",
+            "ownerEmail": "data@example.com",
+            "description": "Weekly KPI report",
+            "dependsOn": ["model.project.orders", "model.project.users"],
+            "tags": ["reporting"],
+            "meta": {"team": "analytics"},
+            "packageName": "project",
+            "runId": 123,
+            "jobId": 456,
+            "accountId": 789,
+            "projectId": 111,
+            "environmentId": 222,
+            "dbtVersion": "1.5.0",
+            "resourceType": "exposure",
+        }
+
+        exposure = source._parse_into_dbt_exposure(raw_exposure)
+
+        assert exposure.name == "weekly_report"
+        assert exposure.type == "dashboard"
+        assert exposure.owner_email == "data@example.com"
+        assert len(exposure.depends_on) == 2
+        assert exposure.maturity == "high"
+        assert exposure.url == "https://bi.example.com/reports/weekly"
