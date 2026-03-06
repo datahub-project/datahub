@@ -18,6 +18,7 @@ from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -352,7 +353,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Supported for S3 tables",
+    "Supported for S3 and Iceberg tables",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -360,7 +361,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Supported for S3 tables",
+    "Supported for S3 and Iceberg tables",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -371,7 +372,7 @@ class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Lineage for S3 tables.
+    - Lineage for S3 and Iceberg tables.
     - Profiling when enabled.
     """
 
@@ -440,15 +441,18 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location")
-        if location is not None:
-            if location.startswith("s3://"):
-                location = make_s3_urn(location, self.config.env)
+        location: Optional[str] = None
+
+        if metadata.parameters.get("table_type") == "ICEBERG":
+            location = make_dataset_urn("iceberg", f"{schema}.{table}", self.config.env)
+        elif custom_properties.get("location"):
+            props_location = custom_properties["location"]
+            if props_location.startswith("s3://"):
+                location = make_s3_urn(props_location, self.config.env)
             else:
                 logging.debug(
-                    f"Only s3 url supported for location. Skipping {location}"
+                    f"Only s3 url supported for location. Skipping {props_location}"
                 )
-                location = None
 
         return description, custom_properties, location
 
