@@ -1,7 +1,15 @@
+### Overview
+
+The `tableau` module ingests metadata from Tableau into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 - **Tableau Server** 2021.1.10 or later (may work with older versions)
 - **Metadata API enabled** ([enable for Server](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server); always enabled for Tableau Cloud)
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 ### Authentication
 

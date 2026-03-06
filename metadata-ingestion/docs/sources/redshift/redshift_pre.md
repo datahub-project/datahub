@@ -1,6 +1,14 @@
+### Overview
+
+The `redshift` module ingests metadata from Redshift into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 Requires specific database privileges for metadata extraction, lineage, and usage statistics.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 #### Permission Overview
 
@@ -49,12 +57,6 @@ GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized 
 
 -- Schema access (required to read tables in each schema)
 GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with actual schema names
-```
-
-**Important**: Make sure to grant USAGE on any schema you want to ingest from:
-
-```sql
-GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;
 ```
 
 #### Detailed Permission Breakdown

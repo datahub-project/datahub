@@ -267,28 +267,18 @@ For complete configuration options, see [snowplow_iglu.yml](snowplow_iglu.yml).
 
 ⚠️ **Note**: This feature is **disabled by default** and should only be enabled in specific scenarios (see below).
 
-Extract table-level lineage from raw events to derived tables via BDP Data Models API:
+Start from the baseline BDP recipe in [1. BDP Console (Managed Snowplow)](#1-bdp-console-managed-snowplow), then add:
 
 ```yaml
 source:
   type: snowplow
   config:
-    bdp_connection:
-      organization_id: "<ORG_UUID>"
-      api_key_id: "${SNOWPLOW_API_KEY_ID}"
-      api_key: "${SNOWPLOW_API_KEY}"
-
     # Enable warehouse lineage via Data Models API
     warehouse_lineage:
       enabled: true
       platform_instance: "prod_snowflake" # Optional
       env: "PROD" # Optional
       validate_urns: true # Optional
-
-sink:
-  type: datahub-rest
-  config:
-    server: "http://localhost:8080"
 ```
 
 **What this creates**:

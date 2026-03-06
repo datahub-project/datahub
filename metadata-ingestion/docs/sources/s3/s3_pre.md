@@ -1,6 +1,14 @@
+### Overview
+
+The `s3` module ingests metadata from S3 into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 Grant necessary S3 permissions to an IAM user or role:
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 **1. Create an IAM Policy**
 

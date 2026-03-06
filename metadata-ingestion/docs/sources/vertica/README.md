@@ -1,22 +1,34 @@
+## Overview
+
+Vertica can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+
+Use this page to select the module that matches your source setup and ingestion use case.
+
+## Concept Mapping
+
+The mapping below provides a platform-level view. Vertica-specific mapping details are provided further below.
+
+| Source Concept | DataHub Concept | Notes |
+| --- | --- | --- |
+| Platform/account/project scope | Platform Instance, Container | Organizes assets within the platform context. |
+| Core technical asset (for example table/view/topic/file) | Dataset | Primary ingested technical asset. |
+| Schema fields / columns | SchemaField | Included when schema extraction is supported. |
+| Ownership and collaboration principals | CorpUser, CorpGroup | Emitted by modules that support ownership and identity metadata. |
+| Dependencies and processing relationships | Lineage edges | Available when lineage extraction is supported and enabled. |
+
+Modules on this platform: `vertica`.
+
 ### Integration Details
 
-<!-- Plain-language description of what this integration is meant to do.  -->
-<!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
-
-The DataHub Vertica Plugin extracts the following:
+The DataHub Vertica plugin extracts the following:
 
 - Metadata for databases, schemas, views, tables, and projections
 - Table level lineage
 - Metadata for ML Models
 
-#### Concept Mapping
+#### Vertica-specific mapping details
 
-<!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
-<!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+This ingestion source maps the following source system concepts to DataHub concepts:
 
 | Source Concept | DataHub Concept                                           | Notes |
 | -------------- | --------------------------------------------------------- | ----- |

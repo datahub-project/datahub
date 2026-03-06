@@ -1,3 +1,15 @@
+### Overview
+
+The `sac` module ingests metadata from SAP Analytics Cloud (SAC) into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Configuration Notes
 
 1. Refer to [Manage OAuth Clients](https://help.sap.com/docs/SAP_ANALYTICS_CLOUD/00f68c2e08b941f081002fd3691d86a7/4f43b54398fc4acaa5efa32badfe3df6.html) to create an OAuth client in SAP Analytics Cloud. The OAuth client is required to have the following properties:

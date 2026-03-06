@@ -1,4 +1,16 @@
-#### Prerequisites
+### Overview
+
+The `salesforce` module ingests metadata from Salesforce into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Authentication options
 
 To ingest metadata from Salesforce, you need one of:
 
@@ -14,7 +26,7 @@ The account used to access Salesforce requires the following permissions for thi
 ### Integration Details
 
 This plugin extracts Salesforce Standard and Custom Objects and their details (fields, record count, etc) from a Salesforce instance.
-Python library [simple-salesforce](https://pypi.org/project/simple-salesforce/) is used for authenticating and calling [Salesforce REST API](https://developer.Salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_what_is_rest_api.htm) to retrive details from Salesforce instance.
+Python library [simple-salesforce](https://pypi.org/project/simple-salesforce/) is used for authenticating and calling [Salesforce REST API](https://developer.Salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_what_is_rest_api.htm) to retrieve details from Salesforce instance.
 
 #### REST API Resources used in this integration
 

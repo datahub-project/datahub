@@ -1,3 +1,7 @@
+### Overview
+
+The `teradata` module ingests metadata from Teradata into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 1. Create a user which has access to the database you want to ingest.
@@ -30,3 +34,7 @@
 
    See more here about query logging:
    [https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options](https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options)
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.

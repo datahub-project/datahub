@@ -1,6 +1,14 @@
+### Overview
+
+The `snowflake` module ingests metadata from Snowflake into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
 Requires specific privileges to read metadata from your Snowflake warehouse.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` privilege to create a DataHub-specific role:
 
@@ -66,11 +74,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
 
 - `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
-- `usage` on `streamlit` is required to show streamlits in a database.
-
-```sql
-grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
-```
+- `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 

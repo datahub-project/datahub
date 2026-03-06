@@ -1,20 +1,27 @@
+### Overview
+
+The `snaplogic` module ingests metadata from SnapLogic into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
 ### Integration Details
 
 Extracts data lineage from the SnapLogic Lineage API to track data transformations and dependencies across SnapLogic pipelines.
 
 #### Concept Mapping
 
-<!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
-<!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+This ingestion source maps the following source system concepts to DataHub concepts:
 
 | Source Concept | DataHub Concept                                                    | Notes                                                                                                                                   |
 | -------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Snap-pack      | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) | Snap-packs are mapped to Data Platforms, either directly (e.g., Snowflake) or dynamically based on connection details (e.g., JDBC URL). |
-| Table/Dataset  | [Dataset](docs/generated/metamodel/entities/dataset.md)            | May be differernt. It depends on a snap type. For sql databases it's table. For kafka it's topic, etc                                   |
+| Table/Dataset  | [Dataset](docs/generated/metamodel/entities/dataset.md)            | May be different. It depends on snap type. For SQL databases it is a table, and for Kafka it is a topic.                                |
 | Snap           | [Data Job](docs/generated/metamodel/entities/dataJob.md)           |                                                                                                                                         |
 | Pipeline       | [Data Flow](docs/generated/metamodel/entities/dataFlow.md)         |                                                                                                                                         |
 
