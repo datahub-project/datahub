@@ -31,6 +31,7 @@ from datahub.ingestion.source.dlt.data_classes import (
 )
 from datahub.ingestion.source.dlt.dlt import DltSource
 from datahub.ingestion.source.dlt.dlt_client import DltClient
+from datahub.ingestion.source.dlt.dlt_report import DltSourceReport
 
 # Frozen timestamp used by run history unit tests to ensure deterministic DPI timestamps.
 FROZEN_TIME = "2026-02-24 12:00:00+00:00"
@@ -346,7 +347,7 @@ def test_run_history_emits_dataprocess_instance() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 6b: Run history — query failure (None return) increments error counter
+# Test 11: Run history — query failure (None return) increments error counter
 # ---------------------------------------------------------------------------
 
 
@@ -441,7 +442,8 @@ tables:
 """
     )
 
-    client = DltClient(pipelines_dir=str(tmp_path))
+    report = DltSourceReport()
+    client = DltClient(pipelines_dir=str(tmp_path), report=report)
 
     with patch.object(client, "_dlt_available", False):
         info = client.get_pipeline_info(pipeline_name)
@@ -453,6 +455,8 @@ tables:
     assert len(info.schemas[0].tables) == 1
     assert info.schemas[0].tables[0].table_name == "users"
     assert len(info.schemas[0].tables[0].columns) == 2
+    # Confirm no silent schema parse errors occurred during the filesystem fallback
+    assert report.schema_read_errors == 0
 
 
 # ---------------------------------------------------------------------------

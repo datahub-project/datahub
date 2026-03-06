@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
@@ -70,7 +70,7 @@ DLT_SYSTEM_TABLES = frozenset({"_dlt_loads", "_dlt_version", "_dlt_pipeline_stat
 
 # dlt load status codes: 0 = complete (success); all other values indicate
 # in-progress or failed loads.
-_DLT_LOAD_STATUS_MAP: Dict[int, InstanceRunResult] = {
+_DLT_LOAD_STATUS_MAP: dict[int, InstanceRunResult] = {
     0: InstanceRunResult.SUCCESS,
 }
 
@@ -241,7 +241,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
     ) -> DataJob:
         """Build a DataJob entity for a single dlt table/resource."""
-        custom_props: Dict[str, str] = {
+        custom_props: dict[str, str] = {
             "write_disposition": table.write_disposition,
             "schema_name": schema_name,
         }

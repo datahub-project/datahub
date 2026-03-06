@@ -123,7 +123,6 @@ def test_dlt_ingest_golden(pytestconfig: pytest.Config, tmp_path: pathlib.Path) 
     )
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_system_tables_excluded(tmp_path: pathlib.Path) -> None:
     """
@@ -155,7 +154,6 @@ def test_dlt_system_tables_excluded(tmp_path: pathlib.Path) -> None:
         )
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_outlet_urns_match_postgres_format(tmp_path: pathlib.Path) -> None:
     """
@@ -208,7 +206,6 @@ def test_dlt_outlet_urns_match_postgres_format(tmp_path: pathlib.Path) -> None:
         assert "DEV" in urn, f"Expected DEV env in URN: {urn}"
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_nested_table_has_parent_property(tmp_path: pathlib.Path) -> None:
     """
@@ -245,7 +242,6 @@ def test_dlt_nested_table_has_parent_property(tmp_path: pathlib.Path) -> None:
     )
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_outlet_urns_fallback_when_destination_not_in_map(
     tmp_path: pathlib.Path,
@@ -288,7 +284,6 @@ def test_dlt_outlet_urns_fallback_when_destination_not_in_map(
         )
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_include_lineage_false(tmp_path: pathlib.Path) -> None:
     """
@@ -321,7 +316,6 @@ def test_dlt_include_lineage_false(tmp_path: pathlib.Path) -> None:
         )
 
 
-@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dlt_pipeline_pattern_filter(tmp_path: pathlib.Path) -> None:
     """

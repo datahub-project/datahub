@@ -332,14 +332,41 @@ class DltClient:
     # Run history (requires dlt SDK + destination access)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _parse_load_row(
+        row: Any,
+        start_time: Optional[datetime],
+        end_time: Optional[datetime],
+    ) -> Optional[DltLoadInfo]:
+        """Parse a single row from _dlt_loads into a DltLoadInfo.
+
+        Returns None when the row falls outside the requested time window so
+        callers can skip it without constructing an intermediate object.
+        """
+        inserted_at = row[3]
+        if isinstance(inserted_at, str):
+            inserted_at = datetime.fromisoformat(inserted_at)
+        if inserted_at.tzinfo is None:
+            inserted_at = inserted_at.replace(tzinfo=timezone.utc)
+        if start_time and inserted_at < start_time:
+            return None
+        if end_time and inserted_at > end_time:
+            return None
+        return DltLoadInfo(
+            load_id=str(row[0]),
+            schema_name=str(row[1]),
+            status=int(row[2]),
+            inserted_at=inserted_at,
+            schema_version_hash=str(row[4]) if row[4] else "",
+        )
+
     def get_run_history(
         self,
         pipeline_name: str,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
     ) -> Optional[List[DltLoadInfo]]:
-        """
-        Query _dlt_loads from the destination to get run history.
+        """Query _dlt_loads from the destination to get run history.
 
         Requires dlt package and destination credentials in ~/.dlt/secrets.toml.
 
@@ -349,7 +376,7 @@ class DltClient:
             end_time: Only return loads inserted before this time.
 
         Returns:
-            List[DltLoadInfo] — successful query (may be empty if no rows in time window)
+            List[DltLoadInfo] — successful query (may be empty if no rows in window)
             None              — hard failure (exception during query)
 
         Returns [] (not None) when dlt is not installed; the caller checks
@@ -370,24 +397,9 @@ class DltClient:
                 query = "SELECT load_id, schema_name, status, inserted_at, schema_version_hash FROM _dlt_loads ORDER BY inserted_at DESC"
                 with client.execute_query(query) as cursor:
                     for row in cursor.fetchall():
-                        inserted_at = row[3]
-                        if isinstance(inserted_at, str):
-                            inserted_at = datetime.fromisoformat(inserted_at)
-                        if inserted_at.tzinfo is None:
-                            inserted_at = inserted_at.replace(tzinfo=timezone.utc)
-                        if start_time and inserted_at < start_time:
-                            continue
-                        if end_time and inserted_at > end_time:
-                            continue
-                        loads.append(
-                            DltLoadInfo(
-                                load_id=str(row[0]),
-                                schema_name=str(row[1]),
-                                status=int(row[2]),
-                                inserted_at=inserted_at,
-                                schema_version_hash=str(row[4]) if row[4] else "",
-                            )
-                        )
+                        load = self._parse_load_row(row, start_time, end_time)
+                        if load is not None:
+                            loads.append(load)
             return loads
         except Exception as e:
             logger.warning(
