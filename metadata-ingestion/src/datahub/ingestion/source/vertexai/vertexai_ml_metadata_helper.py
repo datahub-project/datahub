@@ -49,13 +49,11 @@ from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
-# Retry only on quota exceeded (429 ResourceExhausted), mirroring the
-# google.api_core.retry.Retry approach used in the BigQuery connector.
-# ServiceUnavailable (503) is intentionally excluded: in credential-less
-# environments it manifests as a persistent error that retrying won't fix,
-# and it is already handled gracefully by the caller exception handlers.
 _METADATA_RETRY = api_retry.Retry(
-    predicate=api_retry.if_exception_type(ResourceExhausted),
+    predicate=api_retry.if_exception_type(
+        DeadlineExceeded,
+        ServiceUnavailable,
+    ),
     initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
     maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
     multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
