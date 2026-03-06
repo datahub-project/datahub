@@ -5,10 +5,10 @@ pydantic_core!=2.41.3
 # override in CI to work around this. This constraint is safe for Docker images
 # which don't coexist with Airflow's pinned dependencies.
 jaraco.context>=6.1.0,<7
-# CVE-2025-66418, CVE-2025-66471, CVE-2026-21441: urllib3 vulnerabilities fixed in 2.6.0+
-# but botocore requires <1.27. Pin to latest 1.26.x until botocore supports 2.x.
-# See: https://github.com/boto/botocore/issues/3499
-urllib3>=1.26.20,<1.27
+# Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
+# fixed in urllib3>=2.6.0
+# We cannot require >=2.6.0 due to great expectations
+urllib3>=1.26,<3.0
 # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
 # Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
 # conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
