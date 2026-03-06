@@ -19,6 +19,7 @@ import useSearchFilterAnalytics from '@app/search/filters/useSearchFilterAnalyti
 import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/search/utils/constants';
+import { mergeEnvIntoOriginFacets } from '@app/search/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -221,7 +222,7 @@ export const SearchPage = () => {
             {showSearchFiltersV2 && (
                 <SearchFilters
                     loading={loading}
-                    availableFilters={data?.searchAcrossEntities?.facets || []}
+                    availableFilters={mergeEnvIntoOriginFacets(data?.searchAcrossEntities?.facets || [])}
                     activeFilters={filters}
                     unionType={unionType}
                     mode={filterMode}
@@ -239,7 +240,7 @@ export const SearchPage = () => {
                 viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
-                facets={data?.searchAcrossEntities?.facets}
+                facets={mergeEnvIntoOriginFacets(data?.searchAcrossEntities?.facets || [])}
                 suggestions={data?.searchAcrossEntities?.suggestions || []}
                 selectedFilters={filters}
                 loading={loading}

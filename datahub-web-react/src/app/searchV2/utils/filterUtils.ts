@@ -1,8 +1,8 @@
 import { FilterSet } from '@app/entity/shared/components/styled/search/types';
 import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
-import { UnionType } from '@app/searchV2/utils/constants';
+import { ENV_FILTER_NAME, ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
 
-import { AndFilterInput, EntityType, FacetFilterInput, QuickFilter } from '@types';
+import { AndFilterInput, EntityType, FacetFilterInput, FacetMetadata, QuickFilter } from '@types';
 
 /**
  * Combines 2 sets of conjunctive filters in Disjunctive Normal Form
@@ -217,4 +217,14 @@ export function combineOrFilters(orFilter1: AndFilterInput[], orFilter2: AndFilt
 
 export function excludeEmptyAndFilters(filters: AndFilterInput[] | undefined): AndFilterInput[] | undefined {
     return filters?.filter((filter) => filter.and?.length);
+}
+
+/**
+ * This handles the case where only "env" is present,
+ * renaming it to "origin" so it is not hidden by FILTERS_TO_REMOVE.
+ */
+export function mergeEnvIntoOriginFacets(facets: FacetMetadata[]): FacetMetadata[] {
+    const hasOrigin = facets.some((f) => f.field === ORIGIN_FILTER_NAME);
+    if (hasOrigin) return facets;
+    return facets.map((f) => (f.field === ENV_FILTER_NAME ? { ...f, field: ORIGIN_FILTER_NAME } : f));
 }
