@@ -30,6 +30,7 @@ from datahub.api.entities.external.lake_formation_external_entites import (
 )
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -154,12 +155,21 @@ class GlueSourceConfig(
         default=True,
         description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
     )
-    emit_s3_lineage: bool = Field(
-        default=False, description="Whether to emit S3-to-Glue lineage."
+    emit_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to emit storage-to-Glue lineage. When enabled, creates lineage relationships between Glue tables and their underlying storage locations (S3).",
     )
-    glue_s3_lineage_direction: str = Field(
+    _rename_emit_s3_lineage = pydantic_renamed_field(
+        "emit_s3_lineage",
+        "emit_storage_lineage",
+    )
+    glue_storage_lineage_direction: str = Field(
         default="upstream",
-        description="If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.",
+        description="If `upstream`, storage locations are upstream to Glue. If `downstream`, they are downstream to Glue.",
+    )
+    _rename_glue_s3_lineage_direction = pydantic_renamed_field(
+        "glue_s3_lineage_direction",
+        "glue_storage_lineage_direction",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
@@ -203,7 +213,7 @@ class GlueSourceConfig(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted from the s3.",
+        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -223,12 +233,12 @@ class GlueSourceConfig(
     def lakeformation_client(self):
         return self.get_lakeformation_client()
 
-    @field_validator("glue_s3_lineage_direction", mode="after")
+    @field_validator("glue_storage_lineage_direction", mode="after")
     @classmethod
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
             raise ValueError(
-                "glue_s3_lineage_direction must be either upstream or downstream"
+                "glue_storage_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
 
@@ -277,7 +287,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_s3_lineage` config field"
+    SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
 )
 @capability(
     SourceCapability.CONTAINERS,
@@ -873,7 +883,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
     ) -> Optional[MetadataWorkUnit]:
-        if self.source_config.emit_s3_lineage:
+        if self.source_config.emit_storage_lineage:
             # extract dataset properties aspect
             dataset_properties: Optional[DatasetPropertiesClass] = (
                 mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
@@ -891,7 +901,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     location, self.source_config.env
                 )
 
-                if self.source_config.glue_s3_lineage_direction == "upstream":
+                if self.source_config.glue_storage_lineage_direction == "upstream":
                     if self.ctx.graph:
                         schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
                             s3_dataset_urn
