@@ -4,6 +4,9 @@ Tests for RDF DataHub ingestion source.
 
 These tests verify that the ingestion source is properly implemented and can be
 imported and instantiated correctly.
+
+Primary source path: web URL to .ttl or .zip. Local paths are CLI-only; tests
+using tmp_path simulate local file access for unit testing.
 """
 
 import pytest
@@ -20,16 +23,45 @@ def test_import_ingestion_source():
     assert RDFSourceConfig is not None
 
 
+def test_config_model_with_web_url_primary():
+    """Test config with web URL to .ttl (primary path for UI/recipes)."""
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
+        RDFSourceConfig,
+    )
+
+    config = RDFSourceConfig(
+        source="https://example.com/glossary.ttl",
+        environment="PROD",
+    )
+    assert config.source == "https://example.com/glossary.ttl"
+
+
+def test_config_model_with_zip_url_primary():
+    """Test config with web URL to .zip (primary path for UI/recipes)."""
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
+        RDFSourceConfig,
+    )
+
+    config = RDFSourceConfig(
+        source="https://example.com/rdf_data.zip",
+        environment="PROD",
+        recursive=True,
+    )
+    assert config.source == "https://example.com/rdf_data.zip"
+
+
 def test_config_model_validation():
     """Test that the config model validates correctly."""
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
         RDFSourceConfig,
     )
 
-    # Valid config
-    config = RDFSourceConfig(source="examples/bcbs239/", environment="PROD")
+    # Valid config (primary path: web URL to .ttl)
+    config = RDFSourceConfig(
+        source="https://example.com/glossary.ttl", environment="PROD"
+    )
 
-    assert config.source == "examples/bcbs239/"
+    assert config.source == "https://example.com/glossary.ttl"
     assert config.environment == "PROD"
     assert config.recursive is True
     assert config.extensions == [".ttl", ".rdf", ".owl", ".n3", ".nt"]
@@ -42,7 +74,7 @@ def test_config_model_with_export_only():
     )
 
     config = RDFSourceConfig(
-        source="examples/bcbs239/",
+        source="https://example.com/glossary.ttl",
         environment="PROD",
         export_only=["glossary"],
     )
@@ -57,7 +89,9 @@ def test_config_model_with_dialect():
     )
 
     config = RDFSourceConfig(
-        source="examples/bcbs239/", environment="PROD", dialect="default"
+        source="https://example.com/glossary.ttl",
+        environment="PROD",
+        dialect="default",
     )
 
     assert config.dialect == "default"
@@ -72,7 +106,9 @@ def test_config_model_invalid_dialect():
     )
 
     with pytest.raises(ValidationError) as exc_info:
-        RDFSourceConfig(source="examples/bcbs239/", dialect="invalid_dialect")
+        RDFSourceConfig(
+            source="https://example.com/glossary.ttl", dialect="invalid_dialect"
+        )
 
     assert "Invalid dialect" in str(exc_info.value)
 
@@ -86,7 +122,10 @@ def test_config_model_invalid_export_type():
     )
 
     with pytest.raises(ValidationError) as exc_info:
-        RDFSourceConfig(source="examples/bcbs239/", export_only=["invalid_type"])
+        RDFSourceConfig(
+            source="https://example.com/glossary.ttl",
+            export_only=["invalid_type"],
+        )
 
     assert "Invalid entity type" in str(exc_info.value)
 
@@ -118,7 +157,7 @@ def test_config_parse_from_dict():
     )
 
     config_dict = {
-        "source": "examples/bcbs239/",
+        "source": "https://example.com/glossary.ttl",
         "environment": "PROD",
         "export_only": ["glossary"],
         "recursive": True,
@@ -126,7 +165,7 @@ def test_config_parse_from_dict():
 
     config = RDFSourceConfig.model_validate(config_dict)
 
-    assert config.source == "examples/bcbs239/"
+    assert config.source == "https://example.com/glossary.ttl"
     assert config.environment == "PROD"
     assert config.export_only == ["glossary"]
     assert config.recursive is True
@@ -170,13 +209,16 @@ def test_source_create_method():
         RDFSource,
     )
 
-    config_dict = {"source": "examples/bcbs239/", "environment": "PROD"}
+    config_dict = {
+        "source": "https://example.com/glossary.ttl",
+        "environment": "PROD",
+    }
     ctx = PipelineContext(run_id="test-run")
 
     source = RDFSource.create(config_dict, ctx)
 
     assert isinstance(source, RDFSource)
-    assert source.config.source == "examples/bcbs239/"
+    assert source.config.source == "https://example.com/glossary.ttl"
     assert source.config.environment == "PROD"
     assert source.report is not None
 
@@ -187,7 +229,7 @@ def test_source_create_method():
 
 
 def test_load_rdf_graph_with_file(tmp_path):
-    """Test load_rdf_graph() with a single file."""
+    """Test load_rdf_graph() with a single file (CLI-only local path)."""
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 
     # Create a temporary file
@@ -200,7 +242,7 @@ def test_load_rdf_graph_with_file(tmp_path):
 
 
 def test_load_rdf_graph_with_folder(tmp_path):
-    """Test load_rdf_graph() with a folder path."""
+    """Test load_rdf_graph() with a folder path (CLI-only local path)."""
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 
     # Create a temporary folder with a file
@@ -215,7 +257,7 @@ def test_load_rdf_graph_with_folder(tmp_path):
 
 
 def test_load_rdf_graph_with_url():
-    """Test load_rdf_graph() with HTTP URL."""
+    """Test load_rdf_graph() with HTTP URL (primary path)."""
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 
     # Note: This will fail if URL doesn't exist, but tests the code path
@@ -224,7 +266,7 @@ def test_load_rdf_graph_with_url():
 
 
 def test_load_rdf_graph_with_comma_separated_files(tmp_path):
-    """Test load_rdf_graph() with comma-separated files."""
+    """Test load_rdf_graph() with comma-separated files (CLI-only local paths)."""
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 
     # Create temporary files
@@ -278,7 +320,7 @@ def test_load_rdf_graph_with_custom_extensions(tmp_path):
 
 
 def test_convert_rdf_to_datahub_ast_with_environment(tmp_path):
-    """Test ast_converter.convert() sets environment correctly."""
+    """Test ast_converter.convert() sets environment correctly (CLI-only local path)."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -302,7 +344,7 @@ def test_convert_rdf_to_datahub_ast_with_environment(tmp_path):
 
 
 def test_convert_rdf_to_datahub_ast_with_export_only(tmp_path):
-    """Test ast_converter.convert() respects export_only filter."""
+    """Test ast_converter.convert() respects export_only filter (CLI-only local path)."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -326,7 +368,7 @@ def test_convert_rdf_to_datahub_ast_with_export_only(tmp_path):
 
 
 def test_convert_rdf_to_datahub_ast_with_skip_export(tmp_path):
-    """Test ast_converter.convert() respects skip_export filter."""
+    """Test ast_converter.convert() respects skip_export filter (CLI-only local path)."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
@@ -355,7 +397,7 @@ def test_convert_rdf_to_datahub_ast_with_skip_export(tmp_path):
 
 
 def test_source_get_workunits_error_handling():
-    """Test error handling in get_workunits() method."""
+    """Test error handling in get_workunits() (uses CLI-only local path for error case)."""
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
         RDFSource,
@@ -381,7 +423,7 @@ def test_source_close_method():
         RDFSourceConfig,
     )
 
-    config = RDFSourceConfig(source="examples/bcbs239/")
+    config = RDFSourceConfig(source="https://example.com/glossary.ttl")
     ctx = PipelineContext(run_id="test-run")
     source = RDFSource(config, ctx)
 
@@ -396,7 +438,7 @@ def test_config_model_skip_export():
     )
 
     config = RDFSourceConfig(
-        source="examples/bcbs239/",
+        source="https://example.com/glossary.ttl",
         environment="PROD",
         skip_export=["glossary"],
     )
@@ -413,7 +455,10 @@ def test_config_model_invalid_skip_export_type():
     )
 
     with pytest.raises(ValidationError) as exc_info:
-        RDFSourceConfig(source="examples/bcbs239/", skip_export=["invalid_type"])
+        RDFSourceConfig(
+            source="https://example.com/glossary.ttl",
+            skip_export=["invalid_type"],
+        )
 
     assert "Invalid entity type" in str(exc_info.value)
 
@@ -426,7 +471,7 @@ def test_config_model_export_only_and_skip_export():
 
     # Both can be set in config (validation happens at runtime)
     config = RDFSourceConfig(
-        source="examples/bcbs239/",
+        source="https://example.com/glossary.ttl",
         export_only=["glossary"],
         skip_export=["relationship"],
     )
@@ -442,7 +487,7 @@ def test_config_model_all_optional_parameters():
     )
 
     config = RDFSourceConfig(
-        source="examples/bcbs239/",
+        source="https://example.com/glossary.ttl",
         format="turtle",
         extensions=[".ttl", ".rdf"],
         recursive=False,

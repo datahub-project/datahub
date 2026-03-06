@@ -31,12 +31,12 @@ class RDFSourceConfig(
     Mirrors the CLI parameters to provide consistent behavior between
     CLI and ingestion framework usage.
 
-    Example configuration:
+    Example configuration (primary: web URL to .ttl or .zip):
         ```yaml
         source:
           type: rdf
           config:
-            source: /path/to/glossary.ttl
+            source: https://example.org/glossary.ttl
             format: turtle
             environment: PROD
             stateful_ingestion:
@@ -44,29 +44,7 @@ class RDFSourceConfig(
               remove_stale_metadata: true
         ```
 
-    Example with directory:
-        ```yaml
-        source:
-          type: rdf
-          config:
-            source: ./rdf_data/
-            format: turtle
-            recursive: true
-            environment: PROD
-        ```
-
-    Example with zip file:
-        ```yaml
-        source:
-          type: rdf
-          config:
-            source: /path/to/rdf_data.zip
-            format: turtle
-            recursive: true
-            environment: PROD
-        ```
-
-    Example with zip file URL:
+    Example with zip URL:
         ```yaml
         source:
           type: rdf
@@ -88,7 +66,18 @@ class RDFSourceConfig(
             environment: PROD
         ```
 
-    Example with filtering:
+    Example with local path (CLI-only):
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: /path/to/glossary.ttl
+            format: turtle
+            recursive: true
+            environment: PROD
+        ```
+
+    Example with filtering (CLI-only: local paths):
         ```yaml
         source:
           type: rdf
@@ -120,11 +109,11 @@ class RDFSourceConfig(
     # Source Options
     source: str = Field(
         description=(
-            "Source to process: file path, folder path, zip file (local or remote), "
-            "web folder URL, server URL, or comma-separated files. "
-            "Examples: '/path/to/file.ttl', './rdf_data/', '/path/to/data.zip', "
-            "'http://example.org/data.zip', 'http://example.org/folder/', "
-            "'http://example.org/ontology.owl', '/path/to/file1.ttl,/path/to/file2.ttl'"
+            "Primary: Web URL to .ttl or .zip file (e.g. https://example.org/glossary.ttl, "
+            "https://example.org/data.zip). Also supports web folder URLs. "
+            "Local file/folder paths work only when running via CLI. "
+            "Examples: 'https://example.org/glossary.ttl', 'https://example.org/data.zip', "
+            "'https://example.org/folder/', '/path/to/file.ttl' (CLI-only)"
         )
     )
     format: Optional[str] = Field(
@@ -234,8 +223,8 @@ class RDFSourceConfig(
         """Validate source parameter is not empty."""
         if not v or not v.strip():
             raise ValueError(
-                "Source parameter cannot be empty. Please provide a file path, folder path, URL, "
-                "or comma-separated list of files."
+                "Source parameter cannot be empty. Please provide a web URL (.ttl or .zip), "
+                "or a local path when running via CLI."
             )
         return v.strip()
 

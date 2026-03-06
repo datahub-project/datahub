@@ -3,12 +3,12 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const RDF_SOURCE: RecipeField = {
     name: 'source',
     label: 'Source',
-    helper: 'RDF source: file, folder, URL, or comma-separated files',
+    helper: 'Web URL to .ttl or .zip file (primary). Local paths are CLI-only.',
     tooltip:
-        'Source to process: file path, folder path, server URL, or comma-separated files. Examples: /path/to/file.ttl, /path/to/folder, https://example.com/data.ttl, file1.ttl,file2.ttl',
+        'Primary: Web URL to a .ttl or .zip file (e.g. https://example.com/glossary.ttl, https://example.com/data.zip). Local file/folder paths work only when running via CLI.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.source',
-    placeholder: '/path/to/file.ttl or /path/to/folder or https://example.com/data.ttl',
+    placeholder: 'https://example.com/glossary.ttl or https://example.com/data.zip',
     required: true,
     rules: null,
 };
