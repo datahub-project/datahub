@@ -1077,9 +1077,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         Returns:
             Dict with URN -> aspect -> status structure, or None if server doesn't support tracing
         """
-        if self._server_config is None or not self._server_config.supports_feature(
-            ServiceFeature.API_TRACING
-        ):
+        if not getattr(
+            self, "_server_config", None
+        ) or not self._server_config.supports_feature(ServiceFeature.API_TRACING):
             logger.warning(
                 "get_trace_status() is only available with a newer GMS version that supports API tracing."
             )
