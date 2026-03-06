@@ -6,10 +6,12 @@ import pytest
 import sqlglot
 from freezegun import freeze_time
 from pyathena import OperationalError
+from pyathena.model import AthenaTableMetadata
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
 from sqlglot.dialects import Athena
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import (
@@ -87,10 +89,6 @@ def test_athena_uri():
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_athena_get_table_properties():
-    from pyathena.model import AthenaTableMetadata
-
-    from datahub.ingestion.source.sql.athena import AthenaConfig, AthenaSource
-
     config = AthenaConfig.model_validate(
         {
             "aws_region": "us-west-1",
@@ -199,6 +197,50 @@ from "test_schema"."test_table$partitions")"""
         "year": "2023",
         "month": "12",
     }
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_athena_get_table_properties_iceberg_location():
+    config = AthenaConfig.model_validate(
+        {
+            "aws_region": "us-west-1",
+            "s3_staging_dir": "s3://sample-staging-dir/",
+            "work_group": "test-workgroup",
+        }
+    )
+    schema: str = "default"
+    table: str = "test_iceberg_table"
+
+    table_metadata = {
+        "TableMetadata": {
+            "Name": "test_iceberg_table",
+            "TableType": "EXTERNAL_TABLE",
+            "CreateTime": datetime.now(),
+            "PartitionKeys": [],
+            "Parameters": {
+                "table_type": "ICEBERG",
+                "location": "s3://testLocation/test_iceberg_table/",
+                "metadata_location": "s3://testLocation/test_iceberg_table/metadata/00000-d5e84dda-2a12-4639-ab7e-32d480643374.metadata.json",
+            },
+        },
+    }
+
+    mock_cursor = mock.MagicMock()
+    mock_inspector = mock.MagicMock()
+    mock_cursor.get_table_metadata.return_value = AthenaTableMetadata(
+        response=table_metadata
+    )
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    # Test table properties
+    _, _, location = source.get_table_properties(
+        inspector=mock_inspector, table=table, schema=schema
+    )
+    assert location == make_dataset_urn("iceberg", f"{schema}.{table}")
 
 
 def test_get_column_type_simple_types():
