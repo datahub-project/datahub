@@ -424,7 +424,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _test_sql_gateway(
         config: FlinkSourceConfig,
-    ) -> Dict[SourceCapability, CapabilityReport]:
+    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
         sql_client = FlinkSQLGatewayClient(config.connection)
         try:
             err = sql_client.test_connection()

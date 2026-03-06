@@ -78,7 +78,7 @@ def _lineage() -> LineageResult:
 
 class TestMaterializeDatasetWorkunits:
     def test_emits_workunits_per_urn(self) -> None:
-        urns = [
+        urns: list = [
             "urn:li:dataset:(urn:li:dataPlatform:kafka,transactions,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:kafka,alerts,PROD)",
         ]
