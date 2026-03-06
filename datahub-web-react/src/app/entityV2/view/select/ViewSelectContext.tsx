@@ -146,10 +146,8 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         if (isOpen !== undefined) setIsInternalOpen(isOpen);
     }, [isOpen]);
 
-    const localStateRef = useRef(userContext.localState);
-    localStateRef.current = userContext.localState;
-    const updateLocalStateRef = useRef(userContext.updateLocalState);
-    updateLocalStateRef.current = userContext.updateLocalState;
+    const userContextRef = useRef(userContext);
+    userContextRef.current = userContext;
 
     useEffect(() => {
         setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
@@ -174,7 +172,8 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
     // the Apollo cache update propagates to the query hooks.
     useEffect(() => {
         if (!privateViewsData || !publicViewsData) return;
-        const viewUrn = localStateRef.current?.selectedViewUrn;
+        const { localState, updateLocalState } = userContextRef.current;
+        const viewUrn = localState?.selectedViewUrn;
         if (!viewUrn) return;
 
         const viewExists =
@@ -182,8 +181,8 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             publicViewsData.listGlobalViews?.views?.some((v) => v?.urn === viewUrn);
 
         if (!viewExists) {
-            updateLocalStateRef.current({
-                ...localStateRef.current,
+            updateLocalState({
+                ...localState,
                 selectedViewUrn: null,
             });
         }
