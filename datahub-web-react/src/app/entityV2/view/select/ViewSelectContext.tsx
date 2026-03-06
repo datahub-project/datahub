@@ -146,21 +146,25 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         if (isOpen !== undefined) setIsInternalOpen(isOpen);
     }, [isOpen]);
 
+    const { localState, updateLocalState } = userContext;
+
     useEffect(() => {
-        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
+        setSelectedUrn(localState?.selectedViewUrn || undefined);
         const selectedView =
-            privateViewsData?.listMyViews?.views?.find(
-                (view) => view?.urn === userContext.localState?.selectedViewUrn,
-            ) ||
-            publicViewsData?.listGlobalViews?.views?.find(
-                (view) => view?.urn === userContext.localState?.selectedViewUrn,
-            );
+            privateViewsData?.listMyViews?.views?.find((view) => view?.urn === localState?.selectedViewUrn) ||
+            publicViewsData?.listGlobalViews?.views?.find((view) => view?.urn === localState?.selectedViewUrn);
         if (selectedView === undefined) {
             setSelectedView('');
+            if (localState?.selectedViewUrn && privateViewsData && publicViewsData) {
+                updateLocalState({
+                    ...localState,
+                    selectedViewUrn: null,
+                });
+            }
         } else {
             setSelectedView(selectedView.name);
         }
-    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
+    }, [localState, setSelectedUrn, privateViewsData, publicViewsData, updateLocalState]);
 
     const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
     const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
