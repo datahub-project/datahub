@@ -2,11 +2,13 @@ import logging
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
+from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
     InvalidArgument,
     PermissionDenied,
+    ResourceExhausted,
     ServiceUnavailable,
     Unauthenticated,
 )
@@ -139,6 +141,8 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._current_project_id: Optional[str] = None
         self._current_region: Optional[str] = None
 
+        self._patch_sdk_retry_behavior()
+
         self.client = aiplatform
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
@@ -150,6 +154,22 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
         self._initialize_builders_and_extractors()
+
+    def _patch_sdk_retry_behavior(self) -> None:
+        """
+        Patch Vertex AI SDK to not retry on ResourceExhausted (429) errors.
+        The SDK's default retry behavior retries 429s for up to 120s, which
+        makes quota problems worse. Instead, fail fast and let our rate limiter
+        control the request rate.
+        """
+        original_predicate = api_retry.if_transient_error
+
+        def custom_predicate(exception):
+            if isinstance(exception, ResourceExhausted):
+                return False
+            return original_predicate(exception)
+
+        api_retry.Retry.DEFAULT = api_retry.Retry(predicate=custom_predicate)
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
         """Setup GCP service account credentials from config."""
