@@ -830,7 +830,6 @@ class TableauSourceReport(
     num_upstream_table_lineage: int = 0
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
-    num_upstream_table_skipped_no_columns: int = 0
     num_upstream_table_processed_without_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
     num_upstream_table_lineage_failed_parse_sql: int = 0

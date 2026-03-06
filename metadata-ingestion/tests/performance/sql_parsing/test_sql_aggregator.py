@@ -26,9 +26,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 
 logger = logging.getLogger(__name__)
 
-# Matrix parameters for performance testing
-# Use smaller values in CI to keep test times reasonable, larger values for local testing
-QUERY_COUNT_OPTIONS = [100, 1000] if is_ci() else [100, 1000, 10000]
+# 100-query config is too noisy on shared CI runners (~2s measurement, flaky at threshold).
+QUERY_COUNT_OPTIONS = [1000] if is_ci() else [100, 1000, 10000]
 
 # Throughput should be >= 90 queries/sec (minimum threshold to detect performance regressions)
 # Lower throughput is expected in CI, of course
@@ -151,6 +150,8 @@ def run_configuration(
 
 
 @pytest.mark.integration
+# adding retries to mitigate flakiness in CI env
+@pytest.mark.flaky(reruns=5)
 def test_benchmark(pytestconfig: pytest.Config) -> None:
     """Run benchmark test across a matrix of configurations.
 

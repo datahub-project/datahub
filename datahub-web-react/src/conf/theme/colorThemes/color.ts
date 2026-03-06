@@ -57,6 +57,8 @@ export default {
     red100: '#E54D1F',
     red200: '#D23939',
     red300: '#C4360B',
+    red400: '#8B1A1A',
+    red500: '#5C0F0F',
     wine0: '#F6D5D5',
     wine100: '#F3DACE',
     wine200: '#F2C1C1',

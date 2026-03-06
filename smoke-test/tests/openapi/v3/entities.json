@@ -118,7 +118,8 @@
         "root\\['scrollId'\\]",
         "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
-        "root\\['facets'\\]"
+        "root\\['facets'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['datasetProperties'\\]\\['systemMetadata'\\].*"
       ],
       "json": {
         "entities": [
@@ -284,7 +285,9 @@
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['lastObserved'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectCreated'\\]\\['time'\\]",
-        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectModified'\\]\\['time'\\]"
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectModified'\\]\\['time'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectCreated'\\]\\['actor'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectModified'\\]\\['actor'\\]"
       ],
       "json": {
         "entities": [
@@ -340,7 +343,10 @@
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
         "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[0\\]\\['urn'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['value'\\]\\['name'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['value'\\]\\['qualifiedName'\\]"
       ],
       "json": {
         "entities": [

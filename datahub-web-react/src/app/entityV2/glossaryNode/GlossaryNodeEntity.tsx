@@ -39,28 +39,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookmarksSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <BookmarksSimple
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#B37FEB' }}
-                    weight="fill"
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.ACCENT) {
-            return <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || '#6C6B88' }} />;
-        }
-
         return (
             <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

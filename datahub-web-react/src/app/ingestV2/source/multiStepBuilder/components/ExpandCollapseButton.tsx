@@ -11,7 +11,7 @@ export function ExpandCollapseButton({ expanded, onToggle }: Props) {
         <Button variant="link" color="gray" onClick={onToggle} data-testid="expand-collapse-button">
             <Icon
                 source="phosphor"
-                icon={expanded ? 'CaretDown' : 'CaretRight'}
+                icon={expanded ? 'CaretUp' : 'CaretDown'}
                 size="2xl"
                 color="gray"
                 colorLevel={1800}

@@ -408,6 +408,21 @@ Example: `feat(parser): add ability to parse arrays`
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
+## Agent Development Workflow
+
+See [`docs/dev-guides/agent-workflow.md`](docs/dev-guides/agent-workflow.md) for the full agent
+workflow reference. Quick summary:
+
+1. **Start**: `scripts/dev/datahub-dev.sh start`
+2. **Code**: Make changes
+3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
+5. **Iterate**: Repeat 2–4
+
+## Python Virtual Environments
+
+Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
+
 ## Important Notes
 
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)

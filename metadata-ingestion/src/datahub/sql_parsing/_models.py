@@ -93,6 +93,24 @@ class _TableName(_FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
+        # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
+        # In this case, table.this is a SemanticView expression, and we need to
+        # extract the actual table from within it.
+        if isinstance(table.this, sqlglot.exp.SemanticView):
+            # The SemanticView.this contains the actual table reference
+            inner_table = table.this.this
+            if isinstance(inner_table, sqlglot.exp.Table):
+                # Recursively extract from the inner table
+                return cls.from_sqlglot_table(inner_table, default_db, default_schema)
+            elif isinstance(inner_table, sqlglot.exp.Identifier):
+                # Simple table name
+                return cls(
+                    database=table.catalog or default_db,
+                    db_schema=table.db or default_schema,
+                    table=inner_table.name,
+                    parts=None,
+                )
+
         if isinstance(table.this, sqlglot.exp.Dot):
             # Multi-part tables (>3 parts) have extra parts in a Dot expression
             parts = []

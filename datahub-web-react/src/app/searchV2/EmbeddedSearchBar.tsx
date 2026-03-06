@@ -1,4 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { Input } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
@@ -8,13 +8,13 @@ import styled from 'styled-components/macro';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 
-const SearchIcon = styled(SearchOutlined)`
-    color: #8088a3;
+const SearchIcon = styled(MagnifyingGlass)`
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 const SearchInput = styled(Input)`
     width: 400px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     border-radius: 70px;
 `;
 

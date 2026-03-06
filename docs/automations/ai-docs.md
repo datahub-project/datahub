@@ -12,7 +12,7 @@ With AI-powered documentation, you can automatically generate documentation for 
 
 ## Prerequisites
 
-As of DataHub Cloud v0.3.12, AI documentation is in **Public Beta**. Admins (or users with the "Manage Platform Settings" privilege) can enable it from settings.
+As of DataHub Cloud v0.3.17, AI documentation is **Generally Available**. Admins (or users with the "Manage Platform Settings" privilege) can enable it from settings.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/ai-docs/ai-docs-toggle.png"/>

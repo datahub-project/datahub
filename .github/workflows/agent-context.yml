@@ -55,7 +55,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           disable_search: true
-          files: ./datahub-agent-context/.coverage
+          files: ./build/coverage-reports/datahub-agent-context/
           #handle_no_reports_found: true
           fail_ci_if_error: false
           name: datahub-agent-context

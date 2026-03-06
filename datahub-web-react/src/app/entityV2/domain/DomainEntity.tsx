@@ -1,14 +1,14 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { Globe, ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
 import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
 import { Preview } from '@app/entityV2/domain/preview/Preview';
 import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -44,14 +44,6 @@ export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DomainIcon />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path
@@ -63,7 +55,14 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <Globe
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+            />
+        );
     };
 
     isSearchEnabled = () => true;
