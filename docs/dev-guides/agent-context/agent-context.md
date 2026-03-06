@@ -1,6 +1,6 @@
 # Agent Context Kit
 
-> **📚 Navigation**: [LangChain Integration →](./langchain.md) | [Snowflake Integration →](./snowflake.md)
+> **📚 Navigation**: [LangChain Integration →](./langchain.md) | [Snowflake Integration →](./snowflake.md) | [Copilot Studio Integration →](./copilot-studio.md)
 
 ## What Problem Does This Solve?
 
@@ -92,14 +92,15 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 ## Agent Platforms
 
-| Platform   | Status      | Guide                             |
-| ---------- | ----------- | --------------------------------- |
-| Custom     | Launched    | See below                         |
-| Langchain  | Launched    | [LangChain Guide](./langchain.md) |
-| Snowflake  | Launched    | [Snowflake Guide](./snowflake.md) |
-| Google ADK | Coming Soon | -                                 |
-| Crew AI    | Coming Soon | -                                 |
-| OpenAI     | Coming Soon | -                                 |
+| Platform                 | Status      | Guide                                       |
+| ------------------------ | ----------- | ------------------------------------------- |
+| Custom                   | Launched    | See below                                   |
+| Langchain                | Launched    | [LangChain Guide](./langchain.md)           |
+| Snowflake                | Launched    | [Snowflake Guide](./snowflake.md)           |
+| Microsoft Copilot Studio | Launched    | [Copilot Studio Guide](./copilot-studio.md) |
+| Google ADK               | Coming Soon | -                                           |
+| Crew AI                  | Coming Soon | -                                           |
+| OpenAI                   | Coming Soon | -                                           |
 
 ## Available Tools
 
