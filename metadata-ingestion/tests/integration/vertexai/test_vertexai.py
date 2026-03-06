@@ -34,6 +34,8 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
             "config": {
                 "project_id": PROJECT_ID,
                 "region": REGION,
+                "use_ml_metadata_for_lineage": False,
+                "extract_execution_metrics": False,
             },
         },
         "sink": {
@@ -156,6 +158,8 @@ def test_vertexai_platform_instance_config(
                 "project_id": PROJECT_ID,
                 "region": REGION,
                 "platform_instance": "prod-vertexai-us",
+                "use_ml_metadata_for_lineage": False,
+                "extract_execution_metrics": False,
             },
         },
         "sink": {
