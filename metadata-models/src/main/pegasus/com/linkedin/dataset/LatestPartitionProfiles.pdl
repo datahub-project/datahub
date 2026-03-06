@@ -1,0 +1,19 @@
+namespace com.linkedin.dataset
+
+/**
+ * Latest partition profiles for a dataset.
+ */
+@Aspect = {
+  "name": "latestPartitionProfiles"
+}
+record LatestPartitionProfiles {
+  /**
+   * Timestamp when this snapshot was generated.
+   */
+  timestampMillis: long
+
+  /**
+   * Latest profiles for each partition.
+   */
+  partitionProfiles: array[PartitionProfile]
+}

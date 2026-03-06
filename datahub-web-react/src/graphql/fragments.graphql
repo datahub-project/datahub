@@ -1859,6 +1859,12 @@ fragment datasetProfileFields on DatasetProfile {
     rowCount
     columnCount
     sizeInBytes
+    totalFiles
+    totalManifestFiles
+    totalDeleteFiles
+    totalFilesLessThan100Mb
+    totalPartitions
+    avgFileSizeBytes
     timestampMillis
     partitionSpec {
         type

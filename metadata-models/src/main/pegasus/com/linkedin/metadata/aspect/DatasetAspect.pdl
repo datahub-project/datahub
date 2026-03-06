@@ -7,6 +7,7 @@ import com.linkedin.dataset.ViewProperties
 import com.linkedin.dataset.EditableDatasetProperties
 import com.linkedin.dataset.DatasetUpstreamLineage
 import com.linkedin.dataset.UpstreamLineage
+import com.linkedin.dataset.LatestPartitionProfiles
 import com.linkedin.schema.SchemaMetadata
 import com.linkedin.schema.EditableSchemaMetadata
 import com.linkedin.common.InstitutionalMemory
@@ -28,6 +29,7 @@ typeref DatasetAspect = union[
   DatasetDeprecation,
   DatasetUpstreamLineage,
   UpstreamLineage,
+  LatestPartitionProfiles,
   InstitutionalMemory,
   Ownership,
   Status,

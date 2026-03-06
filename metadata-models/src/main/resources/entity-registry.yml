@@ -18,6 +18,7 @@ entities:
       - viewProperties
       - subTypes
       - datasetProfile
+      - latestPartitionProfiles
       - datasetUsageStatistics
       - operation
       - domains

@@ -41,4 +41,34 @@ record DatasetProfile includes TimeseriesAspectBase {
     "hasValuesFieldName": "hasSizeInBytes"
   }
   sizeInBytes: optional long
+
+ /**
+  * Total number of data and delete files in the current snapshot.
+  */
+  totalFiles: optional long
+
+ /**
+  * Total number of manifest files in the current snapshot.
+  */
+  totalManifestFiles: optional long
+
+ /**
+  * Total number of delete files in the current snapshot.
+  */
+  totalDeleteFiles: optional long
+
+ /**
+  * Total number of files smaller than 100MB.
+  */
+  totalFilesLessThan100Mb: optional long
+
+ /**
+  * Total number of partitions present in the current snapshot.
+  */
+  totalPartitions: optional long
+
+ /**
+  * Average file size in bytes across files with a known size.
+  */
+  avgFileSizeBytes: optional double
 }

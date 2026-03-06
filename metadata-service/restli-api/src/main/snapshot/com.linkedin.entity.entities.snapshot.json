@@ -2436,6 +2436,55 @@
       "name" : "editableDatasetProperties"
     }
   }, "com.linkedin.dataset.FineGrainedLineage", "com.linkedin.dataset.FineGrainedLineageDownstreamType", "com.linkedin.dataset.FineGrainedLineageUpstreamType", {
+    "type" : "record",
+    "name" : "LatestPartitionProfiles",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Latest partition profiles for a dataset.",
+    "fields" : [ {
+      "name" : "timestampMillis",
+      "type" : "long",
+      "doc" : "Timestamp when this snapshot was generated."
+    }, {
+      "name" : "partitionProfiles",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "PartitionProfile",
+          "doc" : "Profile statistics for a single partition of a dataset.",
+          "fields" : [ {
+            "name" : "partition",
+            "type" : "string",
+            "doc" : "Partition identifier."
+          }, {
+            "name" : "rowCount",
+            "type" : "long",
+            "doc" : "Total number of rows in this partition.",
+            "optional" : true
+          }, {
+            "name" : "columnCount",
+            "type" : "long",
+            "doc" : "Total number of columns (schema fields) in this partition.",
+            "optional" : true
+          }, {
+            "name" : "sizeInBytes",
+            "type" : "long",
+            "doc" : "Storage size in bytes for this partition.",
+            "optional" : true
+          }, {
+            "name" : "partitionCount",
+            "type" : "long",
+            "doc" : "Number of underlying partitions aggregated into this profile.",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "Latest profiles for each partition."
+    } ],
+    "Aspect" : {
+      "name" : "latestPartitionProfiles"
+    }
+  }, "com.linkedin.dataset.PartitionProfile", {
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
@@ -3288,7 +3337,7 @@
                   "Aspect" : {
                     "name" : "datasetKey"
                   }
-                }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
+                }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.dataset.LatestPartitionProfiles", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
                   "type" : "record",
                   "name" : "SchemaMetadata",
                   "namespace" : "com.linkedin.schema",

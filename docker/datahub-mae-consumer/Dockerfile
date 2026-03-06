@@ -37,7 +37,10 @@ COPY metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar /datahub/dat
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
 COPY docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
+RUN chmod 755 /datahub/datahub-mae-consumer/scripts/start.sh \
+    && chmod 644 /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar \
+    && chmod 644 /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml \
+    && chmod 644 /datahub/datahub-mae-consumer/resources/entity-registry.yml
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

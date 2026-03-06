@@ -40,6 +40,23 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
     }
 }
 
+query getLatestPartitionProfiles($urn: String!) {
+    dataset(urn: $urn) {
+        urn
+        type
+        latestPartitionProfiles {
+            timestampMillis
+            partitionProfiles {
+                partition
+                rowCount
+                columnCount
+                sizeInBytes
+                partitionCount
+            }
+        }
+    }
+}
+
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
         ...nonSiblingDatasetFields
@@ -107,23 +124,7 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     datasetProfiles(limit: 1) {
-        rowCount
-        columnCount
-        sizeInBytes
-        timestampMillis
-        fieldProfiles {
-            fieldPath
-            uniqueCount
-            uniqueProportion
-            nullCount
-            nullProportion
-            min
-            max
-            mean
-            median
-            stdev
-            sampleValues
-        }
+        ...datasetProfileFields
     }
     latestFullTableProfile: datasetProfiles(
         limit: 1
