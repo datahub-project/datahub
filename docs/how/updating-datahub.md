@@ -62,6 +62,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #16358 (Ingestion) dbt: Added `convert_urns_to_lowercase` config option for dbt ingestion (both dbt-core and dbt-cloud). When enabled, dbt platform URNs are lowercased, preventing duplicate entities caused by schema name casing differences (e.g., `app_sales` vs `APP_SALES`). This is an opt-in flag (default: `false` for all platforms). Recommended for case-insensitive platforms like Snowflake or BigQuery where dbt manifests may contain mixed-case identifiers.
 - #16176: Vertex AI Source Connector - Additional improvements beyond breaking changes:
   - Cross-platform lineage to external data sources (GCS, BigQuery, S3, Azure Blob Storage, Snowflake) referenced in training jobs, with configurable platform instances via `platform_instance_map` to ensure URNs match native connectors
   - UI organization improved with hierarchical folders: model versions appear under their model group folders, and pipeline tasks nest under their parent pipelines
