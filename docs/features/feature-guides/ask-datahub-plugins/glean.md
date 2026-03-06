@@ -23,34 +23,53 @@ With the Glean plugin enabled, Ask DataHub can:
 
 ## Prerequisites
 
-- A Glean account with API access
-- A Glean API token
-- DataHub Cloud v0.3.x+ with Ask DataHub Plugins enabled
-- Admin access to configure the plugin in DataHub
+- A Glean account with access to the MCP server endpoint
+- DataHub Cloud with Ask DataHub Plugins enabled
+- Platform admin access in DataHub to configure the plugin
 
 ## Admin Setup
 
-1. Navigate to **Settings > AI > Plugins**
-2. Click **+ Create** and select **Custom MCP** (or a Glean template if available)
-3. Configure the connection:
+The Glean plugin is the simplest to set up thanks to DataHub's **OAuth discovery and automatic client registration**. DataHub will automatically discover the OAuth endpoints, available scopes, and register a client with Glean — no manual OAuth configuration required.
 
-<!-- TODO: Add Glean-specific configuration fields table -->
+### Step 1: Get the Glean MCP Server URL
 
-4. Select an **Authentication Type**:
-   - **Shared API Key** — a single Glean API token shared across all users
-   - **User OAuth** — each user authenticates via Glean OAuth
+Obtain the MCP server URL from your Glean instance. This is typically available in your Glean admin settings or API documentation.
 
-<!-- TODO: Add screenshot of Glean plugin configuration -->
+### Step 2: Create Plugin in DataHub
 
-5. Optionally add **Instructions for the AI Assistant** (e.g., _"Use Glean to search for organizational policies and runbooks when the user asks about processes or guidelines."_)
-6. Click **Test Connection** to verify, then **Create**
+1. Navigate to **Settings > AI > Plugins** in DataHub
+2. Click **+ Create** and select **Custom MCP**
+3. Fill in the plugin details:
+
+| Field                   | Value                                  |
+| ----------------------- | -------------------------------------- |
+| **Name**                | `Glean`                                |
+| **Description**         | A description for the plugin           |
+| **MCP Server URL**      | Your Glean MCP server URL              |
+| **Authentication Type** | `User OAuth (Each user authenticates)` |
+
+4. DataHub will automatically discover the OAuth configuration from Glean, including:
+
+   - Authorization and token endpoints
+   - Available scopes
+   - Client registration
+
+5. Review the discovered scopes and select the ones appropriate for your organization
+6. Optionally add **Instructions for the AI Assistant** (e.g., _"Use Glean to search for organizational policies and runbooks when the user asks about processes or guidelines."_)
+7. Ensure **Enable for Ask DataHub** is toggled on
+8. Click **Create**
+
+That's it — no need to manually configure OAuth provider details, client IDs, or secrets.
 
 ## User Setup
 
-1. Navigate to **Settings > My AI Settings** or use the plugin selector in the chat interface
+Once the admin has configured the Glean plugin:
+
+1. Navigate to **Settings > My AI Settings** in DataHub
 2. Find the **Glean** plugin and click **Connect**
-3. Authenticate via OAuth or verify the shared connection is active
-4. Toggle the plugin **on**
+3. You'll be redirected to Glean to authenticate
+4. After authentication, you'll be redirected back to DataHub
+5. The plugin is now connected and enabled
 
 ## Usage Tips
 
@@ -60,14 +79,14 @@ With the Glean plugin enabled, Ask DataHub can:
 
 ## Troubleshooting
 
-### Connection Errors
+### OAuth Discovery Fails
 
-- Verify your Glean API token is valid and has the required permissions
-- Ensure the Glean instance URL is correct
-- Check that the API token has search access
+- Verify the Glean MCP server URL is correct and accessible
+- Ensure your Glean instance supports OAuth discovery (OpenID Connect Discovery)
+- Contact your Glean administrator to verify MCP server access
 
 ### No Results
 
 - Verify that Glean has indexed the content sources you expect
 - Try broader search terms
-- Check that the Glean token's permissions include access to the relevant content
+- Check that the authenticated user has access to the relevant content in Glean

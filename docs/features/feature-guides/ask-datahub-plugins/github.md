@@ -4,7 +4,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-The **GitHub Plugin** connects Ask DataHub to your GitHub repositories, enabling the AI assistant to browse code, review recent changes, and manage issues — bringing source code context into your data conversations.
+The **GitHub Plugin** connects Ask DataHub to GitHub via the [GitHub Copilot MCP server](https://api.githubcopilot.com/mcp/), enabling the AI assistant to browse repositories, review code changes, manage issues, and more — all from within Ask DataHub.
 
 ## Why Connect GitHub?
 
@@ -24,50 +24,134 @@ With the GitHub plugin enabled, Ask DataHub can:
 
 ## Prerequisites
 
-- A GitHub account with access to the relevant repositories
-- A GitHub [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) or OAuth app configuration
-- DataHub Cloud v0.3.x+ with Ask DataHub Plugins enabled
-- Admin access to configure the plugin in DataHub
+- A GitHub account (personal or organization)
+- Admin access to create OAuth Apps in GitHub
+- DataHub Cloud with Ask DataHub Plugins enabled
+- Platform admin access in DataHub to configure the plugin
 
 ## Admin Setup
 
-1. Navigate to **Settings > AI > Plugins**
-2. Click **+ Create** and select **GitHub MCP**
-3. Configure the connection:
+The GitHub plugin uses **User OAuth** authentication — each user authenticates with their own GitHub account. You'll need to create a GitHub OAuth App and configure it in DataHub.
 
-<!-- TODO: Add GitHub-specific configuration fields table -->
+You can create the OAuth App under your **organization** (recommended) or your **personal account**:
 
-4. Select an **Authentication Type**:
-   - **User API Key** — each user provides their own GitHub personal access token
-   - **User OAuth** — each user authenticates via GitHub OAuth (recommended for teams)
+- **Organization app**: Immediately available to all org members, scoped to org repositories
+- **Personal app**: Scoped to your personal repositories only
 
-<!-- TODO: Add screenshot of GitHub plugin configuration -->
+### Option A: Organization OAuth App (Recommended)
 
-5. Optionally add **Instructions for the AI Assistant** (e.g., _"Focus on the data-platform and analytics repos when searching for code."_)
-6. Click **Test Connection** to verify, then **Create**
+#### Step 1: Create OAuth App in GitHub
+
+1. Open GitHub and navigate to your **Organization Settings**
+
+<!-- TODO: Screenshot of GitHub org settings navigation -->
+
+2. Click **Developer Settings > OAuth Apps**
+
+<!-- TODO: Screenshot of Developer Settings > OAuth Apps -->
+
+3. Click **New OAuth App**
+
+<!-- TODO: Screenshot of New OAuth App button -->
+
+4. Fill in the application details:
+
+| Field                          | Value                                                      |
+| ------------------------------ | ---------------------------------------------------------- |
+| **Application name**           | `DataHub AI Plugin` (or any name your team will recognize) |
+| **Homepage URL**               | `https://<your-datahub-url>`                               |
+| **Authorization callback URL** | `https://<your-datahub-url>/integrations/oauth/callback`   |
+
+<!-- TODO: Screenshot of OAuth App registration form -->
+
+5. Click **Register application**
+
+#### Step 2: Collect Credentials
+
+1. Copy the **Client ID** from the app page
+2. Click **Generate a new client secret** and copy it immediately (it won't be shown again)
+
+<!-- TODO: Screenshot of Client ID and secret generation -->
+
+#### Step 3: Create Plugin in DataHub
+
+1. Navigate to **Settings > AI > Plugins** in DataHub
+2. Click **+ Create** and select **Custom MCP**
+3. Fill in the plugin details:
+
+| Field                   | Value                                  |
+| ----------------------- | -------------------------------------- |
+| **Name**                | `GitHub`                               |
+| **Description**         | A description for the plugin           |
+| **MCP Server URL**      | `https://api.githubcopilot.com/mcp/`   |
+| **Authentication Type** | `User OAuth (Each user authenticates)` |
+
+4. Copy the **OAuth Callback URL** shown in DataHub — this should match what you entered in GitHub (`https://<your-datahub-url>/integrations/oauth/callback`)
+
+5. Fill in the OAuth provider details:
+
+| Field                 | Value                                         |
+| --------------------- | --------------------------------------------- |
+| **Provider Name**     | `GitHub` (or any label)                       |
+| **Client ID**         | The client ID from Step 2                     |
+| **Client Secret**     | The client secret from Step 2                 |
+| **Authorization URL** | `https://github.com/login/oauth/authorize`    |
+| **Token URL**         | `https://github.com/login/oauth/access_token` |
+| **Default Scopes**    | `repo, read:org, user`                        |
+
+<!-- TODO: Screenshot of DataHub plugin OAuth config -->
+
+6. Optionally add **Instructions for the AI Assistant**
+7. Ensure **Enable for Ask DataHub** is toggled on
+8. Click **Create**
+
+### Option B: Personal Account OAuth App
+
+The steps are the same as above, except:
+
+1. Navigate to **GitHub > Your Profile > Settings > Developer Settings > OAuth Apps** instead of organization settings
+2. The app will only have access to your personal repositories (unless other users separately authorize it)
+
+:::tip Side-by-Side Setup
+When creating a personal OAuth App, open both GitHub and DataHub side by side. You'll need to copy the OAuth Callback URL from DataHub into GitHub, and the Client ID/Secret from GitHub into DataHub.
+:::
+
+### Recommended Scopes
+
+| Scope      | Access                                          |
+| ---------- | ----------------------------------------------- |
+| `repo`     | Full access to repositories (code, PRs, issues) |
+| `read:org` | Read organization data (teams, members)         |
+| `user`     | Read user profile information                   |
 
 ## User Setup
 
-1. Navigate to **Settings > My AI Settings** or use the plugin selector in the chat interface
+Once the admin has configured the GitHub plugin:
+
+1. Navigate to **Settings > My AI Settings** in DataHub
 2. Find the **GitHub** plugin and click **Connect**
-3. Authenticate via OAuth or provide your personal access token
-4. Toggle the plugin **on**
+3. A popup will open asking you to authorize the OAuth App on GitHub — click **Authorize**
+4. After authorization, you'll be redirected back to DataHub
+5. The plugin is now connected and enabled
 
-## Usage Tips
+<!-- TODO: Screenshot of My AI Settings with GitHub connect button -->
+<!-- TODO: Screenshot of GitHub OAuth authorization prompt -->
 
-- GitHub plugin works best when combined with DataHub lineage — trace a data issue to a specific dataset, then check recent code changes that may have caused it
-- Be specific about repository names and branches in your prompts for better results
-- The AI can read file contents, so you can ask it to explain transformation logic in plain English
+You can disconnect or disable the plugin at any time from **My AI Settings** or from the plugin selector in the chat interface.
 
 ## Troubleshooting
 
-### Connection Errors
+### OAuth Popup Blocked
 
-- Verify your GitHub token has the required scopes (`repo`, `read:org` at minimum)
-- For OAuth setups, ensure the OAuth app has the correct callback URL configured
-- Check that the token has access to the target repositories (especially for private repos)
+If the authorization popup doesn't appear, check your browser's popup blocker settings and allow popups from your DataHub instance URL.
 
-### Permission Issues
+### Authorization Fails
 
-- Ensure the GitHub token or OAuth scopes grant access to the repositories you want to query
-- For organization repositories, the token may need SSO authorization
+- Verify the **Authorization callback URL** in GitHub matches the OAuth Callback URL shown in DataHub exactly
+- Ensure the Client ID and Client Secret are entered correctly in DataHub
+- For organization apps, ensure the OAuth App is not restricted by organization policies
+
+### Limited Repository Access
+
+- For organization OAuth Apps, users may need to [grant access to specific organizations](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/authorizing-oauth-apps) during the authorization flow
+- Verify the scopes include `repo` for full repository access
