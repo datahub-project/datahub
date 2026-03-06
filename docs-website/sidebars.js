@@ -723,6 +723,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
+        "metadata-ingestion/datahub-skills",
         {
           "Scheduling Ingestion": [
             "metadata-ingestion/schedule_docs/intro",
