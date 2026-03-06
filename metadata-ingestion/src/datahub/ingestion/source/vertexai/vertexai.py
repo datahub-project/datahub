@@ -169,7 +169,7 @@ class VertexAISource(StatefulIngestionSourceBase):
                 return False
             return original_predicate(exception)
 
-        api_retry.Retry.DEFAULT = api_retry.Retry(predicate=custom_predicate)
+        api_retry.Retry.DEFAULT = api_retry.Retry(predicate=custom_predicate)  # type: ignore[attr-defined]
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
         """Setup GCP service account credentials from config."""
