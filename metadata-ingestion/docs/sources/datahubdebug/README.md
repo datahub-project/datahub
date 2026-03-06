@@ -1,8 +1,8 @@
 ## Overview
 
-DataHub Debug is a utility-style connector used to inspect and diagnose DataHub metadata state and ingestion behavior.
+DataHub Debug is a DataHub utility or metadata-focused integration. Learn more in the [official DataHub Debug documentation](https://datahub.com/docs/).
 
-The `datahub-debug` module is primarily intended for operational debugging workflows rather than broad metadata discovery.
+The DataHub integration for DataHub Debug covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

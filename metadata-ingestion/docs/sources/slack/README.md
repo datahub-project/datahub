@@ -1,8 +1,8 @@
 ## Overview
 
-Slack is a collaboration platform that can be integrated with DataHub to ingest workspace metadata for discovery and governance workflows.
+Slack is a documentation or collaboration platform. Learn more in the [official Slack documentation](https://slack.com/).
 
-The `slack` module provides ingestion support for Slack entities and related metadata available through Slack APIs.
+The DataHub integration for Slack covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

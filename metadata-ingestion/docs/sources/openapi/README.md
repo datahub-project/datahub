@@ -1,8 +1,8 @@
 ## Overview
 
-Openapi can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+OpenAPI is a documentation or collaboration platform. Learn more in the [official OpenAPI documentation](https://www.openapis.org/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for OpenAPI covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -1,8 +1,8 @@
 ## Overview
 
-Druid can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Apache Druid is a data platform used to store and query analytical or operational data. Learn more in the [official Apache Druid documentation](https://druid.apache.org/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Apache Druid covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

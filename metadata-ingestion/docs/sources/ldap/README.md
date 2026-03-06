@@ -1,8 +1,8 @@
 ## Overview
 
-Ldap can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Ldap is an identity and access management platform. Learn more in the [official Ldap documentation](https://ldap.com/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Ldap covers identity entities such as users, groups, and memberships. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -1,8 +1,8 @@
 ## Overview
 
-Qlik Sense can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Qlik Sense is a business intelligence and analytics platform. Learn more in the [official Qlik Sense documentation](https://www.qlik.com/us/products/qlik-sense).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Qlik Sense covers BI entities such as dashboards, charts, datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

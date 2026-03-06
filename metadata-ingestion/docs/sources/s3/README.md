@@ -1,8 +1,8 @@
 ## Overview
 
-S3 can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Amazon S3 is a storage and lakehouse platform. Learn more in the [official Amazon S3 documentation](https://aws.amazon.com/s3/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Amazon S3 covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

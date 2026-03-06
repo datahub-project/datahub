@@ -1,8 +1,8 @@
 ## Overview
 
-Datahub Documents can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Datahub Documents is a documentation or collaboration platform. Learn more in the [official Datahub Documents documentation](https://datahub.com/docs/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Datahub Documents covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

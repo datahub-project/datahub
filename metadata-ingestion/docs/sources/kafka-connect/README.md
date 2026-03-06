@@ -1,8 +1,8 @@
 ## Overview
 
-Kafka Connect can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Kafka Connect is a streaming or integration platform. Learn more in the [official Kafka Connect documentation](https://kafka.apache.org/documentation/#connect).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Kafka Connect covers streaming/integration entities such as topics, connectors, pipelines, or jobs. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

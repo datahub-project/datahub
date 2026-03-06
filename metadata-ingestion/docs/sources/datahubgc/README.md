@@ -1,8 +1,8 @@
 ## Overview
 
-Datahubgc can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+DataHub GC is a DataHub utility or metadata-focused integration. Learn more in the [official DataHub GC documentation](https://datahub.com/docs/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for DataHub GC covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

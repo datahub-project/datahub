@@ -1,8 +1,8 @@
 ## Overview
 
-File Based Lineage can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+File Based Lineage is a storage and lakehouse platform. Learn more in the [official File Based Lineage documentation](https://datahub.com/docs/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for File Based Lineage covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

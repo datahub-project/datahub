@@ -1,8 +1,8 @@
 ## Overview
 
-Gcs can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Google Cloud Storage is a storage and lakehouse platform. Learn more in the [official Google Cloud Storage documentation](https://cloud.google.com/storage).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Google Cloud Storage covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

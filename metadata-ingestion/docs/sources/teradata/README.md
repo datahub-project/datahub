@@ -1,8 +1,8 @@
 ## Overview
 
-Teradata can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Teradata is a DataHub utility or metadata-focused integration. Learn more in the [official Teradata documentation](https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Teradata covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -1,8 +1,8 @@
 ## Overview
 
-Mlflow can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+MLflow is a machine learning platform. Learn more in the [official MLflow documentation](https://mlflow.org/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for MLflow covers ML entities such as models, features, and related lineage metadata. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

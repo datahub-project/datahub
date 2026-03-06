@@ -1,8 +1,8 @@
 ## Overview
 
-Okta can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Okta is an identity and access management platform. Learn more in the [official Okta documentation](https://www.okta.com/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Okta covers identity entities such as users, groups, and memberships. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -1,8 +1,8 @@
 ## Overview
 
-Powerbi can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Microsoft Power BI is a business intelligence and analytics platform. Learn more in the [official Microsoft Power BI documentation](https://powerbi.microsoft.com/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Microsoft Power BI covers BI entities such as dashboards, charts, datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

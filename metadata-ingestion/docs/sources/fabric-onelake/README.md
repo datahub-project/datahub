@@ -1,8 +1,8 @@
 ## Overview
 
-Fabric Onelake can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Microsoft Fabric OneLake is a storage and lakehouse platform. Learn more in the [official Microsoft Fabric OneLake documentation](https://learn.microsoft.com/fabric/onelake/onelake-overview).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Microsoft Fabric OneLake covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

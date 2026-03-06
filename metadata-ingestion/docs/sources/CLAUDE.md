@@ -53,6 +53,18 @@ Every generated platform page must follow this high-level order:
 - `README.md`: **H2 baseline** (`##`) for platform sections.
 - `_pre.md`, `_post.md`, `{connector}.md`: **H3 baseline** (`###`) for module sections.
 - Maximum depth: H5 (`#####`).
+- Never use H1 (`#`) in authored source docs under `docs/sources/**`; H1 is reserved for generated platform page titles.
+
+### Platform `## Overview` authoring rules
+
+`README.md` overview should be two short paragraphs:
+
+1. **Source description paragraph**  
+   Briefly explain what the source platform is and include a link to the official public site/docs when possible.
+2. **Integration scope paragraph**  
+   Summarize what DataHub covers (core entities) and mention important optional features (for example lineage, usage, profiling, ownership, tags, stateful deletion).
+
+Avoid generic placeholders like "X can be integrated with DataHub..." without source context.
 
 ### Required module section contract
 
@@ -84,6 +96,25 @@ In practice:
 
 - Put `### Overview` and `### Prerequisites` in `{connector}_pre.md`.
 - Put `### Capabilities`, `### Limitations`, and `### Troubleshooting` in `{connector}_post.md` (or legacy `{connector}.md`) so they render after injected `Config Details`.
+- For **single-module platforms**, module `### Overview` should usually mirror platform `## Overview`.
+- For **multi-module platforms**, module `### Overview` should emphasize what is specific about that module compared to sibling modules.
+
+### Nesting rules for non-canonical sections
+
+Any connector-specific deep-dive sections should be nested as `####` under one of:
+
+- `### Prerequisites`
+- `### Capabilities`
+- `### Limitations`
+- `### Troubleshooting`
+
+Examples:
+
+- `#### Lineage and Usage Computation Details` under `### Capabilities`
+- `#### Profiling Details` under `### Capabilities`
+- `#### Caveats` under `### Limitations`
+
+Do not introduce extra module-level `###` sections outside the canonical contract.
 
 | Preferred         | Avoid                                  |
 | ----------------- | -------------------------------------- |

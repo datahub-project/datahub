@@ -1,8 +1,8 @@
 ## Overview
 
-Salesforce can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Salesforce is a DataHub utility or metadata-focused integration. Learn more in the [official Salesforce documentation](https://www.salesforce.com/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Salesforce covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

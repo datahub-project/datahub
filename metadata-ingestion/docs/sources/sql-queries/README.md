@@ -1,8 +1,8 @@
 ## Overview
 
-SQL Queries can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+SQL Queries is a DataHub utility or metadata-focused integration. Learn more in the [official SQL Queries documentation](https://datahub.com/docs/).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for SQL Queries covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

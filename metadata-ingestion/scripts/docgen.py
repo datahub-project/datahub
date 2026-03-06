@@ -32,6 +32,15 @@ DENY_LIST = {
 }
 
 
+@dataclasses.dataclass
+class NormalizedModuleDocs:
+    overview: str = ""
+    prerequisites: str = ""
+    capabilities: str = ""
+    limitations: str = ""
+    troubleshooting: str = ""
+
+
 def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
     if len(long_string) > max_length:
@@ -152,6 +161,223 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
         new_content,
     )
     return new_content
+
+
+def _demote_headings_outside_code_fences(
+    markdown: str, max_level: int, target_level: int
+) -> str:
+    lines = markdown.splitlines()
+    in_fence = False
+    output: List[str] = []
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            output.append(line)
+            continue
+        if not in_fence:
+            if m := re.match(r"^(#{1,6})\s+(.*)$", line):
+                if len(m.group(1)) <= max_level:
+                    output.append(f"{'#' * target_level} {m.group(2)}")
+                    continue
+        output.append(line)
+    return "\n".join(output).strip()
+
+
+def _split_module_doc_sections(markdown: str) -> List[tuple[Optional[str], str]]:
+    """
+    Split markdown into top-level sections using only H1/H2/H3 headings.
+    H4+ headings are considered part of the current section body.
+    """
+    lines = markdown.splitlines(keepends=True)
+    sections: List[tuple[Optional[str], str]] = []
+    current_title: Optional[str] = None
+    current_body: List[str] = []
+    in_fence = False
+
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            current_body.append(line)
+            continue
+
+        if not in_fence:
+            if m := re.match(r"^(#{1,6})\s+(.*)$", line):
+                level = len(m.group(1))
+                if level <= 3:
+                    if current_title is not None or current_body:
+                        sections.append((current_title, "".join(current_body).strip()))
+                    current_title = m.group(2).strip()
+                    current_body = []
+                    continue
+        current_body.append(line)
+
+    if current_title is not None or current_body:
+        sections.append((current_title, "".join(current_body).strip()))
+
+    return sections
+
+
+def _normalize_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def _classify_module_section_bucket(title: Optional[str]) -> str:
+    if title is None:
+        return "overview"
+
+    normalized = _normalize_title(title)
+    if "concept mapping" in normalized or "entity mapping" in normalized:
+        return "drop"
+
+    if normalized.startswith("overview") or "introduction" in normalized:
+        return "overview"
+
+    if any(
+        token in normalized
+        for token in [
+            "prerequisite",
+            "authentication",
+            "permission",
+            "setup",
+            "installation",
+            "required",
+            "credential",
+            "access",
+        ]
+    ):
+        return "prerequisites"
+
+    if any(
+        token in normalized
+        for token in ["troubleshooting", "common issue", "debug", "faq", "verification"]
+    ):
+        return "troubleshooting"
+
+    if any(
+        token in normalized
+        for token in ["limitation", "caveat", "known issue", "consideration", "warning"]
+    ):
+        return "limitations"
+
+    if "capabilit" in normalized or "feature" in normalized:
+        return "capabilities"
+
+    return "capabilities"
+
+
+def _build_bucket_markdown(
+    intro_chunks: List[str], subsection_chunks: List[tuple[str, str]]
+) -> str:
+    parts: List[str] = []
+    for chunk in intro_chunks:
+        cleaned = _demote_headings_outside_code_fences(
+            chunk, max_level=3, target_level=4
+        ).strip()
+        if cleaned:
+            parts.append(cleaned)
+
+    seen_subsections: set[tuple[str, str]] = set()
+    for subsection_title, subsection_body in subsection_chunks:
+        key = (
+            _normalize_title(subsection_title),
+            re.sub(r"\s+", " ", subsection_body.strip()),
+        )
+        if key in seen_subsections:
+            continue
+        seen_subsections.add(key)
+
+        cleaned_body = _demote_headings_outside_code_fences(
+            subsection_body, max_level=4, target_level=5
+        ).strip()
+        if cleaned_body:
+            parts.append(f"#### {subsection_title}\n\n{cleaned_body}")
+        else:
+            parts.append(f"#### {subsection_title}")
+
+    return "\n\n".join(parts).strip()
+
+
+def _normalize_module_docs(
+    custom_pre: Optional[str], custom_post: Optional[str]
+) -> NormalizedModuleDocs:
+    sections = _split_module_doc_sections(custom_pre or "") + _split_module_doc_sections(
+        custom_post or ""
+    )
+
+    intro_chunks: Dict[str, List[str]] = {
+        "overview": [],
+        "prerequisites": [],
+        "capabilities": [],
+        "limitations": [],
+        "troubleshooting": [],
+    }
+    subsection_chunks: Dict[str, List[tuple[str, str]]] = {
+        "overview": [],
+        "prerequisites": [],
+        "capabilities": [],
+        "limitations": [],
+        "troubleshooting": [],
+    }
+
+    canonical_headings = {
+        "overview": {"overview"},
+        "prerequisites": {"prerequisites"},
+        "capabilities": {"capabilities"},
+        "limitations": {"limitations"},
+        "troubleshooting": {"troubleshooting"},
+    }
+
+    for title, body in sections:
+        cleaned_body = body.strip()
+        if title is None:
+            if cleaned_body:
+                intro_chunks["overview"].append(cleaned_body)
+            continue
+
+        bucket = _classify_module_section_bucket(title)
+        if bucket == "drop":
+            continue
+
+        normalized_title = _normalize_title(title)
+        is_canonical = normalized_title in canonical_headings[bucket]
+
+        if is_canonical:
+            if cleaned_body:
+                intro_chunks[bucket].append(cleaned_body)
+        else:
+            subsection_chunks[bucket].append((title, cleaned_body))
+
+    return NormalizedModuleDocs(
+        overview=_build_bucket_markdown(
+            intro_chunks["overview"], subsection_chunks["overview"]
+        ),
+        prerequisites=_build_bucket_markdown(
+            intro_chunks["prerequisites"], subsection_chunks["prerequisites"]
+        ),
+        capabilities=_build_bucket_markdown(
+            intro_chunks["capabilities"], subsection_chunks["capabilities"]
+        ),
+        limitations=_build_bucket_markdown(
+            intro_chunks["limitations"], subsection_chunks["limitations"]
+        ),
+        troubleshooting=_build_bucket_markdown(
+            intro_chunks["troubleshooting"], subsection_chunks["troubleshooting"]
+        ),
+    )
+
+
+def _extract_platform_overview(markdown: Optional[str]) -> Optional[str]:
+    if not markdown:
+        return None
+    if not (m := re.search(r"^##\s+Overview\s*$", markdown, flags=re.M)):
+        return None
+    start = m.end()
+    next_match = re.search(r"^##\s+", markdown[start:], flags=re.M)
+    end = start + next_match.start() if next_match else len(markdown)
+    content = markdown[start:end].strip()
+    return content or None
 
 
 def load_connector_registry(connector_registry_dir: str) -> Dict:
@@ -483,13 +709,23 @@ def generate(  # noqa: C901
                 #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                 #                    )
                 f.write("</table>\n\n")
-            # insert platform level custom docs before plugin section
-            f.write(platform.custom_docs_pre or "")
+            # Insert platform-level custom docs before plugin section.
+            # Normalize stray H1 headings from authored README.md content to H2 so
+            # generated pages keep a consistent hierarchy.
+            normalized_platform_docs = _demote_headings_outside_code_fences(
+                platform.custom_docs_pre or "", max_level=1, target_level=2
+            )
+            f.write(normalized_platform_docs)
+            platform_overview = _extract_platform_overview(normalized_platform_docs)
+            is_single_module_platform = len(platform.plugins) == 1
             # all_plugins = platform_docs["plugins"].keys()
 
             for plugin_name, plugin in platform.plugins.items():
                 # Always use ### for all content sections (consistent baseline)
                 section_heading = "###"
+                normalized_docs = _normalize_module_docs(
+                    plugin.custom_docs_pre, plugin.custom_docs_post
+                )
 
                 # Always show the module name for consistency (single and multi-plugin)
                 f.write(f"\n\n## Module `{plugin_name}`\n")
@@ -515,8 +751,37 @@ def generate(  # noqa: C901
                     )
                 f.write("\n")
 
-                # Insert custom pre section
-                f.write(plugin.custom_docs_pre or "")
+                # Canonical module docs contract
+                f.write(f"{section_heading} Overview\n")
+                module_overview = normalized_docs.overview
+                if is_single_module_platform and platform_overview:
+                    module_overview = platform_overview
+                elif not is_single_module_platform:
+                    module_overview_prefix = (
+                        f"This module focuses on the `{plugin_name}` ingestion path for {platform.name}. "
+                        "Choose it when this module's source type and capabilities best match your setup."
+                    )
+                    module_overview = (
+                        f"{module_overview_prefix}\n\n{module_overview}"
+                        if module_overview
+                        else module_overview_prefix
+                    )
+
+                if module_overview:
+                    f.write(f"{module_overview}\n\n")
+                else:
+                    f.write(
+                        f"The `{plugin_name}` module provides ingestion support for {platform.name}.\n\n"
+                    )
+
+                f.write(f"{section_heading} Prerequisites\n")
+                if normalized_docs.prerequisites:
+                    f.write(f"{normalized_docs.prerequisites}\n\n")
+                else:
+                    f.write(
+                        "Ensure connectivity to the source system, valid authentication credentials, "
+                        "and the required read permissions before running ingestion.\n\n"
+                    )
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
@@ -578,8 +843,30 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         "Refer to the source code coordinates and module guidance below.\n\n"
                     )
 
-                # insert custom plugin docs after config details
-                f.write(plugin.custom_docs_post or "")
+                f.write(f"{section_heading} Capabilities\n")
+                if normalized_docs.capabilities:
+                    f.write(f"{normalized_docs.capabilities}\n\n")
+                else:
+                    f.write(
+                        "Use the Important Capabilities table above as the source of truth for feature support.\n\n"
+                    )
+
+                f.write(f"{section_heading} Limitations\n")
+                if normalized_docs.limitations:
+                    f.write(f"{normalized_docs.limitations}\n\n")
+                else:
+                    f.write(
+                        "Behavior may vary based on source APIs, permissions, and metadata availability.\n\n"
+                    )
+
+                f.write(f"{section_heading} Troubleshooting\n")
+                if normalized_docs.troubleshooting:
+                    f.write(f"{normalized_docs.troubleshooting}\n\n")
+                else:
+                    f.write(
+                        "If ingestion fails, verify authentication, permissions, connectivity, and module scope configuration.\n\n"
+                    )
+
                 if plugin.classname:
                     f.write(f"\n{section_heading} Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin.classname}`\n")

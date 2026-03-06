@@ -1,8 +1,8 @@
 ## Overview
 
-DataHub Apply is a utility-style platform connector used to apply metadata changes directly within DataHub (for example ownership, domains, tags, and glossary terms) as part of managed ingestion workflows.
+DataHub Apply is a DataHub utility or metadata-focused integration. Learn more in the [official DataHub Apply documentation](https://datahub.com/docs/).
 
-The `datahub-apply` module is intended for controlled metadata curation and bulk metadata application use cases where the source of truth is already known.
+The DataHub integration for DataHub Apply covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

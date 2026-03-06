@@ -1,8 +1,8 @@
 ## Overview
 
-Confluence can be integrated with DataHub through one or more source modules to ingest metadata into the catalog.
+Confluence is a documentation or collaboration platform. Learn more in the [official Confluence documentation](https://www.atlassian.com/software/confluence).
 
-Use this page to select the module that matches your source setup and ingestion use case.
+The DataHub integration for Confluence covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
 ## Concept Mapping
 
