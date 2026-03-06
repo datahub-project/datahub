@@ -162,14 +162,14 @@ class VertexAISource(StatefulIngestionSourceBase):
         makes quota problems worse. Instead, fail fast and let our rate limiter
         control the request rate.
         """
-        original_predicate = api_retry.if_transient_error
+        original_if_transient_error = api_retry.if_transient_error
 
-        def custom_predicate(exception):
+        def patched_if_transient_error(exception):
             if isinstance(exception, ResourceExhausted):
                 return False
-            return original_predicate(exception)
+            return original_if_transient_error(exception)
 
-        api_retry.Retry.DEFAULT = api_retry.Retry(predicate=custom_predicate)  # type: ignore[attr-defined]
+        api_retry.if_transient_error = patched_if_transient_error
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
         """Setup GCP service account credentials from config."""
