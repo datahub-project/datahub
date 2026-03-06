@@ -330,15 +330,6 @@ class MLMetadataDefaults:
 
 SDK_CLASSES_TO_PATCH_FOR_RETRY: List[Type[Any]] = [
     aiplatform.Model,
-    aiplatform.CustomJob,
-    aiplatform.CustomTrainingJob,
-    aiplatform.CustomContainerTrainingJob,
-    aiplatform.CustomPythonPackageTrainingJob,
-    aiplatform.AutoMLTabularTrainingJob,
-    aiplatform.AutoMLImageTrainingJob,
-    aiplatform.AutoMLTextTrainingJob,
-    aiplatform.AutoMLVideoTrainingJob,
-    aiplatform.AutoMLForecastingTrainingJob,
     aiplatform.Experiment,
     aiplatform.ExperimentRun,
     aiplatform.PipelineJob,

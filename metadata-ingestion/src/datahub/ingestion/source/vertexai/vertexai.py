@@ -1,4 +1,3 @@
-import functools
 import logging
 from contextlib import AbstractContextManager, nullcontext
 from typing import Dict, Iterable, List, Literal, Optional, Union
@@ -51,7 +50,6 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
-    SDK_CLASSES_TO_PATCH_FOR_RETRY,
     ExternalURLs,
     MLMetadataDefaults,
     ResourceCategory,
@@ -85,6 +83,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     format_api_error_message,
     get_project_container,
     get_resource_category_container,
+    patch_vertex_sdk_retry,
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -142,8 +141,6 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._current_project_id: Optional[str] = None
         self._current_region: Optional[str] = None
 
-        self._patch_sdk_retry_behavior()
-
         self.client = aiplatform
         self._metadata_client: Optional[MetadataServiceClient] = None
         self._ml_metadata_helper: Optional[MLMetadataHelper] = None
@@ -155,33 +152,9 @@ class VertexAISource(StatefulIngestionSourceBase):
         )
 
         self._custom_retry = create_vertex_retry_without_429()
-        self._patch_sdk_retry_behavior()
+        patch_vertex_sdk_retry(self._custom_retry)
 
         self._initialize_builders_and_extractors()
-
-    def _patch_sdk_retry_behavior(self) -> None:
-        """
-        Patch Vertex AI SDK list methods to use custom retry.
-        The SDK's default retry behavior retries 429s for up to 120s, which
-        makes quota problems worse. Instead, fail fast and let our rate limiter
-        control the request rate.
-        """
-        for cls in SDK_CLASSES_TO_PATCH_FOR_RETRY:
-            try:
-                if hasattr(cls, "list"):
-                    original_list = (
-                        cls.list.__func__ if hasattr(cls.list, "__func__") else cls.list
-                    )
-
-                    @functools.wraps(original_list)
-                    def patched_list(*args, _orig=original_list, **kwargs):
-                        if "retry" not in kwargs:
-                            kwargs["retry"] = self._custom_retry
-                        return _orig(*args, **kwargs)
-
-                    cls.list = classmethod(patched_list)
-            except (AttributeError, TypeError):
-                pass
 
     def _setup_credentials(self) -> Optional[service_account.Credentials]:
         """Setup GCP service account credentials from config."""

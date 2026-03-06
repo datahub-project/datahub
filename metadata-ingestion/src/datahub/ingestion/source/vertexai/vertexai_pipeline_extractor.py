@@ -190,9 +190,7 @@ class VertexAIPipelineExtractor:
             log_progress(job_count, None, f"{ResourceTypes.PIPELINE_JOB}s")
 
             logger.debug(f"Fetching pipeline ({pipeline.name})")
-            with self.rate_limiter:
-                pipeline_meta = self._get_pipeline_metadata(pipeline)
-
+            pipeline_meta = self._get_pipeline_metadata(pipeline)
             yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
 
     def _get_pipeline_workunits(

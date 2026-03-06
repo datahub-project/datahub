@@ -1,3 +1,5 @@
+import functools
+import inspect
 import logging
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
@@ -19,6 +21,7 @@ from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containe
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PROGRESS_LOG_INTERVAL,
+    SDK_CLASSES_TO_PATCH_FOR_RETRY,
     MLMetadataDefaults,
     ResourceCategoryType,
 )
@@ -54,6 +57,48 @@ def create_vertex_retry_without_429() -> api_retry.Retry:
         multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
         deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
     )
+
+
+def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
+    """
+    Patch Vertex AI SDK list methods to use custom retry.
+
+    The SDK's default retry behavior retries 429s for up to 120s, which
+    makes quota problems worse. This patches SDK classes to use a custom
+    retry policy that fails fast on 429 errors, letting the rate limiter
+    control the request rate instead.
+
+    Args:
+        custom_retry: Custom retry policy to inject into SDK list methods
+    """
+    for cls in SDK_CLASSES_TO_PATCH_FOR_RETRY:
+        try:
+            if not hasattr(cls, "list"):
+                continue
+
+            original_list = (
+                cls.list.__func__ if hasattr(cls.list, "__func__") else cls.list
+            )
+
+            try:
+                sig = inspect.signature(original_list)
+                supports_retry = "retry" in sig.parameters
+            except (ValueError, TypeError):
+                supports_retry = False
+
+            if supports_retry:
+
+                @functools.wraps(original_list)
+                def patched_list(
+                    *args, _orig=original_list, _retry=custom_retry, **kwargs
+                ):
+                    if "retry" not in kwargs:
+                        kwargs["retry"] = _retry
+                    return _orig(*args, **kwargs)
+
+                cls.list = classmethod(patched_list)
+        except (AttributeError, TypeError):
+            pass
 
 
 def log_progress(
@@ -263,33 +308,37 @@ def paginated_list_with_rate_limit(
     pager: Iterable[T],
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
 ) -> List[T]:
-    results: List[T] = []
-
+    """Collect all items from a pager, consuming one rate-limit token before each page fetch."""
     if hasattr(pager, "pages"):
-        for page in pager.pages:
+        results: List[T] = []
+        page_iter = iter(pager.pages)  # type: ignore[union-attr]
+        while True:
             with rate_limiter:
-                if hasattr(page, "executions"):
-                    results.extend(list(page.executions))
-                else:
-                    results.extend(list(page))
+                try:
+                    page = next(page_iter)
+                except StopIteration:
+                    break
+            results.extend(page)
+        return results
     else:
         with rate_limiter:
-            results = list(pager)
-
-    return results
+            return list(pager)
 
 
 def iterate_pager_with_rate_limit(
     pager: Iterable[T],
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
 ) -> Iterator[T]:
+    """Yield items from a pager lazily, consuming one rate-limit token before each page fetch."""
     if hasattr(pager, "pages"):
-        for page in pager.pages:
+        page_iter = iter(pager.pages)  # type: ignore[union-attr]
+        while True:
             with rate_limiter:
-                items = page.executions if hasattr(page, "executions") else page
-                for item in items:
-                    yield item
+                try:
+                    page = next(page_iter)
+                except StopIteration:
+                    break
+            yield from page
     else:
         with rate_limiter:
-            for item in pager:
-                yield item
+            yield from pager

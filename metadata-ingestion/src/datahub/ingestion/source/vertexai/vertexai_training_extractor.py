@@ -152,8 +152,7 @@ class VertexAITrainingExtractor:
                     )
 
                 log_progress(job_count, max_jobs, class_name)
-                with self.rate_limiter:
-                    yield from self._get_training_job_mcps(job)
+                yield from self._get_training_job_mcps(job)
 
                 if max_jobs is not None and job_count >= max_jobs:
                     logger.info(
