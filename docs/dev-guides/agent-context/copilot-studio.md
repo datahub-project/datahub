@@ -8,10 +8,6 @@
 
 By connecting DataHub's MCP server to Copilot Studio, your agents gain direct access to your metadata catalog. Users can ask questions like _"What are the most queried datasets?"_ or _"Who owns the revenue table?"_ and get grounded answers drawn from real metadata.
 
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/copilot-studio/copilot_studio_test_agent.png"/>
-</p>
-
 ## Prerequisites
 
 - A [Microsoft Copilot Studio](https://copilotstudio.microsoft.com/) account
@@ -91,7 +87,7 @@ Click the **Test** button in the top-right corner to open the test panel. Try as
 - _"Show me the lineage for the revenue dashboard"_
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/copilot-studio/copilot_studio_test_agent.png"/>
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/copilot-studio/copilot_studio_test_agent.png"/>
 </p>
 
 ## Tips
