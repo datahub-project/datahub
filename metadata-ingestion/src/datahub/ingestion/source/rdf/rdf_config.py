@@ -44,6 +44,16 @@ class RDFSourceConfig(
               remove_stale_metadata: true
         ```
 
+    Example with parent Term Group:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: https://example.org/glossary.ttl
+            environment: PROD
+            parent_glossary_node: ExternalOntologies
+        ```
+
     Example with zip URL:
         ```yaml
         source:
@@ -131,6 +141,15 @@ class RDFSourceConfig(
     # DataHub Options
     environment: str = Field(
         default="PROD", description="DataHub environment (PROD, DEV, TEST, etc.)"
+    )
+    parent_glossary_node: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional parent Term Group (glossary node) to place the loaded hierarchy under. "
+            "Use a name (e.g. 'ExternalOntologies') or full URN (urn:li:glossaryNode:ExternalOntologies). "
+            "If a name is provided, the parent node is created if it does not exist. "
+            "When omitted, terms are placed at the top level."
+        ),
     )
 
     # RDF Dialect Options

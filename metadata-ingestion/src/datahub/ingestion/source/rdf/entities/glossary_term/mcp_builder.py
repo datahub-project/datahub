@@ -177,6 +177,117 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             aspect=node_info,
         )
 
+    def _get_node_custom_properties(
+        self, datahub_graph: Any
+    ) -> Optional[Dict[str, str]]:
+        """Extract node custom properties (e.g. FIBO copyright) from graph metadata."""
+        if not datahub_graph or not getattr(datahub_graph, "metadata", None):
+            return None
+        fibo_copyright = datahub_graph.metadata.get("fibo_copyright")
+        return {"fibo:copyright": fibo_copyright} if fibo_copyright else None
+
+    def _resolve_parent_glossary_node(
+        self,
+        config: Any,
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> Optional[str]:
+        """Resolve parent_glossary_node from config; create parent node MCP if needed."""
+        if not config or not getattr(config, "parent_glossary_node", None):
+            return None
+        raw = config.parent_glossary_node.strip()
+        if not raw:
+            return None
+        if raw.startswith("urn:li:glossaryNode:"):
+            return raw
+        parent_node_urn = f"urn:li:glossaryNode:{raw}"
+        parent_mcp = self.create_glossary_node_mcp(
+            parent_node_urn, raw, parent_urn=None
+        )
+        mcps.append(parent_mcp)
+        if report and hasattr(report, "report_entity_emitted"):
+            report.report_entity_emitted()
+        return parent_node_urn
+
+    def _create_glossary_nodes_from_domain(
+        self,
+        domain: Any,
+        parent_node_urn: Optional[str],
+        urn_generator: Any,
+        created_nodes: Dict[str, str],
+        node_custom_properties: Optional[Dict[str, str]],
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> None:
+        """Recursively create glossary nodes and terms from domain hierarchy."""
+        if not domain.path_segments:
+            return
+        node_name = domain.name
+        node_urn = urn_generator.generate_glossary_node_urn_from_name(
+            node_name, parent_node_urn
+        )
+        if node_urn not in created_nodes:
+            node_mcp = self.create_glossary_node_mcp(
+                node_urn,
+                node_name,
+                parent_node_urn,
+                custom_properties=node_custom_properties,
+            )
+            mcps.append(node_mcp)
+            created_nodes[node_urn] = node_name
+            if report and hasattr(report, "report_entity_emitted"):
+                report.report_entity_emitted()
+
+        for term in domain.glossary_terms:
+            try:
+                term_mcps = self.build_mcps(term, {"parent_node_urn": node_urn})
+                mcps.extend(term_mcps)
+                for _ in term_mcps:
+                    if report and hasattr(report, "report_entity_emitted"):
+                        report.report_entity_emitted()
+            except (ValueError, RuntimeError, AttributeError) as e:
+                logger.warning(
+                    f"Failed to create MCP for glossary term {term.urn}: {e}"
+                )
+
+        for subdomain in domain.subdomains:
+            self._create_glossary_nodes_from_domain(
+                subdomain,
+                node_urn,
+                urn_generator,
+                created_nodes,
+                node_custom_properties,
+                report,
+                mcps,
+            )
+
+    def _process_terms_not_in_domains(
+        self,
+        datahub_graph: Any,
+        parent_node_urn: Optional[str],
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> None:
+        """Create MCPs for terms that are not in any domain (fallback)."""
+        terms_in_domains = {
+            term.urn
+            for domain in datahub_graph.domains
+            for term in domain.glossary_terms
+        }
+        for term in datahub_graph.glossary_terms:
+            if term.urn in terms_in_domains:
+                continue
+            try:
+                term_mcps = self.build_mcps(term, {"parent_node_urn": parent_node_urn})
+                mcps.extend(term_mcps)
+                for _ in term_mcps:
+                    if report and hasattr(report, "report_entity_emitted"):
+                        report.report_entity_emitted()
+            except (ValueError, RuntimeError, AttributeError) as e:
+                logger.warning(
+                    f"Failed to create MCP for glossary term {term.urn}: {e}"
+                )
+
     def build_post_processing_mcps(
         self, datahub_graph: Any, context: Optional[Dict[str, Any]] = None
     ) -> List[MetadataChangeProposalWrapper]:
@@ -203,81 +314,33 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             GlossaryTermUrnGenerator,
         )
 
-        mcps = []
+        mcps: List[MetadataChangeProposalWrapper] = []
         report = context.get("report") if context else None
-        datahub_graph = context.get("datahub_graph") if context else None
-        node_custom_properties: Optional[Dict[str, str]] = None
-        if datahub_graph and getattr(datahub_graph, "metadata", None):
-            fibo_copyright = datahub_graph.metadata.get("fibo_copyright")
-            if fibo_copyright:
-                node_custom_properties = {"fibo:copyright": fibo_copyright}
+        graph = context.get("datahub_graph") if context else datahub_graph
+        config = context.get("config") if context else None
 
-        # Track created glossary nodes to avoid duplicates
-        created_nodes = {}  # node_urn -> node_name
+        if graph is None:
+            return mcps
+
+        node_custom_properties = self._get_node_custom_properties(graph)
+        parent_node_urn = self._resolve_parent_glossary_node(config, report, mcps)
+
         urn_generator = GlossaryTermUrnGenerator()
+        created_nodes: Dict[str, str] = {}
 
-        def create_glossary_nodes_from_domain(domain, parent_node_urn=None):
-            """Recursively create glossary nodes from domain hierarchy."""
-            # Create glossary node for this domain
-            if domain.path_segments:
-                node_name = domain.name
-                node_urn = urn_generator.generate_glossary_node_urn_from_name(
-                    node_name, parent_node_urn
-                )
-
-                if node_urn not in created_nodes:
-                    node_mcp = self.create_glossary_node_mcp(
-                        node_urn,
-                        node_name,
-                        parent_node_urn,
-                        custom_properties=node_custom_properties,
-                    )
-                    mcps.append(node_mcp)
-                    created_nodes[node_urn] = node_name
-                    if report and hasattr(report, "report_entity_emitted"):
-                        report.report_entity_emitted()
-
-                # Create terms in this domain
-                for term in domain.glossary_terms:
-                    try:
-                        term_mcps = self.build_mcps(term, {"parent_node_urn": node_urn})
-                        mcps.extend(term_mcps)
-                        for _ in term_mcps:
-                            if report and hasattr(report, "report_entity_emitted"):
-                                report.report_entity_emitted()
-                    except (ValueError, RuntimeError, AttributeError) as e:
-                        logger.warning(
-                            f"Failed to create MCP for glossary term {term.urn}: {e}"
-                        )
-
-                # Recursively process subdomains
-                for subdomain in domain.subdomains:
-                    create_glossary_nodes_from_domain(subdomain, node_urn)
-
-        # Process all root domains (domains without parents)
-        root_domains = [d for d in datahub_graph.domains if d.parent_domain_urn is None]
+        root_domains = [d for d in graph.domains if d.parent_domain_urn is None]
         for domain in root_domains:
-            create_glossary_nodes_from_domain(domain)
+            self._create_glossary_nodes_from_domain(
+                domain,
+                parent_node_urn,
+                urn_generator,
+                created_nodes,
+                node_custom_properties,
+                report,
+                mcps,
+            )
 
-        # Also process terms that aren't in any domain (fallback)
-        terms_in_domains = set()
-        for domain in datahub_graph.domains:
-            for term in domain.glossary_terms:
-                terms_in_domains.add(term.urn)
-
-        for term in datahub_graph.glossary_terms:
-            if term.urn not in terms_in_domains:
-                # Term not in any domain - create without parent node
-                try:
-                    term_mcps = self.build_mcps(term, {"parent_node_urn": None})
-                    mcps.extend(term_mcps)
-                    for _ in term_mcps:
-                        if report:
-                            report.report_entity_emitted()
-                except (ValueError, RuntimeError, AttributeError) as e:
-                    logger.warning(
-                        f"Failed to create MCP for glossary term {term.urn}: {e}"
-                    )
+        self._process_terms_not_in_domains(graph, parent_node_urn, report, mcps)
 
         logger.debug(
             f"Created {len(mcps)} MCPs for glossary nodes and terms from domains"

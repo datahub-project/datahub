@@ -193,6 +193,35 @@ class TestRDFLoaderDirectoryEdgeCases:
         graph = load_rdf_graph(str(test_dir), file_extensions=[".ttl", ".rdf"])
         assert len(graph) >= 1  # At least the .ttl file should be loaded
 
+    def test_root_folder_with_only_subdirectories(self, tmp_path):
+        """Test root folder with no files in root, only subdirectories."""
+        root_dir = tmp_path / "root"
+        root_dir.mkdir()
+        sub_dir = root_dir / "sub"
+        sub_dir.mkdir()
+        (sub_dir / "nested.ttl").write_text(
+            "@prefix ex: <http://example.org/> .\nex:Nested a ex:Concept ."
+        )
+
+        # Non-recursive: no files in root, should return empty
+        graph_non_recursive = load_rdf_graph(str(root_dir), recursive=False)
+        assert len(graph_non_recursive) == 0
+
+        # Recursive: should find file in subdirectory
+        graph_recursive = load_rdf_graph(str(root_dir), recursive=True)
+        assert len(graph_recursive) == 1
+
+    def test_folder_path_with_trailing_slash(self, tmp_path):
+        """Test folder path with trailing slash works correctly."""
+        folder = tmp_path / "folder"
+        folder.mkdir()
+        (folder / "file.ttl").write_text(
+            "@prefix ex: <http://example.org/> .\nex:Term a ex:Concept ."
+        )
+
+        graph = load_rdf_graph(str(folder) + "/")
+        assert len(graph) == 1
+
 
 class TestRDFLoaderURLEdgeCases:
     """Test URL loading edge cases."""

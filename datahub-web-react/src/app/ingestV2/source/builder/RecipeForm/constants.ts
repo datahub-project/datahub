@@ -248,6 +248,7 @@ import {
     RDF_ENVIRONMENT,
     RDF_EXTENSIONS,
     RDF_FORMAT,
+    RDF_PARENT_GLOSSARY_NODE,
     RDF_RECURSIVE,
     RDF_SOURCE,
 } from '@app/ingestV2/source/builder/RecipeForm/rdf';
@@ -820,7 +821,14 @@ export const RECIPE_FIELDS: RecipeFields = {
     [RDF]: {
         fields: [RDF_SOURCE],
         filterFields: [],
-        advancedFields: [RDF_FORMAT, RDF_EXTENSIONS, RDF_RECURSIVE, RDF_ENVIRONMENT, RDF_DIALECT],
+        advancedFields: [
+            RDF_FORMAT,
+            RDF_EXTENSIONS,
+            RDF_RECURSIVE,
+            RDF_ENVIRONMENT,
+            RDF_DIALECT,
+            RDF_PARENT_GLOSSARY_NODE,
+        ],
         connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
         advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
     },

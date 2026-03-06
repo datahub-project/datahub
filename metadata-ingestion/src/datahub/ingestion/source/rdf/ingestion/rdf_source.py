@@ -179,7 +179,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         self.report = RDFSourceReport()
         self.platform = "rdf"
         self.ast_converter = RDFToASTConverter(config, self.report)
-        self.workunit_generator = WorkUnitGenerator(self.report)
+        self.workunit_generator = WorkUnitGenerator(self.report, config)
 
         logger.info("Initializing RDF source")
         logger.debug(f"RDF source config: {config}")

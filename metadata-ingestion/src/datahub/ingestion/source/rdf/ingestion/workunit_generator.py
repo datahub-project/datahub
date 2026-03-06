@@ -22,14 +22,16 @@ class WorkUnitGenerator:
     Handles entity processing, MCP building, and work unit creation.
     """
 
-    def __init__(self, report: Any):
+    def __init__(self, report: Any, config: Any = None):
         """
         Initialize the generator.
 
         Args:
             report: Report object for tracking statistics and errors
+            config: Optional RDF source configuration (for parent_glossary_node, etc.)
         """
         self.report = report
+        self.config = config
 
     def generate(self, datahub_graph: DataHubGraph) -> Iterable[MetadataWorkUnit]:
         """
@@ -55,6 +57,7 @@ class WorkUnitGenerator:
                 "datahub_graph": datahub_graph,
                 "report": self.report,
                 "registry": registry,
+                "config": self.config,
             }
 
             logger.info("Processing DataHub AST with:")

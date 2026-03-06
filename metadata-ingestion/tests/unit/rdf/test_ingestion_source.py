@@ -50,6 +50,34 @@ def test_config_model_with_zip_url_primary():
     assert config.source == "https://example.com/rdf_data.zip"
 
 
+def test_config_model_with_parent_glossary_node():
+    """Test config with parent_glossary_node to place hierarchy under a Term Group."""
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
+        RDFSourceConfig,
+    )
+
+    config = RDFSourceConfig(
+        source="https://example.com/glossary.ttl",
+        environment="PROD",
+        parent_glossary_node="ExternalOntologies",
+    )
+    assert config.parent_glossary_node == "ExternalOntologies"
+
+
+def test_config_model_with_parent_glossary_node_urn():
+    """Test config with parent_glossary_node as full URN."""
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
+        RDFSourceConfig,
+    )
+
+    config = RDFSourceConfig(
+        source="https://example.com/glossary.ttl",
+        environment="PROD",
+        parent_glossary_node="urn:li:glossaryNode:ExternalOntologies",
+    )
+    assert config.parent_glossary_node == "urn:li:glossaryNode:ExternalOntologies"
+
+
 def test_config_model_validation():
     """Test that the config model validates correctly."""
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (

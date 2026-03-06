@@ -450,6 +450,174 @@ class TestWebFolderSupport:
             )
 
     @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_load_from_web_folder_empty(self, mock_session_class):
+        """Test empty web folder returns empty graph."""
+        html_content = """
+        <html>
+        <body>
+        <h1>Index of /empty/</h1>
+        <p>No files in this directory.</p>
+        </body>
+        </html>
+        """
+        mock_response = MagicMock()
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.text = html_content
+        mock_response.raise_for_status = MagicMock()
+
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        graph = _load_from_web_folder(
+            "https://example.com/empty/",
+            recursive=False,
+            file_extensions=[".ttl"],
+            format=None,
+        )
+
+        assert graph is not None
+        assert len(graph) == 0
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_load_from_web_folder_only_subfolders(self, mock_session_class):
+        """Test web folder with only subfolders, no files in root."""
+        root_html = """
+        <html>
+        <body>
+        <h1>Index of /data/</h1>
+        <ul>
+        <li><a href="subfolder/">subfolder/</a></li>
+        </ul>
+        </body>
+        </html>
+        """
+        subfolder_html = """
+        <html>
+        <body>
+        <h1>Index of /data/subfolder/</h1>
+        <ul>
+        <li><a href="terms.ttl">terms.ttl</a></li>
+        </ul>
+        </body>
+        </html>
+        """
+        rdf_content = (
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
+        )
+
+        mock_dir_response = MagicMock()
+        mock_dir_response.headers = {"content-type": "text/html"}
+        mock_dir_response.text = root_html
+        mock_dir_response.raise_for_status = MagicMock()
+
+        mock_subfolder_response = MagicMock()
+        mock_subfolder_response.headers = {"content-type": "text/html"}
+        mock_subfolder_response.text = subfolder_html
+        mock_subfolder_response.raise_for_status = MagicMock()
+
+        mock_file_response = MagicMock()
+        mock_file_response.headers = {"content-length": str(len(rdf_content.encode()))}
+        mock_file_response.iter_content.return_value = [rdf_content.encode()]
+        mock_file_response.raise_for_status = MagicMock()
+
+        mock_session = MagicMock()
+        mock_session.get.side_effect = [
+            mock_dir_response,
+            mock_subfolder_response,
+            mock_file_response,
+        ]
+        mock_session_class.return_value = mock_session
+
+        graph = _load_from_web_folder(
+            "https://example.com/data/",
+            recursive=True,
+            file_extensions=[".ttl"],
+            format=None,
+        )
+
+        assert graph is not None
+        assert len(graph) > 0
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_load_from_web_folder_only_non_rdf_files(self, mock_session_class):
+        """Test web folder with only non-RDF files returns empty graph."""
+        html_content = """
+        <html>
+        <body>
+        <h1>Index of /docs/</h1>
+        <ul>
+        <li><a href="readme.txt">readme.txt</a></li>
+        <li><a href="notes.md">notes.md</a></li>
+        </ul>
+        </body>
+        </html>
+        """
+        mock_response = MagicMock()
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.text = html_content
+        mock_response.raise_for_status = MagicMock()
+
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        graph = _load_from_web_folder(
+            "https://example.com/docs/",
+            recursive=False,
+            file_extensions=[".ttl", ".rdf"],
+            format=None,
+        )
+
+        assert graph is not None
+        assert len(graph) == 0
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_load_from_web_folder_url_without_trailing_slash(self, mock_session_class):
+        """Test web folder URL without trailing slash is normalized correctly."""
+        html_content = """
+        <html>
+        <body>
+        <h1>Index of /folder</h1>
+        <ul>
+        <li><a href="glossary.ttl">glossary.ttl</a></li>
+        </ul>
+        </body>
+        </html>
+        """
+        rdf_content = (
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
+        )
+
+        mock_dir_response = MagicMock()
+        mock_dir_response.headers = {"content-type": "text/html"}
+        mock_dir_response.text = html_content
+        mock_dir_response.raise_for_status = MagicMock()
+
+        mock_file_response = MagicMock()
+        mock_file_response.headers = {"content-length": str(len(rdf_content.encode()))}
+        mock_file_response.iter_content.return_value = [rdf_content.encode()]
+        mock_file_response.raise_for_status = MagicMock()
+
+        mock_session = MagicMock()
+        mock_session.get.side_effect = [mock_dir_response, mock_file_response]
+        mock_session_class.return_value = mock_session
+
+        graph = _load_from_web_folder(
+            "https://example.com/folder",
+            recursive=False,
+            file_extensions=[".ttl"],
+            format=None,
+        )
+
+        assert graph is not None
+        assert len(graph) > 0
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
     def test_load_from_web_folder_recursive(self, mock_session_class):
         """Test loading from web folder with recursive=True."""
         # Mock HTML directory listing with subfolder

@@ -87,3 +87,16 @@ export const RDF_DIALECT: RecipeField = {
     ],
     rules: null,
 };
+
+export const RDF_PARENT_GLOSSARY_NODE: RecipeField = {
+    name: 'parent_glossary_node',
+    label: 'Parent Term Group',
+    helper: 'Optional parent Term Group to place the hierarchy under (e.g. ExternalOntologies)',
+    tooltip:
+        'Place all ingested terms under this Term Group. Use a name (e.g. ExternalOntologies) or full URN. When omitted, terms go at the top level.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.parent_glossary_node',
+    placeholder: 'e.g. ExternalOntologies',
+    required: false,
+    rules: null,
+};

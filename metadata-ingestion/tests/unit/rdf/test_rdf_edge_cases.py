@@ -11,7 +11,11 @@ Tests verify handling of:
 - Mixed valid/invalid files
 - Deeply nested directories
 - Unicode/special characters in content
+- Web URL primary path (.ttl and .zip)
+- Invalid URL error handling
 """
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -231,3 +235,136 @@ class TestRDFEdgeCases:
         workunits = list(source.get_workunits_internal())
         # Should handle relative paths correctly
         assert len(workunits) > 0
+
+
+class TestRDFSourceWebURLEdgeCases:
+    """Test RDF source with web URL primary path (.ttl and .zip)."""
+
+    @pytest.fixture
+    def ctx(self):
+        """Create a pipeline context for testing."""
+        return PipelineContext(run_id="test-run")
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_rdf_source_with_web_url_ttl(self, mock_session_class, ctx):
+        """Test full RDFSource pipeline with web URL to .ttl (primary path)."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        rdf_content = (
+            b"@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            b"@prefix ex: <http://example.org/> .\n"
+            b'ex:Term a skos:Concept ; skos:prefLabel "Test Term" .'
+        )
+        mock_response.content = rdf_content
+        mock_response.headers = {"content-length": str(len(rdf_content))}
+        mock_response.status_code = 200
+        mock_response.iter_content.return_value = [rdf_content]
+        mock_response.raise_for_status = MagicMock()
+        mock_session.get.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        config = RDFSourceConfig(
+            source="https://example.com/glossary.ttl",
+            environment="PROD",
+        )
+        source = RDFSource(config, ctx)
+
+        workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) > 0
+        assert source.report.num_entities_emitted > 0
+        mock_session.get.assert_called_once()
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_rdf_source_with_web_url_zip(self, mock_session_class, ctx):
+        """Test full RDFSource pipeline with web URL to .zip (primary path)."""
+        import io
+        import zipfile
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
+            zf.writestr(
+                "glossary.ttl",
+                "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+                "@prefix ex: <http://example.org/> .\n"
+                'ex:Term a skos:Concept ; skos:prefLabel "Zip Term" .',
+            )
+        zip_content = zip_buffer.getvalue()
+
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.headers = {"content-length": str(len(zip_content))}
+        mock_response.iter_content.return_value = [zip_content]
+        mock_response.raise_for_status = MagicMock()
+        mock_session.get.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        config = RDFSourceConfig(
+            source="https://example.com/rdf_data.zip",
+            environment="PROD",
+            recursive=True,
+        )
+        source = RDFSource(config, ctx)
+
+        workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) > 0
+        assert source.report.num_entities_emitted > 0
+        mock_session.get.assert_called_once()
+
+    @patch("datahub.ingestion.source.rdf.core.rdf_loader.requests.Session")
+    def test_rdf_source_with_invalid_url(self, mock_session_class, ctx):
+        """Test RDFSource reports failures when URL returns connection error."""
+        import requests
+
+        mock_session = MagicMock()
+        mock_session.get.side_effect = requests.exceptions.ConnectionError(
+            "Connection failed"
+        )
+        mock_session_class.return_value = mock_session
+
+        config = RDFSourceConfig(
+            source="https://invalid-url.example.com/glossary.ttl",
+            environment="PROD",
+        )
+        source = RDFSource(config, ctx)
+
+        workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) == 0
+        assert len(source.report.failures) > 0
+
+    def test_parent_glossary_node_places_hierarchy_under_parent(self, ctx, tmp_path):
+        """Test that parent_glossary_node places all terms under the specified Term Group."""
+        ttl_file = tmp_path / "glossary.ttl"
+        ttl_file.write_text(
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            "@prefix ex: <http://example.org/> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Test Term" .'
+        )
+
+        config = RDFSourceConfig(
+            source=str(ttl_file),
+            environment="PROD",
+            parent_glossary_node="ExternalOntologies",
+        )
+        source = RDFSource(config, ctx)
+
+        workunits = list(source.get_workunits_internal())
+
+        assert len(workunits) > 0
+        parent_urn = "urn:li:glossaryNode:ExternalOntologies"
+        found_parent_node = False
+        found_child_under_parent = False
+        for wu in workunits:
+            mcp = wu.metadata
+            if hasattr(mcp, "aspect") and mcp.aspect:
+                aspect = mcp.aspect
+                if hasattr(aspect, "parentNode") and aspect.parentNode:
+                    if aspect.parentNode == parent_urn:
+                        found_child_under_parent = True
+            if hasattr(mcp, "entityUrn") and str(mcp.entityUrn) == parent_urn:
+                found_parent_node = True
+
+        assert found_parent_node, "Parent node MCP should be created"
+        assert found_child_under_parent, "Child nodes/terms should reference parent"

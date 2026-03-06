@@ -210,6 +210,24 @@ class TestRDFLoaderPathTraversal:
                 str(base_dir),
             )
 
+    def test_load_folder_path_is_file_raises_error(self, tmp_path):
+        """Test that _load_folder raises when path is a file, not a directory."""
+        test_file = tmp_path / "file.ttl"
+        test_file.write_text(
+            "@prefix ex: <http://example.org/> .\nex:Term a ex:Concept ."
+        )
+
+        with pytest.raises(ValueError, match="Path is not a directory"):
+            _load_folder(
+                Graph(),
+                test_file,
+                False,
+                [".ttl"],
+                None,
+                DEFAULT_MAX_FILE_SIZE,
+                None,
+            )
+
 
 class TestRDFLoaderFormatDetection:
     """Test format detection from extensions."""
