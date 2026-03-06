@@ -1,0 +1,21 @@
+name: Free Disk Space
+description: Removes pre-installed tooling to reclaim disk space on GitHub-hosted runners.
+
+runs:
+  using: composite
+  steps:
+    - name: Free up disk space
+      shell: bash
+      if: runner.environment == 'github-hosted'
+      run: |
+        sudo apt-get remove 'dotnet-*' azure-cli || true
+        sudo rm -rf /usr/local/lib/android/ || true
+        sudo docker image prune -a -f || true
+        sudo rm -rf /usr/local/.ghcup || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /usr/share/swift || true
+        sudo rm -rf /usr/local/julia* || true
+        sudo rm -rf /usr/local/share/powershell || true
+        sudo rm -rf /usr/share/miniconda || true
+        sudo docker system prune -a -f || true
+        df -h

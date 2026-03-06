@@ -28,10 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -83,10 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -149,10 +143,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -191,10 +182,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -224,10 +212,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -288,10 +273,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+        uses: ./.github/actions/free-disk-space
 
       - name: Checkout repository
         uses: actions/checkout@v6
