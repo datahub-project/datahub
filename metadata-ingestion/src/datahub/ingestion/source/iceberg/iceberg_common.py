@@ -125,11 +125,14 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"
     )
-    default_domain: Optional[str] = Field(
-        default=None,
-        description="Optional domain URN to associate with all ingested entities (tables, namespaces). "
-        "If specified, enables domain-scoped permission checks on the backend. "
-        "Example: 'urn:li:domain:engineering'",
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
+        description=(
+            "A map of domain names to allow/deny patterns for tables and namespaces. "
+            'Domain key can be a guid like "urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba" '
+            'or a string like "Engineering". '
+            "If multiple patterns match, at most one domain is assigned to the entity."
+        ),
     )
 
     @field_validator("catalog", mode="before")

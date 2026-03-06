@@ -431,9 +431,9 @@ slack = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
-# Snowplow uses base requirements only (requests, pydantic)
-# No additional dependencies needed
-snowplow = set()
+snowplow = {
+    *cachetools_lib,
+}
 
 databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -648,7 +648,7 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0"},
+    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,

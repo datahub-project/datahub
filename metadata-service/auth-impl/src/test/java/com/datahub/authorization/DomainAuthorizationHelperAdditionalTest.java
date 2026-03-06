@@ -61,7 +61,11 @@ public class DomainAuthorizationHelperAdditionalTest {
   public void testAuthorizeWithDomains_EmptyMCPList_ReturnsEmpty() {
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, Collections.emptyList(), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            Collections.emptyList(),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertTrue(results.isEmpty());
@@ -111,7 +115,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -130,7 +138,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -149,7 +161,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -244,14 +260,18 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     // Should handle exception gracefully and still return result
     assertNotNull(results);
     assertEquals(results.size(), 1);
   }
 
-  /** Test authorizeWithDomains with null aspectRetriever - should fall back to standard auth. */
+  /** Test authorizeWithDomains with null aspectRetriever - should deny all as fail-safe. */
   @Test
   public void testAuthorizeWithDomains_NullAspectRetriever_FallsBackToStandard() throws Exception {
     Urn datasetUrn = Urn.createFromString(DATASET_URN_STRING);
@@ -272,8 +292,8 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
-    // Should use standard auth and be authorized
-    assertTrue(results.get(mcp));
+    // Implementation denies all MCPs when aspectRetriever is null (fail-safe)
+    assertFalse(results.get(mcp));
   }
 
   /** Test authorizeWithDomains with existing entity and domain changes - checks both. */
@@ -349,7 +369,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -368,7 +392,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -387,7 +415,11 @@ public class DomainAuthorizationHelperAdditionalTest {
 
     Map<MetadataChangeProposal, Boolean> results =
         DomainAuthorizationHelper.authorizeWithDomains(
-            opContext, mockEntityRegistry, List.of(mcp), null, mockAspectRetriever);
+            opContext,
+            mockEntityRegistry,
+            List.of(mcp),
+            Collections.emptyMap(),
+            mockAspectRetriever);
 
     assertNotNull(results);
     assertEquals(results.size(), 1);
@@ -421,7 +453,7 @@ public class DomainAuthorizationHelperAdditionalTest {
             opContext,
             mockEntityRegistry,
             List.of(createMcp, updateMcp, deleteMcp),
-            null,
+            Collections.emptyMap(),
             mockAspectRetriever);
 
     assertNotNull(results);
