@@ -69,6 +69,14 @@ class GlossaryTermConfig(ConfigModel):
     custom_properties: Optional[Dict[str, LaxStr]] = None
     knowledge_links: Optional[List[KnowledgeCard]] = None
     domain: Optional[str] = None
+    structured_properties: Optional[
+        Dict[str, Union[str, float, List[Union[str, float]]]]
+    ] = Field(
+        default=None,
+        description="Structured property values to attach to the glossary term. "
+        "Keys should be the structured property URN or qualified name (without 'urn:li:structuredProperty:' prefix). "
+        "Values can be a single value (string or number) or a list of values for multi-valued properties.",
+    )
 
     # Private fields.
     _urn: str
@@ -498,6 +506,28 @@ def get_mces_from_term(
         aspects=aspects,
     )
     yield get_mce_from_snapshot(term_snapshot)
+
+    # Emit structured properties as MCP (after the main snapshot)
+    if glossaryTerm.structured_properties:
+        structured_props_mcp = MetadataChangeProposalWrapper(
+            entityUrn=term_urn,
+            aspect=models.StructuredPropertiesClass(
+                properties=[
+                    models.StructuredPropertyValueAssignmentClass(
+                        propertyUrn=(
+                            prop_key
+                            if prop_key.startswith("urn:li:structuredProperty:")
+                            else f"urn:li:structuredProperty:{prop_key}"
+                        ),
+                        values=(
+                            prop_value if isinstance(prop_value, list) else [prop_value]
+                        ),
+                    )
+                    for prop_key, prop_value in glossaryTerm.structured_properties.items()
+                ]
+            ),
+        )
+        yield structured_props_mcp
 
     if glossaryTerm.knowledge_links:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
