@@ -232,5 +232,15 @@ describe('NodeBuilder', () => {
         );
         expect(dataset5Node?.position.x).toBeLessThan(transform2Node?.position.x ?? -Infinity);
         expect(dataset4Node?.position.x).toBeGreaterThan(transform2Node?.position.x ?? Infinity);
+
+        // Upstream nodes must have negative x, downstream positive x.
+        // Regression: toLocaleString() produced Unicode minus (U+2212) on non-English locales,
+        // which broke startsWith('-') layer classification and placed upstream nodes on the right.
+        expect(dataset4Node?.position.x).toBeLessThan(0);
+        expect(dataset5Node?.position.x).toBeLessThan(0);
+        expect(transform2Node?.position.x).toBeLessThan(0);
+        expect(dataset1Node?.position.x).toBeGreaterThan(0);
+        expect(dataset2Node?.position.x).toBeGreaterThan(0);
+        expect(transform1Node?.position.x).toBeGreaterThan(0);
     });
 });
