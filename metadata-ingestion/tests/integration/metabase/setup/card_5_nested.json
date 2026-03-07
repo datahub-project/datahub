@@ -1,0 +1,106 @@
+{
+  "description": "Card that references Card 3 (which itself references Card 1) - testing nested query lineage",
+  "archived": false,
+  "collection_position": null,
+  "table_id": null,
+  "type": "question",
+  "result_metadata": [{
+    "name": "completed_at",
+    "display_name": "Completion Date",
+    "base_type": "type/Date",
+    "effective_type": "type/Date",
+    "semantic_type": null
+  }, {
+    "name": "daily_revenue",
+    "display_name": "Daily Revenue",
+    "base_type": "type/Float",
+    "effective_type": "type/Float",
+    "semantic_type": "type/Currency"
+  }, {
+    "name": "order_count",
+    "display_name": "Order Count",
+    "base_type": "type/BigInteger",
+    "effective_type": "type/BigInteger",
+    "semantic_type": "type/Quantity"
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-14T15:00:00.000Z",
+    "is_qbnewb": false,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": 150,
+  "query_type": "query",
+  "name": "Weekly Revenue Trends",
+  "last_query_start": "2021-12-14T16:20:00.000Z",
+  "dashboard_count": 1,
+  "average_query_time": 320,
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-14T16:25:30.800",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "database": 2,
+    "query": {
+      "source-table": "card__3",
+      "aggregation": [
+        ["sum", ["field", "sum", {"base-type": "type/Float"}]]
+      ],
+      "breakout": [
+        ["field", "completed_at", {
+          "base-type": "type/DateTimeWithTZ",
+          "temporal-unit": "week"
+        }]
+      ],
+      "filter": [
+        "time-interval",
+        ["field", "completed_at", {"base-type": "type/DateTimeWithTZ"}],
+        -4,
+        "week",
+        {"include-current": true}
+      ]
+    },
+    "type": "query"
+  },
+  "id": 5,
+  "display": "line",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-14T16:25:30.750"
+  },
+  "visualization_settings": {
+    "graph.dimensions": ["completed_at"],
+    "graph.metrics": ["sum"],
+    "graph.colors": ["#509EE3"]
+  },
+  "collection": {
+    "authority_level": null,
+    "description": "Personal analytics collection",
+    "archived": false,
+    "slug": "john_doe_personal_collection",
+    "name": "John Doe",
+    "personal_owner_id": 14,
+    "type": null,
+    "id": 150,
+    "location": "/",
+    "namespace": null,
+    "is_personal": true,
+    "created_at": "2024-01-12T11:51:24.394309Z"
+  },
+  "created_at": "2021-12-14T16:20:00.000",
+  "public_uuid": null
+}
+

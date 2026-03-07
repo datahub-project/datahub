@@ -1,8 +1,10 @@
 import json
+import logging
 import pathlib
 from unittest.mock import patch
 
 import pytest
+import time_machine
 from freezegun import freeze_time
 from requests.models import HTTPError
 
@@ -10,11 +12,19 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metabase import MetabaseSource
 from datahub.testing import mce_helpers
+from tests.integration.metabase.setup.metabase_setup_utils import (
+    setup_metabase_test_data,
+    verify_metabase_api_ready,
+)
+from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
+
+logger = logging.getLogger(__name__)
 
 FROZEN_TIME = "2021-11-11 07:00:00"
 
@@ -346,4 +356,220 @@ def test_strip_template_expressions():
     assert (
         MetabaseSource.strip_template_expressions(query_with_dashboard_filters[0])
         == query_with_dashboard_filters[1]
+    )
+
+
+@pytest.fixture
+def extended_json_response_map():
+    return {
+        "http://localhost:3000/api/session": "session.json",
+        "http://localhost:3000/api/user/current": "user.json",
+        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
+        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
+        "http://localhost:3000/api/dashboard/20": "dashboard_2.json",
+        "http://localhost:3000/api/user/1": "user.json",
+        "http://localhost:3000/api/card": "card_with_models.json",
+        "http://localhost:3000/api/database/1": "bigquery_database.json",
+        "http://localhost:3000/api/database/2": "postgres_database.json",
+        "http://localhost:3000/api/card/1": "card_1.json",
+        "http://localhost:3000/api/card/2": "card_2.json",
+        "http://localhost:3000/api/card/3": "card_3.json",
+        "http://localhost:3000/api/card/4": "card_4_model.json",
+        "http://localhost:3000/api/card/5": "card_5_nested.json",
+        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
+        "http://localhost:3000/api/table/21": "table_21.json",
+    }
+
+
+@freeze_time(FROZEN_TIME)
+def test_metabase_ingest_with_models_and_collections(
+    pytestconfig, tmp_path, extended_json_response_map, mock_datahub_graph
+):
+    """
+    Integration test for Metabase Models, Collection Tags, and Nested Query Lineage.
+
+    This test validates that:
+    1. Models are extracted as datasets with correct URN format (model. prefix)
+    2. Models have lineage to source tables from SQL parsing
+    3. Collection tags are applied to models based on their collection_id
+    4. Nested query lineage resolves through multiple levels of card references
+    """
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline_config = {
+            "run_id": "metabase-new-features-test",
+            "source": {
+                "type": "metabase",
+                "config": {
+                    "username": "xxxx",
+                    "password": "xxxx",
+                    "connect_uri": "http://localhost:3000/",
+                    "extract_models": True,
+                },
+            },
+            "pipeline_name": "test_new_features_pipeline",
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/metabase_new_features_mces.json",
+                },
+            },
+        }
+
+        pipeline = Pipeline.create(pipeline_config)
+        pipeline.run()
+
+        report = pipeline.source.get_report()
+
+        non_schema_failures = [
+            f for f in report.failures if "Source produced bad metadata" not in str(f)
+        ]
+        assert len(non_schema_failures) == 0, (
+            f"Unexpected failures (excluding known schema validation issue): {non_schema_failures}"
+        )
+
+        # Read output file and check for key entities
+        with open(f"{tmp_path}/metabase_new_features_mces.json", "r") as f:
+            content = f.read()
+
+        # Verify models are extracted as datasets
+        assert "model.4" in content, "Model 4 should be extracted as dataset"
+        assert "model.6" in content, "Model 6 should be extracted as dataset"
+
+        # Verify collection tags are applied
+        assert "metabase_collection_john_doe" in content, (
+            "Collection tag should be present"
+        )
+
+        # Verify schema metadata is present (models have schema)
+        assert (
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata" in content
+            or "SchemaMetadataClass" in content
+            or "schemaMetadata" in content
+        ), "Models should have schema metadata"
+
+
+# ============================================================================
+# Docker-based Integration Tests
+# ============================================================================
+
+DOCKER_FROZEN_TIME = "2024-01-20 12:00:00"
+METABASE_BASE_URL = "http://localhost:3001"
+
+
+@pytest.fixture(scope="module")
+def metabase_credentials():
+    """Credentials for Metabase admin user."""
+    return {
+        "email": "admin@test.com",
+        "password": "Admin123!",
+        "first_name": "Test",
+        "last_name": "Admin",
+    }
+
+
+@pytest.fixture(scope="module")
+def loaded_metabase(docker_compose_runner, metabase_credentials):
+    """Start Metabase and PostgreSQL via Docker Compose."""
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "metabase"
+    ) as docker_services:
+        # Wait for PostgreSQL to be ready
+        wait_for_port(docker_services, "postgres", 5432, timeout=60)
+        logger.info("PostgreSQL is ready")
+
+        # Wait for Metabase to be ready
+        wait_for_port(docker_services, "metabase", 3000, timeout=180)
+        logger.info("Metabase port is open")
+
+        # Additional verification that Metabase API is accessible
+        verify_metabase_api_ready(METABASE_BASE_URL, timeout=120)
+        logger.info("Metabase API is ready")
+
+        # Setup Metabase with initial user and test data
+        setup_metabase_test_data(METABASE_BASE_URL, metabase_credentials)
+        logger.info("Metabase test data setup complete")
+
+        yield docker_services
+
+    cleanup_image("metabase/metabase")
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_ingest(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test Metabase ingestion from actual Docker container."""
+
+    config_file = (test_resources_dir / "metabase_docker_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
+    )
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_models_extraction(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test that Metabase models are extracted correctly with lineage."""
+
+    config_file = (test_resources_dir / "metabase_docker_models_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_models_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_models_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
     )

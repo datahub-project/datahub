@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15.2
+    container_name: postgres
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./setup:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - metabase-network
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    environment:
+      MB_DB_TYPE: h2
+      MB_DB_FILE: /metabase-data/metabase.db
+      MB_JETTY_HOST: 0.0.0.0
+      MB_JETTY_PORT: 3000
+      # Disable telemetry for tests
+      MB_SEND_EMAIL_ON_FIRST_LOGIN_FROM_NEW_DEVICE: false
+      MB_ANON_TRACKING_ENABLED: false
+      # Speed up startup in tests
+      MB_DB_AUTOMIGRATE: true
+      # Use legacy MBQL for compatibility with older versions
+      MB_ENABLE_QUERY_CACHING: false
+    ports:
+      - "3001:3000"
+    volumes:
+      - metabase-data:/metabase-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - metabase-network
+
+networks:
+  metabase-network:
+    driver: bridge
+
+volumes:
+  metabase-data:
