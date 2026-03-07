@@ -2750,6 +2750,14 @@ class TableauSiteSource:
 
         browse_path = self._get_project_browse_path_name(datasource)
         if (
+            is_embedded_ds
+            and self._get_embedded_datasource_project_luid(datasource) is None
+        ):
+            logger.warning(
+                f"Skip ingesting embedded datasource {datasource.get(c.NAME)} because of filtered project"
+            )
+            return
+        elif (
             not is_embedded_ds
             and self._get_published_datasource_project_luid(datasource) is None
         ):
