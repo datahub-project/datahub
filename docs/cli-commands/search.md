@@ -26,6 +26,12 @@ datahub search "dashboard" --table
 # Get just URNs for piping
 datahub search "dataset" --urns-only
 
+# Preview query without executing
+datahub search "users" --filter platform=snowflake --dry-run
+
+# Custom field projection (reduce response size)
+datahub search "users" --projection "urn type platform { name }"
+
 # Diagnose search configuration
 datahub search diagnose
 datahub search diagnose --format json
@@ -187,6 +193,58 @@ Apply saved DataHub Views to searches:
 datahub search "*" --view "urn:li:dataHubView:12345678"
 ```
 
+### 9. Dry Run
+
+Preview the compiled GraphQL query and variables without connecting to DataHub:
+
+```shell
+# See what query would be sent
+datahub search "users" --dry-run
+
+# Dry run with filters and sorting
+datahub search "*" --filter platform=snowflake --sort-by lastModified --dry-run
+
+# Dry run with semantic search
+datahub search --semantic "financial data" --dry-run
+
+# Dry run with projection
+datahub search "users" --projection "urn type" --dry-run
+```
+
+Output is a JSON object containing `operation_name`, `graphql_field`, `variables`, and optionally `projection` and `query` (when using `--projection`).
+
+### 10. Field Projection
+
+Control which GraphQL fields are returned per entity to reduce response size:
+
+```shell
+# Return only URN and type
+datahub search "users" --projection "urn type"
+
+# Return URN with platform info
+datahub search "users" --projection "urn platform { ...PlatformFields }"
+
+# Load projection from a file
+datahub search "users" --projection @my_fields.gql
+
+# Braces are optional — these are equivalent
+datahub search "users" --projection "{ urn type }"
+datahub search "users" --projection "urn type"
+```
+
+When `--projection` is omitted, the full default selection set from `search_queries.gql` is used. Projections have a 5000-character limit and must not contain mutations, introspection queries, variables, or directives.
+
+### 11. Agent Context
+
+Print best-practice guidance for AI agents consuming the search CLI:
+
+```shell
+# Print agent context and exit
+datahub search --agent-context
+```
+
+When stdout is not a TTY (e.g., piped to an AI agent), `--help` automatically appends the agent context.
+
 ## Command Reference
 
 ### Main Command
@@ -210,23 +268,26 @@ datahub search query [QUERY] [OPTIONS]
 
 **Options:**
 
-| Option              | Type   | Description                                               |
-| ------------------- | ------ | --------------------------------------------------------- |
-| `QUERY`             | string | Search query string (default: "\*" for all entities)      |
-| `--semantic`        | flag   | Use semantic search instead of keyword search             |
-| `-f, --filter`      | string | Simple filter: key=value (repeatable, comma for OR)       |
-| `--filters`         | string | Complex filters as JSON string (AND/OR/NOT logic)         |
-| `-n, --limit`       | int    | Number of results to return (default: 10, max: 50)        |
-| `--offset`          | int    | Starting position for pagination (default: 0)             |
-| `--sort-by`         | string | Field name to sort by                                     |
-| `--sort-order`      | choice | Sort order: `asc` or `desc` (default: desc)               |
-| `--format`          | choice | Output format: `json`, `table`, or `urns` (default: json) |
-| `--table`           | flag   | Shortcut for --format table                               |
-| `--urns-only`       | flag   | Shortcut for --format urns                                |
-| `--list-filters`    | flag   | List all available filter fields                          |
-| `--describe-filter` | string | Describe a specific filter field                          |
-| `--facets-only`     | flag   | Return only facets, no search results                     |
-| `--view`            | string | DataHub View URN to apply                                 |
+| Option              | Type   | Description                                                 |
+| ------------------- | ------ | ----------------------------------------------------------- |
+| `QUERY`             | string | Search query string (default: "\*" for all entities)        |
+| `--semantic`        | flag   | Use semantic search instead of keyword search               |
+| `-f, --filter`      | string | Simple filter: key=value (repeatable, comma for OR)         |
+| `--filters`         | string | Complex filters as JSON string (AND/OR/NOT logic)           |
+| `-n, --limit`       | int    | Number of results to return (default: 10, max: 50)          |
+| `--offset`          | int    | Starting position for pagination (default: 0)               |
+| `--sort-by`         | string | Field name to sort by                                       |
+| `--sort-order`      | choice | Sort order: `asc` or `desc` (default: desc)                 |
+| `--format`          | choice | Output format: `json`, `table`, or `urns` (default: json)   |
+| `--table`           | flag   | Shortcut for --format table                                 |
+| `--urns-only`       | flag   | Shortcut for --format urns                                  |
+| `--list-filters`    | flag   | List all available filter fields                            |
+| `--describe-filter` | string | Describe a specific filter field                            |
+| `--facets-only`     | flag   | Return only facets, no search results                       |
+| `--view`            | string | DataHub View URN to apply                                   |
+| `--dry-run`         | flag   | Show compiled GraphQL query and variables without executing |
+| `--projection`      | string | Custom GraphQL selection set for entity (inline or @file)   |
+| `--agent-context`   | flag   | Print agent skill context (best practices for AI agents)    |
 
 #### `diagnose`
 
