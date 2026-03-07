@@ -225,6 +225,7 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `DOMAIN_DEFAULT_TAB`                          | ``      | Default tab for domains (set to DOCUMENTATION_TAB to show documentation tab first) | Frontend   |
 | `APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY` | `false` | Show sidebar section when empty (deprecated)                                       | Frontend   |
 | `SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED`        | `true`  | Enable visual highlighting on search result names/descriptions                     | Frontend   |
+| `DATAHUB_ACCESSIBILITY_MODE`                  | `false` | Enables accessibility mode for better screen reader support and federal compliance | Frontend   |
 
 ## Storage Layer Configuration
 
