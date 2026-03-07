@@ -229,7 +229,7 @@ def _classify_module_section_bucket(title: Optional[str]) -> str:
 
     normalized = _normalize_title(title)
     if "concept mapping" in normalized or "entity mapping" in normalized:
-        return "drop"
+        return "capabilities"
 
     if normalized.startswith("overview") or "introduction" in normalized:
         return "overview"
@@ -756,6 +756,11 @@ def generate(  # noqa: C901
                 module_overview = normalized_docs.overview
                 if is_single_module_platform and platform_overview:
                     module_overview = platform_overview
+                    if (
+                        normalized_docs.overview
+                        and normalized_docs.overview not in platform_overview
+                    ):
+                        module_overview += f"\n\n{normalized_docs.overview}"
                 elif not is_single_module_platform:
                     module_overview_prefix = (
                         f"This module focuses on the `{plugin_name}` ingestion path for {platform.name}. "

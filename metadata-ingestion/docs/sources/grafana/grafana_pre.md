@@ -116,7 +116,7 @@ source:
 - **Email suffix control**: Configure how user email addresses are converted to DataHub user URNs via `remove_email_suffix`
 - **Disable ownership**: Set `ingest_owners: false` to skip ownership extraction entirely
 
-### Concept Mapping
+#### Concept Mapping
 
 | Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
 | --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -128,7 +128,7 @@ source:
 | Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Dashboard creator assigned as TECHNICAL_OWNER; email suffix removal configurable via `remove_email_suffix` |
 | Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                                                               |
 
-### Compatibility
+#### Compatibility
 
 Supports any Grafana instance accessible via API. Extracts column-level lineage from parseable SQL queries in data sources.
 
@@ -136,3 +136,13 @@ For optimal SQL lineage extraction:
 
 - Configure database/schema information in data source connection settings
 - Set `connection_to_platform_map` to match your data sources
+
+#### Extracted Metadata Scope
+
+The connector extracts metadata from Grafana APIs with support for:
+
+- Folder and dashboard container hierarchy
+- Panel and visualization entities (chart modeling)
+- Data source references for dataset linking
+- Dashboard ownership and tags
+- Optional table/column lineage from parseable SQL-based panels

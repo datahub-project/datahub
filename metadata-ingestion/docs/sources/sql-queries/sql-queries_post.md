@@ -11,6 +11,25 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 **Note:** This uses newline-delimited JSON format (NDJSON), where each line is a separate JSON object.
 
+#### Query File Format
+
+The source expects newline-delimited JSON (NDJSON), with one query object per line. Common fields:
+
+- `query` (required): SQL text to parse
+- `timestamp` (optional): query execution timestamp
+- `user` (optional): actor used for usage attribution
+- `operation_type` (optional): fallback operation classification
+- `session_id` (optional): session key used to resolve temporary tables across related queries
+- `downstream_tables` / `upstream_tables` (optional): fallback lineage hints if parsing fails
+
+#### Incremental Lineage
+
+When stateful ingestion is enabled, lineage extraction can progress incrementally over new query records while preserving historical checkpoints.
+
+#### Temporary Table Support
+
+`session_id` enables correlation of temporary-table creation and downstream usage across query sequences, improving lineage continuity.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

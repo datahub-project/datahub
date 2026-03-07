@@ -4,7 +4,7 @@ The `azure-data-factory` module ingests metadata from Azure Data Factory into Da
 
 ### Prerequisites
 
-#### Authentication
+#### Authentication Methods
 
 The connector supports multiple authentication methods:
 
@@ -42,7 +42,7 @@ az role assignment create \
 
 For detailed instructions, see [Azure custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles).
 
-### Concept Mapping
+#### Concept Mapping
 
 | ADF Concept  | DataHub Entity      |
 | ------------ | ------------------- |
@@ -52,7 +52,7 @@ For detailed instructions, see [Azure custom roles](https://learn.microsoft.com/
 | Dataset      | Dataset             |
 | Pipeline Run | DataProcessInstance |
 
-### Lineage Extraction
+#### Lineage Extraction
 
 #### Which Activities Produce Lineage?
 
@@ -166,7 +166,7 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
 - **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
 
-### Execution History
+#### Execution History
 
 Pipeline runs are extracted as `DataProcessInstance` entities by default:
 
@@ -180,7 +180,7 @@ source:
 
 This provides run status, duration, timestamps, trigger info, parameters, and activity-level details.
 
-### Advanced: Multi-Environment Setup
+#### Advanced: Multi-Environment Setup
 
 #### When to Use `platform_instance`
 
@@ -220,3 +220,11 @@ urn:li:dataFlow:(azure-data-factory,{platform_instance}.{factory_name}.{pipeline
 ```
 
 For Azure naming rules, see [Azure Data Factory naming rules](https://learn.microsoft.com/en-us/azure/data-factory/naming-rules).
+
+#### Setup
+
+1. Configure authentication for the connector runtime.
+2. Grant read permissions on the target Data Factory resources.
+3. Provide a subscription scope and optional pattern filters in the ingestion recipe.
+
+This section intentionally complements (and does not duplicate) the generated **Starter Recipe** section.

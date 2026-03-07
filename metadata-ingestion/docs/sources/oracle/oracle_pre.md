@@ -4,7 +4,7 @@ The `oracle` module ingests metadata from Oracle into DataHub. It is intended fo
 
 ### Prerequisites
 
-#### Data Dictionary Mode
+#### Data Dictionary Mode/Views
 
 Oracle supports two extraction modes via the `data_dictionary_mode` option:
 
@@ -30,7 +30,7 @@ The following table contains a brief description of what each data dictionary vi
 | `ALL_DEPENDENCIES` or `DBA_DEPENDENCIES`           | Get dependency information for database objects       |
 | `ALL_MVIEWS` or `DBA_MVIEWS`                       | Get materialized views and their definitions          |
 
-#### Required Privileges by Mode
+#### Data Dictionary Views accessible information and required privileges
 
 - **`ALL_` views**: Accessible with standard user privileges — shows only objects the user can access
 - **`DBA_` views**: Requires `SYSDBA`, `SELECT ANY DICTIONARY` privilege, or `SELECT_CATALOG_ROLE` role

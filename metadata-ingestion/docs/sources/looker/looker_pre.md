@@ -4,7 +4,7 @@ The `looker` module ingests metadata from Looker into DataHub. It is intended fo
 
 ### Prerequisites
 
-#### Required Permissions
+#### Set up the right permissions
 
 Grant the following permissions:
 
@@ -31,7 +31,7 @@ Here is an example permission set after configuration.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/looker_datahub_permission_set.png"/>
 </p>
 
-#### API Key
+#### Get an API key
 
 Generate an API key (client ID and secret) for the account with the above permissions. See [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk).
 

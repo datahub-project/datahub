@@ -454,3 +454,12 @@ files (e.g. using `ulimit` in Linux).
 ### DataHub Iceberg REST Catalog
 
 DataHub also implements the Iceberg REST Catalog. See the [Iceberg Catalog documentation](docs/iceberg-catalog.md) for more details.
+
+### Integration Details
+
+For advanced Iceberg behavior and tuning, refer to:
+
+- [Iceberg catalog properties](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)
+- [Iceberg table properties](https://iceberg.apache.org/docs/latest/configuration/#table-properties)
+- [Iceberg specification](https://iceberg.apache.org/spec/)
+- [PyIceberg configuration](https://py.iceberg.apache.org/)

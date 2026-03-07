@@ -51,7 +51,7 @@ The Fivetran source uses **quoted identifiers** for database and schema names to
   - No configuration changes are required for standard identifiers (letters, numbers, underscores only)
 - **Recommended**: For best practices and to ensure consistency, maintain the exact case of your database and schema names in your configuration to match what's stored in Snowflake
 
-### Concept mapping
+### Concept Mapping
 
 | Fivetran        | Datahub                                                                                               |
 | --------------- | ----------------------------------------------------------------------------------------------------- |
