@@ -523,6 +523,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",
+          "ebean.captureStackTrace",
           "ebean.maxAgeMinutes",
           "ebean.maxConnections",
           "ebean.maxInactiveTimeSeconds",
