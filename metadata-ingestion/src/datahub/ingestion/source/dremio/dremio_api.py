@@ -15,19 +15,34 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerResponse,
+    DremioEntityContainerType,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
 
-logger = logging.getLogger(__name__)
+# System table patterns to exclude (similar to BigQuery's approach)
+# Note: These patterns are applied to lowercase names for case-insensitive matching
+# Conservative patterns that only match actual system schemas/tables
+DREMIO_SYSTEM_TABLES_PATTERN = [
+    r"^information_schema$",  # Exact INFORMATION_SCHEMA schema match
+    r"^sys$",  # Exact SYS schema match
+    r"^information_schema\..*",  # Tables in INFORMATION_SCHEMA schema
+    r"^sys\..*",  # Tables in SYS schema
+]
 
 
 class DremioAPIException(Exception):
@@ -40,11 +55,113 @@ class DremioEdition(Enum):
     COMMUNITY = "COMMUNITY"
 
 
-class DremioEntityContainerType(Enum):
-    SPACE = "SPACE"
-    CONTAINER = "CONTAINER"
-    FOLDER = "FOLDER"
-    SOURCE = "SOURCE"
+class DremioFilter:
+    """
+    Dremio-specific filtering logic that follows the standard pattern used by other SQL platforms.
+    """
+
+    def __init__(
+        self, config: "DremioSourceConfig", structured_reporter: "DremioSourceReport"
+    ) -> None:
+        self.config = config
+        self.structured_reporter = structured_reporter
+
+    def is_schema_allowed(
+        self, schema_path: List[str], container_name: str = ""
+    ) -> bool:
+        """
+        Check if a schema (container path) is allowed based on schema_pattern and system schema filtering.
+
+        Args:
+            schema_path: List of path components (e.g., ['source', 'folder', 'subfolder'])
+            container_name: Name of the final container (optional, can be included in schema_path)
+
+        Returns:
+            True if the schema should be included, False otherwise
+        """
+        if container_name:
+            full_path_components = schema_path + [container_name]
+        else:
+            full_path_components = schema_path
+
+        if not full_path_components:
+            return True
+
+        full_schema_name = ".".join(full_path_components).lower()
+
+        if not self.config.include_system_tables and not AllowDenyPattern(
+            deny=DREMIO_SYSTEM_TABLES_PATTERN
+        ).allowed(full_schema_name):
+            return False
+
+        if len(full_path_components) == 1:
+            container_name = full_path_components[0]
+
+            if self.config.schema_pattern.allowed(container_name):
+                return True
+
+            # Allow root containers that are prefixes of hierarchical patterns
+            for pattern in self.config.schema_pattern.allow:
+                if "." in pattern and pattern.lower().startswith(
+                    container_name.lower() + "."
+                ):
+                    deny_only = AllowDenyPattern(
+                        allow=[".*"],
+                        deny=self.config.schema_pattern.deny,
+                    )
+                    if deny_only.allowed(container_name):
+                        return True
+            return False
+        else:
+            current_path = full_schema_name
+
+            if self.config.schema_pattern.allowed(current_path):
+                return True
+
+            # Allow intermediate paths for open-ended patterns (ending with .*)
+            for pattern in self.config.schema_pattern.allow:
+                if pattern.endswith(".*"):
+                    pattern_prefix = pattern[:-2]
+                    if pattern_prefix.lower().startswith(current_path.lower() + "."):
+                        deny_only = AllowDenyPattern(
+                            allow=[".*"],
+                            deny=self.config.schema_pattern.deny,
+                        )
+                        if deny_only.allowed(current_path):
+                            return True
+            return False
+
+    def is_dataset_allowed(
+        self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
+    ) -> bool:
+        """
+        Check if a dataset (table/view) is allowed based on dataset_pattern and system table filtering.
+
+        Args:
+            dataset_name: Name of the dataset
+            schema_path: List of schema path components
+            dataset_type: Type of dataset ('table', 'view', etc.)
+
+        Returns:
+            True if the dataset should be included, False otherwise
+        """
+        if schema_path:
+            full_dataset_name = f"{'.'.join(schema_path)}.{dataset_name}".lower()
+        else:
+            full_dataset_name = dataset_name.lower()
+
+        if not self.config.include_system_tables and not AllowDenyPattern(
+            deny=DREMIO_SYSTEM_TABLES_PATTERN
+        ).allowed(full_dataset_name):
+            return False
+
+        return self.config.dataset_pattern.allowed(full_dataset_name)
+
+    def should_include_container(self, path: List[str], name: str) -> bool:
+        """
+        Backward compatibility method that uses the new filtering logic.
+        """
+        return self.is_schema_allowed(path, name)
 
 
 class DremioAPIOperations:
@@ -55,6 +172,7 @@ class DremioAPIOperations:
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
+        self.filter = DremioFilter(connection_args, report)
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
@@ -62,6 +180,7 @@ class DremioAPIOperations:
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.report = report
+        self._chunk_size = 1000  # Sensible default to prevent OOM
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
@@ -552,12 +671,19 @@ class DremioAPIOperations:
             if not table_full_path:
                 continue
 
+            # Ensure ordinal_position is always an integer for proper sorting
+            raw_ordinal = record.get("ORDINAL_POSITION", ordinal_position)
+            try:
+                ordinal_pos = (
+                    int(raw_ordinal) if raw_ordinal is not None else ordinal_position
+                )
+            except (ValueError, TypeError):
+                ordinal_pos = ordinal_position
+
             column_dictionary[table_full_path].append(
                 {
                     "name": record["COLUMN_NAME"],
-                    "ordinal_position": record.get(
-                        "ORDINAL_POSITION", ordinal_position
-                    ),
+                    "ordinal_position": ordinal_pos,
                     "is_nullable": record["IS_NULLABLE"],
                     "data_type": record["DATA_TYPE"],
                     "column_size": record["COLUMN_SIZE"],
@@ -658,17 +784,60 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        # Process each container's results separately to avoid memory buildup
+        # Process each container's results with chunking to avoid memory buildup
         for schema in containers:
             try:
-                formatted_query = query_template.format(
-                    schema_pattern=schema_condition,
-                    deny_schema_pattern=deny_schema_condition,
-                    container_name=schema.container_name.lower(),
+                for table in self._get_container_tables_chunked(
+                    schema, query_template, schema_condition, deny_schema_condition
+                ):
+                    yield table
+            except DremioAPIException as e:
+                self.report.warning(
+                    message="Container has no tables or views",
+                    context=f"{schema.subclass} {schema.container_name}",
+                    exc=e,
                 )
+                continue
 
-                # Use streaming query execution
+    def _get_container_tables_chunked(
+        self,
+        schema: "DremioContainer",
+        query_template: str,
+        schema_condition: str,
+        deny_schema_condition: str,
+    ) -> Iterator[Dict]:
+        """
+        Fetch tables for a container using chunked queries with LIMIT and OFFSET
+        to prevent Dremio OOM errors.
+        """
+        chunk_size = self._chunk_size
+        offset = 0
+
+        while True:
+            # Create chunked query with LIMIT and OFFSET
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
+
+            formatted_query = query_template.format(
+                schema_pattern=schema_condition,
+                deny_schema_pattern=deny_schema_condition,
+                container_name=schema.container_name.lower(),
+                limit_clause=limit_clause,
+            )
+
+            logger.info(
+                f"Fetching chunk of {chunk_size} tables for container {schema.container_name} "
+                f"(offset: {offset})"
+            )
+
+            try:
                 container_results = list(self.execute_query_iter(query=formatted_query))
+
+                if not container_results:
+                    # No more results
+                    logger.info(
+                        f"No more tables found for container {schema.container_name}"
+                    )
+                    break
 
                 if self.edition == DremioEdition.COMMUNITY:
                     # Process community edition results
@@ -691,10 +860,19 @@ class DremioAPIOperations:
                             continue
 
                         # Store column information
+                        # Ensure ordinal_position is always an integer for proper sorting
+                        raw_ordinal = record.get("ORDINAL_POSITION")
+                        try:
+                            ordinal_pos = (
+                                int(raw_ordinal) if raw_ordinal is not None else 0
+                            )
+                        except (ValueError, TypeError):
+                            ordinal_pos = 0
+
                         column_dictionary[table_full_path].append(
                             {
                                 "name": record["COLUMN_NAME"],
-                                "ordinal_position": record["ORDINAL_POSITION"],
+                                "ordinal_position": ordinal_pos,
                                 "is_nullable": record["IS_NULLABLE"],
                                 "data_type": record["DATA_TYPE"],
                                 "column_size": record["COLUMN_SIZE"],
@@ -717,10 +895,15 @@ class DremioAPIOperations:
 
                     # Yield tables one at a time
                     for table_path, table_info in table_metadata.items():
+                        # Sort columns by ordinal_position to ensure consistent ordering
+                        columns = sorted(
+                            column_dictionary[table_path],
+                            key=lambda col: col.get("ordinal_position", 0),
+                        )
                         yield {
                             "TABLE_NAME": table_info.get("TABLE_NAME"),
                             "TABLE_SCHEMA": table_info.get("TABLE_SCHEMA"),
-                            "COLUMNS": column_dictionary[table_path],
+                            "COLUMNS": columns,
                             "VIEW_DEFINITION": table_info.get("VIEW_DEFINITION"),
                             "RESOURCE_ID": table_info.get("RESOURCE_ID"),
                             "LOCATION_ID": table_info.get("LOCATION_ID"),
@@ -730,12 +913,32 @@ class DremioAPIOperations:
                             "FORMAT_TYPE": table_info.get("FORMAT_TYPE"),
                         }
 
+                # If we got fewer results than chunk_size, we're done
+                if len(container_results) < chunk_size:
+                    logger.info(
+                        f"Completed fetching tables for container {schema.container_name}. "
+                        f"Final chunk had {len(container_results)} results."
+                    )
+                    break
+
+                offset += chunk_size
+
             except DremioAPIException as e:
-                self.report.warning(
-                    message="Container has no tables or views",
-                    context=f"{schema.subclass} {schema.container_name}",
-                    exc=e,
+                logger.error(
+                    f"Error in chunked query for container {schema.container_name} "
+                    f"at offset {offset}: {e}"
                 )
+                # Check if it's the KeyError: 'rows' that indicates Dremio crash/OOM
+                if "'rows'" in str(e):
+                    self.report.report_warning(
+                        f"Dremio crash detected for container {schema.container_name} "
+                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
+                        f"Consider reducing chunk size if this persists.",
+                        context=f"container:{schema.container_name}",
+                        exc=e,
+                    )
+                # Stop processing this container on error
+                break
 
     def validate_schema_format(self, schema):
         if "." in schema:
@@ -797,7 +1000,56 @@ class DremioAPIOperations:
                 end_timestamp_millis=end_timestamp_str,
             )
 
-        return self.execute_query_iter(query=jobs_query)
+        # Use chunked query execution for large query result sets
+        return self._get_queries_chunked(jobs_query)
+
+    def _get_queries_chunked(self, base_query: str) -> Iterator[Dict[str, Any]]:
+        """
+        Fetch queries using chunked execution with LIMIT and OFFSET to prevent Dremio OOM.
+        """
+        chunk_size = self._chunk_size
+        offset = 0
+
+        while True:
+            # Create chunked query with LIMIT and OFFSET
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
+
+            chunked_query = base_query.format(limit_clause=limit_clause)
+
+            logger.info(f"Fetching chunk of {chunk_size} queries (offset: {offset})")
+
+            try:
+                chunk_results = list(self.execute_query_iter(query=chunked_query))
+
+                if not chunk_results:
+                    logger.info("No more queries to fetch")
+                    break
+
+                for query_result in chunk_results:
+                    yield query_result
+
+                # If we got fewer results than chunk_size, we're done
+                if len(chunk_results) < chunk_size:
+                    logger.info(
+                        f"Completed fetching queries. Final chunk had {len(chunk_results)} results."
+                    )
+                    break
+
+                offset += chunk_size
+
+            except DremioAPIException as e:
+                logger.error(
+                    f"Error in chunked query extraction at offset {offset}: {e}"
+                )
+                # Check if it's the KeyError: 'rows' that indicates Dremio crash/OOM
+                if "'rows'" in str(e):
+                    self.report.report_warning(
+                        f"Dremio crash detected during query extraction "
+                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
+                        f"Consider reducing chunk size if this persists.",
+                        context="query_extraction",
+                    )
+                break
 
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
@@ -895,40 +1147,6 @@ class DremioAPIOperations:
             # Complex regex pattern - use existing regex matching logic
             return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
 
-    def should_include_container(self, path: List[str], name: str) -> bool:
-        """
-        Helper method to check if a container should be included based on schema patterns.
-        Used by both get_all_containers and get_containers_for_location.
-        """
-        path_components = path + [name] if path else [name]
-        full_path = ".".join(path_components)
-
-        # Default allow everything case
-        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
-            self.report.report_container_scanned(full_path)
-            return True
-
-        # Check deny patterns first
-        if self.deny_schema_pattern:
-            for pattern in self.deny_schema_pattern:
-                if self._check_pattern_match(
-                    pattern=pattern,
-                    paths=[full_path],
-                    allow_prefix=False,
-                ):
-                    self.report.report_container_filtered(full_path)
-                    return False
-
-        # Check allow patterns
-        for pattern in self.allow_schema_pattern:
-            # Check if current path could potentially match this pattern
-            if self._could_match_pattern(pattern, path_components):
-                self.report.report_container_scanned(full_path)
-                return True
-
-        self.report.report_container_filtered(full_path)
-        return False
-
     def get_all_containers(self):
         """
         Query the Dremio sources API and return filtered source information.
@@ -937,34 +1155,77 @@ class DremioAPIOperations:
         response = self.get(url="/catalog")
 
         def process_source(source):
-            if source.get("containerType") == DremioEntityContainerType.SOURCE.value:
-                source_resp = self.get(
-                    url=f"/catalog/{source.get('id')}",
-                )
+            container_type = source.get("containerType")
 
-                source_config = source_resp.get("config", {})
+            if container_type == DremioEntityContainerType.SOURCE.value:
+                # Only fetch source details if we have an ID
+                source_resp = {}
+                source_config = {}
+                if source.get("id"):
+                    try:
+                        source_resp = self.get(
+                            url=f"/catalog/{source.get('id')}",
+                        )
+                        source_config = source_resp.get("config", {})
+                    except Exception:
+                        # If we can't fetch source details, continue with basic info
+                        pass
+
                 db = source_config.get(
                     "database", source_config.get("databaseName", "")
                 )
 
-                if self.should_include_container([], source.get("path")[0]):
-                    return {
-                        "id": source.get("id"),
-                        "name": source.get("path")[0],
-                        "path": [],
+                # Extract name from path or use the name field
+                source_name = (
+                    source.get("path", [""])[0]
+                    if source.get("path")
+                    else source.get("name", "")
+                )
+
+                # Check if container should be included
+                if source_name and self.filter.should_include_container(
+                    [], source_name
+                ):
+                    container_data = {
+                        **source,  # Original source data
+                        **source_resp,  # Source details (may be empty)
+                        "name": source_name,  # Preserve the source name
                         "container_type": DremioEntityContainerType.SOURCE,
-                        "source_type": source_resp.get("type"),
                         "root_path": source_config.get("rootPath"),
                         "database_name": db,
+                        "path": [],  # Root sources should have empty path for proper browse paths
                     }
-            else:
-                if self.should_include_container([], source.get("path")[0]):
-                    return {
-                        "id": source.get("id"),
-                        "name": source.get("path")[0],
-                        "path": [],
-                        "container_type": DremioEntityContainerType.SPACE,
+
+                    return DremioContainerResponse.model_validate(container_data)
+            elif container_type in (
+                DremioEntityContainerType.SPACE.value,
+                DremioEntityContainerType.HOME.value,
+            ):
+                # Handle spaces and home spaces
+                # Extract name from path or use the name field
+                space_name = (
+                    source.get("path", [""])[0]
+                    if source.get("path")
+                    else source.get("name", "")
+                )
+
+                # Check if container should be included
+                if space_name and self.filter.should_include_container([], space_name):
+                    # Map HOME to SPACE for subtype (both are treated as spaces in DataHub)
+                    mapped_container_type = (
+                        DremioEntityContainerType.SPACE
+                        if container_type == DremioEntityContainerType.HOME.value
+                        else DremioEntityContainerType.SPACE
+                    )
+
+                    container_data = {
+                        **source,  # Original source data
+                        "name": space_name,  # Preserve the space name
+                        "containerType": mapped_container_type.value,  # Use alias and value
+                        "path": [],  # Root spaces should have empty path for proper browse paths
                     }
+
+                    return DremioContainerResponse.model_validate(container_data)
             return None
 
         def process_source_and_containers(source):
@@ -972,11 +1233,21 @@ class DremioAPIOperations:
             if not container:
                 return []
 
-            # Get sub-containers
-            sub_containers = self.get_containers_for_location(
-                resource_id=container.get("id"),
-                path=[container.get("name")],
-            )
+            # Get sub-containers using ID or name as fallback
+            sub_containers = []
+            resource_id = container.id or container.name
+            if resource_id:
+                try:
+                    sub_containers = self.get_containers_for_location(
+                        resource_id=resource_id,
+                        path=[container.name],
+                        root_container_type=container.container_type,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        f"Failed to get sub-containers for {container.name}: {exc}"
+                    )
+                    # Continue without sub-containers
 
             return [container] + sub_containers
 
@@ -1015,39 +1286,43 @@ class DremioAPIOperations:
             return ""
 
     def get_containers_for_location(
-        self, resource_id: str, path: List[str]
+        self,
+        resource_id: str,
+        path: List[str],
+        root_container_type: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         containers = []
 
         def traverse_path(location_id: str, entity_path: List[str]) -> List:
-            nonlocal containers
+            nonlocal containers, root_container_type
             try:
                 response = self.get(url=f"/catalog/{location_id}")
 
                 # Check if current folder should be included
                 if (
                     response.get("entityType")
-                    == DremioEntityContainerType.FOLDER.value.lower()
+                    == DremioEntityContainerType.FOLDER.lower()
                 ):
                     folder_name = entity_path[-1]
                     folder_path = entity_path[:-1]
 
-                    if self.should_include_container(folder_path, folder_name):
+                    if self.filter.should_include_container(folder_path, folder_name):
+                        # Create folder container data
+                        folder_data = {
+                            "id": location_id,
+                            "name": folder_name,
+                            "path": folder_path,
+                            "container_type": DremioEntityContainerType.FOLDER,
+                            "root_container_type": root_container_type,  # Pass down root type
+                        }
+
                         containers.append(
-                            {
-                                "id": location_id,
-                                "name": folder_name,
-                                "path": folder_path,
-                                "container_type": DremioEntityContainerType.FOLDER,
-                            }
+                            DremioContainerResponse.model_validate(folder_data)
                         )
 
                 # Recursively process child containers
                 for container in response.get("children", []):
-                    if (
-                        container.get("type")
-                        == DremioEntityContainerType.CONTAINER.value
-                    ):
+                    if container.get("type") == DremioEntityContainerType.CONTAINER:
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
