@@ -1,0 +1,1138 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000765,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "962b0536167ea6ac3175ce5d116fa629",
+                "job_state": "RUNNING",
+                "flink_version": "1.19.3",
+                "start_time": "1772809195401",
+                "duration_ms": "2639",
+                "state_backend": "HashMapStateBackend",
+                "checkpoint_interval_ms": "9223372036854775807",
+                "checkpoint_mode": "at_least_once",
+                "externalized_checkpoints": "false"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/962b0536167ea6ac3175ce5d116fa629",
+            "name": "test_enrich_orders",
+            "description": "Flink streaming job",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000743,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685001313,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "flink_job_id": "4c0c8c7e458bea46177f69a1d97feeb7",
+                "operator_count": "1"
+            },
+            "externalUrl": "http://localhost:8082/#/jobs/4c0c8c7e458bea46177f69a1d97feeb7",
+            "name": "test_enrich_orders",
+            "description": "Coalesced Flink job operators for test_enrich_orders",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685001314,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched_orders,TEST)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685001314,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "test_enrich_orders",
+                    "urn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685001314,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685000745,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685001287,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "flink",
+                "env": "TEST",
+                "catalog_name": "pg_catalog"
+            },
+            "name": "pg_catalog",
+            "qualifiedName": "pg_catalog",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685002358,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685002358,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685002358,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685002359,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685002359,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004444,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "flink",
+                "env": "TEST",
+                "catalog_name": "pg_catalog",
+                "database_name": "flink_catalog",
+                "catalog": "pg_catalog",
+                "database": "flink_catalog"
+            },
+            "name": "flink_catalog",
+            "qualifiedName": "pg_catalog.flink_catalog",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004444,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004445,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004445,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004445,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+                    "urn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004446,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004975,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:flink",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "event_id",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "event_type",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "payload",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "event_time",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "TIMESTAMP",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004976,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catalog": "pg_catalog",
+                "database": "flink_catalog",
+                "table": "public.events"
+            },
+            "qualifiedName": "pg_catalog.flink_catalog.public.events",
+            "description": "Flink catalog table: pg_catalog.flink_catalog.public.events",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004977,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004978,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "TABLE"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004978,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+                    "urn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+                },
+                {
+                    "id": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+                    "urn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685004978,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005507,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:flink",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "product_id",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "title",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "price",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "in_stock",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "BOOLEAN",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005508,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catalog": "pg_catalog",
+                "database": "flink_catalog",
+                "table": "public.products"
+            },
+            "qualifiedName": "pg_catalog.flink_catalog.public.products",
+            "description": "Flink catalog table: pg_catalog.flink_catalog.public.products",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005509,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005509,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "TABLE"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005509,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+                    "urn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+                },
+                {
+                    "id": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+                    "urn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005509,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005510,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:flink",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "username",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "active",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "BOOLEAN",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005511,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catalog": "pg_catalog",
+                "database": "flink_catalog",
+                "table": "public.users"
+            },
+            "qualifiedName": "pg_catalog.flink_catalog.public.users",
+            "description": "Flink catalog table: pg_catalog.flink_catalog.public.users",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005511,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005511,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "TABLE"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005512,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+                    "urn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+                },
+                {
+                    "id": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3",
+                    "urn": "urn:li:container:ea2eb96691939e3f16fa8ec1d72b6ca3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685005512,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007083,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "flink",
+                "env": "TEST",
+                "catalog_name": "pg_catalog",
+                "database_name": "postgres",
+                "catalog": "pg_catalog",
+                "database": "postgres"
+            },
+            "name": "postgres",
+            "qualifiedName": "pg_catalog.postgres",
+            "env": "TEST"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007084,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007084,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:flink"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007085,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007085,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:30d54bf98a1abddb07f3cf7ac6bf423c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d",
+                    "urn": "urn:li:container:ee3e90b12933c6ffdd269fbd42efc40d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007086,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(flink,test_enrich_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007086,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(flink,test_enrich_orders,TEST),test_enrich_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007086,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.events,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007087,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.products,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007087,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:flink,pg_catalog.flink_catalog.public.users,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007087,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,enriched_orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007075,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,TEST)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1772685007075,
+        "runId": "flink-golden-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

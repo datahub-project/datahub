@@ -140,6 +140,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:flink",
+        "name": "flink",
+        "displayName": "Flink",
+        "description": "Import jobs, lineage, and catalog metadata from Apache Flink.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/flink/",
+        "recipe": "source:\n    type: flink\n    config:\n        connection:\n            rest_api_url: \"http://localhost:8081\"\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",

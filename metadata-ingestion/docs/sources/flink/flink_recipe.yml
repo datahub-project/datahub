@@ -1,0 +1,57 @@
+source:
+  type: "flink"
+  config:
+    connection:
+      rest_api_url: "http://localhost:8081"
+      # sql_gateway_url: "http://localhost:8083"
+
+      # Authentication (uncomment ONE method)
+      # token: "${FLINK_API_TOKEN}"
+      # username: "admin"
+      # password: "${FLINK_PASSWORD}"
+
+      # Advanced connection tuning
+      # timeout_seconds: 30
+      # max_retries: 3
+      # verify_ssl: true
+
+    # Filter jobs by name
+    # job_name_pattern:
+    #   allow:
+    #     - "^prod_.*"
+
+    # Filter by job state (defaults to RUNNING, FINISHED, FAILED, CANCELED)
+    # include_job_states:
+    #   - "RUNNING"
+    #   - "FINISHED"
+
+    # Catalog metadata via SQL Gateway (requires sql_gateway_url)
+    # include_catalog_metadata: true
+    # catalog_pattern:
+    #   allow:
+    #     - "^my_catalog$"
+
+    # DataJob granularity - "job" (default) or "vertex" (one per operator)
+    # operator_granularity: "job"
+
+    # include_lineage: true
+    # include_run_history: true
+
+    # Map lineage datasets to platform instances
+    # platform_instance_map:
+    #   kafka: "my-kafka-cluster"
+
+    # Parallel job processing
+    # max_workers: 10
+
+    # Stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+    env: "PROD"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -438,6 +438,16 @@
     displayName: Feast
     type: OTHERS
     logoUrl: "assets/platforms/feastlogo.png"
+- entityUrn: urn:li:dataPlatform:flink
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: flink
+    displayName: Apache Flink
+    type: OTHERS
+    logoUrl: "assets/platforms/flinklogo.svg"
 - entityUrn: urn:li:dataPlatform:sagemaker
   entityType: dataPlatform
   aspectName: dataPlatformInfo
