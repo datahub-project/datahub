@@ -329,6 +329,41 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                     internal(token, identifier_accessor)
 
             else:
+                # Check if expression is an if/then/else — process both branches.
+                # This must be checked after invoke_expression since DFS would
+                # also find if_expression nodes nested inside function arguments.
+                if_expr: Optional[Tree] = tree_function.first_if_expression_func(
+                    rh_tree
+                )
+                if if_expr is not None:
+                    branch_expressions = tree_function.get_all_expressions_from_if(
+                        if_expr
+                    )
+                    for branch_expr in branch_expressions:
+                        invoke_expr: Optional[Tree] = (
+                            tree_function.first_invoke_expression_func(branch_expr)
+                        )
+                        if invoke_expr is not None:
+                            branch_result: Union[
+                                DataAccessFunctionDetail, List[str], None
+                            ] = self._process_invoke_expression(invoke_expr)
+                            if isinstance(branch_result, DataAccessFunctionDetail):
+                                branch_result.identifier_accessor = identifier_accessor
+                                table_links.append(branch_result)
+                            elif isinstance(branch_result, list):
+                                for token in branch_result:
+                                    internal(token, identifier_accessor)
+                        else:
+                            new_id, kv = self._process_item_selector_expression(
+                                branch_expr
+                            )
+                            if new_id is not None and kv is not None:
+                                new_acc = self._create_or_update_identifier_accessor(
+                                    identifier_accessor, new_id, kv
+                                )
+                                internal(new_id, new_acc)
+                    return None
+
                 new_identifier, key_vs_value = self._process_item_selector_expression(
                     rh_tree
                 )
