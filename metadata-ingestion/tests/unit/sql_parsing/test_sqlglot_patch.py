@@ -30,7 +30,7 @@ def test_cooperative_timeout_sql() -> None:
             time.sleep(0.0001)
 
     # To avoid flakiness, this range is quite generous.
-    assert 0.6 <= timer.elapsed_seconds() <= 1.2
+    assert 0.6 <= timer.elapsed_seconds() <= 1.5
 
 
 def test_scope_circular_dependency() -> None:

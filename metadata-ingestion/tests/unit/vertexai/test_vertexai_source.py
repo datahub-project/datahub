@@ -188,7 +188,6 @@ def test_multi_project_urns_are_project_specific() -> None:
     project_2 = "project-beta"
 
     config = VertexAIConfig(
-        project_id="fallback-project",
         project_ids=[project_1, project_2],
         region="us-central1",
     )
@@ -220,6 +219,90 @@ def test_multi_project_urns_are_project_specific() -> None:
     assert project1_url != project2_url
     assert project_1 in project1_url
     assert project_2 in project2_url
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+@patch("datahub.ingestion.source.vertexai.vertexai.ThreadedIteratorExecutor")
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.VertexAISource._resolve_target_projects"
+)
+def test_parallelism_enabled_with_default_threads(
+    mock_projects: MagicMock,
+    mock_executor: MagicMock,
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+) -> None:
+    """Default max_threads_resource_parallelism=3 should use ThreadedIteratorExecutor."""
+    mock_projects.return_value = [PROJECT_ID]
+    mock_executor.process.return_value = iter([])
+
+    config = VertexAIConfig.model_validate(
+        {"project_ids": [PROJECT_ID], "region": REGION}
+    )
+    assert config.max_threads_resource_parallelism == 3
+
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+    with (
+        patch.object(
+            source.model_extractor, "get_model_workunits", return_value=iter([])
+        ),
+        patch.object(
+            source.model_extractor,
+            "emit_pending_lineage_updates",
+            return_value=iter([]),
+        ),
+        patch.object(
+            source.model_extractor, "get_evaluation_workunits", return_value=iter([])
+        ),
+    ):
+        list(source.get_workunits_internal())
+
+    mock_executor.process.assert_called_once()
+    _, kwargs = mock_executor.process.call_args
+    assert kwargs["max_workers"] == 3
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+@patch("datahub.ingestion.source.vertexai.vertexai.ThreadedIteratorExecutor")
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.VertexAISource._resolve_target_projects"
+)
+def test_parallelism_disabled_when_threads_is_one(
+    mock_projects: MagicMock,
+    mock_executor: MagicMock,
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+) -> None:
+    """max_threads_resource_parallelism=1 should skip ThreadedIteratorExecutor entirely."""
+    mock_projects.return_value = [PROJECT_ID]
+
+    config = VertexAIConfig.model_validate(
+        {
+            "project_ids": [PROJECT_ID],
+            "region": REGION,
+            "max_threads_resource_parallelism": 1,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+    with (
+        patch.object(source, "_fetch_phase1_resource", return_value=iter([])),
+        patch.object(
+            source.model_extractor, "get_model_workunits", return_value=iter([])
+        ),
+        patch.object(
+            source.model_extractor,
+            "emit_pending_lineage_updates",
+            return_value=iter([]),
+        ),
+        patch.object(
+            source.model_extractor, "get_evaluation_workunits", return_value=iter([])
+        ),
+    ):
+        list(source.get_workunits_internal())
+
+    mock_executor.process.assert_not_called()
 
 
 def test_multi_region_urls() -> None:
