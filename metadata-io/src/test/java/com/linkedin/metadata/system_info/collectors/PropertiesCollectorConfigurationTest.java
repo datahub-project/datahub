@@ -114,6 +114,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          // K8 scale-down and Kubernetes config (label selectors, KEDA, rollout, env JSON - not
+          // secrets)
+          "systemUpdate.kubernetesScaleDown.*",
+          "kubernetes.*",
 
           // Consistency checks configuration
           "consistencyChecks.checks.*.*",
