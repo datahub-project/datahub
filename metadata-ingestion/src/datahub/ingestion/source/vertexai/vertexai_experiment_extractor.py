@@ -42,7 +42,6 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
-    paginated_list_with_rate_limit,
     sort_by_update_time,
 )
 from datahub.metadata.schema_classes import (
@@ -105,10 +104,8 @@ class VertexAIExperimentExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "Experiment")
 
-        experiment_pager = aiplatform.Experiment.list()
-        experiments = paginated_list_with_rate_limit(
-            experiment_pager, self.rate_limiter
-        )
+        with self.rate_limiter:
+            experiments = aiplatform.Experiment.list()
         filtered = [
             e
             for e in experiments
@@ -151,10 +148,8 @@ class VertexAIExperimentExtractor:
     def get_experiment_run_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.experiments is None:
             logger.info("Fetching Experiments from Vertex AI")
-            experiment_pager = aiplatform.Experiment.list()
-            raw_experiments = paginated_list_with_rate_limit(
-                experiment_pager, self.rate_limiter
-            )
+            with self.rate_limiter:
+                raw_experiments = aiplatform.Experiment.list()
             filtered_experiments = [
                 e
                 for e in raw_experiments
@@ -186,8 +181,8 @@ class VertexAIExperimentExtractor:
             logger.info(
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
-            run_pager = aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
-            runs = paginated_list_with_rate_limit(run_pager, self.rate_limiter)
+            with self.rate_limiter:
+                runs = aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
 
             run_metadata = [
                 ExperimentRunMetadata(

@@ -56,9 +56,9 @@ from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandle
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     gen_resource_subfolder_container,
     get_actor_from_labels,
-    iterate_pager_with_rate_limit,
     log_checkpoint_time,
     log_progress,
+    rate_limited_gapic_list,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -167,14 +167,13 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        pipeline_jobs_pager = self.client.PipelineJob.list(
-            order_by=ORDER_BY_UPDATE_TIME_DESC
+        pipeline_jobs = rate_limited_gapic_list(
+            self.client.PipelineJob,
+            self.rate_limiter,
+            order_by=ORDER_BY_UPDATE_TIME_DESC,
         )
 
-        for job_count, pipeline in enumerate(
-            iterate_pager_with_rate_limit(pipeline_jobs_pager, self.rate_limiter),
-            start=1,
-        ):
+        for job_count, pipeline in enumerate(pipeline_jobs, start=1):
             if last_checkpoint_millis:
                 job_update_millis = int(pipeline.update_time.timestamp() * 1000)
                 if job_update_millis <= last_checkpoint_millis:

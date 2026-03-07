@@ -3,7 +3,7 @@ import inspect
 import logging
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Iterator, List, Optional, TypeVar, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 
 from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
@@ -15,6 +15,7 @@ from google.api_core.exceptions import (
     ServiceUnavailable,
     Unauthenticated,
 )
+from google.cloud.aiplatform import initializer as vertex_initializer
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
@@ -37,13 +38,7 @@ T = TypeVar("T")
 
 
 def create_vertex_retry_without_429() -> api_retry.Retry:
-    """
-    Create a retry policy that excludes ResourceExhausted (429) errors.
-
-    The default Vertex AI SDK retry behavior retries 429 errors for up to 120s,
-    which makes quota problems worse. This retry policy fails fast on 429 errors
-    and lets the rate limiter control the request rate instead.
-    """
+    """Retry policy that fails fast on 429s instead of retrying for 120s."""
 
     def should_retry(exception):
         if isinstance(exception, ResourceExhausted):
@@ -60,17 +55,7 @@ def create_vertex_retry_without_429() -> api_retry.Retry:
 
 
 def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
-    """
-    Patch Vertex AI SDK list methods to use custom retry.
-
-    The SDK's default retry behavior retries 429s for up to 120s, which
-    makes quota problems worse. This patches SDK classes to use a custom
-    retry policy that fails fast on 429 errors, letting the rate limiter
-    control the request rate instead.
-
-    Args:
-        custom_retry: Custom retry policy to inject into SDK list methods
-    """
+    """Patch SDK list() methods to use a retry policy that fails fast on 429s."""
     for cls in SDK_CLASSES_TO_PATCH_FOR_RETRY:
         try:
             if not hasattr(cls, "list"):
@@ -99,6 +84,85 @@ def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
                 cls.list = classmethod(patched_list)
         except (AttributeError, TypeError):
             pass
+
+
+def rate_limited_gapic_list(
+    cls: Type,
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    order_by: Optional[str] = None,
+    filter_str: Optional[str] = None,
+) -> List:
+    """
+    List SDK resources page-by-page, consuming one rate-limit token per page fetch.
+
+    Uses the gapic client directly so pagination is lazy: page 1 is rate-limited at
+    pager creation, pages 2+ by patching pager._method. Type-specific filters
+    (_training_task_definition, _schema_title) are applied automatically.
+
+    Falls back to a single rate-limited cls.list() for non-standard classes
+    (e.g. Experiment, ExperimentRun) or if SDK internals change.
+    """
+    if not hasattr(cls, "_list_method"):
+        with rate_limiter:
+            return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
+
+    try:
+        resource = cls._empty_constructor()  # type: ignore[attr-defined]
+        creds = resource.credentials
+        gapic_fn = getattr(resource.api_client, cls._list_method)
+
+        filter_parts: List[str] = []
+        if (
+            hasattr(cls, "_training_task_definition") and cls._training_task_definition  # type: ignore[attr-defined]
+        ):
+            filter_parts.append(
+                f"training_task_definition:{cls._training_task_definition}"  # type: ignore[attr-defined]
+            )
+        if hasattr(cls, "_schema_title") and cls._schema_title:  # type: ignore[attr-defined]
+            filter_parts.append(f"metadata_schema_uri:{cls._schema_title}")  # type: ignore[attr-defined]
+        if filter_str:
+            filter_parts.append(filter_str)
+
+        request: Dict[str, Any] = {
+            "parent": vertex_initializer.global_config.common_location_path()
+        }
+        if order_by:
+            request["order_by"] = order_by
+        if filter_parts:
+            request["filter"] = " AND ".join(filter_parts)
+
+        try:
+            with rate_limiter:
+                pager = gapic_fn(request=request)
+        except ValueError:
+            if order_by and "order_by" in request:
+                request = {k: v for k, v in request.items() if k != "order_by"}
+                with rate_limiter:
+                    pager = gapic_fn(request=request)
+            else:
+                raise
+
+        if hasattr(pager, "_method"):
+            _orig_method = pager._method
+
+            def _rate_limited_fetch(
+                *args: Any, _orig: Any = _orig_method, **kwargs: Any
+            ) -> Any:
+                with rate_limiter:
+                    return _orig(*args, **kwargs)
+
+            pager._method = _rate_limited_fetch
+
+        return [
+            cls._construct_sdk_resource_from_gapic(proto, credentials=creds)  # type: ignore[attr-defined]
+            for proto in pager
+        ]
+    except (AttributeError, TypeError):
+        logger.debug(
+            f"Per-page rate limiting unavailable for {cls.__name__}, falling back"
+        )
+        with rate_limiter:
+            return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
 
 
 def log_progress(
@@ -167,7 +231,6 @@ def gen_resource_subfolder_container(
     extra_properties: Optional[Dict[str, str]] = None,
     external_url: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate subfolder container: Project → Category → Subfolder."""
     category_key = get_resource_category_container(
         project_id=project_id,
         platform=platform,
@@ -204,12 +267,7 @@ def format_api_error_message(
     *,
     custom_message: Optional[str] = None,
 ) -> str:
-    """
-    Format a consistent error message for Google API errors.
-
-    If custom_message is provided, it's used as-is. Otherwise, a default message
-    is generated based on the error type and operation.
-    """
+    """Format a Google API error message; custom_message overrides the default."""
     error_type = type(error).__name__
 
     if custom_message:
@@ -239,11 +297,7 @@ def handle_google_api_errors(
     resource_name: Optional[str] = None,
     log_level: str = "warning",
 ) -> Iterator[None]:
-    """
-    Context manager for Google API error handling. Suppresses exceptions and logs them.
-
-    For returning specific values on error, use format_api_error_message() directly.
-    """
+    """Suppress Google API exceptions and log them."""
     try:
         yield
     except NotFound as e:
@@ -259,7 +313,6 @@ def handle_google_api_errors(
 
 
 def log_checkpoint_time(checkpoint_millis: int, resource_type: str) -> None:
-    """Log checkpoint information for incremental mode."""
     checkpoint_time = datetime.fromtimestamp(
         checkpoint_millis / 1000, tz=timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S")
@@ -274,7 +327,6 @@ def filter_by_update_time(
     time_field: str = "update_time",
     resource_type: str = "items",
 ) -> List[T]:
-    """Filter items to only include those updated after the checkpoint time."""
     original_count = len(items)
     filtered_items = [
         item
@@ -296,49 +348,8 @@ def filter_by_update_time(
 def sort_by_update_time(
     items: List[T], time_field: str = "update_time", reverse: bool = True
 ) -> None:
-    """Sort items by update time in-place, with fallback for None values."""
     items.sort(
         key=lambda item: getattr(item, time_field, None)
         or datetime.min.replace(tzinfo=timezone.utc),
         reverse=reverse,
     )
-
-
-def paginated_list_with_rate_limit(
-    pager: Iterable[T],
-    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
-) -> List[T]:
-    """Collect all items from a pager, consuming one rate-limit token before each page fetch."""
-    if hasattr(pager, "pages"):
-        results: List[T] = []
-        page_iter = iter(pager.pages)  # type: ignore[union-attr]
-        while True:
-            with rate_limiter:
-                try:
-                    page = next(page_iter)
-                except StopIteration:
-                    break
-            results.extend(page)
-        return results
-    else:
-        with rate_limiter:
-            return list(pager)
-
-
-def iterate_pager_with_rate_limit(
-    pager: Iterable[T],
-    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
-) -> Iterator[T]:
-    """Yield items from a pager lazily, consuming one rate-limit token before each page fetch."""
-    if hasattr(pager, "pages"):
-        page_iter = iter(pager.pages)  # type: ignore[union-attr]
-        while True:
-            with rate_limiter:
-                try:
-                    page = next(page_iter)
-                except StopIteration:
-                    break
-            yield from page
-    else:
-        with rate_limiter:
-            yield from pager

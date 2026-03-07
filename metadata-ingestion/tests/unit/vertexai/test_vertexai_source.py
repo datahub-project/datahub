@@ -99,7 +99,8 @@ def test_pipeline_task_with_none_timestamps(
     }
 
     with patch(
-        "google.cloud.aiplatform.PipelineJob.list", return_value=[mock_pipeline_job]
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        return_value=[mock_pipeline_job],
     ):
         mcps = list(source.pipeline_extractor.get_workunits())
         assert len(mcps) > 0, "Should generate MCPs for pipeline task"

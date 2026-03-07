@@ -1,8 +1,10 @@
 import contextlib
 from pathlib import Path
-from typing import Any, Dict, TypeVar
+from typing import Any, Callable, Dict, Type, TypeVar
 from unittest.mock import patch
 
+import google.cloud.aiplatform as aiplatform
+from google.cloud.aiplatform import datasets as aiplatform_datasets
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -18,6 +20,23 @@ from tests.integration.vertexai.mock_vertexai import (
     gen_mock_training_custom_job,
     get_mock_pipeline_job,
 )
+
+_EXTRACTOR_MODULES = [
+    "datahub.ingestion.source.vertexai.vertexai_model_extractor",
+    "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor",
+    "datahub.ingestion.source.vertexai.vertexai_training_extractor",
+]
+
+
+def _patch_gapic_list(
+    exit_stack: contextlib.ExitStack,
+    side_effect: Callable,
+) -> None:
+    for module in _EXTRACTOR_MODULES:
+        exit_stack.enter_context(
+            patch(f"{module}.rate_limited_gapic_list", side_effect=side_effect)
+        )
+
 
 T = TypeVar("T")
 
@@ -48,91 +67,55 @@ def get_pipeline_config(sink_file_path: str) -> Dict[str, Any]:
 
 
 def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None:
+    class_data: Dict[Type, Any] = {
+        aiplatform.Model: gen_mock_models(),
+        aiplatform.PipelineJob: [get_mock_pipeline_job()],
+        aiplatform.CustomJob: [gen_mock_training_custom_job()],
+        aiplatform.AutoMLTabularTrainingJob: [gen_mock_training_automl_job()],
+        aiplatform_datasets.TabularDataset: [gen_mock_dataset()],
+    }
+
+    def mock_gapic_list(cls: Type, _rl: Any, **_kw: Any) -> Any:
+        return class_data.get(cls, [])
+
     with contextlib.ExitStack() as exit_stack:
-        # Mock Google auth to prevent auto-discovery of credentials
         exit_stack.enter_context(
             patch("google.auth.default", return_value=(None, None))
         )
+        exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
 
-        for func_to_mock in [
-            "google.cloud.aiplatform.init",
-            "google.cloud.aiplatform.datasets.TextDataset.list",
-            "google.cloud.aiplatform.datasets.ImageDataset.list",
-            "google.cloud.aiplatform.datasets.TimeSeriesDataset.list",
-            "google.cloud.aiplatform.datasets.VideoDataset.list",
-            "google.cloud.aiplatform.CustomTrainingJob.list",
-            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
-            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
-            "google.cloud.aiplatform.TabularDataset.list",
-        ]:
-            mock = exit_stack.enter_context(patch(func_to_mock))
-            mock.return_value = []
+        _patch_gapic_list(exit_stack, mock_gapic_list)
 
-        mock_models = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.Model.list")
+        exit_stack.enter_context(
+            patch(
+                "google.cloud.aiplatform.Experiment.list",
+                return_value=[gen_mock_experiment()],
+            )
         )
-        mock_models.return_value = gen_mock_models()
-
-        mock_custom_job = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.CustomJob.list")
+        exit_stack.enter_context(
+            patch(
+                "google.cloud.aiplatform.ExperimentRun.list",
+                return_value=[gen_mock_experiment_run()],
+            )
         )
-        mock_custom_job.return_value = [gen_mock_training_custom_job()]
 
-        mock_automl_job = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.AutoMLTabularTrainingJob.list")
+        exit_stack.enter_context(
+            patch(
+                "google.cloud.aiplatform.models.Model", return_value=gen_mock_model(1)
+            )
         )
-        mock_automl_job.return_value = [gen_mock_training_automl_job()]
-
-        mock_ds = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.datasets.TabularDataset.list")
+        exit_stack.enter_context(
+            patch(
+                "datahub.ingestion.source.vertexai.vertexai_training_extractor.Model",
+                return_value=gen_mock_model(1),
+            )
         )
-        mock_ds.return_value = [gen_mock_dataset()]
-
-        # Mock Model constructor to return gen_mock_model(1) when called with model_name
-        # Patch both the module location and where it's imported in the training extractor
-        mock_model_class = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.models.Model")
-        )
-        mock_model_class.return_value = gen_mock_model(1)
-
-        # Also patch where it's imported in the training extractor
-        mock_model_training = exit_stack.enter_context(
-            patch("datahub.ingestion.source.vertexai.vertexai_training_extractor.Model")
-        )
-        mock_model_training.return_value = gen_mock_model(1)
-
-        mock_exp = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.Experiment.list")
-        )
-        mock_exp.return_value = [gen_mock_experiment()]
-
-        mock_exp_run = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.ExperimentRun.list")
-        )
-        mock_exp_run.return_value = [gen_mock_experiment_run()]
-
-        mock = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.PipelineJob.list")
-        )
-        mock.return_value = [get_mock_pipeline_job()]
-
-        mock_endpoints = exit_stack.enter_context(
-            patch("google.cloud.aiplatform.Endpoint.list")
-        )
-        mock_endpoints.return_value = []
 
         golden_file_path = (
             pytestconfig.rootpath
             / "tests/integration/vertexai/vertexai_mcps_golden.json"
         )
-
         sink_file_path = str(tmp_path / "vertexai_source_mcps.json")
-        print(f"Output mcps file path: {str(sink_file_path)}")
-        print(f"Golden file path: {str(golden_file_path)}")
 
         pipeline = Pipeline.create(get_pipeline_config(sink_file_path))
         pipeline.run()
@@ -171,34 +154,19 @@ def test_vertexai_platform_instance_config(
     }
 
     with contextlib.ExitStack() as exit_stack:
-        # Mock Google auth to prevent auto-discovery of credentials
         exit_stack.enter_context(
             patch("google.auth.default", return_value=(None, None))
         )
+        exit_stack.enter_context(patch("google.cloud.aiplatform.init"))
 
-        for func_to_mock in [
-            "google.cloud.aiplatform.init",
-            "google.cloud.aiplatform.Model.list",
-            "google.cloud.aiplatform.CustomJob.list",
-            "google.cloud.aiplatform.CustomTrainingJob.list",
-            "google.cloud.aiplatform.CustomContainerTrainingJob.list",
-            "google.cloud.aiplatform.CustomPythonPackageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTabularTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLImageTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLTextTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLVideoTrainingJob.list",
-            "google.cloud.aiplatform.AutoMLForecastingTrainingJob.list",
-            "google.cloud.aiplatform.TabularDataset.list",
-            "google.cloud.aiplatform.ImageDataset.list",
-            "google.cloud.aiplatform.TextDataset.list",
-            "google.cloud.aiplatform.VideoDataset.list",
-            "google.cloud.aiplatform.TimeSeriesDataset.list",
-            "google.cloud.aiplatform.Experiment.list",
-            "google.cloud.aiplatform.ExperimentRun.list",
-            "google.cloud.aiplatform.PipelineJob.list",
-        ]:
-            mock = exit_stack.enter_context(patch(func_to_mock))
-            mock.return_value = []
+        _patch_gapic_list(exit_stack, lambda *_a, **_kw: [])
+
+        exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Experiment.list", return_value=[])
+        )
+        exit_stack.enter_context(
+            patch("google.cloud.aiplatform.ExperimentRun.list", return_value=[])
+        )
 
         pipeline = Pipeline.create(config_dict)
         pipeline.run()

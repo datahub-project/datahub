@@ -127,9 +127,10 @@ class TestModelEvaluationIngestion:
 
         mock_model = gen_mock_model(list_model_evaluations_return=mock_evals)
 
-        with patch("google.cloud.aiplatform.Model.list") as mock_list:
-            mock_list.return_value = [mock_model]
-
+        with patch(
+            "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+            return_value=[mock_model],
+        ):
             mcps = list(source.model_extractor.get_evaluation_workunits())
 
             deployment_mcps = [
