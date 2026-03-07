@@ -1,0 +1,53 @@
+source:
+  type: aerospike
+  config:
+    # Coordinates
+    hosts:
+      - - host1
+        - 3000
+      - - host2
+        - 3000
+
+    # Credentials
+    username: user
+    password: "${AEROSPIKE_PASSWORD}"
+    # auth_mode: AUTH_INTERNAL  # AUTH_INTERNAL (default), AUTH_EXTERNAL, AUTH_EXTERNAL_INSECURE
+
+    # TLS (optional)
+    # tls_enabled: false
+    # tls_cafile: /path/to/ca.crt
+    # tls_capath: /path/to/ca/dir
+
+    # Platform instance (optional) — use when ingesting multiple Aerospike clusters
+    # platform_instance: prod-cluster
+
+    # Namespace and set filtering (regex allow/deny patterns)
+    # namespace_pattern:
+    #   allow:
+    #     - "^prod.*"
+    #   deny:
+    #     - "^test.*"
+    # set_pattern:
+    #   allow:
+    #     - "^events.*"
+
+    # Schema inference
+    # inferSchemaDepth: 1     # Depth of nested fields to infer. -1 = all levels, 0 = skip inference.
+    # schemaSamplingSize: 1000  # Number of records to sample per set. null = scan entire set.
+    # maxSchemaSize: 300        # Maximum number of fields to include in the schema.
+    # ignore_empty_sets: false  # Skip sets with zero records.
+
+    # Performance
+    # records_per_second: 0   # Rate limit for Aerospike queries. 0 = no limit.
+    # login_timeout_ms: null  # Login timeout in ms. null = Aerospike client default.
+
+    # XDR (Cross-Datacenter Replication) metadata
+    # include_xdr: false  # Annotate sets with the DCs they are replicated to.
+
+    # Stateful ingestion — removes stale entities from DataHub when sets are dropped
+    # stateful_ingestion:
+    #   enabled: true
+
+
+sink:
+  # sink configs
