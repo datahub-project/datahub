@@ -41,13 +41,12 @@ If you are using git worktrees then exclude this as that might cause git related
 - lintFix runs ruff formatting and fixing automatically, ensuring code quality
 - For smoke-test changes, the lintFix command will also check those files
 
-**Development setup:**
+## Starting / Operating DataHub
 
-```bash
-./gradlew :metadata-ingestion:installDev               # Setup Python environment
-./gradlew quickstartDebug                              # Start full DataHub stack
-cd datahub-web-react && yarn start                     # Frontend dev server
-```
+Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
+**Do NOT use `./gradlew quickstartDebug` directly** — always use the wrapper script.
+
+@AGENTS.md
 
 ## Code Formatting and Linting
 
@@ -407,17 +406,6 @@ Example: `feat(parser): add ability to parse arrays`
 
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
-
-## Agent Development Workflow
-
-See [`docs/dev-guides/agent-workflow.md`](docs/dev-guides/agent-workflow.md) for the full agent
-workflow reference. Quick summary:
-
-1. **Start**: `scripts/dev/datahub-dev.sh start`
-2. **Code**: Make changes
-3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
-4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
-5. **Iterate**: Repeat 2–4
 
 ## Python Virtual Environments
 

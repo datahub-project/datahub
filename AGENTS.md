@@ -10,16 +10,19 @@ A stdlib-only Python CLI for agent-driven development. No venv needed — runs w
 scripts/dev/datahub-dev.sh <command>
 ```
 
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `status`, `wait`,
-`rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
+`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
 
 ## End-to-End Workflow
 
+0. **Setup** (once): `scripts/dev/datahub-dev.sh setup` — installs Python dev environment (provides `datahub` CLI). For frontend work, also run `scripts/dev/datahub-dev.sh setup frontend`.
 1. **Start**: `scripts/dev/datahub-dev.sh start`
 2. **Code**: Make changes to Java/Python/frontend code
 3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
 4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
 5. **Iterate**: Repeat steps 2–4
+
+**Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
 
 **Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
 to avoid git-related failures in worktrees.
