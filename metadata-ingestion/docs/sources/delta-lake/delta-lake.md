@@ -151,3 +151,44 @@ datahub ingest -c delta.s3.dhub.yaml
 ### Note
 
 The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.
+
+### Delta Table on Azure Data Lake Storage (ADLS Gen2 / Blob)
+
+You can ingest Delta tables stored in Azure using `abfss://`, `abfs://`, `az://`, `adl://`, or Azure HTTPS paths.
+
+#### Example using account key
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "abfss://my-container@myaccount.dfs.core.windows.net/delta/sales"
+    azure:
+      account_key: ${AZURE_STORAGE_ACCOUNT_KEY}
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+#### Example using service principal
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "az://my-container/delta/sales"
+    azure:
+      account_name: "myaccount"
+      client_id: ${AZURE_CLIENT_ID}
+      client_secret: ${AZURE_CLIENT_SECRET}
+      tenant_id: ${AZURE_TENANT_ID}
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+If you use `az://` or `adl://` URIs, set `azure.account_name` explicitly.

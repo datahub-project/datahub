@@ -2,9 +2,13 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Iterable, List, Optional
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
+from azure.core.credentials import TokenCredential
+from azure.identity import ClientSecretCredential
+from azure.storage.filedatalake import DataLakeServiceClient
 from deltalake import DeltaTable
 
 from datahub.emitter.mce_builder import (
@@ -31,12 +35,19 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
-from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
+from datahub.ingestion.source.delta_lake.config import (
+    AZURE_CONTAINER_SCHEMES,
+    AZURE_FILESYSTEM_SCHEMES,
+    AZURE_SUPPORTED_FORMATS_HINT,
+    DeltaLakeSourceConfig,
+    is_azure_http_netloc,
+)
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -60,6 +71,7 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -82,10 +94,18 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
+@dataclass
+class AzurePathParts:
+    account_name: str
+    container_name: str
+    object_path: str
+
+
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -112,12 +132,14 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
     storage_options: Dict[str, str]
+    domain_registry: Optional[DomainRegistry]
 
     def __init__(self, config: DeltaLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
         self.source_config = config
         self.report: DeltaLakeSourceReport = DeltaLakeSourceReport()
+        self.domain_registry = None
         if self.source_config.is_s3:
             if (
                 self.source_config.s3 is None
@@ -125,6 +147,11 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             ):
                 raise ValueError("AWS Config must be provided for S3 base path.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
+        if self.source_config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.source_config.domain],
+                graph=self.ctx.graph,
+            )
 
         # self.profiling_times_taken = []
         config_report = {
@@ -198,6 +225,17 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 aspect=operation_aspect,
             ).as_workunit()
 
+    def _get_domain_wu(
+        self, dataset_name: str, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.source_config.domain,
+                domain_registry=self.domain_registry,
+            )
+
     def ingest_table(
         self, delta_table: DeltaTable, path: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -213,9 +251,12 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
 
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
-            browse_path: str = (
-                strip_s3_prefix(path) if self.source_config.is_s3 else path.strip("/")
-            )
+            if self.source_config.is_s3:
+                browse_path = strip_s3_prefix(path)
+            elif self.source_config.is_azure:
+                browse_path = self.strip_azure_prefix(path)
+            else:
+                browse_path = path.strip("/")
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
 
@@ -283,6 +324,9 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 dataset_snapshot.aspects.append(s3_tags)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
+        yield from self._get_domain_wu(
+            dataset_name=browse_path, dataset_urn=dataset_urn
+        )
 
         yield from self.container_WU_creator.create_container_hierarchy(
             browse_path, dataset_urn
@@ -311,6 +355,17 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             if aws_config.aws_endpoint_url:
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
+        elif self.source_config.is_azure:
+            path_parts = self._parse_azure_path(self.source_config.complete_path)
+            if self.source_config.azure is not None:
+                return self.source_config.azure.build_storage_options(
+                    account_name=path_parts.account_name,
+                    container_name=path_parts.container_name,
+                )
+            return {
+                "account_name": path_parts.account_name,
+                "container_name": path_parts.container_name,
+            }
         else:
             return {}
 
@@ -327,6 +382,8 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
     def get_folders(self, path: str) -> Iterable[str]:
         if self.source_config.is_s3:
             return self.s3_get_folders(path)
+        elif self.source_config.is_azure:
+            return self.azure_get_folders(path)
         else:
             return self.local_get_folders(path)
 
@@ -345,6 +402,129 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             )
         for folder in os.listdir(path):
             yield os.path.join(path, folder)
+
+    def strip_azure_prefix(self, path: str) -> str:
+        path_parts = self._parse_azure_path(path)
+        if path_parts.object_path:
+            return f"{path_parts.container_name}/{path_parts.object_path}"
+        return path_parts.container_name
+
+    def _parse_azure_path(self, path: str) -> AzurePathParts:
+        parsed = urlparse(path)
+        scheme = parsed.scheme.lower()
+
+        if scheme in AZURE_FILESYSTEM_SCHEMES:
+            container_name, account_domain = parsed.netloc.split("@", 1)
+            account_name = account_domain.split(".")[0]
+            return AzurePathParts(
+                account_name=account_name,
+                container_name=container_name,
+                object_path=parsed.path.lstrip("/"),
+            )
+
+        if scheme in AZURE_CONTAINER_SCHEMES:
+            container_name = parsed.netloc
+            object_path = parsed.path.lstrip("/")
+            if (
+                self.source_config.azure is None
+                or not self.source_config.azure.account_name
+            ):
+                raise ValueError(
+                    "For `az://` and `adl://` paths, set `source.config.azure.account_name`."
+                )
+            return AzurePathParts(
+                account_name=self.source_config.azure.account_name,
+                container_name=container_name,
+                object_path=object_path,
+            )
+
+        if scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc):
+            account_name = parsed.netloc.split(".")[0]
+            stripped_path = parsed.path.lstrip("/")
+            parts = stripped_path.split("/", 1)
+            container_name = parts[0]
+            object_path = parts[1] if len(parts) > 1 else ""
+            return AzurePathParts(
+                account_name=account_name,
+                container_name=container_name,
+                object_path=object_path,
+            )
+
+        raise ValueError(
+            f"Unsupported Azure path format: {path}. Supported formats: {AZURE_SUPPORTED_FORMATS_HINT}."
+        )
+
+    def _get_data_lake_service_client(self, account_name: str) -> DataLakeServiceClient:
+        credential: Union[str, TokenCredential, None]
+        if (
+            self.source_config.azure
+            and self.source_config.azure.client_id
+            and self.source_config.azure.client_secret
+            and self.source_config.azure.tenant_id
+        ):
+            credential = ClientSecretCredential(
+                tenant_id=self.source_config.azure.tenant_id,
+                client_id=self.source_config.azure.client_id,
+                client_secret=self.source_config.azure.client_secret.get_secret_value(),
+            )
+        elif self.source_config.azure and self.source_config.azure.sas_token:
+            credential = self.source_config.azure.sas_token.get_secret_value()
+        elif self.source_config.azure and self.source_config.azure.account_key:
+            credential = self.source_config.azure.account_key.get_secret_value()
+        elif self.source_config.azure and self.source_config.azure.credential:
+            credential = self.source_config.azure.credential.get_credential()
+        else:
+            credential = None
+
+        return DataLakeServiceClient(
+            account_url=f"https://{account_name}.dfs.core.windows.net",
+            credential=credential,
+        )
+
+    def azure_get_folders(self, path: str) -> Iterable[str]:
+        path_parts = self._parse_azure_path(path)
+        data_lake_service_client = self._get_data_lake_service_client(
+            path_parts.account_name
+        )
+        file_system_client = data_lake_service_client.get_file_system_client(
+            path_parts.container_name
+        )
+        current_prefix = path_parts.object_path.strip("/")
+        current_depth = current_prefix.count("/") if current_prefix else -1
+
+        seen: set[str] = set()
+        for item in file_system_client.get_paths(
+            path=current_prefix or None, recursive=False
+        ):
+            item_name = item.name.rstrip("/")
+            if not item_name:
+                continue
+
+            if current_prefix and not item_name.startswith(f"{current_prefix}/"):
+                continue
+
+            relative_name = (
+                item_name[len(current_prefix) + 1 :] if current_prefix else item_name
+            )
+            if "/" in relative_name:
+                child_dir = relative_name.split("/", 1)[0]
+                child_prefix = (
+                    f"{current_prefix}/{child_dir}" if current_prefix else child_dir
+                )
+            elif item.is_directory:
+                child_prefix = item_name
+            else:
+                continue
+
+            if child_prefix.count("/") != current_depth + 1:
+                continue
+
+            if child_prefix in seen:
+                continue
+            seen.add(child_prefix)
+            yield (
+                f"abfss://{path_parts.container_name}@{path_parts.account_name}.dfs.core.windows.net/{child_prefix}"
+            )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
