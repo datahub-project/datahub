@@ -10,8 +10,7 @@ setup.py remains the human-readable source of truth where developers use DRY
 Python set composition and maintain comments (CVE refs, version history, etc.).
 
 Usage:
-    python scripts/generate_pyproject_deps.py > pyproject_deps.toml
-    # Then manually append the [tool.uv] and [tool.ruff] sections
+    python scripts/generate_pyproject_deps.py
 """
 
 import sys
@@ -205,21 +204,13 @@ def generate_pyproject_toml() -> str:
     output_lines.append("# ===== DO NOT EDIT dependency sections by hand =====")
     output_lines.append("#")
     output_lines.append("# This file is generated from setup.py by:")
-    output_lines.append(
-        "#   python scripts/generate_pyproject_deps.py > /tmp/pyproject_deps.toml"
-    )
-    output_lines.append(
-        "# Then merged with the manually maintained [tool.uv] and [tool.ruff] sections below."
-    )
+    output_lines.append("#   python scripts/generate_pyproject_deps.py")
     output_lines.append("#")
     output_lines.append(
         "# setup.py is the human-readable source of truth for dependencies."
     )
     output_lines.append("# After regenerating, verify equivalence with setup.py:")
     output_lines.append("#   python scripts/verify_pyproject_equivalence.py")
-    output_lines.append("#")
-    output_lines.append("# Then regenerate the lock file:")
-    output_lines.append("#   uv lock")
     output_lines.append("")
 
     # Build system
@@ -376,10 +367,28 @@ def generate_pyproject_toml() -> str:
     return "\n".join(output_lines)
 
 
+MANUAL_SECTION_MARKER = "# ===== TOOL CONFIGURATION"
+
+
+def read_manual_sections(pyproject_path: Path) -> str:
+    """Read the manually maintained [tool.*] sections from existing pyproject.toml."""
+    if not pyproject_path.exists():
+        return ""
+    content = pyproject_path.read_text()
+    for i, line in enumerate(content.splitlines()):
+        if line.startswith(MANUAL_SECTION_MARKER):
+            return "\n".join(content.splitlines()[i:]) + "\n"
+    return ""
+
+
 def main():
     try:
-        output = generate_pyproject_toml()
-        print(output)
+        pyproject_path = METADATA_INGESTION_DIR / "pyproject.toml"
+        generated = generate_pyproject_toml()
+        manual = read_manual_sections(pyproject_path)
+        combined = generated + "\n" + manual if manual else generated + "\n"
+        pyproject_path.write_text(combined)
+        print(f"Wrote {pyproject_path}")
     except Exception as e:
         print(f"Error generating pyproject.toml: {e}", file=sys.stderr)
         import traceback

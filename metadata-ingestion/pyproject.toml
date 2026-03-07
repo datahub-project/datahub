@@ -1,15 +1,11 @@
 # ===== DO NOT EDIT dependency sections by hand =====
 #
 # This file is generated from setup.py by:
-#   python scripts/generate_pyproject_deps.py > /tmp/pyproject_deps.toml
-# Then merged with the manually maintained [tool.uv] and [tool.ruff] sections below.
+#   python scripts/generate_pyproject_deps.py
 #
 # setup.py is the human-readable source of truth for dependencies.
 # After regenerating, verify equivalence with setup.py:
 #   python scripts/verify_pyproject_equivalence.py
-#
-# Then regenerate the lock file:
-#   uv lock
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -269,7 +265,7 @@ cockroachdb = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 confluence = [
@@ -280,7 +276,7 @@ confluence = [
     "litellm==1.80.5",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 databricks = [
@@ -341,7 +337,7 @@ datahub-documents = [
     "litellm==1.80.5",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 datahub-kafka = [
@@ -394,7 +390,7 @@ dbt = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot[c]==29.0.1",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 dbt-cloud = [
@@ -429,7 +425,7 @@ delta-lake = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -452,7 +448,7 @@ doris = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 dremio = [
@@ -500,7 +496,7 @@ dynamodb = [
     "numpy<2",
     "pip",
     "schwifty<2026.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 elasticsearch = [
@@ -526,7 +522,7 @@ excel = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -584,7 +580,7 @@ gcs = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -592,7 +588,7 @@ glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 grafana = [
@@ -674,7 +670,7 @@ iceberg = [
 iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 json-schema = [
@@ -753,7 +749,7 @@ mariadb = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 metabase = [
@@ -839,7 +835,7 @@ mysql = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 neo4j = [
@@ -859,7 +855,7 @@ notion = [
     "litellm==1.80.5",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 okta = [
@@ -906,7 +902,7 @@ postgres = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 powerbi = [
@@ -1027,7 +1023,7 @@ s3 = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1042,7 +1038,7 @@ s3-slim = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1055,7 +1051,7 @@ sac = [
 sagemaker = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 salesforce = [
@@ -1178,7 +1174,7 @@ sql-queries = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 sqlalchemy = [
@@ -1231,7 +1227,7 @@ sync-file-emitter = [
 tableau = [
     "patchy==2.8.0",
     "sqlglot[c]==29.0.1",
-    "tableauserverclient>=0.24.0,<0.27",
+    "tableauserverclient>=0.24.0,<=0.40",
 ]
 
 teradata = [
@@ -1302,7 +1298,7 @@ unstructured = [
     "litellm==1.80.5",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
 ]
 
 vertexai = [
@@ -1437,7 +1433,7 @@ all = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<0.27",
+    "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
@@ -1446,7 +1442,7 @@ all = [
     "ujson>=5.2.0,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1605,7 +1601,7 @@ dev = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<0.27",
+    "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1636,7 +1632,7 @@ dev = [
     "ujson>=5.2.0,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1794,7 +1790,7 @@ docs = [
     "sqlglot[c]==29.0.1",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<0.27",
+    "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1825,7 +1821,7 @@ docs = [
     "ujson>=5.2.0,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1916,7 +1912,7 @@ integration-tests = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
     "ujson>=5.2.0,<6.0.0",
-    "urllib3>=1.26.20,<1.27",
+    "urllib3>=1.26,<3.0",
     "vcrpy>=8.0.0,<9.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -2100,9 +2096,7 @@ datahub = ["py.typed"]
 
 # ===== END OF GENERATED SECTION =====
 
-
-#
-# ===== MANUALLY MAINTAINED below — do not overwrite when regenerating from setup.py =====
+# ===== TOOL CONFIGURATION =====
 
 [tool.uv]
 # flatdict 4.0.1 uses pkg_resources but doesn't declare setuptools as build dep

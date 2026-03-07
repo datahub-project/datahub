@@ -4,10 +4,8 @@
 # (data_files with sysconfig.get_path() cannot be expressed in pyproject.toml).
 #
 # After editing dependencies or entry points here, regenerate pyproject.toml:
-#   python scripts/generate_pyproject_deps.py > /tmp/pyproject_deps.toml
-#   # Merge output into pyproject.toml (preserve [tool.uv] and [tool.ruff] sections)
-#   python scripts/verify_pyproject_equivalence.py  # Must pass 120/120 checks
-#   uv lock  # Regenerate uv.lock from pyproject.toml
+#   python scripts/generate_pyproject_deps.py
+#   python scripts/verify_pyproject_equivalence.py
 
 import sysconfig
 from typing import Dict, Set
