@@ -1,11 +1,14 @@
 import contextlib
+import json
 import logging
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
+from requests.models import HTTPError
 from typing_extensions import TypedDict
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
@@ -143,19 +146,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
-
-        schema_info = self._resolve_schema_info(urn)
-        if schema_info:
-            self._track_cache_hit()
-            return urn, schema_info
-
         urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
-            schema_info = self._resolve_schema_info(urn_lower)
-            if schema_info:
-                self._track_cache_hit()
-                return urn_lower, schema_info
-
         # Our treatment of platform instances when lowercasing urns
         # is inconsistent. In some places (e.g. Snowflake), we lowercase
         # the table names but not the platform instance. In other places
@@ -165,11 +156,72 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # While we have this sort of inconsistency, we should also
         # check the mixed case urn, as a last resort.
         urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+
+        urns_to_try = [urn]
+        if urn_lower != urn:
+            urns_to_try.append(urn_lower)
         if urn_mixed not in {urn, urn_lower}:
-            schema_info = self._resolve_schema_info(urn_mixed)
-            if schema_info:
-                self._track_cache_hit()
-                return urn_mixed, schema_info
+            urns_to_try.append(urn_mixed)
+
+        for candidate_urn in urns_to_try:
+            if candidate_urn in self._schema_cache:
+                schema_info = self._schema_cache[candidate_urn]
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
+
+        if self.graph:
+            # Exclude URNs already present in the cache, including those stored as None.
+            # A None entry means a prior lookup found nothing, so we skip them
+            # to avoid making repeated API calls for known-missing schemas.
+            urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
+
+            if urns_to_fetch:
+                try:
+                    entity_results = self.graph.get_entities(
+                        entity_name="dataset",
+                        urns=urns_to_fetch,
+                        aspects=[SchemaMetadataClass.ASPECT_NAME],
+                        with_system_metadata=False,
+                    )
+
+                    for fetch_urn in urns_to_fetch:
+                        schema_metadata: Optional[SchemaMetadataClass] = None
+
+                        if fetch_urn in entity_results:
+                            entity_aspects = entity_results[fetch_urn]
+                            if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                                aspect_value, _ = entity_aspects[
+                                    SchemaMetadataClass.ASPECT_NAME
+                                ]
+                                if isinstance(aspect_value, SchemaMetadataClass):
+                                    schema_metadata = aspect_value
+
+                        self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+                except (
+                    TimeoutError,
+                    ConnectionError,
+                    OSError,
+                    HTTPError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    KeyError,
+                    GraphError,
+                    AssertionError,
+                ) as e:
+                    logger.warning(
+                        f"Batch fetch failed ({type(e).__name__}): {e}. "
+                        f"Falling back to individual fetches for {len(urns_to_fetch)} URNs.",
+                        exc_info=True,
+                    )
+                    self._fallback_fetch_schemas(urns_to_fetch)
+
+            for candidate_urn in urns_to_try:
+                schema_info = self._schema_cache.get(candidate_urn)
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -177,10 +229,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        if self._prefers_urn_lower():
-            return urn_lower, None
-        else:
-            return urn, None
+        return (urn_lower if self._prefers_urn_lower() else urn), None
 
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
@@ -189,12 +238,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return self._schema_cache.get(urn) is not None
 
     def _track_cache_hit(self) -> None:
-        """Track a cache hit if reporting is enabled."""
+        """Track a cache hit in the report if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
     def _track_cache_miss(self) -> None:
-        """Track a cache miss if reporting is enabled."""
+        """Track a cache miss in the report if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
 
@@ -217,8 +266,41 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
+        """Add schema metadata from an ingestion source.
+
+        Always overwrites any previously cached value because ingestion-provided
+        schemas are authoritative and fresh from the source system.
+        Use this for schemas discovered during ingestion.
+
+        See also: add_schema_metadata_from_fetch (for schemas retrieved on-demand
+        from the DataHub API, which must not override ingestion-provided schemas).
+        """
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
+
+    def add_schema_metadata_from_fetch(
+        self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
+    ) -> None:
+        """Cache a schema retrieved on-demand from the DataHub API.
+
+        Unlike add_schema_metadata, this never overwrites an existing non-None
+        entry, so ingestion-provided schemas always take precedence. Always stores
+        a result (including None) to prevent repeated API calls for missing schemas.
+        Use this for schemas fetched lazily via the graph client.
+        """
+        if urn in self._schema_cache:
+            existing = self._schema_cache[urn]
+            if existing is not None:
+                logger.debug(
+                    f"Skipping DataHub schema for {urn} - already in cache from ingestion"
+                )
+                return
+
+        if schema_metadata is not None:
+            schema_info = _convert_schema_aspect_to_info(schema_metadata)
+            self._save_to_cache(urn, schema_info)
+        else:
+            self._save_to_cache(urn, None)
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
@@ -247,6 +329,39 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
+
+    def _fallback_fetch_schemas(self, urns: List[str]) -> None:
+        """Fetch schemas individually when batch fetch fails.
+
+        Handles network, HTTP, data parsing, and DataHub-specific errors gracefully
+        by caching None for failed fetches to prevent repeated attempts.
+        """
+        if not self.graph:
+            return
+
+        for fetch_urn in urns:
+            if fetch_urn in self._schema_cache:
+                continue
+
+            try:
+                schema_metadata = self.graph.get_aspect(fetch_urn, SchemaMetadataClass)
+                self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+            except (
+                TimeoutError,
+                ConnectionError,
+                OSError,
+                HTTPError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                GraphError,
+                AssertionError,
+            ) as e:
+                logger.debug(
+                    f"Error fetching schema for {fetch_urn} ({type(e).__name__}): {e}"
+                )
+                self.add_schema_metadata_from_fetch(fetch_urn, None)
 
     def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
         aspect = graph.get_aspect(urn, SchemaMetadataClass)
