@@ -1,6 +1,10 @@
 import { Divider } from 'antd';
 import React from 'react';
 
+import {
+    AssertionDetailsSection,
+    hasAssertionDetails,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDetailsSection';
 import { AssertionSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummarySection';
 import { AssertionResultsTable } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsTable';
 import { AssertionResultsTimeline } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimeline';
@@ -14,6 +18,7 @@ type Props = {
 
 export const AssertionSummaryContent = ({ assertion }: Props) => {
     const lastEvaluatedAtMillis = assertion.runEvents?.runEvents?.[0]?.timestampMillis;
+    const showDetails = hasAssertionDetails(assertion);
     return (
         <>
             {/* NOTE: the timeline chart will have a title, so no need to add a section title here */}
@@ -28,6 +33,14 @@ export const AssertionSummaryContent = ({ assertion }: Props) => {
             <AssertionSummarySection title="Schedule details">
                 <AssertionScheduleSummary assertion={assertion} lastEvaluatedAtMillis={lastEvaluatedAtMillis} />
             </AssertionSummarySection>
+            {showDetails && (
+                <>
+                    <Divider />
+                    <AssertionSummarySection title="Details">
+                        <AssertionDetailsSection assertion={assertion} />
+                    </AssertionSummarySection>
+                </>
+            )}
         </>
     );
 };
