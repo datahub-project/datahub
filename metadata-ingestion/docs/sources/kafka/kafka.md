@@ -1,47 +1,12 @@
+### Capabilities
+
 :::note
 Stateful Ingestion is available only when a Platform Instance is assigned to this source.
 :::
 
-### Capabilities
-
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-#### `PROTOBUF` Schema Type Limitations
-
-The current implementation of the support for `PROTOBUF` schema type has the following limitations:
-
-- Recursive types are not supported.
-- If the schemas of different topics define a type in the same package, the source would raise an exception.
-
-In addition to this, maps are represented as arrays of messages. The following message,
-
-```
-message MessageWithMap {
-  map<int, string> map_1 = 1;
-}
-```
-
-becomes:
-
-```
-message Map1Entry {
-  int key = 1;
-  string value = 2/
-}
-message MessageWithMap {
-  repeated Map1Entry map_1 = 1;
-}
-```
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### Connecting to Confluent Cloud
+#### Connecting to Confluent Cloud
 
 If using Confluent Cloud you can use a recipe like this. In this `consumer_config.sasl.username` and `consumer_config.sasl.password` are the API credentials that you get (in the Confluent UI) from your cluster -> Data Integration -> API Keys. `schema_registry_config.basic.auth.user.info` has API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.
 
@@ -109,7 +74,7 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
-### Custom Schema Registry
+#### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.
 By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
@@ -143,7 +108,7 @@ source:
       schema_registry_url: http://localhost:8081
 ```
 
-### OAuth Callback
+#### OAuth Callback
 
 The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
 
@@ -154,7 +119,7 @@ You need to specify a Python function reference in the format &lt;python-module&
 
 For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
 
-#### Deploying Custom OAuth Callbacks
+##### Deploying Custom OAuth Callbacks
 
 **For Built-in Callbacks (Recommended):**
 
@@ -208,7 +173,7 @@ sink:
         oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
 ```
 
-### Enriching DataHub metadata with automated meta mapping
+#### Enriching DataHub metadata with automated meta mapping
 
 :::note
 Meta mapping is currently only available for Avro schemas, and requires that those Avro schemas are pushed to the schema registry.
@@ -216,7 +181,7 @@ Meta mapping is currently only available for Avro schemas, and requires that tho
 
 Avro schemas are permitted to have additional attributes not defined by the specification as arbitrary metadata. A common pattern is to utilize this for business metadata. The Kafka source has the ability to transform this directly into DataHub Owners, Tags and Terms.
 
-#### Simple tags
+##### Simple tags
 
 If you simply have a list of tags embedded into an Avro schema (either at the top-level or for an individual field), you can use the `schema_tags_field` config.
 
@@ -244,7 +209,7 @@ config:
   schema_tags_field: tags
 ```
 
-#### meta mapping
+##### meta mapping
 
 You can also map specific Avro fields into Owners, Tags and Terms using meta
 mapping.
@@ -293,3 +258,38 @@ config:
 ```
 
 The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### `PROTOBUF` Schema Type Limitations
+
+The current implementation of the support for `PROTOBUF` schema type has the following limitations:
+
+- Recursive types are not supported.
+- If the schemas of different topics define a type in the same package, the source would raise an exception.
+
+In addition to this, maps are represented as arrays of messages. The following message,
+
+```
+message MessageWithMap {
+  map<int, string> map_1 = 1;
+}
+```
+
+becomes:
+
+```
+message Map1Entry {
+  int key = 1;
+  string value = 2/
+}
+message MessageWithMap {
+  repeated Map1Entry map_1 = 1;
+}
+```
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

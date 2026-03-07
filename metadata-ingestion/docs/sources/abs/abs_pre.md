@@ -2,11 +2,7 @@
 
 The `abs` module ingests metadata from Abs into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Prerequisites
-
-Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
-
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -19,7 +15,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 This connector supports both local files and those stored on Azure Blob Storage (which must be identified using the
 prefix `http(s)://<account>.blob.core.windows.net/` or `azure://`).
 
-### Supported file types
+#### Supported file types
 
 Supported file types are as follows:
 
@@ -39,3 +35,7 @@ objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
 Profiling is not available in the current release.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

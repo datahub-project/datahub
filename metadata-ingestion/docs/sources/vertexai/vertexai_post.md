@@ -81,15 +81,7 @@ Grant the following permissions to the service account on all target projects.
     client_id: "123456678890"
   ```
 
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### ML Metadata Lineage
+#### ML Metadata Lineage
 
 The connector extracts lineage and metrics from CustomJob training jobs using the **Vertex AI ML Metadata API**. This enables:
 
@@ -130,7 +122,7 @@ with aiplatform.start_execution(
     execution.assign_output_artifacts([model_artifact])
 ```
 
-### Cross-Platform Lineage Configuration
+#### Cross-Platform Lineage Configuration
 
 To ensure external datasets are linked with the correct platform instances and environments (so URNs match those from native connectors), configure `platform_instance_map`:
 
@@ -162,3 +154,11 @@ source:
 
 - **Snowflake**: Must set `convert_urns_to_lowercase: true` to match the Snowflake connector's default behavior
 - **All other platforms** (GCS, BigQuery, S3, ABS): Use the default `convert_urns_to_lowercase: false`
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

@@ -2,7 +2,7 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-# DataHub Garbage Collection Source Documentation
+#### DataHub Garbage Collection Source Documentation
 
 ### Limitations
 

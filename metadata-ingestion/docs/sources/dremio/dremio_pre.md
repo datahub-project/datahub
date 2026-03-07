@@ -6,13 +6,13 @@ The `dremio` module ingests metadata from Dremio into DataHub. It is intended fo
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-### Setup
+#### Setup
 
-#### Concept Mapping
+##### Concept Mapping
 
 Requires a Dremio API token with permissions to **read metadata** and **retrieve lineage**.
 
-#### Steps to Get the Required Information
+##### Steps to Get the Required Information
 
 1. **Generate an API Token**:
 

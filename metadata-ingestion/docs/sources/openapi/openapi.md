@@ -1,6 +1,6 @@
-This connector ingests OpenAPI (Swagger) API endpoint metadata into DataHub. It extracts API endpoints from OpenAPI v2 (Swagger) and v3 specifications and represents them as datasets in DataHub, allowing you to catalog and discover your API endpoints alongside your data assets.
-
 ### Capabilities
+
+This connector ingests OpenAPI (Swagger) API endpoint metadata into DataHub. It extracts API endpoints from OpenAPI v2 (Swagger) and v3 specifications and represents them as datasets in DataHub, allowing you to catalog and discover your API endpoints alongside your data assets.
 
 The OpenAPI source extracts metadata from OpenAPI specifications and optionally makes live API calls to gather schema information. It supports:
 
@@ -12,16 +12,7 @@ The OpenAPI source extracts metadata from OpenAPI specifications and optionally 
 - **Tag extraction** - Preserves tags from OpenAPI specifications
 - **Description extraction** - Extracts endpoint descriptions and summaries
 
-### Limitations
-
-- **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
-- **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
-- **200 response codes only**: Only endpoints with 200 response codes are ingested.
-- **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
-
-### Troubleshooting
-
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -30,7 +21,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | `"OpenAPI"`    | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                        |
 | API Endpoint   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Subtype `API_ENDPOINT` |
 
-### Schema Extraction Behavior
+#### Schema Extraction Behavior
 
 The source uses a multi-step approach to extract schemas for API endpoints:
 
@@ -55,7 +46,7 @@ API calls are only made for GET methods. POST, PUT, and PATCH methods rely solel
 Most schemas are extracted from the OpenAPI specification itself. API calls are primarily used as a fallback when the specification is incomplete.
 :::
 
-### Schema Extraction Priority
+#### Schema Extraction Priority
 
 When multiple HTTP methods are available for an endpoint, the source prioritizes extracting metadat from methods in this order:
 
@@ -66,7 +57,7 @@ When multiple HTTP methods are available for an endpoint, the source prioritizes
 
 The description, tags, and schema metadata all come from the same priority method to ensure consistency.
 
-### Browse Paths
+#### Browse Paths
 
 All ingested endpoints are organized in DataHub's browse interface using browse paths based on their endpoint path structure. This makes it easy to navigate and discover related endpoints.
 
@@ -78,15 +69,15 @@ For example:
 
 Endpoints are grouped by their path segments, making it easy to find all endpoints related to a particular resource or feature.
 
-### Prerequisites
+#### Prerequisites
 
-### OpenAPI Specification Access
+#### OpenAPI Specification Access
 
 - The OpenAPI specification file must be accessible via HTTP/HTTPS
 - The specification should be in JSON or YAML format
 - OpenAPI v2 (Swagger 2.0) and v3.x specifications are supported
 
-### Authentication (for API calls)
+#### Authentication (for API calls)
 
 If you want to enable live API calls for schema extraction (`enable_api_calls_for_schema_extraction=True`), you'll need to provide authentication credentials. The source supports:
 
@@ -99,9 +90,9 @@ If you want to enable live API calls for schema extraction (`enable_api_calls_fo
 Authentication is only required if you want to enable live API calls. Schema extraction from the OpenAPI specification itself does not require authentication.
 :::
 
-### Authentication Methods
+#### Authentication Methods
 
-#### Bearer Token
+##### Bearer Token
 
 ```yaml
 source:
@@ -113,7 +104,7 @@ source:
     bearer_token: "your-bearer-token-here"
 ```
 
-#### Custom Token
+##### Custom Token
 
 ```yaml
 source:
@@ -125,7 +116,7 @@ source:
     token: "your-token-here"
 ```
 
-#### Basic Authentication
+##### Basic Authentication
 
 ```yaml
 source:
@@ -138,7 +129,7 @@ source:
     password: your_password
 ```
 
-#### Dynamic Token Retrieval
+##### Dynamic Token Retrieval
 
 The source can retrieve a token dynamically by making a request to a token endpoint. This is useful when tokens expire and need to be refreshed.
 
@@ -160,7 +151,7 @@ source:
 When using `get_token` with `request_type: get`, the username and password are sent in the URL query parameters, which is less secure. Use `request_type: post` when possible.
 :::
 
-### Forced Examples
+#### Forced Examples
 
 For endpoints with path parameters where the source cannot automatically determine example values, you can provide them manually using `forced_examples`:
 
@@ -179,7 +170,7 @@ source:
 
 The source will use these values to construct URLs for API calls when needed.
 
-### Ignoring Endpoints
+#### Ignoring Endpoints
 
 You can exclude specific endpoints from ingestion:
 
@@ -196,9 +187,9 @@ source:
       - /internal/debug
 ```
 
-### Examples
+#### Examples
 
-### Basic Configuration (Schema from Spec Only)
+#### Basic Configuration (Schema from Spec Only)
 
 ```yaml
 source:
@@ -215,7 +206,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### With API Calls Enabled
+#### With API Calls Enabled
 
 ```yaml
 source:
@@ -233,7 +224,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Complete Example with All Options
+#### Complete Example with All Options
 
 ```yaml
 source:
@@ -273,7 +264,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### No schemas extracted
+#### No schemas extracted
 
 If schemas aren't being extracted:
 
@@ -282,7 +273,7 @@ If schemas aren't being extracted:
 3. **Check authentication** - Verify your credentials are correct if API calls are enabled
 4. **Review warnings** - Check the ingestion report for warnings about specific endpoints
 
-### Endpoints not appearing
+#### Endpoints not appearing
 
 If endpoints aren't appearing in DataHub:
 
@@ -290,10 +281,21 @@ If endpoints aren't appearing in DataHub:
 2. **Verify response codes** - Only endpoints with 200 response codes are ingested
 3. **Check OpenAPI spec format** - Ensure the specification is valid OpenAPI v2 or v3
 
-### Authentication errors
+#### Authentication errors
 
 If you see authentication errors:
 
 1. **Verify credentials** - Check that username/password or tokens are correct
 2. **Check token format** - Bearer tokens should not include the "Bearer " prefix
 3. **Review get_token configuration** - Ensure the token endpoint URL and method are correct
+
+### Limitations
+
+- **API calls are GET-only**: Live API calls for schema extraction are only made for GET methods. POST, PUT, and PATCH methods rely solely on schema definitions in the OpenAPI specification.
+- **Authentication required for API calls**: If `enable_api_calls_for_schema_extraction=True`, valid credentials must be provided.
+- **200 response codes only**: Only endpoints with 200 response codes are ingested.
+- **Schema extraction from spec is preferred**: The source prioritizes extracting schemas from the OpenAPI specification. API calls are used as a fallback.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

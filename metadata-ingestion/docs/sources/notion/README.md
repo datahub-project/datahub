@@ -18,6 +18,6 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 
 Modules on this platform: `notion`.
 
-# Notion Source
+## Notion Source
 
 Ingest pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings.

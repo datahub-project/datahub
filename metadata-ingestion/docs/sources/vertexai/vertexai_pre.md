@@ -2,11 +2,7 @@
 
 The `vertexai` module ingests metadata from Vertex AI into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Prerequisites
-
-Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
-
-### Integration Details
+#### Integration Details
 
 Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
 
@@ -21,7 +17,7 @@ For improved organization in the DataHub UI:
 - Model versions are organized under their respective model group folders
 - Pipeline tasks and task runs are nested under their parent pipeline folders
 
-#### Concept Mapping
+##### Concept Mapping
 
 This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
 
@@ -44,7 +40,7 @@ This ingestion source maps the following Vertex AI Concepts to DataHub Concepts:
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/vertexai/concept-mapping.png"/>
 </p>
 
-#### Lineage
+##### Lineage
 
 The connector captures comprehensive lineage relationships including cross-platform lineage to external data sources:
 
@@ -69,3 +65,7 @@ The connector links Vertex AI resources to external datasets when referenced in 
 - **Snowflake** (snowflake://...) → `snowflake` platform
 
 Use `platform_instance_map` to configure platform instances and environments for external platforms, ensuring URNs match those from native connectors for proper lineage connectivity.
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

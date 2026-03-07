@@ -6,29 +6,29 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
-### Limitations and Considerations
+### Limitations
 
-#### Notion API Limits
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Limitations and Considerations
+
+##### Notion API Limits
 
 - **Rate Limits**: Notion enforces rate limits (3 requests/second for paid workspaces, 1/second for free)
 - **Access Scope**: Integration only sees explicitly shared pages
 - **Content Types**: Some Notion blocks may not extract perfectly (e.g., complex embeds, synced blocks)
 
-#### Performance Considerations
+##### Performance Considerations
 
 - **Large Workspaces**: First run may take significant time for large workspaces
 - **Embedding Generation**: Adds processing time proportional to content volume
 - **API Costs**: Unstructured API and embedding providers may incur costs
 
-#### Content Extraction
+##### Content Extraction
 
 - **Supported Blocks**: Text, headings, lists, code blocks, tables, callouts, toggles, quotes
 - **Limited Support**: Embeds, equations, files (extracted as links/references)
 - **Not Supported**: Live charts, board/gallery/timeline views (database views)
-
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
 ### Troubleshooting
 
@@ -74,7 +74,5 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Check that parent pages are being ingested
 - Ensure `recursive: true` to discover parent-child relationships
 - Parent pages must be accessible to the integration
-
-### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

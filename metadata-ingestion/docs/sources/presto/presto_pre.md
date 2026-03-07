@@ -2,22 +2,11 @@
 
 The `presto` module ingests metadata from Presto into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Prerequisites
-
-1. **Network Access**: Access to Presto coordinator on port 8080 (or 443 for HTTPS)
-
-2. **User Account**: Presto user with permissions to query metadata
-
-3. **Dependencies**: Install PyHive connectivity:
-   ```bash
-   pip install 'acryl-datahub[presto]'
-   ```
-
-### Important: Presto vs. Presto-on-Hive
+#### Important: Presto vs. Presto-on-Hive
 
 There are **two different ways** to ingest Presto metadata into DataHub, depending on your use case:
 
-#### Option 1: Presto Connector (This Source)
+##### Option 1: Presto Connector (This Source)
 
 **Use when**: You want to connect directly to Presto to extract metadata from **all catalogs** (not just Hive).
 
@@ -41,7 +30,7 @@ source:
     password: ${PRESTO_PASSWORD}
 ```
 
-#### Option 2: Hive Metastore Connector with Presto Mode
+##### Option 2: Hive Metastore Connector with Presto Mode
 
 **Use when**: You want to ingest **Presto views that use the Hive metastore** and need storage lineage.
 
@@ -74,91 +63,11 @@ source:
 
 - [Hive Metastore Connector Documentation](../hive-metastore)
 
-### Required Permissions
-
-The Presto user account used by DataHub needs minimal permissions:
-
-```sql
--- Presto uses catalog-level permissions
--- The user needs SELECT access to system information tables
--- This is typically granted by default to all users
-```
-
-**Recommendation**: Use a read-only service account with access to all catalogs you want to ingest.
-
-### Authentication
-
-#### Basic Authentication (Username/Password)
-
-The most common authentication method:
-
-```yaml
-source:
-  type: presto
-  config:
-    host_port: presto.company.com:8080
-    username: datahub_user
-    password: ${PRESTO_PASSWORD}
-    database: hive # Optional: default catalog
-```
-
-#### LDAP Authentication
-
-For LDAP-based authentication:
-
-```yaml
-source:
-  type: presto
-  config:
-    host_port: presto.company.com:8080
-    username: datahub_user
-    password: ${LDAP_PASSWORD}
-    database: hive
-```
-
-#### HTTPS/TLS Connection
-
-For secure connections:
-
-```yaml
-source:
-  type: presto
-  config:
-    host_port: presto.company.com:443
-    username: datahub_user
-    password: ${PRESTO_PASSWORD}
-    database: hive
-    options:
-      connect_args:
-        protocol: https
-```
-
-#### Kerberos Authentication
-
-For Kerberos-secured Presto clusters:
-
-```yaml
-source:
-  type: presto
-  config:
-    host_port: presto.company.com:8080
-    database: hive
-    options:
-      connect_args:
-        auth: KERBEROS
-        kerberos_service_name: presto
-```
-
-**Requirements**:
-
-- Valid Kerberos ticket (use `kinit` before running ingestion)
-- PyKerberos package installed
-
-### Catalog and Schema Filtering
+#### Catalog and Schema Filtering
 
 Presto can connect to many different catalogs (Hive, PostgreSQL, MySQL, etc.). Use filtering to control what gets ingested:
 
-#### Catalog Filtering
+##### Catalog Filtering
 
 ```yaml
 source:
@@ -177,7 +86,7 @@ source:
         - "information_schema"
 ```
 
-#### Schema Filtering
+##### Schema Filtering
 
 ```yaml
 source:
@@ -196,7 +105,7 @@ source:
         - ".*_test$"
 ```
 
-#### Table Filtering
+##### Table Filtering
 
 ```yaml
 source:
@@ -215,7 +124,7 @@ source:
         - ".*_staging$"
 ```
 
-### Platform Instances
+#### Platform Instances
 
 When ingesting from multiple Presto clusters, use `platform_instance`:
 
@@ -233,7 +142,7 @@ This creates URNs like:
 urn:li:dataset:(urn:li:dataPlatform:presto,catalog.schema.table,prod-presto)
 ```
 
-### Data Profiling
+#### Data Profiling
 
 The Presto connector supports optional data profiling:
 
@@ -257,9 +166,9 @@ source:
 
 **Warning**: Profiling can be expensive on large tables. Start with `profile_table_level_only: true` and expand as needed.
 
-### Performance Considerations
+#### Performance Considerations
 
-#### Large Presto Deployments
+##### Large Presto Deployments
 
 For Presto clusters with many catalogs and tables:
 
@@ -287,31 +196,31 @@ For Presto clusters with many catalogs and tables:
      remove_stale_metadata: true
    ```
 
-#### Query Performance
+##### Query Performance
 
 - The connector queries Presto's `information_schema` tables
 - Ensure your Presto cluster has sufficient resources
 - Consider running ingestion during off-peak hours for large deployments
 
-### Caveats and Limitations
+#### Caveats and Limitations
 
-#### Storage Lineage
+##### Storage Lineage
 
 **Not Supported**: The Presto connector cannot extract storage lineage because it doesn't have access to underlying storage locations.
 
 **Solution**: Use the [Hive Metastore connector](../hive-metastore) with `mode: presto` to get storage lineage for Presto views backed by Hive.
 
-#### View Definitions
+##### View Definitions
 
 - **Simple Views**: Fully supported with SQL extraction
 - **Complex Presto Views**: Views with Presto-specific SQL functions may have limited lineage
 - **Cross-Catalog Views**: Views referencing multiple catalogs are supported
 
-#### Connector-Specific Tables
+##### Connector-Specific Tables
 
 Presto's catalog connectors (Hive, PostgreSQL, etc.) may have different metadata available. The connector extracts common metadata that works across all connectors.
 
-#### Known Issues
+##### Known Issues
 
 1. **Information Schema Latency**: Presto's `information_schema` may have delays in reflecting recent DDL changes.
 
@@ -321,7 +230,7 @@ Presto's catalog connectors (Hive, PostgreSQL, etc.) may have different metadata
 
 4. **Connector-Specific Metadata**: Some Presto connectors (e.g., Cassandra) have limited metadata available through `information_schema`.
 
-### Migration from presto-on-hive
+#### Migration from presto-on-hive
 
 If you're currently using the deprecated `presto-on-hive` source:
 
@@ -354,7 +263,7 @@ source:
 - Improved performance
 - Active maintenance and new features
 
-### Comparison: Presto vs. Hive Metastore Connector
+#### Comparison: Presto vs. Hive Metastore Connector
 
 | Feature             | `presto` Connector   | `hive-metastore` (mode: presto) |
 | ------------------- | -------------------- | ------------------------------- |
@@ -367,7 +276,7 @@ source:
 | **Data Profiling**  | Supported            | Not supported                   |
 | **Use Case**        | Multi-catalog Presto | Presto-on-Hive with lineage     |
 
-### Best Practices
+#### Best Practices
 
 1. **Choose the Right Connector**:
 
@@ -393,9 +302,100 @@ source:
    - Ingestion queries can impact Presto performance
    - Run during off-peak hours for large deployments
 
-### Related Documentation
+#### Related Documentation
 
 - [Presto Configuration Examples](presto_recipe.yml)
 - [Hive Metastore Connector](../hive-metastore) - For Presto-on-Hive with storage lineage
 - [Trino Connector](../trino) - Similar connector for Trino (Presto's successor)
 - [PyHive Documentation](https://github.com/dropbox/PyHive) - Underlying connection library
+
+### Prerequisites
+
+1. **Network Access**: Access to Presto coordinator on port 8080 (or 443 for HTTPS)
+
+2. **User Account**: Presto user with permissions to query metadata
+
+3. **Dependencies**: Install PyHive connectivity:
+   ```bash
+   pip install 'acryl-datahub[presto]'
+   ```
+
+#### Required Permissions
+
+The Presto user account used by DataHub needs minimal permissions:
+
+```sql
+-- Presto uses catalog-level permissions
+-- The user needs SELECT access to system information tables
+-- This is typically granted by default to all users
+```
+
+**Recommendation**: Use a read-only service account with access to all catalogs you want to ingest.
+
+#### Authentication
+
+##### Basic Authentication (Username/Password)
+
+The most common authentication method:
+
+```yaml
+source:
+  type: presto
+  config:
+    host_port: presto.company.com:8080
+    username: datahub_user
+    password: ${PRESTO_PASSWORD}
+    database: hive # Optional: default catalog
+```
+
+##### LDAP Authentication
+
+For LDAP-based authentication:
+
+```yaml
+source:
+  type: presto
+  config:
+    host_port: presto.company.com:8080
+    username: datahub_user
+    password: ${LDAP_PASSWORD}
+    database: hive
+```
+
+##### HTTPS/TLS Connection
+
+For secure connections:
+
+```yaml
+source:
+  type: presto
+  config:
+    host_port: presto.company.com:443
+    username: datahub_user
+    password: ${PRESTO_PASSWORD}
+    database: hive
+    options:
+      connect_args:
+        protocol: https
+```
+
+##### Kerberos Authentication
+
+For Kerberos-secured Presto clusters:
+
+```yaml
+source:
+  type: presto
+  config:
+    host_port: presto.company.com:8080
+    database: hive
+    options:
+      connect_args:
+        auth: KERBEROS
+        kerberos_service_name: presto
+```
+
+**Requirements**:
+
+- Valid Kerberos ticket (use `kinit` before running ingestion)
+- PyKerberos package installed

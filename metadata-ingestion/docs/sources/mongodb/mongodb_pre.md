@@ -7,7 +7,7 @@ The `mongodb` module ingests metadata from Mongodb into DataHub. It is intended 
 **Important:**
 The user account used for MongoDB ingestion must have the `readWrite` role on each database to be ingested. Schema inference and sampling logic executes on system collections (such as `system.profile` and `system.views`), which are not permitted with only `read` or `readAnyDatabase` roles. Without `readWrite`, ingestion will fail with an authorization error.
 
-### Authentication
+#### Authentication
 
 The `authMechanism` config field maps directly to PyMongo's
 [authentication mechanisms](https://pymongo.readthedocs.io/en/stable/examples/authentication.html).
@@ -21,7 +21,7 @@ Supported values:
 | `MONGODB-AWS`   | AWS IAM authentication for MongoDB Atlas or AWS DocumentDB. Credentials are resolved from the environment (env vars, EC2 instance profile, ECS task role, EKS pod identity) via `boto3`. | See below                                  |
 | `MONGODB-X509`  | X.509 certificate authentication.                                                                                                                                                        | TLS options via `connect_uri` or `options` |
 
-#### Username/Password (DEFAULT, SCRAM)
+##### Username/Password (DEFAULT, SCRAM)
 
 The simplest configuration - supply `username` and `password` directly:
 
@@ -35,7 +35,7 @@ source:
     authMechanism: "DEFAULT"
 ```
 
-#### AWS IAM Authentication (MONGODB-AWS)
+##### AWS IAM Authentication (MONGODB-AWS)
 
 Set `authMechanism: "MONGODB-AWS"` to authenticate using AWS IAM
 credentials. The connector resolves credentials automatically via

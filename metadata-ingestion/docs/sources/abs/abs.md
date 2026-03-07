@@ -7,15 +7,7 @@ file or a folder of files to a dataset in DataHub.
 To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer
 section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
 
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### Path Specs
+#### Path Specs
 
 Path Specs (`path_specs`) is a list of Path Spec (`path_spec`) objects, where each individual `path_spec` represents one or more datasets. The include path (`path_spec.include`) represents a formatted path to the dataset. This path must end with `*.*` or `*.[ext]` to represent the leaf level. If `*.[ext]` is provided, then only files with the specified extension type will be scanned. "`.[ext]`" can be any of the [supported file types](#supported-file-types). Refer to [example 1](#example-1---individual-file-as-dataset) below for more details.
 
@@ -30,9 +22,9 @@ Refer to [example 5](#example-5---advanced---either-individual-file-or-folder-of
 - Folder names should not contain {, }, \*, / in their names.
 - Named variable {folder} is reserved for internal working. please do not use in named variables.
 
-### Path Specs - Examples
+#### Path Specs - Examples
 
-#### Example 1 - Individual file as Dataset
+##### Example 1 - Individual file as Dataset
 
 Container structure:
 
@@ -53,7 +45,7 @@ path_specs:
 
 This will automatically ignore `departments.json` file. To include it, use `*.*` instead of `*.csv`.
 
-#### Example 2 - Folder of files as Dataset (without Partitions)
+##### Example 2 - Folder of files as Dataset (without Partitions)
 
 Container structure:
 
@@ -74,7 +66,7 @@ path_specs:
 
 `{table}` represents folder for which dataset will be created.
 
-#### Example 3 - Folder of files as Dataset (with Partitions)
+##### Example 3 - Folder of files as Dataset (with Partitions)
 
 Container structure:
 
@@ -101,7 +93,7 @@ path_specs:
 
 One can also use `include: https://storageaccountname.blob.core.windows.net/test-container/{table}/*/*/*.parquet` here however above format is preferred as it allows declaring partitions explicitly.
 
-#### Example 4 - Folder of files as Dataset (with Partitions), and Exclude Filter
+##### Example 4 - Folder of files as Dataset (with Partitions), and Exclude Filter
 
 Container structure:
 
@@ -129,7 +121,7 @@ path_specs:
         - **/tmp_orders/**
 ```
 
-#### Example 5 - Advanced - Either Individual file OR Folder of files as Dataset
+##### Example 5 - Advanced - Either Individual file OR Folder of files as Dataset
 
 Container structure:
 
@@ -217,7 +209,7 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
-### Compatibility
+#### Compatibility
 
 Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
 
@@ -228,3 +220,11 @@ For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.
 From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158]
 Avro files that contain such columns won't be profiled.
 :::
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

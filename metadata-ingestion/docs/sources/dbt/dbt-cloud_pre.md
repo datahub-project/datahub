@@ -6,13 +6,13 @@ The `dbt-cloud` module ingests metadata from Dbt into DataHub. It is intended fo
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-### Setup
+#### Setup
 
 Extracts dbt metadata from dbt Cloud APIs.
 
 Create a [service account token](https://docs.getdbt.com/docs/dbt-cloud-apis/service-tokens) with "Metadata Only" permission (read-only).
 
-#### Operating Modes
+##### Operating Modes
 
 The dbt Cloud source supports two modes of operation:
 

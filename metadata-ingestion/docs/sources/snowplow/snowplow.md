@@ -1,30 +1,10 @@
-# Snowplow
-
 ### Capabilities
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-### Limitations
+#### Snowplow
 
-1. **BDP-specific features**:
-
-   - Event specifications only available via BDP Console API
-   - Tracking scenarios only available via BDP Console API
-   - Tracking plans only available via BDP Console API
-   - Open-source Iglu users won't have these features
-
-2. **Iglu Server requirements**:
-
-   - Automatic schema discovery requires Iglu Server 0.6+ with `/api/schemas` endpoint
-   - Older Iglu implementations may not support the list schemas API
-
-3. **Field tagging in Iglu-only mode**:
-   - PII/sensitive field detection requires BDP deployment metadata
-   - Not available when using Iglu-only mode
-
-### Troubleshooting
-
-### Overview
+#### Overview
 
 The Snowplow source extracts metadata from Snowplow's behavioral data platform, including:
 
@@ -39,7 +19,7 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
 - **Snowplow BDP** (Behavioral Data Platform) - Managed Snowplow with Console API
 - **Open-source Snowplow** - Self-hosted with Iglu schema registry
 
-### Supported Capabilities
+#### Supported Capabilities
 
 | Capability              | Status       | Notes                                                     |
 | ----------------------- | ------------ | --------------------------------------------------------- |
@@ -51,9 +31,9 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
 | Pipelines & Enrichments | ✅ Supported | Extract data pipelines and enrichment jobs (BDP only)     |
 | Deletion Detection      | ✅ Supported | Via stateful ingestion                                    |
 
-### Prerequisites
+#### Prerequisites
 
-### For Snowplow BDP (Managed)
+#### For Snowplow BDP (Managed)
 
 1. **Snowplow BDP account** with Console access
 2. **Organization ID** - Found in Console URL: `https://console.snowplowanalytics.com/{org-id}/...`
@@ -61,37 +41,37 @@ Snowplow is an open-source behavioral data platform that collects, validates, an
    - API Key ID
    - API Key Secret
 
-### For Open-Source Snowplow
+#### For Open-Source Snowplow
 
 1. **Iglu Schema Registry** - URL of your Iglu server
 2. **API Key** (optional) - Required for private Iglu registries
 
-### Python Requirements
+#### Python Requirements
 
 - Python 3.8 or newer
 - DataHub CLI installed
 
-### Installation
+#### Installation
 
 ```bash
 # Install DataHub with Snowplow support
 pip install 'acryl-datahub[snowplow]'
 ```
 
-### Required Permissions
+#### Required Permissions
 
-### Snowplow BDP API Permissions
+#### Snowplow BDP API Permissions
 
 The connector requires **read-only access** to the following BDP Console API endpoints:
 
-#### Minimum Required Permissions
+##### Minimum Required Permissions
 
 To extract basic schema metadata:
 
 - **`read:data-structures`** - Read access to data structures (event and entity schemas)
 - **`read:organizations`** - Access to organization information
 
-#### Permissions by Capability
+##### Permissions by Capability
 
 | Capability               | Required Permissions      | Configuration                        |
 | ------------------------ | ------------------------- | ------------------------------------ |
@@ -100,7 +80,7 @@ To extract basic schema metadata:
 | **Tracking Scenarios**   | `read:tracking-scenarios` | `extract_tracking_scenarios: true`   |
 | **Tracking Plans**       | `read:data-products`      | `extract_tracking_plans: true`       |
 
-#### Permission Testing
+##### Permission Testing
 
 Test your API credentials and permissions:
 
@@ -116,14 +96,14 @@ curl -H "Authorization: Bearer <JWT>" \
   https://console.snowplowanalytics.com/api/msc/v1/organizations/<ORG_ID>/data-structures/v1
 ```
 
-### Iglu Registry Permissions
+#### Iglu Registry Permissions
 
 For **open-source Snowplow** with Iglu:
 
 - **Public registries**: No authentication required (e.g., Iglu Central)
 - **Private registries**: API key with read access to schemas
 
-### Configuration
+#### Configuration
 
 See the recipe files for complete configuration examples:
 
@@ -132,9 +112,9 @@ See the recipe files for complete configuration examples:
 - [snowplow_iglu.yml](snowplow_iglu.yml) - Open-source Iglu configuration
 - [snowplow_with_filtering.yml](snowplow_with_filtering.yml) - Schema filtering examples
 
-### Connection Options
+#### Connection Options
 
-#### BDP Console Connection
+##### BDP Console Connection
 
 | Option            | Type   | Required | Default                                            | Description                         |
 | ----------------- | ------ | -------- | -------------------------------------------------- | ----------------------------------- |
@@ -145,7 +125,7 @@ See the recipe files for complete configuration examples:
 | `timeout_seconds` | int    |          | 60                                                 | Request timeout in seconds          |
 | `max_retries`     | int    |          | 3                                                  | Maximum retry attempts              |
 
-#### Iglu Connection
+##### Iglu Connection
 
 | Option            | Type   | Required | Default | Description                                     |
 | ----------------- | ------ | -------- | ------- | ----------------------------------------------- |
@@ -155,7 +135,7 @@ See the recipe files for complete configuration examples:
 
 **Note**: Iglu-only mode uses automatic schema discovery via the `/api/schemas` endpoint (requires Iglu Server 0.6+). All schemas in the registry will be automatically discovered.
 
-### Feature Options
+#### Feature Options
 
 | Option                         | Type   | Default                | Description                                          | Required Permission       |
 | ------------------------------ | ------ | ---------------------- | ---------------------------------------------------- | ------------------------- |
@@ -170,7 +150,7 @@ See the recipe files for complete configuration examples:
 | `extract_standard_schemas`     | bool   | true                   | Extract Snowplow standard schemas from Iglu Central  | N/A                       |
 | `iglu_central_url`             | string | http://iglucentral.com | URL for fetching standard schemas                    | N/A                       |
 
-### Schema Extraction Options
+#### Schema Extraction Options
 
 | Option                    | Type   | Default               | Description                                                 |
 | ------------------------- | ------ | --------------------- | ----------------------------------------------------------- |
@@ -178,7 +158,7 @@ See the recipe files for complete configuration examples:
 | `deployed_since`          | string | None                  | Only extract schemas deployed since this ISO 8601 timestamp |
 | `schema_page_size`        | int    | 100                   | Number of schemas per API page                              |
 
-### Warehouse Lineage Options (Advanced)
+#### Warehouse Lineage Options (Advanced)
 
 ⚠️ **Note**: Disabled by default. Prefer warehouse connectors (Snowflake, BigQuery) for column-level lineage.
 
@@ -190,7 +170,7 @@ See the recipe files for complete configuration examples:
 | `warehouse_lineage.validate_urns`        | bool   | true    | Validate warehouse URNs exist in DataHub        | DataHub Graph API access |
 | `warehouse_lineage.destination_mappings` | list   | []      | Per-destination platform instance overrides     | N/A                      |
 
-### Field Tagging Options
+#### Field Tagging Options
 
 | Option                                              | Type | Default | Description                                             |
 | --------------------------------------------------- | ---- | ------- | ------------------------------------------------------- |
@@ -205,14 +185,14 @@ See the recipe files for complete configuration examples:
 | `field_tagging.pii_tags_only`                       | bool | false   | Only emit tags for PII fields when using both           |
 | `field_tagging.use_pii_enrichment`                  | bool | true    | Extract PII fields from PII Pseudonymization enrichment |
 
-### Performance Options
+#### Performance Options
 
 | Option                                 | Type | Default | Description                                          |
 | -------------------------------------- | ---- | ------- | ---------------------------------------------------- |
 | `performance.max_concurrent_api_calls` | int  | 10      | Maximum concurrent API calls for deployment fetching |
 | `performance.enable_parallel_fetching` | bool | true    | Enable parallel fetching of schema deployments       |
 
-### Filtering Options
+#### Filtering Options
 
 | Option                      | Type             | Default   | Description                           |
 | --------------------------- | ---------------- | --------- | ------------------------------------- |
@@ -221,16 +201,16 @@ See the recipe files for complete configuration examples:
 | `tracking_scenario_pattern` | AllowDenyPattern | Allow all | Filter tracking scenarios by name     |
 | `tracking_plan_pattern`     | AllowDenyPattern | Allow all | Filter tracking plans by name         |
 
-### Stateful Ingestion
+#### Stateful Ingestion
 
 | Option                                     | Type | Default | Description                                      |
 | ------------------------------------------ | ---- | ------- | ------------------------------------------------ |
 | `stateful_ingestion.enabled`               | bool | false   | Enable stateful ingestion for deletion detection |
 | `stateful_ingestion.remove_stale_metadata` | bool | true    | Remove schemas that no longer exist              |
 
-### Quick Start
+#### Quick Start
 
-### 1. BDP Console (Managed Snowplow)
+#### 1. BDP Console (Managed Snowplow)
 
 Create a recipe file `snowplow_recipe.yml`:
 
@@ -255,7 +235,7 @@ Run ingestion:
 datahub ingest -c snowplow_recipe.yml
 ```
 
-### 2. Open-Source Snowplow (Iglu-Only Mode)
+#### 2. Open-Source Snowplow (Iglu-Only Mode)
 
 For self-hosted Snowplow with Iglu registry (without BDP Console API):
 
@@ -287,7 +267,7 @@ sink:
 
 For complete configuration options, see [snowplow_iglu.yml](snowplow_iglu.yml).
 
-### 3. With Warehouse Lineage (BDP Only - Advanced)
+#### 3. With Warehouse Lineage (BDP Only - Advanced)
 
 ⚠️ **Note**: This feature is **disabled by default** and should only be enabled in specific scenarios (see below).
 
@@ -312,7 +292,7 @@ source:
 
 **Supported warehouses**: Snowflake, BigQuery, Redshift, Databricks
 
-#### When to Enable This Feature
+##### When to Enable This Feature
 
 **✅ Enable warehouse lineage if**:
 
@@ -332,7 +312,7 @@ source:
 
 **Requirements**: Data Models must be configured in your BDP organization.
 
-### Schema Versioning
+#### Schema Versioning
 
 Snowplow uses **SchemaVer** (semantic versioning for schemas) with the format `MODEL-REVISION-ADDITION`:
 
@@ -351,11 +331,11 @@ In DataHub, schemas are represented as:
 - **Dataset name**: `{vendor}.{name}.{version}` (e.g., `com.example.page_view.1-0-0`)
 - **Schema version**: Tracked in dataset properties
 
-### Entity Mapping: Snowplow → DataHub
+#### Entity Mapping: Snowplow → DataHub
 
 This section explains how Snowplow concepts are modeled as DataHub entities.
 
-### Entity Type Mapping
+#### Entity Type Mapping
 
 | Snowplow Concept    | DataHub Entity | DataHub Subtype          | Description                                      |
 | ------------------- | -------------- | ------------------------ | ------------------------------------------------ |
@@ -371,7 +351,7 @@ This section explains how Snowplow concepts are modeled as DataHub entities.
 | Atomic Events       | Dataset        | `atomic_event`           | Raw enriched events table in warehouse           |
 | Parsed Events       | Dataset        | `event`                  | Parsed event data combining all schemas          |
 
-### Pipeline Architecture in DataHub
+#### Pipeline Architecture in DataHub
 
 Snowplow pipelines are modeled as **DataFlow** entities with **DataJob** children representing each processing stage:
 
@@ -415,11 +395,11 @@ Tracker SDKs (Web, Mobile, Server)
                     └─────────────────────────┘
 ```
 
-### Lineage Relationships
+#### Lineage Relationships
 
 The connector creates the following lineage relationships:
 
-#### 1. Schema → Event Specification Lineage
+##### 1. Schema → Event Specification Lineage
 
 Event specifications reference the schemas they require:
 
@@ -435,7 +415,7 @@ Event specifications reference the schemas they require:
 └──────────────────────────────┘
 ```
 
-#### 2. Enrichment Column-Level Lineage
+##### 2. Enrichment Column-Level Lineage
 
 Enrichments transform specific fields. Example for IP Lookup:
 
@@ -476,7 +456,7 @@ Supported enrichments with column-level lineage:
 - **Event Fingerprint**: event fields → `event_fingerprint`
 - **IAB Spiders/Robots**: `useragent` → `iab_*` classification fields
 
-#### 3. Warehouse Lineage (Optional)
+##### 3. Warehouse Lineage (Optional)
 
 When `warehouse_lineage.enabled: true`:
 
@@ -487,7 +467,7 @@ When `warehouse_lineage.enabled: true`:
 └─────────────────────────┘                    └─────────────────────────┘
 ```
 
-### Container Hierarchy
+#### Container Hierarchy
 
 ```
 Organization (Container: DATABASE)
@@ -506,7 +486,7 @@ Organization (Container: DATABASE)
     └── Schema (linked)
 ```
 
-### URN Formats
+#### URN Formats
 
 | Entity Type         | URN Format                                                        |
 | ------------------- | ----------------------------------------------------------------- |
@@ -517,7 +497,7 @@ Organization (Container: DATABASE)
 | Enrichment/DataJob  | `urn:li:dataJob:(urn:li:dataFlow:(...),job-id)`                   |
 | Tracking Scenario   | `urn:li:container:{guid}`                                         |
 
-### Custom Properties
+#### Custom Properties
 
 Each entity type includes relevant custom properties:
 
@@ -540,7 +520,7 @@ Each entity type includes relevant custom properties:
 - `input_fields`, `output_fields`
 - `configuration` details
 
-### Authentication Errors
+#### Authentication Errors
 
 **Error**: `Authentication failed: Invalid API credentials`
 
@@ -559,7 +539,7 @@ Each entity type includes relevant custom properties:
 - Verify API key has required permissions
 - Contact Snowplow support if permissions are unclear
 
-### Permission Errors
+#### Permission Errors
 
 **Error**: `Permission denied for /data-structures`
 
@@ -575,7 +555,7 @@ Each entity type includes relevant custom properties:
 - Set `extract_event_specifications: false` in config, or
 - Request `read:event-specs` permission for your API key
 
-### Connection Errors
+#### Connection Errors
 
 **Error**: `Request timeout: https://console.snowplowanalytics.com`
 
@@ -593,7 +573,7 @@ Each entity type includes relevant custom properties:
 - For private registries, check `api_key` is valid
 - Test connectivity: `curl https://iglu.example.com/api/schemas`
 
-### No Schemas Found
+#### No Schemas Found
 
 **Issue**: Ingestion completes but no schemas extracted
 
@@ -620,7 +600,7 @@ Each entity type includes relevant custom properties:
 
 4. **Verify schemas exist in BDP Console** or Iglu registry
 
-### Rate Limiting
+#### Rate Limiting
 
 **Error**: `HTTP 429: Rate limit exceeded`
 
@@ -630,9 +610,9 @@ Each entity type includes relevant custom properties:
 - Rate limits should be handled automatically
 - If issues persist, contact Snowplow support to increase limits
 
-### Advanced Configuration
+#### Advanced Configuration
 
-### Custom Platform Instance
+#### Custom Platform Instance
 
 Group schemas by environment:
 
@@ -649,7 +629,7 @@ source:
     env: "PROD"
 ```
 
-### Schema Filtering
+#### Schema Filtering
 
 Extract only specific vendor schemas:
 
@@ -667,7 +647,7 @@ source:
         - ".*\\.test$" # Deny test schemas
 ```
 
-### Stateful Ingestion
+#### Stateful Ingestion
 
 Enable deletion detection:
 
@@ -682,7 +662,7 @@ source:
       remove_stale_metadata: true
 ```
 
-### Testing the Connection
+#### Testing the Connection
 
 Use DataHub's built-in test-connection command:
 
@@ -698,7 +678,7 @@ This will:
 - Verify required permissions
 - Report capability availability
 
-### References
+#### References
 
 - [Snowplow Documentation](https://docs.snowplow.io/)
 - [Snowplow BDP Console API](https://console.snowplowanalytics.com/api/msc/v1/docs/)
@@ -706,10 +686,32 @@ This will:
 - [SchemaVer Specification](https://docs.snowplow.io/docs/api-reference/iglu/common-architecture/schemaver/)
 - [Snowplow GitHub](https://github.com/snowplow/snowplow)
 
-### Support
+#### Support
 
 For issues or questions:
 
 - DataHub Slack: [#troubleshoot](https://datahubproject.io/slack)
 - GitHub Issues: [datahub-project/datahub](https://github.com/datahub-project/datahub/issues)
 - Snowplow Support: [Snowplow Discourse](https://discourse.snowplow.io/)
+
+### Limitations
+
+1. **BDP-specific features**:
+
+   - Event specifications only available via BDP Console API
+   - Tracking scenarios only available via BDP Console API
+   - Tracking plans only available via BDP Console API
+   - Open-source Iglu users won't have these features
+
+2. **Iglu Server requirements**:
+
+   - Automatic schema discovery requires Iglu Server 0.6+ with `/api/schemas` endpoint
+   - Older Iglu implementations may not support the list schemas API
+
+3. **Field tagging in Iglu-only mode**:
+   - PII/sensitive field detection requires BDP deployment metadata
+   - Not available when using Iglu-only mode
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

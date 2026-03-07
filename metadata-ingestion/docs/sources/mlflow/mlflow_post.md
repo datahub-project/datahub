@@ -9,15 +9,7 @@ If you're using an earlier version, ingestion of **Experiments** and **Runs** wi
 
 :::
 
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### Auth Configuration
+#### Auth Configuration
 
 You can configure the MLflow source to authenticate with the MLflow server using the `username` and `password` configuration options.
 
@@ -30,7 +22,7 @@ source:
     password: <password>
 ```
 
-### Dataset Lineage
+#### Dataset Lineage
 
 You can map MLflow run datasets to specific DataHub platforms using the `source_mapping_to_platform` configuration option. This allows you to specify which DataHub platform should be associated with datasets from different MLflow engines.
 
@@ -65,3 +57,11 @@ source_mapping_to_platform:
     huggingface: snowflake
     pytorch: snowflake
 ```
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

@@ -2,6 +2,14 @@
 
 The `doris` module ingests metadata from Doris into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
+#### Profiling
+
+Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.
+
+#### Stored Procedures
+
+Stored procedure ingestion is disabled by default because Doris's `information_schema.ROUTINES` table is always empty.
+
 ### Prerequisites
 
 #### Doris Version
@@ -23,11 +31,3 @@ GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
 
 - `SELECT_PRIV`: Required for table and column metadata
 - `SHOW_VIEW_PRIV`: Required for view definitions and lineage
-
-### Profiling
-
-Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically excluded from field-level profiling as they don't support standard aggregation operations. Table-level statistics are still collected for all tables.
-
-### Stored Procedures
-
-Stored procedure ingestion is disabled by default because Doris's `information_schema.ROUTINES` table is always empty.

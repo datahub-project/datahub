@@ -9,7 +9,7 @@ Grant the following privileges to the ingestion user:
 - `grant select on DATABASE.* to 'USERNAME'@'%'` (required for metadata and profiling)
 - `grant show view on DATABASE.* to 'USERNAME'@'%'` (required for view definitions)
 
-### AWS RDS IAM Authentication
+#### AWS RDS IAM Authentication
 
 AWS RDS MySQL supports IAM authentication instead of username/password.
 

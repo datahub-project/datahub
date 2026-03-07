@@ -2,9 +2,7 @@
 
 The `excel` module ingests metadata from Excel into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Prerequisites
-
-### Supported file types
+#### Supported file types
 
 Supported file types are as follows:
 
@@ -15,7 +13,7 @@ The connector will attempt to identify which cells contain table data. A table i
 
 Rows that are directly above or directly below the table where only the first two columns have values are assumed to contain metadata. If such rows are located, they are converted to custom properties where the first column is the key, and the second column is the value. Additionally, the workbook standard and custom properties are also imported as dataset custom properties.
 
-### Data Model Mapping
+#### Data Model Mapping
 
 The following table shows how Excel entities are mapped to DataHub entities:
 
@@ -26,7 +24,7 @@ The following table shows how Excel entities are mapped to DataHub entities:
 
 Note: The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
 
-### AWS S3
+#### AWS S3
 
 When configuring an S3 ingestion source to access files in an S3 bucket, the AWS account referenced in your ingestion recipe must have appropriate S3 permissions. Create a policy with the minimum required permissions by following these steps:
 
@@ -59,7 +57,7 @@ When configuring an S3 ingestion source to access files in an S3 bucket, the AWS
 
 3. **Set Up S3 Data Source**: When configuring your S3 ingestion source, specify the IAM user to whom you assigned the permissions in the previous step.
 
-### Azure Blob Storage
+#### Azure Blob Storage
 
 To access files on Azure Blob Storage, you will need the following:
 
@@ -78,13 +76,13 @@ To access files on Azure Blob Storage, you will need the following:
    - For client secret: Appropriate Azure role assignments (like Storage Blob Data Contributor)
    - For SAS token: Permissions are defined within the token itself
 
-### Starter Recipes
+#### Starter Recipes
 
 Check out the following recipes to get started with ingestion.
 
 For general pointers on writing and running a recipe, see our [main recipe guide](https://docs.datahub.com/docs/metadata-ingestion#recipes).
 
-### S3
+#### S3
 
 ```yaml
 source:
@@ -100,7 +98,7 @@ source:
       enabled: false
 ```
 
-### Azure Blob Storage
+#### Azure Blob Storage
 
 ```yaml
 source:
@@ -116,7 +114,7 @@ source:
       enabled: false
 ```
 
-### Local Files
+#### Local Files
 
 ```yaml
 source:
@@ -127,3 +125,5 @@ source:
     profiling:
       enabled: false
 ```
+
+### Prerequisites

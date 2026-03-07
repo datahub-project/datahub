@@ -18,6 +18,6 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 
 Modules on this platform: `datahub-documents`.
 
-# DataHub Documents Source
+## DataHub Documents Source
 
 Process Document entities from DataHub and generate semantic embeddings for semantic search.

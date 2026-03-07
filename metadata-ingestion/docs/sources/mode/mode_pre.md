@@ -6,13 +6,13 @@ The `mode` module ingests metadata from Mode into DataHub. It is intended for pr
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-### Authentication
+#### Authentication
 
 Generate an API `token` and `password` following Mode's [Authentication documentation](https://mode.com/developer/api-reference/authentication/).
 
 Mode requires a user account for authentication (no service accounts). Consider creating a dedicated user for DataHub ingestion.
 
-### Permissions
+#### Permissions
 
 DataHub ingestion requires the user to have the following permissions:
 

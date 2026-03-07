@@ -6,29 +6,29 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
-### Limitations and Considerations
+### Limitations
 
-#### Confluence API Limits
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Limitations and Considerations
+
+##### Confluence API Limits
 
 - **Rate Limits**: Confluence enforces rate limits (Cloud: varies by plan, Data Center: configurable)
 - **Content Types**: Complex macros may not extract perfectly (e.g., embedded content, custom macros)
 - **Attachments**: File attachments are not ingested (only page content)
 
-#### Performance Considerations
+##### Performance Considerations
 
 - **Large Spaces**: First run may take significant time for large spaces (1000+ pages)
 - **Embedding Generation**: Adds processing time proportional to content volume
 - **API Costs**: Embedding providers may incur costs based on usage
 
-#### Content Extraction
+##### Content Extraction
 
 - **Supported Content**: Text, headings, lists, code blocks, tables, panels
 - **Limited Support**: Some macros extract as text/links
 - **Not Supported**: Attachments, complex custom macros, embedded Jira issues (content only)
-
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
 ### Troubleshooting
 
@@ -95,7 +95,5 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **Page ID (Cloud)**: In the page URL after `/pages/`: `https://domain.atlassian.net/wiki/spaces/ENG/pages/123456/Title` → ID is `123456`
 - **Page ID (Data Center)**: In the URL query parameter: `https://confluence.company.com/pages/viewpage.action?pageId=123456` → ID is `123456`
 - **Personal space key**: Format is `~username` (e.g., `~john.doe` for user john.doe)
-
-### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

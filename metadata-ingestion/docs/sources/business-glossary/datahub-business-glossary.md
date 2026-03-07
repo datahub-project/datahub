@@ -2,15 +2,7 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### Business Glossary File Format
+#### Business Glossary File Format
 
 The business glossary source file should be a .yml file with the following top-level keys:
 
@@ -81,7 +73,7 @@ Example **GlossaryTerm**:
   domain: "urn:li:domain:Logistics" # (optional) domain name or domain urn
 ```
 
-### ID Management and URL Generation
+#### ID Management and URL Generation
 
 The business glossary provides two primary ways to manage term and node identifiers:
 
@@ -246,7 +238,7 @@ nodes:
         description: Customer Satisfaction Score
 ```
 
-### Custom ID Specification
+#### Custom ID Specification
 
 Custom IDs can be specified in two ways, both of which are fully supported and acceptable:
 
@@ -281,6 +273,14 @@ nodes:
 
 Note: Once you select a custom ID, it cannot be easily changed.
 
-### Compatibility
+#### Compatibility
 
 Compatible with version 1 of business glossary format. The source will be evolved as newer versions of this format are published.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

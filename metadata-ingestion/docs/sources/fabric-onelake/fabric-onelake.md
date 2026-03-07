@@ -1,20 +1,12 @@
-# Microsoft Fabric OneLake
-
-This connector extracts metadata from Microsoft Fabric OneLake, including workspaces, lakehouses, warehouses, schemas, and tables.
-
 ### Capabilities
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-### Limitations
+#### Microsoft Fabric OneLake
 
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+This connector extracts metadata from Microsoft Fabric OneLake, including workspaces, lakehouses, warehouses, schemas, and tables.
 
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-### Concept Mapping
+#### Concept Mapping
 
 | Microsoft Fabric | DataHub Entity                            | Notes                                       |
 | ---------------- | ----------------------------------------- | ------------------------------------------- |
@@ -24,7 +16,7 @@ If ingestion fails, validate credentials, permissions, connectivity, and scope f
 | **Schema**       | `Container` (subtype: `Fabric Schema`)    | Logical grouping within lakehouse/warehouse |
 | **Table**        | `Dataset`                                 | Tables within schemas                       |
 
-### Hierarchy Structure
+#### Hierarchy Structure
 
 ```
 Platform (fabric-onelake)
@@ -37,13 +29,13 @@ Platform (fabric-onelake)
             └── Table/View (Dataset)
 ```
 
-### Platform Instance as Tenant
+#### Platform Instance as Tenant
 
 The Fabric REST API does not expose tenant-level endpoints. To represent tenant-level organization in DataHub, set the `platform_instance` configuration field to your tenant identifier (e.g., "contoso-tenant"). This will be included in all container and dataset URNs, effectively grouping all workspaces under the specified platform instance/tenant.
 
-### Prerequisites
+#### Prerequisites
 
-### Authentication
+#### Authentication
 
 The connector supports multiple Azure authentication methods:
 
@@ -56,7 +48,7 @@ The connector supports multiple Azure authentication methods:
 
 For service principal setup, see [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
 
-### Required Permissions
+#### Required Permissions
 
 The connector requires **read-only access** to Fabric workspaces and their contents. The authenticated identity (service principal, managed identity, or user) must have:
 
@@ -93,7 +85,7 @@ For detailed information on permissions, see:
 - [Workspace Roles and Permissions](https://learn.microsoft.com/en-us/fabric/admin/roles)
 - [OneLake Data Access Control](https://learn.microsoft.com/en-us/fabric/onelake/security/data-access-control-model)
 
-### Granting Permissions
+#### Granting Permissions
 
 **For Service Principal:**
 
@@ -113,9 +105,9 @@ For detailed information on permissions, see:
 2. Assign the managed identity to Fabric workspaces with **Viewer** role or higher
 3. The connector will automatically use the managed identity for authentication
 
-### Configuration
+#### Configuration
 
-### Basic Recipe
+#### Basic Recipe
 
 ```yaml
 source:
@@ -165,7 +157,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Advanced Configuration
+#### Advanced Configuration
 
 ```yaml
 source:
@@ -229,7 +221,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Using Managed Identity
+#### Using Managed Identity
 
 ```yaml
 source:
@@ -249,7 +241,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Using Azure CLI (Local Development)
+#### Using Azure CLI (Local Development)
 
 ```yaml
 source:
@@ -268,15 +260,15 @@ sink:
     server: "http://localhost:8080"
 ```
 
-### Schema Extraction
+#### Schema Extraction
 
 Schema extraction (column metadata) is supported via the SQL Analytics Endpoint. This feature extracts column names, data types, nullability, and ordinal positions from tables in both Lakehouses and Warehouses.
 
-### Prerequisites for Schema Extraction
+#### Prerequisites for Schema Extraction
 
 Schema extraction via SQL Analytics Endpoint requires ODBC drivers to be installed on the system.
 
-#### 1. ODBC Driver Manager
+##### 1. ODBC Driver Manager
 
 First, install the ODBC driver manager (UnixODBC) on your system:
 
@@ -303,7 +295,7 @@ sudo dnf install -y unixODBC unixODBC-devel
 brew install unixodbc
 ```
 
-#### 2. Microsoft ODBC Driver for SQL Server
+##### 2. Microsoft ODBC Driver for SQL Server
 
 Install the Microsoft ODBC Driver 18 for SQL Server (required for connecting to Fabric SQL Analytics Endpoint):
 
@@ -341,7 +333,7 @@ HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
 **Windows:**
 Download and install from [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
 
-#### 3. Verify Installation
+##### 3. Verify Installation
 
 After installation, verify that the ODBC driver is available:
 
@@ -351,11 +343,11 @@ odbcinst -q -d
 
 You should see `ODBC Driver 18 for SQL Server` in the list.
 
-#### 4. Permissions
+##### 4. Permissions
 
 Your Azure identity must have access to query the SQL Analytics Endpoint (same permissions as accessing the endpoint via SQL tools).
 
-#### 5. Python Dependencies
+##### 5. Python Dependencies
 
 The `fabric-onelake` extra includes `sqlalchemy` and `pyodbc` dependencies. Install them with:
 
@@ -365,7 +357,7 @@ pip install 'acryl-datahub[fabric-onelake]'
 
 **Note:** If you encounter `libodbc.so.2: cannot open shared object file` errors, ensure the ODBC driver manager is installed (step 1 above).
 
-### Schema Extraction Configuration
+#### Schema Extraction Configuration
 
 Schema extraction is enabled by default. You can configure it as follows:
 
@@ -394,7 +386,7 @@ source:
       query_timeout: 30 # Timeout for SQL queries in seconds (default: 30)
 ```
 
-### How It Works
+#### How It Works
 
 1. **Endpoint Discovery**: The SQL Analytics Endpoint URL is automatically fetched from the Fabric API for each Lakehouse/Warehouse. The endpoint format is `<unique-identifier>.datawarehouse.fabric.microsoft.com` and cannot be constructed from workspace_id alone.
 2. **Authentication**: Uses the same Azure credentials configured for REST API access with Azure AD token injection
@@ -408,21 +400,12 @@ source:
 - [Warehouse connectivity in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/connectivity)
 - [Connect to Fabric Data Warehouse](https://learn.microsoft.com/en-us/fabric/data-warehouse/how-to-connect)
 
-### Important Notes
+#### Important Notes
 
 - **Endpoint URL Discovery**: The SQL Analytics Endpoint URL is automatically fetched from the Fabric API for each Lakehouse/Warehouse. The endpoint format is `<unique-identifier>.datawarehouse.fabric.microsoft.com` and cannot be constructed from workspace_id alone. If the endpoint URL cannot be retrieved from the API, schema extraction will fail for that item.
 - **No Fallback**: Unlike legacy Power BI Premium endpoints, Fabric SQL Analytics Endpoints do not support fallback connection strings. The endpoint must be obtained from the API.
 
-### Known Limitations
-
-- **Metadata Sync Delays**: The SQL Analytics Endpoint may have delays in reflecting schema changes. New columns or schema modifications may take minutes to hours to appear.
-- **Missing Tables**: Some tables may not be visible in the SQL endpoint due to:
-  - Unsupported data types
-  - Permission issues
-  - Table count limits in very large databases
-- **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
-
-### Disabling Schema Extraction
+#### Disabling Schema Extraction
 
 To disable schema extraction and ingest tables without column metadata:
 
@@ -434,7 +417,7 @@ source:
       enabled: false
 ```
 
-### Schemas-Enabled vs Schemas-Disabled Lakehouses
+#### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
 
@@ -445,7 +428,7 @@ The connector automatically handles both schemas-enabled and schemas-disabled la
 
 The connector automatically detects the lakehouse type and uses the appropriate API endpoint. No configuration changes are needed.
 
-### Stateful Ingestion
+#### Stateful Ingestion
 
 The connector supports stateful ingestion to track ingested entities and remove stale metadata. Enable it with:
 
@@ -461,19 +444,36 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
-### References
+#### References
 
-### Azure Authentication
+#### Azure Authentication
 
 - [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
 - [Azure Identity Library](https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme)
 - [Service Principal Authentication](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals)
 - [Managed Identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview)
 
-### Fabric Concepts
+#### Fabric Concepts
 
 - [Microsoft Fabric Overview](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview)
 - [OneLake Overview](https://learn.microsoft.com/en-us/fabric/onelake/onelake-overview)
 - [Workspaces in Fabric](https://learn.microsoft.com/en-us/fabric/get-started/workspaces)
 - [Lakehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview)
 - [Warehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing)
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Known Limitations
+
+- **Metadata Sync Delays**: The SQL Analytics Endpoint may have delays in reflecting schema changes. New columns or schema modifications may take minutes to hours to appear.
+- **Missing Tables**: Some tables may not be visible in the SQL endpoint due to:
+  - Unsupported data types
+  - Permission issues
+  - Table count limits in very large databases
+- **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

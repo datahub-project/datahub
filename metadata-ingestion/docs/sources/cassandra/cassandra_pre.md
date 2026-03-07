@@ -6,11 +6,11 @@ The `cassandra` module ingests metadata from Cassandra into DataHub. It is inten
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-### Setup
+#### Setup
 
 Supports **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
 
-#### Steps to Get the Required Information
+##### Steps to Get the Required Information
 
 1. **Set Up User Credentials**:
 

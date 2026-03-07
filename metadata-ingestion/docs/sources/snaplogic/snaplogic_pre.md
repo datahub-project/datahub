@@ -2,15 +2,11 @@
 
 The `snaplogic` module ingests metadata from SnapLogic into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-### Prerequisites
-
-Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
-
-### Integration Details
+#### Integration Details
 
 Extracts data lineage from the SnapLogic Lineage API to track data transformations and dependencies across SnapLogic pipelines.
 
-#### Concept Mapping
+##### Concept Mapping
 
 This ingestion source maps the following source system concepts to DataHub concepts:
 
@@ -21,19 +17,19 @@ This ingestion source maps the following source system concepts to DataHub conce
 | Snap           | [Data Job](docs/generated/metamodel/entities/dataJob.md)           |                                                                                                                                         |
 | Pipeline       | [Data Flow](docs/generated/metamodel/entities/dataFlow.md)         |                                                                                                                                         |
 
-### Metadata Ingestion Quickstart
+#### Metadata Ingestion Quickstart
 
-#### Prerequisites
+##### Prerequisites
 
 Requires valid SnapLogic credentials with access to the SnapLogic Lineage API.
 
-#### Install the Plugin(s)
+##### Install the Plugin(s)
 
 Run the following commands to install the relevant plugin(s):
 
 `pip install 'acryl-datahub[snaplogic]'`
 
-#### Configure the Ingestion Recipe(s)
+##### Configure the Ingestion Recipe(s)
 
 Use the following recipe(s) to get started with ingestion.
 
@@ -67,3 +63,7 @@ source:
 | `case_insensitive_namespaces`   |    ❌    |                               | List of case insensitive namespaces                                                                                        |
 
 </details>
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

@@ -2,6 +2,39 @@
 
 The `looker` module ingests metadata from Looker into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
+#### Ingestion through UI
+
+The following video shows you how to get started with ingesting Looker metadata through the UI.
+
+:::note
+
+You will need to run `lookml` ingestion through the CLI after you have ingested Looker metadata through the UI. Otherwise you will not be able to see Looker Views and their lineage to your warehouse tables.
+
+:::
+
+<div
+  style={{
+    position: "relative",
+    paddingBottom: "57.692307692307686%",
+    height: 0
+  }}
+>
+  <iframe
+    src="https://www.loom.com/embed/b8b9654e02714d20a44122cc1bffc1bb"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
+
 ### Prerequisites
 
 #### Set up the right permissions
@@ -34,36 +67,3 @@ Here is an example permission set after configuration.
 #### Get an API key
 
 Generate an API key (client ID and secret) for the account with the above permissions. See [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk).
-
-### Ingestion through UI
-
-The following video shows you how to get started with ingesting Looker metadata through the UI.
-
-:::note
-
-You will need to run `lookml` ingestion through the CLI after you have ingested Looker metadata through the UI. Otherwise you will not be able to see Looker Views and their lineage to your warehouse tables.
-
-:::
-
-<div
-  style={{
-    position: "relative",
-    paddingBottom: "57.692307692307686%",
-    height: 0
-  }}
->
-  <iframe
-    src="https://www.loom.com/embed/b8b9654e02714d20a44122cc1bffc1bb"
-    frameBorder={0}
-    webkitallowfullscreen=""
-    mozallowfullscreen=""
-    allowFullScreen=""
-    style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%"
-    }}
-  />
-</div>

@@ -2,13 +2,9 @@
 
 The DataHub Garbage Collection (GC) source is a maintenance component responsible for cleaning up various types of metadata to maintain system performance and data quality. It performs multiple cleanup tasks, each focusing on different aspects of DataHub's metadata.
 
-### Prerequisites
+#### Cleanup Tasks
 
-Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
-
-### Cleanup Tasks
-
-#### 1. Index Cleanup
+##### 1. Index Cleanup
 
 Manages Elasticsearch indices in DataHub, particularly focusing on time-series data.
 
@@ -37,7 +33,7 @@ source:
 - Implements safe deletion with monitoring thresholds
 - Supports gradual truncation with sleep intervals
 
-#### 2. Expired Token Cleanup
+##### 2. Expired Token Cleanup
 
 Manages access tokens in DataHub to maintain security and prevent token accumulation.
 
@@ -58,7 +54,7 @@ source:
 - Reports number of tokens revoked
 - Uses GraphQL API for token management
 
-#### 3. Data Process Cleanup
+##### 3. Data Process Cleanup
 
 Manages the lifecycle of data processes, jobs, and their instances (DPIs) within DataHub.
 
@@ -88,11 +84,11 @@ source:
       delay: 0.25
 ```
 
-#### Limitations
+##### Limitations
 
 - Maximum 9000 DPIs per job for performance
 
-#### 4. Execution Request Cleanup
+##### 4. Execution Request Cleanup
 
 Manages DataHub execution request records to prevent accumulation of historical execution data.
 
@@ -120,7 +116,7 @@ source:
       max_read_errors: 10
 ```
 
-#### 5. Soft-Deleted Entities Cleanup
+##### 5. Soft-Deleted Entities Cleanup
 
 Manages the permanent removal of soft-deleted entities after a retention period.
 
@@ -153,14 +149,14 @@ source:
       runtime_limit_seconds: 7200
 ```
 
-#### Performance Considerations
+##### Performance Considerations
 
 - Concurrent processing using thread pools
 - Configurable batch sizes for optimal performance
 - Rate limiting through configurable delays
 - Maximum limits on concurrent operations
 
-### Reporting
+#### Reporting
 
 Each cleanup task maintains detailed reports including:
 
@@ -170,3 +166,7 @@ Each cleanup task maintains detailed reports including:
 - Sample of affected entities
 - Runtime statistics
 - Task-specific metrics
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
