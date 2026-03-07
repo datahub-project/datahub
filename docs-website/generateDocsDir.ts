@@ -360,18 +360,7 @@ function new_url(original: string, filepath: string): string {
     const updated_url = `${GITHUB_BROWSE_URL}/${updated_path}`;
     return updated_url;
   } else if (suffix.startsWith(".md")) {
-    // Internal agent guides (CLAUDE/AGENTS) are intentionally excluded from the
-    // hosted docs build. Rewrite links to GitHub so markdown link validation
-    // doesn't fail on unresolved local doc targets.
-    if (
-      trim_anchor_link(original).endsWith("CLAUDE.md") ||
-      trim_anchor_link(original).endsWith("AGENTS.md")
-    ) {
-      const relation = path.dirname(filepath);
-      const updated_path = path.normalize(`${relation}/${original}`);
-      return `${GITHUB_BROWSE_URL}/${updated_path}`;
-    }
-    // Leave other markdown links as-is.
+    // Leave as-is.
     // We use startsWith above so that we can allow anchor tags on links.
     return original;
   } else if ([".png", ".svg", ".gif", ".pdf"].includes(suffix)) {

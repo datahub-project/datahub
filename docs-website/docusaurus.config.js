@@ -364,7 +364,7 @@ module.exports = {
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
             // Our additions
-            '**/CLAUDE.md',
+            'metadata-ingestion/**/CLAUDE.md',
           ],
         },
         blog: {
