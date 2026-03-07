@@ -3773,6 +3773,7 @@ export const mocks = [
                         viewAnalytics: true,
                         managePolicies: true,
                         manageIdentities: true,
+                        manageServiceAccounts: true,
                         manageDomains: true,
                         manageTags: true,
                         viewManageTags: true,
