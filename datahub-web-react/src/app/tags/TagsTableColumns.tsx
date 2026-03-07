@@ -1,16 +1,19 @@
-import { Icon, Menu, Text, colors } from '@components';
+import { Avatar, Icon, Menu, Text } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { getTagColor } from '@app/tags/utils';
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -18,7 +21,7 @@ import { Entity, EntityType } from '@src/types.generated';
 const TagName = styled.div`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -27,15 +30,9 @@ const TagName = styled.div`
 const TagDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: normal;
     line-height: 1.4;
-`;
-
-const OwnersContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
 `;
 
 const ColumnContainer = styled.div`
@@ -90,35 +87,45 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const {
-        data,
-        loading: ownerLoading,
-        refetch: refetchOwners,
-    } = useGetTagQuery({
+    const entityRegistry = useEntityRegistryV2();
+    const { data, loading: ownerLoading } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
     });
 
-    // Empty placeholder instead of "Loading..." text
     if (ownerLoading) {
         return <ColumnContainer aria-busy="true" />;
     }
 
-    const ownershipData = data?.tag?.ownership?.owners || [];
+    const owners = data?.tag?.ownership?.owners || [];
+    if (owners.length === 0) return <>-</>;
+
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+    const ownerAvatars = owners.map((o) => ({
+        name: entityRegistry.getDisplayName(o.owner.type, o.owner),
+        imageUrl: (o.owner as any).editableProperties?.pictureLink,
+        type: mapEntityTypeToAvatarType(o.owner.type),
+        urn: o.owner.urn,
+    }));
 
     return (
         <ColumnContainer>
-            <OwnersContainer>
-                {ownershipData.map((ownerItem) => (
-                    <ExpandedOwner
-                        key={ownerItem.owner?.urn}
-                        entityUrn={tagUrn}
-                        owner={ownerItem as any}
-                        hidePopOver
-                        refetch={refetchOwners}
+            {singleOwner && (
+                <Link
+                    to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Avatar
+                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                        imageUrl={(singleOwner as any).editableProperties?.pictureLink}
+                        showInPill
+                        type={mapEntityTypeToAvatarType(singleOwner.type)}
                     />
-                ))}
-            </OwnersContainer>
+                </Link>
+            )}
+            {owners.length > 1 && (
+                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
+            )}
         </ColumnContainer>
     );
 });
@@ -196,7 +203,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text style={{ color: colors.violet[500] }}>
+                <Text color="violet">
                     {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
                 </Text>
             </div>
@@ -216,7 +223,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text style={{ color: colors.violet[500] }}>
+                        <Text color="violet">
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>

@@ -3,12 +3,12 @@ import { Button, Empty, Pagination, Select, Tag, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
@@ -89,6 +89,7 @@ export enum StatusType {
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -223,7 +224,7 @@ export const ManagePolicies = () => {
                 return (
                     <PolicyName
                         onClick={() => onViewPolicy(record.policy)}
-                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                        style={{ color: record?.editable ? theme.colors.text : theme.colors.textDisabled }}
                     >
                         {record?.name}
                     </PolicyName>
@@ -257,7 +258,6 @@ export const ManagePolicies = () => {
                             groups={record?.resolvedGroups}
                             entityRegistry={entityRegistry}
                             maxCount={3}
-                            size={28}
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
@@ -294,7 +294,10 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
+                            style={{
+                                color: record?.editable ? theme.colors.textError : theme.colors.textDisabled,
+                                width: 100,
+                            }}
                         >
                             DEACTIVATE
                         </Button>
@@ -308,7 +311,10 @@ export const ManagePolicies = () => {
                                     policyUrn: record?.policy?.urn,
                                 });
                             }}
-                            style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
+                            style={{
+                                color: record?.editable ? theme.colors.textSuccess : theme.colors.textDisabled,
+                                width: 100,
+                            }}
                         >
                             ACTIVATE
                         </Button>

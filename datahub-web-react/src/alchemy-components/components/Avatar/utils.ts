@@ -1,8 +1,10 @@
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { colors } from '@src/alchemy-components/theme';
+import ColorTheme from '@conf/theme/colorThemes/types';
 
 import { EntityType } from '@types';
+
+export type AvatarColorScheme = 'brand' | 'info' | 'neutral';
 
 export const getNameInitials = (userName: string) => {
     if (!userName) return '';
@@ -29,22 +31,31 @@ export function hashString(str: string) {
     return Math.abs(hash);
 }
 
-const colorMap = {
-    [colors.violet[500]]: { backgroundColor: colors.gray[1000], border: `1px solid ${colors.violet[1000]}` },
-    [colors.blue[1000]]: { backgroundColor: colors.gray[1100], border: `1px solid ${colors.blue[200]}` },
-    [colors.gray[600]]: { backgroundColor: colors.gray[1500], border: `1px solid ${colors.gray[100]}` },
-};
+const SCHEMES: AvatarColorScheme[] = ['brand', 'info', 'neutral'];
 
-const avatarColors = Object.keys(colorMap);
-
-export const getAvatarColorStyles = (color) => {
-    return {
-        ...colorMap[color],
+export const getAvatarColorStyles = (scheme: AvatarColorScheme, themeColors: ColorTheme) => {
+    const styleMap: Record<AvatarColorScheme, { color: string; backgroundColor: string; border: string }> = {
+        brand: {
+            color: themeColors.textBrand,
+            backgroundColor: themeColors.bgSurfaceBrand,
+            border: `1px solid ${themeColors.avatarBorderBrand}`,
+        },
+        info: {
+            color: themeColors.textInformation,
+            backgroundColor: themeColors.bgSurfaceInfo,
+            border: `1px solid ${themeColors.avatarBorderInformation}`,
+        },
+        neutral: {
+            color: themeColors.text,
+            backgroundColor: themeColors.bgSurface,
+            border: `1px solid ${themeColors.border}`,
+        },
     };
+    return styleMap[scheme];
 };
 
-export default function getAvatarColor(name: string) {
-    return avatarColors[hashString(name) % avatarColors.length];
+export default function getAvatarColorScheme(name: string): AvatarColorScheme {
+    return SCHEMES[hashString(name) % SCHEMES.length];
 }
 
 export const getAvatarSizes = (size) => {
@@ -53,6 +64,8 @@ export const getAvatarSizes = (size) => {
         md: { width: '24px', height: '24px', fontSize: '12px' },
         lg: { width: '28px', height: '28px', fontSize: '14px' },
         xl: { width: '32px', height: '32px', fontSize: '14px' },
+        xxl: { width: '100px', height: '100px', fontSize: '36px' },
+        xxxl: { width: '116px', height: '116px', fontSize: '42px' },
         default: { width: '20px', height: '20px', fontSize: '10px' },
     };
 
