@@ -2,6 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
+from dataclasses import replace
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
@@ -55,7 +56,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -765,15 +766,16 @@ class BigQuerySchemaGenerator:
             )
 
         # If table has time partitioning, set the data type of the partitioning field
-        if table.partition_info:
-            table.partition_info.column = next(
-                (
-                    column
-                    for column in columns
-                    if column.name == table.partition_info.field
-                ),
-                None,
+        if table.partition_info and table.partition_info.fields:
+            matching_columns = tuple(
+                column
+                for column in columns
+                if column.name in table.partition_info.fields
             )
+            if matching_columns:
+                table.partition_info = replace(
+                    table.partition_info, columns=matching_columns
+                )
         yield from self.gen_table_dataset_workunits(
             table, columns, project_id, dataset_name
         )
