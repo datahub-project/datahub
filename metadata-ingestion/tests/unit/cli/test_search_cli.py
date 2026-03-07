@@ -525,6 +525,37 @@ class TestDryRun:
         assert parsed["variables"]["viewUrn"] == "urn:li:dataHubView:my_view"
 
 
+class TestAgentContext:
+    """Tests for --agent-context flag."""
+
+    def test_agent_context_prints_content(self):
+        """--agent-context prints the AGENT_CONTEXT.md file and exits."""
+        runner = CliRunner()
+        result = runner.invoke(search, ["--agent-context"])
+        assert result.exit_code == 0
+        assert "# DataHub Search CLI - Agent Context" in result.output
+
+    def test_agent_context_contains_sections(self):
+        """Output contains expected section headers."""
+        runner = CliRunner()
+        result = runner.invoke(search, ["query", "--agent-context"])
+        assert result.exit_code == 0
+        assert "## Output Discipline" in result.output
+        assert "## Projection" in result.output
+        assert "## Dry Run" in result.output
+        assert "## Filters" in result.output
+        assert "## Pagination" in result.output
+        assert "## Common Recipes" in result.output
+
+    def test_agent_context_does_not_call_graph(self):
+        """--agent-context does not require a DataHub connection."""
+        with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
+            runner = CliRunner()
+            result = runner.invoke(search, ["--agent-context"])
+            assert result.exit_code == 0
+            mock_get_graph.assert_not_called()
+
+
 class TestProjection:
     """Tests for --projection flag and related functions."""
 
