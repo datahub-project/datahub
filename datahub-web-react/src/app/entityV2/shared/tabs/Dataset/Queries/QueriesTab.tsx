@@ -3,7 +3,6 @@ import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
@@ -22,19 +21,20 @@ import usePrevious from '@app/shared/usePrevious';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
-const Content = styled.div<{ $backgroundColor: string }>`
+const Content = styled.div<{ $useDefaultBg?: boolean }>`
     height: 100%;
     overflow: auto;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    background-color: ${(props) => props.$backgroundColor};
+    background-color: ${(props) => (props.$useDefaultBg ? props.theme.colors.bg : props.theme.colors.bgSurface)};
 `;
 
 export default function QueriesTab() {
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
     const siblingUrn = isSeparateSiblings
         ? undefined
@@ -115,9 +115,16 @@ export default function QueriesTab() {
 
     return (
         <>
-            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
+            <Content $useDefaultBg={showLoading || showEmptyView}>
                 {showLoading && <Loading />}
-                {!showLoading && (
+                {!showLoading && !canViewQueries && (
+                    <EmptyQueriesSection
+                        sectionName="Queries"
+                        emptyText="You don't have permission to view queries for this dataset."
+                        showButton={false}
+                    />
+                )}
+                {!showLoading && canViewQueries && (
                     <>
                         {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
                             <QueriesListSection
