@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -39,7 +40,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ApplicationMapper implements ModelMapper<EntityResponse, Application> {
 
   public static final ApplicationMapper INSTANCE = new ApplicationMapper();
@@ -74,9 +77,18 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
                 GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         DOMAINS_ASPECT_NAME,
-        (application, dataMap) ->
-            application.setDomain(
-                DomainAssociationMapper.map(context, new Domains(dataMap), application.getUrn())));
+        (application, dataMap) -> {
+          final Domains domains = new Domains(dataMap);
+          try {
+            final Urn applicationUrn = Urn.createFromString(application.getUrn());
+            application.setDomainsAssociations(
+                DomainsAssociationsMapper.map(context, domains, applicationUrn));
+          } catch (Exception e) {
+            log.debug("Failed to parse URN for domainsAssociations: {}", application.getUrn(), e);
+          }
+          application.setDomain(
+              DomainAssociationMapper.map(context, domains, application.getUrn()));
+        });
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (application, dataMap) ->

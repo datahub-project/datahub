@@ -32,6 +32,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -46,8 +47,10 @@ import com.linkedin.ml.metadata.MLFeatureTableProperties;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
+@Slf4j
 public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatureTable> {
 
   public static final MLFeatureTableMapper INSTANCE = new MLFeatureTableMapper();
@@ -171,7 +174,12 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       @Nonnull MLFeatureTable entity,
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    // Currently we only take the first domain if it exists.
+    try {
+      final Urn entityUrn = Urn.createFromString(entity.getUrn());
+      entity.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      log.debug("Failed to parse URN for domainsAssociations: {}", entity.getUrn(), e);
+    }
     entity.setDomain(DomainAssociationMapper.map(context, domains, entity.getUrn()));
   }
 

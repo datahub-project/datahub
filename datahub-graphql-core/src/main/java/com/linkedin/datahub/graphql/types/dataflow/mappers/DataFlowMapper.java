@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.domain.DomainsAssociationsMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -52,7 +53,9 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
 
   public static final DataFlowMapper INSTANCE = new DataFlowMapper();
@@ -233,7 +236,12 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
   private static void mapDomains(
       @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    // Currently we only take the first domain if it exists.
+    try {
+      final Urn entityUrn = Urn.createFromString(dataFlow.getUrn());
+      dataFlow.setDomainsAssociations(DomainsAssociationsMapper.map(context, domains, entityUrn));
+    } catch (Exception e) {
+      log.debug("Failed to parse URN for domainsAssociations: {}", dataFlow.getUrn(), e);
+    }
     dataFlow.setDomain(DomainAssociationMapper.map(context, domains, dataFlow.getUrn()));
   }
 
