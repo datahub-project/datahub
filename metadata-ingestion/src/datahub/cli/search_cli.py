@@ -2,6 +2,7 @@ import importlib.resources as pkg_resources
 import json
 import logging
 import re
+import sys
 from typing import Any, Dict, List, Optional
 
 import click
@@ -924,7 +925,22 @@ def diagnose_semantic_search() -> Dict[str, Any]:
     }
 
 
-@click.group(cls=DefaultGroup, default="query")
+class _AgentAwareGroup(DefaultGroup):
+    """Group that appends agent context to --help when stdout is not a TTY."""
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        super().format_help(ctx, formatter)
+        if not sys.stdout.isatty():
+            agent_text = (
+                pkg_resources.files("datahub.cli.resources")
+                .joinpath("AGENT_CONTEXT.md")
+                .read_text(encoding="utf-8")
+            )
+            formatter.write("\n")
+            formatter.write(agent_text)
+
+
+@click.group(cls=_AgentAwareGroup, default="query")
 def search() -> None:
     """Search across DataHub entities.
 
@@ -945,12 +961,31 @@ def search() -> None:
     datahub search diagnose
     datahub search diagnose --format json
 
+    \b
+    # AI agent integration
+    datahub search --agent-context
+
     See https://datahubproject.io/docs/cli for more examples.
     """
     pass
 
 
-@search.command(name="query")
+class _AgentAwareCommand(click.Command):
+    """Command that appends agent context to --help when stdout is not a TTY."""
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        super().format_help(ctx, formatter)
+        if not sys.stdout.isatty():
+            agent_text = (
+                pkg_resources.files("datahub.cli.resources")
+                .joinpath("AGENT_CONTEXT.md")
+                .read_text(encoding="utf-8")
+            )
+            formatter.write("\n")
+            formatter.write(agent_text)
+
+
+@search.command(name="query", cls=_AgentAwareCommand)
 @click.argument("query", default="*")
 @click.option(
     "--semantic",
@@ -1010,6 +1045,11 @@ def search() -> None:
     default=None,
     help="GraphQL selection set for Entity type (inline GQL or @file path)",
 )
+@click.option(
+    "--agent-context",
+    is_flag=True,
+    help="Print agent skill context (best practices for AI agents) and exit",
+)
 @upgrade.check_upgrade
 def query(
     query: str,
@@ -1029,6 +1069,7 @@ def query(
     view: Optional[str],
     dry_run: bool,
     projection: Optional[str],
+    agent_context: bool,
 ) -> None:
     """Execute search query across DataHub entities (default command).
 
@@ -1076,6 +1117,16 @@ def query(
 
     See https://datahubproject.io/docs/cli for more examples.
     """
+    # Handle agent context
+    if agent_context:
+        text = (
+            pkg_resources.files("datahub.cli.resources")
+            .joinpath("AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        click.echo(text)
+        return
+
     # Handle discovery commands
     if list_filters:
         list_available_filters()
