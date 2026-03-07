@@ -114,9 +114,7 @@ export const Input = ({
                         {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
                     </Tooltip>
                 )}
-                {!!onClear && value && (
-                    <ClearIcon className="clear-search" source="phosphor" icon="X" size="lg" onClick={onClear} />
-                )}
+                {!!onClear && value && <ClearIcon className="clear-search" icon="X" size="lg" onClick={onClear} />}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}

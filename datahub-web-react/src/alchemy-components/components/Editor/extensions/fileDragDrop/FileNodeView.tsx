@@ -14,7 +14,6 @@ import {
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
-import { colors } from '@components/theme';
 
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
@@ -26,7 +25,7 @@ const FileContainer = styled.div<{ $isInline?: boolean }>`
 
         .ProseMirror-selectednode & {
             border-radius: 8px;
-            background-color: ${colors.gray[1500]};
+            background-color: ${(p) => p.theme.colors.bgHover};
         }
     `
             : `
@@ -44,7 +43,7 @@ const StyledFileNode = styled(FileNode)`
 `;
 
 const StyledSyntaxHighlighter = styled(SyntaxHighlighter)`
-    background-color: ${colors.gray[1500]} !important;
+    background-color: ${(props) => props.theme.colors.bgSurface} !important;
     border: none !important;
 `;
 
@@ -73,7 +72,7 @@ const VideoContainer = styled.div`
     min-width: 150px;
     max-width: 100%;
     width: 50%;
-    background-color: ${colors.black};
+    background-color: ${(props) => props.theme.colors.text};
     margin-top: 8px;
 `;
 
@@ -90,7 +89,7 @@ const FileNameButtonWrapper = styled.div`
 
     :hover {
         border-radius: 8px;
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -183,7 +182,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 onClick={clickHandler}
                 extraRightContent={
                     <Button
-                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
+                        icon={{ icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
                         variant="text"
                         onClick={() => setIsPreviewVisible(!isPreviewVisible)}
                     />
