@@ -50,6 +50,7 @@ export default interface ColorTheme {
     radioButtonBorder: string;
     radioButtonDotFill: string;
     radioButtonDotDisabled: string;
+    borderCheckbox: string;
     avatarBorderBrand: string;
     avatarBorderInformation: string;
     border: string;

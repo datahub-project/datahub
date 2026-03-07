@@ -1,16 +1,13 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Checkbox, Empty, Typography } from 'antd';
-import { CheckboxValueType } from 'antd/lib/checkbox/Group';
+import { CircleNotch } from '@phosphor-icons/react';
 import React, { ReactNode } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { Button } from '@components/components/Button';
-// Import your custom hook
 import { SelectItemCheckboxGroup } from '@components/components/SelectItemsPopover/SelectItemCheckboxGroup';
 import { useEntityOperations } from '@components/components/SelectItemsPopover/hooks';
+import { Text } from '@components/components/Text';
 
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType } from '@src/types.generated';
 
@@ -24,19 +21,19 @@ export interface SelectItemsProps {
         selectedItems,
         removedItems,
     }: {
-        selectedItems: CheckboxValueType[];
-        removedItems: CheckboxValueType[];
+        selectedItems: string[];
+        removedItems: string[];
     }) => void;
     renderOption?: (option: { value: string; label: ReactNode | string; item?: any }) => React.ReactNode;
 }
 
-const StyledSubSection = styled(Typography.Text)`
+const StyledSubSection = styled(Text)`
     margin-bottom: 12px;
     display: flex;
     justify-content: space-between;
     font-weight: 700;
     line-height: 15.06px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyledFooter = styled.div`
@@ -44,7 +41,7 @@ const StyledFooter = styled.div`
     justify-content: center;
     gap: 16px;
     padding: 8px 0 0 0;
-    border-top: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const StyledSelectContainer = styled.div`
@@ -54,11 +51,7 @@ const StyledSelectContainer = styled.div`
     padding-top: 8px;
 `;
 
-const StyledGroupSection = styled.div`
-    &&& .ant-empty.ant-empty-normal {
-        margin: 0 !important;
-    }
-`;
+const StyledGroupSection = styled.div``;
 
 const StyledUpdateButton = styled(Button)`
     display: flex;
@@ -73,20 +66,28 @@ const StyledCheckBoxContainer = styled.div`
     padding: 12px 0;
 `;
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
 const StyledLoader = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 250px;
     width: 100%;
+
+    svg {
+        animation: ${spin} 1s linear infinite;
+    }
 `;
 
-const StyledEmpty = styled(Empty)`
-    .ant-empty-image {
-        display: none;
-    }
-    color: #8d95b1;
-    margin-bottom 12px;
+const StyledEmpty = styled(Text)`
+    display: block;
+    text-align: center;
+    color: ${(props) => props.theme.colors.textTertiary};
+    margin-bottom: 12px;
 `;
 
 export const SelectItems: React.FC<SelectItemsProps> = ({
@@ -153,45 +154,41 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
             />
             {isLoading ? (
                 <StyledLoader>
-                    <LoadingOutlined />
+                    <CircleNotch size={24} />
                 </StyledLoader>
             ) : (
                 <StyledCheckBoxContainer>
-                    <Checkbox.Group value={selectedOptions} style={{ width: '100%' }}>
-                        {hasExistingEntities ? (
-                            <StyledGroupSection>
-                                <StyledSubSection>Selected</StyledSubSection>
-                                {hasExistingEntitiesMatchingFilters && (
-                                    <SelectItemCheckboxGroup
-                                        selectedOptions={selectedOptions}
-                                        handleCheckboxToggle={handleCheckboxToggle}
-                                        options={filteredPreviouslyAddedOptions}
-                                        renderOption={renderOption}
-                                    />
-                                )}
-
-                                {!hasExistingEntitiesMatchingFilters && searchText && (
-                                    <StyledEmpty description={emptyMessage} />
-                                )}
-                            </StyledGroupSection>
-                        ) : null}
+                    {hasExistingEntities ? (
                         <StyledGroupSection>
-                            {(hasExistingEntitiesMatchingFilters || searchText) && (
-                                <StyledSubSection>Add more</StyledSubSection>
-                            )}
-                            {hasAddableEntitiesMatchingFilters && (
+                            <StyledSubSection>Selected</StyledSubSection>
+                            {hasExistingEntitiesMatchingFilters && (
                                 <SelectItemCheckboxGroup
                                     selectedOptions={selectedOptions}
                                     handleCheckboxToggle={handleCheckboxToggle}
-                                    options={filteredAddableOptions}
+                                    options={filteredPreviouslyAddedOptions}
                                     renderOption={renderOption}
                                 />
                             )}
-                            {!hasAddableEntitiesMatchingFilters && searchText && (
-                                <StyledEmpty description={emptyMessage} />
+
+                            {!hasExistingEntitiesMatchingFilters && searchText && (
+                                <StyledEmpty>{emptyMessage}</StyledEmpty>
                             )}
                         </StyledGroupSection>
-                    </Checkbox.Group>
+                    ) : null}
+                    <StyledGroupSection>
+                        {(hasExistingEntitiesMatchingFilters || searchText) && (
+                            <StyledSubSection>Add more</StyledSubSection>
+                        )}
+                        {hasAddableEntitiesMatchingFilters && (
+                            <SelectItemCheckboxGroup
+                                selectedOptions={selectedOptions}
+                                handleCheckboxToggle={handleCheckboxToggle}
+                                options={filteredAddableOptions}
+                                renderOption={renderOption}
+                            />
+                        )}
+                        {!hasAddableEntitiesMatchingFilters && searchText && <StyledEmpty>{emptyMessage}</StyledEmpty>}
+                    </StyledGroupSection>
                 </StyledCheckBoxContainer>
             )}
             <StyledFooter>

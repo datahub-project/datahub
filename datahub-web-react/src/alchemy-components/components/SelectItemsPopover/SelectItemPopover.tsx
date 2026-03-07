@@ -1,7 +1,6 @@
 import '@components/components/SelectItemsPopover/select-items-popover.less';
 
-import { Popover } from 'antd';
-import { CheckboxValueType } from 'antd/lib/checkbox/Group';
+import { Popover } from '@components';
 import React, { ReactNode } from 'react';
 
 import { SelectItems } from '@components/components/SelectItemsPopover/SelectItems';
@@ -20,8 +19,8 @@ export type SelectItemPopoverProps = {
         selectedItems,
         removedItems,
     }: {
-        selectedItems: CheckboxValueType[];
-        removedItems: CheckboxValueType[];
+        selectedItems: string[];
+        removedItems: string[];
     }) => void;
     renderOption?: (option: { value: string; label: ReactNode | string; item?: any }) => React.ReactNode;
     children: React.ReactNode;

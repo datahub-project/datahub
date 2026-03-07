@@ -1,11 +1,13 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Dropdown, Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 
 import {
     ActionButtonsContainer,
     Container,
+    DescriptionContainer,
     DropdownContainer,
     LabelContainer,
     OptionContainer,
@@ -25,7 +27,21 @@ import useSelectDropdown from '@components/components/Select/private/hooks/useSe
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
-import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    margin: 5px;
+
+    svg {
+        animation: ${spin} 1s linear infinite;
+    }
+`;
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -208,7 +224,7 @@ export const SimpleSelect = ({
                                 )}
                                 {isLoading ? (
                                     <LoadingWrapper>
-                                        <LoadingOutlined />
+                                        <CircleNotch size={20} />
                                     </LoadingWrapper>
                                 ) : (
                                     !filteredOptions.length && <NoResultsFoundPlaceholder />
@@ -240,9 +256,10 @@ export const SimpleSelect = ({
                                                     <span>{option.label}</span>
                                                 )}
                                                 <StyledCheckbox
-                                                    onClick={() => handleOptionChange(option)}
-                                                    checked={selectedValues.includes(option.value)}
-                                                    disabled={disabledValues?.includes(option.value)}
+                                                    onCheckboxChange={() => handleOptionChange(option)}
+                                                    isChecked={selectedValues.includes(option.value)}
+                                                    isDisabled={disabledValues?.includes(option.value)}
+                                                    size="sm"
                                                 />
                                             </LabelContainer>
                                         ) : (
@@ -252,29 +269,18 @@ export const SimpleSelect = ({
                                                 ) : (
                                                     <ActionButtonsContainer>
                                                         {option.icon}
-                                                        <Text
-                                                            weight="semiBold"
-                                                            size="md"
-                                                            color={
-                                                                selectedValues.includes(option.value)
-                                                                    ? 'violet'
-                                                                    : 'gray'
-                                                            }
-                                                        >
+                                                        <Text weight="semiBold" size="md">
                                                             {option.label}
                                                         </Text>
                                                     </ActionButtonsContainer>
                                                 )}
 
                                                 {!!option.description && (
-                                                    <Text
-                                                        color="gray"
-                                                        weight="normal"
-                                                        size="sm"
+                                                    <DescriptionContainer
                                                         style={{ maxWidth: props.descriptionMaxWidth }}
                                                     >
                                                         {option.description}
-                                                    </Text>
+                                                    </DescriptionContainer>
                                                 )}
                                             </OptionContainer>
                                         )}
