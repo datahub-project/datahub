@@ -76,7 +76,11 @@ export function getValidEntityTypes(lineageDirection: Direction, entityType?: En
             case EntityType.Dashboard:
                 return [EntityType.Chart, EntityType.Dataset];
             case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
+                return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
+            case EntityType.Mlmodel:
+                return [EntityType.DataJob];
+            case EntityType.MlmodelGroup:
+                return [EntityType.DataJob];
             default:
                 console.warn('Unexpected entity type to get valid upstream entity types for');
                 return [];
@@ -91,7 +95,11 @@ export function getValidEntityTypes(lineageDirection: Direction, entityType?: En
                 console.warn('There are no valid lineage entities downstream of Dashboard entities');
                 return [];
             case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
+                return [EntityType.DataJob, EntityType.Dataset, EntityType.Mlmodel, EntityType.MlmodelGroup];
+            case EntityType.Mlmodel:
+                return [EntityType.DataJob];
+            case EntityType.MlmodelGroup:
+                return [EntityType.DataJob];
             default:
                 console.warn('Unexpected entity type to get valid downstream entity types for');
                 return [];
