@@ -258,6 +258,7 @@ export class ContainerEntity implements Entity<Container> {
         return {
             name: this.displayName(data),
             externalUrl: data.properties?.externalUrl,
+            origin: data.properties?.env,
             entityCount: data.entities?.total,
         };
     };

@@ -235,6 +235,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return {
             name: dataset && this.displayName(dataset),
             externalUrl: dataset?.properties?.externalUrl,
+            origin: dataset?.origin,
             entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,
             lineageUrn,

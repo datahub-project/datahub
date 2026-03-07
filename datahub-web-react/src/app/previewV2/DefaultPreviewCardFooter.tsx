@@ -12,9 +12,10 @@ import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRight
 import { entityHasCapability } from '@app/previewV2/utils';
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
 
-import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
+import { DatasetStatsSummary, EntityPath, EntityType, FabricType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
 
 interface DefaultPreviewCardFooterProps {
+    origin?: Maybe<FabricType>;
     glossaryTerms?: GlossaryTerms;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
@@ -83,6 +84,7 @@ const HorizontalDivider = styled(Divider)`
 `;
 
 const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
+    origin,
     glossaryTerms,
     tags,
     owners,
@@ -113,6 +115,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
             <Container>
                 {isFullViewCard && (
                     <Pills
+                        origin={origin}
                         glossaryTerms={glossaryTerms}
                         tags={tags}
                         owners={owners}

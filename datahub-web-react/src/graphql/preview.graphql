@@ -211,6 +211,7 @@ fragment entityPreview on Entity {
         }
         properties {
             name
+            env
             description
         }
         globalTags {

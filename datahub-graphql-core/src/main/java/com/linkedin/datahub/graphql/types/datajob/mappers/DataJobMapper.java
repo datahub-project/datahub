@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
@@ -176,6 +177,9 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     }
     if (info.hasCustomProperties()) {
       result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
+    }
+    if (info.hasEnv()) {
+      result.setEnv(FabricType.valueOf(info.getEnv().toString()));
     }
     return result;
   }
