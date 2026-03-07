@@ -8,9 +8,13 @@ from datahub.cli.search_cli import (
     _build_search_query,
     _extract_entity_name,
     _load_projection,
+    _print_keyword_diagnostics,
+    _print_semantic_diagnostics,
     _validate_projection,
     convert_simple_to_filter_dsl,
     describe_filter_func,
+    diagnose_keyword_search,
+    diagnose_semantic_search,
     execute_search,
     format_facets_output,
     format_json_output,
@@ -684,3 +688,269 @@ class TestProjection:
             assert result.exit_code != 0
             assert "selection set" in result.output
             mock_graph.assert_not_called()
+
+
+class TestDiagnoseKeywordSearch:
+    """Tests for keyword search diagnostics."""
+
+    def _make_graph(self, side_effect=None, return_value=None):
+        from unittest.mock import MagicMock
+
+        graph = MagicMock()
+        if side_effect:
+            graph.execute_graphql.side_effect = side_effect
+        elif return_value is not None:
+            graph.execute_graphql.return_value = return_value
+        return graph
+
+    def test_connected_and_working(self):
+        graph = self._make_graph(
+            side_effect=[
+                # ping query
+                {"appConfig": {"telemetryConfig": {"enableThirdPartyLogging": False}}},
+                # wildcard search
+                {"searchAcrossEntities": {"total": 42}},
+            ]
+        )
+        result = diagnose_keyword_search(graph)
+        assert result["connected"] is True
+        assert result["search_works"] is True
+        assert result["total_entities"] == 42
+
+    def test_connected_zero_entities(self):
+        graph = self._make_graph(
+            side_effect=[
+                {"appConfig": {"telemetryConfig": {"enableThirdPartyLogging": False}}},
+                {"searchAcrossEntities": {"total": 0}},
+            ]
+        )
+        result = diagnose_keyword_search(graph)
+        assert result["connected"] is True
+        assert result["search_works"] is True
+        assert result["total_entities"] == 0
+
+    def test_connection_failure(self):
+        graph = self._make_graph(side_effect=Exception("Connection refused"))
+        result = diagnose_keyword_search(graph)
+        assert result["connected"] is False
+        assert "Connection refused" in result["connection_error"]
+        assert result["search_works"] is False
+
+    def test_connected_but_search_fails(self):
+        graph = self._make_graph(
+            side_effect=[
+                {"appConfig": {"telemetryConfig": {"enableThirdPartyLogging": False}}},
+                Exception("Search index unavailable"),
+            ]
+        )
+        result = diagnose_keyword_search(graph)
+        assert result["connected"] is True
+        assert result["search_works"] is False
+        assert "Search index unavailable" in result["search_error"]
+
+
+class TestDiagnoseSemanticSearch:
+    """Tests for semantic search diagnostics."""
+
+    def _make_graph(self, side_effects):
+        from unittest.mock import MagicMock
+
+        graph = MagicMock()
+        graph.execute_graphql.side_effect = side_effects
+        return graph
+
+    def test_semantic_fully_enabled(self):
+        graph = self._make_graph(
+            [
+                # introspection — semanticSearchAcrossEntities present
+                {
+                    "__type": {
+                        "fields": [
+                            {"name": "searchAcrossEntities"},
+                            {"name": "semanticSearchAcrossEntities"},
+                        ]
+                    }
+                },
+                # config query
+                {
+                    "appConfig": {
+                        "semanticSearchConfig": {
+                            "enabled": True,
+                            "enabledEntities": ["dataset", "document"],
+                            "embeddingConfig": {
+                                "provider": "openai",
+                                "modelId": "text-embedding-3-large",
+                                "modelEmbeddingKey": "text_embedding_3_large",
+                                "awsProviderConfig": None,
+                            },
+                        }
+                    }
+                },
+                # test semantic query succeeds
+                {"semanticSearchAcrossEntities": {"total": 5}},
+            ]
+        )
+        result = diagnose_semantic_search(graph)
+        assert result["semantic_available"] is True
+        assert result["semantic_enabled"] is True
+        assert result["semantic_error"] is None
+        assert result["config"]["enabled"] is True
+        assert "dataset" in result["config"]["enabled_entities"]
+
+    def test_semantic_not_in_schema(self):
+        graph = self._make_graph(
+            [
+                # introspection — no semantic field
+                {"__type": {"fields": [{"name": "searchAcrossEntities"}]}},
+                # config query
+                {"appConfig": {"semanticSearchConfig": {}}},
+            ]
+        )
+        result = diagnose_semantic_search(graph)
+        assert result["semantic_available"] is False
+        assert result["semantic_enabled"] is False
+
+    def test_semantic_available_but_query_fails(self):
+        graph = self._make_graph(
+            [
+                # introspection — semantic field present
+                {
+                    "__type": {
+                        "fields": [
+                            {"name": "searchAcrossEntities"},
+                            {"name": "semanticSearchAcrossEntities"},
+                        ]
+                    }
+                },
+                # config query
+                {"appConfig": {"semanticSearchConfig": {"enabled": False}}},
+                # test semantic query fails
+                Exception("Semantic search is not enabled"),
+            ]
+        )
+        result = diagnose_semantic_search(graph)
+        assert result["semantic_available"] is True
+        assert result["semantic_enabled"] is False
+        assert "not enabled" in result["semantic_error"]
+
+
+class TestDiagnosePrinting:
+    """Tests for diagnostic text output."""
+
+    def test_print_keyword_connected(self, capsys):
+        _print_keyword_diagnostics(
+            {
+                "connected": True,
+                "connection_error": None,
+                "search_works": True,
+                "total_entities": 100,
+                "search_error": None,
+            }
+        )
+        out = capsys.readouterr().out
+        assert "Connected to DataHub" in out
+        assert "100" in out
+
+    def test_print_keyword_zero_entities_warns(self, capsys):
+        _print_keyword_diagnostics(
+            {
+                "connected": True,
+                "connection_error": None,
+                "search_works": True,
+                "total_entities": 0,
+                "search_error": None,
+            }
+        )
+        out = capsys.readouterr().out
+        assert "0" in out
+        assert "ingestion" in out
+
+    def test_print_keyword_not_connected(self, capsys):
+        _print_keyword_diagnostics(
+            {
+                "connected": False,
+                "connection_error": "Connection refused",
+                "search_works": False,
+                "total_entities": None,
+                "search_error": None,
+            }
+        )
+        out = capsys.readouterr().out
+        assert "Cannot connect" in out
+        assert "Connection refused" in out
+
+    def test_print_semantic_enabled(self, capsys):
+        _print_semantic_diagnostics(
+            {
+                "semantic_available": True,
+                "semantic_enabled": True,
+                "semantic_error": None,
+                "config": {
+                    "enabled": True,
+                    "enabled_entities": ["dataset"],
+                    "embedding_config": {
+                        "provider": "openai",
+                        "modelId": "text-embedding-3-large",
+                        "modelEmbeddingKey": "key",
+                        "awsProviderConfig": None,
+                    },
+                },
+            }
+        )
+        out = capsys.readouterr().out
+        assert "ENABLED" in out
+        assert "openai" in out
+        assert "dataset" in out
+
+    def test_print_semantic_not_available(self, capsys):
+        _print_semantic_diagnostics(
+            {
+                "semantic_available": False,
+                "semantic_enabled": False,
+                "semantic_error": "Not in schema",
+                "config": {},
+            }
+        )
+        out = capsys.readouterr().out
+        assert "NOT available" in out
+
+
+class TestDiagnoseCommand:
+    """Tests for the diagnose CLI subcommand."""
+
+    def test_diagnose_text_output(self):
+        with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
+            mock_graph = mock_get_graph.return_value
+            mock_graph.execute_graphql.side_effect = [
+                # keyword: ping
+                {"appConfig": {"telemetryConfig": {"enableThirdPartyLogging": False}}},
+                # keyword: wildcard search
+                {"searchAcrossEntities": {"total": 10}},
+                # semantic: introspection
+                {"__type": {"fields": [{"name": "searchAcrossEntities"}]}},
+                # semantic: config
+                {"appConfig": {"semanticSearchConfig": {}}},
+            ]
+            runner = CliRunner()
+            result = runner.invoke(search, ["diagnose"])
+            assert result.exit_code == 0
+            assert "Search Diagnostics" in result.output
+            assert "Connected to DataHub" in result.output
+            assert "10" in result.output
+
+    def test_diagnose_json_output(self):
+        with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
+            mock_graph = mock_get_graph.return_value
+            mock_graph.execute_graphql.side_effect = [
+                {"appConfig": {"telemetryConfig": {"enableThirdPartyLogging": False}}},
+                {"searchAcrossEntities": {"total": 5}},
+                {"__type": {"fields": [{"name": "searchAcrossEntities"}]}},
+                {"appConfig": {"semanticSearchConfig": {}}},
+            ]
+            runner = CliRunner()
+            result = runner.invoke(search, ["diagnose", "--format", "json"])
+            assert result.exit_code == 0
+            parsed = json.loads(result.output)
+            assert parsed["keyword"]["connected"] is True
+            assert parsed["keyword"]["total_entities"] == 5
+            assert "semantic" in parsed

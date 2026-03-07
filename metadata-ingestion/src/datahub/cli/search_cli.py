@@ -402,7 +402,7 @@ def execute_search(
                 "  • Semantic search is not enabled in the backend configuration\n"
                 "  • The entity types you're searching may not be configured for semantic search\n"
                 "  • Embeddings may not have been generated for your entities\n\n"
-                "Use 'datahub search diagnose --semantic' for more details, or use keyword search (default)."
+                "Use 'datahub search diagnose' for more details, or use keyword search (default)."
             ) from e
         raise click.ClickException(f"Search failed: {e}") from e
 
@@ -736,108 +736,172 @@ def describe_filter_func(filter_name: str) -> None:
     click.echo(f"Notes: {info['notes']}")
 
 
-def print_semantic_diagnostics() -> None:
-    """Print semantic search diagnostics to console."""
-    click.echo("Checking semantic search configuration...\n")
+def _print_keyword_diagnostics(kw: Dict[str, Any]) -> None:
+    """Print keyword search diagnostics section."""
+    click.echo("Keyword Search")
+    click.echo("-" * 40)
+
+    if not kw["connected"]:
+        click.echo("✗ Cannot connect to DataHub")
+        click.echo(f"  Error: {kw['connection_error']}")
+        click.echo("\n  Check DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN,")
+        click.echo("  or run 'datahub init' to configure.")
+        return
+
+    click.echo("✓ Connected to DataHub")
+
+    if kw["search_works"]:
+        total = kw["total_entities"]
+        click.echo(f"✓ Search is working ({total:,} entities indexed)")
+        if total == 0:
+            click.echo("  ⚠ No entities found — ingestion may not have run yet")
+    else:
+        click.echo("✗ Search query failed")
+        click.echo(f"  Error: {kw['search_error']}")
+
+
+def _print_semantic_diagnostics(sem: Dict[str, Any]) -> None:
+    """Print semantic search diagnostics section."""
+    click.echo("Semantic Search")
+    click.echo("-" * 40)
+
+    if sem["semantic_enabled"]:
+        click.echo("✓ Semantic search is ENABLED and available")
+
+        config = sem.get("config", {})
+        embedding_config = config.get("embedding_config", {})
+
+        if embedding_config and not config.get("error"):
+            click.echo("\nEmbedding Configuration:")
+            click.echo(f"  • Provider: {embedding_config.get('provider', 'Unknown')}")
+            click.echo(f"  • Model ID: {embedding_config.get('modelId', 'Unknown')}")
+            click.echo(
+                f"  • Embedding Key: {embedding_config.get('modelEmbeddingKey', 'Unknown')}"
+            )
+
+            aws_config = embedding_config.get("awsProviderConfig")
+            if aws_config and aws_config.get("region"):
+                click.echo(f"  • AWS Region: {aws_config['region']}")
+
+            enabled_entities = config.get("enabled_entities", [])
+            if enabled_entities:
+                click.echo(f"\nEnabled Entity Types ({len(enabled_entities)}):")
+                for entity in sorted(enabled_entities):
+                    click.echo(f"  • {entity}")
+            else:
+                click.echo("\nEnabled Entity Types: None configured")
+                click.echo(
+                    "  ⚠ Warning: No entity types are configured for semantic search"
+                )
+        else:
+            click.echo("\n  Backend: Configured correctly")
+            if config.get("error"):
+                click.echo(f"  ⚠ Could not fetch detailed config: {config['error']}")
+
+        click.echo("\nNote: Results depend on which entity types are configured")
+        click.echo("      and whether embeddings have been generated.")
+    elif sem["semantic_available"]:
+        click.echo("✗ Semantic search endpoint exists but is NOT enabled")
+        click.echo("\nPossible reasons:")
+        click.echo("  • Backend configuration missing or incomplete")
+        click.echo("  • Embeddings service not running")
+        click.echo("  • Entity types not configured for semantic search")
+        if sem["semantic_error"]:
+            click.echo(f"\nError: {sem['semantic_error']}")
+    else:
+        click.echo("✗ Semantic search is NOT available")
+        click.echo("\nReasons:")
+        click.echo("  • Feature not enabled in DataHub backend")
+        click.echo("  • GraphQL schema does not include semantic search")
+        click.echo("  • May require DataHub upgrade or configuration")
+
+
+def print_diagnostics() -> None:
+    """Print full search diagnostics to console."""
+    click.echo("Search Diagnostics")
+    click.echo("=" * 50)
+    click.echo()
 
     try:
-        diagnostics = diagnose_semantic_search()
-
-        click.echo("Semantic Search Diagnostics")
-        click.echo("=" * 50)
-
-        if diagnostics["semantic_enabled"]:
-            click.echo("✓ Semantic search is ENABLED and available")
-
-            config = diagnostics.get("config", {})
-            embedding_config = config.get("embedding_config", {})
-
-            if embedding_config and not config.get("error"):
-                click.echo("\nEmbedding Configuration:")
-
-                # Provider
-                provider = embedding_config.get("provider", "Unknown")
-                click.echo(f"  • Provider: {provider}")
-
-                # Model ID
-                model_id = embedding_config.get("modelId", "Unknown")
-                click.echo(f"  • Model ID: {model_id}")
-
-                # Model Embedding Key
-                model_key = embedding_config.get("modelEmbeddingKey", "Unknown")
-                click.echo(f"  • Embedding Key: {model_key}")
-
-                # AWS Region (if applicable)
-                aws_config = embedding_config.get("awsProviderConfig")
-                if aws_config and aws_config.get("region"):
-                    click.echo(f"  • AWS Region: {aws_config['region']}")
-
-                # Enabled Entities
-                enabled_entities = config.get("enabled_entities", [])
-                if enabled_entities:
-                    click.echo(f"\nEnabled Entity Types ({len(enabled_entities)}):")
-                    for entity in sorted(enabled_entities):
-                        click.echo(f"  • {entity}")
-                else:
-                    click.echo("\nEnabled Entity Types: None configured")
-                    click.echo(
-                        "  ⚠ Warning: No entity types are configured for semantic search"
-                    )
-            else:
-                click.echo("\nConfiguration:")
-                click.echo("  • Backend: Configured correctly")
-                click.echo("  • GraphQL endpoint: Available")
-                click.echo("  • Status: Ready to use")
-                if config.get("error"):
-                    click.echo(
-                        f"  ⚠ Could not fetch detailed config: {config['error']}"
-                    )
-
-            click.echo("\nNote: Results depend on which entity types are configured")
-            click.echo("      and whether embeddings have been generated.")
-        elif diagnostics["semantic_available"]:
-            click.echo("✗ Semantic search endpoint exists but is NOT enabled")
-            click.echo("\nPossible reasons:")
-            click.echo("  • Backend configuration missing or incomplete")
-            click.echo("  • Embeddings service not running")
-            click.echo("  • Entity types not configured for semantic search")
-            if diagnostics["semantic_error"]:
-                click.echo(f"\nError: {diagnostics['semantic_error']}")
-        else:
-            click.echo("✗ Semantic search is NOT available")
-            click.echo("\nReasons:")
-            click.echo("  • Feature not enabled in DataHub backend")
-            click.echo("  • GraphQL schema does not include semantic search")
-            click.echo("  • May require DataHub upgrade or configuration")
-
-        click.echo("\n" + "=" * 50)
-        click.echo("\nRecommendations:")
-
-        if not diagnostics["semantic_enabled"]:
-            click.echo("  1. Contact your DataHub administrator")
-            click.echo("  2. Check DataHub backend configuration")
-            click.echo("  3. Verify embeddings service is running")
-            click.echo("  4. Use keyword search (default) as alternative")
-        else:
-            click.echo("  1. Ensure entity types are configured for semantic search")
-            click.echo("  2. Verify embeddings have been generated")
-            click.echo("  3. Check entity-specific configuration")
-
+        results = run_full_diagnostics()
     except Exception as e:
-        click.echo(f"✗ Failed to diagnose semantic search: {e}", err=True)
+        click.echo(f"✗ Failed to run diagnostics: {e}", err=True)
         raise click.ClickException(
-            "Could not connect to DataHub or check semantic search status"
+            "Could not connect to DataHub. Check your configuration."
         ) from e
 
+    _print_keyword_diagnostics(results["keyword"])
 
-def diagnose_semantic_search() -> Dict[str, Any]:
+    # Only show semantic section if we could connect
+    if results["keyword"]["connected"]:
+        click.echo()
+        _print_semantic_diagnostics(results["semantic"])
+
+    click.echo("\n" + "=" * 50)
+
+
+def diagnose_keyword_search(
+    graph: Any,
+) -> Dict[str, Any]:
+    """Diagnose keyword search health.
+
+    Checks GMS connectivity and runs a basic wildcard query.
+
+    Returns:
+        Dict with keyword search diagnostic information
+    """
+    # Check connectivity
+    try:
+        graph.execute_graphql(
+            query="query ping { appConfig { telemetryConfig { enableThirdPartyLogging } } }"
+        )
+        connected = True
+        connection_error = None
+    except Exception as e:
+        return {
+            "connected": False,
+            "connection_error": str(e),
+            "search_works": False,
+            "total_entities": None,
+            "search_error": None,
+        }
+
+    # Run a basic wildcard search
+    test_query = """
+    query testKeywordSearch {
+      searchAcrossEntities(input: {query: "*", count: 1, start: 0, searchFlags: {skipHighlighting: true}}) {
+        total
+      }
+    }
+    """
+    try:
+        result = graph.execute_graphql(query=test_query)
+        total = result.get("searchAcrossEntities", {}).get("total", 0)
+        return {
+            "connected": connected,
+            "connection_error": connection_error,
+            "search_works": True,
+            "total_entities": total,
+            "search_error": None,
+        }
+    except Exception as e:
+        return {
+            "connected": connected,
+            "connection_error": connection_error,
+            "search_works": False,
+            "total_entities": None,
+            "search_error": str(e),
+        }
+
+
+def diagnose_semantic_search(
+    graph: Any,
+) -> Dict[str, Any]:
     """Diagnose semantic search configuration.
 
     Returns:
         Dict with diagnostic information about semantic search status
     """
-    graph = get_default_graph(ClientMode.CLI)
-
     # Test if semantic search endpoint exists
     test_query = """
     query testSemanticSearch {
@@ -922,6 +986,19 @@ def diagnose_semantic_search() -> Dict[str, Any]:
         "semantic_enabled": semantic_enabled,
         "semantic_error": semantic_error,
         "config": config_data,
+    }
+
+
+def run_full_diagnostics() -> Dict[str, Any]:
+    """Run all search diagnostics (keyword + semantic).
+
+    Returns:
+        Dict with both keyword and semantic diagnostic results
+    """
+    graph = get_default_graph(ClientMode.CLI)
+    return {
+        "keyword": diagnose_keyword_search(graph),
+        "semantic": diagnose_semantic_search(graph),
     }
 
 
@@ -1236,8 +1313,8 @@ def query(
 def diagnose(output_format: str) -> None:
     """Diagnose search configuration and availability.
 
-    Checks semantic search configuration, backend connectivity,
-    embedding provider, model details, and enabled entity types.
+    Checks backend connectivity, keyword search health, semantic search
+    configuration, embedding provider, model details, and enabled entity types.
 
     Examples:
 
@@ -1250,7 +1327,7 @@ def diagnose(output_format: str) -> None:
     datahub search diagnose --format json
     """
     if output_format == "json":
-        diagnostics = diagnose_semantic_search()
+        diagnostics = run_full_diagnostics()
         click.echo(json.dumps(diagnostics, indent=2))
     else:
-        print_semantic_diagnostics()
+        print_diagnostics()
