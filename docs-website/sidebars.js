@@ -46,9 +46,49 @@ module.exports = {
         // "docs/how/ui-tabs-guide",
         {
           label: "Ask DataHub",
-          type: "doc",
-          id: "docs/features/feature-guides/ask-datahub",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/ask-datahub",
+          },
+          items: [
+            {
+              label: "Plugins",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/ask-datahub-plugins/overview",
+              },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/snowflake",
+                },
+                {
+                  label: "Databricks",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
+                },
+                {
+                  label: "dbt Cloud",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/dbt",
+                },
+                {
+                  label: "GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/github",
+                },
+                {
+                  label: "Glean",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/glean",
+                },
+              ],
+            },
+          ],
         },
         {
           label: "Agent Context Kit",
