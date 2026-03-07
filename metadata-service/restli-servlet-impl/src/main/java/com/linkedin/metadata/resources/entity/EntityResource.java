@@ -22,6 +22,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
@@ -188,6 +189,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   private ElasticSearchConfiguration searchConfiguration;
 
+  @Inject
+  private DataHubAppConfiguration _appConfiguration;
+
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
   @Nonnull
@@ -281,12 +285,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            CREATE,
-            List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
+    // Standard auth: per-URN check. When domain-based auth is enabled this is superseded by
+    // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
+    if (!_appConfiguration.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      if (!isAPIAuthorizedEntityUrns(
+              opContext,
+              CREATE,
+              List.of(urn))) {
+        throw new RestLiServiceException(
+            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
+      }
     }
 
     try {
@@ -328,11 +336,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
             authorizer, authentication, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            CREATE, urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
+    // Standard auth: per-URN check. When domain-based auth is enabled this is superseded by
+    // per-URN checks in DomainBasedAuthorizationValidator (sync) and EntityServiceImpl (async).
+    if (!_appConfiguration.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      if (!isAPIAuthorizedEntityUrns(
+              opContext,
+              CREATE, urns)) {
+        throw new RestLiServiceException(
+            HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entities.");
+      }
     }
 
     for (Entity entity : entities) {
@@ -979,14 +991,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "deleteTimeseriesAspects", urn.getEntityType()), authorizer, auth, true);
-
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            TIMESERIES, DELETE,
-            List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
-    }
 
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
