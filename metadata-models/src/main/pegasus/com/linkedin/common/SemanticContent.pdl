@@ -23,4 +23,11 @@ record SemanticContent {
    * Allows storing embeddings from multiple models simultaneously.
    */
   embeddings: map[string, EmbeddingModelData]
+
+  /**
+   * Raw text chunks without embedding vectors.
+   * When non-null, the datahub-documents source should generate embeddings
+   * for these chunks and populate the embeddings map.
+   */
+  rawChunks: optional RawChunks
 }
