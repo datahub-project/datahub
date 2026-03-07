@@ -37,7 +37,17 @@ The Snowflake plugin uses **User OAuth** authentication — each user authentica
 
 ### Step 1: Create an MCP Server in Snowflake
 
-Create an MCP server in Snowflake with the tools you want to expose. The example below creates a server with a SQL execution tool:
+Create an MCP server in Snowflake with the tools you want to expose. We recommend starting with `SYSTEM_EXECUTE_SQL`, which lets Ask DataHub run SQL queries directly against your warehouse:
+
+| Tool Type                | Purpose                                                                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SYSTEM_EXECUTE_SQL`     | **Recommended.** Execute SQL queries directly against the warehouse. This is the minimum required tool for the plugin to be useful.                                                         |
+| `CORTEX_ANALYST_MESSAGE` | Natural language analytics over [Cortex Analyst semantic views](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst) — a curated BI/analytics layer on top of raw SQL. |
+| `CORTEX_AGENT_RUN`       | Invoke [Cortex Agents](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-overview) as sub-agents from within Ask DataHub.                                             |
+
+Snowflake supports [additional tool types](https://docs.snowflake.com/en/sql-reference/sql/create-mcp-server) as well. You can include multiple tools in a single MCP server.
+
+**Example:** Create a server with SQL execution and a Cortex Analyst semantic view:
 
 ```sql
 USE ROLE ACCOUNTADMIN;
@@ -51,10 +61,13 @@ CREATE OR REPLACE MCP SERVER YOUR_MCP_SERVER
         type: "SYSTEM_EXECUTE_SQL"
         description: "Execute SQL queries against the data warehouse"
         title: "SQL Executor"
+      - name: "revenue_analytics"
+        type: "CORTEX_ANALYST_MESSAGE"
+        identifier: "YOUR_DATABASE.YOUR_SCHEMA.REVENUE_SEMANTIC_VIEW"
+        description: "Analytics over revenue and sales data"
+        title: "Revenue Analytics"
   $$;
 ```
-
-You can also expose Cortex Search, Cortex Analyst, Cortex Agent, and custom UDF/stored procedure tools. See the [Snowflake MCP server documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp) for all available tool types.
 
 :::note One Database per MCP Server
 Snowflake MCP servers are scoped to a single database. If you need Ask DataHub to query across multiple databases, create a separate MCP server (and plugin) for each one.

@@ -67,6 +67,11 @@ module.exports = {
                   id: "docs/features/feature-guides/ask-datahub-plugins/snowflake",
                 },
                 {
+                  label: "Databricks",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
+                },
+                {
                   label: "dbt Cloud",
                   type: "doc",
                   id: "docs/features/feature-guides/ask-datahub-plugins/dbt",

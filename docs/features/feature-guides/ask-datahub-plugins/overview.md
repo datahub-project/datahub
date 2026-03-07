@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 > **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
 
-**Ask DataHub Plugins** let you connect external tools — like Snowflake, dbt Cloud, GitHub, Glean, Notion, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md).
+**Ask DataHub Plugins** let you connect external tools — like Snowflake, Databricks, dbt Cloud, GitHub, Glean, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md).
 
 With Plugins, can connect any MCP-compatible server that supports [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports). Once connected, Ask DataHub can use these tools alongside your metadata catalog to answer richer questions and perform cross-tool workflows.
 
@@ -25,6 +25,7 @@ DataHub provides built-in plugin templates for popular tools. For connecting to 
 | Plugin         | Description                                         | Guide                                         |
 | -------------- | --------------------------------------------------- | --------------------------------------------- |
 | **Snowflake**  | Query and explore your Snowflake data               | [Setup Guide](./snowflake.md)                 |
+| **Databricks** | Query and explore your Databricks data              | [Setup Guide](./databricks.md)                |
 | **dbt Cloud**  | Check job runs, model definitions, and test results | [Setup Guide](./dbt.md)                       |
 | **GitHub**     | Browse repositories, raise PRs, and manage issues   | [Setup Guide](./github.md)                    |
 | **Glean**      | Search your organization's knowledge base           | [Setup Guide](./glean.md)                     |
