@@ -16,9 +16,11 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /*
@@ -27,6 +29,34 @@ Returns the timeline in its original form
 @Slf4j
 public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTimelineResult>> {
   private final TimelineService _timelineService;
+
+  // GraphQL ChangeCategoryType -> backend ChangeCategory mapping.
+  // Needed because GraphQL uses OWNERSHIP while backend uses OWNER.
+  static final Map<ChangeCategoryType, ChangeCategory> CATEGORY_INPUT_MAP =
+      Map.of(
+          ChangeCategoryType.DOCUMENTATION, ChangeCategory.DOCUMENTATION,
+          ChangeCategoryType.GLOSSARY_TERM, ChangeCategory.GLOSSARY_TERM,
+          ChangeCategoryType.OWNERSHIP, ChangeCategory.OWNER,
+          ChangeCategoryType.TECHNICAL_SCHEMA, ChangeCategory.TECHNICAL_SCHEMA,
+          ChangeCategoryType.TAG, ChangeCategory.TAG,
+          ChangeCategoryType.PARENT, ChangeCategory.PARENT,
+          ChangeCategoryType.RELATED_ENTITIES, ChangeCategory.RELATED_ENTITIES,
+          ChangeCategoryType.DOMAIN, ChangeCategory.DOMAIN,
+          ChangeCategoryType.STRUCTURED_PROPERTY, ChangeCategory.STRUCTURED_PROPERTY,
+          ChangeCategoryType.APPLICATION, ChangeCategory.APPLICATION);
+
+  @Nonnull
+  private static ChangeCategory mapToBackendCategory(
+      @Nonnull ChangeCategoryType changeCategoryType) {
+    ChangeCategory mapped = CATEGORY_INPUT_MAP.get(changeCategoryType);
+    if (mapped == null) {
+      log.warn(
+          "No backend ChangeCategory mapping for GraphQL type: {}. Falling back to valueOf.",
+          changeCategoryType);
+      return ChangeCategory.valueOf(changeCategoryType.toString());
+    }
+    return mapped;
+  }
 
   public GetTimelineResolver(TimelineService timelineService) {
     _timelineService = timelineService;
@@ -40,9 +70,6 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
 
     final String datasetUrnString = input.getUrn();
     final List<ChangeCategoryType> changeCategories = input.getChangeCategories();
-    final long startTime = 0;
-    final long endTime = 0;
-    //    final String version = input.getVersion() == null ? null : input.getVersion();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -50,19 +77,21 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
             final Set<ChangeCategory> changeCategorySet =
                 changeCategories != null
                     ? changeCategories.stream()
-                        .map(
-                            changeCategoryType ->
-                                ChangeCategory.valueOf(changeCategoryType.toString()))
+                        .map(GetTimelineResolver::mapToBackendCategory)
                         .collect(Collectors.toSet())
                     : Arrays.stream(ChangeCategory.values()).collect(Collectors.toSet());
             final Urn datasetUrn = Urn.createFromString(datasetUrnString);
             final List<ChangeTransaction> changeTransactionList =
                 _timelineService.getTimeline(
-                    datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
+                    datasetUrn,
+                    changeCategorySet,
+                    TimelineService.DEFAULT_MAX_CHANGE_TRANSACTIONS,
+                    false);
             GetTimelineResult result = new GetTimelineResult();
             result.setChangeTransactions(
                 changeTransactionList.stream()
                     .map(ChangeTransactionMapper::map)
+                    .filter(t -> t.getChanges() != null && !t.getChanges().isEmpty())
                     .collect(Collectors.toList()));
             return result;
           } catch (URISyntaxException u) {
