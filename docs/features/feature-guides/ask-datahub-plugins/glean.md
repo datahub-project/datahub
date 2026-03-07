@@ -50,21 +50,23 @@ Obtain the MCP server URL from your Glean instance. You can find this in your Gl
 | **MCP Server URL**      | Your Glean MCP server URL              |
 | **Authentication Type** | `User OAuth (Each user authenticates)` |
 
-4. DataHub will automatically discover the OAuth configuration from Glean and register a client. This includes:
+4. DataHub will automatically discover the OAuth configuration from Glean and register a client — no manual OAuth setup is required. This includes:
 
    - Authorization and token endpoints
    - Available scopes
    - Client registration
 
-5. Review the discovered scopes and select the ones appropriate for your organization
+5. Review the discovered scopes. All scopes are selected by default. **Ensure the `mcp` scope is selected** — this is required for the plugin to function.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/glean_plugin_config.png"/>
 </p>
 
-6. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
+:::warning Required Scope
+The **`mcp`** scope must be selected for the Glean plugin to work. Without it, the MCP server will return a `401 Unauthorized` error when Ask DataHub tries to use the plugin. If you see this error after setup, edit the plugin and verify that the `mcp` scope is enabled.
+:::
 
-That's it — no need to manually configure OAuth provider details, client IDs, or secrets.
+6. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
 ## User Setup
 
@@ -81,6 +83,10 @@ Navigate to **Settings > My AI Settings**, find the **Glean** plugin, and click 
 - Be specific in your prompts about what kind of documentation you're looking for
 
 ## Troubleshooting
+
+### 401 Unauthorized Error
+
+If you see `OAuth succeeded but MCP server returned 401: Client error '401 Unauthorized'`, the `mcp` scope is not selected for the plugin. Edit the plugin in **Settings > AI > Plugins**, ensure the `mcp` scope is enabled, and save.
 
 ### OAuth Discovery Fails
 

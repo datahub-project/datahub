@@ -6,7 +6,9 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 > **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
 
-**Ask DataHub Plugins** let you connect third-party tools — like Snowflake, dbt, GitHub, Glean, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md). Once connected, Ask DataHub can use these tools alongside your metadata catalog to answer richer questions and perform cross-tool workflows.
+**Ask DataHub Plugins** let you connect external tools — like Snowflake, dbt Cloud, GitHub, Glean, Notion, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md).
+
+With Plugins, can connect any MCP-compatible server that supports [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports). Once connected, Ask DataHub can use these tools alongside your metadata catalog to answer richer questions and perform cross-tool workflows.
 
 ## Why Use Plugins?
 
@@ -18,7 +20,7 @@ Plugins unlock powerful capabilities that go beyond what metadata alone can prov
 
 ## Available Plugins
 
-DataHub provides built-in plugin templates for popular tools, as well as a **Custom MCP** option for connecting any MCP-compatible server.
+DataHub provides built-in plugin templates for popular tools. For connecting to other MCP Servers — including internal services, custom APIs, or any tool with an MCP server — use the **Custom MCP** option.
 
 | Plugin         | Description                                         | Guide                                         |
 | -------------- | --------------------------------------------------- | --------------------------------------------- |
@@ -36,7 +38,7 @@ DataHub provides built-in plugin templates for popular tools, as well as a **Cus
 
 Plugins follow a two-step workflow:
 
-1. **Admin configures** the plugin by connecting to a third-party MCP server (via **Settings > AI > Plugins**)
+1. **Admin configures** the plugin by connecting to an MCP server (via **Settings > AI > Plugins**)
 2. **Users enable** plugins they want to use from their personal settings (via **Settings > My AI Settings**) or directly from the chat interface
 
 Once a user enables a plugin, its tools become available during Ask DataHub conversations. The AI assistant will automatically use these tools when relevant to a question.
@@ -51,7 +53,7 @@ You must have the **Manage Platform Settings** privilege to configure plugins.
 
 1. Navigate to **Settings > AI > Plugins**
 2. Click **+ Create** in the top-right corner
-3. Select a plugin template (Snowflake, dbt Cloud, GitHub, Glean) or choose **Custom MCP**
+3. Select a built-in plugin template (Snowflake, dbt Cloud, GitHub) or choose **Custom MCP** for other tools
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/plugins_settings_page.png"/>
@@ -59,15 +61,17 @@ You must have the **Manage Platform Settings** privilege to configure plugins.
 
 ### Configuring a Custom MCP Plugin
 
-When creating a Custom MCP plugin, you'll need to provide:
+Use **Custom MCP** to connect any MCP-compatible server — whether it's a third-party tool like Notion or Glean, an internal service your team has built, or any other API exposed via MCP. The server must support [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports).
 
-| Field                                 | Description                                                                                                                 |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Name**                              | A display name for the plugin (visible to all users)                                                                        |
-| **Description**                       | A brief description of what this plugin provides                                                                            |
-| **MCP Server URL**                    | The URL of the remote MCP server (must support [streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports)) |
-| **Authentication Type**               | How users authenticate with the MCP server ([see below](#authentication-types))                                             |
-| **Instructions for the AI Assistant** | Custom instructions fed to Ask DataHub when using this plugin (optional)                                                    |
+When creating a Custom MCP plugin, provide:
+
+| Field                                 | Description                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| **Name**                              | A display name for the plugin (visible to all users)                            |
+| **Description**                       | A brief description of what this plugin provides                                |
+| **MCP Server URL**                    | The URL of the remote MCP server                                                |
+| **Authentication Type**               | How users authenticate with the MCP server ([see below](#authentication-types)) |
+| **Instructions for the AI Assistant** | Custom instructions fed to Ask DataHub when using this plugin (optional)        |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/create_custom_mcp_plugin.png"/>
@@ -136,9 +140,9 @@ Once an admin has configured a plugin, any user can enable it for their own Ask 
 
 You can also manage plugins directly from the Ask DataHub chat:
 
-1. Click the **settings icon** next to the chat input
+1. Click the **plugins icon** next to the chat input
 2. A dropdown shows all available plugins with their connection status
-3. Toggle plugins on/off or click **Connect** to authenticate
+3. Toggle plugins on/off, or click **Manage AI plugins** to configure authentication
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/chat_plugin_selector.png"/>

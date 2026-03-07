@@ -64,61 +64,54 @@ For multi-cell accounts, the host URL is in the format `ACCOUNT_PREFIX.us1.dbt.c
 2. Click **+ Create** and select **dbt Cloud MCP**
 3. Fill in the plugin details:
 
-| Field                   | Value                                        |
-| ----------------------- | -------------------------------------------- |
-| **Name**                | `dbt Cloud`                                  |
-| **Description**         | A description for the plugin                 |
-| **MCP Server URL**      | `https://<YOUR_DBT_HOST_URL>/api/ai/v1/mcp/` |
-| **Authentication Type** | `Shared API Key` or `User API Key`           |
-| **Auth Scheme**         | `Token`                                      |
+| Field                         | Value                                        |
+| ----------------------------- | -------------------------------------------- |
+| **Name**                      | `dbt Cloud`                                  |
+| **Description**               | A description for the plugin                 |
+| **MCP Server URL**            | `https://<YOUR_DBT_HOST_URL>/api/ai/v1/mcp/` |
+| **Production Environment ID** | Your production environment ID from Step 2   |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/dbt_plugin_config.png"/>
 </p>
 
-:::caution Auth Scheme
-Make sure the auth scheme is set to **Token** — this is required for dbt Cloud's API authentication format (`Token <YOUR_TOKEN>`).
-:::
+4. Choose an authentication type:
 
-4. If using **Shared API Key**: enter the service token that will be used for all users
-5. If using **User API Key**: each user will provide their own dbt Cloud API token when connecting
+| Option             | How it works                                                       | Best for                                    |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------- |
+| **Shared API Key** | Admin enters a single service token used for all users             | Centralized access with one service account |
+| **User API Key**   | Each user provides their own personal access token when connecting | Per-user audit trails and access control    |
 
-### Step 4: Configure Required Headers
+### Step 4: Enable SQL Execution (Optional)
 
-Add the following **custom headers** to scope the plugin to the correct environment:
+To let Ask DataHub execute SQL queries through dbt, provide the following additional fields:
 
-| Header                      | Required | Value                          |
-| --------------------------- | -------- | ------------------------------ |
-| `x-dbt-prod-environment-id` | Yes      | Your production environment ID |
-
-### Step 5: Enable SQL Execution (Optional)
-
-To let Ask DataHub execute SQL queries through dbt on a user's behalf, add these additional headers:
-
-| Header                     | Required | Value                                                                                         |
-| -------------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `x-dbt-dev-environment-id` | Yes      | Your development environment ID                                                               |
-| `x-dbt-user-id`            | Yes      | Your dbt Cloud user ID ([how to find it](https://docs.getdbt.com/faqs/Accounts/find-user-id)) |
-
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/dbt_custom_headers.png"/>
-</p>
+| Field                          | Description                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| **Development Environment ID** | Your dbt Cloud development environment ID (found on the Orchestration > Environments page) |
+| **User ID**                    | Your dbt Cloud user ID (found in the URL at **Settings > Users** in dbt Cloud)             |
 
 :::caution
-If using a **Shared API Key**, the `x-dbt-user-id` header applies to all users — meaning queries will execute under a single identity. Consider using **User API Key** authentication if per-user query execution is important.
+If using a **Shared API Key**, the user ID is shared across all users — meaning queries will execute under a single identity. With **User API Key** auth, each user provides their own user ID when connecting.
 :::
 
-Each user also needs **development credentials** configured in dbt Cloud (warehouse connection details under their profile settings) for SQL execution to work.
+You can find your dbt Cloud user ID in the URL when navigating to **Settings > Users** and selecting your profile:
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/dbt_dev_credentials.png"/>
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/dbt_user_id.png"/>
 </p>
 
-6. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
+Each user also needs [development credentials](https://docs.getdbt.com/docs/cloud/connect-data-platform/connect-your-database) configured in dbt Cloud (warehouse connection under their profile) for SQL execution to work.
+
+5. Optionally add **Instructions for the AI Assistant**, ensure **Enable for Ask DataHub** is on, and click **Create**
 
 ## User Setup
 
-Navigate to **Settings > My AI Settings** and find the **dbt Cloud** plugin. If using **User API Key** auth, click **Connect** and enter your dbt Cloud API token. If using **Shared API Key** auth, simply toggle the plugin **on**. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
+Navigate to **Settings > My AI Settings** and find the **dbt Cloud** plugin. If using **User API Key** auth, click **Connect** and enter your dbt Cloud API token and user ID. If using **Shared API Key** auth, simply toggle the plugin **on**. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
+
+<p align="center">
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/dbt_user_config.png"/>
+</p>
 
 ## Usage Tips
 
@@ -136,16 +129,14 @@ Only the `text_to_sql` tool consumes dbt Copilot credits. Other MCP tools (metad
 
 - Verify your dbt Cloud API token is valid and has **Semantic Layer** and **Developer** permissions
 - Ensure the remote MCP server is enabled in your dbt Cloud project
-- Check that the auth scheme is set to **Token**
 
 ### Wrong Project or Environment
 
-- Verify the `x-dbt-prod-environment-id` custom header is set correctly
+- Verify the **Production Environment ID** is set correctly
 - Double-check the environment ID matches what's shown in the dbt Cloud URL
 
 ### SQL Queries Not Working
 
 - Ensure [development credentials](https://docs.getdbt.com/docs/cloud/connect-data-platform/connect-your-database) are configured in dbt Cloud for the user
-- Verify the `x-dbt-user-id` and `x-dbt-dev-environment-id` headers are set
+- Verify the **Development Environment ID** and **User ID** are set
 - Check that the API token has permissions to execute queries
-- Note that a personal access token (not a service token) is required for `x-dbt-user-id` functionality
