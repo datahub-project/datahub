@@ -1,6 +1,6 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import { MagnifyingGlass } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';

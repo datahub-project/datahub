@@ -1,5 +1,4 @@
 import { Button, Heading, Text, Tooltip } from '@components';
-import * as phosphorIcons from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
@@ -30,7 +29,6 @@ import {
     useIsProductAnnouncementVisible,
 } from '@app/shared/product/update/hooks';
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
-import { convertToPascalCase } from '@app/shared/stringUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
@@ -201,37 +199,9 @@ export default function ProductUpdates() {
                         )}
                         <FeatureList>
                             {displayFeatures.map((feature) => {
-                                // Try the icon name as-is first, then try converting from kebab-case
-                                const iconName = feature.icon;
-                                let IconComponent = iconName
-                                    ? (phosphorIcons[iconName as keyof typeof phosphorIcons] as
-                                          | React.ComponentType<{ size?: number; weight?: string }>
-                                          | undefined)
-                                    : undefined;
-
-                                // If not found and contains hyphens, try converting to PascalCase
-                                if (!IconComponent && iconName?.includes('-')) {
-                                    const pascalCaseName = convertToPascalCase(iconName);
-                                    IconComponent = phosphorIcons[pascalCaseName as keyof typeof phosphorIcons] as
-                                        | React.ComponentType<{ size?: number; weight?: string }>
-                                        | undefined;
-                                }
-
-                                // Debug logging for icon resolution
-                                if (feature.icon && !IconComponent) {
-                                    // eslint-disable-next-line no-console
-                                    console.warn(`[ProductUpdates] Icon "${feature.icon}" not found in phosphor-icons`);
-                                }
-
-                                const hasIcon = !!IconComponent;
-
                                 return (
-                                    <FeatureItem key={feature.title} $hasIcon={hasIcon}>
-                                        {hasIcon && IconComponent && (
-                                            <FeatureIconWrapper>
-                                                <IconComponent size={20} weight="regular" />
-                                            </FeatureIconWrapper>
-                                        )}
+                                    // $hasIcon={false} — icons not used in current product update JSONs
+                                    <FeatureItem key={feature.title} $hasIcon={false}>
                                         <FeatureContent>
                                             <Text size="md" weight="semiBold" color="gray" colorLevel={600}>
                                                 {feature.title}

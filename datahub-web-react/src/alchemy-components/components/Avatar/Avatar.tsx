@@ -5,6 +5,7 @@ import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 
@@ -40,7 +41,7 @@ export const Avatar = ({
             )}
             {type === AvatarType.group && !imageUrl && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
-                    <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                    <Icon icon={UsersThree} size="lg" />
                 </AvatarImageWrapper>
             )}
             {type === AvatarType.role && !imageUrl && (

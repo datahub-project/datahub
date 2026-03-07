@@ -10,6 +10,7 @@ import {
     StyledFormSubItem,
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Checkbox, Icon, Switch, Text, colors } from '@src/alchemy-components';
 import { StructuredPropertyEntity } from '@src/types.generated';
 
@@ -23,7 +24,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
             <StyledCollapse
                 ghost
                 expandIcon={({ isActive }) => (
-                    <Icon icon="ChevronRight" color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
+                    <Icon icon={CaretRight} color="gray" size="4xl" rotate={isActive ? '90' : '0'} />
                 )}
                 expandIconPosition="end"
                 defaultActiveKey={[1]}

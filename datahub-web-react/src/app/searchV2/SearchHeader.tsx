@@ -1,4 +1,4 @@
-import { ArrowRight } from '@phosphor-icons/react';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';

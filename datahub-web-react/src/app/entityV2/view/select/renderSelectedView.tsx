@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
-import { FadersHorizontal } from '@phosphor-icons/react';
+import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';

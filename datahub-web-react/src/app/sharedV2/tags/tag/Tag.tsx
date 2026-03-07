@@ -15,185 +15,186 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
 import { EntityType, SubResourceType, TagAssociation } from '@types';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const TagLink = styled.span<{ $showOneAndCount?: boolean; $shouldNotAddBottomMargin?: boolean }>`
-    display: flex;
-    cursor: pointer;
-    margin-bottom: ${(props) => `${props.$shouldNotAddBottomMargin ? '0px' : '4px'}`};
-    max-width: inherit;
-    ${(props) =>
-        props.$showOneAndCount &&
-        `
-           max-width: 200px;
-        `}
+ display: flex;
+ cursor: pointer;
+ margin-bottom: ${(props) => `${props.$shouldNotAddBottomMargin ? '0px' : '4px'}`};
+ max-width: inherit;
+ ${(props) =>
+ props.$showOneAndCount &&
+ `
+ max-width: 200px;
+ `}
 `;
 
 const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
-    padding-left: 4px;
-    padding-right: 4px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    width: 100%;
-    span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: ${(props) => (props.maxWidth ? `${props.maxWidth}px` : '120px')};
-    }
+ padding-left: 4px;
+ padding-right: 4px;
+ overflow: hidden;
+ display: flex;
+ align-items: center;
+ width: 100%;
+ span {
+ overflow: hidden;
+ text-overflow: ellipsis;
+ max-width: ${(props) => (props.maxWidth ? `${props.maxWidth}px` : '120px')};
+ }
 `;
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 interface Props {
-    tag: TagAssociation;
-    entityUrn?: string;
-    entitySubresource?: string;
-    canRemove?: boolean;
-    readOnly?: boolean;
-    highlightText?: string;
-    onOpenModal?: () => void;
-    refetch?: () => Promise<any>;
-    fontSize?: number;
-    showOneAndCount?: boolean;
-    context?: string | null;
-    maxWidth?: number;
-    tagStyle?: React.CSSProperties;
-    options?: {
-        shouldNotOpenDrawerOnClick?: boolean;
-        shouldNotAddBottomMargin?: boolean;
-        shouldShowEllipses?: boolean;
-    };
+ tag: TagAssociation;
+ entityUrn?: string;
+ entitySubresource?: string;
+ canRemove?: boolean;
+ readOnly?: boolean;
+ highlightText?: string;
+ onOpenModal?: () => void;
+ refetch?: () => Promise<any>;
+ fontSize?: number;
+ showOneAndCount?: boolean;
+ context?: string | null;
+ maxWidth?: number;
+ tagStyle?: React.CSSProperties;
+ options?: {
+ shouldNotOpenDrawerOnClick?: boolean;
+ shouldNotAddBottomMargin?: boolean;
+ shouldShowEllipses?: boolean;
+ };
 }
 
 export default function Tag({
-    tag,
-    entityUrn,
-    entitySubresource,
-    canRemove,
-    readOnly,
-    highlightText,
-    onOpenModal,
-    refetch,
-    fontSize,
-    showOneAndCount,
-    context,
-    maxWidth,
-    tagStyle,
-    options,
+ tag,
+ entityUrn,
+ entitySubresource,
+ canRemove,
+ readOnly,
+ highlightText,
+ onOpenModal,
+ refetch,
+ fontSize,
+ showOneAndCount,
+ context,
+ maxWidth,
+ tagStyle,
+ options,
 }: Props) {
-    const entityRegistry = useEntityRegistry();
-    const isEmbeddedProfile = useIsEmbeddedProfile();
-    const [removeTagMutation] = useRemoveTagMutation();
-    const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
+ const entityRegistry = useEntityRegistry();
+ const isEmbeddedProfile = useIsEmbeddedProfile();
+ const [removeTagMutation] = useRemoveTagMutation();
+ const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
 
-    const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
-    const [addTagUrn, setAddTagUrn] = useState('');
-    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
-    const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
-    const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
+ const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
+ const [addTagUrn, setAddTagUrn] = useState('');
+ const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+ const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
+ const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
 
-    const showTagProfileDrawer = (urn: string) => {
-        if (!readOnly) {
-            setTagProfileDrawerVisible(true);
-            setAddTagUrn(urn);
-        }
-    };
+ const showTagProfileDrawer = (urn: string) => {
+ if (!readOnly) {
+ setTagProfileDrawerVisible(true);
+ setAddTagUrn(urn);
+ }
+ };
 
-    const closeTagProfileDrawer = () => {
-        setTagProfileDrawerVisible(false);
-    };
+ const closeTagProfileDrawer = () => {
+ setTagProfileDrawerVisible(false);
+ };
 
-    const removeTag = (tagAssociationToRemove: TagAssociation) => {
-        const tagToRemove = tagAssociationToRemove.tag;
-        if (tagAssociationToRemove.associatedUrn || entityUrn) {
-            removeTagMutation({
-                variables: {
-                    input: {
-                        tagUrn: tagToRemove.urn,
-                        resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
-                        subResource: entitySubresource,
-                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                    },
-                },
-            })
-                .then(({ errors }) => {
-                    if (!errors) {
-                        message.success({ content: 'Removed Tag!', duration: 2 });
-                    }
-                })
-                .then(refetch)
-                .catch((e) => {
-                    message.destroy();
-                    message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
-                });
-        }
-    };
+ const removeTag = (tagAssociationToRemove: TagAssociation) => {
+ const tagToRemove = tagAssociationToRemove.tag;
+ if (tagAssociationToRemove.associatedUrn || entityUrn) {
+ removeTagMutation({
+ variables: {
+ input: {
+ tagUrn: tagToRemove.urn,
+ resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
+ subResource: entitySubresource,
+ subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+ },
+ },
+ })
+ .then(({ errors }) => {
+ if (!errors) {
+ message.success({ content: 'Removed Tag!', duration: 2 });
+ }
+ })
+ .then(refetch)
+ .catch((e) => {
+ message.destroy();
+ message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+ });
+ }
+ };
 
-    return (
-        <>
-            <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
-                <TagLink
-                    data-testid={`tag-${displayName}`}
-                    $showOneAndCount={showOneAndCount}
-                    $shouldNotAddBottomMargin={options?.shouldNotAddBottomMargin}
-                >
-                    <StyledTag
-                        onClick={() => {
-                            if (isEmbeddedProfile) {
-                                window.open(
-                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
-                                    '_blank',
-                                );
-                            } else if (!options?.shouldNotOpenDrawerOnClick) {
-                                showTagProfileDrawer(tag?.tag?.urn);
-                            }
-                        }}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', ...tagStyle }}
-                        $colorHash={tag?.tag?.urn}
-                        $color={tag?.tag?.properties?.colorHex}
-                        closable={canRemove && !readOnly}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            onOpenModal?.();
-                            setShowConfirmDelete(true);
-                        }}
-                        closeIcon={<Icon icon="X" source="phosphor" size="sm" data-testid="remove-icon" />}
-                        fontSize={fontSize}
-                        $highlightTag={highlightTag}
-                        $showOneAndCount={showOneAndCount}
-                    >
-                        <Highlight
-                            style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            matchStyle={highlightMatchStyle}
-                            search={highlightText}
-                        >
-                            {options?.shouldShowEllipses ? (
-                                <DisplayNameContainer maxWidth={maxWidth}>
-                                    <span className="test-mini-preview-class">{displayName}</span>
-                                </DisplayNameContainer>
-                            ) : (
-                                <DisplayNameContainer maxWidth={maxWidth}>
-                                    <span>{displayName}</span>
-                                </DisplayNameContainer>
-                            )}
-                        </Highlight>
-                    </StyledTag>
-                </TagLink>
-            </HoverEntityTooltip>
-            {tagProfileDrawerVisible && (
-                <TagProfileDrawer
-                    closeTagProfileDrawer={closeTagProfileDrawer}
-                    tagProfileDrawerVisible={tagProfileDrawerVisible}
-                    urn={addTagUrn}
-                />
-            )}
-            <ConfirmationModal
-                isOpen={showConfirmDelete}
-                handleClose={() => setShowConfirmDelete(false)}
-                handleConfirm={() => removeTag(tag)}
-                modalTitle={`Delete Tag '${displayName}'`}
-                modalText="Are you sure you want to remove this tag?"
-            />
-        </>
-    );
+ return (
+ <>
+ <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
+ <TagLink
+ data-testid={`tag-${displayName}`}
+ $showOneAndCount={showOneAndCount}
+ $shouldNotAddBottomMargin={options?.shouldNotAddBottomMargin}
+ >
+ <StyledTag
+ onClick={() => {
+ if (isEmbeddedProfile) {
+ window.open(
+ resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
+ '_blank',
+ );
+ } else if (!options?.shouldNotOpenDrawerOnClick) {
+ showTagProfileDrawer(tag?.tag?.urn);
+ }
+ }}
+ style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', ...tagStyle }}
+ $colorHash={tag?.tag?.urn}
+ $color={tag?.tag?.properties?.colorHex}
+ closable={canRemove && !readOnly}
+ onClose={(e) => {
+ e.preventDefault();
+ onOpenModal?.();
+ setShowConfirmDelete(true);
+ }}
+ closeIcon={<Icon icon={X} size="sm" data-testid="remove-icon" />}
+ fontSize={fontSize}
+ $highlightTag={highlightTag}
+ $showOneAndCount={showOneAndCount}
+ >
+ <Highlight
+ style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
+ matchStyle={highlightMatchStyle}
+ search={highlightText}
+ >
+ {options?.shouldShowEllipses ? (
+ <DisplayNameContainer maxWidth={maxWidth}>
+ <span className="test-mini-preview-class">{displayName}</span>
+ </DisplayNameContainer>
+ ) : (
+ <DisplayNameContainer maxWidth={maxWidth}>
+ <span>{displayName}</span>
+ </DisplayNameContainer>
+ )}
+ </Highlight>
+ </StyledTag>
+ </TagLink>
+ </HoverEntityTooltip>
+ {tagProfileDrawerVisible && (
+ <TagProfileDrawer
+ closeTagProfileDrawer={closeTagProfileDrawer}
+ tagProfileDrawerVisible={tagProfileDrawerVisible}
+ urn={addTagUrn}
+ />
+ )}
+ <ConfirmationModal
+ isOpen={showConfirmDelete}
+ handleClose={() => setShowConfirmDelete(false)}
+ handleConfirm={() => removeTag(tag)}
+ modalTitle={`Delete Tag '${displayName}'`}
+ modalText="Are you sure you want to remove this tag?"
+ />
+ </>
+ );
 }

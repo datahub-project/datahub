@@ -1,4 +1,5 @@
 import { Icon, colors, typography } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -145,7 +146,7 @@ export const ApplicationActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="MoreVertOutlinedIcon" />
                 </Dropdown>
             </CardIcons>
         );

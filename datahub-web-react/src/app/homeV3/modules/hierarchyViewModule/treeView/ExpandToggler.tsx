@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -25,8 +26,7 @@ export default function ExpandToggler({ expanded, expandable, onToggle }: Props)
         <Wrapper>
             <Icon
                 color="gray"
-                icon="CaretRight"
-                source="phosphor"
+                icon={CaretRight}
                 rotate={expanded ? '90' : '0'}
                 size="lg"
                 onClick={onToggle}

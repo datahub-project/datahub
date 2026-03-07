@@ -12,6 +12,7 @@ import {
     ValuesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { PropValueField } from '@app/govern/structuredProperties/utils';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue } from '@src/types.generated';
 
@@ -105,7 +106,7 @@ const AllowedValuesDrawer = ({
                                                         showArrow={false}
                                                     >
                                                         <Icon
-                                                            icon="Delete"
+                                                            icon={Trash}
                                                             onClick={() => remove(field.name)}
                                                             color="gray"
                                                             size="xl"

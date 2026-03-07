@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
-import { ArrowLineLeft, ArrowLineRight } from '@phosphor-icons/react';
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Tabs } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';

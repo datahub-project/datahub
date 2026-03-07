@@ -9,6 +9,7 @@ import {
     OperationButton,
     ToolbarContainer,
 } from '@app/sharedV2/queryBuilder/styledComponents';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
 
 interface Props {
@@ -114,7 +115,7 @@ const GroupHeader = ({
                 <CardIcons>
                     {showDeleteButton && (
                         <Icon
-                            icon="Delete"
+                            icon={Trash}
                             size="md"
                             onClick={() => onDeletePredicate(index)}
                             data-testid="query-builder-delete-button"

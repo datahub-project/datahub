@@ -1,4 +1,4 @@
-import { FileText } from '@phosphor-icons/react';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { List } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';

@@ -14,6 +14,7 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
@@ -82,7 +83,7 @@ const StructuredPropsForm = ({
                         Property Type
                         <RequiredAsterisk />
                         <Tooltip title="The allowed value type of the property" showArrow={false}>
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>

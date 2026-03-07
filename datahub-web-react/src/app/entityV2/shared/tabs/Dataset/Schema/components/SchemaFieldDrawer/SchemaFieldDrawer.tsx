@@ -1,4 +1,7 @@
-import { BookOpen, ChartBar, Code, ListBullets } from '@phosphor-icons/react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';

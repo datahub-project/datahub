@@ -1,5 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
 
 import { Menu } from '@components/components/Menu/Menu';
@@ -42,7 +43,7 @@ const meta = {
                 title: 'Test full',
                 description: 'description',
                 tooltip: 'tooltip',
-                icon: 'Globe',
+                icon: Globe,
                 onClick: () => onClick('Test full'),
             },
             {
@@ -51,7 +52,7 @@ const meta = {
                 title: 'Test disabled',
                 description: 'description',
                 tooltip: 'tooltip',
-                icon: 'Globe',
+                icon: Globe,
                 disabled: true,
                 onClick: () => onClick('Test disabled'),
             },
@@ -61,7 +62,7 @@ const meta = {
                 title: 'Test danger',
                 description: 'description',
                 tooltip: 'tooltip',
-                icon: 'Globe',
+                icon: Globe,
                 danger: true,
                 onClick: () => onClick('Test danger'),
             },
@@ -71,7 +72,7 @@ const meta = {
                 title: 'Test disabled danger',
                 description: 'description',
                 tooltip: 'tooltip',
-                icon: 'Globe',
+                icon: Globe,
                 disabled: true,
                 danger: true,
                 onClick: () => onClick('Test disabled danger'),
@@ -87,7 +88,7 @@ const meta = {
                         title: 'Test in group',
                         description: 'description',
                         tooltip: 'tooltip',
-                        icon: 'Globe',
+                        icon: Globe,
                         onClick: () => onClick('Test in group'),
                     },
                 ],
@@ -101,7 +102,7 @@ const meta = {
                 key: 'Test with children',
                 title: 'Test with children',
                 description: 'description',
-                icon: 'Globe',
+                icon: Globe,
                 children: [
                     {
                         type: 'item',
@@ -109,7 +110,7 @@ const meta = {
                         title: 'Test child',
                         description: 'description',
                         tooltip: 'tooltip',
-                        icon: 'Globe',
+                        icon: Globe,
                         onClick: () => onClick('Test child'),
                     },
                 ],

@@ -6,42 +6,43 @@ import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV3/Linea
 import { LineageNodesContext, onClickPreventSelect } from '@app/lineageV3/common';
 
 import { LineageDirection } from '@types';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 
 interface Props {
-    urn: string;
-    direction: LineageDirection;
+ urn: string;
+ direction: LineageDirection;
 }
 
 export function ContractLineageButton({ urn, direction }: Props) {
-    const context = useContext(LineageNodesContext);
-    const { nodes, setDisplayVersion } = context;
+ const context = useContext(LineageNodesContext);
+ const { nodes, setDisplayVersion } = context;
 
-    const contractLineage = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
-        e.stopPropagation();
-        const node = nodes.get(urn);
-        if (node) {
-            node.isExpanded = { ...node.isExpanded, [direction]: false };
-            setDisplayVersion(([version, n]) => [version + 1, n]);
-            analytics.event({
-                type: EventType.ContractLineageEvent,
-                direction,
-                entityUrn: urn,
-                entityType: node.type,
-            });
-        }
-    };
+ const contractLineage = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
+ e.stopPropagation();
+ const node = nodes.get(urn);
+ if (node) {
+ node.isExpanded = { ...node.isExpanded, [direction]: false };
+ setDisplayVersion(([version, n]) => [version + 1, n]);
+ analytics.event({
+ type: EventType.ContractLineageEvent,
+ direction,
+ entityUrn: urn,
+ entityType: node.type,
+ });
+ }
+ };
 
-    const Wrapper = direction === LineageDirection.Upstream ? UpstreamWrapper : DownstreamWrapper;
+ const Wrapper = direction === LineageDirection.Upstream ? UpstreamWrapper : DownstreamWrapper;
 
-    return (
-        <Wrapper>
-            <Button
-                onClick={(e) => onClickPreventSelect(e) && contractLineage(e)}
-                onMouseEnter={(e) => e.stopPropagation()}
-                onMouseLeave={(e) => e.stopPropagation()}
-            >
-                <Icon icon="CaretLeft" source="phosphor" size="lg" />
-            </Button>
-        </Wrapper>
-    );
+ return (
+ <Wrapper>
+ <Button
+ onClick={(e) => onClickPreventSelect(e) && contractLineage(e)}
+ onMouseEnter={(e) => e.stopPropagation()}
+ onMouseLeave={(e) => e.stopPropagation()}
+ >
+ <Icon icon={CaretLeft} size="lg" />
+ </Button>
+ </Wrapper>
+ );
 }

@@ -1,7 +1,7 @@
 import { ApiOutlined } from '@ant-design/icons';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Col, Row, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';

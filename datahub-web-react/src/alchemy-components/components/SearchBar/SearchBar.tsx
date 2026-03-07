@@ -5,6 +5,7 @@ import { StyledSearchBar } from '@components/components/SearchBar/components';
 import { SearchBarProps } from '@components/components/SearchBar/types';
 
 import { Icon } from '@src/alchemy-components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 
 export const searchBarDefaults: SearchBarProps = {
     placeholder: 'Search...',
@@ -39,7 +40,7 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
                 placeholder={placeholder}
                 onChange={(e) => onChange?.(e.target.value, e)}
                 value={inputValue}
-                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
+                prefix={<Icon icon={MagnifyingGlass} />}
                 allowClear={clearIcon ? allowClear && { clearIcon } : allowClear}
                 $width={width}
                 $height={height}

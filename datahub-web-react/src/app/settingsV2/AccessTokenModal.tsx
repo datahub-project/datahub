@@ -4,7 +4,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { Button, Modal, Text } from '@src/alchemy-components';
-import { IconNames } from '@src/alchemy-components/components/Icon/types';
 import { colors } from '@src/alchemy-components/theme';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -151,7 +150,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessToken, 'Token')}
                             data-testid="copy-token-button"
-                            icon={{ icon: 'ContentCopy' as IconNames, source: 'material' }}
+                            icon={undefined}
                         >
                             Copy
                         </CopyButton>
@@ -173,7 +172,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessTokenCurl, 'cURL command')}
                             data-testid="copy-curl-button"
-                            icon={{ icon: 'ContentCopy' as IconNames, source: 'material' }}
+                            icon={undefined}
                         >
                             Copy
                         </CopyButton>

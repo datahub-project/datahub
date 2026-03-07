@@ -10,63 +10,62 @@ import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { OwnerType } from '@types';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const ContentWrapper = styled.div<{ $isProposed?: boolean }>`
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px 2px 4px;
-    border-radius: 20px;
-    border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[1400]};
+ display: inline-flex;
+ align-items: center;
+ padding: 2px 6px 2px 4px;
+ border-radius: 20px;
+ border: 1px ${({ $isProposed }) => ($isProposed ? 'dashed' : 'solid')} ${colors.gray[1400]};
 
-    :hover {
-        cursor: pointer;
-    }
+ :hover {
+ cursor: pointer;
+ }
 `;
 
 const StyledIcon = styled(Icon)`
-    margin-left: 4px;
+ margin-left: 4px;
 `;
 
 interface Props {
-    actor?: OwnerType;
-    isProposed?: boolean;
-    onClose?: (e: any) => void;
-    hideLink?: boolean;
-    propagationDetails?: AttributionDetails;
+ actor?: OwnerType;
+ isProposed?: boolean;
+ onClose?: (e: any) => void;
+ hideLink?: boolean;
+ propagationDetails?: AttributionDetails;
 }
 
 export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails }: Props) {
-    const entityRegistry = useEntityRegistryV2();
-    const name = actor && entityRegistry.getDisplayName(actor.type, actor);
-    const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
-    const linkProps = useEmbeddedProfileLinkProps();
+ const entityRegistry = useEntityRegistryV2();
+ const name = actor && entityRegistry.getDisplayName(actor.type, actor);
+ const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
+ const linkProps = useEmbeddedProfileLinkProps();
 
-    if (!actor) return null;
+ if (!actor) return null;
 
-    return (
-        <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
-            <Link
-                to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
-                data-testid={`owner-${actor.urn}`}
-                {...linkProps}
-            >
-                <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
-                    <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm" data-testid="owner-name">
-                        {name}
-                    </Text>
-                    {!isProposed && onClose && (
-                        <StyledIcon
-                            onClick={onClose}
-                            icon="X"
-                            source="phosphor"
-                            size="sm"
-                            color="gray"
-                            data-testid={`remove-owner-${actor.urn}`}
-                        />
-                    )}
-                </ContentWrapper>
-            </Link>
-        </HoverEntityTooltip>
-    );
+ return (
+ <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
+ <Link
+ to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
+ data-testid={`owner-${actor.urn}`}
+ {...linkProps}
+ >
+ <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
+ <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
+ <Text color="gray" size="sm" data-testid="owner-name">
+ {name}
+ </Text>
+ {!isProposed && onClose && (
+ <StyledIcon
+ onClick={onClose}
+ icon={X} size="sm"
+ color="gray"
+ data-testid={`remove-owner-${actor.urn}`}
+ />
+ )}
+ </ContentWrapper>
+ </Link>
+ </HoverEntityTooltip>
+ );
 }

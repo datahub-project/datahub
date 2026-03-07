@@ -1,6 +1,6 @@
 import { DeleteOutlined } from '@ant-design/icons';
 import { colors } from '@components';
-import { Pencil } from '@phosphor-icons/react';
+import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';

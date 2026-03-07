@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -195,7 +196,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
                     <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
+                        <Icon icon={Plus} size={isV1Drawer ? 'lg' : '2xl'} color="white" />
                     </AddButton>
                 </Tooltip>
             </Dropdown>

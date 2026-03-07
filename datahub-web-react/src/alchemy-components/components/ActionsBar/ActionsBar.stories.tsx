@@ -7,6 +7,7 @@ import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/A
 import { Button } from '@components/components/Button';
 import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import colors from '@components/theme/foundations/colors';
 
 // Auto Docs
@@ -58,7 +59,7 @@ const WrappedActionsBar = ({ ...props }: ActionsBarProps) => {
         <Wrapper>
             <ActionsBar {...props}>
                 <Warning>
-                    <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
+                    <Icon icon={ExclamationMark} color="red" weight="fill" />
                     <span>Editing default user view</span>
                 </Warning>
                 <Button>Done</Button>

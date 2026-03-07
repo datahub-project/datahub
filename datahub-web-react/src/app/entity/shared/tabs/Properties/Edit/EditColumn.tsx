@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Icon, Text, colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
@@ -121,7 +122,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="MoreVert" size="md" data-testid="structured-prop-entity-more-icon" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="structured-prop-entity-more-icon" />
                 </Dropdown>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal

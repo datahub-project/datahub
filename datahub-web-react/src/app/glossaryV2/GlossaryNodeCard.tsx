@@ -1,4 +1,5 @@
-import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Tooltip, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';

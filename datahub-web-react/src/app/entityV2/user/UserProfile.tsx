@@ -1,4 +1,4 @@
-import { BookOpen } from '@phosphor-icons/react';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { matchPath } from 'react-router';

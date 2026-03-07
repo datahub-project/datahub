@@ -1,18 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { ColorValues, FontSizeValues } from '@components/theme/config';
 
-import { AVAILABLE_ICONS, Icon, IconProps, iconDefaults } from '.';
+import { Icon, iconDefaults } from '.';
 
-const storyMaterialDefaults: Pick<IconProps, 'icon' | 'source'> = {
-    icon: 'AccountCircle',
-    source: 'material',
-};
-const storyDefaults: Pick<IconProps, 'icon' | 'source'> = {
-    icon: 'Activity',
-    source: 'phosphor',
+const storyDefaults = {
+    icon: ChartLine,
 };
 
 // Auto Docs
@@ -27,32 +23,13 @@ const meta = {
         docs: {
             subtitle: 'A singular component for rendering the icons used throughout the application.',
             description: {
-                component: '👉 See the [Icons Gallery](/docs/icons--docs) for more information.',
+                component: 'See the [Icons Gallery](/docs/icons--docs) for more information.',
             },
         },
     },
 
     // Component-level argTypes
     argTypes: {
-        icon: {
-            description: `The name of the icon to display.`,
-            type: 'string',
-            options: AVAILABLE_ICONS,
-            table: {
-                defaultValue: { summary: 'undefined' },
-            },
-            control: {
-                type: 'select',
-            },
-        },
-        variant: {
-            description: 'The variant of the icon to display.',
-            defaultValue: 'outline',
-            options: ['outline', 'filled'],
-            table: {
-                defaultValue: { summary: iconDefaults.variant },
-            },
-        },
         size: {
             description: 'The size of the icon to display.',
             defaultValue: 'lg',
@@ -88,8 +65,7 @@ const meta = {
 
     // Define defaults for required args
     args: {
-        icon: 'Activity',
-        source: 'phosphor',
+        icon: ChartLine,
     },
 } satisfies Meta<typeof Icon>;
 
@@ -106,49 +82,38 @@ export const sandbox: Story = {
     render: (props) => <Icon {...props} />,
 };
 
-export const filled = () => (
+export const sizes = () => (
     <GridList>
-        <Icon icon="AccountCircle" variant="filled" />
-        <Icon icon="AddHome" variant="filled" />
-        <Icon icon="AdminPanelSettings" variant="filled" />
+        {Object.values(FontSizeValues).map((size) => (
+            <Icon key={size} {...storyDefaults} size={size} />
+        ))}
     </GridList>
 );
 
-export const sizes = () => (
-    <>
-        <GridList>
-            {Object.values(FontSizeValues).map((size) => (
-                <Icon key={size} {...storyDefaults} size={size} />
-            ))}
-        </GridList>
-        <GridList>
-            {Object.values(FontSizeValues).map((size) => (
-                <Icon key={size} {...storyMaterialDefaults} size={size} />
-            ))}
-        </GridList>
-    </>
+export const colors = () => (
+    <GridList>
+        {Object.values(ColorValues).map((color) => (
+            <Icon key={color} {...storyDefaults} color={color} />
+        ))}
+    </GridList>
 );
 
-export const colors = () => (
-    <>
-        <GridList>
-            {Object.values(ColorValues).map((color) => (
-                <Icon key={color} {...storyDefaults} color={color} />
-            ))}
-        </GridList>
-        <GridList>
-            {Object.values(ColorValues).map((color) => (
-                <Icon key={color} {...storyMaterialDefaults} color={color} />
-            ))}
-        </GridList>
-    </>
+export const weights = () => (
+    <GridList>
+        <Icon icon={ChartLine} weight="thin" size="4xl" />
+        <Icon icon={ChartLine} weight="light" size="4xl" />
+        <Icon icon={ChartLine} weight="regular" size="4xl" />
+        <Icon icon={ChartLine} weight="bold" size="4xl" />
+        <Icon icon={ChartLine} weight="fill" size="4xl" />
+        <Icon icon={ChartLine} weight="duotone" size="4xl" />
+    </GridList>
 );
 
 export const rotation = () => (
     <GridList>
-        <Icon icon="ChevronLeft" />
-        <Icon icon="ChevronLeft" rotate="90" />
-        <Icon icon="ChevronLeft" rotate="180" />
-        <Icon icon="ChevronLeft" rotate="270" />
+        <Icon icon={ChartLine} />
+        <Icon icon={ChartLine} rotate="90" />
+        <Icon icon={ChartLine} rotate="180" />
+        <Icon icon={ChartLine} rotate="270" />
     </GridList>
 );

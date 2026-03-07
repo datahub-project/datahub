@@ -1,9 +1,10 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '@components/components/Icon';
 import { Pill, SUPPORTED_CONFIGURATIONS } from '@components/components/Pills/Pill';
 import { PillProps } from '@components/components/Pills/types';
 import { ColorValues, PillVariantValues, SizeValues, getSizeName } from '@components/theme/config';
@@ -42,7 +43,7 @@ const meta: Meta = {
         leftIcon: {
             description: 'The icon to display in the Pill icon.',
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             control: {
                 type: 'select',
             },
@@ -50,7 +51,7 @@ const meta: Meta = {
         rightIcon: {
             description: 'The icon to display in the Pill icon.',
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             control: {
                 type: 'select',
             },
@@ -153,8 +154,8 @@ export const versionPills = () => (
 
 export const withIcon = () => (
     <GridList>
-        <Pill label="left icon" leftIcon="AutoMode" />
-        <Pill label="right icon" rightIcon="Close" />
-        <Pill label="both icon" leftIcon="AutoMode" rightIcon="Close" />
+        <Pill label="left icon" leftIcon={Star} />
+        <Pill label="right icon" rightIcon={X} />
+        <Pill label="both icon" leftIcon={Star} rightIcon={X} />
     </GridList>
 );

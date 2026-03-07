@@ -13,6 +13,7 @@ import { useScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/s
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const SectionContainer = styled.div`
     display: flex;
@@ -122,7 +123,7 @@ export function ScheduleSection() {
             />
             {!scheduleEnabled && (
                 <WarningContainer>
-                    <Icon icon="Warning" source="phosphor" color="yellow" colorLevel={1000} size="md" />
+                    <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
                     <Text color="yellow" colorLevel={1000} size="sm">
                         Running ingestion without a schedule may result in out-of-date information.
                     </Text>

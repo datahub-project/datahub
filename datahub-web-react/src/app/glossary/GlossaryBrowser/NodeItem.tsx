@@ -1,5 +1,5 @@
 import { DownOutlined, LoadingOutlined, RightOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
