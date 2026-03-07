@@ -1,10 +1,14 @@
-## Advanced Configurations
+### Capabilities
 
-### Environment-Specific Topic Discovery
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Advanced Configurations
+
+#### Environment-Specific Topic Discovery
 
 DataHub's Kafka Connect source automatically detects your environment (self-hosted vs Confluent Cloud) and uses the appropriate topic discovery strategy:
 
-#### Self-hosted Kafka Connect
+##### Self-hosted Kafka Connect
 
 Uses the runtime `/connectors/{name}/topics` API endpoint for accurate, real-time topic information:
 
@@ -17,7 +21,7 @@ source:
     # use_connect_topics_api: true  # Default - enables runtime topic discovery
 ```
 
-#### Confluent Cloud
+##### Confluent Cloud
 
 Uses comprehensive transform pipeline support with Kafka REST API v3 topic validation and config-based fallback:
 
@@ -91,7 +95,7 @@ This approach works for both self-hosted and Confluent Cloud environments:
 - **Separate credentials (typical)**: Use `connect_api_key`/`connect_api_secret` for Connect API and `kafka_api_key`/`kafka_api_secret` for Kafka REST API
 - **Legacy credentials**: Use `username`/`password` for Connect API (falls back for Kafka API if separate credentials not provided)
 
-#### Air-gapped or Performance-Optimized Environments
+##### Air-gapped or Performance-Optimized Environments
 
 Disable topic discovery entirely for environments where API access is not available or not needed:
 
@@ -105,11 +109,11 @@ source:
 
 **Note**: When `use_connect_topics_api` is `false`, topic information will not be extracted, which may impact lineage accuracy but improves performance and works in air-gapped environments.
 
-### Enhanced Topic Resolution for Source and Sink Connectors
+#### Enhanced Topic Resolution for Source and Sink Connectors
 
 DataHub now provides intelligent topic resolution that works reliably across all environments, including Confluent Cloud where the Kafka Connect topics API is unavailable.
 
-#### How It Works
+##### How It Works
 
 **Source Connectors** (Debezium, Snowflake CDC, JDBC):
 
@@ -126,7 +130,7 @@ DataHub now provides intelligent topic resolution that works reliably across all
   - Priority 2: Query DataHub for Kafka topics and match pattern (if `use_schema_resolver` enabled)
   - Priority 3: Warn user that pattern cannot be expanded
 
-#### Configuration Examples
+##### Configuration Examples
 
 **Source Connector with Pattern Expansion:**
 
@@ -170,7 +174,7 @@ source:
     datahub_gms_url: "http://localhost:8080" # Your DataHub GMS endpoint
 ```
 
-#### Key Benefits
+##### Key Benefits
 
 1. **Confluent Cloud Support**: Both source and sink connectors work correctly with pattern-based configurations
 2. **Config as Source of Truth**: Source connectors always derive topics from configuration, not from querying all tables in DataHub
@@ -178,7 +182,7 @@ source:
 4. **Pattern Expansion**: Wildcards in `table.include.list` and `topics.regex` are properly expanded
 5. **Transform Support**: All transforms (RegexRouter, EventRouter, etc.) are applied correctly
 
-#### When DataHub Topic Querying is Used
+##### When DataHub Topic Querying is Used
 
 DataHub will query for topics in these scenarios:
 
@@ -200,7 +204,7 @@ DataHub will query for topics in these scenarios:
 - Sink connectors query Kafka platform to expand topic regex patterns
 - Both require appropriate DataHub credentials and connectivity
 
-### Using DataHub Schema Resolver for Pattern Expansion and Column-Level Lineage
+#### Using DataHub Schema Resolver for Pattern Expansion and Column-Level Lineage
 
 The Kafka Connect source can query DataHub for schema information to provide two capabilities:
 
@@ -209,7 +213,7 @@ The Kafka Connect source can query DataHub for schema information to provide two
 
 Both features require existing metadata in DataHub from your database and Kafka schema registry ingestion.
 
-#### Auto-Enabled for Confluent Cloud
+##### Auto-Enabled for Confluent Cloud
 
 **Starting with the latest version**, `use_schema_resolver` is **automatically enabled** for Confluent Cloud environments to provide better defaults for enhanced lineage extraction. This gives you column-level lineage and pattern expansion out of the box!
 
@@ -270,7 +274,7 @@ source:
 2. Ingest Kafka schema registry (optional, for topic schemas) → DataHub
 3. Run Kafka Connect ingestion → Enjoy enhanced lineage!
 
-#### Configuration Overview
+##### Configuration Overview
 
 ```yml
 source:
@@ -291,7 +295,7 @@ source:
       token: "your-datahub-token" # Optional
 ```
 
-#### Pattern Expansion
+##### Pattern Expansion
 
 Converts wildcard patterns in connector configurations into actual table names by querying DataHub.
 
@@ -345,7 +349,7 @@ source:
 **Behavior without schema resolver:**
 Patterns are treated as literal table names, resulting in potentially incorrect lineage.
 
-#### Column-Level Lineage
+##### Column-Level Lineage
 
 Generates field-level lineage by matching column names between source tables and Kafka topics.
 
@@ -415,7 +419,7 @@ source:
 **Behavior without schema resolver:**
 Only dataset-level lineage is created (e.g., `postgres.users -> kafka.users`), without field-level detail.
 
-#### Complete Configuration Example
+##### Complete Configuration Example
 
 ```yml
 source:
@@ -441,7 +445,7 @@ source:
       kafka: "prod-kafka"
 ```
 
-#### Performance Impact
+##### Performance Impact
 
 **API Calls per Connector:**
 
@@ -479,7 +483,7 @@ source:
 **Best Practice:**
 Run database and Kafka schema ingestion before Kafka Connect ingestion to pre-populate DataHub with schema metadata.
 
-#### Troubleshooting
+##### Troubleshooting
 
 **"Pattern expansion found no matches for: analytics.\*"**
 
@@ -537,7 +541,7 @@ Temporarily disable to compare:
 use_schema_resolver: false
 ```
 
-### Working with Platform Instances
+#### Working with Platform Instances
 
 If you've multiple instances of kafka OR source/sink systems that are referred in your `kafka-connect` setup, you'd need to configure platform instance for these systems in `kafka-connect` recipe to generate correct lineage edges. You must have already set `platform_instance` in recipes of original source/sink systems. Refer the document [Working with Platform Instances](https://docs.datahub.com/docs/platform-instances) to understand more about this.
 
@@ -554,7 +558,7 @@ platform_instance_map:
 
 If multiple instances of platform are used across `kafka-connect` connectors, you'd need to specify platform_instance to use for platform for every connector.
 
-#### Example - Multiple MySQL Source Connectors each reading from different mysql instance
+##### Example - Multiple MySQL Source Connectors each reading from different mysql instance
 
 ```yml
 # Map of platform name to platform instance per connector
@@ -568,7 +572,7 @@ connect_to_platform_map:
 
 Here mysql_connector1 and mysql_connector2 are names of MySQL source connectors as defined in `kafka-connect` connector config.
 
-#### Example - Multiple MySQL Source Connectors each reading from difference mysql instance and writing to different kafka cluster
+##### Example - Multiple MySQL Source Connectors each reading from difference mysql instance and writing to different kafka cluster
 
 ```yml
 connect_to_platform_map:
@@ -587,7 +591,7 @@ If you do not use `platform_instance` in original source/sink recipes, you do no
 
 Note that, you do not need to specify platform_instance for BigQuery.
 
-#### Example - Multiple BigQuery Sink Connectors each writing to different kafka cluster
+##### Example - Multiple BigQuery Sink Connectors each writing to different kafka cluster
 
 ```yml
 connect_to_platform_map:
@@ -598,7 +602,7 @@ connect_to_platform_map:
     kafka: kafka_instance2
 ```
 
-### Provided Configurations from External Sources
+#### Provided Configurations from External Sources
 
 Kafka Connect supports pluggable configuration providers which can load configuration data from external sources at runtime. These values are not available to DataHub ingestion source through Kafka Connect APIs. If you are using such provided configurations to specify connection url (database, etc) in Kafka Connect connector configuration then you will need also add these in `provided_configs` section in recipe for DataHub to generate correct lineage.
 
@@ -610,9 +614,7 @@ provided_configs:
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
 
-## Troubleshooting
-
-### Topic Discovery Issues
+#### Topic Discovery Issues
 
 **Problem**: Missing or incomplete topic information in lineage
 
@@ -646,7 +648,7 @@ provided_configs:
        use_connect_topics_api: true # Ensure this is enabled (default)
    ```
 
-### Environment-Specific Issues
+#### Environment-Specific Issues
 
 **Self-hosted Issues**:
 
@@ -661,7 +663,7 @@ provided_configs:
 - **Complex transforms**: Now fully supported via forward transform pipeline with topic validation
 - **Schema preservation**: Full schema information (e.g., `public.users`) is maintained through transform pipeline
 
-### Performance Optimization
+#### Performance Optimization
 
 If topic discovery is impacting performance:
 
@@ -672,3 +674,11 @@ source:
     connect_uri: "http://localhost:8083"
     use_connect_topics_api: false # Disable for better performance (no topic info)
 ```
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

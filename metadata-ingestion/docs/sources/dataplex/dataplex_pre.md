@@ -1,85 +1,8 @@
-:::caution
-The Dataplex connector will overwrite metadata from other Google Cloud source connectors (BigQuery, GCS, etc.) if they extract the same entities. If you're running multiple Google Cloud connectors, be aware that the last connector to run will determine the final metadata state for overlapping entities.
-:::
+### Overview
 
-### Prerequisites
+The `dataplex` module ingests metadata from Dataplex into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-Please refer to the [Dataplex documentation](https://cloud.google.com/dataplex/docs) for basic information on Google Dataplex.
-
-#### Authentication
-
-Google Cloud uses Application Default Credentials (ADC) for authentication. Refer to the [GCP documentation](https://cloud.google.com/docs/authentication/provide-credentials-adc) to set up ADC based on your environment. If you prefer to use a service account then use the following instructions.
-
-#### Create a service account and assign roles
-
-1. Setup a ServiceAccount as per [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the previously mentioned roles to this service account.
-
-2. Download a service account JSON keyfile.
-
-   Example credential file:
-
-   ```json
-   {
-     "type": "service_account",
-     "project_id": "project-id-1234567",
-     "private_key_id": "d0121d0000882411234e11166c6aaa23ed5d74e0",
-     "private_key": "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----",
-     "client_email": "test@suppproject-id-1234567.iam.gserviceaccount.com",
-     "client_id": "113545814931671546333",
-     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-     "token_uri": "https://oauth2.googleapis.com/token",
-     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
-   }
-   ```
-
-3. To provide credentials to the source, you can either:
-
-   Set an environment variable:
-
-   ```sh
-   $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
-   ```
-
-   _or_
-
-   Set credential config in your source based on the credential json file. For example:
-
-   ```yml
-   credential:
-     project_id: "project-id-1234567"
-     private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
-     private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
-     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
-     client_id: "123456678890"
-   ```
-
-#### Permissions
-
-Grant the following permissions to the Service Account on every project where you would like to extract metadata from.
-
-**For Universal Catalog Entries API:**
-
-Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
-
-| Permission                  | Description                           |
-| --------------------------- | ------------------------------------- |
-| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
-| `dataplex.entryGroups.list` | View all entry groups in a location   |
-| `dataplex.entries.get`      | Access entry metadata and details     |
-| `dataplex.entries.getData`  | View data aspects within entries      |
-| `dataplex.entries.list`     | Enumerate entries within groups       |
-
-**For lineage extraction** (optional, `include_lineage: true`):
-
-Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
-
-| Permission                 | Description                               |
-| -------------------------- | ----------------------------------------- |
-| `datalineage.links.get`    | Allows a user to view lineage links       |
-| `datalineage.links.search` | Allows a user to search for lineage links |
-
-### Integration Details
+#### Integration Details
 
 The Dataplex connector extracts metadata from Google Dataplex using the **Universal Catalog Entries API**. This API extracts entries from system-managed entry groups for Google Cloud services and is the recommended approach for discovering resources across your GCP organization.
 
@@ -100,7 +23,7 @@ The Dataplex connector extracts metadata from Google Dataplex using the **Univer
 Only **BigQuery** and **Cloud Storage (GCS)** have been thoroughly tested with this connector. Other services may work but have not been validated.
 :::
 
-#### Platform Alignment
+##### Platform Alignment
 
 Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `bigquery`, `gcs`). This means:
 
@@ -108,7 +31,7 @@ Datasets discovered by Dataplex use the same URNs as native connectors (e.g., `b
 - **Native Containers**: BigQuery tables appear in their native dataset containers
 - **Unified View**: Users see a single view of all datasets regardless of discovery method
 
-#### Concept Mapping
+##### Concept Mapping
 
 This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
@@ -117,7 +40,7 @@ This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 | Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | From Universal Catalog. Uses source platform URNs (e.g., `bigquery`, `gcs`). |
 | BigQuery Project/Dataset  | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container) | Created as containers to align with native BigQuery connector.               |
 
-#### Custom Properties
+##### Custom Properties
 
 The connector adds the following custom properties to datasets:
 
@@ -130,7 +53,7 @@ The connector adds the following custom properties to datasets:
 To access system-managed entry groups like `@bigquery`, use multi-region locations (`us`, `eu`, `asia`) via the `entries_location` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
 :::
 
-### Filtering Configuration
+#### Filtering Configuration
 
 Filter which datasets to ingest using regex patterns with allow/deny lists:
 
@@ -153,7 +76,7 @@ source:
             - ".*_temp" # Exclude temporary datasets
 ```
 
-### Lineage
+#### Lineage
 
 When `include_lineage` is enabled and proper permissions are granted, the connector extracts **table-level lineage** using the Dataplex Lineage API. Dataplex automatically tracks lineage from these Google Cloud systems:
 
@@ -185,7 +108,7 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
-### Configuration Options
+#### Configuration Options
 
 **Metadata Extraction:**
 
@@ -239,22 +162,81 @@ source:
     batch_size: 1000 # Process and emit 1000 entries at a time to optimize memory usage
 ```
 
-### Troubleshooting
+### Prerequisites
 
-#### Lineage Extraction Issues
+Refer to [Dataplex documentation](https://cloud.google.com/dataplex/docs) for Dataplex basics.
 
-**Automatic Retry Behavior:**
+#### Authentication
 
-The connector automatically retries transient errors when extracting lineage:
+Supports Application Default Credentials (ADC). See [GCP documentation](https://cloud.google.com/docs/authentication/provide-credentials-adc) for ADC setup.
 
-- **Retried errors** (with exponential backoff): Timeouts (DeadlineExceeded), rate limiting (HTTP 429), service issues (HTTP 503, 500)
-- **Non-retried errors** (logs warning and continues): Permission denied (HTTP 403), not found (HTTP 404), invalid argument (HTTP 400)
+For service account authentication, follow these instructions:
 
-After exhausting retries, the connector logs a warning and continues processing other entries. You'll still get metadata even if lineage extraction fails for some entries.
+#### Create a service account and assign roles
 
-**Common Issues:**
+1. Create a service account following [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the required roles
 
-1. **Regional restrictions**: Lineage API requires multi-region location (`us`, `eu`, `asia`) rather than specific regions (`us-central1`). The connector automatically uses the `entries_location` config.
-2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects.
-3. **No lineage data**: Some entries may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.).
-4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure.
+2. Download the service account JSON keyfile
+
+   Example credential file:
+
+   ```json
+   {
+     "type": "service_account",
+     "project_id": "project-id-1234567",
+     "private_key_id": "d0121d0000882411234e11166c6aaa23ed5d74e0",
+     "private_key": "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----",
+     "client_email": "test@suppproject-id-1234567.iam.gserviceaccount.com",
+     "client_id": "113545814931671546333",
+     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+     "token_uri": "https://oauth2.googleapis.com/token",
+     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
+   }
+   ```
+
+3. To provide credentials to the source, you can either:
+
+   Set an environment variable:
+
+   ```sh
+   $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
+   ```
+
+   _or_
+
+   Set credential config in your source based on the credential json file. For example:
+
+   ```yml
+   credential:
+     project_id: "project-id-1234567"
+     private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
+     private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
+     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
+     client_id: "123456678890"
+   ```
+
+#### Permissions
+
+Grant the following permissions to the service account on all target projects.
+
+**Universal Catalog Entries API:**
+
+**Default GCP Role:** [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+
+| Permission                  | Description                           |
+| --------------------------- | ------------------------------------- |
+| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
+| `dataplex.entryGroups.list` | View all entry groups in a location   |
+| `dataplex.entries.get`      | Access entry metadata and details     |
+| `dataplex.entries.getData`  | View data aspects within entries      |
+| `dataplex.entries.list`     | Enumerate entries within groups       |
+
+**Lineage extraction** (optional, `include_lineage: true`):
+
+**Default GCP Role:** [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
+
+| Permission                 | Description                               |
+| -------------------------- | ----------------------------------------- |
+| `datalineage.links.get`    | Allows a user to view lineage links       |
+| `datalineage.links.search` | Allows a user to search for lineage links |

@@ -483,19 +483,22 @@ def generate(  # noqa: C901
                 #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                 #                    )
                 f.write("</table>\n\n")
-            # insert platform level custom docs before plugin section
-            f.write(platform.custom_docs_pre or "")
-            # all_plugins = platform_docs["plugins"].keys()
+            # Insert platform-level authored docs from README.md before module docs.
+            if platform.custom_docs_pre:
+                f.write("\n")
+                f.write(platform.custom_docs_pre.strip())
+                f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
-                if len(platform.plugins) > 1:
-                    # We only need to show this if there are multiple modules.
-                    f.write(f"\n\n## Module `{plugin_name}`\n")
+                # Always use ### for all content sections (consistent baseline)
+                section_heading = "###"
 
+                # Always show the module name for consistency (single and multi-plugin)
+                f.write(f"\n\n## Module `{plugin_name}`\n")
                 if plugin.support_status != SupportStatus.UNKNOWN:
                     f.write(get_support_status_badge(plugin.support_status) + "\n\n")
+                f.write(f"\n{section_heading} Important Capabilities\n")
                 if plugin.capabilities and len(plugin.capabilities):
-                    f.write("\n### Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
@@ -507,24 +510,37 @@ def generate(  # noqa: C901
                         f.write(
                             f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
-                    f.write("\n")
+                else:
+                    f.write(
+                        "Capability metadata is not explicitly declared for this module. "
+                        "Refer to module documentation and configuration sections below.\n"
+                    )
+                f.write("\n")
 
-                f.write(f"{plugin.source_docstring or ''}\n")
-                # Insert custom pre section
-                f.write(plugin.custom_docs_pre or "")
-                f.write("\n### CLI based Ingestion\n")
+                # PRE authored module docs (<module>_pre.md), or fallback template.
+                if plugin.custom_docs_pre and plugin.custom_docs_pre.strip():
+                    f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+                else:
+                    f.write(
+                        f"{section_heading} Overview\n"
+                        f"The `{plugin_name}` module provides ingestion support for {platform.name}.\n\n"
+                        f"{section_heading} Prerequisites\n"
+                        "Ensure connectivity to the source system, valid authentication credentials, "
+                        "and the required read permissions before running ingestion.\n\n"
+                    )
+
+                # Always show Install the Plugin section
+                f.write(f"\n{section_heading} Install the Plugin\n")
                 if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write("\n#### Install the Plugin\n")
-                    if plugin.extra_deps != []:
-                        f.write("```shell\n")
-                        f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
-                        f.write("```\n")
-                    else:
-                        f.write(
-                            f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
-                        )
+                    f.write("```shell\n")
+                    f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
+                    f.write("```\n")
+                else:
+                    f.write(
+                        f"The `{plugin_name}` source works out of the box with `acryl-datahub`.\n"
+                    )
+                f.write(f"\n{section_heading} Starter Recipe\n")
                 if plugin.starter_recipe:
-                    f.write("\n### Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -534,9 +550,15 @@ def generate(  # noqa: C901
                     f.write("```yaml\n")
                     f.write(plugin.starter_recipe)
                     f.write("\n```\n")
+                else:
+                    f.write(
+                        "A starter recipe is not currently available for this module. "
+                        "Use the configuration schema below to build a recipe.\n"
+                    )
+
+                f.write(f"\n{section_heading} Config Details\n")
                 if plugin.config_json_schema:
                     assert plugin.config_md is not None
-                    f.write("\n### Config Details\n")
                     f.write(
                         """<Tabs>
                 <TabItem value="options" label="Options" default>\n\n"""
@@ -561,11 +583,27 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 </TabItem>
 </Tabs>\n\n"""
                     )
+                else:
+                    f.write(
+                        "Configuration schema is not auto-generated for this module. "
+                        "Refer to the source code coordinates and module guidance below.\n\n"
+                    )
 
-                # insert custom plugin docs after config details
-                f.write(plugin.custom_docs_post or "")
+                # POST authored module docs (<module>_post.md or <module>.md), or fallback template.
+                if plugin.custom_docs_post and plugin.custom_docs_post.strip():
+                    f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+                else:
+                    f.write(
+                        f"{section_heading} Capabilities\n"
+                        "Use the Important Capabilities table above as the source of truth for feature support.\n\n"
+                        f"{section_heading} Limitations\n"
+                        "Behavior may vary based on source APIs, permissions, and metadata availability.\n\n"
+                        f"{section_heading} Troubleshooting\n"
+                        "If ingestion fails, verify authentication, permissions, connectivity, and module scope configuration.\n\n"
+                    )
+
                 if plugin.classname:
-                    f.write("\n### Code Coordinates\n")
+                    f.write(f"\n{section_heading} Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin.classname}`\n")
                     if plugin.filename:
                         f.write(

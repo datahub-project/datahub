@@ -1,3 +1,23 @@
+## Overview
+
+Amazon S3 is a storage and lakehouse platform. Learn more in the [official Amazon S3 documentation](https://aws.amazon.com/s3/).
+
+The DataHub integration for Amazon S3 covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+
+## Concept Mapping
+
+The mapping below provides a platform-level view. S3-specific mapping details are documented further below.
+
+| Source Concept                                           | DataHub Concept              | Notes                                                            |
+| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
+| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
+| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
+| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
+| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
+| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
+
+Modules on this platform: `s3`.
+
 This connector ingests AWS S3 datasets into DataHub. It allows mapping an individual file or a folder of files to a dataset in DataHub.
 Refer to the section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
 
@@ -6,16 +26,16 @@ This connector can also be used to ingest local files.
 Just replace `s3://` in your path_specs with an absolute path to files on the machine running ingestion.
 :::
 
-### Supported file types
+#### Supported file types
 
 Supported file types are as follows:
 
-- CSV (\*.csv)
-- TSV (\*.tsv)
-- JSONL (\*.jsonl)
-- JSON (\*.json)
-- Parquet (\*.parquet)
-- Apache Avro (\*.avro)
+- CSV (`*.csv`)
+- TSV (`*.tsv`)
+- JSONL (`*.jsonl`)
+- JSON (`*.json`)
+- Parquet (`*.parquet`)
+- Apache Avro (`*.avro`)
 
 Schemas for Parquet and Avro files are extracted as provided.
 
@@ -23,9 +43,9 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
-### Concept Mapping
+#### S3-specific mapping details
 
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
+This ingestion source maps the following source system concepts to DataHub concepts:
 
 | Source Concept                           | DataHub Concept                                                                           | Notes               |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------- |
@@ -34,7 +54,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | s3 bucket                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
 | s3 folder                                | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
 
-### Profiling
+#### Profiling
 
 This plugin extracts:
 

@@ -1,12 +1,18 @@
-### Setup
+### Overview
 
-This integration pulls metadata directly from the Dremio APIs.
+The `dremio` module ingests metadata from Dremio into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-You'll need to have a Dremio instance up and running with access to the necessary datasets, and API access should be enabled with a valid token.
+### Prerequisites
 
-The API token should have the necessary permissions to **read metadata** and **retrieve lineage**.
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
 
-#### Steps to Get the Required Information
+#### Setup
+
+##### Concept Mapping
+
+Requires a Dremio API token with permissions to **read metadata** and **retrieve lineage**.
+
+##### Steps to Get the Required Information
 
 1. **Generate an API Token**:
 

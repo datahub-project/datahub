@@ -1,4 +1,8 @@
-## Setting up connection to an Iceberg catalog
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
 library to extract metadata from them. The recipe for the source consists of 2 parts:
@@ -17,7 +21,7 @@ It is especially visible when using Iceberg REST Catalog - which can use many bl
 Note that, for advanced users, it is possible to specify a custom catalog client implementation via `py-catalog-impl`
 configuration option - refer to `pyiceberg` documentation on details.
 
-### Glue catalog + S3 warehouse
+#### Glue catalog + S3 warehouse
 
 The minimal configuration for connecting to Glue catalog with S3 warehouse:
 
@@ -57,7 +61,7 @@ source:
 This example uses references to fill credentials (either from Secrets defined in Managed Ingestion or environmental variables).
 It is possible (but not recommended due to security concerns) to provide those values in plaintext, directly in the recipe.
 
-#### Glue and S3 permissions required
+##### Glue and S3 permissions required
 
 The role used by the ingestor for ingesting metadata from Glue Iceberg Catalog and S3 warehouse is:
 
@@ -82,7 +86,7 @@ The role used by the ingestor for ingesting metadata from Glue Iceberg Catalog a
 }
 ```
 
-### Iceberg REST Catalog + MinIO
+#### Iceberg REST Catalog + MinIO
 
 The following configuration assumes MinIO defines authentication using the `s3.*` prefix. Note the specification of `s3.endpoint`, assuming
 MinIO listens on port `9000` at `minio-host`. The `uri` parameter points at Iceberg REST Catalog (IRC) endpoint (in this case `iceberg-catalog:8181`).
@@ -101,7 +105,7 @@ source:
         s3.endpoint: "http://minio-host:9000"
 ```
 
-### Iceberg REST Catalog (with authentication) + S3
+#### Iceberg REST Catalog (with authentication) + S3
 
 This example assumes IRC requires token authentication (via `Authorization` header). There are more options available,
 see https://py.iceberg.apache.org/configuration/#rest-catalog for details. Moreover, the assumption here is that the
@@ -119,7 +123,7 @@ source:
         s3.region: "us-west-2"
 ```
 
-#### Special REST connection parameters for resiliency
+##### Special REST connection parameters for resiliency
 
 Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
 DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
@@ -145,14 +149,14 @@ source:
           timeout: 120
 ```
 
-### Google BigLake REST Catalog + GCS warehouse
+#### Google BigLake REST Catalog + GCS warehouse
 
 DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
 BigLake provides unified governance and security for data across data lakes and data warehouses.
 
 PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's Application Default Credentials (ADC).
 
-#### Prerequisites
+##### Prerequisites
 
 1. **GCP Project** with BigLake API enabled:
 
@@ -176,7 +180,7 @@ PyIceberg 0.9+ natively supports BigLake authentication using Google Cloud's App
      --project=PROJECT_ID
    ```
 
-#### Configuration
+##### Authentication Setup
 
 BigLake authentication uses Application Default Credentials (ADC). DataHub provides automatic OAuth scope fixing for seamless integration.
 
@@ -188,7 +192,7 @@ export GCP_PROJECT_ID=your-project-id
 export GCS_WAREHOUSE_BUCKET=your-bucket-name
 ```
 
-#### Configuration
+##### Configuration
 
 ```yaml
 source:
@@ -220,7 +224,7 @@ source:
 - `header.x-goog-user-project` - Specifies the GCP project for billing
 - `header.X-Iceberg-Access-Delegation: ""` - Uses end-user credentials mode
 
-#### How Authentication Works
+##### How Authentication Works
 
 When using `auth.type: google` with explicit scopes:
 
@@ -238,7 +242,7 @@ When using `auth.type: google` with explicit scopes:
 
 3. **Handles token refresh**: Automatic token refresh with no manual management needed
 
-#### Using Managed Ingestion with Secrets
+##### Using Managed Ingestion with Secrets
 
 For production environments using Managed Ingestion (via the DataHub UI), you can securely store your GCP service account credentials as DataHub secrets instead of using environment variables.
 
@@ -327,7 +331,7 @@ Create these individual secrets in DataHub:
 4. Configure a schedule (optional)
 5. Click **Save and Run**
 
-#### Using Vended Credentials (Optional)
+##### Using Vended Credentials (Optional)
 
 **Important**: Vended credentials require your BigLake catalog to be configured with `CREDENTIAL_MODE_SERVICE_ACCOUNT`. Most BigLake catalogs use `CREDENTIAL_MODE_END_USER` by default, which **does not** support vended credentials.
 
@@ -361,7 +365,7 @@ source:
 
 BigLake will generate short-lived service account token scoped to the specific tables being accessed.
 
-#### Troubleshooting
+##### Troubleshooting
 
 **Error: "invalid_scope: Invalid OAuth scope or ID token audience provided"**
 
@@ -399,7 +403,7 @@ This error occurs when OAuth scopes are not properly configured. To fix:
 
 - Ensure `header.x-goog-user-project` is set to your GCP project ID
 
-### SQL catalog + Azure DLS as the warehouse
+#### SQL catalog + Azure DLS as the warehouse
 
 This example targets `Postgres` as the sql-type `Iceberg` catalog and uses Azure DLS as the warehouse.
 
@@ -417,7 +421,7 @@ source:
         adlfs.client-secret: <Azure Client Secret>
 ```
 
-## Concept Mapping
+#### Concept Mapping
 
 <!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
 <!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
@@ -435,14 +439,29 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Table parent folders (excluding [warehouse catalog location](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)) | Container                                                              | Available in a future release                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types)                                                                 | SchemaField                                                            | Maps to the fields defined within the Iceberg table schema definition.                                                                                                                                                                                                                                                                                                                                                                         |
 
-## Troubleshooting
-
-### Exceptions while increasing `processing_threads`
+#### Exceptions while increasing `processing_threads`
 
 Each processing thread will open several files/sockets to download manifest files from blob storage. If you experience
 exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
 files (e.g. using `ulimit` in Linux).
 
-## DataHub Iceberg REST Catalog
+#### DataHub Iceberg REST Catalog
 
 DataHub also implements the Iceberg REST Catalog. See the [Iceberg Catalog documentation](docs/iceberg-catalog.md) for more details.
+
+#### Integration Details
+
+For advanced Iceberg behavior and tuning, refer to:
+
+- [Iceberg catalog properties](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)
+- [Iceberg table properties](https://iceberg.apache.org/docs/latest/configuration/#table-properties)
+- [Iceberg specification](https://iceberg.apache.org/spec/)
+- [PyIceberg configuration](https://py.iceberg.apache.org/)
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

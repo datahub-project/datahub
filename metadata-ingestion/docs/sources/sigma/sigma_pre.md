@@ -1,4 +1,8 @@
-## Integration Details
+### Overview
+
+The `sigma` module ingests metadata from Sigma into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+#### Integration Details
 
 This source extracts the following:
 
@@ -6,7 +10,7 @@ This source extracts the following:
 - Sigma Datasets as Datahub Datasets.
 - Pages as Datahub dashboards and elements present inside pages as charts.
 
-## Configuration Notes
+#### Configuration Notes
 
 1. Refer [doc](https://help.sigmacomputing.com/docs/generate-api-client-credentials) to generate an API client credentials.
 2. Provide the generated Client ID and Secret in Recipe.
@@ -14,7 +18,7 @@ This source extracts the following:
 We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is to manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
 Empty workspaces are listed in the ingestion report in the logs with the key `empty_workspaces`.
 
-## Concept mapping
+#### Concept mapping
 
 | Sigma       | Datahub                                                       | Notes                       |
 | ----------- | ------------------------------------------------------------- | --------------------------- |
@@ -25,13 +29,13 @@ Empty workspaces are listed in the ingestion report in the logs with the key `em
 | `Dataset`   | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Sigma Dataset"`   |
 | `User`      | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted        |
 
-## Advanced Configurations
+#### Advanced Configurations
 
-### Chart source platform mapping
+##### Chart source platform mapping
 
 If you want to provide platform details(platform name, platform instance and env) for chart's all external upstream data sources, then you can use `chart_sources_platform_mapping` as below:
 
-#### Example - For just one specific chart's external upstream data sources
+##### Example - For just one specific chart's external upstream data sources
 
 ```yml
 chart_sources_platform_mapping:
@@ -46,7 +50,7 @@ chart_sources_platform_mapping:
     env: DEV
 ```
 
-#### Example - For all charts within one specific workbook
+##### Example - For all charts within one specific workbook
 
 ```yml
 chart_sources_platform_mapping:
@@ -61,7 +65,7 @@ chart_sources_platform_mapping:
     env: PROD
 ```
 
-#### Example - For all workbooks charts within one specific workspace
+##### Example - For all workbooks charts within one specific workspace
 
 ```yml
 chart_sources_platform_mapping:
@@ -71,7 +75,7 @@ chart_sources_platform_mapping:
     env: PROD
 ```
 
-#### Example - All workbooks use the same connection
+##### Example - All workbooks use the same connection
 
 ```yml
 chart_sources_platform_mapping:
@@ -80,3 +84,7 @@ chart_sources_platform_mapping:
     platform_instance: new_instance
     env: PROD
 ```
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

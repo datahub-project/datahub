@@ -1,30 +1,8 @@
-### Prerequisites
+### Overview
 
-In order to ingest metadata from Tableau, you will need:
+The `tableau` module ingests metadata from Tableau into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-- Tableau Server Version 2021.1.10 and above. It may also work for older versions.
-- [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled. This is always enabled for Tableau Cloud.
-
-### Authentication
-
-DataHub supports two authentication methods:
-
-1. Username/Password
-2. [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens)
-
-Either way, the user/token must have at least the **Site Administrator Explorer** site role.
-
-:::info
-
-We need at least the **Site Administrator Explorer** site role in order to get complete metadata from Tableau. Roles with higher privileges, like **Site Administrator Creator** or **Server Admin** also work.
-
-With any lower role, the Tableau Metadata API returns missing/partial metadata.
-This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column-level lineage. However, table-level lineage will still be extracted for tables even when column metadata is not available (see [Tables Without Column Metadata](#tables-without-column-metadata) section below).
-Other site roles, like Viewer or Explorer, are insufficient due to these limitations in the current Tableau Metadata API.
-
-:::
-
-### Ingestion through UI
+#### Ingestion through UI
 
 The following video shows you how to get started with ingesting Tableau metadata through the UI.
 
@@ -51,13 +29,13 @@ The following video shows you how to get started with ingesting Tableau metadata
   />
 </div>
 
-### Integration Details
+#### Integration Details
 
-This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
-on a Tableau site. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
-in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
+Extracts metadata for Sheets, Dashboards, Workbooks, and Data Sources (Embedded and Published) from Tableau projects via the GraphQL Metadata API.
 
-#### Concept Mapping
+Queries: `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
+
+##### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -75,7 +53,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
 | Tag                         | [Tag](../../metamodel/entities/tag.md)                        | Optionally Extracted              |
 
-#### Lineage
+##### Lineage
 
 Lineage is emitted as received from Tableau's metadata API for
 
@@ -98,25 +76,30 @@ DataHub will still create **table-level lineage** for these tables, even though 
 
 **Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
-#### Caveats
+##### Caveats
 
 - Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.
 
-### Troubleshooting
+### Prerequisites
 
-#### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
+- **Tableau Server** 2021.1.10 or later (may work with older versions)
+- **Metadata API enabled** ([enable for Server](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server); always enabled for Tableau Cloud)
 
-This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider
+#### Authentication
 
-- reducing the page size using the `page_size` config param in datahub recipe (Defaults to 10).
-- increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value.
+DataHub supports two authentication methods:
 
-#### `PERMISSIONS_MODE_SWITCHED` error in ingestion report
+1. Username/Password
+2. [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens)
 
-This error occurs if the Tableau site is using external assets. For more detail, refer to the Tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
+Either way, the user/token must have at least the **Site Administrator Explorer** site role.
 
-Follow the below steps to enable the derived permissions:
+:::info
 
-1.  Sign in to Tableau Cloud or Tableau Server as an admin.
-2.  From the left navigation pane, click Settings.
-3.  On the General tab, under Automatic Access to Metadata about Databases and Tables, select the `Automatically grant authorized users access to metadata about databases and tables` check box.
+We need at least the **Site Administrator Explorer** site role in order to get complete metadata from Tableau. Roles with higher privileges, like **Site Administrator Creator** or **Server Admin** also work.
+
+With any lower role, the Tableau Metadata API returns missing/partial metadata.
+This particularly affects data source fields and definitions, which impacts our ability to extract most columns and generate column-level lineage. However, table-level lineage will still be extracted for tables even when column metadata is not available (see [Tables Without Column Metadata](#tables-without-column-metadata) section below).
+Other site roles, like Viewer or Explorer, are insufficient due to these limitations in the current Tableau Metadata API.
+
+:::

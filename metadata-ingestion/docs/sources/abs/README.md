@@ -1,40 +1,19 @@
-This connector ingests Azure Blob Storage (abbreviated to abs) datasets into DataHub. It allows mapping an individual
-file or a folder of files to a dataset in DataHub.
-To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer
-section [Path Specs](https://docs.datahub.com/docs/generated/ingestion/sources/s3/#path-specs) for more details.
+## Overview
 
-### Concept Mapping
+Azure Blob Storage is a storage and lakehouse platform. Learn more in the [official Azure Blob Storage documentation](https://learn.microsoft.com/azure/storage/blobs/storage-blobs-introduction).
 
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
+The DataHub integration for Azure Blob Storage covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
-| Source Concept                         | DataHub Concept                                                                           | Notes            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------- |
-| `"abs"`                                | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                  |
-| abs blob / Folder containing abs blobs | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |                  |
-| abs container                          | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder` |
+## Concept Mapping
 
-This connector supports both local files and those stored on Azure Blob Storage (which must be identified using the
-prefix `http(s)://<account>.blob.core.windows.net/` or `azure://`).
+The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
 
-### Supported file types
+| Source Concept                                           | DataHub Concept              | Notes                                                            |
+| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
+| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
+| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
+| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
+| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
+| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
 
-Supported file types are as follows:
-
-- CSV (\*.csv)
-- TSV (\*.tsv)
-- JSONL (\*.jsonl)
-- JSON (\*.json)
-- Parquet (\*.parquet)
-- Apache Avro (\*.avro)
-
-Schemas for Parquet and Avro files are extracted as provided.
-
-Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TSV and JSONL files, we consider the first
-100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
-JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few
-objects of the file), which may impact performance.
-We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
-
-### Profiling
-
-Profiling is not available in the current release.
+Modules on this platform: `abs`.

@@ -1,4 +1,8 @@
-## Integration Details
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Integration Details
 
 <!-- Plain-language description of what this integration is meant to do.  -->
 <!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
@@ -9,10 +13,18 @@ The data that is returned will be parsed
 and will be displayed as Nodes and Relationships in DataHub. Each object will be tagged with describing what kind of DataHub
 object it is. The defaults are 'Node' and 'Relationship'. These tag values can be overwritten in the recipe.
 
-## Metadata Ingestion Quickstart
+#### Metadata Ingestion Quickstart
 
-### Prerequisites
+#### Prerequisites
 
 In order to ingest metadata from Neo4j, you will need:
 
 - Neo4j instance with APOC installed
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

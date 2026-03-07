@@ -1,11 +1,13 @@
-### Configuration Notes
+### Overview
 
-See the
+The `powerbi-report-server` module ingests metadata from Powerbi Report Server into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-1. [Microsoft Grant user access to a Report Server doc](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
-2. Use your user credentials from previous step in yaml file
+#### Configuration Notes
 
-### Concept mapping
+1. Grant user access to Report Server following [Microsoft documentation](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
+2. Use these credentials in your ingestion recipe
+
+#### Concept mapping
 
 | Power BI Report Server | Datahub     |
 | ---------------------- | ----------- |
@@ -14,3 +16,7 @@ See the
 | `Mobile Report`        | `Dashboard` |
 | `Linked Report`        | `Dashboard` |
 | `Dataset, Datasource`  | `N/A`       |
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

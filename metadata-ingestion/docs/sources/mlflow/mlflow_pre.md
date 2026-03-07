@@ -1,11 +1,12 @@
-:::note Version Compatbility
+### Overview
 
-This connector requires an MLflow server version **1.28.0 or later**.  
-If you're using an earlier version, ingestion of **Experiments** and **Runs** will be skipped.
+The `mlflow` module ingests metadata from Mlflow into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-:::
+### Prerequisites
 
-### Concept Mapping
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Concept Mapping
 
 This ingestion source maps the following MLflow Concepts to DataHub Concepts:
 

@@ -1,10 +1,14 @@
-## Usage Guide
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Usage Guide
 
 If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide.
 
-### Delta Table on Local File System
+#### Delta Table on Local File System
 
-#### Step 1
+##### Step 1
 
 Create a delta table using the sample PySpark code below if you don't have a delta table you can point to.
 
@@ -38,7 +42,7 @@ df.show()
 
 ```
 
-#### Step 2
+##### Step 2
 
 Create a datahub ingestion yaml file (delta.dhub.yaml) to ingest metadata from the delta table you just created.
 
@@ -56,7 +60,7 @@ sink:
 
 Note: Make sure you run the Spark code as well as recipe from same folder otherwise use absolute paths.
 
-#### Step 3
+##### Step 3
 
 Execute the ingestion recipe:
 
@@ -64,9 +68,9 @@ Execute the ingestion recipe:
 datahub ingest -c delta.dhub.yaml
 ```
 
-### Delta Table on S3
+#### Delta Table on S3
 
-#### Step 1
+##### Step 1
 
 Set up your AWS credentials by creating an AWS credentials config file; typically in '$HOME/.aws/credentials'.
 
@@ -120,7 +124,7 @@ df.show()
 
 ```
 
-#### Step 3
+##### Step 3
 
 Create a datahub ingestion yaml file (delta.s3.dhub.yaml) to ingest metadata from the delta table you just created.
 
@@ -140,7 +144,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-#### Step 4
+##### Step 4
 
 Execute the ingestion recipe:
 
@@ -148,6 +152,14 @@ Execute the ingestion recipe:
 datahub ingest -c delta.s3.dhub.yaml
 ```
 
-### Note
+#### Note
 
 The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

@@ -1,0 +1,21 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Concept Mapping
+
+Typical Feast-to-DataHub mappings include:
+
+- Feast Entity -> `MlPrimaryKey`
+- Feast Feature -> `MlFeature`
+- Feast Feature View / Feature Service context -> `MlFeatureTable`
+
+Use this mapping to align feature-store metadata with existing ML entity governance patterns in DataHub.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

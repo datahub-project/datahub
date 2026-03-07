@@ -1,10 +1,11 @@
-> **_NOTE:_** Always use TLS encryption in a production environment and use variable substitution for sensitive information (e.g. ${CLIENT_ID} and ${CLIENT_SECRET}).
+### Overview
+
+The `pulsar` module ingests metadata from Pulsar into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
 ### Prerequisites
 
-In order to ingest metadata from Apache Pulsar, you will need:
+- **Pulsar Instance**: Access with valid access token (if authentication enabled)
+- **Version**: Pulsar 2.7.0 or later
+- **Role**: `superUser` required to list all tenants
 
-- Access to a Pulsar Instance, if authentication is enabled a valid access token.
-- Pulsar version >= 2.7.0
-
-> **_NOTE:_** A _superUser_ role is required for listing all existing tenants within a Pulsar instance.
+> **_NOTE:_** A `superUser` role is required for listing all existing tenants within a Pulsar instance.

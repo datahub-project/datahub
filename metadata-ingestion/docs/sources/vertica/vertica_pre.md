@@ -1,6 +1,8 @@
+### Overview
+
+The `vertica` module ingests metadata from Vertica into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
-In order to ingest metadata from Vertica, you will need:
-
-- Vertica Server Version 10.1.1-0 and above. It may also work with, but is not been tested with, older versions .
-- Vertica Credentials (Username/Password)
+- **Vertica Server** 10.1.1-0 or later (may work with older versions, untested)
+- **Credentials**: Username and password

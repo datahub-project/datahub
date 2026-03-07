@@ -1,8 +1,4 @@
-# Query-Based Lineage for PostgreSQL
-
-DataHub can extract table-level lineage from your PostgreSQL query history using the `pg_stat_statements` extension. This feature analyzes executed SQL queries to automatically discover upstream and downstream dataset dependencies.
-
-## Overview
+### Overview
 
 The query-based lineage feature:
 
@@ -11,9 +7,7 @@ The query-based lineage feature:
 - **Respects your filters** using configurable exclude patterns
 - **Generates usage statistics** showing which tables are queried and by whom
 
-## Prerequisites
-
-### 0. PostgreSQL Version Requirement
+#### 0. PostgreSQL Version Requirement
 
 **PostgreSQL 13 or later is required** for query-based lineage extraction.
 
@@ -32,7 +26,7 @@ Please upgrade to PostgreSQL 13 or later.
 
 **Solution:** Upgrade to PostgreSQL 13 or later to use query-based lineage extraction.
 
-### 1. Enable pg_stat_statements Extension
+#### 1. Enable pg_stat_statements Extension
 
 The `pg_stat_statements` extension must be installed and loaded. This extension tracks query execution statistics.
 
@@ -76,35 +70,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 SELECT * FROM pg_extension WHERE extname = 'pg_stat_statements';
 ```
 
-### 2. Grant Required Permissions
-
-The DataHub user needs permission to read from `pg_stat_statements`.
-
-**Option 1: Grant pg_read_all_stats role (PostgreSQL 10+, recommended)**
-
-```sql
--- Grant the pg_read_all_stats role to your DataHub user
-GRANT pg_read_all_stats TO datahub_user;
-```
-
-**Option 2: Use a superuser account**
-
-If your PostgreSQL version doesn't have `pg_read_all_stats`, you can use a superuser account. However, this is not recommended for production due to security implications.
-
-**Verify permissions**
-
-```sql
--- Check if user has the required role
-SELECT
-    pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
-    usesuper as is_superuser
-FROM pg_user
-WHERE usename = current_user;
-```
-
-The query should return `true` for at least one column.
-
-### 3. Configure Query Retention (Optional)
+#### 3. Configure Query Retention (Optional)
 
 By default, `pg_stat_statements` stores the last 5000 queries. You can adjust this in `postgresql.conf`:
 
@@ -118,7 +84,7 @@ pg_stat_statements.track = all
 
 After changing these settings, restart PostgreSQL.
 
-## Configuration
+#### Configuration
 
 Enable query-based lineage in your DataHub recipe:
 
@@ -148,7 +114,7 @@ source:
     include_usage_statistics: true
 ```
 
-### Configuration Options
+#### Configuration Options
 
 | Option                     | Type         | Default | Description                                                                                                                                                                           |
 | -------------------------- | ------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -158,11 +124,11 @@ source:
 | `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries. Patterns are case-insensitive. Example: `"%pg_catalog%"` excludes all queries containing `pg_catalog`.                                          |
 | `include_usage_statistics` | boolean      | `false` | Generate dataset usage metrics from query history. Requires `include_query_lineage: true`. Shows unique user counts, query frequencies, and column access patterns in the DataHub UI. |
 
-## Supported Lineage Patterns
+#### Supported Lineage Patterns
 
 The lineage extractor recognizes common SQL patterns:
 
-### INSERT...SELECT
+#### INSERT...SELECT
 
 ```sql
 INSERT INTO target_table (col1, col2)
@@ -171,7 +137,7 @@ SELECT col1, col2 FROM source_table;
 
 **Lineage:** `source_table` → `target_table`
 
-### CREATE TABLE AS SELECT (CTAS)
+#### CREATE TABLE AS SELECT (CTAS)
 
 ```sql
 CREATE TABLE new_table AS
@@ -182,7 +148,7 @@ JOIN table_b b ON a.id = b.id;
 
 **Lineage:** `table_a`, `table_b` → `new_table`
 
-### CREATE VIEW
+#### CREATE VIEW
 
 ```sql
 CREATE VIEW customer_summary AS
@@ -194,7 +160,7 @@ GROUP BY c.customer_id;
 
 **Lineage:** `customers`, `orders` → `customer_summary`
 
-### Complex JOINs and CTEs
+#### Complex JOINs and CTEs
 
 ```sql
 WITH monthly_revenue AS (
@@ -212,7 +178,7 @@ WHERE c.active = true;
 
 **Lineage:** `transactions`, `customers` → `customer_metrics`
 
-## Verification
+#### Verification
 
 After running ingestion, verify that lineage was extracted:
 
@@ -246,9 +212,7 @@ LIMIT 10;
 
 Navigate to a dataset in DataHub and check the "Lineage" tab. You should see upstream and downstream dependencies derived from query history.
 
-## Troubleshooting
-
-### PostgreSQL Version Too Old
+#### PostgreSQL Version Too Old
 
 **Error message:**
 
@@ -276,7 +240,7 @@ SHOW server_version;
 - Use `pg_upgrade` for in-place upgrades
 - Consider managed services (AWS RDS, Google Cloud SQL, Azure Database) which support easy version upgrades
 
-### Extension Not Installed
+#### Extension Not Installed
 
 **Error message:**
 
@@ -290,29 +254,7 @@ ERROR - pg_stat_statements extension not installed. Install with: CREATE EXTENSI
 2. Restart PostgreSQL
 3. Connect to your database and run `CREATE EXTENSION pg_stat_statements;`
 
-### Permission Denied
-
-**Error message:**
-
-```
-ERROR - Insufficient permissions. Grant pg_read_all_stats role: GRANT pg_read_all_stats TO <user>;
-```
-
-**Solution:**
-
-```sql
--- Grant the required role
-GRANT pg_read_all_stats TO datahub_user;
-
--- Or verify current permissions
-SELECT
-    pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
-    usesuper as is_superuser
-FROM pg_user
-WHERE usename = current_user;
-```
-
-### No Queries Extracted
+#### No Queries Extracted
 
 **Possible causes:**
 
@@ -342,7 +284,7 @@ WHERE usename = current_user;
    SELECT COUNT(*) FROM pg_stat_statements;
    ```
 
-### Query Text Truncated
+#### Query Text Truncated
 
 By default, PostgreSQL truncates query text to 1024 characters. Increase this limit in `postgresql.conf`:
 
@@ -351,7 +293,7 @@ By default, PostgreSQL truncates query text to 1024 characters. Increase this li
 track_activity_query_size = 4096
 ```
 
-### Performance Considerations
+#### Performance Considerations
 
 **Memory usage:**
 
@@ -370,28 +312,7 @@ track_activity_query_size = 4096
 - Use `max_queries_to_extract` to limit extraction time
 - Schedule ingestion during off-peak hours for large query volumes
 
-## Limitations
-
-1. **Historical data only**
-
-   - Lineage is extracted from executed queries, not from schema definitions
-   - Queries must have been executed since the last `pg_stat_statements_reset()`
-
-2. **Dynamic SQL**
-
-   - Parameterized queries show parameter placeholders, not actual values
-   - Example: `SELECT * FROM users WHERE id = $1` (value not captured)
-
-3. **Complex transformations**
-
-   - The extractor may not parse extremely complex queries with nested CTEs or exotic syntax
-   - Failed queries are logged but don't block ingestion
-
-4. **No column-level lineage**
-   - Currently supports table-level lineage only
-   - Column-level lineage may be added in future releases
-
-## Best Practices
+#### Best Practices
 
 1. **Reset pg_stat_statements periodically**
 
@@ -423,8 +344,60 @@ track_activity_query_size = 4096
    - Run ingestion daily or weekly to capture lineage from new queries
    - More frequent ingestion provides more up-to-date lineage graphs
 
-## See Also
+#### See Also
 
 - [Postgres Source Configuration](https://datahubproject.io/docs/generated/ingestion/sources/postgres)
 - [pg_stat_statements Documentation](https://www.postgresql.org/docs/current/pgstatstatements.html)
 - [DataHub Lineage Concepts](https://datahubproject.io/docs/generated/lineage/lineage-feature-guide)
+
+### Prerequisites
+
+#### 2. Grant Required Permissions
+
+The DataHub user needs permission to read from `pg_stat_statements`.
+
+**Option 1: Grant pg_read_all_stats role (PostgreSQL 10+, recommended)**
+
+```sql
+-- Grant the pg_read_all_stats role to your DataHub user
+GRANT pg_read_all_stats TO datahub_user;
+```
+
+**Option 2: Use a superuser account**
+
+If your PostgreSQL version doesn't have `pg_read_all_stats`, you can use a superuser account. However, this is not recommended for production due to security implications.
+
+**Verify permissions**
+
+```sql
+-- Check if user has the required role
+SELECT
+    pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
+    usesuper as is_superuser
+FROM pg_user
+WHERE usename = current_user;
+```
+
+The query should return `true` for at least one column.
+
+#### Permission Denied
+
+**Error message:**
+
+```
+ERROR - Insufficient permissions. Grant pg_read_all_stats role: GRANT pg_read_all_stats TO <user>;
+```
+
+**Solution:**
+
+```sql
+-- Grant the required role
+GRANT pg_read_all_stats TO datahub_user;
+
+-- Or verify current permissions
+SELECT
+    pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') as has_stats_role,
+    usesuper as is_superuser
+FROM pg_user
+WHERE usename = current_user;
+```

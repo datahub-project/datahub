@@ -1,43 +1,39 @@
-## Integration Details
+### Overview
 
-<!-- Plain-language description of what this integration is meant to do.  -->
-<!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
+The `snaplogic` module ingests metadata from SnapLogic into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-This integration extracts data lineage information from the public SnapLogic Lineage API and ingests it into DataHub. It enables visibility into how data flows through SnapLogic pipelines by capturing metadata directly from the source API. This allows users to track data transformations and dependencies across their data ecosystem, enhancing observability, governance, and impact analysis within DataHub.
+#### Integration Details
 
-### Concept Mapping
+Extracts data lineage from the SnapLogic Lineage API to track data transformations and dependencies across SnapLogic pipelines.
 
-<!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
-<!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
+##### Concept Mapping
 
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+This ingestion source maps the following source system concepts to DataHub concepts:
 
 | Source Concept | DataHub Concept                                                    | Notes                                                                                                                                   |
 | -------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Snap-pack      | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) | Snap-packs are mapped to Data Platforms, either directly (e.g., Snowflake) or dynamically based on connection details (e.g., JDBC URL). |
-| Table/Dataset  | [Dataset](docs/generated/metamodel/entities/dataset.md)            | May be differernt. It depends on a snap type. For sql databases it's table. For kafka it's topic, etc                                   |
+| Table/Dataset  | [Dataset](docs/generated/metamodel/entities/dataset.md)            | May be different. It depends on snap type. For SQL databases it is a table, and for Kafka it is a topic.                                |
 | Snap           | [Data Job](docs/generated/metamodel/entities/dataJob.md)           |                                                                                                                                         |
 | Pipeline       | [Data Flow](docs/generated/metamodel/entities/dataFlow.md)         |                                                                                                                                         |
 
-## Metadata Ingestion Quickstart
+#### Metadata Ingestion Quickstart
 
-### Prerequisites
+##### Prerequisites
 
-In order to ingest lineage from snaplogic, you will need valid snaplogic credentials with access to the SnapLogic Lineage API.
+Requires valid SnapLogic credentials with access to the SnapLogic Lineage API.
 
-### Install the Plugin(s)
+##### Install the Plugin(s)
 
 Run the following commands to install the relevant plugin(s):
 
 `pip install 'acryl-datahub[snaplogic]'`
 
-### Configure the Ingestion Recipe(s)
+##### Configure the Ingestion Recipe(s)
 
 Use the following recipe(s) to get started with ingestion.
 
-#### `'acryl-datahub[snaplogic]'`
+##### `'acryl-datahub[snaplogic]'`
 
 ```yml
 pipeline_name: <action-pipeline-name>
@@ -68,6 +64,6 @@ source:
 
 </details>
 
-## Troubleshooting
+### Prerequisites
 
-### [Common Issue]
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

@@ -1,29 +1,12 @@
-### Permissions
+### Overview
 
-In order to execute this source the user needs `SELECT` privileges on the system schema and tables:
+The `db2` module ingests metadata from Db2 into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-- Db2 for LUW: `SYSCAT.*`
-- Db2 for z/OS: `SYSIBM.*`
-- Db2 for IBM i (AS/400): `QSYS2.*`
-
-Additionally, when profiling is enabled, the user will need `SELECT` privileges on the tables to be profiled.
-
-### Authentication and TLS/SSL
-
-Authentication is done by default via a Db2 username and password over a non-encrypted connection.
-
-Other authentication methods as well as TLS/SSL may be configured using the `uri_args` config option, e.g.
-
-```yaml
-uri_args:
-  Security: SSL
-```
-
-### Architecture Support
+#### Architecture Support
 
 The Db2 source is available on Linux x86_64, macOS x86_64, and macOS ARM. It is not available on Linux ARM, and attempting to execute the source will result in an error.
 
-### Db2 Platform Support
+#### Db2 Platform Support
 
 This source has been tested against:
 
@@ -34,3 +17,28 @@ This source also includes nominal support for:
 
 - Db2 for IBM i (AS/400) using the CLI driver ([requires Db2 Connect](https://www.ibm.com/support/pages/db2-odbc-cli-driver-download-and-installation-information))
 - Db2 for z/OS using the CLI driver ([requires Db2 Connect](https://www.ibm.com/support/pages/db2-odbc-cli-driver-download-and-installation-information))
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Permissions
+
+The user requires `SELECT` privileges on the system schema and tables:
+
+- Db2 for LUW: `SYSCAT.*`
+- Db2 for z/OS: `SYSIBM.*`
+- Db2 for IBM i (AS/400): `QSYS2.*`
+
+Additionally, when profiling is enabled, the user will need `SELECT` privileges on the tables to be profiled.
+
+#### Authentication and TLS/SSL
+
+Authentication is done by default via a Db2 username and password over a non-encrypted connection.
+
+Other authentication methods as well as TLS/SSL may be configured using the `uri_args` config option, e.g.
+
+```yaml
+uri_args:
+  Security: SSL
+```
