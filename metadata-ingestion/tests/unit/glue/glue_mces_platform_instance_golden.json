@@ -325,7 +325,11 @@
                             "SerdeInfo": "{'SerializationLibrary': 'org.apache.hadoop.hive.serde2.avro.AvroSerDe', 'Parameters': {'avro.schema.literal': '{\"type\":\"record\",\"name\":\"flights_avro_subset\",\"namespace\":\"default\",\"fields\":[{\"name\":\"yr\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"flightdate\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"uniquecarrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"airlineid\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"flightnum\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"origin\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dest\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"depdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrierdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"weatherdelay\",\"type\":[\"null\",\"int\"],\"default\":null}]}', 'serialization.format': '1'}}",
                             "BucketColumns": "[]",
                             "SortColumns": "[]",
-                            "StoredAsSubDirectories": "False"
+                            "StoredAsSubDirectories": "False",
+                            "partition_keys": "year",
+                            "partition_key_types": "string",
+                            "partition_key_comments": "partition test comment",
+                            "num_partition_keys": "1"
                         },
                         "name": "avro",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database/avro",
@@ -448,7 +452,8 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "isPartitioningKey": true
                             }
                         ]
                     }
@@ -807,7 +812,11 @@
                             "SerdeInfo": "{'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe', 'Parameters': {'serialization.format': '1'}}",
                             "BucketColumns": "[]",
                             "SortColumns": "[]",
-                            "StoredAsSubDirectories": "False"
+                            "StoredAsSubDirectories": "False",
+                            "partition_keys": "year",
+                            "partition_key_types": "string",
+                            "partition_key_comments": "",
+                            "num_partition_keys": "1"
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_parquet",
@@ -892,7 +901,8 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "isPartitioningKey": true
                             }
                         ]
                     }

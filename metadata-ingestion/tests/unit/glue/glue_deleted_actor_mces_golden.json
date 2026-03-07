@@ -333,7 +333,11 @@
                             "SerdeInfo": "{'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe', 'Parameters': {'serialization.format': '1'}}",
                             "BucketColumns": "[]",
                             "SortColumns": "[]",
-                            "StoredAsSubDirectories": "False"
+                            "StoredAsSubDirectories": "False",
+                            "partition_keys": "year",
+                            "partition_key_types": "string",
+                            "partition_key_comments": "",
+                            "num_partition_keys": "1"
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_parquet",
@@ -418,7 +422,8 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "isPartitioningKey": true
                             }
                         ]
                     }
