@@ -52,7 +52,7 @@ def gen_mock_model(
     # Configure list_model_evaluations if provided
     if list_model_evaluations_return is not None:
         mock_model.list_model_evaluations = Mock(
-            return_value=iter(list_model_evaluations_return)
+            return_value=list(list_model_evaluations_return)
         )
 
     mock_version = Mock()

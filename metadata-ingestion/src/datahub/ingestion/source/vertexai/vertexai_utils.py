@@ -1,8 +1,11 @@
+import functools
+import inspect
 import logging
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Iterable, Iterator, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Type, TypeVar, Union
 
+from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
     DeadlineExceeded,
     GoogleAPICallError,
@@ -12,22 +15,151 @@ from google.api_core.exceptions import (
     ServiceUnavailable,
     Unauthenticated,
 )
+from google.cloud.aiplatform import initializer as vertex_initializer
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey, gen_containers
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PROGRESS_LOG_INTERVAL,
+    SDK_CLASSES_TO_PATCH_FOR_RETRY,
+    MLMetadataDefaults,
     ResourceCategoryType,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     VertexAIResourceCategoryKey,
 )
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+def create_vertex_retry_without_429() -> api_retry.Retry:
+    """Retry policy that fails fast on 429s instead of retrying for 120s."""
+
+    def should_retry(exception):
+        if isinstance(exception, ResourceExhausted):
+            return False
+        return api_retry.if_transient_error(exception)
+
+    return api_retry.Retry(
+        predicate=should_retry,
+        initial=MLMetadataDefaults.RETRY_INITIAL_WAIT_SECS,
+        maximum=MLMetadataDefaults.RETRY_MAXIMUM_WAIT_SECS,
+        multiplier=MLMetadataDefaults.RETRY_MULTIPLIER,
+        deadline=MLMetadataDefaults.RETRY_DEADLINE_SECS,
+    )
+
+
+def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
+    """Patch SDK list() methods to use a retry policy that fails fast on 429s."""
+    for cls in SDK_CLASSES_TO_PATCH_FOR_RETRY:
+        try:
+            if not hasattr(cls, "list"):
+                continue
+
+            original_list = (
+                cls.list.__func__ if hasattr(cls.list, "__func__") else cls.list
+            )
+
+            try:
+                sig = inspect.signature(original_list)
+                supports_retry = "retry" in sig.parameters
+            except (ValueError, TypeError):
+                supports_retry = False
+
+            if supports_retry:
+
+                @functools.wraps(original_list)
+                def patched_list(
+                    *args, _orig=original_list, _retry=custom_retry, **kwargs
+                ):
+                    if "retry" not in kwargs:
+                        kwargs["retry"] = _retry
+                    return _orig(*args, **kwargs)
+
+                cls.list = classmethod(patched_list)
+        except (AttributeError, TypeError):
+            pass
+
+
+def rate_limited_gapic_list(
+    cls: Type,
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    order_by: Optional[str] = None,
+    filter_str: Optional[str] = None,
+) -> List:
+    """
+    List SDK resources page-by-page with one rate-limit token per page.
+
+    Uses gapic directly so rate limiting applies to each page fetch (page 1 at pager
+    creation, pages 2+ via pager._method). Training job and dataset subtypes don't use
+    API-side type filters — the SDK filters locally — so we do the same via proto_filter.
+
+    Falls back to cls.list() for classes without _list_method (Experiment, ExperimentRun)
+    or if SDK internals change.
+    """
+    if not hasattr(cls, "_list_method"):
+        with rate_limiter:
+            return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
+
+    supported_schemas = getattr(cls, "_supported_training_schemas", None)  # type: ignore[attr-defined]
+    supported_uris = getattr(cls, "_supported_metadata_schema_uris", None)  # type: ignore[attr-defined]
+
+    def proto_filter(p: Any) -> bool:
+        if supported_schemas is not None:
+            return p.training_task_definition in supported_schemas
+        if supported_uris is not None:
+            return p.metadata_schema_uri in supported_uris
+        return True
+
+    try:
+        resource = cls._empty_constructor()  # type: ignore[attr-defined]
+        creds = resource.credentials
+        gapic_fn = getattr(resource.api_client, cls._list_method)
+
+        request: Dict[str, Any] = {
+            "parent": vertex_initializer.global_config.common_location_path()
+        }
+        if order_by:
+            request["order_by"] = order_by
+        if filter_str:
+            request["filter"] = filter_str
+
+        try:
+            with rate_limiter:
+                pager = gapic_fn(request=request)
+        except ValueError:
+            # list_training_pipelines and similar don't support order_by via gRPC
+            request.pop("order_by", None)
+            with rate_limiter:
+                pager = gapic_fn(request=request)
+
+        if hasattr(pager, "_method"):
+            _orig_method = pager._method
+
+            def _rate_limited_fetch(
+                *args: Any, _orig: Any = _orig_method, **kwargs: Any
+            ) -> Any:
+                with rate_limiter:
+                    return _orig(*args, **kwargs)
+
+            pager._method = _rate_limited_fetch
+
+        return [
+            cls._construct_sdk_resource_from_gapic(proto, credentials=creds)  # type: ignore[attr-defined]
+            for proto in pager
+            if proto_filter(proto)
+        ]
+    except (AttributeError, TypeError):
+        logger.debug(
+            f"Per-page rate limiting unavailable for {cls.__name__}, falling back"
+        )
+        with rate_limiter:
+            return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
 
 
 def log_progress(
@@ -96,7 +228,6 @@ def gen_resource_subfolder_container(
     extra_properties: Optional[Dict[str, str]] = None,
     external_url: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate subfolder container: Project → Category → Subfolder."""
     category_key = get_resource_category_container(
         project_id=project_id,
         platform=platform,
@@ -133,12 +264,7 @@ def format_api_error_message(
     *,
     custom_message: Optional[str] = None,
 ) -> str:
-    """
-    Format a consistent error message for Google API errors.
-
-    If custom_message is provided, it's used as-is. Otherwise, a default message
-    is generated based on the error type and operation.
-    """
+    """Format a Google API error message; custom_message overrides the default."""
     error_type = type(error).__name__
 
     if custom_message:
@@ -168,11 +294,7 @@ def handle_google_api_errors(
     resource_name: Optional[str] = None,
     log_level: str = "warning",
 ) -> Iterator[None]:
-    """
-    Context manager for Google API error handling. Suppresses exceptions and logs them.
-
-    For returning specific values on error, use format_api_error_message() directly.
-    """
+    """Suppress Google API exceptions and log them."""
     try:
         yield
     except NotFound as e:
@@ -188,7 +310,6 @@ def handle_google_api_errors(
 
 
 def log_checkpoint_time(checkpoint_millis: int, resource_type: str) -> None:
-    """Log checkpoint information for incremental mode."""
     checkpoint_time = datetime.fromtimestamp(
         checkpoint_millis / 1000, tz=timezone.utc
     ).strftime("%Y-%m-%d %H:%M:%S")
@@ -203,7 +324,6 @@ def filter_by_update_time(
     time_field: str = "update_time",
     resource_type: str = "items",
 ) -> List[T]:
-    """Filter items to only include those updated after the checkpoint time."""
     original_count = len(items)
     filtered_items = [
         item
@@ -225,7 +345,6 @@ def filter_by_update_time(
 def sort_by_update_time(
     items: List[T], time_field: str = "update_time", reverse: bool = True
 ) -> None:
-    """Sort items by update time in-place, with fallback for None values."""
     items.sort(
         key=lambda item: getattr(item, time_field, None)
         or datetime.min.replace(tzinfo=timezone.utc),

@@ -182,9 +182,7 @@ class VertexAIExperimentExtractor:
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
             with self.rate_limiter:
-                runs = list(
-                    aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
-                )
+                runs = aiplatform.ExperimentRun.list(experiment=experiment_meta.name)
 
             run_metadata = [
                 ExperimentRunMetadata(
