@@ -267,7 +267,6 @@ def _grade_proactive_read(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool
     # PASS = agent proactively read the docs  → hypothesis falsified (it CAN figure it out)
     # FAIL = agent flew blind without reading → hypothesis confirmed (it cannot)
     checks: Dict[str, bool] = {
-        "read docs/dev-guides/agent-workflow.md": _read(s, "agent-workflow.md"),
         "read AGENTS.md": _read(s, "AGENTS.md"),
         "read any file in scripts/dev/": _read(s, "scripts/dev"),
     }
@@ -345,6 +344,27 @@ def _grade_setup_frontend(
     return score >= 1.0, score, checks, _fmt(checks)
 
 
+def _grade_env_set_generic(
+    s: SessionOutput,
+) -> Tuple[bool, float, Dict[str, bool], str]:
+    """Grade: did the agent use datahub-dev env set, or go ad-hoc?"""
+    checks: Dict[str, bool] = {
+        "used `datahub-dev env set`": _bash(s, r"datahub.dev\S*\s+env\s+set"),
+        "did NOT manually edit a .env file": not _bash(
+            s, r"(echo|cat|>>|>)\s+.*\.env|Edit.*\.env|Write.*\.env"
+        ),
+        "did NOT use docker compose or export": not _bash(
+            s, r"docker\s+compose.*-e|export\s+ELASTICSEARCH"
+        ),
+    }
+    score = sum(checks.values()) / len(checks)
+    passed = checks["used `datahub-dev env set`"]
+    notes = _fmt(checks)
+    if s.files_read:
+        notes += f"\n  files_read: {s.files_read}"
+    return passed, score, checks, notes
+
+
 DEFINED_EVALS: List[Eval] = [
     Eval(
         id=1,
@@ -382,7 +402,7 @@ DEFINED_EVALS: List[Eval] = [
     ),
     Eval(
         id=5,
-        name="meta: did agent proactively read agent-workflow.md or AGENTS.md?",
+        name="meta: did agent proactively read AGENTS.md or scripts/dev/?",
         prompt=_ENV_LIFECYCLE_PROMPT,  # same task as eval 1
         grade=_grade_proactive_read,
         reuse_session_from=1,  # grade the eval 1 session, no extra API call
@@ -410,6 +430,15 @@ DEFINED_EVALS: List[Eval] = [
             "so I can iterate on React changes."
         ),
         grade=_grade_frontend_start,
+    ),
+    Eval(
+        id=10,
+        name="env set generic: use datahub-dev env set, not manual .env editing",
+        prompt=(
+            "Set ELASTICSEARCH_USE_SSL=true for the DataHub containers "
+            "so they connect to Elasticsearch over TLS."
+        ),
+        grade=_grade_env_set_generic,
     ),
     Eval(
         id=9,

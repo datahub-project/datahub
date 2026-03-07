@@ -39,6 +39,18 @@ to avoid git-related failures in worktrees.
 | `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
 | `metadata-models/`                | All (triggers full rebuild + code generation) |
 
+## Environment Variables
+
+Set any env var for DataHub containers via `env set` + `env restart`:
+
+```bash
+scripts/dev/datahub-dev.sh env set KEY=VALUE
+scripts/dev/datahub-dev.sh env restart       # required — changes take effect on restart
+scripts/dev/datahub-dev.sh env list           # show current vars and pending_restart status
+```
+
+**Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
+
 ## Feature Flag Lifecycle
 
 **All flag changes require a container restart.** Use `env set` + `env restart`:
@@ -74,5 +86,3 @@ AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```
 
 ---
-
-Full reference: [`docs/dev-guides/agent-workflow.md`](docs/dev-guides/agent-workflow.md)
