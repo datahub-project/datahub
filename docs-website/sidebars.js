@@ -992,6 +992,7 @@ module.exports = {
       items: [
         "docs/cli-commands/dataset",
         "docs/cli-commands/graphql",
+        "docs/cli-commands/search",
         "docs/datahub_lite",
       ],
     },

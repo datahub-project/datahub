@@ -28,6 +28,7 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
+from datahub.cli.search_cli import search
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -366,6 +367,7 @@ datahub.add_command(exists)
 datahub.add_command(get)
 datahub.add_command(graphql)
 datahub.add_command(put)
+datahub.add_command(search)
 datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
