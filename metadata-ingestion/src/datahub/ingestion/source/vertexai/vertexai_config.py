@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -73,10 +73,9 @@ class VertexAIConfig(
         default=None, description="GCP credential information"
     )
     project_id: str = Field(description=("Project ID in Google Cloud Platform"))
-    region: str = Field(
-        description=(
-            "[deprecated] Single Vertex AI region. Prefer 'regions' or 'discover_regions'."
-        ),
+    region: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Single Vertex AI region. Use 'regions' or 'discover_regions' instead.",
     )
     _deprecate_region = pydantic_field_deprecated("region")
 
@@ -227,6 +226,14 @@ class VertexAIConfig(
         default=None,
         description="Stateful ingestion configuration for tracking and removing stale metadata.",
     )
+
+    @model_validator(mode="after")
+    def require_region_source(self) -> "VertexAIConfig":
+        if not self.region and not self.regions and not self.discover_regions:
+            raise ValueError(
+                "Must specify at least one of: 'region' (deprecated), 'regions', or 'discover_regions=true'."
+            )
+        return self
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         if self.credential:

@@ -193,7 +193,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             for project_id in self._projects:
                 regions = self._discover_regions_for_project(project_id)
                 project_to_regions[project_id] = (
-                    regions if regions else [self.config.region]
+                    regions
+                    if regions
+                    else ([self.config.region] if self.config.region else [])
                 )
         else:
             if self.config.regions:
@@ -502,7 +504,7 @@ class VertexAISource(StatefulIngestionSourceBase):
         return self._current_project_id or self.config.project_id
 
     def _get_region(self) -> str:
-        return self._current_region or self.config.region
+        return self._current_region or self.config.region or ""
 
     def _discover_regions_for_project(self, project_id: str) -> List[str]:
         """Discover available Vertex AI regions for a project using Locations API."""
