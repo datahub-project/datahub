@@ -32,6 +32,15 @@ We are working on using iterator-based JSON parsers to avoid reading in the enti
 
 ### Prerequisites
 
-1. Create a service account with "Storage Object Viewer" Role - https://cloud.google.com/iam/docs/service-accounts-create
-2. Make sure you meet following requirements to generate HMAC key - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#before-you-begin
-3. Create an HMAC key for service account created above - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create .
+Complete the setup for your chosen authentication method:
+
+**For HMAC authentication (default):**
+
+1. Create a service account with "Storage Object Viewer" role — [Create a service account](https://cloud.google.com/iam/docs/service-accounts-create).
+2. Ensure you meet the [requirements to generate an HMAC key](https://cloud.google.com/storage/docs/authentication/managing-hmackeys#before-you-begin).
+3. Create an HMAC key for the service account — [Create HMAC keys](https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create).
+
+**For Workload Identity Federation:**
+
+1. Set up a Workload Identity Pool and Provider in Google Cloud — [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation).
+2. Configure the credential (file path, inline JSON, or JSON string) that the connector will use to obtain short-lived access tokens. For Kubernetes (GKE), see [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity).
