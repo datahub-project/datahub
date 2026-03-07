@@ -93,54 +93,50 @@ def rate_limited_gapic_list(
     filter_str: Optional[str] = None,
 ) -> List:
     """
-    List SDK resources page-by-page, consuming one rate-limit token per page fetch.
+    List SDK resources page-by-page with one rate-limit token per page.
 
-    Uses the gapic client directly so pagination is lazy: page 1 is rate-limited at
-    pager creation, pages 2+ by patching pager._method. Type-specific filters
-    (_training_task_definition, _schema_title) are applied automatically.
+    Uses gapic directly so rate limiting applies to each page fetch (page 1 at pager
+    creation, pages 2+ via pager._method). Training job and dataset subtypes don't use
+    API-side type filters — the SDK filters locally — so we do the same via proto_filter.
 
-    Falls back to a single rate-limited cls.list() for non-standard classes
-    (e.g. Experiment, ExperimentRun) or if SDK internals change.
+    Falls back to cls.list() for classes without _list_method (Experiment, ExperimentRun)
+    or if SDK internals change.
     """
     if not hasattr(cls, "_list_method"):
         with rate_limiter:
             return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
+
+    supported_schemas = getattr(cls, "_supported_training_schemas", None)  # type: ignore[attr-defined]
+    supported_uris = getattr(cls, "_supported_metadata_schema_uris", None)  # type: ignore[attr-defined]
+
+    def proto_filter(p: Any) -> bool:
+        if supported_schemas is not None:
+            return p.training_task_definition in supported_schemas
+        if supported_uris is not None:
+            return p.metadata_schema_uri in supported_uris
+        return True
 
     try:
         resource = cls._empty_constructor()  # type: ignore[attr-defined]
         creds = resource.credentials
         gapic_fn = getattr(resource.api_client, cls._list_method)
 
-        filter_parts: List[str] = []
-        if (
-            hasattr(cls, "_training_task_definition") and cls._training_task_definition  # type: ignore[attr-defined]
-        ):
-            filter_parts.append(
-                f"training_task_definition:{cls._training_task_definition}"  # type: ignore[attr-defined]
-            )
-        if hasattr(cls, "_schema_title") and cls._schema_title:  # type: ignore[attr-defined]
-            filter_parts.append(f"metadata_schema_uri:{cls._schema_title}")  # type: ignore[attr-defined]
-        if filter_str:
-            filter_parts.append(filter_str)
-
         request: Dict[str, Any] = {
             "parent": vertex_initializer.global_config.common_location_path()
         }
         if order_by:
             request["order_by"] = order_by
-        if filter_parts:
-            request["filter"] = " AND ".join(filter_parts)
+        if filter_str:
+            request["filter"] = filter_str
 
         try:
             with rate_limiter:
                 pager = gapic_fn(request=request)
         except ValueError:
-            if order_by and "order_by" in request:
-                request = {k: v for k, v in request.items() if k != "order_by"}
-                with rate_limiter:
-                    pager = gapic_fn(request=request)
-            else:
-                raise
+            # list_training_pipelines and similar don't support order_by via gRPC
+            request.pop("order_by", None)
+            with rate_limiter:
+                pager = gapic_fn(request=request)
 
         if hasattr(pager, "_method"):
             _orig_method = pager._method
@@ -156,6 +152,7 @@ def rate_limited_gapic_list(
         return [
             cls._construct_sdk_resource_from_gapic(proto, credentials=creds)  # type: ignore[attr-defined]
             for proto in pager
+            if proto_filter(proto)
         ]
     except (AttributeError, TypeError):
         logger.debug(
