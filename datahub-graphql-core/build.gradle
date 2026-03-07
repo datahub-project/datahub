@@ -17,6 +17,7 @@ dependencies {
 
     implementation externalDependency.graphqlJava
     implementation externalDependency.graphqlJavaScalars
+    implementation externalDependency.graphqlJavaOtel
     implementation externalDependency.antlr4Runtime
     implementation externalDependency.antlr4
     implementation externalDependency.guava
