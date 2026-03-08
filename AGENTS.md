@@ -494,24 +494,12 @@ export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
 using any other CLI commands that require authentication.
 
 ```bash
-# Quickstart: local instance with default credentials — no --host or --force needed
+# Quickstart: local instance with default credentials
 datahub init --username datahub --password datahub
 
-# Remote instance — always pass --host explicitly
-datahub init --host https://your-instance.acryl.io/gms --username alice --password secret
-
-# Already have a token? Skip credential exchange entirely
-datahub init --host https://your-instance.acryl.io/gms --token <your-token>
+# Full agent best-practices guide (defaults, env vars, all scenarios)
+datahub init --agent-context
 ```
-
-Key defaults for agent use:
-
-- **`--host`**: omit for localhost — defaults silently to `http://localhost:8080` when credentials
-  are provided non-interactively
-- **`--token-duration`**: `ONE_MONTH` for localhost, `ONE_HOUR` for remote instances; override
-  with e.g. `--token-duration ONE_WEEK`
-- **Overwrite prompt**: skipped automatically on non-TTY (agent/CI); only shown on interactive
-  terminals — no `--force` needed in automation
 
 ### GraphQL
 

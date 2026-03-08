@@ -1,3 +1,4 @@
+import importlib.resources as pkg_resources
 import logging
 import multiprocessing
 import os
@@ -126,6 +127,26 @@ def version(include_server: bool = False) -> None:
         click.echo(f"Server config: {server_config}")
 
 
+def _make_agent_aware_command(resource_name: str) -> type:
+    """Return a click.Command subclass that appends an agent context file to --help on non-TTY."""
+
+    class _AgentAwareCommand(click.Command):
+        def format_help(
+            self, ctx: click.Context, formatter: click.HelpFormatter
+        ) -> None:
+            super().format_help(ctx, formatter)
+            if not sys.stdout.isatty():
+                agent_text: str = (
+                    pkg_resources.files("datahub.cli.resources")
+                    .joinpath(resource_name)
+                    .read_text(encoding="utf-8")
+                )
+                formatter.write("\n")
+                formatter.write(agent_text)
+
+    return _AgentAwareCommand
+
+
 def _validate_init_inputs(
     use_password: bool,
     token: Optional[str],
@@ -175,7 +196,7 @@ def _validate_init_inputs(
         )
 
 
-@datahub.command()
+@datahub.command(cls=_make_agent_aware_command("INIT_AGENT_CONTEXT.md"))
 @click.option(
     "--use-password",
     is_flag=True,
@@ -236,6 +257,12 @@ def _validate_init_inputs(
     default=False,
     help="Overwrite existing config without confirmation",
 )
+@click.option(
+    "--agent-context",
+    is_flag=True,
+    default=False,
+    help="Print agent best-practices guide and exit",
+)
 def init(
     use_password: bool = False,
     host: Optional[str] = None,
@@ -244,6 +271,7 @@ def init(
     password: Optional[str] = None,
     token_duration: Optional[str] = None,
     force: bool = False,
+    agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
 
@@ -291,6 +319,15 @@ def init(
     DataHub Cloud (Acryl-hosted instances):
         datahub init --host https://your-instance.acryl.io/gms --token <your-token>
     """
+    if agent_context:
+        text: str = (
+            pkg_resources.files("datahub.cli.resources")
+            .joinpath("INIT_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        click.echo(text)
+        return
+
     # Show deprecation warning if --use-password used
     if use_password:
         click.echo(
