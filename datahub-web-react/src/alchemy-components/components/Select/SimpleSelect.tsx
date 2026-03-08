@@ -82,7 +82,7 @@ export const SimpleSelect = ({
     isLoading = false,
     dataTestId,
     visibilityDeps,
-    placement = 'bottomRight',
+    placement = 'bottomLeft',
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
