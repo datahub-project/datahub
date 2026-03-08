@@ -1073,7 +1073,7 @@ class _AgentAwareGroup(DefaultGroup):
         if not sys.stdout.isatty():
             agent_text = (
                 pkg_resources.files("datahub.cli.resources")
-                .joinpath("AGENT_CONTEXT.md")
+                .joinpath("SEARCH_AGENT_CONTEXT.md")
                 .read_text(encoding="utf-8")
             )
             formatter.write("\n")
@@ -1118,7 +1118,7 @@ class _AgentAwareCommand(click.Command):
         if not sys.stdout.isatty():
             agent_text = (
                 pkg_resources.files("datahub.cli.resources")
-                .joinpath("AGENT_CONTEXT.md")
+                .joinpath("SEARCH_AGENT_CONTEXT.md")
                 .read_text(encoding="utf-8")
             )
             formatter.write("\n")
@@ -1314,7 +1314,7 @@ def query(
     if agent_context:
         text = (
             pkg_resources.files("datahub.cli.resources")
-            .joinpath("AGENT_CONTEXT.md")
+            .joinpath("SEARCH_AGENT_CONTEXT.md")
             .read_text(encoding="utf-8")
         )
         click.echo(text)

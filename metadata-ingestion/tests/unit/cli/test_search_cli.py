@@ -538,7 +538,7 @@ class TestAgentContext:
     """Tests for --agent-context flag."""
 
     def test_agent_context_prints_content(self):
-        """--agent-context prints the AGENT_CONTEXT.md file and exits."""
+        """--agent-context prints the SEARCH_AGENT_CONTEXT.md file and exits."""
         runner = CliRunner()
         result = runner.invoke(search, ["--agent-context"])
         assert result.exit_code == 0
@@ -1059,7 +1059,7 @@ class TestSearchCliError:
             assert result.exit_code != 0
 
     def test_agent_context_includes_error_handling_section(self):
-        """AGENT_CONTEXT.md documents structured error handling."""
+        """SEARCH_AGENT_CONTEXT.md documents structured error handling."""
         runner = CliRunner()
         result = runner.invoke(search, ["--agent-context"])
         assert result.exit_code == 0
