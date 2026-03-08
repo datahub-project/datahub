@@ -12,12 +12,10 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 
 
-def make_execution_pager(*executions: object) -> Mock:
-    """Build a mock gRPC list_executions pager with a single page."""
-    page = Mock()
-    page.executions = list(executions)
-    pager = Mock()
-    pager.pages = [page]
+def make_execution_pager(*executions: object) -> MagicMock:
+    """Build a mock gRPC pager that iterates directly over executions."""
+    pager = MagicMock()
+    pager.__iter__.return_value = iter(executions)
     return pager
 
 

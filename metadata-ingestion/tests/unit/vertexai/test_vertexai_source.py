@@ -131,9 +131,11 @@ def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
 
     mock_exp_run.get_executions.return_value = [mock_execution]
 
-    with patch("google.cloud.aiplatform.ExperimentRun.list") as mock_list:
-        mock_list.return_value = [mock_exp_run]
-
+    with patch.object(
+        source.experiment_extractor,
+        "_list_experiment_runs_rate_limited",
+        return_value=[mock_exp_run],
+    ):
         actual_mcps = list(source.experiment_extractor.get_experiment_run_workunits())
 
         run_mcps = [

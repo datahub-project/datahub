@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
+from google.cloud.aiplatform_v1.types import ListModelVersionsRequest
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -44,6 +45,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     log_checkpoint_time,
     log_progress,
     rate_limited_gapic_list,
+    rate_limited_paged_call,
 )
 from datahub.metadata.schema_classes import (
     BaseDataClass,
@@ -95,6 +97,25 @@ class VertexAIModelExtractor:
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
         self._models_cache: Optional[List] = None
 
+    def _list_versions(self, model: Model) -> List[VersionInfo]:
+        registry = model.versioning_registry
+        request = ListModelVersionsRequest(name=registry.model_resource_name)
+        pager = rate_limited_paged_call(
+            registry.client.list_model_versions, request, self.rate_limiter
+        )
+        return [
+            VersionInfo(
+                version_id=m.version_id,
+                version_create_time=m.version_create_time,
+                version_update_time=m.version_update_time,
+                model_display_name=m.display_name,
+                model_resource_name=model.resource_name,
+                version_aliases=m.version_aliases,
+                version_description=m.version_description,
+            )
+            for m in pager
+        ]
+
     def _list_models(self) -> List:
         if self._models_cache is None:
             self._models_cache = rate_limited_gapic_list(
@@ -136,8 +157,7 @@ class VertexAIModelExtractor:
 
             yield from self._gen_ml_group_container(model)
 
-            with self.rate_limiter:
-                model_versions = model.versioning_registry.list_versions()
+            model_versions = self._list_versions(model)
             for model_version in model_versions:
                 total_versions += 1
                 log_progress(total_versions, None, "model versions")
@@ -180,8 +200,9 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "fetch model evaluations", "model", model.name
             ):
-                with self.rate_limiter:
-                    evaluations: List[ModelEvaluation] = model.list_model_evaluations()
+                evaluations: List[ModelEvaluation] = rate_limited_gapic_list(
+                    ModelEvaluation, self.rate_limiter, parent=model.resource_name
+                )
 
                 evaluations.sort(key=attrgetter(CREATE_TIME_FIELD), reverse=True)
 
@@ -324,10 +345,7 @@ class VertexAIModelExtractor:
             with handle_google_api_errors(
                 "get model versions", "model", model.name, log_level="debug"
             ):
-                with self.rate_limiter:
-                    versions: List[VersionInfo] = (
-                        model.versioning_registry.list_versions()
-                    )
+                versions: List[VersionInfo] = self._list_versions(model)
                 if versions:
                     latest_version = max(versions, key=attrgetter(VERSION_ID_FIELD))
                     model_name = self.name_formatter.format_model_name(

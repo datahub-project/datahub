@@ -86,22 +86,32 @@ def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
             pass
 
 
+def rate_limited_paged_call(
+    gapic_fn: Any,
+    request: Any,
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+) -> Any:
+    with rate_limiter:
+        pager = gapic_fn(request=request)
+    if hasattr(pager, "_method"):
+        _orig = pager._method
+
+        def _rate_limited_next(*args: Any, _orig: Any = _orig, **kwargs: Any) -> Any:
+            with rate_limiter:
+                return _orig(*args, **kwargs)
+
+        pager._method = _rate_limited_next
+    return pager
+
+
 def rate_limited_gapic_list(
     cls: Type,
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
     order_by: Optional[str] = None,
     filter_str: Optional[str] = None,
+    parent: Optional[str] = None,
 ) -> List:
-    """
-    List SDK resources page-by-page with one rate-limit token per page.
-
-    Uses gapic directly so rate limiting applies to each page fetch (page 1 at pager
-    creation, pages 2+ via pager._method). Training job and dataset subtypes don't use
-    API-side type filters — the SDK filters locally — so we do the same via proto_filter.
-
-    Falls back to cls.list() for classes without _list_method (Experiment, ExperimentRun)
-    or if SDK internals change.
-    """
+    """List SDK resources via GAPIC with one rate-limit token per page fetch."""
     if not hasattr(cls, "_list_method"):
         with rate_limiter:
             return cls.list(order_by=order_by) if order_by else cls.list()  # type: ignore[union-attr]
@@ -122,7 +132,7 @@ def rate_limited_gapic_list(
         gapic_fn = getattr(resource.api_client, cls._list_method)
 
         request: Dict[str, Any] = {
-            "parent": vertex_initializer.global_config.common_location_path()
+            "parent": parent or vertex_initializer.global_config.common_location_path()
         }
         if order_by:
             request["order_by"] = order_by
@@ -130,24 +140,11 @@ def rate_limited_gapic_list(
             request["filter"] = filter_str
 
         try:
-            with rate_limiter:
-                pager = gapic_fn(request=request)
+            pager = rate_limited_paged_call(gapic_fn, request, rate_limiter)
         except ValueError:
             # list_training_pipelines and similar don't support order_by via gRPC
             request.pop("order_by", None)
-            with rate_limiter:
-                pager = gapic_fn(request=request)
-
-        if hasattr(pager, "_method"):
-            _orig_method = pager._method
-
-            def _rate_limited_fetch(
-                *args: Any, _orig: Any = _orig_method, **kwargs: Any
-            ) -> Any:
-                with rate_limiter:
-                    return _orig(*args, **kwargs)
-
-            pager._method = _rate_limited_fetch
+            pager = rate_limited_paged_call(gapic_fn, request, rate_limiter)
 
         return [
             cls._construct_sdk_resource_from_gapic(proto, credentials=creds)  # type: ignore[attr-defined]

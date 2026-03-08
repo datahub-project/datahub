@@ -1,7 +1,8 @@
+import functools
 import itertools
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from typing import Iterator, List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -41,6 +42,7 @@ from datahub.ingestion.source.vertexai.vertexai_models import (
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     create_vertex_retry_without_429,
     format_api_error_message,
+    rate_limited_paged_call,
 )
 from datahub.metadata.schema_classes import MLHyperParamClass, MLMetricClass
 from datahub.utilities.ratelimiter import RateLimiter
@@ -51,8 +53,6 @@ _METADATA_RETRY = create_vertex_retry_without_429()
 
 
 class MLMetadataHelper:
-    """Encapsulates ML Metadata API operations for lineage and metrics extraction."""
-
     def __init__(
         self,
         metadata_client: MetadataServiceClient,
@@ -66,19 +66,12 @@ class MLMetadataHelper:
         self.rate_limiter = rate_limiter
         self._execution_cache: Optional[List[Execution]] = None
 
-    def _iter_executions(self, pager: object) -> Iterator[Execution]:
-        """Iterate a gRPC list_executions pager, rate-limiting before each page fetch.
-
-        Each page is a ListExecutionsResponse proto; items are in page.executions.
-        """
-        page_iter = iter(pager.pages)  # type: ignore[attr-defined]
-        while True:
-            with self.rate_limiter:
-                try:
-                    page = next(page_iter)
-                except StopIteration:
-                    break
-            yield from page.executions
+    def _list_executions(self, request: ListExecutionsRequest) -> Any:
+        return rate_limited_paged_call(
+            functools.partial(self.client.list_executions, retry=_METADATA_RETRY),
+            request,
+            self.rate_limiter,
+        )
 
     def get_job_lineage_metadata(
         self, job: VertexAiResourceNoun
@@ -157,10 +150,7 @@ class MLMetadataHelper:
         filter_str = f'display_name="{job.display_name}"'
         request = ListExecutionsRequest(parent=parent, filter=filter_str)
 
-        execution_pager = self.client.list_executions(
-            request=request, retry=_METADATA_RETRY
-        )
-        executions: List[Execution] = list(self._iter_executions(execution_pager))
+        executions: List[Execution] = list(self._list_executions(request))
 
         if not executions:
             matching = self._find_executions_by_schema_and_name(
@@ -203,11 +193,8 @@ class MLMetadataHelper:
             page_size=MLMetadataDefaults.MAX_PAGE_SIZE,
         )
 
-        paged_response = self.client.list_executions(
-            request=request, retry=_METADATA_RETRY
-        )
         executions = list(
-            itertools.islice(self._iter_executions(paged_response), max_to_retrieve)
+            itertools.islice(self._list_executions(request), max_to_retrieve)
         )
         logger.info(
             f"Loaded {len(executions)} executions into cache for ML Metadata matching"

@@ -88,13 +88,13 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
 
         exit_stack.enter_context(
             patch(
-                "google.cloud.aiplatform.Experiment.list",
+                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiments_rate_limited",
                 return_value=[gen_mock_experiment()],
             )
         )
         exit_stack.enter_context(
             patch(
-                "google.cloud.aiplatform.ExperimentRun.list",
+                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiment_runs_rate_limited",
                 return_value=[gen_mock_experiment_run()],
             )
         )
@@ -162,10 +162,16 @@ def test_vertexai_platform_instance_config(
         _patch_gapic_list(exit_stack, lambda *_a, **_kw: [])
 
         exit_stack.enter_context(
-            patch("google.cloud.aiplatform.Experiment.list", return_value=[])
+            patch(
+                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiments_rate_limited",
+                return_value=[],
+            )
         )
         exit_stack.enter_context(
-            patch("google.cloud.aiplatform.ExperimentRun.list", return_value=[])
+            patch(
+                "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.VertexAIExperimentExtractor._list_experiment_runs_rate_limited",
+                return_value=[],
+            )
         )
 
         pipeline = Pipeline.create(config_dict)
