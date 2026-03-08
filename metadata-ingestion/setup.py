@@ -534,7 +534,8 @@ plugins: Dict[str, Set[str]] = {
     # Source plugins
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
-    "aerospike": {"aerospike==19.0.0"} | classification_lib,
+    # aerospike 19.x solved a regression bug
+    "aerospike": {"aerospike>=19.0.0"} | classification_lib,
     "athena": sql_common
     # We need to set tenacity lower than 8.4.0 as
     # this version has missing dependency asyncio

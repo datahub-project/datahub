@@ -20,7 +20,7 @@
     name: adlsGen2
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/adlslogo.png"
+    logoUrl: "assets/platforms/adlslogo.png"
 - entityUrn: urn:li:dataPlatform:aerospike
   entityType: dataPlatform
   aspectName: dataPlatformInfo

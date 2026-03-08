@@ -124,7 +124,7 @@ class AerospikeConfig(
         default=False, description="Whether to use TLS for the connection."
     )
     tls_capath: Optional[str] = Field(
-        default=None, description="Path to the CA certificate file."
+        default=None, description="Path to the CA certificate directory."
     )
     tls_cafile: Optional[str] = Field(
         default=None, description="Path to the CA certificate file."
@@ -298,7 +298,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
 
     By default, schema inference samples 1,000 documents from each set. Setting `schemaSamplingSize: null` will scan the entire set.
 
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
+    Note that `schemaSamplingSize` has no effect if `inferSchemaDepth` is set to `0`.
 
     Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
 
