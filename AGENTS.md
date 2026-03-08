@@ -42,96 +42,6 @@ If you are using git worktrees then exclude this as that might cause git related
 - lintFix runs ruff formatting and fixing automatically, ensuring code quality
 - For smoke-test changes, the lintFix command will also check those files
 
-## Starting / Operating DataHub
-
-Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
-**Do NOT use `./gradlew quickstartDebug` directly** — always use the wrapper script.
-
-### `datahub-dev` CLI Tool
-
-A stdlib-only Python CLI for agent-driven development. No venv needed — runs with system `python3`.
-
-**Always use the shell wrapper as the entry point:**
-
-```bash
-scripts/dev/datahub-dev.sh <command>
-```
-
-Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
-`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
-
-### End-to-End Workflow
-
-0. **Setup** (once): `scripts/dev/datahub-dev.sh setup` — installs Python dev environment (provides `datahub` CLI). For frontend work, also run `scripts/dev/datahub-dev.sh setup frontend`.
-1. **Start**: `scripts/dev/datahub-dev.sh start`
-2. **Code**: Make changes to Java/Python/frontend code
-3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
-4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
-5. **Iterate**: Repeat steps 2–4
-
-**Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
-
-**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
-to avoid git-related failures in worktrees.
-
-### Module-to-Container Mapping
-
-| Source directory                  | Container                                     |
-| --------------------------------- | --------------------------------------------- |
-| `metadata-service/`               | `datahub-gms`                                 |
-| `datahub-graphql-core/`           | `datahub-gms`                                 |
-| `metadata-io/`                    | `datahub-gms`                                 |
-| `datahub-frontend/`               | `datahub-frontend-react`                      |
-| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
-| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
-| `metadata-models/`                | All (triggers full rebuild + code generation) |
-
-### Environment Variables
-
-Set any env var for DataHub containers via `env set` + `env restart`:
-
-```bash
-scripts/dev/datahub-dev.sh env set KEY=VALUE
-scripts/dev/datahub-dev.sh env restart       # required — changes take effect on restart
-scripts/dev/datahub-dev.sh env list           # show current vars and pending_restart status
-```
-
-**Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
-
-### Feature Flag Lifecycle
-
-**All flag changes require a container restart.** Use `env set` + `env restart`:
-
-```bash
-scripts/dev/datahub-dev.sh env set SHOW_BROWSE_V2=true
-scripts/dev/datahub-dev.sh env restart
-```
-
-`flag list` and `flag get` are read-only inspection tools — they show the current live values from
-the running server but do not change anything.
-
-The flag manifest at `scripts/generated/flag-classification.json` is **auto-generated**
-(gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
-or after a fresh clone.
-
-### Recovery Escalation
-
-**When to use each:**
-
-- `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
-  with connection errors
-- `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it
-- `nuke`: ES index corruption, MySQL schema issues after model changes, PDL model changes needing
-  clean slate, `nuke --keep-data` didn't fix it
-
-### Structured Test Output
-
-Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
-
-```bash
-AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
-```
-
 ## Code Formatting and Linting
 
 **CRITICAL: Always use Gradle tasks for formatting and linting. Never use npm/yarn/npx commands directly.**
@@ -477,6 +387,131 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
 - [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+
+## Starting / Operating DataHub
+
+Use `scripts/dev/datahub-dev.sh` for **ALL** environment operations.
+**Do NOT use `./gradlew quickstartDebug` directly** — always use the wrapper script.
+
+### `datahub-dev` CLI Tool
+
+A stdlib-only Python CLI for agent-driven development. No venv needed — runs with system `python3`.
+
+**Always use the shell wrapper as the entry point:**
+
+```bash
+scripts/dev/datahub-dev.sh <command>
+```
+
+Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start`, `setup`, `frontend`,
+`status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`, `sync-flags`, `reset`, `nuke`).
+
+### End-to-End Workflow
+
+0. **Setup** (once): `scripts/dev/datahub-dev.sh setup` — installs Python dev environment (provides `datahub` CLI). For frontend work, also run `scripts/dev/datahub-dev.sh setup frontend`.
+1. **Start**: `scripts/dev/datahub-dev.sh start`
+2. **Code**: Make changes to Java/Python/frontend code
+3. **Rebuild**: `scripts/dev/datahub-dev.sh rebuild --wait`
+4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
+5. **Iterate**: Repeat steps 2–4
+
+**Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
+
+**Worktree note:** All Gradle commands inside the tool already pass `-x generateGitPropertiesGlobal`
+to avoid git-related failures in worktrees.
+
+### Module-to-Container Mapping
+
+| Source directory                  | Container                                     |
+| --------------------------------- | --------------------------------------------- |
+| `metadata-service/`               | `datahub-gms`                                 |
+| `datahub-graphql-core/`           | `datahub-gms`                                 |
+| `metadata-io/`                    | `datahub-gms`                                 |
+| `datahub-frontend/`               | `datahub-frontend-react`                      |
+| `metadata-jobs/mce-consumer-job/` | `datahub-mce-consumer`                        |
+| `metadata-jobs/mae-consumer-job/` | `datahub-mae-consumer`                        |
+| `metadata-models/`                | All (triggers full rebuild + code generation) |
+
+### Environment Variables
+
+Set any env var for DataHub containers via `env set` + `env restart`:
+
+```bash
+scripts/dev/datahub-dev.sh env set KEY=VALUE
+scripts/dev/datahub-dev.sh env restart       # required — changes take effect on restart
+scripts/dev/datahub-dev.sh env list           # show current vars and pending_restart status
+```
+
+**Do NOT** manually edit `.env` files, use `docker compose -e`, or `export` — always use the wrapper.
+
+### Feature Flag Lifecycle
+
+**All flag changes require a container restart.** Use `env set` + `env restart`:
+
+```bash
+scripts/dev/datahub-dev.sh env set SHOW_BROWSE_V2=true
+scripts/dev/datahub-dev.sh env restart
+```
+
+`flag list` and `flag get` are read-only inspection tools — they show the current live values from
+the running server but do not change anything.
+
+The flag manifest at `scripts/generated/flag-classification.json` is **auto-generated**
+(gitignored). Run `scripts/dev/datahub-dev.sh sync-flags` after adding fields to `FeatureFlags.java`
+or after a fresh clone.
+
+### Recovery Escalation
+
+**When to use each:**
+
+- `reset`: GMS returns 503 and doesn't recover, frontend shows "Unable to connect", tests fail
+  with connection errors
+- `nuke --keep-data`: Containers in restart loops, port conflicts, `reset` didn't fix it
+- `nuke`: ES index corruption, MySQL schema issues after model changes, PDL model changes needing
+  clean slate, `nuke --keep-data` didn't fix it
+
+### Structured Test Output
+
+Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/build/test-report.json`:
+
+```bash
+AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
+```
+
+## Common Operations
+
+These commands work against **any** DataHub instance — local dev, staging, or production.
+Provide connection details via environment variables:
+
+```bash
+export DATAHUB_GMS_URL=http://localhost:8080  # or your instance URL
+export DATAHUB_GMS_TOKEN=<your-token>         # omit if auth is not required
+```
+
+### GraphQL
+
+`datahub graphql` executes queries and mutations against the DataHub GraphQL API and can
+introspect the live schema to discover available operations.
+
+```bash
+# Discover what's available
+datahub graphql --list-operations --format json
+
+# Inspect a specific operation's arguments
+datahub graphql --describe dataset --format json
+
+# Preview a query before executing
+datahub graphql --query "{ me { corpUser { urn } } }" --dry-run
+
+# Execute a query
+datahub graphql --query "{ me { corpUser { urn username } } }" --format json
+```
+
+For full agent best practices (discovery, dry-run, error codes, common recipes):
+
+```bash
+datahub graphql --agent-context
+```
 
 ## Key Documentation
 
