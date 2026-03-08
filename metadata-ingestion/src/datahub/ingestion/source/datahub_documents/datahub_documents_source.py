@@ -46,7 +46,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
-from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    PENDING_CHUNKS_KEY,
+    DocumentChunkingSource,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -324,16 +327,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Yields:
             MetadataWorkUnit objects for the document if it should be processed, empty otherwise
         """
-        entity_urn = event.get("entityUrn")
-        aspect_name = event.get("aspectName")
+        entity_urn_raw = event.get("entityUrn")
+        aspect_name_raw = event.get("aspectName")
         aspect_data = event.get("aspect")
+
+        # Unpack Avro union wrappers (e.g. {"string": "urn:..."} → "urn:...")
+        entity_urn = (
+            entity_urn_raw.get("string")
+            if isinstance(entity_urn_raw, dict)
+            else entity_urn_raw
+        )
+        aspect_name = (
+            aspect_name_raw.get("string")
+            if isinstance(aspect_name_raw, dict)
+            else aspect_name_raw
+        )
 
         if not entity_urn or not aspect_name:
             logger.debug("Event missing entityUrn or aspectName, skipping")
             return
 
-        # Filter for documentInfo aspect
-        if aspect_name != "documentInfo":
+        # Filter for documentInfo or semanticContent aspects
+        if aspect_name not in ("documentInfo", "semanticContent"):
             return
 
         # Parse aspect data (handles Avro union wrapping)
@@ -344,6 +359,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 f"Failed to parse MCL aspect for {entity_urn}: {e}",
                 exc_info=True,
             )
+            return
+
+        # Handle semanticContent with pending embeddings
+        if aspect_name == "semanticContent":
+            if (
+                self._aspect_has_pending_chunks(aspect_dict)
+                and self.chunking_source.embedding_model
+            ):
+                yield from self._process_document_for_pending_chunks(entity_urn)
             return
 
         # Extract text from documentInfo
@@ -475,6 +499,65 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         finally:
             if event_consumer:
                 event_consumer.close()
+
+    def _aspect_has_pending_chunks(self, aspect_dict: dict[str, Any]) -> bool:
+        """Return True if the semanticContent aspect has a __pending__ embeddings entry."""
+        return bool(aspect_dict.get("embeddings", {}).get(PENDING_CHUNKS_KEY))
+
+    def _get_pending_chunks(self, urn: str) -> Optional[Any]:
+        """Fetch the pending EmbeddingModelData for a document from the graph."""
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        try:
+            semantic_content = self.graph.get_aspect(urn, SemanticContentClass)
+            if semantic_content is None or not semantic_content.embeddings:
+                return None
+            return semantic_content.embeddings.get(PENDING_CHUNKS_KEY)
+        except Exception as e:
+            logger.warning(f"Failed to fetch semanticContent for {urn}: {e}")
+            return None
+
+    def _pending_chunks_to_dicts(self, pending: Any) -> list[dict[str, Any]]:
+        """Convert pending EmbeddingModelData chunks into text dicts for embedding."""
+        return [
+            {
+                "text": c.text or "",
+                "characterOffset": c.characterOffset,
+                "characterLength": c.characterLength,
+            }
+            for c in (pending.chunks or [])
+            if c.text
+        ]
+
+    def _process_document_for_pending_chunks(
+        self, urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate real embeddings for a document that has pending chunks."""
+        if not self.chunking_source.embedding_model:
+            return
+
+        pending = self._get_pending_chunks(urn)
+        if not pending or not pending.chunks:
+            logger.debug(f"No pending chunks found for {urn}")
+            return
+
+        chunk_dicts = self._pending_chunks_to_dicts(pending)
+        if not chunk_dicts:
+            logger.debug(f"No text in pending chunks for {urn}")
+            return
+
+        try:
+            embeddings = self.chunking_source._generate_embeddings(chunk_dicts)
+            yield from self.chunking_source._emit_semantic_content(
+                urn, chunk_dicts, embeddings
+            )
+            self.report.report_embeddings_generated(len(embeddings))
+        except Exception as e:
+            error_msg = (
+                f"Failed to generate embeddings for pending chunks of {urn}: {e}"
+            )
+            logger.warning(error_msg, exc_info=True)
+            self.report.report_error(error_msg)
 
     def _parse_mcl_aspect(self, aspect_data: Any) -> dict[str, Any]:
         """Parse MCL aspect data (handles Avro union wrapping)."""

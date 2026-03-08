@@ -42,6 +42,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+PENDING_CHUNKS_KEY = "__pending__"
+
 
 @dataclass
 class DocumentChunkingReport(SourceReport):
@@ -245,7 +247,8 @@ class DocumentChunkingSource(Source):
             return
 
         # Generate embeddings (only if configured).
-        # Failures are raised directly so the caller can decide how to handle them.
+        # On failure, fall back to pending chunks so Phase 2 can retry later
+        # (e.g. when credentials are temporarily unavailable or Bedrock is unreachable).
         embeddings = []
         if self.embedding_model:
             try:
@@ -258,11 +261,27 @@ class DocumentChunkingSource(Source):
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
                 self.report.report_embedding_failure(document_urn, short_error)
-                raise
+                logger.warning(
+                    f"Embedding failed for {document_urn}, storing as pending for retry: {short_error}"
+                )
+                yield from self._emit_pending_chunks(document_urn, chunks)
         else:
-            logger.debug(
-                f"Skipping embedding generation for {document_urn} - no embedding provider configured"
-            )
+            # No embedding model — store chunks as pending for later embedding
+            yield from self._emit_pending_chunks(document_urn, chunks)
+            self.report.report_document_processed(len(chunks))
+            if (
+                self.config.max_documents > 0
+                and self.report.num_documents_processed >= self.config.max_documents
+            ):
+                self.report.num_documents_limit_reached = True
+                error_msg = (
+                    f"Document limit of {self.config.max_documents} reached. "
+                    f"Processed {self.report.num_documents_processed} documents. "
+                    "Increase max_documents in the source config to process more."
+                )
+                self.report.report_error(error_msg)
+                raise RuntimeError(error_msg)
+            return
 
         # Emit SemanticContent aspect (only if embeddings were generated)
         if embeddings:
@@ -774,6 +793,61 @@ class DocumentChunkingSource(Source):
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
             raise
+
+    def _emit_pending_chunks(
+        self,
+        document_urn: str,
+        chunks: list[dict[str, Any]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit SemanticContent with empty vectors as a pending sentinel.
+
+        Used when no embedding provider is configured. A second-phase source
+        (e.g. DataHubDocumentsSource) detects the __pending__ key and generates
+        real embeddings later.
+        """
+        from datahub.metadata.schema_classes import (
+            EmbeddingChunkClass,
+            EmbeddingModelDataClass,
+            SemanticContentClass,
+        )
+
+        current_offset = 0
+        embedding_chunks = []
+        for i, chunk in enumerate(chunks):
+            chunk_text = chunk.get("text", "")
+            chunk_length = len(chunk_text)
+            embedding_chunks.append(
+                EmbeddingChunkClass(
+                    position=i,
+                    vector=[],  # empty = pending sentinel
+                    text=chunk_text,
+                    characterOffset=current_offset,
+                    characterLength=chunk_length,
+                )
+            )
+            current_offset += chunk_length
+
+        pending_model_data = EmbeddingModelDataClass(
+            modelVersion=PENDING_CHUNKS_KEY,
+            generatedAt=int(datetime.utcnow().timestamp() * 1000),
+            chunkingStrategy=self.config.chunking.strategy,
+            totalChunks=len(chunks),
+            totalTokens=0,
+            chunks=embedding_chunks,
+        )
+
+        semantic_content = SemanticContentClass(
+            embeddings={PENDING_CHUNKS_KEY: pending_model_data}
+        )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=document_urn,
+            aspect=semantic_content,
+        )
+
+        logger.debug(f"Emitting {len(chunks)} pending chunks for {document_urn}")
+
+        yield MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
 
     def _emit_semantic_content(
         self,

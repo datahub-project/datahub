@@ -300,18 +300,21 @@ def test_inline_mode_no_embedding_model(pipeline_context, chunking_config):
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Process elements inline - should skip embedding generation
+    # Process elements inline — emits pending chunks (SemanticContent with __pending__ key)
+    from datahub.ingestion.source.unstructured.chunking_source import PENDING_CHUNKS_KEY
+    from datahub.metadata.schema_classes import SemanticContentClass
+
     workunits = list(source.process_elements_inline(document_urn, elements))
 
-    # Verify no work units were emitted (no embeddings = no SemanticContent aspect)
-    assert len(workunits) == 0
+    # Exactly one workunit: SemanticContent with __pending__ embeddings
+    assert len(workunits) == 1
+    aspect = workunits[0].get_aspect_of_type(SemanticContentClass)
+    assert aspect is not None
+    assert PENDING_CHUNKS_KEY in aspect.embeddings
 
-    # Verify no embeddings were generated
-    assert source.report.num_documents_with_embeddings == 0
+    # No real embeddings generated
     assert source.report.num_embedding_failures == 0
     assert source.report.num_embeddings_generated == 0
-
-    # Verify document was still processed
     assert source.report.num_documents_processed == 1
 
 
