@@ -1,6 +1,8 @@
+import importlib.resources as pkg_resources
 import json
 import logging
 import re
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -9,6 +11,62 @@ import click
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
+
+# Exit codes for agent-friendly error differentiation.
+EXIT_SUCCESS = 0
+EXIT_GENERAL = 1
+EXIT_USAGE = 2
+EXIT_PERMISSION = 4
+EXIT_CONNECTION = 5
+
+
+class GraphQLCliError(click.ClickException):
+    """Structured error for the GraphQL CLI.
+
+    When stderr is not a TTY (agent/pipe context), outputs JSON:
+      {"error": "<error_type>", "message": "...", "suggestion": "..."}
+    When stderr is a TTY (human context), outputs click's default format.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        error_type: str = "graphql_error",
+        suggestion: Optional[str] = None,
+        exit_code: int = EXIT_GENERAL,
+    ) -> None:
+        super().__init__(message)
+        self.error_type = error_type
+        self.suggestion = suggestion
+        self.exit_code = exit_code
+
+    def show(self, file: Any = None) -> None:
+        if sys.stderr.isatty():
+            super().show(file=file)
+        else:
+            err: Dict[str, str] = {
+                "error": self.error_type,
+                "message": self.format_message(),
+            }
+            if self.suggestion:
+                err["suggestion"] = self.suggestion
+            click.echo(json.dumps(err), err=True)
+
+
+class _AgentAwareCommand(click.Command):
+    """Command that appends agent context to --help when stdout is not a TTY."""
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        super().format_help(ctx, formatter)
+        if not sys.stdout.isatty():
+            agent_text = (
+                pkg_resources.files("datahub.cli.resources")
+                .joinpath("GRAPHQL_AGENT_CONTEXT.md")
+                .read_text(encoding="utf-8")
+            )
+            formatter.write("\n")
+            formatter.write(agent_text)
+
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +162,12 @@ def _parse_variables(variables_str: Optional[str]) -> Optional[Dict[str, Any]]:
     try:
         return json.loads(content)
     except json.JSONDecodeError as e:
-        raise click.ClickException(f"Invalid JSON in variables: {e}") from e
+        raise GraphQLCliError(
+            f"Invalid JSON in variables: {e}",
+            error_type="usage_error",
+            suggestion='Pass variables as a valid JSON string, e.g. --variables \'{"urn": "urn:li:..."}\'',
+            exit_code=EXIT_USAGE,
+        ) from e
 
 
 def _get_schema_files_path() -> Path:
@@ -201,8 +264,11 @@ def _parse_graphql_operations_from_files(
         logger.error("1. DataHub GMS is accessible for schema introspection")
         logger.error("2. Schema files exist and are valid GraphQL")
         logger.error("3. Network connectivity allows GraphQL requests")
-        raise click.ClickException(
-            f"Schema loading failed: {e}. Cannot determine available GraphQL operations."
+        raise GraphQLCliError(
+            f"Schema loading failed: {e}. Cannot determine available GraphQL operations.",
+            error_type="schema_error",
+            suggestion="Ensure DataHub GMS is running or pass --schema-path to a local schema directory",
+            exit_code=EXIT_GENERAL,
         ) from e
 
 
@@ -928,9 +994,12 @@ def _generate_operation_query(
                 arg for arg in required_args if not variables or arg not in variables
             ]
             if missing_required:
-                raise click.ClickException(
+                raise GraphQLCliError(
                     f"Operation '{operation_name}' requires arguments: {', '.join(missing_required)}. "
-                    f'Provide them using --variables \'{{"{missing_required[0]}": "value", ...}}\''
+                    f'Provide them using --variables \'{{"{missing_required[0]}": "value", ...}}\'',
+                    error_type="usage_error",
+                    suggestion=f"datahub graphql --describe {operation_name} --format json",
+                    exit_code=EXIT_USAGE,
                 )
 
     # Generate basic field selection based on common patterns
@@ -979,12 +1048,34 @@ def _get_schema_via_introspection(client: Any) -> Dict[str, Any]:
         return schema
     except Exception as e:
         logger.error(f"GraphQL introspection failed: {e}")
-        logger.error("Cannot perform introspection. Please ensure:")
-        logger.error("1. DataHub GMS is running and accessible")
-        logger.error("2. Network connectivity allows GraphQL requests")
-        logger.error("3. Authentication credentials are valid")
-        raise click.ClickException(
-            f"Schema introspection failed: {e}. Cannot retrieve live schema information."
+        err_str = str(e).lower()
+        if any(k in err_str for k in ("401", "403", "unauthorized", "forbidden")):
+            raise GraphQLCliError(
+                f"Schema introspection failed: permission denied. {e}",
+                error_type="permission_denied",
+                suggestion="Check your DataHub credentials or token",
+                exit_code=EXIT_PERMISSION,
+            ) from e
+        if any(
+            k in err_str
+            for k in (
+                "connection refused",
+                "connectionerror",
+                "failed to connect",
+                "timeout",
+            )
+        ):
+            raise GraphQLCliError(
+                f"Schema introspection failed: cannot connect to DataHub. {e}",
+                error_type="connection_error",
+                suggestion="Ensure DataHub GMS is running and accessible",
+                exit_code=EXIT_CONNECTION,
+            ) from e
+        raise GraphQLCliError(
+            f"Schema introspection failed: {e}. Cannot retrieve live schema information.",
+            error_type="schema_error",
+            suggestion="Use --schema-path to load a local schema, or check GMS connectivity",
+            exit_code=EXIT_GENERAL,
         ) from e
 
 
@@ -1223,8 +1314,11 @@ def _handle_describe(
     operation_info, type_info = _search_operation_and_type(schema, client, describe)
 
     if not operation_info and not type_info:
-        raise click.ClickException(
-            f"'{describe}' not found as an operation or type. Use --list-operations to see available operations or try a specific type name."
+        raise GraphQLCliError(
+            f"'{describe}' not found as an operation or type. Use --list-operations to see available operations or try a specific type name.",
+            error_type="usage_error",
+            suggestion="datahub graphql --list-operations --format json",
+            exit_code=EXIT_USAGE,
         )
 
     if format == "json":
@@ -1265,8 +1359,11 @@ def _execute_operation(
     # Find the operation
     operation_info = _find_operation_by_name(schema, operation)
     if not operation_info:
-        raise click.ClickException(
-            f"Operation '{operation}' not found. Use --list-operations to see available operations."
+        raise GraphQLCliError(
+            f"Operation '{operation}' not found. Use --list-operations to see available operations.",
+            error_type="usage_error",
+            suggestion="datahub graphql --list-operations --format json",
+            exit_code=EXIT_USAGE,
         )
 
     operation_field, operation_type = operation_info
@@ -1281,9 +1378,35 @@ def _execute_operation(
 
         # Execute the generated query
         return client.execute_graphql(query=generated_query, variables=variables_dict)
+    except GraphQLCliError:
+        raise
     except Exception as e:
-        raise click.ClickException(
-            f"Failed to execute operation '{operation}': {e}"
+        err_str = str(e).lower()
+        if any(k in err_str for k in ("401", "403", "unauthorized", "forbidden")):
+            raise GraphQLCliError(
+                f"Permission denied executing operation '{operation}': {e}",
+                error_type="permission_denied",
+                exit_code=EXIT_PERMISSION,
+            ) from e
+        if any(
+            k in err_str
+            for k in (
+                "connection refused",
+                "connectionerror",
+                "failed to connect",
+                "timeout",
+            )
+        ):
+            raise GraphQLCliError(
+                f"Cannot connect to DataHub while executing operation '{operation}': {e}",
+                error_type="connection_error",
+                suggestion="Ensure DataHub GMS is running and accessible",
+                exit_code=EXIT_CONNECTION,
+            ) from e
+        raise GraphQLCliError(
+            f"Failed to execute operation '{operation}': {e}",
+            error_type="graphql_error",
+            exit_code=EXIT_GENERAL,
         ) from e
 
 
@@ -1295,10 +1418,36 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
     try:
         return client.execute_graphql(query=query_content, variables=variables_dict)
     except Exception as e:
-        raise click.ClickException(f"Failed to execute GraphQL query: {e}") from e
+        err_str = str(e).lower()
+        if any(k in err_str for k in ("401", "403", "unauthorized", "forbidden")):
+            raise GraphQLCliError(
+                f"Permission denied executing GraphQL query: {e}",
+                error_type="permission_denied",
+                exit_code=EXIT_PERMISSION,
+            ) from e
+        if any(
+            k in err_str
+            for k in (
+                "connection refused",
+                "connectionerror",
+                "failed to connect",
+                "timeout",
+            )
+        ):
+            raise GraphQLCliError(
+                f"Cannot connect to DataHub: {e}",
+                error_type="connection_error",
+                suggestion="Ensure DataHub GMS is running and accessible",
+                exit_code=EXIT_CONNECTION,
+            ) from e
+        raise GraphQLCliError(
+            f"Failed to execute GraphQL query: {e}",
+            error_type="graphql_error",
+            exit_code=EXIT_GENERAL,
+        ) from e
 
 
-@click.command()
+@click.command(cls=_AgentAwareCommand)
 @click.option(
     "--query",
     "-q",
@@ -1354,6 +1503,16 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
     default="human",
     help="Output format: human-readable or JSON for LLM consumption",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print the query and variables that would be sent without executing",
+)
+@click.option(
+    "--agent-context",
+    is_flag=True,
+    help="Print agent skill context (best practices for AI agents) and exit",
+)
 @upgrade.check_upgrade
 def graphql(
     query: Optional[str],
@@ -1367,8 +1526,19 @@ def graphql(
     schema_path: Optional[str],
     no_pretty: bool,
     format: str,
+    dry_run: bool,
+    agent_context: bool,
 ) -> None:
     """Execute GraphQL queries and mutations against DataHub."""
+
+    if agent_context:
+        text = (
+            pkg_resources.files("datahub.cli.resources")
+            .joinpath("GRAPHQL_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        click.echo(text)
+        return
 
     pretty = not no_pretty
     client = get_default_graph(ClientMode.CLI)
@@ -1402,13 +1572,54 @@ def graphql(
 
     # Execution commands
     if operation:
+        if dry_run:
+            # Resolve the operation to a query without executing
+            if schema_path:
+                schema = _parse_graphql_operations_from_files(schema_path)
+            else:
+                schema = _get_schema_via_introspection(client)
+            op_info = _find_operation_by_name(schema, operation)
+            if not op_info:
+                raise GraphQLCliError(
+                    f"Operation '{operation}' not found. Use --list-operations to see available operations.",
+                    error_type="usage_error",
+                    suggestion="datahub graphql --list-operations --format json",
+                    exit_code=EXIT_USAGE,
+                )
+            op_field, op_type = op_info
+            variables_dict = _parse_variables(variables)
+            generated_query = _generate_operation_query(
+                op_field, op_type, variables_dict
+            )
+            dry_run_output: Dict[str, Any] = {
+                "dry_run": True,
+                "operation": operation,
+                "operation_type": op_type,
+                "query": generated_query,
+                "variables": variables_dict or {},
+            }
+            click.echo(json.dumps(dry_run_output, indent=2 if pretty else None))
+            return
         result = _execute_operation(client, operation, variables, schema_path)
     elif query:
+        if dry_run:
+            query_content = _load_content_or_file(query)
+            variables_dict = _parse_variables(variables)
+            dry_run_output = {
+                "dry_run": True,
+                "query": query_content,
+                "variables": variables_dict or {},
+            }
+            click.echo(json.dumps(dry_run_output, indent=2 if pretty else None))
+            return
         result = _execute_query(client, query, variables)
     else:
-        raise click.ClickException(
+        raise GraphQLCliError(
             "Must specify either --query, --operation, or a discovery option "
-            "(--list-operations, --list-queries, --list-mutations, --describe)"
+            "(--list-operations, --list-queries, --list-mutations, --describe)",
+            error_type="usage_error",
+            suggestion="datahub graphql --help",
+            exit_code=EXIT_USAGE,
         )
 
     # Output result

@@ -444,7 +444,7 @@ def main(**kwargs):
         sys.exit(1)
     except click.ClickException as error:
         error.show()
-        sys.exit(1)
+        sys.exit(error.exit_code)
     except Exception as exc:
         if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.
