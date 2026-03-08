@@ -10,13 +10,13 @@ README.md                    → Platform-level Overview + Concept Mapping
 [Auto-generated]            → Capabilities table, install command
 {connector}_recipe.yml      → Example configuration
 [Auto-generated]            → Config options table + JSON schema
-{connector}_post.md / {connector}.md → Module narrative after injected sections
+{connector}_post.md           → Module narrative after injected sections
 [Auto-generated]            → Code Coordinates
 ```
 
 ## What to author
 
-Only edit `README.md`, `_pre.md`, `_post.md` / `{connector}.md`, and `_recipe.yml`.
+Only edit `README.md`, `_pre.md`, `_post.md`, and `_recipe.yml`.
 Everything in `docs/generated/...` is generated at build time and will be overwritten.
 
 | File                     | Purpose                                                         | Required?       |
@@ -24,8 +24,7 @@ Everything in `docs/generated/...` is generated at build time and will be overwr
 | `README.md`              | Platform-level context, common overview, concept mapping        | Yes             |
 | `{connector}_pre.md`     | Module-level pre-injection sections                             | Yes             |
 | `{connector}_recipe.yml` | Minimal working example config                                  | Yes             |
-| `{connector}_post.md`    | Module-level post-injection sections                            | Yes (preferred) |
-| `{connector}.md`         | Legacy post file format (accepted if `_post.md` does not exist) | Legacy          |
+| `{connector}_post.md`    | Module-level post-injection sections                            | Yes             |
 
 ## Style conventions
 
@@ -45,13 +44,13 @@ Every generated platform page must follow this high-level order:
    - `### Important Capabilities` (auto-generated)
    - PRE sections (authored in `_pre.md`)
    - injected sections (`Install the Plugin`, `Starter Recipe`, `Config Details`)
-   - POST sections (authored in `_post.md` / `{connector}.md`)
+   - POST sections (authored in `_post.md`)
    - `### Code Coordinates` (auto-generated)
 
 ### Heading-level rules by file type
 
 - `README.md`: **H2 baseline** (`##`) for platform sections.
-- `_pre.md`, `_post.md`, `{connector}.md`: **H3 baseline** (`###`) for module sections.
+- `_pre.md`, `_post.md`: **H3 baseline** (`###`) for module sections.
 - Maximum depth: H5 (`#####`).
 - Never use H1 (`#`) in authored source docs under `docs/sources/**`; H1 is reserved for generated platform page titles.
 
@@ -95,7 +94,7 @@ For each module, ensure the generated page effectively has:
 In practice:
 
 - Put `### Overview` and `### Prerequisites` in `{connector}_pre.md`.
-- Put `### Capabilities`, `### Limitations`, and `### Troubleshooting` in `{connector}_post.md` (or legacy `{connector}.md`) so they render after injected `Config Details`.
+- Put `### Capabilities`, `### Limitations`, and `### Troubleshooting` in `{connector}_post.md` so they render after injected `Config Details`.
 - For **single-module platforms**, module `### Overview` should usually mirror platform `## Overview`.
 - For **multi-module platforms**, module `### Overview` should emphasize what is specific about that module compared to sibling modules.
 

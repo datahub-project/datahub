@@ -410,11 +410,10 @@ def generate(  # noqa: C901
                             f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                         )
 
-                else:  # assume this is the platform post.
-                    # TODO: Probably need better error checking here.
-                    platforms[platform_name].plugins[
-                        file_name
-                    ].custom_docs_post = final_markdown
+                else:
+                    raise ValueError(
+                        f"{file_name} must be README or of the form <plugin>_pre.md / <plugin>_post.md"
+                    )
             elif yml_match := re.search("/docs/sources/(.*)/(.*)_recipe.yml", path):
                 platform_name = yml_match.group(1).lower()
                 plugin_name = yml_match.group(2)
