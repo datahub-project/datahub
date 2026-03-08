@@ -484,7 +484,13 @@ class TestSearchProjectionLive:
 
 
 class TestSearchDiagnose:
-    """Prove `datahub search diagnose` works against a live instance."""
+    """Prove `datahub search diagnose` works against a live instance.
+
+    NOTE: None of these tests assert that semantic search is enabled.
+    CI environments typically do not have semantic search configured,
+    so any assertion on semantic_enabled/semantic_available would be
+    environment-specific and must never be added here.
+    """
 
     def test_diagnose_text_exits_cleanly(self, auth_session):
         """Default (text) format exits 0 and reports connectivity."""
@@ -495,7 +501,7 @@ class TestSearchDiagnose:
         assert "Connected to DataHub" in stdout
 
     def test_diagnose_json_structure(self, auth_session):
-        """--format json returns valid JSON with keyword and semantic keys."""
+        """--format json returns valid JSON with keyword and semantic top-level keys."""
         exit_code, stdout, _ = _run_search(
             auth_session, ["diagnose", "--format", "json"]
         )
@@ -506,7 +512,11 @@ class TestSearchDiagnose:
         assert "semantic" in data
 
     def test_diagnose_keyword_connected(self, auth_session):
-        """keyword section reports connected=True and search works."""
+        """keyword section reports connected=True and search works.
+
+        Does NOT check anything about semantic search — keyword search
+        must always work regardless of backend configuration.
+        """
         _, stdout, _ = _run_search(auth_session, ["diagnose", "--format", "json"])
 
         kw = json.loads(stdout)["keyword"]
@@ -514,12 +524,16 @@ class TestSearchDiagnose:
         assert kw["search_works"] is True
         assert kw["total_entities"] > 0
 
-    def test_diagnose_semantic_section_present(self, auth_session):
-        """semantic section is present regardless of whether semantic search is enabled."""
+    def test_diagnose_semantic_section_has_expected_keys(self, auth_session):
+        """semantic section always has the right keys, whatever their values.
+
+        Does NOT assert semantic_available or semantic_enabled are True —
+        semantic search is optional and may not be configured in CI.
+        """
         _, stdout, _ = _run_search(auth_session, ["diagnose", "--format", "json"])
 
         sem = json.loads(stdout)["semantic"]
         assert "semantic_available" in sem
         assert "semantic_enabled" in sem
-        # semantic_error is None when working, string when not — both are valid
+        # semantic_error is None when working, a string when not — both are valid
         assert "semantic_error" in sem
