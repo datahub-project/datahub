@@ -394,7 +394,7 @@ class PineconeClient:
             
             # Validate dimension
             if not dimension:
-                logger.error(f"Cannot determine dimension for index, skipping query sampling")
+                logger.error("Cannot determine dimension for index, skipping query sampling")
                 return []
             
             # Create a dummy query vector (all zeros)

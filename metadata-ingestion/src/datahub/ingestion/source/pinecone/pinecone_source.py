@@ -1,7 +1,7 @@
 """DataHub source for Pinecone vector database."""
 
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -41,8 +41,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
-    ContainerClass,
-    ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
@@ -62,6 +60,7 @@ PLATFORM_URN = make_data_platform_urn(PLATFORM_NAME)
 @config_class(PineconeConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")

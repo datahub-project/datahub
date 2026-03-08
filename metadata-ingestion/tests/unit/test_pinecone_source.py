@@ -50,7 +50,7 @@ class TestPineconeClient:
     def test_client_initialization(self, mock_pinecone):
         """Test client initialization with API key."""
         config = PineconeConfig(api_key="test-key")
-        client = PineconeClient(config)
+        PineconeClient(config)
         
         mock_pinecone.assert_called_once_with(api_key="test-key")
 
@@ -58,7 +58,7 @@ class TestPineconeClient:
     def test_client_initialization_with_environment(self, mock_pinecone):
         """Test client initialization with environment."""
         config = PineconeConfig(api_key="test-key", environment="us-west1-gcp")
-        client = PineconeClient(config)
+        PineconeClient(config)
         
         mock_pinecone.assert_called_once_with(
             api_key="test-key", environment="us-west1-gcp"
@@ -165,7 +165,7 @@ class TestPineconeSource:
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
         
-        workunits = list(source.get_workunits_internal())
+        list(source.get_workunits_internal())
         
         assert source.report.indexes_filtered == 1
         assert source.report.indexes_scanned == 0

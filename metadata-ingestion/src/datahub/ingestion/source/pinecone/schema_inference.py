@@ -143,9 +143,7 @@ class MetadataSchemaInferrer:
         elif isinstance(value, bool):
             # Check bool before int because bool is subclass of int
             return "boolean"
-        elif isinstance(value, int):
-            return "number"
-        elif isinstance(value, float):
+        elif isinstance(value, (int, float)):
             return "number"
         elif isinstance(value, str):
             return "string"

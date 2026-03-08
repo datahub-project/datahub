@@ -22,7 +22,7 @@ metadata-ingestion/src/datahub/ingestion/source/pinecone/
 └── skill_docs/
     └── PINECONE_CONNECTOR_PLANNING.md # Implementation Plan
     └── PINECONE_CONNECTOR_IMPLEMENTATION.md # Implementation
-    └── PINECONE_datahub-connector-pr-review-2026-03-08 # PR Review 
+    └── PINECONE_datahub-connector-pr-review-2026-03-08 # PR Review
 
 metadata-ingestion/examples/recipes/
 └── pinecone_to_datahub.yml       # Example recipe
@@ -140,14 +140,14 @@ class MetadataSchemaInferrer:
 
 ### Type Detection
 
-| Python Type        | Inferred Type | DataHub Type      |
-| ------------------ | ------------- | ----------------- |
-| `str`            | string        | StringTypeClass   |
+| Python Type    | Inferred Type | DataHub Type      |
+| -------------- | ------------- | ----------------- |
+| `str`          | string        | StringTypeClass   |
 | `int`, `float` | number        | NumberTypeClass   |
-| `bool`           | boolean       | BooleanTypeClass  |
-| `list`           | array         | ArrayTypeClass    |
-| `dict`           | object        | (StringTypeClass) |
-| `None`           | null          | (StringTypeClass) |
+| `bool`         | boolean       | BooleanTypeClass  |
+| `list`         | array         | ArrayTypeClass    |
+| `dict`         | object        | (StringTypeClass) |
+| `None`         | null          | (StringTypeClass) |
 
 ### Schema Field Example
 
@@ -173,14 +173,14 @@ source:
   config:
     # Required
     api_key: "${PINECONE_API_KEY}"
-  
+
     # Optional: For pod-based indexes
     environment: "us-west1-gcp"
-  
+
     # Platform instance
     platform_instance: "production"
     env: "PROD"
-  
+
     # Index filtering
     index_pattern:
       allow:
@@ -189,22 +189,22 @@ source:
       deny:
         - ".*-test"
         - ".*-dev"
-  
+
     # Namespace filtering
     namespace_pattern:
       allow:
         - "customer-.*"
       deny:
         - "internal-.*"
-  
+
     # Schema inference (enabled by default)
     enable_schema_inference: true
     schema_sampling_size: 100
     max_metadata_fields: 100
-  
+
     # Performance
     max_workers: 5
-  
+
     # Stateful ingestion
     stateful_ingestion:
       enabled: true
@@ -218,8 +218,8 @@ sink:
 
 ### Configuration Options
 
-| Option                      | Type             | Default   | Description             |
-| --------------------------- | ---------------- | --------- | ----------------------- |
+| Option                    | Type             | Default   | Description             |
+| ------------------------- | ---------------- | --------- | ----------------------- |
 | `api_key`                 | string           | Required  | Pinecone API key        |
 | `environment`             | string           | None      | For pod-based indexes   |
 | `index_pattern`           | AllowDenyPattern | Allow all | Filter indexes          |
@@ -444,35 +444,34 @@ Solution: Reduce max_workers, add delays between requests
 ### Planned Features
 
 1. **Nested Field Support**
-
    - Extract nested object fields
    - Support dot notation
-2. **Array Element Types**
 
+2. **Array Element Types**
    - Infer types of array elements
    - Support array of objects
-3. **Field Statistics**
 
+3. **Field Statistics**
    - Min/max for numbers
    - String length stats
    - Cardinality estimates
-4. **Performance Optimizations**
 
+4. **Performance Optimizations**
    - Parallel namespace processing
    - Caching sampled vectors
    - Incremental schema updates
-5. **Advanced Type Detection**
 
+5. **Advanced Type Detection**
    - Date/timestamp detection
    - URL/email detection
    - Enum detection
-6. **Usage Statistics**
 
+6. **Usage Statistics**
    - Query patterns (if API provides)
    - Access logs
    - Performance metrics
-7. **Lineage**
 
+7. **Lineage**
    - Connect to embedding models
    - Track data sources
    - Upstream/downstream relationships

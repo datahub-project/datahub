@@ -102,22 +102,22 @@ class PineconeConfig(
     # Authentication
     api_key: TransparentSecretStr
     environment: Optional[str] = None  # For pod-based indexes
-    
+
     # Connection
     index_host_mapping: Optional[Dict[str, str]] = None  # Manual host mapping
-    
+
     # Filtering
     index_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     namespace_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    
+
     # Schema inference
     enable_schema_inference: bool = True
     schema_sampling_size: int = 100  # Vectors to sample per namespace
     max_metadata_fields: int = 100   # Max fields in inferred schema
-    
+
     # Performance
     max_workers: int = 5  # Parallel processing
-    
+
     # Stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 ```
@@ -137,18 +137,18 @@ class PineconeConfig(
 class PineconeSource(StatefulIngestionSourceBase):
     """
     DataHub source for Pinecone vector database.
-    
+
     Extracts:
     - Index metadata (dimension, metric, configuration)
     - Namespace information (vector counts)
     - Inferred schemas from vector metadata
     """
-    
+
     def __init__(self, config: PineconeConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.client = PineconeClient(config)
         self.report = PineconeSourceReport()
-        
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # 1. List all indexes
         # 2. For each index, emit container workunit
@@ -163,31 +163,31 @@ class PineconeSource(StatefulIngestionSourceBase):
 ```python
 class PineconeClient:
     """Wrapper around Pinecone SDK for metadata extraction."""
-    
+
     def __init__(self, config: PineconeConfig):
         self.config = config
         self.pc = Pinecone(api_key=config.api_key.get_secret_value())
-        
+
     def list_indexes(self) -> List[IndexInfo]:
         """List all indexes in the account."""
         pass
-        
+
     def describe_index(self, index_name: str) -> IndexDescription:
         """Get detailed information about an index."""
         pass
-        
+
     def list_namespaces(self, index_name: str) -> List[str]:
         """List all namespaces in an index."""
         pass
-        
+
     def describe_namespace(self, index_name: str, namespace: str) -> NamespaceStats:
         """Get statistics for a namespace (serverless only)."""
         pass
-        
+
     def sample_vectors(
-        self, 
-        index_name: str, 
-        namespace: str, 
+        self,
+        index_name: str,
+        namespace: str,
         limit: int
     ) -> List[VectorRecord]:
         """Sample vectors from a namespace for schema inference."""
@@ -199,15 +199,15 @@ class PineconeClient:
 ```python
 class MetadataSchemaInferrer:
     """Infers DataHub schema from Pinecone vector metadata."""
-    
+
     def infer_schema(
-        self, 
+        self,
         vectors: List[VectorRecord],
         max_fields: int
     ) -> SchemaMetadata:
         """
         Analyze metadata from sampled vectors and create schema.
-        
+
         - Aggregate all metadata keys
         - Infer types (string, number, boolean, array)
         - Track field frequency
@@ -389,22 +389,27 @@ Create `metadata-ingestion/integration_docs/sources/pinecone/pinecone.md`:
 # Pinecone
 
 ## Overview
+
 Ingest metadata from Pinecone vector database into DataHub.
 
 ## Capabilities
+
 - Extract index configurations
 - Discover namespaces
 - Infer schemas from vector metadata
 - Support for both serverless and pod-based indexes
 
 ## Configuration
+
 ...
 
 ## Compatibility
+
 - Pinecone API version: 3.0+
 - Supports serverless and pod-based indexes
 
 ## Prerequisites
+
 - Pinecone API key
 - Network access to Pinecone API
 ```
@@ -444,18 +449,21 @@ source:
 ## Implementation Phases
 
 ### Phase 1: Core Functionality (MVP)
+
 - [ ] Basic configuration and authentication
 - [ ] Index discovery and metadata extraction
 - [ ] Container workunits for indexes
 - [ ] Basic reporting
 
 ### Phase 2: Namespace Support
+
 - [ ] Namespace discovery via describe_index_stats()
 - [ ] Namespace containers
 - [ ] Serverless namespace details
 - [ ] Namespace filtering
 
 ### Phase 3: Schema Inference
+
 - [ ] Vector sampling logic
 - [ ] Metadata aggregation
 - [ ] Type inference
@@ -463,6 +471,7 @@ source:
 - [ ] Dataset workunits
 
 ### Phase 4: Advanced Features
+
 - [ ] Stateful ingestion
 - [ ] Stale entity removal
 - [ ] Performance optimization (parallel processing)
@@ -470,6 +479,7 @@ source:
 - [ ] Browse paths v2
 
 ### Phase 5: Polish
+
 - [ ] Comprehensive testing
 - [ ] Documentation
 - [ ] Example recipes
@@ -479,10 +489,12 @@ source:
 ## Challenges & Considerations
 
 ### 1. Namespace Listing
+
 - **Challenge**: `describe_namespace()` only works for serverless indexes
 - **Solution**: Use `describe_index_stats()` which returns namespace names and counts for both serverless and pod-based
 
 ### 2. Vector Sampling
+
 - **Challenge**: No direct "list all vectors" API
 - **Options**:
   - Use `query()` with random/dummy vectors to get samples
@@ -491,24 +503,28 @@ source:
 - **Recommendation**: Use `list()` + `fetch()` for deterministic sampling
 
 ### 3. Schema Inference Performance
+
 - **Challenge**: Sampling many vectors can be slow
-- **Solution**: 
+- **Solution**:
   - Configurable sampling size
   - Parallel processing across namespaces
   - Cache results for incremental runs
 
 ### 4. Metadata Size Limits
+
 - **Challenge**: Pinecone supports 40KB metadata per vector
-- **Solution**: 
+- **Solution**:
   - Limit number of fields extracted
   - Truncate large string values in samples
   - Configurable max_metadata_fields
 
 ### 5. Authentication
+
 - **Challenge**: Different auth for serverless vs pod-based
 - **Solution**: Pinecone SDK v3+ handles this automatically with API key
 
 ### 6. Rate Limiting
+
 - **Challenge**: API rate limits may affect large-scale ingestion
 - **Solution**:
   - Implement exponential backoff
