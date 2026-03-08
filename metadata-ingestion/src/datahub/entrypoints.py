@@ -131,7 +131,7 @@ def _validate_init_inputs(
     token: Optional[str],
     username: Optional[str],
     password: Optional[str],
-    token_duration: str,
+    token_duration: Optional[str],
 ) -> None:
     """Validate init command inputs for consistency.
 
@@ -169,7 +169,7 @@ def _validate_init_inputs(
         )
 
     # Validate: token duration only applies when generating token
-    if not should_generate_token and not use_password and token_duration != "ONE_HOUR":
+    if not should_generate_token and not use_password and token_duration is not None:
         raise click.UsageError(
             "--token-duration only applies when generating token from username/password"
         )
@@ -226,8 +226,8 @@ def _validate_init_inputs(
         ],
         case_sensitive=False,
     ),
-    default="ONE_HOUR",
-    help="Token expiration duration (when generating from username/password)",
+    default=None,
+    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
 )
 @click.option(
     "--force",
@@ -242,7 +242,7 @@ def init(
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
-    token_duration: str = "ONE_HOUR",
+    token_duration: Optional[str] = None,
     force: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -261,7 +261,7 @@ def init(
 
     \b
     Mode 1: Auto-Generate Token from Username/Password
-        # Default duration (1 hour)
+        # Default duration: ONE_MONTH for localhost, ONE_HOUR for remote instances
         datahub init --username alice --password secret
 
         # Custom duration (for long-running jobs)
@@ -283,8 +283,9 @@ def init(
 
     \b
     Available Token Durations:
-        ONE_HOUR (default), ONE_DAY, ONE_WEEK, ONE_MONTH,
+        ONE_HOUR, ONE_DAY, ONE_WEEK, ONE_MONTH,
         THREE_MONTHS, SIX_MONTHS, ONE_YEAR, NO_EXPIRY
+        (Default: ONE_MONTH for localhost, ONE_HOUR for remote instances)
 
     \b
     DataHub Cloud (Acryl-hosted instances):
@@ -301,18 +302,40 @@ def init(
     # Validate input combinations
     _validate_init_inputs(use_password, token, username, password, token_duration)
 
-    # Handle overwrite confirmation
-    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force:
+    # Handle overwrite confirmation: prompt only on interactive TTYs.
+    # Non-TTY environments (agents, CI) silently overwrite — same as --force.
+    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force and sys.stdin.isatty():
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    # Get host (CLI arg > Env var > Prompt)
-    host_value = get_init_config_value(
-        arg_value=host,
-        env_var="DATAHUB_GMS_URL",
-        prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
-        default="http://localhost:8080",
-    )
+    # Get host (CLI arg > Env var > silent default if credentials provided > prompt)
+    # When credentials are supplied non-interactively, skip the prompt and default to
+    # localhost:8080 — users connecting to a different host will pass --host explicitly.
+    _credentials_non_interactive = bool(
+        (username or get_username()) and (password or get_password())
+    ) or bool(token or os.environ.get("DATAHUB_GMS_TOKEN"))
+    if (
+        host is None
+        and not os.environ.get("DATAHUB_GMS_URL")
+        and _credentials_non_interactive
+    ):
+        host_value = "http://localhost:8080"
+    else:
+        host_value = get_init_config_value(
+            arg_value=host,
+            env_var="DATAHUB_GMS_URL",
+            prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
+            default="http://localhost:8080",
+        )
     host_value = fixup_gms_url(host_value)
+
+    # Resolve effective token duration: explicit > host-based default
+    # Local dev gets a generous default so tokens don't expire mid-session.
+    _is_localhost = "localhost" in host_value or "127.0.0.1" in host_value
+    effective_duration = (
+        token_duration.upper()
+        if token_duration
+        else ("ONE_MONTH" if _is_localhost else "ONE_HOUR")
+    )
 
     # Determine token acquisition mode (check both CLI args and env vars)
     username_provided = username or get_username()
@@ -339,10 +362,10 @@ def init(
             username=username_value,
             password=password_value,
             gms_url=host_value,
-            validity=token_duration.upper(),
+            validity=effective_duration,
         )
 
-        click.echo(f"✓ Generated token (expires: {token_duration.upper()})")
+        click.echo(f"✓ Generated token (expires: {effective_duration})")
     else:
         # Get token directly
         token_value = get_init_config_value(
