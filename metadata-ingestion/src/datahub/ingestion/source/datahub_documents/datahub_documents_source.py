@@ -171,6 +171,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             graph=self.graph,
         )
 
+        # DataHubDocumentsSource exists solely to resolve __pending__ chunks into real
+        # embeddings. If the embedding model is unavailable (probe failed or not configured),
+        # the entire run would be a silent no-op — hard-fail immediately so the operator
+        # knows to fix credentials/config before re-running.
+        if not self.chunking_source.embedding_model:
+            probe_error = getattr(
+                self.chunking_source.report, "embedding_probe_error", None
+            )
+            detail = f": {probe_error}" if probe_error else ""
+            raise ValueError(
+                f"DataHubDocumentsSource requires a working embedding model but none is "
+                f"available{detail}. Fix the embedding credentials/config and re-run."
+            )
+
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None

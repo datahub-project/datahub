@@ -114,6 +114,22 @@ class TestDataHubDocumentsConfig:
         assert config.event_mode.consumer_id == "test-consumer"
 
 
+@pytest.fixture(autouse=True)
+def mock_embedding_probe():
+    """Patch _generate_embeddings so unit tests don't need real API credentials.
+
+    DataHubDocumentsSource.__init__ runs a startup probe via DocumentChunkingSource.
+    Without real credentials the probe would fail, set embedding_model=None, and
+    then DataHubDocumentsSource would hard-fail.  Tests that aren't exercising that
+    failure path should get a clean, successful probe instead.
+    """
+    with patch(
+        "datahub.ingestion.source.unstructured.chunking_source.DocumentChunkingSource._generate_embeddings",
+        return_value=[],
+    ):
+        yield
+
+
 class TestDataHubDocumentsSource:
     """Test DataHub documents source."""
 
@@ -2078,3 +2094,39 @@ class TestDataHubGraphInitialization:
             # Verify source uses the context graph
             assert source.graph is mock_ctx_graph
             assert source.graph is not mock_graph_class.return_value
+
+
+class TestEmbeddingHardFail:
+    """DataHubDocumentsSource must hard-fail at init if embeddings are unavailable."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def embedding_config(self):
+        return {
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        }
+
+    def test_hard_fail_when_probe_raises(self, ctx, embedding_config):
+        """Startup probe failure must raise ValueError, not silently degrade."""
+        config = DataHubDocumentsSourceConfig(
+            embedding=embedding_config,
+            stateful_ingestion={"enabled": False},
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+            ),
+            # Override the module-level autouse patch with one that raises.
+            patch(
+                "datahub.ingestion.source.unstructured.chunking_source.DocumentChunkingSource._generate_embeddings",
+                side_effect=Exception("No AWS credentials"),
+            ),
+            pytest.raises(ValueError, match="requires a working embedding model"),
+        ):
+            DataHubDocumentsSource(ctx, config)

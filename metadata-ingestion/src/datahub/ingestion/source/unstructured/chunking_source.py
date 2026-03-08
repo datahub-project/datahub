@@ -225,15 +225,23 @@ class DocumentChunkingSource(Source):
                 )
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
-                logger.warning(
-                    f"Embedding startup probe failed: {short_error}. "
-                    f"Embedding disabled for this run — documents will be stored "
-                    f"as '{PENDING_CHUNKS_KEY}' for Phase 2 to process later."
-                )
+                model_name = self.embedding_model
                 self.report.embedding_probe_failed = True
                 self.report.embedding_probe_error = short_error
                 self.embedding_model = None
                 self.rate_limiter = None
+                self.report.report_warning(
+                    title="Embedding probe failed — documents stored as __pending__",
+                    message=(
+                        f"Could not reach the embedding API (model: {model_name!r}). "
+                        f"All documents in this run will be stored as '{PENDING_CHUNKS_KEY}' "
+                        "(chunks saved, no vectors). "
+                        "Run DataHubDocumentsSource in event mode after fixing the "
+                        "credentials/network issue to generate real embeddings."
+                    ),
+                    context=short_error,
+                    exc=e,
+                )
 
         # Initialize state tracking for incremental mode
         self.state_file_path: Optional[Path] = None
@@ -287,8 +295,15 @@ class DocumentChunkingSource(Source):
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
                 self.report.report_embedding_failure(document_urn, short_error)
-                logger.warning(
-                    f"Embedding failed for {document_urn}, storing as pending for retry: {short_error}"
+                self.report.report_warning(
+                    title="Embedding generation failed",
+                    message=(
+                        "Document was ingested but embedding generation failed. "
+                        f"Chunks stored as '{PENDING_CHUNKS_KEY}' for Phase 2 to process. "
+                        "Semantic search will not work until DataHubDocumentsSource resolves them."
+                    ),
+                    context=f"{document_urn}: {short_error}",
+                    exc=e,
                 )
                 yield from self._emit_pending_chunks(document_urn, chunks)
         else:
