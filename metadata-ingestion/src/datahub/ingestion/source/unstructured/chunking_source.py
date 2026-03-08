@@ -66,6 +66,10 @@ class DocumentChunkingReport(SourceReport):
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
 
+    # Startup probe
+    embedding_probe_failed: bool = False
+    embedding_probe_error: str = ""
+
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
 
@@ -208,6 +212,28 @@ class DocumentChunkingSource(Source):
             if self.embedding_model and config.embedding.rate_limit
             else None
         )
+
+        # Startup probe: verify embedding connectivity once.
+        # If credentials are missing or the endpoint is unreachable, disable embedding
+        # for the entire run so every document is stored as __pending__ instead of
+        # trying and failing on each document individually.
+        if self.embedding_model:
+            try:
+                self._generate_embeddings([{"text": "DataHub semantic search test"}])
+                logger.info(
+                    f"Embedding startup probe succeeded for model {self.embedding_model}"
+                )
+            except Exception as e:
+                short_error = str(e).split("\n")[0][:200]
+                logger.warning(
+                    f"Embedding startup probe failed: {short_error}. "
+                    f"Embedding disabled for this run — documents will be stored "
+                    f"as '{PENDING_CHUNKS_KEY}' for Phase 2 to process later."
+                )
+                self.report.embedding_probe_failed = True
+                self.report.embedding_probe_error = short_error
+                self.embedding_model = None
+                self.rate_limiter = None
 
         # Initialize state tracking for incremental mode
         self.state_file_path: Optional[Path] = None

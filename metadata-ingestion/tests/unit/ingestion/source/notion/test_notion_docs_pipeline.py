@@ -117,15 +117,21 @@ def test_phase2_with_embedding_does_not_emit_pending(
     pipeline_context, with_embedding_config
 ):
     """Phase 2: when embedding model is configured, no __pending__ key is emitted."""
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=with_embedding_config,
-        standalone=False,
-        graph=None,
-    )
-
     mock_embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-    with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
+
+    # The startup probe fires first (1-chunk call), then the per-document call follows.
+    # Both must be mocked so construction and processing succeed.
+    with patch.object(
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=[[[0.0]], mock_embeddings],
+    ):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context,
+            config=with_embedding_config,
+            standalone=False,
+            graph=None,
+        )
         workunits = list(source.process_elements_inline(DOC_URN, ELEMENTS))
 
     assert len(workunits) == 1
@@ -143,36 +149,40 @@ def test_phase2_with_embedding_does_not_emit_pending(
 def test_embedding_failure_falls_back_to_pending(
     pipeline_context, with_embedding_config
 ):
-    """Embedding API failure falls back to __pending__ so Phase 2 can retry later.
+    """Startup probe failure disables embedding for the entire run.
 
-    This covers the case where the embedding config is auto-loaded from the server
-    but the connector host cannot reach the embedding API (no Bedrock access,
-    expired credentials, network restrictions, etc.).
+    When the probe fires at __init__ and the embedding API is unreachable
+    (no Bedrock access, expired credentials, network restrictions, etc.),
+    embedding_model is set to None so every document goes straight to
+    __pending__ without a per-document retry.
     """
-    source = DocumentChunkingSource(
-        ctx=pipeline_context,
-        config=with_embedding_config,
-        standalone=False,
-        graph=None,
-    )
-
     with patch.object(
-        source, "_generate_embeddings", side_effect=RuntimeError("Connection refused")
+        DocumentChunkingSource,
+        "_generate_embeddings",
+        side_effect=RuntimeError("Connection refused"),
     ):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context,
+            config=with_embedding_config,
+            standalone=False,
+            graph=None,
+        )
         workunits = list(source.process_elements_inline(DOC_URN, ELEMENTS))
 
-    assert len(workunits) == 1, "Expected one pending workunit on embedding failure"
+    assert len(workunits) == 1, "Expected one pending workunit after probe failure"
     aspect = workunits[0].get_aspect_of_type(SemanticContentClass)
     assert aspect is not None
 
     assert PENDING_CHUNKS_KEY in aspect.embeddings, (
-        "Embedding failure should fall back to __pending__ sentinel"
+        "Probe failure should fall back to __pending__ sentinel"
     )
     for chunk in aspect.embeddings[PENDING_CHUNKS_KEY].chunks:
         assert chunk.vector == [], "Pending chunks must have empty vectors"
         assert chunk.text, "Pending chunks must carry text for later embedding"
 
-    assert source.report.num_embedding_failures == 1
+    # Probe failure is recorded on the report; no per-document failures occur.
+    assert source.report.embedding_probe_failed
+    assert source.report.num_embedding_failures == 0
 
 
 def test_phase1_document_limit_respected(pipeline_context):
