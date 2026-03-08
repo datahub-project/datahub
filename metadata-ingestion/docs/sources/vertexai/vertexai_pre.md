@@ -87,6 +87,8 @@ The source supports ingesting across multiple GCP projects by specifying `projec
 
 **Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
 
+**Rate limiting**: If you see `429 Quota Exceeded` errors, enable rate limiting with `rate_limit: true`. The default `requests_per_min: 600` matches Google's standard quota of 600 resource-management requests per minute per region. Lower this value (e.g. `300`) if you share quota with other workloads running in the same project and region.
+
 Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
 
 For improved organization in the DataHub UI:

@@ -2,7 +2,7 @@ import functools
 import itertools
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from typing import Any, List, Optional, Sequence, Union
+from typing import Iterable, List, Optional, Sequence, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -66,7 +66,7 @@ class MLMetadataHelper:
         self.rate_limiter = rate_limiter
         self._execution_cache: Optional[List[Execution]] = None
 
-    def _list_executions(self, request: ListExecutionsRequest) -> Any:
+    def _list_executions(self, request: ListExecutionsRequest) -> Iterable[Execution]:
         return rate_limited_paged_call(
             functools.partial(self.client.list_executions, retry=_METADATA_RETRY),
             request,

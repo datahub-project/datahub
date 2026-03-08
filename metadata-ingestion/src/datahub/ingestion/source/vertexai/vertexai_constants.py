@@ -1,5 +1,5 @@
 import re
-from typing import Any, List, Literal, Set, Type
+from typing import List, Literal, Set, Type
 
 from google.cloud import aiplatform
 
@@ -328,7 +328,7 @@ class MLMetadataDefaults:
     RETRY_DEADLINE_SECS = 120.0
 
 
-SDK_CLASSES_TO_PATCH_FOR_RETRY: List[Type[Any]] = [
+SDK_CLASSES_TO_PATCH_FOR_RETRY: List[Type] = [
     aiplatform.Model,
     aiplatform.Experiment,
     aiplatform.ExperimentRun,

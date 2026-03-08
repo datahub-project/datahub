@@ -1,8 +1,9 @@
 import logging
+import types
 from contextlib import AbstractContextManager, nullcontext
 from numbers import Real
 from operator import attrgetter
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud.aiplatform import Endpoint, ModelEvaluation
 from google.cloud.aiplatform.models import Model, VersionInfo
@@ -71,7 +72,7 @@ class VertexAIModelExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,  # aiplatform module
+        client: types.ModuleType,
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,

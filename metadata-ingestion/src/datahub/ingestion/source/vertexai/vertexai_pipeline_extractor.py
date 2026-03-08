@@ -1,8 +1,8 @@
 import logging
+import types
 from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import (
-    Any,
     Callable,
     Dict,
     Iterable,
@@ -91,7 +91,7 @@ class VertexAIPipelineExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,  # aiplatform module
+        client: types.ModuleType,
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,

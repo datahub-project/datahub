@@ -154,8 +154,12 @@ class VertexAIExperimentExtractor:
             parent=parent,
             filter_str=run_exec_filter,
         )
+        nodes: List[Union[MetadataContext, MetadataExecution]] = [
+            *run_contexts,
+            *run_executions,
+        ]
         runs: List[ExperimentRun] = []
-        for node in [*run_contexts, *run_executions]:
+        for node in nodes:
             run = ExperimentRun.__new__(ExperimentRun)
             run._initialize_experiment_run(node, experiment)
             runs.append(run)

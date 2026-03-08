@@ -22,6 +22,12 @@ from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 logger = logging.getLogger(__name__)
 
 
+class GapicListRequest(BaseModel):
+    parent: str
+    filter: Optional[str] = None
+    order_by: Optional[str] = None
+
+
 class YieldCommonAspectsProtocol(Protocol):
     """Protocol for the yield_common_aspects function signature."""
 

@@ -1,6 +1,7 @@
 import logging
+import types
 from contextlib import AbstractContextManager, nullcontext
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.api_core.exceptions import (
     DeadlineExceeded,
@@ -84,7 +85,7 @@ class VertexAITrainingExtractor:
     def __init__(
         self,
         config: VertexAIConfig,
-        client: Any,  # aiplatform module
+        client: types.ModuleType,
         urn_builder: VertexAIUrnBuilder,
         name_formatter: VertexAINameFormatter,
         url_builder: VertexAIExternalURLBuilder,
