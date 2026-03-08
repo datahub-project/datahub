@@ -1,7 +1,8 @@
 """Unit tests for Pinecone source."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.pinecone.config import PineconeConfig
@@ -21,7 +22,7 @@ class TestPineconeConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = PineconeConfig(api_key="test-key")
-        
+
         assert config.api_key.get_secret_value() == "test-key"
         assert config.environment is None
         assert config.enable_schema_inference is True
@@ -36,7 +37,7 @@ class TestPineconeConfig:
             index_pattern={"allow": ["prod-.*"], "deny": [".*-test"]},
             namespace_pattern={"allow": ["customer-.*"]},
         )
-        
+
         assert config.index_pattern.allowed("prod-index")
         assert not config.index_pattern.allowed("dev-test")
         assert config.namespace_pattern.allowed("customer-123")
@@ -51,7 +52,7 @@ class TestPineconeClient:
         """Test client initialization with API key."""
         config = PineconeConfig(api_key="test-key")
         PineconeClient(config)
-        
+
         mock_pinecone.assert_called_once_with(api_key="test-key")
 
     @patch("datahub.ingestion.source.pinecone.pinecone_client.Pinecone")
@@ -59,7 +60,7 @@ class TestPineconeClient:
         """Test client initialization with environment."""
         config = PineconeConfig(api_key="test-key", environment="us-west1-gcp")
         PineconeClient(config)
-        
+
         mock_pinecone.assert_called_once_with(
             api_key="test-key", environment="us-west1-gcp"
         )
@@ -70,12 +71,12 @@ class TestPineconeClient:
         # Setup mock
         mock_pc_instance = MagicMock()
         mock_pinecone.return_value = mock_pc_instance
-        
+
         mock_pc_instance.list_indexes.return_value = [
             {"name": "test-index-1"},
             {"name": "test-index-2"},
         ]
-        
+
         mock_pc_instance.describe_index.side_effect = [
             {
                 "name": "test-index-1",
@@ -94,12 +95,12 @@ class TestPineconeClient:
                 "spec": {"pod": {"pod_type": "p1.x1", "replicas": 1}},
             },
         ]
-        
+
         # Test
         config = PineconeConfig(api_key="test-key")
         client = PineconeClient(config)
         indexes = client.list_indexes()
-        
+
         assert len(indexes) == 2
         assert indexes[0].name == "test-index-1"
         assert indexes[0].dimension == 384
@@ -115,9 +116,9 @@ class TestPineconeSource:
         """Test source initialization."""
         config = PineconeConfig(api_key="test-key")
         ctx = PipelineContext(run_id="test-run")
-        
+
         source = PineconeSource(config, ctx)
-        
+
         assert source.config == config
         assert source.report is not None
 
@@ -128,14 +129,14 @@ class TestPineconeSource:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.list_indexes.return_value = []
-        
+
         # Test
         config = PineconeConfig(api_key="test-key")
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         workunits = list(source.get_workunits_internal())
-        
+
         assert len(workunits) == 0
         assert source.report.indexes_scanned == 0
 
@@ -145,7 +146,7 @@ class TestPineconeSource:
         # Setup mock
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        
+
         mock_client.list_indexes.return_value = [
             IndexInfo(
                 name="test-index",
@@ -156,7 +157,7 @@ class TestPineconeSource:
                 spec={"serverless": {}},
             )
         ]
-        
+
         # Test with deny pattern
         config = PineconeConfig(
             api_key="test-key",
@@ -164,9 +165,9 @@ class TestPineconeSource:
         )
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         list(source.get_workunits_internal())
-        
+
         assert source.report.indexes_filtered == 1
         assert source.report.indexes_scanned == 0
 
@@ -176,7 +177,7 @@ class TestPineconeSource:
         # Setup mock
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        
+
         # Mock index
         test_index = IndexInfo(
             name="test-index",
@@ -186,21 +187,21 @@ class TestPineconeSource:
             status="Ready",
             spec={"serverless": {"cloud": "aws", "region": "us-east-1"}},
         )
-        
+
         mock_client.list_indexes.return_value = [test_index]
-        
+
         # Mock namespace
         mock_client.list_namespaces.return_value = [
             NamespaceStats(name="default", vector_count=1000)
         ]
-        
+
         # Test
         config = PineconeConfig(api_key="test-key")
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         workunits = list(source.get_workunits_internal())
-        
+
         # Should generate workunits for:
         # - Index container
         # - Namespace container
@@ -221,7 +222,7 @@ class TestMetadataSchemaInferrer:
     def test_infer_field_type(self):
         """Test field type inference."""
         inferrer = MetadataSchemaInferrer()
-        
+
         assert inferrer._infer_field_type("test") == "string"
         assert inferrer._infer_field_type(123) == "number"
         assert inferrer._infer_field_type(45.67) == "number"
@@ -234,7 +235,7 @@ class TestMetadataSchemaInferrer:
     def test_select_primary_type(self):
         """Test primary type selection."""
         inferrer = MetadataSchemaInferrer()
-        
+
         # String has highest priority
         assert inferrer._select_primary_type({"string", "number"}) == "string"
         assert inferrer._select_primary_type({"number", "boolean"}) == "number"
@@ -244,26 +245,26 @@ class TestMetadataSchemaInferrer:
     def test_infer_schema_no_vectors(self):
         """Test schema inference with no vectors."""
         inferrer = MetadataSchemaInferrer()
-        
+
         schema = inferrer.infer_schema([], "test-dataset")
         assert schema is None
 
     def test_infer_schema_no_metadata(self):
         """Test schema inference with vectors but no metadata."""
         inferrer = MetadataSchemaInferrer()
-        
+
         vectors = [
             VectorRecord(id="1", values=[0.1, 0.2], metadata=None),
             VectorRecord(id="2", values=[0.3, 0.4], metadata={}),
         ]
-        
+
         schema = inferrer.infer_schema(vectors, "test-dataset")
         assert schema is None
 
     def test_infer_schema_basic(self):
         """Test basic schema inference."""
         inferrer = MetadataSchemaInferrer()
-        
+
         vectors = [
             VectorRecord(
                 id="1",
@@ -281,13 +282,13 @@ class TestMetadataSchemaInferrer:
                 metadata={"category": "A", "score": 0.92},
             ),
         ]
-        
+
         schema = inferrer.infer_schema(vectors, "test-dataset")
-        
+
         assert schema is not None
         assert schema.schemaName == "test-dataset"
         assert len(schema.fields) == 3
-        
+
         # Check field names
         field_names = {f.fieldPath.split(".")[-1] for f in schema.fields}
         assert field_names == {"category", "score", "active"}
@@ -295,7 +296,7 @@ class TestMetadataSchemaInferrer:
     def test_infer_schema_with_arrays(self):
         """Test schema inference with array fields."""
         inferrer = MetadataSchemaInferrer()
-        
+
         vectors = [
             VectorRecord(
                 id="1",
@@ -308,16 +309,16 @@ class TestMetadataSchemaInferrer:
                 metadata={"tags": ["tag3"], "name": "test2"},
             ),
         ]
-        
+
         schema = inferrer.infer_schema(vectors, "test-dataset")
-        
+
         assert schema is not None
         assert len(schema.fields) == 2
 
     def test_infer_schema_max_fields_limit(self):
         """Test that max_fields limit is respected."""
         inferrer = MetadataSchemaInferrer(max_fields=2)
-        
+
         vectors = [
             VectorRecord(
                 id="1",
@@ -330,16 +331,16 @@ class TestMetadataSchemaInferrer:
                 },
             ),
         ]
-        
+
         schema = inferrer.infer_schema(vectors, "test-dataset")
-        
+
         assert schema is not None
         assert len(schema.fields) <= 2
 
     def test_infer_schema_mixed_types(self):
         """Test schema inference with mixed types for same field."""
         inferrer = MetadataSchemaInferrer()
-        
+
         vectors = [
             VectorRecord(
                 id="1",
@@ -357,9 +358,9 @@ class TestMetadataSchemaInferrer:
                 metadata={"value": True},
             ),
         ]
-        
+
         schema = inferrer.infer_schema(vectors, "test-dataset")
-        
+
         assert schema is not None
         assert len(schema.fields) == 1
         # String should be selected as primary type
@@ -376,7 +377,7 @@ class TestPineconeSourceWithSchemaInference:
         config = PineconeConfig(api_key="test-key")
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         assert source.schema_inferrer is not None
         assert config.enable_schema_inference is True
 
@@ -386,7 +387,7 @@ class TestPineconeSourceWithSchemaInference:
         config = PineconeConfig(api_key="test-key", enable_schema_inference=False)
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         assert source.schema_inferrer is None
 
     @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
@@ -395,7 +396,7 @@ class TestPineconeSourceWithSchemaInference:
         # Setup mock
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        
+
         # Mock index
         test_index = IndexInfo(
             name="test-index",
@@ -405,14 +406,14 @@ class TestPineconeSourceWithSchemaInference:
             status="Ready",
             spec={"serverless": {"cloud": "aws", "region": "us-east-1"}},
         )
-        
+
         mock_client.list_indexes.return_value = [test_index]
-        
+
         # Mock namespace
         mock_client.list_namespaces.return_value = [
             NamespaceStats(name="default", vector_count=1000)
         ]
-        
+
         # Mock sample vectors with metadata
         mock_client.sample_vectors.return_value = [
             VectorRecord(
@@ -426,7 +427,7 @@ class TestPineconeSourceWithSchemaInference:
                 metadata={"category": "B", "score": 0.87, "active": False},
             ),
         ]
-        
+
         # Test
         config = PineconeConfig(
             api_key="test-key",
@@ -435,15 +436,15 @@ class TestPineconeSourceWithSchemaInference:
         )
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         workunits = list(source.get_workunits_internal())
-        
+
         # Should generate workunits including schema
         assert len(workunits) > 0
         assert source.report.indexes_scanned == 1
         assert source.report.namespaces_scanned == 1
         assert source.report.datasets_generated == 1
-        
+
         # Verify sample_vectors was called
         mock_client.sample_vectors.assert_called_once_with(
             index_name="test-index",
@@ -457,7 +458,7 @@ class TestPineconeSourceWithSchemaInference:
         # Setup mock
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        
+
         test_index = IndexInfo(
             name="test-index",
             dimension=384,
@@ -466,25 +467,25 @@ class TestPineconeSourceWithSchemaInference:
             status="Ready",
             spec={"serverless": {}},
         )
-        
+
         mock_client.list_indexes.return_value = [test_index]
         mock_client.list_namespaces.return_value = [
             NamespaceStats(name="default", vector_count=100)
         ]
-        
+
         # Mock vectors without metadata
         mock_client.sample_vectors.return_value = [
             VectorRecord(id="vec1", values=[0.1] * 384, metadata=None),
             VectorRecord(id="vec2", values=[0.2] * 384, metadata={}),
         ]
-        
+
         # Test
         config = PineconeConfig(api_key="test-key", enable_schema_inference=True)
         ctx = PipelineContext(run_id="test-run")
         source = PineconeSource(config, ctx)
-        
+
         workunits = list(source.get_workunits_internal())
-        
+
         # Should still generate workunits, just without schema
         assert len(workunits) > 0
         assert source.report.datasets_generated == 1
