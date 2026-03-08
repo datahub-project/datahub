@@ -986,7 +986,7 @@ class TestSearchCliError:
 
     def test_show_text_when_tty(self):
         """TTY stderr gets click's default text error output."""
-        from datahub.cli.search_cli import click as search_click
+        import click as _click
 
         err = SearchCliError(
             "Something failed",
@@ -995,7 +995,7 @@ class TestSearchCliError:
         with patch("datahub.cli.search_cli.sys") as mock_sys:
             mock_sys.stderr.isatty.return_value = True
             with patch.object(
-                search_click.ClickException, "show", return_value=None
+                _click.ClickException, "show", return_value=None
             ) as mock_super_show:
                 err.show()
                 mock_super_show.assert_called_once()
