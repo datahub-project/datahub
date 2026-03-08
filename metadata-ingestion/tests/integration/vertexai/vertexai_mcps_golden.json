@@ -2227,7 +2227,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(0d7abc1cdaee3b8ec304012f9040f876,mlModel)",
+            "versionSet": "urn:li:versionSet:(27cf6e84bf7b73fcf1e4c2af9a904f5d,mlModel)",
             "version": {
                 "versionTag": "1",
                 "metadataAttribution": {
@@ -2617,7 +2617,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(073de151c0a96ec69e33da735c618352,mlModel)",
+            "versionSet": "urn:li:versionSet:(bc40ba0fdb946511254278b468b5550b,mlModel)",
             "version": {
                 "versionTag": "2",
                 "metadataAttribution": {

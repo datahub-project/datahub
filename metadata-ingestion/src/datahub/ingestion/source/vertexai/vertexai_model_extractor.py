@@ -684,7 +684,10 @@ class VertexAIModelExtractor:
         self.model_usage_tracker.mark_emitted(model_urn)
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
-        guid_dict = {"platform": self.platform, "name": model.name}
+        # Include project_id via format_model_name so models with the same numeric ID
+        # in different projects don't collide on the same versionSet.
+        model_name = self.name_formatter.format_model_name(entity_id=model.name)
+        guid_dict = {"platform": self.platform, "name": model_name}
         version_set_urn = VersionSetUrn(
             id=builder.datahub_guid(guid_dict),
             entity_type=MlModelUrn.ENTITY_TYPE,
