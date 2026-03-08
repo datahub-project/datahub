@@ -1,7 +1,7 @@
 import itertools
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from typing import List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 from google.api_core import retry as api_retry
 from google.api_core.exceptions import (
@@ -302,7 +302,7 @@ class MLMetadataHelper:
             input_urns: List[str] = []
             output_urns: List[str] = []
 
-            artifact_events = {}
+            artifact_events: Dict[str, str] = {}
             for event in response.events:
                 artifact_events[event.artifact] = event.type_.name
 
