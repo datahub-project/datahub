@@ -106,6 +106,22 @@ Apply a saved DataHub view:
 datahub search "*" --view urn:li:dataHubView:my_view
 ```
 
+## Error Handling
+
+Errors are written to stderr as JSON (in non-TTY/agent context):
+
+```json
+{
+  "error": "semantic_search_unavailable",
+  "message": "...",
+  "suggestion": "datahub search diagnose"
+}
+```
+
+Error types: `usage_error`, `search_error`, `semantic_search_unavailable`, `permission_denied`, `connection_error`.
+
+Exit codes: `0` success, `1` general error, `2` usage error, `4` permission denied, `5` connection error.
+
 ## Common Recipes
 
 ```bash

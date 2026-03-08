@@ -17,6 +17,46 @@ from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
+# Exit codes for agent-friendly error differentiation.
+EXIT_SUCCESS = 0
+EXIT_GENERAL = 1
+EXIT_USAGE = 2
+EXIT_PERMISSION = 4
+EXIT_CONNECTION = 5
+
+
+class SearchCliError(click.ClickException):
+    """Structured error for the search CLI.
+
+    When stderr is not a TTY (agent/pipe context), outputs JSON:
+      {"error": "<error_type>", "message": "...", "suggestion": "..."}
+    When stderr is a TTY (human context), outputs click's default format.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        error_type: str = "search_error",
+        suggestion: Optional[str] = None,
+        exit_code: int = EXIT_GENERAL,
+    ) -> None:
+        super().__init__(message)
+        self.error_type = error_type
+        self.suggestion = suggestion
+        self.exit_code = exit_code
+
+    def show(self, file: Any = None) -> None:
+        if sys.stderr.isatty():
+            super().show(file=file)
+        else:
+            err: Dict[str, str] = {
+                "error": self.error_type,
+                "message": self.format_message(),
+            }
+            if self.suggestion:
+                err["suggestion"] = self.suggestion
+            click.echo(json.dumps(err), err=True)
+
 
 def parse_simple_filters(filters_list: List[str]) -> Dict[str, List[str]]:
     """Parse --filter flags into dict of filter_name -> [values].
@@ -396,15 +436,38 @@ def execute_search(
             "semantic search is not enabled" in error_msg
             or "semanticsearchacrossentities" in error_msg
         ):
-            raise click.ClickException(
+            raise SearchCliError(
                 "Semantic search is not available on this DataHub instance.\n\n"
                 "Possible reasons:\n"
                 "  • Semantic search is not enabled in the backend configuration\n"
                 "  • The entity types you're searching may not be configured for semantic search\n"
                 "  • Embeddings may not have been generated for your entities\n\n"
-                "Use 'datahub search diagnose' for more details, or use keyword search (default)."
+                "Use 'datahub search diagnose' for more details, or use keyword search (default).",
+                error_type="semantic_search_unavailable",
+                suggestion="datahub search diagnose",
             ) from e
-        raise click.ClickException(f"Search failed: {e}") from e
+        if "401" in error_msg or "403" in error_msg or "unauthorized" in error_msg:
+            raise SearchCliError(
+                f"Search failed: {e}",
+                error_type="permission_denied",
+                suggestion="Check your DataHub credentials and permissions.",
+                exit_code=EXIT_PERMISSION,
+            ) from e
+        if (
+            "connection" in error_msg
+            or "connect" in error_msg
+            or "timed out" in error_msg
+        ):
+            raise SearchCliError(
+                f"Search failed: {e}",
+                error_type="connection_error",
+                suggestion="Verify DataHub is running: datahub search diagnose",
+                exit_code=EXIT_CONNECTION,
+            ) from e
+        raise SearchCliError(
+            f"Search failed: {e}",
+            error_type="search_error",
+        ) from e
 
     # Handle facets-only mode
     if facets_only:
@@ -1062,6 +1125,59 @@ class _AgentAwareCommand(click.Command):
             formatter.write(agent_text)
 
 
+def _validate_query_inputs(
+    limit: int,
+    offset: int,
+    filters_list: tuple,
+    filters: Optional[str],
+    projection: Optional[str],
+) -> tuple:
+    """Validate and prepare query inputs, returning (limit, filter_obj, loaded_projection)."""
+    if limit < 1:
+        raise SearchCliError(
+            "--limit must be at least 1",
+            error_type="usage_error",
+            exit_code=EXIT_USAGE,
+        )
+    if limit > 50:
+        click.echo("Warning: limit capped at 50", err=True)
+        limit = 50
+
+    if offset < 0:
+        raise SearchCliError(
+            "--offset must be non-negative",
+            error_type="usage_error",
+            exit_code=EXIT_USAGE,
+        )
+
+    try:
+        filter_obj = validate_and_merge_filters(list(filters_list), filters)
+    except click.UsageError:
+        raise
+    except Exception as e:
+        raise SearchCliError(
+            str(e),
+            error_type="usage_error",
+            exit_code=EXIT_USAGE,
+        ) from e
+
+    loaded_projection: Optional[str] = None
+    if projection is not None:
+        try:
+            loaded_projection = _load_projection(projection)
+            _validate_projection(loaded_projection)
+        except click.UsageError:
+            raise
+        except Exception as e:
+            raise SearchCliError(
+                str(e),
+                error_type="usage_error",
+                exit_code=EXIT_USAGE,
+            ) from e
+
+    return limit, filter_obj, loaded_projection
+
+
 @search.command(name="query", cls=_AgentAwareCommand)
 @click.argument("query", default="*")
 @click.option(
@@ -1219,27 +1335,10 @@ def query(
     elif urns_only:
         output_format = "urns"
 
-    # Validate arguments
-    if limit < 1:
-        raise click.UsageError("--limit must be at least 1")
-    if limit > 50:
-        click.echo("Warning: limit capped at 50", err=True)
-        limit = 50
-
-    if offset < 0:
-        raise click.UsageError("--offset must be non-negative")
-
-    # Parse and merge filters
-    try:
-        filter_obj = validate_and_merge_filters(list(filters_list), filters)
-    except Exception as e:
-        raise click.UsageError(str(e)) from e
-
-    # Load and validate projection
-    loaded_projection: Optional[str] = None
-    if projection is not None:
-        loaded_projection = _load_projection(projection)
-        _validate_projection(loaded_projection)
+    # Validate and prepare inputs
+    limit, filter_obj, loaded_projection = _validate_query_inputs(
+        limit, offset, filters_list, filters, projection
+    )
 
     # Handle dry-run mode: build query info without connecting to DataHub
     if dry_run:
@@ -1273,10 +1372,12 @@ def query(
             view_urn=view,
             projection=loaded_projection,
         )
+    except SearchCliError:
+        raise
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(str(e)) from e
+        raise SearchCliError(f"Search failed: {e}", error_type="search_error") from e
 
     # Format and output results
     if facets_only:

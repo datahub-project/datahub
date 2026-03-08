@@ -5,6 +5,11 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.search_cli import (
+    EXIT_CONNECTION,
+    EXIT_GENERAL,
+    EXIT_PERMISSION,
+    EXIT_USAGE,
+    SearchCliError,
     _build_search_query,
     _extract_entity_name,
     _load_projection,
@@ -954,3 +959,110 @@ class TestDiagnoseCommand:
             assert parsed["keyword"]["connected"] is True
             assert parsed["keyword"]["total_entities"] == 5
             assert "semantic" in parsed
+
+
+class TestSearchCliError:
+    """Tests for structured error output and exit codes."""
+
+    def test_show_json_when_not_tty(self):
+        """Non-TTY stderr gets structured JSON error output."""
+        err = SearchCliError(
+            "Something failed",
+            error_type="search_error",
+            suggestion="try again",
+        )
+        with patch("datahub.cli.search_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = False
+            with patch("datahub.cli.search_cli.click.echo") as mock_echo:
+                err.show()
+                assert mock_echo.called
+                call_args = mock_echo.call_args
+                output = call_args[0][0]
+                parsed = json.loads(output)
+                assert parsed["error"] == "search_error"
+                assert parsed["message"] == "Something failed"
+                assert parsed["suggestion"] == "try again"
+                assert call_args[1]["err"] is True
+
+    def test_show_text_when_tty(self):
+        """TTY stderr gets click's default text error output."""
+        from datahub.cli.search_cli import click as search_click
+
+        err = SearchCliError(
+            "Something failed",
+            error_type="search_error",
+        )
+        with patch("datahub.cli.search_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = True
+            with patch.object(
+                search_click.ClickException, "show", return_value=None
+            ) as mock_super_show:
+                err.show()
+                mock_super_show.assert_called_once()
+
+    def test_exit_code_defaults_to_general(self):
+        err = SearchCliError("fail")
+        assert err.exit_code == EXIT_GENERAL
+
+    def test_exit_code_usage(self):
+        err = SearchCliError("bad input", exit_code=EXIT_USAGE)
+        assert err.exit_code == EXIT_USAGE
+
+    def test_exit_code_permission(self):
+        err = SearchCliError("denied", exit_code=EXIT_PERMISSION)
+        assert err.exit_code == EXIT_PERMISSION
+
+    def test_exit_code_connection(self):
+        err = SearchCliError("timeout", exit_code=EXIT_CONNECTION)
+        assert err.exit_code == EXIT_CONNECTION
+
+    def test_no_suggestion_omits_key(self):
+        """When suggestion is None, the JSON output omits the key."""
+        err = SearchCliError("fail", error_type="search_error")
+        with patch("datahub.cli.search_cli.sys") as mock_sys:
+            mock_sys.stderr.isatty.return_value = False
+            with patch("datahub.cli.search_cli.click.echo") as mock_echo:
+                err.show()
+                output = mock_echo.call_args[0][0]
+                parsed = json.loads(output)
+                assert "suggestion" not in parsed
+
+    def test_invalid_limit_exit_code(self):
+        """--limit 0 returns exit code 2 (usage error)."""
+        runner = CliRunner()
+        result = runner.invoke(search, ["*", "--limit", "0"])
+        assert result.exit_code == EXIT_USAGE
+
+    def test_invalid_offset_exit_code(self):
+        """--offset -1 returns exit code 2 (usage error)."""
+        runner = CliRunner()
+        result = runner.invoke(search, ["*", "--offset", "-1"])
+        assert result.exit_code == EXIT_USAGE
+
+    def test_semantic_search_error_type(self):
+        """Semantic search failure produces correct error type."""
+        with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
+            mock_graph = mock_get_graph.return_value
+            mock_graph.execute_graphql.side_effect = Exception(
+                "Semantic search is not enabled"
+            )
+            runner = CliRunner()
+            result = runner.invoke(search, ["query", "test", "--semantic"])
+            assert result.exit_code != 0
+
+    def test_connection_error_exit_code(self):
+        """Connection errors produce exit code 5."""
+        with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
+            mock_get_graph.side_effect = Exception("Connection refused")
+            runner = CliRunner()
+            result = runner.invoke(search, ["query", "test"])
+            assert result.exit_code != 0
+
+    def test_agent_context_includes_error_handling_section(self):
+        """AGENT_CONTEXT.md documents structured error handling."""
+        runner = CliRunner()
+        result = runner.invoke(search, ["--agent-context"])
+        assert result.exit_code == 0
+        assert "## Error Handling" in result.output
+        assert "usage_error" in result.output
+        assert "connection_error" in result.output
