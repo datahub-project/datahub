@@ -777,4 +777,3 @@ datahub check plugins
 - [DataHub CLI](../cli.md) - Main CLI documentation
 - [GraphQL Command](./graphql.md) - GraphQL query interface
 - [Dataset Command](./dataset.md) - Dataset-specific operations
-- [Search API Tutorial](../api/tutorials/search.md) - Programmatic search usage
