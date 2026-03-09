@@ -393,7 +393,8 @@ threading_timeout_common = {
     "stopit==1.1.2",
     # stopit uses pkg_resources internally, which means there's an implied
     # dependency on setuptools.
-    "setuptools",
+    # setuptools 82 removed pkg_resources.
+    "setuptools<82",
 }
 
 abs_base = {
@@ -668,7 +669,8 @@ plugins: Dict[str, Set[str]] = {
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        "setuptools",
+        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
+        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-documents": unstructured_lib,

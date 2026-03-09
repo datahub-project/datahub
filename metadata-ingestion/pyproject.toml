@@ -760,7 +760,7 @@ metabase = [
 
 mlflow = [
     "mlflow-skinny>=2.3.0,<2.21.0",
-    "setuptools",
+    "setuptools<82",
 ]
 
 mode = [
@@ -910,7 +910,7 @@ powerbi = [
     "more-itertools<11.0.0",
     "msal>=1.31.1,<2.0.0",
     "patchy==2.8.0",
-    "setuptools",
+    "setuptools<82",
     "sqlglot[c]==29.0.1",
     "sqlparse<1.0.0",
     "stopit==1.1.2",
@@ -1417,7 +1417,7 @@ all = [
     "requests_ntlm<2.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "setuptools",
+    "setuptools<82",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
