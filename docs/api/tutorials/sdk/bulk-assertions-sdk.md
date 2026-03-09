@@ -310,29 +310,24 @@ for dataset_urn in datasets:
 def create_column_assertions(datasets, columns_dict, client, registry):
     """Create smart column metric assertions for multiple datasets and columns."""
 
-    # Define rules for which columns should get which assertions
+    # Supported smart assertion metrics: null_count, unique_count,
+    # empty_count, zero_count, negative_count.
     assertion_rules = {
         # Null count checks for critical columns
         "null_checks": {
             "column_patterns": ["id", "*_id", "user_id", "email"],
             "metric_type": "null_count",
-            "operator": "equal_to",
-            "value": 0
         },
         # Unique count checks for ID columns
         "unique_checks": {
             "column_patterns": ["*_id", "email", "username"],
-            "metric_type": "unique_percentage",
-            "operator": "greater_than_or_equal_to",
-            "value": 0.95
+            "metric_type": "unique_count",
         },
-        # Range checks for numeric columns
-        "range_checks": {
-            "column_patterns": ["amount", "price", "quantity", "score"],
-            "metric_type": "min",
-            "operator": "greater_than_or_equal_to",
-            "value": 0
-        }
+        # Empty count checks for string columns
+        "empty_checks": {
+            "column_patterns": ["name", "description", "title"],
+            "metric_type": "empty_count",
+        },
     }
 
     for dataset_urn in datasets:
@@ -357,8 +352,6 @@ def create_column_assertions(datasets, columns_dict, client, registry):
                             dataset_urn=dataset_urn,
                             column_name=column_name,
                             metric_type=rule_config["metric_type"],
-                            operator=rule_config["operator"],
-                            criteria_parameters=rule_config["value"],
                             display_name=f"{rule_name.replace('_', ' ').title()} - {column_name}",
                             # Detection mechanism for column metrics
                             detection_mechanism="all_rows_query_datahub_dataset_profile",
