@@ -28,3 +28,27 @@ jobs:
       - name: run prettier --check
         run: |-
           ./gradlew :datahub-web-react:githubActionsPrettierCheck
+
+  validate_post_workflow_list:
+    name: validate_post_workflow_list
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install pyyaml
+        run: uv pip install pyyaml --system
+      - name: Validate post-workflow-actions.yml workflow list
+        run: python .github/scripts/validate_post_workflow_list.py
+      - name: Write step summary
+        if: always()
+        run: cat post-workflow-validation-summary.md >> "$GITHUB_STEP_SUMMARY"

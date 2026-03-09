@@ -4114,6 +4114,56 @@ class TestPlatformDetection:
         platform = connector._extract_platform_from_jdbc_url("")
         assert platform == "unknown"
 
+    def test_debezium_get_platform_returns_mssql_for_sqlserver(self) -> None:
+        """Test that Debezium SQL Server connector returns 'mssql' (DataHub canonical name)."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        assert connector.get_platform() == "mssql"
+
+    def test_debezium_get_platform_other_connectors(self) -> None:
+        """Test get_platform for other Debezium connector types."""
+        test_cases = {
+            "io.debezium.connector.postgresql.PostgresConnector": "postgres",
+            "io.debezium.connector.mysql.MySqlConnector": "mysql",
+            "io.debezium.connector.oracle.OracleConnector": "oracle",
+            "io.debezium.connector.db2.Db2Connector": "db2",
+            "io.debezium.connector.mongodb.MongoDbConnector": "mongodb",
+            "io.debezium.connector.vitess.VitessConnector": "vitess",
+            "com.unknown.SomeConnector": "unknown",
+        }
+
+        for connector_class, expected_platform in test_cases.items():
+            manifest = ConnectorManifest(
+                name="test",
+                type="source",
+                config={"connector.class": connector_class},
+                tasks=[],
+                topic_names=[],
+            )
+
+            config = create_mock_kafka_connect_config()
+            report = Mock(spec=KafkaConnectSourceReport)
+            connector = DebeziumSourceConnector(manifest, config, report)
+
+            assert connector.get_platform() == expected_platform, (
+                f"Expected '{expected_platform}' for {connector_class}, "
+                f"got '{connector.get_platform()}'"
+            )
+
 
 class TestTransformPluginAdditionalCoverage:
     """Additional tests for transform plugin coverage gaps."""
