@@ -1,3 +1,4 @@
+import importlib.resources
 import json
 import os
 import tempfile
@@ -2539,10 +2540,8 @@ class TestAgentContext:
 
     def test_agent_context_file_contains_key_sections(self):
         """GRAPHQL_AGENT_CONTEXT.md has all expected sections."""
-        import importlib.resources as pkg_resources
-
         text = (
-            pkg_resources.files("datahub.cli.resources")
+            importlib.resources.files("datahub.cli.resources")
             .joinpath("GRAPHQL_AGENT_CONTEXT.md")
             .read_text(encoding="utf-8")
         )
@@ -2554,10 +2553,8 @@ class TestAgentContext:
         assert "## Common Recipes" in text
 
     def test_agent_context_file_documents_exit_codes(self):
-        import importlib.resources as pkg_resources
-
         text = (
-            pkg_resources.files("datahub.cli.resources")
+            importlib.resources.files("datahub.cli.resources")
             .joinpath("GRAPHQL_AGENT_CONTEXT.md")
             .read_text(encoding="utf-8")
         )
