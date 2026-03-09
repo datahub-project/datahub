@@ -40,6 +40,8 @@ services:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
+    - DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+    - DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001
     - BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false
     - SEARCH_SERVICE_ENABLE_CACHE=false
@@ -73,6 +75,8 @@ services:
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - REPROCESS_DEFAULT_BROWSE_PATHS_V2=${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003
+    - DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+    - DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
     volumes:
     - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
