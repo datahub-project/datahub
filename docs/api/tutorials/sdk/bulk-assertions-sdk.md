@@ -310,39 +310,21 @@ for dataset_urn in datasets:
 def create_column_assertions(datasets, columns_dict, client, registry):
     """Create smart column metric assertions for multiple datasets and columns."""
 
-    # Define rules for which columns should get which assertions.
-    #
-    # Smart Assertions (AI-powered) currently only support the following
-    # column metrics: null_count, unique_count, empty_count, zero_count,
-    # and negative_count. For other metrics (e.g. min, max, mean), use a
-    # regular (non-smart) column metric assertion with a fixed threshold.
-    smart_assertion_rules = {
-        # Null count checks for critical columns
+    # Supported smart assertion metrics: null_count, unique_count,
+    # empty_count, zero_count, negative_count.
+    assertion_rules = {
         "null_checks": {
             "column_patterns": ["id", "*_id", "user_id", "email"],
             "metric_type": "null_count",
         },
-        # Unique count checks for ID columns
         "unique_checks": {
             "column_patterns": ["*_id", "email", "username"],
             "metric_type": "unique_count",
         },
-        # Empty count checks for string columns
         "empty_checks": {
             "column_patterns": ["name", "description", "title"],
             "metric_type": "empty_count",
         },
-    }
-
-    # Fixed-threshold rules that use metrics not supported by Smart Assertions
-    fixed_threshold_rules = {
-        # Range checks for numeric columns (uses min metric — not supported for Smart Assertions)
-        "range_checks": {
-            "column_patterns": ["amount", "price", "quantity", "score"],
-            "metric_type": "min",
-            "operator": "greater_than_or_equal_to",
-            "value": 0
-        }
     }
 
     for dataset_urn in datasets:
@@ -359,8 +341,7 @@ def create_column_assertions(datasets, columns_dict, client, registry):
             column_name = column["name"]
             column_type = column["type"].upper()
 
-            # Create Smart (AI-powered) assertions for supported metrics
-            for rule_name, rule_config in smart_assertion_rules.items():
+            for rule_name, rule_config in assertion_rules.items():
                 if should_apply_rule(column_name, column_type, rule_config):
                     try:
                         assertion = client.assertions.sync_smart_column_metric_assertion(
@@ -377,31 +358,7 @@ def create_column_assertions(datasets, columns_dict, client, registry):
                             registry["column_metrics"][dataset_key][column_name] = {}
                         registry["column_metrics"][dataset_key][column_name][rule_name] = str(assertion.urn)
 
-                        print(f"✅ Created smart {rule_name} assertion for {dataset_urn.name}.{column_name}")
-
-                    except Exception as e:
-                        print(f"❌ Failed to create smart {rule_name} assertion for {dataset_urn.name}.{column_name}: {e}")
-
-            # Create fixed-threshold assertions for metrics not supported by Smart Assertions
-            for rule_name, rule_config in fixed_threshold_rules.items():
-                if should_apply_rule(column_name, column_type, rule_config):
-                    try:
-                        assertion = client.assertions.sync_column_metric_assertion(
-                            dataset_urn=dataset_urn,
-                            column_name=column_name,
-                            metric_type=rule_config["metric_type"],
-                            operator=rule_config["operator"],
-                            criteria_parameters=rule_config["value"],
-                            display_name=f"{rule_name.replace('_', ' ').title()} - {column_name}",
-                            tags=["automated", "column_quality", rule_name],
-                            enabled=True
-                        )
-
-                        if column_name not in registry["column_metrics"][dataset_key]:
-                            registry["column_metrics"][dataset_key][column_name] = {}
-                        registry["column_metrics"][dataset_key][column_name][rule_name] = str(assertion.urn)
-
-                        print(f"✅ Created fixed-threshold {rule_name} assertion for {dataset_urn.name}.{column_name}")
+                        print(f"✅ Created {rule_name} assertion for {dataset_urn.name}.{column_name}")
 
                     except Exception as e:
                         print(f"❌ Failed to create {rule_name} assertion for {dataset_urn.name}.{column_name}: {e}")
