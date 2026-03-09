@@ -68,6 +68,11 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/snowflake",
             },
+            {
+              label: "Microsoft Copilot Studio",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/copilot-studio",
+            },
           ],
         },
         {
