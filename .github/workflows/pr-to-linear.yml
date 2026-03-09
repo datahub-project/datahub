@@ -311,7 +311,10 @@ jobs:
             echo "✅ Created Linear ticket: $ISSUE_ID ($TEAM_KEY)"
             echo "📎 $ISSUE_URL"
 
-            if ! gh pr comment "$PR_NUMBER" --body "Linear: $ISSUE_ID" 2>/dev/null; then
+            PR_COMMENT="Linear: $ISSUE_ID
+
+Thanks for your contribution! We've created an internal ticket to track this PR. A member of our team will be triaged to review it within the next few business days — you'll get a follow-up comment once a reviewer is assigned."
+            if ! gh pr comment "$PR_NUMBER" --body "$PR_COMMENT" 2>/dev/null; then
               echo "⚠️  Created ticket but failed to comment on PR"
             fi
           else

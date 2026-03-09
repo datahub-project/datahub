@@ -151,6 +151,7 @@ export const LabelContainer = styled.div({
 export const OptionContainer = styled.div({
     display: 'flex',
     flexDirection: 'column',
+    width: '100%',
 });
 
 export const DescriptionContainer = styled.span(({ theme }) => ({
