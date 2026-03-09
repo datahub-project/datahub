@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 > **Note**: Ask DataHub Plugins is currently in **Private Beta**. To enable this feature, please reach out to your DataHub customer support representative.
 
-**Ask DataHub Plugins** let you connect external tools — like Snowflake, Databricks, dbt Cloud, GitHub, Glean, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md).
+**Ask DataHub Plugins** let you connect external tools — like Snowflake, Databricks, BigQuery, dbt Cloud, GitHub, Glean, and more — directly into [Ask DataHub](../ask-datahub.md) via the [Model Context Protocol (MCP)](../mcp.md).
 
 With Plugins, can connect any MCP-compatible server that supports [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports). Once connected, Ask DataHub can use these tools alongside your metadata catalog to answer richer questions and perform cross-tool workflows.
 
@@ -14,7 +14,7 @@ With Plugins, can connect any MCP-compatible server that supports [Streamable HT
 
 Plugins unlock powerful capabilities that go beyond what metadata alone can provide:
 
-- **Conversational analytics**: Find the right data in DataHub, then query it directly on Snowflake or Databricks — all in a single conversation. DataHub acts as a semantic layer, guiding the AI to the right tables before executing queries.
+- **Conversational analytics**: Find the right data in DataHub, then query it directly on Snowflake, Databricks, or BigQuery — all in a single conversation. DataHub acts as a semantic layer, guiding the AI to the right tables before executing queries.
 - **Cross-tool debugging**: Root-cause a data issue by checking dbt run history, querying tables on Snowflake, and reviewing recent code changes on GitHub — without leaving the chat.
 - **Governance workflows**: Verify data lineage in DataHub, check transformation logic in dbt, and review access controls — bringing together context from multiple systems.
 
@@ -26,6 +26,7 @@ DataHub provides built-in plugin templates for popular tools. For connecting to 
 | -------------- | --------------------------------------------------- | --------------------------------------------- |
 | **Snowflake**  | Query and explore your Snowflake data               | [Setup Guide](./snowflake.md)                 |
 | **Databricks** | Query and explore your Databricks data              | [Setup Guide](./databricks.md)                |
+| **BigQuery**   | Query and explore your BigQuery data                | [Setup Guide](./bigquery.md)                  |
 | **dbt Cloud**  | Check job runs, model definitions, and test results | [Setup Guide](./dbt.md)                       |
 | **GitHub**     | Browse repositories, raise PRs, and manage issues   | [Setup Guide](./github.md)                    |
 | **Glean**      | Search your organization's knowledge base           | [Setup Guide](./glean.md)                     |
