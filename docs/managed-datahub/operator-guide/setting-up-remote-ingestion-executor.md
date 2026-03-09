@@ -297,6 +297,7 @@ To update your Kubernetes deployment (e.g., to deploy a new image version or mod
 helm repo update acryl
 
 # Upgrade your existing Helm release
+# See https://helm.sh/docs/helm/helm_upgrade/ for more options
 helm upgrade \
   --reuse-values \
   --set <key>="<value>" \ # if any new options need to be set
