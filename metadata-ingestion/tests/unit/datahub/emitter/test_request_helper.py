@@ -290,3 +290,36 @@ def test_from_mcp_search_sync_flag():
     assert request.method == "delete"
     # For DELETE, there's no payload so no headers
     assert len(request.payload) == 0
+
+
+def test_from_mcp_upsert_with_mcp_headers():
+    """Test that MCP headers (e.g. If-Version-Match) are passed through to the request payload."""
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:chart:(test,test)",
+        aspect=CHART_INFO,
+        headers={"If-Version-Match": "42"},
+    )
+
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
+
+    assert request is not None
+    assert request.payload[0]["chartInfo"]["headers"] == {"If-Version-Match": "42"}
+
+
+def test_from_mcp_upsert_mcp_headers_merged_with_search_sync():
+    """Test that MCP headers and search_sync_flag header are merged in payload."""
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:chart:(test,test)",
+        aspect=CHART_INFO,
+        headers={"If-Version-Match": "3"},
+    )
+
+    request = OpenApiRequest.from_mcp(
+        mcp, GMS_SERVER, async_flag=False, search_sync_flag=True
+    )
+
+    assert request is not None
+    assert request.payload[0]["chartInfo"]["headers"] == {
+        "If-Version-Match": "3",
+        "X-DataHub-Sync-Index-Update": "true",
+    }
