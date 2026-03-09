@@ -171,6 +171,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
             retry_max_times=self.config.retry_max_times,
+            pool_connections=self.config.pool_connections,
+            pool_maxsize=self.config.pool_maxsize,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
