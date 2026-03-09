@@ -72,6 +72,11 @@ module.exports = {
                   id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
                 },
                 {
+                  label: "BigQuery",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/bigquery",
+                },
+                {
                   label: "dbt Cloud",
                   type: "doc",
                   id: "docs/features/feature-guides/ask-datahub-plugins/dbt",
