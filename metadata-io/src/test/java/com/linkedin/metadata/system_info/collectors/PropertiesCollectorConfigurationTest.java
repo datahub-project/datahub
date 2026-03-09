@@ -77,7 +77,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+          // Events API allowed topics may reveal internal Kafka topic names
+          "eventsApi.pollAllowedTopics");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
