@@ -239,7 +239,6 @@ public class PoliciesConfig {
           "Get Topic Events",
           "The ability to use the Events API to read events from custom Kafka topics.");
 
-  // Topic Privileges
   public static final ResourcePrivileges TOPIC_PRIVILEGES =
       ResourcePrivileges.of(
           "topic",
