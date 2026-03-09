@@ -12,7 +12,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 import requests
@@ -21,61 +21,43 @@ from tests.utils import run_datahub_cmd, wait_for_healthcheck_util
 
 
 class TestGraphQLCLIStandalone:
-    """Fast standalone tests that don't require full DataHub functionality."""
-
-    def setup_method(self):
-        """Set up test environment variables."""
-        self.original_env = os.environ.copy()
-        # Ensure we have the required DataHub connection info
-        os.environ.setdefault("DATAHUB_GMS_HOST", "http://localhost:8080")
-        os.environ.setdefault("DATAHUB_GMS_TOKEN", "")
-
-    def teardown_method(self):
-        """Restore original environment."""
-        os.environ.clear()
-        os.environ.update(self.original_env)
+    """Fast standalone tests that validate GraphQL CLI behavior against a live DataHub."""
 
     def _run_datahub_cli(
-        self, args: list[str], input_data: Optional[str] = None
+        self, auth_session: Any, args: list[str], input_data: Optional[str] = None
     ) -> tuple[int, str, str]:
-        """
-        Run datahub CLI command and return (exit_code, stdout, stderr).
-
-        Args:
-            args: CLI arguments (e.g., ['graphql', '--schema'])
-            input_data: Optional stdin input
-
-        Returns:
-            Tuple of (exit_code, stdout, stderr)
-        """
-        result = run_datahub_cmd(args, input=input_data)
+        result = run_datahub_cmd(
+            args,
+            input=input_data,
+            env={
+                "DATAHUB_GMS_URL": auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+            },
+        )
         return result.exit_code, result.stdout, result.stderr
 
-    def test_graphql_help(self):
+    def test_graphql_help(self, auth_session: Any):
         """Test that GraphQL CLI help is accessible."""
-        exit_code, stdout, stderr = self._run_datahub_cli(["graphql", "--help"])
+        exit_code, stdout, stderr = self._run_datahub_cli(
+            auth_session, ["graphql", "--help"]
+        )
 
         assert exit_code == 0, f"CLI help failed with stderr: {stderr}"
         assert "GraphQL" in stdout or "graphql" in stdout
         assert "--list-operations" in stdout or "--schema-path" in stdout
         assert "--query" in stdout
 
-    def test_graphql_schema_discovery(self):
-        """Test GraphQL schema discovery functionality."""
-        # This should work even without authentication for schema discovery
+    def test_graphql_schema_discovery(self, auth_session: Any):
+        """Test GraphQL schema discovery via live introspection."""
         exit_code, stdout, stderr = self._run_datahub_cli(
-            ["graphql", "--list-operations"]
+            auth_session, ["graphql", "--list-operations"]
         )
 
-        # Command may exit with error (no DataHub connection or auth failure) but should not crash
-        assert exit_code in [0, 1, 4], f"Unexpected exit code. stderr: {stderr}"
-        assert "Traceback" not in stderr  # No Python crashes
-        assert (
-            "graphql" not in stderr.lower() or "command not found" not in stderr.lower()
-        )
+        assert exit_code == 0, f"Schema discovery failed. stderr: {stderr}"
+        assert "Traceback" not in stderr
 
-    def test_graphql_file_path_handling(self):
-        """Test that GraphQL CLI properly handles file path arguments."""
+    def test_graphql_file_path_handling(self, auth_session: Any):
+        """Test that GraphQL CLI properly handles absolute file path arguments."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".graphql", delete=False
         ) as f:
@@ -83,13 +65,12 @@ class TestGraphQLCLIStandalone:
             temp_path = f.name
 
         try:
-            # Test with absolute path
             exit_code, stdout, stderr = self._run_datahub_cli(
-                ["graphql", "--query", temp_path, "--format", "json"]
+                auth_session,
+                ["graphql", "--query", temp_path, "--format", "json"],
             )
 
-            # Should recognize as file path (may fail due to missing DataHub connection or auth failure)
-            assert exit_code in [0, 1, 4], (
+            assert exit_code == 0, (
                 f"Unexpected exit code with file path. stderr: {stderr}"
             )
             assert "No such file or directory" not in stderr
@@ -98,26 +79,24 @@ class TestGraphQLCLIStandalone:
         finally:
             os.unlink(temp_path)
 
-    def test_graphql_relative_path_handling(self):
+    def test_graphql_relative_path_handling(self, auth_session: Any):
         """Test that GraphQL CLI handles relative paths correctly."""
-        # Create a temporary GraphQL file in a subdirectory
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             query_file = temp_path / "test.graphql"
             query_file.write_text("{ __typename }")
 
-            # Change to parent directory and use relative path
             original_cwd = os.getcwd()
             try:
                 os.chdir(temp_path.parent)
                 relative_path = os.path.relpath(str(query_file))
 
                 exit_code, stdout, stderr = self._run_datahub_cli(
-                    ["graphql", "--query", relative_path, "--format", "json"]
+                    auth_session,
+                    ["graphql", "--query", relative_path, "--format", "json"],
                 )
 
-                # Should recognize relative path (may fail due to missing DataHub connection or auth failure)
-                assert exit_code in [0, 1, 4], (
+                assert exit_code == 0, (
                     f"Relative path handling failed. stderr: {stderr}"
                 )
                 assert "No such file or directory" not in stderr
