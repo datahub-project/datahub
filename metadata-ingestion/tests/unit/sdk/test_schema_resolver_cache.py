@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-import pytest
-
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata
 
@@ -10,15 +8,6 @@ _FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,
 _FAKE_SCHEMA: GraphQLSchemaMetadata = {
     "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
 }
-
-
-@pytest.fixture(autouse=True)
-def clear_lru_cache():
-    # _make_schema_resolver is lru_cache'd at the class level — clear between tests
-    # to prevent cross-test contamination.
-    DataHubGraph._make_schema_resolver.cache_clear()
-    yield
-    DataHubGraph._make_schema_resolver.cache_clear()
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
