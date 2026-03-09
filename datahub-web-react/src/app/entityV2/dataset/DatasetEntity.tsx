@@ -17,7 +17,7 @@ import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { GOVERNANCE_TAB_NAME, QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
+import { GOVERNANCE_TAB_NAME, PRIVACY_TAB_NAME, QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
@@ -67,6 +67,7 @@ import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPat
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 import { GovernanceTab } from '@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab';
+import { PrivacyTab } from '@app/entity/shared/tabs/Dataset/Privacy/PrivacyTab';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
@@ -253,6 +254,20 @@ export class DatasetEntity implements Entity<Dataset> {
                         const failingTests = dataset?.dataset?.testResults?.failing || [];
                         return passingTests.length + failingTests.length;
                     },
+                },
+                {
+                    name: PRIVACY_TAB_NAME,
+                    icon: () => (
+                        <span
+                            style={{
+                                marginRight: 6,
+                                verticalAlign: '-0.2em',
+                            }}
+                        >
+                            <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                        </span>
+                    ),
+                    component: PrivacyTab,
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.
