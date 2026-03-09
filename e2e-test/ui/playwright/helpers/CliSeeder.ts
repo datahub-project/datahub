@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
  * CliSeeder - Handles test data seeding via DataHub CLI
  *
  * Uses the datahub CLI to ingest fixture files, which is the most reliable
- * approach and matches how Cypress uses the Python SDK.
+ * approach for Playwright test data seeding.
  *
  * @example
  * ```typescript
