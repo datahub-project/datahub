@@ -52,8 +52,10 @@ Field assertions validate individual columns or fields within a dataset. They co
 
 - Null percentage must be less than 5%
 - Unique count must equal row count (uniqueness check)
-- Mean value must be between 0 and 100
-- Standard deviation must be less than 10
+- Mean value must be between 0 and 100 _(fixed threshold only)_
+- Standard deviation must be less than 10 _(fixed threshold only)_
+
+> **Note**: When using [Smart Assertions (AI Anomaly Detection)](/docs/managed-datahub/observe/smart-assertions.md), only the following column metrics are currently supported: `null_count`, `unique_count`, `empty_count`, `zero_count`, and `negative_count`. Metrics such as `mean`, `stddev`, `min`, `max`, and `median` are available for standard field metric assertions with fixed thresholds.
 
 <details>
 <summary>Python SDK: Create a field uniqueness assertion</summary>
