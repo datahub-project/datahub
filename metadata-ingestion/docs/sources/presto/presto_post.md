@@ -64,6 +64,6 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Review logs for SQL parsing warnings
 - Simplify view definitions if possible
 
-### Troubleshooting
+#### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

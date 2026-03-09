@@ -390,6 +390,6 @@ If you've tried the above steps and still experiencing issues:
    - Include relevant log excerpts
    - Describe expected vs actual behavior
 
-### Troubleshooting
+#### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

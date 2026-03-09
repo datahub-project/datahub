@@ -154,6 +154,90 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     return new_content
 
 
+def _extract_headings(markdown: str) -> List[tuple[int, str, int]]:
+    headings: List[tuple[int, str, int]] = []
+    in_fence = False
+    for idx, line in enumerate(markdown.splitlines(), start=1):
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if m := re.match(r"^(#{1,6})\s+(.*)$", line):
+            headings.append((len(m.group(1)), m.group(2).strip(), idx))
+    return headings
+
+
+def _validate_required_h3_contract(
+    file_path: str, markdown: str, required_h3_headings: List[str]
+) -> None:
+    headings = _extract_headings(markdown)
+    required_set = set(required_h3_headings)
+
+    if invalid := [(lvl, title, line) for lvl, title, line in headings if lvl <= 2]:
+        invalid_str = ", ".join(
+            [f"H{lvl} '{title}' (line {line})" for lvl, title, line in invalid]
+        )
+        raise ValueError(
+            f"{file_path} may only contain H3+ headings. Found invalid headings: {invalid_str}"
+        )
+
+    h3_headings = [title for lvl, title, _ in headings if lvl == 3]
+    if extras := [title for title in h3_headings if title not in required_set]:
+        raise ValueError(
+            f"{file_path} has non-canonical H3 headings: {extras}. "
+            f"Allowed H3 headings: {required_h3_headings}"
+        )
+
+    for heading in required_h3_headings:
+        if h3_headings.count(heading) != 1:
+            raise ValueError(
+                f"{file_path} must contain exactly one '### {heading}' section."
+            )
+
+    indices = [h3_headings.index(heading) for heading in required_h3_headings]
+    if indices != sorted(indices):
+        raise ValueError(
+            f"{file_path} has required H3 headings out of order. "
+            f"Expected order: {required_h3_headings}"
+        )
+
+
+def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
+    headings = _extract_headings(markdown)
+
+    allowed_h2 = {"Overview", "Concept Mapping"}
+
+    if invalid_h1 := [(title, line) for lvl, title, line in headings if lvl == 1]:
+        invalid_str = ", ".join(
+            [f"'{title}' (line {line})" for title, line in invalid_h1]
+        )
+        raise ValueError(
+            f"{file_path} may not contain H1 headings. Found: {invalid_str}"
+        )
+
+    h2_headings = [title for lvl, title, _ in headings if lvl == 2]
+    if extras := [title for title in h2_headings if title not in allowed_h2]:
+        raise ValueError(
+            f"{file_path} has unsupported H2 headings: {extras}. "
+            "Only '## Overview' and '## Concept Mapping' are allowed."
+        )
+
+    for heading in ["Overview", "Concept Mapping"]:
+        if h2_headings.count(heading) != 1:
+            raise ValueError(
+                f"{file_path} must contain exactly one '## {heading}' section."
+            )
+
+    overview_idx = h2_headings.index("Overview")
+    concept_idx = h2_headings.index("Concept Mapping")
+    if overview_idx > concept_idx:
+        raise ValueError(
+            f"{file_path} must list '## Overview' before '## Concept Mapping'."
+        )
+
+
 def load_connector_registry(connector_registry_dir: str) -> Dict:
     """Load connector registry data from all package JSON files in directory."""
     registry_dir = pathlib.Path(connector_registry_dir) / "connector_registry"
@@ -386,6 +470,7 @@ def generate(  # noqa: C901
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
 
                 if file_name == "README":
+                    _validate_platform_readme_contract(path, final_markdown)
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
                     platforms[platform_name].custom_docs_pre = final_markdown
@@ -398,10 +483,24 @@ def generate(  # noqa: C901
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
+                        _validate_required_h3_contract(
+                            path,
+                            final_markdown,
+                            required_h3_headings=["Overview", "Prerequisites"],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
+                        _validate_required_h3_contract(
+                            path,
+                            final_markdown,
+                            required_h3_headings=[
+                                "Capabilities",
+                                "Limitations",
+                                "Troubleshooting",
+                            ],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_post = final_markdown
@@ -420,6 +519,24 @@ def generate(  # noqa: C901
                 platforms[platform_name].plugins[
                     plugin_name
                 ].starter_recipe = pathlib.Path(path).read_text()
+
+    for platform in platforms.values():
+        if not platform.custom_docs_pre:
+            raise ValueError(
+                f"Missing README.md docs for platform '{platform.id}'. "
+                "Each platform must provide README.md with required sections."
+            )
+        for plugin_name, plugin in platform.plugins.items():
+            if not plugin.custom_docs_pre:
+                raise ValueError(
+                    f"Missing {plugin_name}_pre.md for platform '{platform.id}'. "
+                    "Each module must provide a _pre.md file with required sections."
+                )
+            if not plugin.custom_docs_post:
+                raise ValueError(
+                    f"Missing {plugin_name}_post.md for platform '{platform.id}'. "
+                    "Each module must provide a _post.md file with required sections."
+                )
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
@@ -483,10 +600,9 @@ def generate(  # noqa: C901
                 #                    )
                 f.write("</table>\n\n")
             # Insert platform-level authored docs from README.md before module docs.
-            if platform.custom_docs_pre:
-                f.write("\n")
-                f.write(platform.custom_docs_pre.strip())
-                f.write("\n")
+            f.write("\n")
+            f.write(platform.custom_docs_pre.strip())
+            f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
                 # Always use ### for all content sections (consistent baseline)
@@ -516,17 +632,8 @@ def generate(  # noqa: C901
                     )
                 f.write("\n")
 
-                # PRE authored module docs (<module>_pre.md), or fallback template.
-                if plugin.custom_docs_pre and plugin.custom_docs_pre.strip():
-                    f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
-                else:
-                    f.write(
-                        f"{section_heading} Overview\n"
-                        f"The `{plugin_name}` module provides ingestion support for {platform.name}.\n\n"
-                        f"{section_heading} Prerequisites\n"
-                        "Ensure connectivity to the source system, valid authentication credentials, "
-                        "and the required read permissions before running ingestion.\n\n"
-                    )
+                # PRE authored module docs (<module>_pre.md).
+                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
@@ -588,18 +695,8 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         "Refer to the source code coordinates and module guidance below.\n\n"
                     )
 
-                # POST authored module docs (<module>_post.md or <module>.md), or fallback template.
-                if plugin.custom_docs_post and plugin.custom_docs_post.strip():
-                    f.write(f"{plugin.custom_docs_post.strip()}\n\n")
-                else:
-                    f.write(
-                        f"{section_heading} Capabilities\n"
-                        "Use the Important Capabilities table above as the source of truth for feature support.\n\n"
-                        f"{section_heading} Limitations\n"
-                        "Behavior may vary based on source APIs, permissions, and metadata availability.\n\n"
-                        f"{section_heading} Troubleshooting\n"
-                        "If ingestion fails, verify authentication, permissions, connectivity, and module scope configuration.\n\n"
-                    )
+                # POST authored module docs (<module>_post.md).
+                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
 
                 if plugin.classname:
                     f.write(f"\n{section_heading} Code Coordinates\n")

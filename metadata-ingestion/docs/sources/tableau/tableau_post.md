@@ -25,6 +25,6 @@ Follow the below steps to enable the derived permissions:
 2.  From the left navigation pane, click Settings.
 3.  On the General tab, under Automatic Access to Metadata about Databases and Tables, select the `Automatically grant authorized users access to metadata about databases and tables` check box.
 
-### Troubleshooting
+#### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

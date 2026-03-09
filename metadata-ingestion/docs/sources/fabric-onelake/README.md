@@ -18,7 +18,7 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 
 Modules on this platform: `fabric-onelake`.
 
-## Microsoft Fabric OneLake Connector
+### Microsoft Fabric OneLake Connector
 
 This connector extracts metadata from Microsoft Fabric OneLake, including workspaces, lakehouses, warehouses, schemas, and tables.
 

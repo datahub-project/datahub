@@ -186,7 +186,7 @@ The `use_connect_topics_api` flag controls topic retrieval behavior:
 The new reverse transform pipeline strategy handles complex scenarios automatically:
 
 ```yaml
-## Example: EventRouter + RegexRouter chain
+### Example: EventRouter + RegexRouter chain
 transforms: EventRouter,RegexRouter
 transforms.EventRouter.type: io.debezium.transforms.outbox.EventRouter
 transforms.RegexRouter.type: org.apache.kafka.connect.transforms.RegexRouter

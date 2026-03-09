@@ -56,7 +56,7 @@ This creates a managed ingestion source in DataHub that automatically processes 
 - **State Size:** State file grows with number of documents (includes hash for each)
 - **State Backend:** Requires DataHub or file-based state provider
 
-### Limitations
+#### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
@@ -216,6 +216,6 @@ Unable to load credentials from any provider in the chain
      max_characters: 1000 # Larger chunks = fewer embeddings
    ```
 
-### Troubleshooting
+#### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

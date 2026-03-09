@@ -51,6 +51,6 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Review logs for "Failed to parse storage location" warnings
 - See the "Storage Lineage" section above for more troubleshooting tips
 
-### Troubleshooting
+#### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
