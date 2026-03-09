@@ -256,10 +256,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         """Process documents using GraphQL search (batch mode)."""
         logger.info("Running in batch mode")
 
-        # Fetch documents from DataHub
+        # --- Pass 1: NATIVE documents ---
         documents = self._fetch_documents_graphql()
 
-        # Process each document
         for doc in documents:
             # Check if we should process this document (incremental mode)
             if (
@@ -279,6 +278,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Update state after successful processing
             if self.config.incremental.enabled:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
+
+        # --- Pass 2: EXTERNAL documents — resolve __pending__ chunks ---
+        # EXTERNAL documents (Notion, Confluence, etc.) are skipped in Pass 1 because
+        # DataHubDocumentsSource does not re-chunk them from contents.text.
+        # _process_document_for_pending_chunks is a no-op when no pending chunks exist.
+        external_urns = self._fetch_external_document_urns()
+        if external_urns:
+            logger.info(
+                f"Scanning {len(external_urns)} external document(s) for pending chunks..."
+            )
+        for urn in external_urns:
+            yield from self._process_document_for_pending_chunks(urn)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -654,19 +665,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             query getDocumentPlatform($urn: String!) {
                 entity(urn: $urn) {
                     ... on Document {
-                        dataPlatformInstance {
-                            platform {
-                                urn
-                            }
+                        platform {
+                            urn
                         }
                     }
                 }
             }
             """
             response = self.graph.execute_graphql(query, {"urn": entity_urn})
-            entity = response.get("entity", {})
-            platform_instance = entity.get("dataPlatformInstance", {})
-            platform = platform_instance.get("platform", {})
+            entity = response.get("entity") or {}
+            platform = entity.get("platform") or {}
             platform_urn = platform.get("urn")
 
             if platform_urn and isinstance(platform_urn, str):
@@ -808,10 +816,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         return False
 
     def _extract_platform_from_entity(self, entity: dict[str, Any]) -> Optional[str]:
-        """Extract platform name from GraphQL entity response."""
-        # Try to get from dataPlatformInstance
-        platform_instance = entity.get("dataPlatformInstance", {})
-        platform = platform_instance.get("platform", {})
+        """Extract platform name from GraphQL entity response.
+
+        Uses the Document.platform field (not dataPlatformInstance.platform.urn) because
+        the dataPlatformInstance resolver on the Document type returns null in GraphQL
+        even when the aspect is stored.  Document.platform resolves correctly.
+        """
+        platform = entity.get("platform") or {}
         platform_urn = platform.get("urn")
         if platform_urn and isinstance(platform_urn, str):
             # Extract platform name from URN (e.g., "urn:li:dataPlatform:notion" → "notion")
@@ -819,6 +830,110 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if len(parts) >= 3:
                 return parts[-1]
         return None
+
+    def _fetch_external_document_urns(self) -> list[str]:
+        """Fetch URNs of EXTERNAL documents that need pending-chunk resolution in batch mode.
+
+        EXTERNAL documents (Notion, Confluence, etc.) are skipped by the main
+        _fetch_documents_graphql pass because DataHubDocumentsSource does not
+        re-chunk them from contents.text.  This method collects their URNs so
+        batch mode can call _process_document_for_pending_chunks on each one.
+
+        The OpenSearch filter is:  embeddings.__pending__ EXISTS
+                                OR embeddings NOT EXISTS
+        This skips EXTERNAL docs that already have real embeddings — they are done.
+        """
+        query = """
+        query listDocuments($input: SearchInput!) {
+          search(input: $input) {
+            searchResults {
+              entity {
+                urn
+                ... on Document {
+                  info {
+                    source {
+                      sourceType
+                    }
+                  }
+                  platform {
+                    urn
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        search_input: dict[str, Any] = {
+            "type": "DOCUMENT",
+            "query": "*",
+            "start": 0,
+            "count": 1000,
+            # Only return docs that need work:
+            #   - __pending__ exists  → source stored chunks, real embeddings not yet generated
+            #   - embeddings absent   → doc has never been through the embedding pipeline
+            # Docs that already have real (non-pending) embeddings are skipped server-side.
+            "orFilters": [
+                {
+                    "and": [
+                        {
+                            "field": "embeddings.__pending__",
+                            "condition": "EXISTS",
+                            "values": [],
+                        }
+                    ]
+                },
+                {
+                    "and": [
+                        {
+                            "field": "embeddings",
+                            "condition": "EXISTS",
+                            "values": [],
+                            "negated": True,
+                        }
+                    ]
+                },
+            ],
+        }
+
+        # Always pre-filter to EXTERNAL documents server-side.
+        # The `platform` field is not reliably indexed for Document entities in
+        # OpenSearch (Documents use dataPlatformInstance, not a key-embedded platform),
+        # so platform filtering is done client-side via _should_process_by_source_type
+        # which reads dataPlatformInstance from the GraphQL response.
+        search_input["filters"] = [{"field": "sourceType", "values": ["EXTERNAL"]}]
+
+        try:
+            response = self.graph.execute_graphql(query, {"input": search_input})
+            search_results = response.get("search", {}).get("searchResults", [])
+
+            external_urns: list[str] = []
+            for result in search_results:
+                entity = result.get("entity", {})
+                urn = entity.get("urn")
+                if not urn:
+                    continue
+
+                if self.config.document_urns and urn not in self.config.document_urns:
+                    continue
+
+                info = entity.get("info") or {}
+                source = info.get("source") or {}
+                source_type = source.get("sourceType") or "NATIVE"
+                if source_type != "EXTERNAL":
+                    continue
+
+                if not self._should_process_by_source_type(entity, info):
+                    continue
+
+                external_urns.append(urn)
+
+            return external_urns
+
+        except Exception as e:
+            logger.error(f"Failed to fetch external document URNs: {e}", exc_info=True)
+            return []
 
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
@@ -845,10 +960,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                       sourceType
                     }
                   }
-                  dataPlatformInstance {
-                    platform {
-                      urn
-                    }
+                  platform {
+                    urn
                   }
                 }
               }

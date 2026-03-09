@@ -194,6 +194,94 @@ def _create_test_document(auth_session, doc_id: str, text: str) -> str:
     return urn
 
 
+def _create_external_test_document(
+    auth_session, doc_id: str, platform: str = "notion"
+) -> str:
+    """Create an EXTERNAL Document entity (sourceType=EXTERNAL) and return its URN.
+
+    EXTERNAL documents are those ingested by third-party sources (Notion, Confluence,
+    etc.).  They are skipped by DataHubDocumentsSource's Pass 1 (NATIVE re-chunking)
+    but are picked up by Pass 2 (__pending__ chunk resolution).
+    """
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.metadata.schema_classes import DataPlatformInstanceClass
+    from datahub.sdk.document import Document
+
+    doc = Document.create_external_document(
+        id=doc_id,
+        title=f"Pending Embeddings Batch Test — {doc_id}",
+        platform=platform,
+        external_url=f"https://{platform}.so/pages/{doc_id}",
+        external_id=doc_id,
+        subtype="guide",
+    )
+
+    emitter = DatahubRestEmitter(
+        gms_server=auth_session.gms_url(), token=auth_session.gms_token()
+    )
+    for mcp in doc.as_mcps():
+        emitter.emit(mcp)
+
+    # Emit dataPlatformInstance so OpenSearch indexes the platform field,
+    # allowing platform_filter to match this document by name.
+    emitter.emit(
+        MetadataChangeProposalWrapper(
+            entityUrn=f"urn:li:document:{doc_id}",
+            aspect=DataPlatformInstanceClass(
+                platform=f"urn:li:dataPlatform:{platform}",
+            ),
+        )
+    )
+    emitter.close()
+
+    urn = f"urn:li:document:{doc_id}"
+    wait_for_writes_to_sync(mae_only=True)
+    logger.info(f"Created external test document: {urn} (platform={platform})")
+    return urn
+
+
+def _run_datahub_documents_batch_mode(
+    auth_session, doc_urn: str, platform_filter: list[str] | None = None
+) -> None:
+    """Run DataHubDocumentsSource in batch mode (default) to resolve pending chunks.
+
+    Pass 2 of batch mode calls _fetch_external_document_urns() and then
+    _process_document_for_pending_chunks() for each EXTERNAL URN found.
+    """
+    from datahub.ingestion.run.pipeline import Pipeline
+
+    recipe: dict = {
+        "pipeline_name": "smoke-test-pending-embeddings-batch",
+        "source": {
+            "type": "datahub-documents",
+            "config": {
+                "datahub": {
+                    "server": auth_session.gms_url(),
+                    "token": auth_session.gms_token(),
+                },
+                "document_urns": [doc_urn],
+                "platform_filter": platform_filter,
+                "incremental": {"enabled": False},
+                # No explicit embedding config — auto-loaded from server
+            },
+        },
+        "sink": {
+            "type": "datahub-rest",
+            "config": {
+                "server": auth_session.gms_url(),
+                "token": auth_session.gms_token(),
+            },
+        },
+    }
+
+    logger.info("Running DataHubDocumentsSource in batch mode ...")
+    pipeline = Pipeline.create(recipe)
+    pipeline.run()
+    pipeline.raise_from_status()
+    logger.info("DataHubDocumentsSource batch-mode run complete")
+
+
 def _delete_document(auth_session, urn: str) -> None:
     """Best-effort document deletion for cleanup."""
     try:
@@ -332,5 +420,72 @@ class TestPendingEmbeddingsTwoPhase:
 
         logger.info(
             f"✓ Phase 2 complete: __pending__ replaced by '{model_key}' "
+            f"with {len(real_chunks)} chunks of dimension {len(real_chunks[0]['vector'])}"
+        )
+
+    def test_phase2_batch_mode_resolves_pending_chunks(self, auth_session):
+        """Batch mode Pass 2 resolves __pending__ chunks for EXTERNAL documents.
+
+        This exercises the second pass added to _process_batch_mode():
+        _fetch_external_document_urns() finds the EXTERNAL doc, then
+        _process_document_for_pending_chunks() generates real embeddings.
+        """
+        doc_id = _unique_id("phase2-batch")
+        doc_urn = _create_external_test_document(
+            auth_session, doc_id, platform="notion"
+        )
+        self.created_urns.append(doc_urn)
+
+        # --- Phase 1: emit pending chunks (simulates what Notion source does) ---
+        chunks = [
+            {
+                "text": "DataHub enables data discovery at scale.",
+                "characterOffset": 0,
+            },
+            {
+                "text": "Teams use it to find and govern data assets.",
+                "characterOffset": 40,
+            },
+        ]
+        _emit_pending_semantic_content(auth_session, doc_urn, chunks)
+        wait_for_writes_to_sync(mae_only=True)
+
+        pre_aspect = _get_semantic_content_aspect(auth_session, doc_urn)
+        assert PENDING_CHUNKS_KEY in pre_aspect.get("embeddings", {}), (
+            "Expected __pending__ key before batch mode run"
+        )
+        logger.info("✓ Phase 1 complete: __pending__ confirmed in aspect")
+
+        # --- Phase 2: run DataHubDocumentsSource in batch mode ---
+        # platform_filter=["notion"] exercises client-side platform filtering:
+        # _fetch_external_document_urns uses sourceType=EXTERNAL as the server-side
+        # filter, then _should_process_by_source_type checks dataPlatformInstance.
+        _run_datahub_documents_batch_mode(
+            auth_session, doc_urn, platform_filter=["notion"]
+        )
+        wait_for_writes_to_sync(mae_only=True)
+
+        post_aspect = _get_semantic_content_aspect(auth_session, doc_urn)
+        embeddings = post_aspect.get("embeddings", {})
+
+        assert PENDING_CHUNKS_KEY not in embeddings, (
+            f"__pending__ key should have been replaced after batch mode Pass 2. "
+            f"Current keys: {list(embeddings.keys())}"
+        )
+        assert len(embeddings) > 0, (
+            "Expected at least one real embedding key after batch mode Pass 2"
+        )
+
+        model_key = next(iter(embeddings))
+        real_chunks = embeddings[model_key].get("chunks", [])
+        assert len(real_chunks) > 0, "Expected chunks in real embedding"
+        for chunk in real_chunks:
+            vector = chunk.get("vector", [])
+            assert isinstance(vector, list) and len(vector) > 0, (
+                f"Expected non-empty vector after batch mode Pass 2, got: {vector}"
+            )
+
+        logger.info(
+            f"✓ Batch mode Phase 2 complete: __pending__ replaced by '{model_key}' "
             f"with {len(real_chunks)} chunks of dimension {len(real_chunks[0]['vector'])}"
         )
