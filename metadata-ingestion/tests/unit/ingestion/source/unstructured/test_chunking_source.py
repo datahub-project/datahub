@@ -486,3 +486,39 @@ def test_max_documents_minus_one_disables_limit(pipeline_context, chunking_confi
 
     assert source.report.num_documents_processed == 5
     assert source.report.num_documents_limit_reached is False
+
+
+def test_max_documents_limit_enforced_on_embedding_failure(
+    pipeline_context, chunking_config
+):
+    """max_documents limit is enforced even when embedding generation fails per-document."""
+    chunking_config.max_documents = 2
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+    # Keep embedding_model set so we hit the except (failure) path, not the else (no model) path
+    source.embedding_model = "bedrock/cohere.embed-english-v3"
+
+    elements = [{"type": "NarrativeText", "text": "Some content"}]
+    dummy_chunk = [{"text": "Some content", "type": "NarrativeText"}]
+
+    with (
+        patch.object(source, "_chunk_elements", return_value=dummy_chunk),
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("API error")
+        ),
+    ):
+        # First document — embedding fails, falls back to pending, limit not yet hit
+        list(source.process_elements_inline("urn:li:document:doc1", elements))
+        assert source.report.num_documents_processed == 1
+        assert source.report.num_documents_limit_reached is False
+
+        # Second document — still fails, but now hits the limit
+        with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
+            list(source.process_elements_inline("urn:li:document:doc2", elements))
+
+    assert source.report.num_documents_processed == 2
+    assert source.report.num_documents_limit_reached is True
