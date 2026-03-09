@@ -65,7 +65,7 @@ jobs:
           checkout-head-only: false
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"

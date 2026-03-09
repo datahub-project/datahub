@@ -92,7 +92,7 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
@@ -144,7 +144,7 @@ jobs:
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
-          ./gradlew -PjavaClassVersionDefault=17 :metadata-integration:java:spark-lineage:compileJava
+          ./gradlew -PjavaClassVersionDefault=21 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
           {

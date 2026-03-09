@@ -166,7 +166,7 @@ test {
   forkEvery = 1
   useJUnit()
 
-  def sparkJava17CompatibleJvmArgs = [
+  def sparkJava21CompatibleJvmArgs = [
           "--add-opens=java.base/java.lang=ALL-UNNAMED",
           //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
           //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
@@ -182,7 +182,7 @@ test {
           //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
           //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
   ]
-  jvmArgs = sparkJava17CompatibleJvmArgs
+  jvmArgs = sparkJava21CompatibleJvmArgs
 
 }
 

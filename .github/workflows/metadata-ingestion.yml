@@ -55,7 +55,7 @@ jobs:
             command: "testQuick"
       fail-fast: false
     steps:
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
@@ -176,7 +176,7 @@ jobs:
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         if: steps.check-changes.outputs.should_run == 'true'
         uses: actions/setup-java@v5
         with:

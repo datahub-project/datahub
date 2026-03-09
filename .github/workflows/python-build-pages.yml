@@ -39,7 +39,7 @@ jobs:
       pypi_index_url: ${{ steps.cloudflare.outputs.url }}
       pypi_index_simple_url: ${{ steps.set-pypi-url.outputs.pypi_index_simple_url }}
     steps:
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"

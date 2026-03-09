@@ -30,7 +30,7 @@ export BE_ADDR="${BE_IP}:9050"
 echo "Starting Doris BE with FE_SERVERS=${FE_SERVERS} BE_ADDR=${BE_ADDR}"
 
 # Note: JAVA_TOOL_OPTIONS is set in docker-compose.yml as a workaround for
-# Java 17 cgroup v2 incompatibility in GitHub Actions CI
+# Java 21 cgroup v2 incompatibility in GitHub Actions CI
 
 # Call the original Doris entrypoint
 exec bash entry_point.sh

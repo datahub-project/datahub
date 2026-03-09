@@ -156,7 +156,7 @@ dependencies {
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.resilience4j
-  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  // Newer Spring libraries require JDK21 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
