@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -272,6 +273,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         urn,
         searchGroup,
         events.size());
+
+    // Append runIds to search document so rollback/list runs can find touched URNs (MAE path)
+    List<String> distinctRunIds =
+        events.stream()
+            .filter(e -> e.getSystemMetadata() != null && e.getSystemMetadata().hasRunId())
+            .map(e -> e.getSystemMetadata().getRunId())
+            .distinct()
+            .collect(Collectors.toList());
+    for (String runId : distinctRunIds) {
+      elasticSearchService.appendRunIdBySearchGroup(opContext, searchGroup, docId, urn, runId);
+    }
   }
 
   /**

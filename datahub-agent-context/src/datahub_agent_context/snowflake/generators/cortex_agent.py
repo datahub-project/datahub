@@ -56,7 +56,7 @@ def generate_cortex_agent_sql(
       - For SQL execution, use read-only queries unless the user explicitly requests otherwise.
 
       For data or analytics questions:
-      1. Use DataHub tools first to find relevant datasets or documents.
+      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents (using search_documents) & glossary terms (using search_datahub) to understand business definitions before looking at datasets or executing queries.
       2. Use get_entities and/or list_schema_fields to validate schema details.
       3. Use get_dataset_queries when helpful to infer common query patterns.
       4. Generate Snowflake SQL based on verified schema.
@@ -110,7 +110,7 @@ def generate_cortex_agent_sql(
       - For SQL execution, use read-only queries unless the user explicitly requests otherwise.
 
       For data or analytics questions:
-      1. Use DataHub tools first to find relevant datasets or documents.
+      1. Use DataHub tools first to find relevant documents or datasets. Start by using documents & glossary terms to understand business definitions before looking at datasets or executing queries.
       2. Use get_entities and/or list_schema_fields to validate schema details.
       3. Use get_dataset_queries when helpful to infer common query patterns.
       4. Generate Snowflake SQL based on verified schema.
@@ -672,7 +672,7 @@ CREATE OR REPLACE AGENT {agent_name}
     - tool_spec:
         type: "generic"
         name: "search_documents"
-        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.)."
+        description: "Search organization documents (runbooks, FAQs, knowledge articles from Notion, Confluence, etc.). Use /q prefix for structured queries with normal OR / AND syntax support. Always use /q syntax when using this to prevent from missing related documentation from the enterprise's knowledge bases. Use to understand abstract business definitions."
         input_schema:
           type: "object"
           properties:

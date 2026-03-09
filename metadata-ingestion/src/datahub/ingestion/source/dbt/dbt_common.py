@@ -36,6 +36,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -463,6 +464,7 @@ class DBTCommonConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
@@ -625,9 +627,7 @@ class DBTCommonConfig(
 
     @model_validator(mode="before")
     @classmethod
-    def set_convert_column_urns_to_lowercase_default_for_snowflake(
-        cls, values: dict
-    ) -> dict:
+    def set_lowercase_defaults_for_snowflake(cls, values: dict) -> dict:
         # In-place update of the input dict would cause state contamination.
         # So a deepcopy is performed first.
         values = deepcopy(values)
@@ -912,6 +912,8 @@ class DBTNode:
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
+    convert_urns_to_lowercase: bool = False
+
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
         joined = ".".join([part for part in parts if part])
@@ -932,7 +934,7 @@ class DBTNode:
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if target_platform != DBT_PLATFORM:
+        if target_platform != DBT_PLATFORM or self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
@@ -1613,6 +1615,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
         all_nodes, additional_custom_props = self.load_nodes()
+
+        if self.config.convert_urns_to_lowercase:
+            for node in all_nodes:
+                node.convert_urns_to_lowercase = True
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         additional_custom_props_filtered = {

@@ -112,6 +112,10 @@ the [prerequisites](https://github.com/acryldata/datahub-helm/tree/master/charts
 chart with release name "prerequisites". If you deployed the helm chart using a different release name, update the
 quickstart-values.yaml file accordingly before installing.
 
+:::note
+The default values in [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml) auto generate secret values for the signing key and salt used for metadata_service_authentication. (To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](../authentication/introducing-metadata-service-authentication.md). If you want to provide your own values refer to the `datahub.metadata_service_authentication` block in the [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml)
+:::
+
 Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below.
 
 ```
