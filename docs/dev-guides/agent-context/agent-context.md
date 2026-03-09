@@ -1,6 +1,6 @@
 # Agent Context Kit
 
-> **📚 Navigation**: [LangChain Integration →](./langchain.md) | [Snowflake Integration →](./snowflake.md)
+> **📚 Navigation**: [LangChain Integration →](./langchain.md) | [Google ADK Integration →](./google-adk.md) | [Snowflake Integration →](./snowflake.md)
 
 ## What Problem Does This Solve?
 
@@ -29,7 +29,8 @@ When building AI agents that answer questions about data, agents often face thes
 
 1. **New to Agent Context?** Start here with the basic example below
 2. **Using LangChain?** See the [LangChain integration guide](./langchain.md)
-3. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
+3. **Using Google ADK?** See the [Google ADK integration guide](./google-adk.md)
+4. **Using Snowflake Intelligence?** See the [Snowflake integration guide](./snowflake.md)
 
 ## Installation
 
@@ -92,14 +93,14 @@ Before using Agent Context Kit, familiarize yourself with these DataHub concepts
 
 ## Agent Platforms
 
-| Platform   | Status      | Guide                             |
-| ---------- | ----------- | --------------------------------- |
-| Custom     | Launched    | See below                         |
-| Langchain  | Launched    | [LangChain Guide](./langchain.md) |
-| Snowflake  | Launched    | [Snowflake Guide](./snowflake.md) |
-| Google ADK | Coming Soon | -                                 |
-| Crew AI    | Coming Soon | -                                 |
-| OpenAI     | Coming Soon | -                                 |
+| Platform   | Status      | Guide                               |
+| ---------- | ----------- | ----------------------------------- |
+| Custom     | Launched    | See below                           |
+| Langchain  | Launched    | [LangChain Guide](./langchain.md)   |
+| Snowflake  | Launched    | [Snowflake Guide](./snowflake.md)   |
+| Google ADK | Launched    | [Google ADK Guide](./google-adk.md) |
+| Crew AI    | Coming Soon | -                                   |
+| OpenAI     | Coming Soon | -                                   |
 
 ## Available Tools
 
