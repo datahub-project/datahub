@@ -548,7 +548,9 @@ def generate(  # noqa: C901
 
     i = 0
     for platform_id, platform in platforms.items():
-        logger.info(f"Generating docs for platform {platform} with id {platform_id}")
+        logger.info(
+            f"Generating docs for platform {platform.name} with id {platform_id}"
+        )
         if source and platform_id != source:
             continue
         platform_metrics.discovered += 1
