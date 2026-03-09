@@ -521,6 +521,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         return self._server_config
 
     def _post_fetch_server_config(self) -> None:
+        assert self._server_config is not None
         # Determine OpenAPI mode
         if self._openapi_ingestion is None:
             # No constructor parameter
