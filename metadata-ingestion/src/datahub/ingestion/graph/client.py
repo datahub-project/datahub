@@ -1569,6 +1569,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             platform, platform_instance, env, include_graph=False, report=report
         )
 
+        # _make_schema_resolver is lru_cache'd, so multiple connectors on the same
+        # platform/env share the same SchemaResolver object. Skip the expensive bulk
+        # fetch if it was already populated by a previous call.
+        if schema_resolver.schema_count > 0:
+            logger.debug(
+                f"Schema resolver for {platform}/{env} already initialized with "
+                f"{schema_resolver.schema_count} schemas, skipping bulk fetch"
+            )
+            return schema_resolver
+
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
         count = 0
         with PerfTimer() as timer:
