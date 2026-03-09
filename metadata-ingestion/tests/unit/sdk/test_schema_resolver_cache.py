@@ -3,6 +3,13 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata
+
+# A minimal GraphQL schema payload yielded by _bulk_fetch_schema_info_by_filter.
+_FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)"
+_FAKE_SCHEMA: GraphQLSchemaMetadata = {
+    "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
+}
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +29,9 @@ def test_bulk_fetch_runs_once_per_platform(mock_test_connection):
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
     with patch.object(
-        graph, "_bulk_fetch_schema_info_by_filter", return_value=iter([])
+        graph,
+        "_bulk_fetch_schema_info_by_filter",
+        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA)]),
     ) as mock_fetch:
         graph.initialize_schema_resolver_from_datahub(
             platform="bigquery", platform_instance=None, env="PROD"
@@ -41,7 +50,9 @@ def test_bulk_fetch_runs_per_distinct_platform(mock_test_connection):
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
     with patch.object(
-        graph, "_bulk_fetch_schema_info_by_filter", return_value=iter([])
+        graph,
+        "_bulk_fetch_schema_info_by_filter",
+        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA)]),
     ) as mock_fetch:
         graph.initialize_schema_resolver_from_datahub(
             platform="bigquery", platform_instance=None, env="PROD"
@@ -60,7 +71,9 @@ def test_returned_resolver_is_same_object(mock_test_connection):
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
     with patch.object(
-        graph, "_bulk_fetch_schema_info_by_filter", return_value=iter([])
+        graph,
+        "_bulk_fetch_schema_info_by_filter",
+        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA)]),
     ):
         resolver1 = graph.initialize_schema_resolver_from_datahub(
             platform="bigquery", platform_instance=None, env="PROD"
