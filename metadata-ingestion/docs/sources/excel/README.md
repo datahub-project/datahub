@@ -6,14 +6,12 @@ The DataHub integration for Excel covers file/lakehouse metadata entities such a
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
+| Excel Entity                 | DataHub Entity | Description                                                                                                                          |
+| ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Excel Worksheet**          | **Dataset**    | Each worksheet becomes a dataset with URN pattern: `urn:li:dataset:(urn:li:dataPlatform:excel,{path}/[{filename}]{sheet_name},PROD)` |
+| **File/Directory Structure** | **Container**  | Directory hierarchy creates containers with obfuscated URNs for organizing datasets                                                  |
 
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
+:::info Excel workbook
 
-Modules on this platform: `excel`.
+The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
+:::

@@ -2,41 +2,6 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-**1. Create an IAM Policy**
-
-Grant read access to the S3 bucket:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "VisualEditor0",
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetObject"],
-      "Resource": [
-        "arn:aws:s3:::your-bucket-name",
-        "arn:aws:s3:::your-bucket-name/*"
-      ]
-    }
-  ]
-}
-```
-
-**Permissions:**
-
-- `s3:ListBucket`: List objects in the bucket
-- `s3:GetBucketLocation`: Retrieve bucket location
-- `s3:GetObject`: Read object content (required for schema inference)
-
-**2. Attach the Policy**
-
-Attach the policy to the IAM user or role used by the S3 ingestion source.
-
-**3. Configure the Source**
-
-Use the IAM user/role credentials in your S3 ingestion recipe.
-
 #### Path Specs
 
 Path Specs (`path_specs`) is a list of Path Spec (`path_spec`) objects where each individual `path_spec` represents one or more datasets. Include path (`path_spec.include`) represents formatted path to the dataset. This path must end with `*.*` or `*.[ext]` to represent leaf level. If `*.[ext]` is provided then files with only specified extension type will be scanned. "`.[ext]`" can be any of [supported file types](#supported-file-types). Refer [example 1](#example-1---individual-file-as-dataset) below for more details.
@@ -272,11 +237,47 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
-#### Compatibility
+#### Supported file types
+
+Supported file types are as follows:
+
+- CSV (`*.csv`)
+- TSV (`*.tsv`)
+- JSONL (`*.jsonl`)
+- JSON (`*.json`)
+- Parquet (`*.parquet`)
+- Apache Avro (`*.avro`)
+
+Schemas for Parquet and Avro files are extracted as provided.
+
+Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TSV and JSONL files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
+#### S3-specific mapping details
+
+This ingestion source maps the following source system concepts to DataHub concepts:
+
+#### Profiling
+
+This plugin extracts:
+
+- Row and column counts for each dataset
+- For each column, if profiling is enabled:
+  - null counts and proportions
+  - distinct counts and proportions
+  - minimum, maximum, mean, median, standard deviation, some quantile values
+  - histograms or frequencies of unique values
+
+Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
+Enabling profiling will slow down ingestion runs.
+
+:::info Compatibility
 
 Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
 
 For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
+:::
 
 :::caution
 

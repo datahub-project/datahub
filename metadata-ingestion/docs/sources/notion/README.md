@@ -4,9 +4,15 @@ Notion is a documentation or collaboration platform. Learn more in the [official
 
 The DataHub integration for Notion covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
+Ingest pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings.
+
+:::warning Not Supported with Remote Executor
+This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
+:::
+
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
+While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
 
 | Source Concept                                           | DataHub Concept              | Notes                                                            |
 | -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
@@ -15,9 +21,3 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 | Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
 | Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
 | Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `notion`.
-
-### Notion Source
-
-Ingest pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings.

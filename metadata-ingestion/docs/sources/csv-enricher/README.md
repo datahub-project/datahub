@@ -4,9 +4,14 @@ Csv Enricher is a DataHub utility or metadata-focused integration. Learn more in
 
 The DataHub integration for Csv Enricher covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
+:::info Looking to ingest a CSV data file into DataHub, as an asset?
+
+Use the Local File ingestion source. The CSV enricher is used for enriching entities already ingested into DataHub.
+:::
+
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
+While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
 
 | Source Concept                                           | DataHub Concept              | Notes                                                            |
 | -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
@@ -15,5 +20,3 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 | Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
 | Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
 | Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `csv-enricher`.

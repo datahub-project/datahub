@@ -13,16 +13,7 @@ The connector will attempt to identify which cells contain table data. A table i
 
 Rows that are directly above or directly below the table where only the first two columns have values are assumed to contain metadata. If such rows are located, they are converted to custom properties where the first column is the key, and the second column is the value. Additionally, the workbook standard and custom properties are also imported as dataset custom properties.
 
-#### Data Model Mapping
-
-The following table shows how Excel entities are mapped to DataHub entities:
-
-| Excel Entity                 | DataHub Entity | Description                                                                                                                          |
-| ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **Excel Worksheet**          | **Dataset**    | Each worksheet becomes a dataset with URN pattern: `urn:li:dataset:(urn:li:dataPlatform:excel,{path}/[{filename}]{sheet_name},PROD)` |
-| **File/Directory Structure** | **Container**  | Directory hierarchy creates containers with obfuscated URNs for organizing datasets                                                  |
-
-Note: The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
+### Prerequisites
 
 #### AWS S3
 
@@ -75,55 +66,3 @@ To access files on Azure Blob Storage, you will need the following:
    - For account key: Full access to the storage account
    - For client secret: Appropriate Azure role assignments (like Storage Blob Data Contributor)
    - For SAS token: Permissions are defined within the token itself
-
-#### Starter Recipes
-
-Check out the following recipes to get started with ingestion.
-
-For general pointers on writing and running a recipe, see our [main recipe guide](https://docs.datahub.com/docs/metadata-ingestion#recipes).
-
-#### S3
-
-```yaml
-source:
-  type: excel
-  config:
-    path_list:
-      - "s3://bucket/data/excel/*/*.xlsx"
-    aws_config:
-      aws_access_key_id: AKIAIOSFODNN7EXAMPLE
-      aws_secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-      aws_region: us-east-1
-    profiling:
-      enabled: false
-```
-
-#### Azure Blob Storage
-
-```yaml
-source:
-  type: excel
-  config:
-    path_list:
-      - "https://storageaccountname.blob.core.windows.net/abs-data/excel/*/*.xlsx"
-    azure_config:
-      account_name: storageaccountname
-      sas_token: sv=2022-11-02&ss=b&srt=sco&sp=rwdlacx&se=2025-06-07T21:00:00Z&st=2025-05-07T13:00:00Z&spr=https&sig=a1B2c3D4%3D
-      container_name: abs-data
-    profiling:
-      enabled: false
-```
-
-#### Local Files
-
-```yaml
-source:
-  type: excel
-  config:
-    path_list:
-      - "/data/path/reporting/excel/*.xlsx"
-    profiling:
-      enabled: false
-```
-
-### Prerequisites

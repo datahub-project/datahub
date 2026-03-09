@@ -6,14 +6,12 @@ The DataHub integration for Grafana covers BI entities such as dashboards, chart
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `grafana`.
+| Source Concept              | DataHub Concept                                           | Notes                                                                                                      |
+| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `"grafana"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md) |                                                                                                            |
+| Grafana Folder              | [Container](../../metamodel/entities/container.md)        | Subtype `Folder`                                                                                           |
+| Grafana Dashboard           | [Container](../../metamodel/entities/container.md)        | Subtype `Dashboard`                                                                                        |
+| Grafana Panel/Visualization | [Chart](../../metamodel/entities/chart.md)                | Various types mapped based on panel type (e.g., graph → LINE, pie → PIE)                                   |
+| Grafana Data Source         | [Dataset](../../metamodel/entities/dataset.md)            | Created for each panel's data source                                                                       |
+| Dashboard Owner             | [Corp User](../../metamodel/entities/corpuser.md)         | Dashboard creator assigned as TECHNICAL_OWNER; email suffix removal configurable via `remove_email_suffix` |
+| Dashboard Tags              | [Tag](../../metamodel/entities/tag.md)                    | Supports both simple tags and key:value tags                                                               |

@@ -4,16 +4,18 @@ Glue is a data platform used to store and query analytical or operational data. 
 
 The DataHub integration for Glue covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
+:::tip
+If you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See here for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+:::
+
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `glue`.
+| Source Concept       | DataHub Concept                                           | Notes              |
+| -------------------- | --------------------------------------------------------- | ------------------ |
+| `"glue"`             | [Data Platform](../../metamodel/entities/dataPlatform.md) |                    |
+| Glue Database        | [Container](../../metamodel/entities/container.md)        | Subtype `Database` |
+| Glue Table           | [Dataset](../../metamodel/entities/dataset.md)            | Subtype `Table`    |
+| Glue Job             | [Data Flow](../../metamodel/entities/dataFlow.md)         |                    |
+| Glue Job Transform   | [Data Job](../../metamodel/entities/dataJob.md)           |                    |
+| Glue Job Data source | [Dataset](../../metamodel/entities/dataset.md)            |                    |
+| Glue Job Data sink   | [Dataset](../../metamodel/entities/dataset.md)            |                    |

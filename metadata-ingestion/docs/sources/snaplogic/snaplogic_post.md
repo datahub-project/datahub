@@ -8,8 +8,4 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 ### Troubleshooting
 
-#### [Common Issue]
-
-#### Troubleshooting
-
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

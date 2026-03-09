@@ -2,16 +2,6 @@
 
 The `abs` module ingests metadata from Abs into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-#### Concept Mapping
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-| Source Concept                         | DataHub Concept                                                                           | Notes            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------- |
-| `"abs"`                                | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                  |
-| abs blob / Folder containing abs blobs | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |                  |
-| abs container                          | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        | Subtype `Folder` |
-
 This connector supports both local files and those stored on Azure Blob Storage (which must be identified using the
 prefix `http(s)://<account>.blob.core.windows.net/` or `azure://`).
 

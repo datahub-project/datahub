@@ -6,14 +6,11 @@ The DataHub integration for Sigma covers BI entities such as dashboards, charts,
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `sigma`.
+| Sigma       | Datahub                                                       | Notes                       |
+| ----------- | ------------------------------------------------------------- | --------------------------- |
+| `Workspace` | [Container](../../metamodel/entities/container.md)            | SubType `"Sigma Workspace"` |
+| `Workbook`  | [Dashboard](../../metamodel/entities/dashboard.md)            | SubType `"Sigma Workbook"`  |
+| `Page`      | [Dashboard](../../metamodel/entities/dashboard.md)            |                             |
+| `Element`   | [Chart](../../metamodel/entities/chart.md)                    |                             |
+| `Dataset`   | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Sigma Dataset"`   |
+| `User`      | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted        |

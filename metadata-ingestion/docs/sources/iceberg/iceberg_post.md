@@ -439,12 +439,6 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Table parent folders (excluding [warehouse catalog location](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)) | Container                                                              | Available in a future release                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types)                                                                 | SchemaField                                                            | Maps to the fields defined within the Iceberg table schema definition.                                                                                                                                                                                                                                                                                                                                                                         |
 
-#### Exceptions while increasing `processing_threads`
-
-Each processing thread will open several files/sockets to download manifest files from blob storage. If you experience
-exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
-files (e.g. using `ulimit` in Linux).
-
 #### DataHub Iceberg REST Catalog
 
 DataHub also implements the Iceberg REST Catalog. See the [Iceberg Catalog documentation](docs/iceberg-catalog.md) for more details.
@@ -465,3 +459,9 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Exceptions while increasing `processing_threads`
+
+Each processing thread will open several files/sockets to download manifest files from blob storage. If you experience
+exceptions appearing when increasing `processing_threads` configuration parameter, try to increase limit of open
+files (e.g. using `ulimit` in Linux).

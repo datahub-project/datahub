@@ -2,10 +2,6 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-#### Usage Guide
-
-If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide.
-
 #### Delta Table on Local File System
 
 ##### Step 1
@@ -151,10 +147,6 @@ Execute the ingestion recipe:
 ```shell
 datahub ingest -c delta.s3.dhub.yaml
 ```
-
-#### Note
-
-The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.
 
 ### Limitations
 

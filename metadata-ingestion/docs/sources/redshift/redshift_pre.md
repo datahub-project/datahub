@@ -2,7 +2,85 @@
 
 The `redshift` module ingests metadata from Redshift into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-#### Conditional System Tables (Feature Dependent)
+### Prerequisites
+
+Requires specific database privileges for metadata extraction, lineage, and usage statistics.
+
+#### Permission Overview
+
+Three categories of permissions:
+
+1. **System Table Access** - Access to Redshift system tables for lineage and usage statistics
+2. **System View Access** - Access to system views for metadata discovery
+3. **Data Access** - Access to user schemas and tables for profiling and classification
+
+#### System Table and View Permissions
+
+Execute as a superuser or user with grant privileges:
+
+```sql
+-- Core system access (required for lineage and usage statistics)
+ALTER USER datahub WITH SYSLOG ACCESS UNRESTRICTED;
+
+-- Core metadata extraction (always required)
+GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub;    -- Database information and properties
+GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub;      -- Schema information within databases
+GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub;      -- External schemas (Spectrum, federated)
+GRANT SELECT ON pg_catalog.svv_table_info TO datahub;           -- Table metadata, statistics, and properties
+GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;       -- External table definitions (Spectrum)
+GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;      -- External table column information
+GRANT SELECT ON pg_catalog.pg_class_info TO datahub;            -- Table creation timestamps and basic info
+
+-- Essential pg_catalog tables for table discovery
+GRANT SELECT ON pg_catalog.pg_class TO datahub;                 -- Table and view definitions
+GRANT SELECT ON pg_catalog.pg_namespace TO datahub;             -- Schema namespace information
+GRANT SELECT ON pg_catalog.pg_description TO datahub;           -- Table and column descriptions/comments
+GRANT SELECT ON pg_catalog.pg_database TO datahub;              -- Database catalog information
+GRANT SELECT ON pg_catalog.pg_attribute TO datahub;             -- Column definitions and properties
+GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;               -- Column default values
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub;            -- User information for ownership
+
+-- Datashare lineage (enabled by default)
+GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
+
+-- Choose ONE based on your Redshift type:
+-- For Provisioned Clusters:
+GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized view information (provisioned)
+
+-- For Serverless Workgroups:
+-- GRANT SELECT ON pg_catalog.svv_user_info TO datahub;          -- User information (serverless alternative)
+-- GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;           -- Materialized view information (serverless)
+
+-- Schema access (required to read tables in each schema)
+GRANT USAGE ON SCHEMA <schema_to_ingest> TO datahub;             -- Replace with actual schema names
+```
+
+#### Core System Views (Always Required)
+
+These system views are accessed in all DataHub configurations:
+
+```sql
+-- Schema discovery
+GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub;      -- Schema information within databases
+GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub;      -- External schemas (Spectrum, federated)
+
+-- Database information
+GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub;    -- Database information and properties
+
+-- Table metadata and statistics
+GRANT SELECT ON pg_catalog.svv_table_info TO datahub;           -- Table metadata, statistics, and properties
+
+-- External table support
+GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;       -- External table definitions (Spectrum)
+GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;      -- External table column information
+
+-- Table creation timestamps
+GRANT SELECT ON pg_catalog.pg_class_info TO datahub;            -- Table creation timestamps and basic info
+```
+
+#### Conditional System Tables
+
+Fire-grained permissions based on your Redshift configuration and desired features
 
 ##### Shared Database (Datashare Consumer)
 
@@ -33,131 +111,6 @@ GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;              -- Materialized 
 ```sql
 -- Required when include_share_lineage: true (default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;           -- Cross-cluster datashare information
-```
-
-#### Ingestion of multiple redshift databases, namespaces
-
-- If multiple databases are present in the Redshift namespace (or provisioned cluster),
-  you would need to set up a separate ingestion per database.
-
-- Ingestion recipes of all databases in a particular redshift namespace should use same platform instance.
-
-- If you've multiple redshift namespaces that you want to ingest within DataHub, it is highly recommended that
-  you specify a platform_instance equivalent to namespace in recipe. It can be same as namespace id or other
-  human readable name however it should be unique across all your redshift namespaces.
-
-#### Lineage
-
-There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
-
-#### stl_scan_based
-
-The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
-discover lineage between tables.
-
-**Pros:**
-
-- Fast
-- Reliable
-
-**Cons:**
-
-- Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
-- If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
-
-#### sql_based
-
-The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-and uses sql parsing to discover the dependencies.
-
-**Pros:**
-
-- Works with Spectrum tables
-- Views are connected properly if a table depends on it
-
-**Cons:**
-
-- Slow.
-- Less reliable as the query parser can fail on certain queries
-
-#### mixed
-
-Using both collector above and first applying the sql based and then the stl_scan based one.
-
-**Pros:**
-
-- Works with Spectrum tables
-- Views are connected properly if a table depends on it
-- A bit more reliable than the sql_based one only
-
-**Cons:**
-
-- Slow
-- May be incorrect at times as the query parser can fail on certain queries
-
-:::note
-
-The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
-
-:::
-
-#### Datashares Lineage
-
-This is enabled by default, can be disabled via setting `include_share_lineage: False`
-
-It is mandatory to run redshift ingestion of datashare producer namespace at least once so that lineage
-shows up correctly after datashare consumer namespace is ingested.
-
-#### Profiling
-
-Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
-
-If you don't want to grant read access to the tables you can enable table level profiling which will get table statistics without reading the data.
-
-```yaml
-profiling:
-  profile_table_level_only: true
-```
-
-#### Caveats
-
-:::note
-
-**System table access**: The `SYSLOG ACCESS UNRESTRICTED` privilege gives the user visibility to data generated by other users. For example, STL_QUERY and STL_QUERYTEXT contain the full text of INSERT, UPDATE, and DELETE statements.
-
-:::
-
-:::note
-
-**Datashare lineage**: For cross-cluster lineage through datashares, the `datahub` user requires `SHARE` privileges on datashares in both producer and consumer namespaces. See the [Amazon Redshift datashare documentation](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_DATASHARES.html) for more information.
-
-:::
-
-### Prerequisites
-
-Requires specific database privileges for metadata extraction, lineage, and usage statistics.
-
-#### Core System Views (Always Required)
-
-These system views are accessed in all DataHub configurations:
-
-```sql
--- Schema discovery
-GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub;      -- Schema information within databases
-GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub;      -- External schemas (Spectrum, federated)
-
--- Database information
-GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub;    -- Database information and properties
-
--- Table metadata and statistics
-GRANT SELECT ON pg_catalog.svv_table_info TO datahub;           -- Table metadata, statistics, and properties
-
--- External table support
-GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;       -- External table definitions (Spectrum)
-GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;      -- External table column information
-
--- Table creation timestamps
-GRANT SELECT ON pg_catalog.pg_class_info TO datahub;            -- Table creation timestamps and basic info
 ```
 
 #### Recommended Permission Set

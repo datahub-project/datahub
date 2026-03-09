@@ -59,6 +59,22 @@ ODBCSYSINI="/opt/ibm"
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Architecture Support
+
+The Db2 source is available on Linux x86_64, macOS x86_64, and macOS ARM. It is not available on Linux ARM, and attempting to execute the source will result in an error.
+
+#### Db2 Platform Support
+
+This source has been tested against:
+
+- Db2 for LUW using the default CLI driver (already included when installing the `acryl-datahub[db2]` package)
+- Db2 for IBM i (AS/400) using the IBM i Access ODBC Driver (not included and so must be installed separately by the end user; see [Using the IBM i Access ODBC Driver](#using-the-ibm-i-access-odbc-driver) below)
+
+This source also includes nominal support for:
+
+- Db2 for IBM i (AS/400) using the CLI driver ([requires Db2 Connect](https://www.ibm.com/support/pages/db2-odbc-cli-driver-download-and-installation-information))
+- Db2 for z/OS using the CLI driver ([requires Db2 Connect](https://www.ibm.com/support/pages/db2-odbc-cli-driver-download-and-installation-information))
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

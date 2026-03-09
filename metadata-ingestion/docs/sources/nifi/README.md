@@ -6,14 +6,11 @@ The DataHub integration for Apache NiFi covers streaming/integration entities su
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `nifi`.
+| Source Concept                    | DataHub Concept                                           | Notes                   |
+| --------------------------------- | --------------------------------------------------------- | ----------------------- |
+| `"Nifi"`                          | [Data Platform](../../metamodel/entities/dataPlatform.md) |                         |
+| Nifi flow                         | [Data Flow](../../metamodel/entities/dataFlow.md)         |                         |
+| Nifi Ingress / Egress Processor   | [Data Job](../../metamodel/entities/dataJob.md)           |                         |
+| Nifi Remote Port                  | [Data Job](../../metamodel/entities/dataJob.md)           |                         |
+| Nifi Port with remote connections | [Dataset](../../metamodel/entities/dataset.md)            |                         |
+| Nifi Process Group                | [Container](../../metamodel/entities/container.md)        | Subtype `Process Group` |

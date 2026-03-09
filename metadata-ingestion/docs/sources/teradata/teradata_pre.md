@@ -2,6 +2,12 @@
 
 The `teradata` module ingests metadata from Teradata into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
+This plugin extracts the following:
+
+- Metadata for databases, schemas, views, and tables
+- Column types associated with each table
+- Table, row, and column statistics via optional SQL profiling
+
 ### Prerequisites
 
 1. Create a user which has access to the database you want to ingest.

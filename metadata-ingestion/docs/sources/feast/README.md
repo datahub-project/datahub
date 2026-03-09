@@ -6,14 +6,10 @@ The DataHub integration for Feast covers ML entities such as models, features, a
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
+- Entities as `MLPrimaryKey`
+- Fields as `MLFeature`
+- Feature views and on-demand feature views as `MLFeatureTable`
+- Batch and stream source details as `Dataset`
+- Column types associated with each entity and feature
 
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `feast`.
+Use this mapping to align feature-store metadata with existing ML entity governance patterns in DataHub.

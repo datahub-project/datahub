@@ -2,9 +2,34 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+##### Lineage
+
+Lineage is emitted as received from Tableau's metadata API for
+
+- Sheets contained within a Dashboard
+- Embedded or Published Data Sources depended on by a Sheet
+- Published Data Sources upstream to Embedded datasource
+- Tables upstream to Embedded or Published Data Source
+- Custom SQL datasources upstream to Embedded or Published Data Source
+- Tables upstream to Custom SQL Data Source
+
+##### Tables Without Column Metadata
+
+In some cases, the Tableau Metadata API may not return column information for upstream tables (i.e., `columnsConnection.totalCount` is null or 0). This can occur due to:
+
+- Permissions limitations
+- Tableau's internal metadata collection issues
+- Specific database connector behaviors
+
+DataHub will still create **table-level lineage** for these tables, even though column-level lineage cannot be generated. This ensures that upstream table relationships remain visible in lineage graphs.
+
+**Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.
 
 ### Troubleshooting
 

@@ -2,15 +2,29 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-#### Advanced Configurations
+#### Transform Pipeline Support
 
-#### Environment-Specific Topic Discovery
+**✅ Fully Supported:**
 
-DataHub's Kafka Connect source automatically detects your environment (self-hosted vs Confluent Cloud) and uses the appropriate topic discovery strategy:
+- **Any combination of transforms**: RegexRouter, EventRouter, and non-routing transforms
+- **Complex transform chains**: Multiple chained transforms automatically handled
+- **Both environments**: Self-hosted and Confluent Cloud work identically
+- **Future-proof**: New transform types automatically supported
+
+**⚠️ Considerations:**
+
+- For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings
+- Some advanced connector-specific features may not be fully supported
+
+#### Environment-Specific Behavior
+
+**Environment Detection**: Automatically detects environment based on `connect_uri` patterns containing `confluent.cloud`.
 
 ##### Self-hosted Kafka Connect
 
-Uses the runtime `/connectors/{name}/topics` API endpoint for accurate, real-time topic information:
+- **Topic Discovery**: Uses runtime `/connectors/{name}/topics` API endpoint for maximum accuracy
+- **Requirements**: Standard Kafka Connect REST API access
+- **Fallback**: If runtime API fails, falls back to config-based derivation
 
 ```yml
 source:
@@ -23,7 +37,9 @@ source:
 
 ##### Confluent Cloud
 
-Uses comprehensive transform pipeline support with Kafka REST API v3 topic validation and config-based fallback:
+- **Topic Discovery**: Uses comprehensive Kafka REST API v3 to get all topics, with automatic credential reuse
+- **Transform Support**: Full support for all transform combinations via reverse pipeline strategy using actual cluster topics
+- **Auto-derivation**: Automatically derives Kafka REST endpoint from connector configurations
 
 **Recommended approach using environment and cluster IDs:**
 
@@ -66,7 +82,108 @@ source:
     kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
 ```
 
-**How Lineage Inference Works with Transform Pipelines:**
+##### Configuration Control
+
+The `use_connect_topics_api` flag controls topic retrieval behavior:
+
+- **When `true` (default)**: Uses environment-specific topic discovery with full transform support
+- **When `false`**: Disables all topic discovery for air-gapped environments or performance optimization
+
+#### Advanced Scenarios: Complex Transform Chains
+
+The new reverse transform pipeline strategy handles complex scenarios automatically:
+
+```yaml
+### Example: EventRouter + RegexRouter chain
+transforms: EventRouter,RegexRouter
+transforms.EventRouter.type: io.debezium.transforms.outbox.EventRouter
+transforms.RegexRouter.type: org.apache.kafka.connect.transforms.RegexRouter
+transforms.RegexRouter.regex: "outbox\\.event\\.(.*)"
+transforms.RegexRouter.replacement: "events.$1"
+```
+
+#### Advanced Scenarios: Fallback Options
+
+- If transform pipeline cannot determine mappings, DataHub falls back to simple topic-based lineage
+- For unsupported connector types or complex custom scenarios, use `generic_connectors` configuration
+
+#### Advanced Scenarios: Performance Optimization
+
+- Set `use_connect_topics_api: false` to disable topic discovery in air-gapped environments
+- Transform pipeline processing adds minimal overhead and improves lineage accuracy
+
+#### Supported Source Connectors
+
+| Connector Type                                                                   | Self-hosted Support | Confluent Cloud Support | Topic Discovery Method      | Lineage Extraction             |
+| -------------------------------------------------------------------------------- | ------------------- | ----------------------- | --------------------------- | ------------------------------ |
+| **Platform JDBC Source**<br/>`io.confluent.connect.jdbc.JdbcSourceConnector`     | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Cloud PostgreSQL CDC**<br/>`PostgresCdcSource`                                 | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Cloud PostgreSQL CDC V2**<br/>`PostgresCdcSourceV2`                            | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Cloud MySQL Source**<br/>`MySqlSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Cloud MySQL CDC**<br/>`MySqlCdcSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Debezium MySQL**<br/>`io.debezium.connector.mysql.MySqlConnector`              | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
+| **Debezium PostgreSQL**<br/>`io.debezium.connector.postgresql.PostgresConnector` | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
+| **Debezium SQL Server**<br/>`io.debezium.connector.sqlserver.SqlServerConnector` | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
+| **Debezium Oracle**<br/>`io.debezium.connector.oracle.OracleConnector`           | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
+| **Debezium DB2**<br/>`io.debezium.connector.db2.Db2Connector`                    | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
+| **Debezium MongoDB**<br/>`io.debezium.connector.mongodb.MongoDbConnector`        | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Collection → Topic CDC mapping |
+| **Debezium Vitess**<br/>`io.debezium.connector.vitess.VitessConnector`           | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Table → Topic CDC mapping      |
+| **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | 🔧 Config Required      | Runtime API / Manual config | Collection → Topic mapping     |
+| **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
+
+#### Supported Sink Connectors
+
+| Connector Type                                                                 | Self-hosted Support | Confluent Cloud Support | Topic Discovery Method     | Lineage Extraction        |
+| ------------------------------------------------------------------------------ | ------------------- | ----------------------- | -------------------------- | ------------------------- |
+| **BigQuery Sink**<br/>`com.wepay.kafka.connect.bigquery.BigQuerySinkConnector` | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **S3 Sink**<br/>`io.confluent.connect.s3.S3SinkConnector`                      | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → S3 object mapping |
+| **Snowflake Sink**<br/>`com.snowflake.kafka.connector.SnowflakeSinkConnector`  | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Cloud PostgreSQL Sink**<br/>`PostgresSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Cloud MySQL Sink**<br/>`MySqlSink`                                           | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+
+**Legend:**
+
+- ✅ **Full**: Complete lineage extraction with accurate topic discovery
+- ✅ **Partial**: Lineage extraction supported but topic discovery may be limited (config-based only)
+- 🔧 **Config Required**: Requires `generic_connectors` configuration for lineage mapping
+
+#### Supported Transforms
+
+DataHub uses an **advanced transform pipeline strategy** that automatically handles complex transform chains by applying the complete pipeline to all topics and checking if results exist. This provides robust support for any combination of transforms.
+
+##### Topic Routing Transforms
+
+- **RegexRouter**: `org.apache.kafka.connect.transforms.RegexRouter`
+- **Cloud RegexRouter**: `io.confluent.connect.cloud.transforms.TopicRegexRouter`
+- **Debezium EventRouter**: `io.debezium.transforms.outbox.EventRouter` (Outbox pattern)
+
+##### Non-Topic Routing Transforms
+
+DataHub recognizes but passes through these transforms (they don't affect lineage):
+
+- InsertField, ReplaceField, MaskField, ValueToKey, HoistField, ExtractField
+- SetSchemaMetadata, Flatten, Cast, HeadersFrom, TimestampConverter
+- Filter, InsertHeader, DropHeaders, Drop, TombstoneHandler
+
+##### Transform Pipeline Strategy
+
+DataHub uses an improved **reverse transform pipeline approach** that:
+
+1. **Takes all actual topics** from the connector manifest/Kafka cluster
+2. **Applies the complete transform pipeline** to each topic
+3. **Checks if transformed results exist** in the actual topic list
+4. **Creates lineage mappings** only for successful matches
+
+**Benefits:**
+
+- ✅ **Works with any transform combination** (single or chained transforms)
+- ✅ **Handles complex scenarios** like EventRouter + RegexRouter chains
+- ✅ **Uses actual topics as source of truth** (no prediction needed)
+- ✅ **Future-proof** for new transform types
+- ✅ **Works identically** for both self-hosted and Confluent Cloud environments
+
+#### How Lineage Inference Works with Transform Pipelines
 
 Kafka Connect connectors can apply transforms (like RegexRouter) that modify topic names before data reaches Kafka. DataHub's lineage inference analyzes these transform configurations to determine how topics are produced:
 
@@ -94,20 +211,6 @@ This approach works for both self-hosted and Confluent Cloud environments:
 - **Manual endpoint**: Specify `kafka_rest_endpoint` if auto-derivation doesn't work
 - **Separate credentials (typical)**: Use `connect_api_key`/`connect_api_secret` for Connect API and `kafka_api_key`/`kafka_api_secret` for Kafka REST API
 - **Legacy credentials**: Use `username`/`password` for Connect API (falls back for Kafka API if separate credentials not provided)
-
-##### Air-gapped or Performance-Optimized Environments
-
-Disable topic discovery entirely for environments where API access is not available or not needed:
-
-```yml
-source:
-  type: kafka-connect
-  config:
-    connect_uri: "http://localhost:8083"
-    use_connect_topics_api: false # Disables all topic discovery API calls
-```
-
-**Note**: When `use_connect_topics_api` is `false`, topic information will not be extracted, which may impact lineage accuracy but improves performance and works in air-gapped environments.
 
 #### Enhanced Topic Resolution for Source and Sink Connectors
 
@@ -614,6 +717,28 @@ provided_configs:
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
 
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Air-gapped or Performance-Optimized Environments
+
+Disable topic discovery entirely for environments where API access is not available or not needed:
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    connect_uri: "http://localhost:8083"
+    use_connect_topics_api: false # Disables all topic discovery API calls
+```
+
+**Note**: When `use_connect_topics_api` is `false`, topic information will not be extracted, which may impact lineage accuracy but improves performance and works in air-gapped environments.
+
 #### Topic Discovery Issues
 
 **Problem**: Missing or incomplete topic information in lineage
@@ -674,11 +799,3 @@ source:
     connect_uri: "http://localhost:8083"
     use_connect_topics_api: false # Disable for better performance (no topic info)
 ```
-
-### Limitations
-
-Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
-
-### Troubleshooting
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

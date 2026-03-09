@@ -164,6 +164,23 @@ If you are ingesting datasets from Google Cloud Storage, we recommend running th
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Supported file types
+
+Supported file types are as follows:
+
+- CSV
+- TSV
+- JSONL
+- JSON
+- Parquet
+- Apache Avro
+
+Schemas for Parquet and Avro files are extracted as provided.
+
+Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TSV and JSONL files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

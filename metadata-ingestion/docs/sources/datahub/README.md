@@ -6,7 +6,7 @@ The DataHub integration for Datahub covers metadata entities and operational obj
 
 ## Concept Mapping
 
-The mapping below provides a platform-level view. Module-specific mappings and nuances are documented in each module section.
+While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
 
 | Source Concept                                           | DataHub Concept              | Notes                                                            |
 | -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
@@ -15,10 +15,3 @@ The mapping below provides a platform-level view. Module-specific mappings and n
 | Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
 | Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
 | Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
-
-Modules on this platform: `datahub`.
-
-Migrate data from one DataHub instance to another.
-
-Requires direct access to the database, kafka broker, and kafka schema registry
-of the source DataHub instance.

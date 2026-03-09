@@ -1,49 +1,62 @@
-As a prerequisite, you should create a DataHub Application within the Okta Developer Console with full permissions to read your organization's Users and Groups.
-
 ### Capabilities
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
-
-#### Compatibility
-
-Validated against Okta API Versions:
-
-- `2021.07.2`
-
-Validated against load:
-
-- User Count: `1000`
-- Group Count: `100`
-- Group Membership Edges: `1000` (1 per User)
-- Run Time (Wall Clock): `2min 7sec`
 
 #### Extracting DataHub Users
 
 User entities are extracted from Okta users APIs and mapped to DataHub `CorpUser` entities.
 
-#### Usernames
+##### Usernames
 
-By default, usernames are derived from Okta user profile attributes. You can customize attribute and regex mapping using connector configuration options.
+Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the "login" field of an [Okta User Profile](https://developer.okta.com/docs/reference/api/users/#profile-object). By default, the 'login' attribute, which contains an email, is parsed to extract the text before the "@" and map that to the DataHub username.
 
-#### Profiles
+If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_username_attr` and `okta_profile_to_username_regex`. e.g. if you want to map emails to urns then you may use the following configuration:
 
-The connector also maps selected Okta profile fields (for example display name, email, title, and other standard user metadata) to DataHub user info aspects.
+```
+okta_profile_to_username_attr: "email"
+okta_profile_to_username_regex: ".*"
+```
+
+##### Profiles
+
+This connector also extracts basic user profile information from Okta. The following fields of the Okta User Profile are extracted and mapped to the DataHub `CorpUserInfo` aspect:
+
+- display name
+- first name
+- last name
+- email
+- title
+- department
+- country code
 
 #### Extracting DataHub Groups
 
 Group entities are extracted from Okta groups APIs and mapped to DataHub `CorpGroup` entities.
 
-#### Group Names
+##### Group Names
 
-Group identifiers and display names are derived from Okta group attributes. Mapping behavior can be customized via connector configuration.
+Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Okta Group Profile. By default, a URL-encoded version of the full group name is used as the unique identifier (`CorpGroupKey`) and the raw "name" attribute is mapped as the display name that will appear in DataHub's UI.
+
+If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_group_name_attr` and `okta_profile_to_group_name_regex`.
+
+##### Profiles
+
+This connector also extracts basic group information from Okta. The following fields of the Okta Group Profile are extracted and mapped to the DataHub `CorpGroupInfo` aspect:
+
+- name
+- description
 
 #### Extracting Group Membership
 
 User-to-group membership edges are extracted and emitted as DataHub group membership relationships.
 
+This connector additional extracts the edges between Users and Groups that are stored in Okta. It maps them to the `GroupMembership` aspect associated with DataHub users (`CorpUsers`).
+
 #### Filtering and Searching
 
 Use connector filter/search configuration to scope user and group extraction to relevant identities and reduce ingestion load.
+
+You can also choose to ingest a subset of users or groups to Datahub by adding flags for filtering or searching. For users, set either the `okta_users_filter` or `okta_users_search` flag (only one can be set at a time). For groups, set either the `okta_groups_filter` or `okta_groups_search` flag. Note that these are not regular expressions.
 
 ### Limitations
 

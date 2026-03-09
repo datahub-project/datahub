@@ -6,33 +6,171 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
 :::
 
+#### Common Use Cases
+
+##### 1. Workspace-wide Documentation Search
+
+Ingest entire workspace documentation with semantic search:
+
+```yaml
+source:
+  type: notion
+  config:
+    api_key: "${NOTION_API_KEY}"
+
+    # Start from workspace root page
+    page_ids:
+      - "workspace_root_page_id"
+    recursive: true
+
+    # Enable semantic embeddings
+    embedding:
+      provider: "cohere"
+      model: "embed-english-v3.0"
+      api_key: "${COHERE_API_KEY}"
+```
+
+##### 2. Specific Database Ingestion
+
+Ingest a specific Notion database (e.g., "Product Requirements"):
+
+```yaml
+source:
+  type: notion
+  config:
+    api_key: "${NOTION_API_KEY}"
+
+    # Only this database
+    database_ids:
+      - "product_requirements_db_id"
+    recursive: false # Only database entries, not child pages
+```
+
+##### 3. Multi-workspace Setup
+
+Ingest from multiple workspaces (requires multiple integrations):
+
+```yaml
+source:
+  type: notion
+  config:
+    api_key: "${NOTION_API_KEY}"
+
+    # Multiple root pages from different workspaces
+    page_ids:
+      - "workspace_1_page_id"
+      - "workspace_2_page_id"
+    recursive: true
+```
+
+##### 4. Production Setup with AWS Bedrock
+
+Enterprise setup using AWS Bedrock for embeddings:
+
+```yaml
+source:
+  type: notion
+  config:
+    api_key: "${NOTION_API_KEY}"
+
+    page_ids:
+      - "company_wiki_root"
+    recursive: true
+
+    # Use AWS Bedrock (no API key needed, uses IAM roles)
+    embedding:
+      provider: "bedrock"
+      aws_region: "us-west-2"
+      model: "cohere.embed-english-v3"
+
+    # Enable stateful ingestion for incremental updates
+    stateful_ingestion:
+      enabled: true
+```
+
+#### How It Works
+
+##### Processing Pipeline
+
+1. **Discovery**: Notion API discovers pages/databases
+2. **Download**: Unstructured.io downloads and converts content to structured format
+3. **Extraction**: Extracts text, metadata, and hierarchy from Notion pages
+4. **Chunking**: Splits documents into semantic chunks (if embeddings enabled)
+5. **Embedding**: Generates vector embeddings for each chunk (if embeddings enabled)
+6. **Emission**: Emits Document entities with SemanticContent aspects to DataHub
+
+##### Stateful Ingestion Details
+
+The source uses content-based change detection:
+
+- Calculates SHA-256 hash of document content + embedding configuration
+- Compares hash with previous run to detect changes
+- Only reprocesses documents when hash changes
+- Tracks all emitted URNs to detect deletions
+
+This means:
+
+- **First run**: Processes all documents
+- **Subsequent runs**: Only processes new/changed documents
+- **Deleted pages**: Automatically soft-deleted from DataHub
+
+#### Performance Tuning
+
+##### Parallelism Settings
+
+```yaml
+processing:
+  parallelism:
+    num_processes: 4 # Increase for faster processing (default: 2)
+    max_connections: 20 # Concurrent API connections (default: 10)
+```
+
+**Guidelines:**
+
+- Small workspaces (<100 pages): `num_processes: 2`
+- Medium workspaces (100-1000 pages): `num_processes: 4`
+- Large workspaces (>1000 pages): `num_processes: 8`
+
+##### Filtering
+
+```yaml
+filtering:
+  min_text_length: 100 # Skip short pages (default: 50)
+  skip_empty_documents: true # Skip empty pages (default: true)
+```
+
+##### Chunking Optimization
+
+```yaml
+chunking:
+  strategy: "by_title" # Preserves document structure (recommended)
+  max_characters: 500 # Chunk size (default: 500)
+  combine_text_under_n_chars: 100 # Merge small chunks (default: 100)
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-#### Limitations and Considerations
-
-##### Notion API Limits
+#### Notion API Limits
 
 - **Rate Limits**: Notion enforces rate limits (3 requests/second for paid workspaces, 1/second for free)
 - **Access Scope**: Integration only sees explicitly shared pages
 - **Content Types**: Some Notion blocks may not extract perfectly (e.g., complex embeds, synced blocks)
 
-##### Performance Considerations
+#### Performance Considerations
 
 - **Large Workspaces**: First run may take significant time for large workspaces
 - **Embedding Generation**: Adds processing time proportional to content volume
 - **API Costs**: Unstructured API and embedding providers may incur costs
 
-##### Content Extraction
+#### Content Extraction
 
 - **Supported Blocks**: Text, headings, lists, code blocks, tables, callouts, toggles, quotes
 - **Limited Support**: Embeds, equations, files (extracted as links/references)
 - **Not Supported**: Live charts, board/gallery/timeline views (database views)
 
 ### Troubleshooting
-
-#### Common Issues
 
 **"Integration not found" or "Unauthorized" errors:**
 

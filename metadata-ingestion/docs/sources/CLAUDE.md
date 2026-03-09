@@ -19,12 +19,12 @@ README.md                    → Platform-level Overview + Concept Mapping
 Only edit `README.md`, `_pre.md`, `_post.md`, and `_recipe.yml`.
 Everything in `docs/generated/...` is generated at build time and will be overwritten.
 
-| File                     | Purpose                                                         | Required?       |
-| ------------------------ | --------------------------------------------------------------- | --------------- |
-| `README.md`              | Platform-level context, common overview, concept mapping        | Yes             |
-| `{connector}_pre.md`     | Module-level pre-injection sections                             | Yes             |
-| `{connector}_recipe.yml` | Minimal working example config                                  | Yes             |
-| `{connector}_post.md`    | Module-level post-injection sections                            | Yes             |
+| File                     | Purpose                                                  | Required? |
+| ------------------------ | -------------------------------------------------------- | --------- |
+| `README.md`              | Platform-level context, common overview, concept mapping | Yes       |
+| `{connector}_pre.md`     | Module-level pre-injection sections                      | Yes       |
+| `{connector}_recipe.yml` | Minimal working example config                           | Yes       |
+| `{connector}_post.md`    | Module-level post-injection sections                     | Yes       |
 
 ## Style conventions
 

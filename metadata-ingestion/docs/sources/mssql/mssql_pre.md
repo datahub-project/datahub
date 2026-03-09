@@ -2,104 +2,14 @@
 
 The `mssql` module ingests metadata from Mssql into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-#### Query-Based Lineage and Usage Statistics
+:::info ODBC
 
-Extracts lineage and usage statistics by analyzing SQL queries:
+Two source types are available:
 
-- **Table-level lineage**: Tables read from and written to
-- **Column-level lineage**: Data flow between columns
-- **Usage patterns**: Frequently accessed tables and user activity
-- **Query performance**: Execution counts and timing
-
-#### Known Limitations
-
-- **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
-
-#### Configuration
-
-Enable query-based lineage in your DataHub recipe:
-
-```yaml
-source:
-  type: mssql
-  config:
-    host_port: localhost:1433
-    database: YourDatabase
-    username: datahub_user
-    password: your_password
-
-    # Enable query-based lineage extraction
-    include_query_lineage: true
-
-    # Maximum number of queries to extract (default: 1000, max: 10000)
-    max_queries_to_extract: 1000
-
-    # Minimum query execution count to include (default: 1)
-    # Higher values reduce noise from rarely-executed queries
-    min_query_calls: 5
-
-    # Exclude system and temporary queries (comprehensive list)
-    query_exclude_patterns:
-      - "%sys.%" # System tables
-      - "%tempdb.%" # Temp database
-      - "%INFORMATION_SCHEMA%" # Metadata views
-      - "%msdb.%" # SQL Agent database
-      - "%master.%" # Master database
-      - "%model.%" # Model database
-      - "%#%" # Temporary tables
-      - "%sp_reset_connection%" # JDBC connection resets
-      - "%SET ANSI_%" # Connection setup
-      - "%SELECT @@%" # Driver metadata queries
-      - "%ReportServer%" # SSRS system tables
-
-    # Enable usage statistics (requires graph connection)
-    # include_usage_statistics: true
-
-sink:
-  # Your sink config
-```
-
-#### Configuration Options
-
-| Option                     | Type         | Default | Description                                                       |
-| -------------------------- | ------------ | ------- | ----------------------------------------------------------------- |
-| `include_query_lineage`    | boolean      | `false` | Enable query-based lineage extraction                             |
-| `max_queries_to_extract`   | integer      | `1000`  | Maximum queries to analyze (range: 1-10000)                       |
-| `min_query_calls`          | integer      | `1`     | Minimum execution count to include query                          |
-| `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries (max 100 patterns)           |
-| `include_usage_statistics` | boolean      | `false` | Extract usage statistics (requires `include_query_lineage: true`) |
-
-#### Query Extraction Methods
-
-DataHub automatically selects the best available method:
-
-1. **Query Store (Preferred)** - SQL Server 2016+
-
-   - Provides comprehensive query history
-   - Better performance and reliability
-   - Requires Query Store to be enabled
-
-2. **DMV Fallback** - All supported versions
-   - Uses `sys.dm_exec_cached_plans` and related DMVs
-   - Limited to queries currently in plan cache
-   - Smaller query history window
-
-The source will automatically detect and use the appropriate method based on your SQL Server version and configuration.
-
-#### Best Practices
-
-1. **Start Conservative**: Begin with `max_queries_to_extract: 1000` and `min_query_calls: 5`
-2. **Monitor Query Store Size**: Set appropriate retention policies
-3. **Use Exclude Patterns**: Filter out system queries and temporary tables (see comprehensive list in Configuration section)
-4. **Regular Extraction**: Run ingestion at least daily for accurate usage statistics
-5. **Test Before Production**: Validate permissions and Query Store setup in a non-production environment first
-
-#### Performance Considerations
-
-- **Query Store Impact**: Query Store has minimal overhead when configured appropriately
-- **Extraction Performance**: Query Store typically performs better than DMV method
-- **Storage**: Query Store storage usage depends on retention settings and query volume
-- **Parsing Time**: Scales with query complexity and volume; monitor debug logs for timing
+- `mssql`: Uses python-tds library (pure Python, easier to install)
+- `mssql-odbc`: Uses pyodbc library (required for encryption, Azure managed services)
+- If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
+  :::
 
 ### Prerequisites
 
@@ -164,18 +74,6 @@ source:
     is_aws_rds: false # Recommended for on-premises
     # ... other config
 ```
-
-#### Troubleshooting Permissions
-
-If you encounter permission errors:
-
-1. **RDS environments**: Ensure stored procedure execute permissions are granted
-2. **On-premises environments**: Verify both table select and stored procedure execute permissions
-3. **Mixed environments**: Grant all permissions listed above for maximum compatibility
-
-The DataHub source will automatically handle fallback between methods and provide detailed error messages with specific permission requirements if issues occur.
-
----
 
 #### Prerequisites for Query-Based Lineage
 

@@ -1,3 +1,9 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Database alias
+
 If you were using `database_alias` in one of your other ingestions to rename your databases to something else based on business needs you can rename them in superset also
 
 ```yml
@@ -18,10 +24,6 @@ source:
 sink:
   # sink configs
 ```
-
-### Capabilities
-
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 ### Limitations
 

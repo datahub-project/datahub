@@ -2,6 +2,19 @@
 
 The `oracle` module ingests metadata from Oracle into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
+The Oracle source extracts metadata from Oracle databases, including:
+
+- **Tables and Views**: Standard relational tables and views with column information, constraints, and comments
+- **Stored Procedures**: Functions, procedures, and packages with source code, arguments, and dependency tracking
+- **Materialized Views**: Materialized views with proper lineage and refresh information
+- **Lineage**: Automatic lineage generation from stored procedure definitions and materialized view queries via SQL parsing
+- **Usage Statistics**: Query execution statistics and table access patterns (when audit data is available)
+- **Operations**: Data modification events (CREATE, INSERT, UPDATE, DELETE) from audit trail data
+
+The connector uses the `python-oracledb` driver and supports both thin mode (default, no Oracle client required) and thick mode (requires Oracle client installation).
+
+As a SQL-based service, the Oracle integration is also supported by our SQL profiler for table and column statistics.
+
 ### Prerequisites
 
 #### Data Dictionary Mode/Views
@@ -102,59 +115,3 @@ GRANT SELECT_CATALOG_ROLE TO datahub_user;
 ```sql
 GRANT SELECT ON V_$DATABASE TO datahub_user;
 ```
-
-#### URN Format Configuration
-
-By default, Oracle URNs are formatted as `schema.table` (e.g., `HR.EMPLOYEES`).
-
-**When using `service_name` (recommended):** URNs are always `schema.table`, regardless of configuration.
-
-**When using `database` in config:** You can optionally include the database name in URNs by setting `add_database_name_to_urn: true`. This is useful when ingesting from multiple Oracle databases into the same DataHub instance.
-
-**URN Format Examples:**
-
-- **With `service_name` (any `add_database_name_to_urn` value)**: `urn:li:dataset:(urn:li:dataPlatform:oracle,schema.table,PROD)`
-  - Example: `urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)`
-- **With `database` in config + `add_database_name_to_urn: true`**: `urn:li:dataset:(urn:li:dataPlatform:oracle,database.schema.table,PROD)`
-  - Example: `urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.employees,PROD)`
-
-**Important Notes:**
-
-- All assets (tables, views, stored procedures) will use the same URN format for consistent lineage
-- Once you've ingested with a particular setting, changing it will create new URNs and break existing lineage
-- The `add_database_name_to_urn` flag only has an effect when you specify `database` in your config (not when using `service_name`)
-
-#### Stored Procedures and Functions
-
-The Oracle connector ingests both stored procedures and functions as DataJob entities with distinct subtypes:
-
-- **Stored Procedures** (object_type = `PROCEDURE`, `PACKAGE`):
-  - Appear with subtype "Stored Procedure"
-- **Functions** (object_type = `FUNCTION`):
-  - Appear with subtype "Function"
-
-**Container Hierarchy:**
-
-Stored procedures and functions are organized together in a hierarchy matching tables and views:
-
-```
-Database (e.g., ORCL)
-  └── Schema (e.g., HR)
-      ├── Tables and Views
-      └── stored_procedures (Flow container for all procedures and functions)
-          ├── Individual procedures
-          └── Individual functions
-```
-
-**Container URN Example:**
-
-- All procedures and functions: `urn:li:dataFlow:(oracle,hr.stored_procedures,PROD)`
-
-**Benefits:**
-
-- Filter by subtype in the DataHub UI to distinguish functions from procedures
-- Functions and procedures are organized together in the same container (consistent with PostgreSQL, MySQL, and Snowflake)
-- Consistent browse path hierarchy with tables and views
-- Full lineage extraction from SQL definitions, including cross-type lineage (e.g., a procedure calling a function)
-
-**Note:** Functions return values and are typically used in queries, while procedures perform operations. Both are captured with their distinct subtypes for identification.

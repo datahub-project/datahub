@@ -2,13 +2,395 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-:::caution Not Supported with Remote Executor
-This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
-:::
+#### Common Use Cases
+
+##### 1. Auto-Discover All Spaces (Default)
+
+By default, the connector discovers and ingests all accessible spaces:
+
+```yaml
+source:
+  type: confluence
+  config:
+    # Confluence Cloud
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # No filtering - discovers all accessible spaces
+    # Optional: limit number of spaces for large instances
+    max_spaces: 100
+```
+
+##### 2. Include Specific Spaces
+
+Ingest only specific Confluence spaces:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # Include only these spaces
+    spaces:
+      allow:
+        - "ENGINEERING"
+        - "PRODUCT"
+        - "DESIGN"
+```
+
+##### 3. Exclude Personal and Archive Spaces
+
+Ingest all spaces except specific ones:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # Exclude personal spaces and archived content
+    spaces:
+      deny:
+        - "~john.doe"
+        - "~jane.smith"
+        - "ARCHIVE"
+        - "OLD_DOCS"
+```
+
+##### 4. Specific Page Trees Only
+
+Ingest specific pages and their descendants:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # Start from specific pages
+    pages:
+      allow:
+        - "123456789" # API Documentation page tree
+        - "987654321" # User Guides page tree
+    recursive: true # Include all child pages
+```
+
+##### 5. Combined Space and Page Filtering
+
+Combine space and page filters for fine-grained control:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # Include specific spaces
+    spaces:
+      allow:
+        - "ENGINEERING"
+        - "PRODUCT"
+      # Exclude personal spaces even if in allow list
+      deny:
+        - "~admin"
+
+    # Exclude specific pages (e.g., drafts, archived content)
+    pages:
+      deny:
+        - "999999" # Draft page
+        - "888888" # Archived page
+```
+
+##### 6. Data Center / Server Setup
+
+Connect to Confluence Data Center or Server:
+
+```yaml
+source:
+  type: confluence
+  config:
+    # Data Center / Server
+    cloud: false
+    url: "https://confluence.company.com"
+    personal_access_token: "${CONFLUENCE_PAT}"
+
+    spaces:
+      allow:
+        - "WIKI"
+        - "DOCS"
+```
+
+##### 7. Production Setup with Stateful Ingestion
+
+Enterprise setup with incremental updates:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    spaces:
+      allow:
+        - "COMPANY"
+        - "PUBLIC"
+
+    # Enable stateful ingestion for incremental updates
+    stateful_ingestion:
+      enabled: true
+```
+
+**Note**: Embedding configuration is managed by your DataHub instance. See [Semantic Search Configuration](../../../how-to/semantic-search-configuration.md) for setup.
+
+##### 8. Using URLs for Allow/Deny
+
+You can specify spaces and pages using full URLs for both allow and deny lists:
+
+```yaml
+source:
+  type: confluence
+  config:
+    cloud: true
+    url: "https://your-domain.atlassian.net/wiki"
+    username: "user@company.com"
+    api_token: "${CONFLUENCE_API_TOKEN}"
+
+    # Use full URLs - connector extracts keys/IDs automatically
+    spaces:
+      allow:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG"
+        - "https://your-domain.atlassian.net/wiki/spaces/PRODUCT"
+      deny:
+        - "https://your-domain.atlassian.net/wiki/spaces/ARCHIVE"
+        - "~john.doe" # Can mix URLs and keys
+
+    pages:
+      allow:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/123456/Getting+Started"
+      deny:
+        - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/999999/Draft"
+```
+
+#### Filtering Content
+
+The connector provides flexible filtering options through allow and deny lists for both spaces and pages.
+
+##### Space Filtering
+
+Control which Confluence spaces are ingested:
+
+**`spaces.allow`**: Include only specific spaces (by default, all accessible spaces are discovered)
+
+```yaml
+spaces:
+  allow:
+    - "ENGINEERING" # Space key
+    - "PRODUCT"
+    - "https://your-domain.atlassian.net/wiki/spaces/DESIGN" # Or full URL
+```
+
+**`spaces.deny`**: Exclude specific spaces (applied after `spaces.allow`)
+
+```yaml
+spaces:
+  deny:
+    - "~john.doe" # Personal space
+    - "ARCHIVE" # Archived content
+    - "TEST" # Test space
+```
+
+##### Page Filtering
+
+Control which pages are ingested:
+
+**`pages.allow`**: Include only specific pages (triggers page-based mode, bypasses space discovery)
+
+```yaml
+pages:
+  allow:
+    - "123456789" # Page ID
+    - "987654321"
+    - "https://your-domain.atlassian.net/wiki/spaces/ENG/pages/111111/API+Docs" # Or full URL
+recursive: true # Include child pages
+```
+
+**`pages.deny`**: Exclude specific pages (works in both space-based and page-based modes)
+
+```yaml
+pages:
+  deny:
+    - "999999" # Draft page
+    - "888888" # Archived page
+```
+
+##### Filtering Rules
+
+**Precedence**:
+
+- Deny lists always take precedence over allow lists
+- If a space/page is in both allow and deny lists, it will be excluded
+
+**Modes**:
+
+- **Space-based mode** (default): Discovers spaces, then ingests all pages within allowed spaces
+- **Page-based mode**: When `page_allow` is specified, bypasses space discovery and fetches specific page trees
+
+**Format Support**:
+
+- Space keys: `"ENGINEERING"`, `"~username"` (for personal spaces)
+- Page IDs: `"123456789"` (numeric string)
+- Full URLs: Both space URLs and page URLs are automatically parsed
+
+##### Common Filtering Patterns
+
+**Exclude all personal spaces:**
+
+```yaml
+spaces:
+  deny:
+    - "~*" # Note: Use explicit user IDs, wildcard not supported
+    # Instead, list specific personal spaces:
+    - "~john.doe"
+    - "~jane.smith"
+```
+
+**Ingest only documentation spaces:**
+
+```yaml
+spaces:
+  allow:
+    - "DOCS"
+    - "API_DOCS"
+    - "USER_GUIDES"
+```
+
+**Focus on specific documentation trees:**
+
+```yaml
+pages:
+  allow:
+    - "123456" # API Documentation root page
+    - "789012" # User Guides root page
+recursive: true
+```
+
+**Exclude drafts and WIP pages:**
+
+```yaml
+pages:
+  deny:
+    - "999999" # Draft page ID
+    - "888888" # WIP page ID
+```
+
+#### How It Works
+
+##### Processing Pipeline
+
+1. **Discovery**: Confluence API discovers spaces and pages
+2. **Download**: Downloads page content via Confluence REST API
+3. **Extraction**: Extracts text, metadata, and hierarchy from pages
+4. **Chunking**: Splits documents into semantic chunks (if embeddings enabled)
+5. **Embedding**: Generates vector embeddings for each chunk (if embeddings enabled)
+6. **Emission**: Emits Document entities with SemanticContent aspects to DataHub
+
+##### URL Format Support
+
+The connector supports multiple input formats for spaces and pages in allow/deny lists:
+
+**Space Identifiers:**
+
+- Space key: `"ENGINEERING"`, `"~username"` (for personal spaces)
+- Full URL: `"https://your-domain.atlassian.net/wiki/spaces/ENGINEERING"`
+
+**Page Identifiers:**
+
+- Page ID: `"123456789"` (numeric string)
+- Full URL (Cloud): `"https://your-domain.atlassian.net/wiki/spaces/ENG/pages/123456/Page+Title"`
+- Full URL (Data Center): `"https://confluence.company.com/pages/viewpage.action?pageId=123456"`
+
+The connector automatically extracts space keys and page IDs from URLs, so you can use either format interchangeably in `space_allow`, `space_deny`, `page_allow`, and `page_deny` lists.
+
+##### Stateful Ingestion Details
+
+The source uses content-based change detection:
+
+- Calculates SHA-256 hash of document content + embedding configuration
+- Compares hash with previous run to detect changes
+- Only reprocesses documents when hash changes
+- Tracks all emitted URNs to detect deletions
+
+This means:
+
+- **First run**: Processes all documents
+- **Subsequent runs**: Only processes new/changed documents
+- **Deleted pages**: Automatically soft-deleted from DataHub
+
+#### Performance Tuning
+
+##### Parallelism Settings
+
+```yaml
+processing:
+  parallelism:
+    num_processes: 4 # Increase for faster processing (default: 2)
+    max_connections: 20 # Concurrent API connections (default: 10)
+```
+
+**Guidelines:**
+
+- Small spaces (<100 pages): `num_processes: 2`
+- Medium spaces (100-500 pages): `num_processes: 4`
+- Large spaces (>500 pages): `num_processes: 8`
+
+##### Filtering
+
+```yaml
+filtering:
+  min_text_length: 100 # Skip short pages (default: 50)
+  skip_empty_documents: true # Skip empty pages (default: true)
+```
+
+##### Space Selection
+
+Instead of ingesting all spaces, select specific ones:
+
+```yaml
+spaces:
+  allow:
+    - "ENGINEERING" # High-value documentation space
+    - "PRODUCT" # Product requirements space
+  deny:
+    - "~*" # Exclude personal spaces (list specific users)
+    - "ARCHIVE" # Exclude archived content
+    - "TEST" # Exclude test spaces
+```
 
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+:::caution Not Supported with Remote Executor
+This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.
+:::
 
 #### Limitations and Considerations
 

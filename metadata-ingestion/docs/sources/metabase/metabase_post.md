@@ -1,3 +1,32 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Collection
+
+The connector uses Metabase collection APIs to discover collection hierarchy and list dashboards within each collection:
+
+- [`/api/collection`](https://www.metabase.com/docs/latest/api/collection)
+- [`/api/collection/{id}/items?models=dashboard`](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems)
+
+#### Dashboard
+
+Dashboard details are extracted from:
+
+- [`/api/dashboard/{id}`](https://www.metabase.com/docs/latest/api/dashboard)
+
+This includes titles, descriptions, ownership context, and dashboard URL metadata.
+
+#### Chart
+
+Chart metadata is extracted from:
+
+- [`/api/card/{id}`](https://www.metabase.com/docs/latest/api-documentation.html#card)
+
+This captures chart definitions, query relationships, and chart-level attributes used for DataHub Chart entities.
+
+#### Database Mapping
+
 Metabase databases will be mapped to a DataHub platform based on the engine listed in the
 [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database) response. This mapping can be
 customized by using the `engine_platform_map` config option. For example, to map databases using the `athena` engine to
@@ -27,37 +56,6 @@ If needed it is possible to exclude collections from other users by setting the 
 ```yaml
 exclude_other_user_collections: true
 ```
-
-### Capabilities
-
-Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
-
-#### Compatibility
-
-Metabase version [v0.48.3](https://www.metabase.com/start/oss/)
-
-#### Collection
-
-The connector uses Metabase collection APIs to discover collection hierarchy and list dashboards within each collection:
-
-- [`/api/collection`](https://www.metabase.com/docs/latest/api/collection)
-- [`/api/collection/{id}/items?models=dashboard`](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems)
-
-#### Dashboard
-
-Dashboard details are extracted from:
-
-- [`/api/dashboard/{id}`](https://www.metabase.com/docs/latest/api/dashboard)
-
-This includes titles, descriptions, ownership context, and dashboard URL metadata.
-
-#### Chart
-
-Chart metadata is extracted from:
-
-- [`/api/card/{id}`](https://www.metabase.com/docs/latest/api-documentation.html#card)
-
-This captures chart definitions, query relationships, and chart-level attributes used for DataHub Chart entities.
 
 ### Limitations
 

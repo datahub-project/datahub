@@ -419,6 +419,7 @@ def generate(  # noqa: C901
         sys.exit(1)
 
     for plugin_name in sorted(source_registry.mapping.keys()):
+        logger.info(f"Processing plugin: {plugin_name}")
         if source and source != plugin_name:
             continue
 
@@ -458,6 +459,7 @@ def generate(  # noqa: C901
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
+            logger.info(f"Processing extra doc: {path}")
             if m := re.search("/docs/sources/(.*)/(.*).md", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
@@ -546,6 +548,7 @@ def generate(  # noqa: C901
 
     i = 0
     for platform_id, platform in platforms.items():
+        logger.info(f"Generating docs for platform {platform} with id {platform_id}")
         if source and platform_id != source:
             continue
         platform_metrics.discovered += 1
@@ -637,14 +640,9 @@ def generate(  # noqa: C901
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
-                if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write("```shell\n")
-                    f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
-                    f.write("```\n")
-                else:
-                    f.write(
-                        f"The `{plugin_name}` source works out of the box with `acryl-datahub`.\n"
-                    )
+                f.write("```shell\n")
+                f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
+                f.write("```\n")
                 f.write(f"\n{section_heading} Starter Recipe\n")
                 if plugin.starter_recipe:
                     f.write(

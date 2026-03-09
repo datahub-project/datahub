@@ -2,105 +2,177 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-Execute the following commands as `ACCOUNTADMIN` or a user with `MANAGE GRANTS` privilege to create a DataHub-specific role:
+#### Snowflake Shares
 
-```sql
-create or replace role datahub_role;
+If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different Snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of the same table in different Snowflake accounts. The DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationships if the user provides information necessary to establish the relationship using the `shares` configuration in the recipe.
 
-// Grant access to a warehouse to run queries to view metadata
-grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
+##### Example
 
-// Grant access to view database and schema in which your tables/views/dynamic tables exist
-grant usage on DATABASE "<your-database>" to role datahub_role;
-grant usage on all schemas in database "<your-database>" to role datahub_role;
-grant usage on future schemas in database "<your-database>" to role datahub_role;
-grant select on all streams in database "<your-database>" to role datahub_role;
-grant select on future streams in database "<your-database>" to role datahub_role;
+- Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it.
+- Now, `X` is shared with Snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`. In this case, all tables and views included in share `X` will also be present in `instance2.db1_from_X`.
+- This can be represented in `shares` configuration section as
+  ```yaml
+  shares:
+    X: # name of the share
+      database: db1
+      platform_instance: instance1
+      consumers: # list of all databases created from share X
+        - database: db1_from_X
+          platform_instance: instance2
+  ```
+- If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
 
-// If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views
-grant references on all tables in database "<your-database>" to role datahub_role;
-grant references on future tables in database "<your-database>" to role datahub_role;
-grant references on all external tables in database "<your-database>" to role datahub_role;
-grant references on future external tables in database "<your-database>" to role datahub_role;
-grant references on all views in database "<your-database>" to role datahub_role;
-grant references on future views in database "<your-database>" to role datahub_role;
--- Note: Semantic views are covered by the above view grants
+#### Lineage and Usage
 
--- Grant monitor privileges for dynamic tables
-grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
-grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
+DataHub supports two strategies for extracting lineage and usage information from Snowflake:
 
-// If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
-grant select on all tables in database "<your-database>" to role datahub_role;
-grant select on future tables in database "<your-database>" to role datahub_role;
-grant select on all external tables in database "<your-database>" to role datahub_role;
-grant select on future external tables in database "<your-database>" to role datahub_role;
-grant select on all dynamic tables in database "<your-database>" to role datahub_role;
-grant select on future dynamic tables in database "<your-database>" to role datahub_role;
+##### New Strategy (Default - `use_queries_v2: true`)
 
-// Create a new DataHub user and assign the DataHub role to it
-create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
+The default and recommended approach uses an optimized query extraction method that:
 
-// Grant the datahub_role to the new DataHub user.
-grant role datahub_role to user datahub_user;
+- **Better Performance**: Fetches query logs in a single optimized query instead of multiple separate queries
+- **Enhanced Features**:
+  - Query entities generation (`include_queries`)
+  - Query popularity statistics (`include_query_usage_statistics`)
+  - User filtering with patterns (`pushdown_deny_usernames`, `pushdown_allow_usernames`)
+  - Database pattern pushdown for performance (`push_down_database_pattern_access_history`)
+  - Query deduplication strategies (`query_dedup_strategy`)
 
-// Optional - required if extracting lineage, usage or tags (without lineage)
-grant imported privileges on database snowflake to role datahub_role;
+##### Legacy Strategy (`use_queries_v2: false`)
 
-// Optional - required if extracting Streamlit Apps
-grant usage on all streamlits in database "<your-database>" to role datahub_role;
-grant usage on future streamlits in database "<your-database>" to role datahub_role;
+The older approach that will be deprecated in future versions:
+
+- Uses separate extractors for lineage and usage
+- Less performant due to multiple query executions
+- Limited feature support compared to the new strategy
+
+Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
+
+#### Metadata Pattern Pushdown
+
+When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
+
+> **Note:** This option applies only to **metadata extraction** queries (`information_schema.databases`, `schemata`, `tables`, `views`). For pushing down filters on **lineage/usage** queries (`account_usage.access_history`), use `push_down_database_pattern_access_history` instead. These two options are independent and target completely separate query paths.
+
+##### Configuration
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # Enable pattern pushdown for improved performance
+    push_down_metadata_patterns: true
+
+    # Your existing patterns - MUST follow Snowflake RLIKE syntax
+    database_pattern:
+      allow:
+        - "PROD_.*" # Matches databases starting with PROD_
+        - "ANALYTICS.*" # Matches databases starting with ANALYTICS
+      deny:
+        - ".*_TEMP$" # Excludes databases ending with _TEMP
+
+    table_pattern:
+      allow:
+        - ".*" # Allow all tables
+      deny:
+        - ".*_BACKUP$" # Exclude tables ending with _BACKUP
 ```
 
-The details of each granted privilege can be viewed in the [Snowflake docs](https://docs.snowflake.com/en/user-guide/security-access-control-privileges.html). A summary of each privilege and why it is required for this connector:
+##### View Pattern Limitation
 
-- `operate` is required only to start the warehouse.
-  If the warehouse is already running during ingestion or has auto-resume enabled,
-  this permission is not required.
-- `usage` is required to run queries using the warehouse
-- `usage` on `database` and `schema` are required because without them, tables, views, and streams inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view/stream exists, then we will not be able to get metadata for the table/view/stream.
-- If metadata is required only on some schemas, then you can grant the usage privileges only on a particular schema like:
+By default, Snowflake views are fetched using `SHOW VIEWS`, which does **not** support SQL-level filtering. When `push_down_metadata_patterns: true`, the `view_pattern` is pushed down **only** if `fetch_views_from_information_schema: true` is also set. Otherwise, view filtering falls back to Python's `re.match()`, even with pushdown enabled.
+
+This means if you write patterns in Snowflake RLIKE syntax (e.g., `PROD.*` for prefix matching), they will still work correctly with Python filtering since `PROD.*` is valid in both. However, patterns that rely on RLIKE's full-string matching semantics (e.g., exact match `PROD_DB` without `.*`) will behave differently — Python `re.match()` treats it as a prefix match.
+
+**Recommendation**: If you enable `push_down_metadata_patterns`, also enable `fetch_views_from_information_schema: true` to ensure consistent behavior for view patterns.
+
+##### Important: Snowflake RLIKE Syntax Differences
+
+When `push_down_metadata_patterns: true`, patterns are executed in Snowflake using the `RLIKE` operator instead of Python's `re.match()`. These have **different matching behaviors**:
+
+| Behavior             | Python `re.match()`                       | Snowflake `RLIKE`                   | Fix for Snowflake     |
+| -------------------- | ----------------------------------------- | ----------------------------------- | --------------------- |
+| **Prefix match**     | `'PROD'` matches `'PROD_DB'`              | `'PROD'` does NOT match `'PROD_DB'` | Use `PROD.*`          |
+| **Suffix match**     | `'.*_BACKUP'` matches `'TABLE_BACKUP_V2'` | Does NOT match                      | Use `.*_BACKUP$`      |
+| **Start anchor**     | `'^PROD'` matches `'PROD_DB'`             | Does NOT match                      | Use `PROD.*`          |
+| **Alternation**      | `'PROD\|DEV'` matches `'PROD_DB'`         | Does NOT match                      | Use `(PROD\|DEV).*`   |
+| **Case sensitivity** | Case-insensitive by default               | Case-sensitive by default           | Handled automatically |
+
+**Key difference**: Python `re.match()` anchors at the START only (prefix matching), while Snowflake `RLIKE` requires a FULL STRING match.
+
+##### Pattern Conversion Examples
+
+| Intent                       | Without Pushdown (Python) | With Pushdown (Snowflake RLIKE) |
+| ---------------------------- | ------------------------- | ------------------------------- |
+| Starts with `PROD`           | `PROD`                    | `PROD.*`                        |
+| Ends with `_BACKUP`          | `.*_BACKUP`               | `.*_BACKUP$`                    |
+| Contains `TEMP`              | `.*TEMP.*`                | `.*TEMP.*` (same)               |
+| Exact match                  | `PROD_DB`                 | `PROD_DB` (same)                |
+| Match `PROD` or `DEV` prefix | `PROD\|DEV`               | `(PROD\|DEV).*`                 |
+
+##### Testing Your Patterns
+
+Before enabling pushdown in production, test your patterns in Snowflake:
 
 ```sql
-grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
+-- Test prefix matching
+SELECT 'PROD_DB' RLIKE 'PROD';      -- FALSE (needs .*)
+SELECT 'PROD_DB' RLIKE 'PROD.*';    -- TRUE
+
+-- Test suffix matching
+SELECT 'TABLE_BACKUP_V2' RLIKE '.*_BACKUP';    -- FALSE (needs $)
+SELECT 'TABLE_BACKUP' RLIKE '.*_BACKUP$';      -- TRUE
+
+-- Test FQN with escaped dots
+SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
 ```
 
-- `select` on `streams` is required for stream definitions to be available. This does not allow selecting the data (not required) unless the underlying dataset has select access as well.
-- `usage` on `streamlit` is required to show streamlits in a database. See the schema-level `usage` example above.
+#### Semantic Views
 
-This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
+DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
 
-If you plan to enable extraction of table lineage via the `include_table_lineage` config flag, extraction of usage statistics via the `include_usage_stats` config, or extraction of tags (without lineage) via the `extract_tags` config, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables from which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
+##### Configuration
 
-```sql
-grant imported privileges on database snowflake to role datahub_role;
+Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
+
+```yaml
+# Enable semantic view ingestion (requires Enterprise Edition)
+semantic_views:
+  enabled: true # Default: false
+  column_lineage: true # Default: false - enable column-level lineage
+
+# Filter semantic views using regex patterns
+semantic_view_pattern:
+  allow:
+    - "ANALYTICS_DB.PUBLIC.*"
+    - "SALES_DB.*"
+  deny:
+    - ".*_INTERNAL"
 ```
 
-Note that `imported privileges` grants access to all schemas and views in the shared `SNOWFLAKE` database, primarily:
+##### Features
 
-- `SNOWFLAKE.ACCOUNT_USAGE.*` (all views: `QUERY_HISTORY`, `ACCESS_HISTORY`, `USERS`, etc.)
-- `SNOWFLAKE.ORGANIZATION_USAGE.*` (requires separate enablement by Snowflake support at the organization level)
+- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
+- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
+- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
 
-The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular databases where you can grant granular `SELECT` privileges on individual tables, shared databases require granting `IMPORTED PRIVILEGES` which provides all-or-nothing access to all objects in the database.
+##### Requirements
 
-#### Which ACCOUNT_USAGE Tables Does DataHub Access?
-
-When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
-
-| Table            | Purpose                                                      | Required For                                                      |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
-| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
-| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
-| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
-| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
-| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
-
-If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
+- Semantic views require appropriate Snowflake edition and privileges
+- Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
+- The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
 
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
+- Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
+- Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
+- The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
+- If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
+- Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).
 
 ### Troubleshooting
 
