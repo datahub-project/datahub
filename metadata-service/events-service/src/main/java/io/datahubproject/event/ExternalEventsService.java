@@ -36,11 +36,7 @@ public class ExternalEventsService {
   public static final String METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME =
       "MetadataChangeLog_Timeseries_v1";
 
-  private static final Set<String> ALLOWED_TOPICS =
-      Set.of(
-          PLATFORM_EVENT_TOPIC_NAME,
-          METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-          METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME);
+  private final TopicAllowList topicAllowList;
   private final KafkaConsumerPool consumerPool;
   private final ObjectMapper objectMapper;
   private final Map<String, String>
@@ -49,11 +45,13 @@ public class ExternalEventsService {
   private final int defaultLimit;
 
   public ExternalEventsService(
+      @Nonnull final TopicAllowList topicAllowList,
       @Nonnull final KafkaConsumerPool consumerPool,
       @Nonnull final ObjectMapper objectMapper,
       @Nonnull final Map<String, String> topicNames,
       final int defaultPollTimeoutSeconds,
       final int defaultLimit) {
+    this.topicAllowList = Objects.requireNonNull(topicAllowList, "topicAllowList must not be null");
     this.consumerPool = Objects.requireNonNull(consumerPool, "consumerPool must not be null");
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     this.topicNames = Objects.requireNonNull(topicNames, "topicNames must not be null");
@@ -80,7 +78,7 @@ public class ExternalEventsService {
       @Nullable final Integer pollTimeoutSeconds,
       @Nullable final Integer lookbackWindowDays)
       throws Exception {
-    if (!ALLOWED_TOPICS.contains(topic)) {
+    if (!topicAllowList.isAllowed(topic)) {
       throw new UnsupportedTopicException(topic);
     }
 
@@ -333,7 +331,7 @@ public class ExternalEventsService {
     if (this.topicNames.containsKey(topicName)) {
       return this.topicNames.get(topicName);
     }
-    // No topic found.
-    throw new UnsupportedTopicException(topicName);
+    // Custom topic — use the name as a literal Kafka topic name.
+    return topicName;
   }
 }

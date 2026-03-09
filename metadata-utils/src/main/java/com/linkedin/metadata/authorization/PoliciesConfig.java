@@ -233,6 +233,20 @@ public class PoliciesConfig {
           "Manage Home Page Templates",
           "Privilege allowing users to manage the default home page template and the global modules in it.");
 
+  public static final Privilege GET_TOPIC_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_TOPIC_EVENTS",
+          "Get Topic Events",
+          "The ability to use the Events API to read events from custom Kafka topics.");
+
+  // Topic Privileges
+  public static final ResourcePrivileges TOPIC_PRIVILEGES =
+      ResourcePrivileges.of(
+          "topic",
+          "Topics",
+          "Kafka topics available via the Events API",
+          ImmutableList.of(GET_TOPIC_EVENTS_PRIVILEGE));
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -992,7 +1006,8 @@ public class PoliciesConfig {
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES,
-          DATAHUB_VIEW_PRIVILEGES);
+          DATAHUB_VIEW_PRIVILEGES,
+          TOPIC_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

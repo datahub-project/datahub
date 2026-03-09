@@ -1248,6 +1248,7 @@ metadataChangeLog:
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
+  pollAllowedTopics: ${EVENTS_API_POLL_ALLOWED_TOPICS:PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1}
 
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}

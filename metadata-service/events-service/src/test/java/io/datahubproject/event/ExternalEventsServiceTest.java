@@ -49,7 +49,10 @@ public class ExternalEventsServiceTest {
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
         "CustomerSpecificTimeseriesTopicName");
-    service = new ExternalEventsService(consumerPool, objectMapper, topicNames, 10, 100);
+    TopicAllowList allowList =
+        new TopicAllowList(
+            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1");
+    service = new ExternalEventsService(allowList, consumerPool, objectMapper, topicNames, 10, 100);
 
     // Setup to simulate fetching records from Kafka
     String topicName = "CustomerSpecificTopicName";

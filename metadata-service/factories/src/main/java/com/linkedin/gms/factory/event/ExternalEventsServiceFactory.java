@@ -7,6 +7,7 @@ import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.mxe.TopicConvention;
 import io.datahubproject.event.ExternalEventsService;
+import io.datahubproject.event.TopicAllowList;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +27,9 @@ public class ExternalEventsServiceFactory {
   @Value("${eventsApi.defaultLimit:100}")
   private int defaultLimit;
 
+  @Value("${eventsApi.pollAllowedTopics}")
+  private String pollAllowedTopics;
+
   @Autowired private TopicConvention topicConvention;
 
   @Autowired private KafkaConsumerPool consumerPool;
@@ -33,9 +37,19 @@ public class ExternalEventsServiceFactory {
   @Autowired private ObjectMapper objectMapper;
 
   @Bean
-  public ExternalEventsService externalEventsService() {
+  public TopicAllowList topicAllowList() {
+    return new TopicAllowList(pollAllowedTopics);
+  }
+
+  @Bean
+  public ExternalEventsService externalEventsService(TopicAllowList topicAllowList) {
     return new ExternalEventsService(
-        consumerPool, objectMapper, buildTopicNameMappings(), pollTimeout, defaultLimit);
+        topicAllowList,
+        consumerPool,
+        objectMapper,
+        buildTopicNameMappings(),
+        pollTimeout,
+        defaultLimit);
   }
 
   private Map<String, String> buildTopicNameMappings() {
