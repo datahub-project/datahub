@@ -1565,17 +1565,17 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
+        # Detect whether _make_schema_resolver returns a cached (already-initialized)
+        # resolver. Since _make_schema_resolver is lru_cache'd on (platform,
+        # platform_instance, env), a cache hit means the bulk fetch already ran for
+        # this platform/env combination — we can skip it and return the shared object.
+        cache_hits_before = self._make_schema_resolver.cache_info().hits
         schema_resolver = self._make_schema_resolver(
             platform, platform_instance, env, include_graph=False, report=report
         )
-
-        # _make_schema_resolver is lru_cache'd, so multiple connectors on the same
-        # platform/env share the same SchemaResolver object. Skip the expensive bulk
-        # fetch if it was already populated by a previous call.
-        if schema_resolver.schema_count > 0:
+        if self._make_schema_resolver.cache_info().hits > cache_hits_before:
             logger.debug(
-                f"Schema resolver for {platform}/{env} already initialized with "
-                f"{schema_resolver.schema_count} schemas, skipping bulk fetch"
+                f"Schema resolver for {platform}/{env} already initialized, reusing cached resolver"
             )
             return schema_resolver
 
