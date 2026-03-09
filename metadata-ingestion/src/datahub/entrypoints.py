@@ -1,4 +1,4 @@
-import importlib.resources as pkg_resources
+import importlib.resources
 import logging
 import multiprocessing
 import os
@@ -137,7 +137,7 @@ def _make_agent_aware_command(resource_name: str) -> type:
             super().format_help(ctx, formatter)
             if not sys.stdout.isatty():
                 agent_text: str = (
-                    pkg_resources.files("datahub.cli.resources")
+                    importlib.resources.files("datahub.cli.resources")
                     .joinpath(resource_name)
                     .read_text(encoding="utf-8")
                 )
@@ -321,7 +321,7 @@ def init(
     """
     if agent_context:
         text: str = (
-            pkg_resources.files("datahub.cli.resources")
+            importlib.resources.files("datahub.cli.resources")
             .joinpath("INIT_AGENT_CONTEXT.md")
             .read_text(encoding="utf-8")
         )

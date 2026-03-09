@@ -67,8 +67,8 @@ class TestGraphQLCLIStandalone:
             ["graphql", "--list-operations"]
         )
 
-        # Command may exit with error (no DataHub connection) but should not crash
-        assert exit_code in [0, 1], f"Unexpected exit code. stderr: {stderr}"
+        # Command may exit with error (no DataHub connection or auth failure) but should not crash
+        assert exit_code in [0, 1, 4], f"Unexpected exit code. stderr: {stderr}"
         assert "Traceback" not in stderr  # No Python crashes
         assert (
             "graphql" not in stderr.lower() or "command not found" not in stderr.lower()
@@ -88,8 +88,8 @@ class TestGraphQLCLIStandalone:
                 ["graphql", "--query", temp_path, "--format", "json"]
             )
 
-            # Should recognize as file path (may fail due to missing DataHub connection)
-            assert exit_code in [0, 1], (
+            # Should recognize as file path (may fail due to missing DataHub connection or auth failure)
+            assert exit_code in [0, 1, 4], (
                 f"Unexpected exit code with file path. stderr: {stderr}"
             )
             assert "No such file or directory" not in stderr
@@ -116,8 +116,8 @@ class TestGraphQLCLIStandalone:
                     ["graphql", "--query", relative_path, "--format", "json"]
                 )
 
-                # Should recognize relative path (may fail due to missing DataHub connection)
-                assert exit_code in [0, 1], (
+                # Should recognize relative path (may fail due to missing DataHub connection or auth failure)
+                assert exit_code in [0, 1, 4], (
                     f"Relative path handling failed. stderr: {stderr}"
                 )
                 assert "No such file or directory" not in stderr

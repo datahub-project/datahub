@@ -10,11 +10,8 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.graphql_cli import (
-    EXIT_CONNECTION,
-    EXIT_GENERAL,
-    EXIT_PERMISSION,
-    EXIT_USAGE,
     GraphQLCliError,
+    GraphQLExitCode,
     _collect_nested_types,
     _convert_describe_to_json,
     _convert_operation_to_json,
@@ -2461,19 +2458,21 @@ class TestGraphQLCliError:
 
     def test_exit_code_defaults_to_general(self):
         err = GraphQLCliError("something failed")
-        assert err.exit_code == EXIT_GENERAL
+        assert err.exit_code == GraphQLExitCode.GENERAL
 
     def test_exit_code_usage(self):
-        err = GraphQLCliError("bad flags", exit_code=EXIT_USAGE)
-        assert err.exit_code == EXIT_USAGE
+        err = GraphQLCliError("bad flags", exit_code=GraphQLExitCode.USAGE)
+        assert err.exit_code == GraphQLExitCode.USAGE
 
     def test_exit_code_permission(self):
-        err = GraphQLCliError("403", exit_code=EXIT_PERMISSION)
-        assert err.exit_code == EXIT_PERMISSION
+        err = GraphQLCliError("403", exit_code=GraphQLExitCode.PERMISSION)
+        assert err.exit_code == GraphQLExitCode.PERMISSION
 
     def test_exit_code_connection(self):
-        err = GraphQLCliError("connection refused", exit_code=EXIT_CONNECTION)
-        assert err.exit_code == EXIT_CONNECTION
+        err = GraphQLCliError(
+            "connection refused", exit_code=GraphQLExitCode.CONNECTION
+        )
+        assert err.exit_code == GraphQLExitCode.CONNECTION
 
     def test_show_json_when_non_tty(self):
         """Non-TTY stderr gets JSON error output."""
@@ -2522,7 +2521,7 @@ class TestGraphQLCliError:
         with pytest.raises(GraphQLCliError) as exc_info:
             _parse_variables("{not valid json")
         assert exc_info.value.error_type == "usage_error"
-        assert exc_info.value.exit_code == EXIT_USAGE
+        assert exc_info.value.exit_code == GraphQLExitCode.USAGE
 
 
 class TestAgentContext:
@@ -2649,7 +2648,7 @@ class TestDryRun:
             ),
         ):
             result = runner.invoke(graphql, ["--operation", "nonexistent", "--dry-run"])
-        assert result.exit_code == EXIT_USAGE
+        assert result.exit_code == GraphQLExitCode.USAGE
 
 
 class TestExitCodes:
@@ -2659,7 +2658,7 @@ class TestExitCodes:
         runner = CliRunner()
         with patch("datahub.cli.graphql_cli.get_default_graph"):
             result = runner.invoke(graphql, [])
-        assert result.exit_code == EXIT_USAGE
+        assert result.exit_code == GraphQLExitCode.USAGE
 
     def test_connection_error_exits_with_connection_code(self):
         runner = CliRunner()
@@ -2670,12 +2669,12 @@ class TestExitCodes:
                 side_effect=GraphQLCliError(
                     "connection refused",
                     error_type="connection_error",
-                    exit_code=EXIT_CONNECTION,
+                    exit_code=GraphQLExitCode.CONNECTION,
                 ),
             ),
         ):
             result = runner.invoke(graphql, ["--query", "{ me { corpUser { urn } } }"])
-        assert result.exit_code == EXIT_CONNECTION
+        assert result.exit_code == GraphQLExitCode.CONNECTION
 
     def test_permission_error_exits_with_permission_code(self):
         runner = CliRunner()
@@ -2686,9 +2685,9 @@ class TestExitCodes:
                 side_effect=GraphQLCliError(
                     "403 forbidden",
                     error_type="permission_denied",
-                    exit_code=EXIT_PERMISSION,
+                    exit_code=GraphQLExitCode.PERMISSION,
                 ),
             ),
         ):
             result = runner.invoke(graphql, ["--query", "{ me { corpUser { urn } } }"])
-        assert result.exit_code == EXIT_PERMISSION
+        assert result.exit_code == GraphQLExitCode.PERMISSION
