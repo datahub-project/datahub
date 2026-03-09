@@ -206,10 +206,9 @@ aws_common = {
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
     # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0, but botocore requires urllib3<1.27 and does not yet support 2.x.
-    # This is blocked by upstream: https://github.com/boto/botocore/issues/3499
-    # Pin to latest 1.26.x until botocore adds urllib3 2.x support.
-    "urllib3>=1.26.20,<1.27",
+    # fixed in urllib3>=2.6.0
+    # We cannot require >=2.6.0 due to great expectations
+    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -648,7 +647,7 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0"},
+    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -711,8 +710,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    # Note: tableauserverclient>=0.27 requires urllib3>=2, but elasticsearch requires urllib3<2
-    "tableau": {"tableauserverclient>=0.24.0,<0.27"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
