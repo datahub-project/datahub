@@ -152,7 +152,7 @@ public class ChangeTransactionMapperTest {
     ChangeEvent event2 =
         ChangeEvent.builder()
             .entityUrn("urn:li:dataset:test")
-            .category(ChangeCategory.OWNER)
+            .category(ChangeCategory.OWNERSHIP)
             .operation(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Owner removed")

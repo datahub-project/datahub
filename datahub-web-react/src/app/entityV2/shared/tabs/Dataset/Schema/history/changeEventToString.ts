@@ -18,8 +18,9 @@ const SET_ASSET_DOC = (description) => `Set asset documentation to ${description
 const SET_FIELD_DOC = (fieldPath, description) =>
     `Set field documentation for ${downgradeV2FieldPath(fieldPath)} to ${description}`;
 
-// Maps backend relationship type strings to human-readable labels.
-// Uses the same vocabulary as the Glossary Term "Related Terms" tab in the UI.
+// Maps backend relationship type strings (emitted by GlossaryRelatedTermsChangeEventGenerator)
+// to short labels for change event display. These are different from the UI tab labels
+// ("Contains"/"Inherits") — the backend emits formal type names ("Is A"/"Has A"/etc.).
 const RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
     'Is A': 'inherited',
     'Has A': 'contained',

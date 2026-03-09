@@ -109,7 +109,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, owner",
+    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner)",
 )
 @click.option(
     "--start",
@@ -142,16 +142,21 @@ def timeline(
 
     all_categories = [
         "TAG",
-        "OWNER",
+        "OWNERSHIP",
         "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
     ]
+    # Accept OWNER as a backward-compat alias for OWNERSHIP
+    category_aliases = {"OWNER": "OWNERSHIP"}
+    resolved_categories: List[str] = []
     for c in category:
-        if c.upper() not in all_categories:
-            raise click.UsageError(
-                f"category: {c.upper()} is not one of {all_categories}"
-            )
+        upper = c.upper()
+        resolved = category_aliases.get(upper, upper)
+        if resolved not in all_categories:
+            raise click.UsageError(f"category: {upper} is not one of {all_categories}")
+        resolved_categories.append(resolved)
+    category = resolved_categories
 
     if urn is None:
         if not ctx.args:

@@ -11,7 +11,7 @@ public enum ChangeCategory {
   // (field or top level) add term, remove term, etc.
   GLOSSARY_TERM,
   // add new owner, remove owner, change ownership type etc.
-  OWNER,
+  OWNERSHIP,
   // new field, remove field, field type change,
   TECHNICAL_SCHEMA,
   // (field or top level) add tag, remove tag,

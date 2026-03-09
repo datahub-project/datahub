@@ -114,7 +114,7 @@ public class TimelineServiceImpl implements TimelineService {
                 new GlobalTagsChangeEventGenerator());
           }
           break;
-        case OWNER:
+        case OWNERSHIP:
           {
             aspects.add(OWNERSHIP_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
@@ -216,7 +216,7 @@ public class TimelineServiceImpl implements TimelineService {
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
-        case OWNER:
+        case OWNERSHIP:
           {
             aspects.add(OWNERSHIP_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
@@ -288,7 +288,7 @@ public class TimelineServiceImpl implements TimelineService {
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
-        case OWNER:
+        case OWNERSHIP:
           {
             aspects.add(OWNERSHIP_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(

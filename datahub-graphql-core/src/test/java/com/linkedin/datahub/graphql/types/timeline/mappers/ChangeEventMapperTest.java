@@ -17,53 +17,19 @@ import org.testng.annotations.Test;
 public class ChangeEventMapperTest {
 
   @Test
-  public void testOwnerMapsToOwnership() {
-    // Backend uses OWNER, GraphQL uses OWNERSHIP — verify the mapping works
-    ChangeCategoryType result = ChangeEventMapper.mapCategory(ChangeCategory.OWNER);
-    assertEquals(result, ChangeCategoryType.OWNERSHIP);
-  }
+  public void testOwnershipMapsDirectly() {
+    // Backend OWNERSHIP now matches GraphQL OWNERSHIP — no mapping table needed
+    ChangeEvent backendEvent =
+        ChangeEvent.builder()
+            .entityUrn("urn:li:dataset:test")
+            .category(ChangeCategory.OWNERSHIP)
+            .operation(ChangeOperation.ADD)
+            .semVerChange(SemanticChangeType.MINOR)
+            .description("Owner added")
+            .build();
 
-  @Test
-  public void testAllBackendCategoriesAreMapped() {
-    // Verify every category used in timeline generators has a mapping.
-    // Categories without a mapping return null and log a warning.
-    ChangeCategory[] expectedMapped = {
-      ChangeCategory.DOCUMENTATION,
-      ChangeCategory.GLOSSARY_TERM,
-      ChangeCategory.OWNER,
-      ChangeCategory.TECHNICAL_SCHEMA,
-      ChangeCategory.TAG,
-      ChangeCategory.PARENT,
-      ChangeCategory.RELATED_ENTITIES,
-      ChangeCategory.DOMAIN,
-      ChangeCategory.STRUCTURED_PROPERTY,
-      ChangeCategory.APPLICATION,
-    };
-    for (ChangeCategory category : expectedMapped) {
-      assertNotNull(
-          ChangeEventMapper.mapCategory(category),
-          "Expected mapping for backend category " + category);
-    }
-  }
-
-  @Test
-  public void testUnmappedCategoryReturnsNull() {
-    // Categories like DEPRECATION that exist in the backend but not in the GraphQL
-    // enum should return null rather than throwing.
-    ChangeCategoryType result = ChangeEventMapper.mapCategory(ChangeCategory.DEPRECATION);
-    assertNull(result);
-  }
-
-  @Test
-  public void testDomainMapsToDomain() {
-    ChangeCategoryType result = ChangeEventMapper.mapCategory(ChangeCategory.DOMAIN);
-    assertEquals(result, ChangeCategoryType.DOMAIN);
-  }
-
-  @Test
-  public void testStructuredPropertyMapsToStructuredProperty() {
-    ChangeCategoryType result = ChangeEventMapper.mapCategory(ChangeCategory.STRUCTURED_PROPERTY);
-    assertEquals(result, ChangeCategoryType.STRUCTURED_PROPERTY);
+    com.linkedin.datahub.graphql.generated.ChangeEvent result = ChangeEventMapper.map(backendEvent);
+    assertEquals(result.getCategory(), ChangeCategoryType.OWNERSHIP);
   }
 
   @Test
@@ -105,7 +71,7 @@ public class ChangeEventMapperTest {
     ChangeEvent backendEvent =
         ChangeEvent.builder()
             .entityUrn("urn:li:dataset:test")
-            .category(ChangeCategory.OWNER)
+            .category(ChangeCategory.OWNERSHIP)
             .operation(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Owner added")
@@ -159,11 +125,5 @@ public class ChangeEventMapperTest {
 
     assertNull(result.getOperation());
     assertEquals(result.getDescription(), "legacy event");
-  }
-
-  @Test
-  public void testMapNullCategoryReturnsNull() {
-    ChangeCategoryType result = ChangeEventMapper.mapCategory(null);
-    assertNull(result);
   }
 }

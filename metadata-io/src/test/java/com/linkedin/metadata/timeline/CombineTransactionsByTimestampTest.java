@@ -46,7 +46,7 @@ public class CombineTransactionsByTimestampTest {
     // Second transaction uses a normal mutable list
     ChangeEvent event2 =
         ChangeEvent.builder()
-            .category(ChangeCategory.OWNER)
+            .category(ChangeCategory.OWNERSHIP)
             .operation(ChangeOperation.ADD)
             .description("Owner added")
             .semVerChange(SemanticChangeType.MINOR)
@@ -98,7 +98,7 @@ public class CombineTransactionsByTimestampTest {
             .build();
     ChangeEvent event2 =
         ChangeEvent.builder()
-            .category(ChangeCategory.OWNER)
+            .category(ChangeCategory.OWNERSHIP)
             .operation(ChangeOperation.REMOVE)
             .description("Owner removed")
             .semVerChange(SemanticChangeType.MAJOR)
