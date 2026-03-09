@@ -31,6 +31,7 @@ const Container = styled.div`
 export function ConnectionDetailsStep() {
     const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+    const [isRecipeStateInitialized, setIsRecipeStateInitialized] = useState<boolean>(false);
 
     const { ingestionSources } = useIngestionSources();
 
@@ -157,6 +158,14 @@ export function ConnectionDetailsStep() {
         setOnNextHandler(() => onNextHandler);
         return () => setOnNextHandler(undefined);
     }, [onNextHandler, setOnNextHandler]);
+
+    // Save placeholder recipe to state if there are no any recipe in the state
+    useEffect(() => {
+        if (!initialRecipeYml && !isRecipeStateInitialized) {
+            updateRecipe(placeholderRecipe, true);
+            setIsRecipeStateInitialized(true);
+        }
+    }, [placeholderRecipe, initialRecipeYml, updateRecipe, isRecipeStateInitialized]);
 
     return (
         <>
