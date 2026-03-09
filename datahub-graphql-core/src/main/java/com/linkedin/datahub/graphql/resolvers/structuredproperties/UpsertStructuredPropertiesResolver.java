@@ -3,8 +3,12 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -33,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -74,6 +79,36 @@ public class UpsertStructuredPropertiesResolver
 
             final AuditStamp auditStamp =
                 AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
+
+            // Check if user has permissions to edit each of the individual structured properties
+            // being updated
+            final String actorUrnStr = authentication.getActor().toUrnStr();
+            final EntitySpec assetEntitySpec =
+                new EntitySpec(assetUrn.getEntityType(), assetUrn.toString());
+
+            for (String structuredPropertyUrn : updateMap.keySet()) {
+              EntitySpec propertyEntitySpec =
+                  new EntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME, structuredPropertyUrn);
+
+              AuthorizationRequest propertyAuthRequest =
+                  new AuthorizationRequest(
+                      actorUrnStr,
+                      com.linkedin.metadata.authorization.PoliciesConfig
+                          .EDIT_ENTITY_PROPERTIES_PRIVILEGE
+                          .getType(),
+                      Optional.of(assetEntitySpec),
+                      java.util.Collections.singletonList(propertyEntitySpec));
+
+              AuthorizationResult propertyResult =
+                  context.getAuthorizer().authorize(propertyAuthRequest);
+
+              if (propertyResult.getType() != AuthorizationResult.Type.ALLOW) {
+                throw new AuthorizationException(
+                    String.format(
+                        "Not authorized to update the specific structured property: %s",
+                        structuredPropertyUrn));
+              }
+            }
 
             // schemaField entities often don't exist, create it if upserting on a schema field
             if (!assetUrn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)

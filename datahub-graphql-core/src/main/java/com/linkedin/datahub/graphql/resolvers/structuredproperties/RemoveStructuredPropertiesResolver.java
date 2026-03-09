@@ -1,7 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +25,7 @@ import com.linkedin.structured.StructuredProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
@@ -37,6 +43,7 @@ public class RemoveStructuredPropertiesResolver
   public CompletableFuture<com.linkedin.datahub.graphql.generated.StructuredProperties> get(
       final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    final Authentication authentication = context.getAuthentication();
 
     final RemoveStructuredPropertiesInput input =
         bindArgument(environment.getArgument("input"), RemoveStructuredPropertiesInput.class);
@@ -49,7 +56,37 @@ public class RemoveStructuredPropertiesResolver
             if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
               throw new AuthorizationException(
                   String.format(
-                      "Not authorized to update properties on the gives urn %s", assetUrn));
+                      "Not authorized to update properties on the given urn %s", assetUrn));
+            }
+
+            // Check if user has permissions to edit each of the individual structured properties
+            // being removed
+            final String actorUrnStr = authentication.getActor().toUrnStr();
+            final EntitySpec assetEntitySpec =
+                new EntitySpec(assetUrn.getEntityType(), assetUrn.toString());
+
+            for (String structuredPropertyUrn : input.getStructuredPropertyUrns()) {
+              EntitySpec propertyEntitySpec =
+                  new EntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME, structuredPropertyUrn);
+
+              AuthorizationRequest propertyAuthRequest =
+                  new AuthorizationRequest(
+                      actorUrnStr,
+                      com.linkedin.metadata.authorization.PoliciesConfig
+                          .EDIT_ENTITY_PROPERTIES_PRIVILEGE
+                          .getType(),
+                      Optional.of(assetEntitySpec),
+                      java.util.Collections.singletonList(propertyEntitySpec));
+
+              AuthorizationResult propertyResult =
+                  context.getAuthorizer().authorize(propertyAuthRequest);
+
+              if (propertyResult.getType() != AuthorizationResult.Type.ALLOW) {
+                throw new AuthorizationException(
+                    String.format(
+                        "Not authorized to remove the specific structured property: %s",
+                        structuredPropertyUrn));
+              }
             }
 
             if (!_entityClient.exists(context.getOperationContext(), assetUrn)) {
