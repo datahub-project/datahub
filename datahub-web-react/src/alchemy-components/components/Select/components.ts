@@ -229,17 +229,17 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) =>
 
 export { Checkbox as StyledCheckbox } from '@components/components/Checkbox';
 
+export const HighlightedLabel = styled.span`
+    background-color: ${(props) => props.theme.colors.bgSelected};
+    padding: 4px 6px;
+    border-radius: ${radius.md};
+    font-size: ${typography.fontSizes.sm};
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 export const StyledBubbleButton = styled(Button)(({ theme }) => ({
     backgroundColor: theme?.colors?.bgHover,
     border: `1px solid ${theme?.colors?.bgHover}`,
     color: theme?.colors?.text,
     padding: '1px',
 }));
-
-export const HighlightedLabel = styled.span`
-    background-color: ${(props) => props.theme.colors.bgHighlight};
-    padding: 4px 6px;
-    border-radius: ${radius.md};
-    font-size: ${typography.fontSizes.sm};
-    color: ${(props) => props.theme.colors.textSecondary};
-`;

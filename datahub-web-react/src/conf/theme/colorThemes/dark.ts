@@ -114,7 +114,6 @@ const darkTheme: ColorTheme = {
     bgCode: colors.gray1000,
     bgCodeBlock: colors.gray1000,
     // Highlight
-    bgHighlight: '#4a3d00',
     // Tooltip
     bgTooltip: colors.gray300,
     // Brand gradients

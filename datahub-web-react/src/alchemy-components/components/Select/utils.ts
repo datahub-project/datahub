@@ -24,7 +24,7 @@ export const getOptionLabelStyle = (
         borderRadius: radius.md,
         lineHeight: typography.lineHeights.normal,
         backgroundColor:
-            !isDisabled && !isMultiSelect && isSelected ? (themeColors?.bgHighlight ?? 'transparent') : 'transparent',
+            !isDisabled && !isMultiSelect && isSelected ? (themeColors?.bgSelected ?? 'transparent') : 'transparent',
         color: getColor(),
         fontWeight: typography.fontWeights.medium,
         fontSize: typography.fontSizes.md,

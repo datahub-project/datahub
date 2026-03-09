@@ -114,7 +114,6 @@ const lightTheme: ColorTheme = {
     bgCode: colors.gray200,
     bgCodeBlock: colors.gray200,
     // Highlight
-    bgHighlight: '#ffe58f',
     // Tooltip
     bgTooltip: colors.gray1000,
     // Brand gradients

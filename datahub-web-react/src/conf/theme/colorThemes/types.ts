@@ -111,7 +111,6 @@ export default interface ColorTheme {
     bgCode: string;
     bgCodeBlock: string;
     // Highlight
-    bgHighlight: string;
     // Tooltip
     bgTooltip: string;
     // Brand gradients
