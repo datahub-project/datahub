@@ -310,8 +310,7 @@ for dataset_urn in datasets:
 def create_column_assertions(datasets, columns_dict, client, registry):
     """Create smart column metric assertions for multiple datasets and columns."""
 
-    # Supported smart assertion metrics: null_count, unique_count,
-    # empty_count, zero_count, negative_count.
+    # Define rules for which columns should get which assertions
     assertion_rules = {
         # Null count checks for critical columns
         "null_checks": {
