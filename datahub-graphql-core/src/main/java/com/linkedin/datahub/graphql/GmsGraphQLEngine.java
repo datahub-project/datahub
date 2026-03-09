@@ -1847,7 +1847,8 @@ public class GmsGraphQLEngine {
                             entityClient,
                             graphClient,
                             timeseriesAspectService,
-                            new EntityHealthResolver.Config(true, true, true)))
+                            new EntityHealthResolver.Config(
+                                true, true, featureFlags.isShowTestsInHealthIcon())))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
