@@ -25,10 +25,6 @@ Today, you can create Smart Assertions for 4 types of assertions. To learn more 
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
 4. [Custom SQL](./custom-sql-assertions.md#anomaly-detection-with-smart-assertions-)
 
-:::note Supported Column Metrics for Smart Assertions
-Smart Assertions for Column Metrics currently only support the following metrics: **null_count**, **unique_count**, **empty_count**, **zero_count**, and **negative_count**. Other column metrics (e.g. min, max, mean, median, stddev) are available for standard (non-Smart) Column Metric Assertions with fixed thresholds, but cannot be used with AI-powered Smart Assertions at this time. Any existing Smart Assertions using other metrics will continue to operate normally.
-:::
-
 You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
