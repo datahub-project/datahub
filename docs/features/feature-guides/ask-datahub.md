@@ -18,13 +18,13 @@ Ask DataHub empowers your organization to navigate and understand your entire da
 
 Discover high-quality, reliable data assets based on usage patterns, documentation quality, ownership information, and data quality metrics. Ask DataHub helps you identify the most authoritative sources for your analysis.
 
-### Peform Impact Analysis
+### Perform Impact Analysis
 
 Quickly assess how changes to a data asset will ripple through your organization. Ask DataHub can trace lineage and identify all downstream dependencies, helping you make informed decisions before making changes.
 
 ### Dive Deeper
 
-Understand the who, what, when, where, and why about your data ecsosytem:
+Understand the who, what, when, where, and why about your data ecosystem:
 
 - **Ownership**: Find out who owns which data specific assets
 - **Popularity**: Understand which data are most popular and who uses it
