@@ -328,10 +328,6 @@ The full set of supported field metrics include:
 - `zero_count`
 - `zero_percentage`
 
-:::note Smart Assertion Support
-When using [Smart Assertions (AI Anomaly Detection)](/docs/managed-datahub/observe/smart-assertions.md) for Column Metrics, only the following metrics are currently supported: `null_count`, `unique_count`, `empty_count`, `zero_count`, and `negative_count`. All other metrics listed above are available for standard (fixed-threshold) Column Metric Assertions.
-:::
-
 ### Field Metric Assertion: Supported Conditions
 
 The full set of supported field metric conditions include:
