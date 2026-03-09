@@ -344,6 +344,7 @@ def create_column_assertions(datasets, columns_dict, client, registry):
             column_name = column["name"]
             column_type = column["type"].upper()
 
+            # Apply assertion rules based on column name and type
             for rule_name, rule_config in assertion_rules.items():
                 if should_apply_rule(column_name, column_type, rule_config):
                     try:
@@ -352,11 +353,14 @@ def create_column_assertions(datasets, columns_dict, client, registry):
                             column_name=column_name,
                             metric_type=rule_config["metric_type"],
                             display_name=f"{rule_name.replace('_', ' ').title()} - {column_name}",
+                            # Detection mechanism for column metrics
                             detection_mechanism="all_rows_query_datahub_dataset_profile",
+                            # Tags (plain names automatically converted to URNs)
                             tags=["automated", "column_quality", rule_name],
                             enabled=True
                         )
 
+                        # Store assertion URN
                         if column_name not in registry["column_metrics"][dataset_key]:
                             registry["column_metrics"][dataset_key][column_name] = {}
                         registry["column_metrics"][dataset_key][column_name][rule_name] = str(assertion.urn)
