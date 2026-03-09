@@ -27,12 +27,9 @@ Because the plugin uses **Google OAuth**, each user authenticates with their own
 
 ## Prerequisites
 
-- A Google Cloud project with the [BigQuery API](https://console.cloud.google.com/flows/enableapi?apiid=bigquery) enabled
-- The BigQuery MCP server enabled in the project (see Step 1)
-- Users must have the following IAM roles (or equivalent permissions) on the project:
-  - `roles/bigquery.dataViewer` — access data
-  - `roles/bigquery.jobUser` — run queries
-  - `roles/mcp.toolUser` — access MCP tools
+- A Google Cloud project with the BigQuery API enabled
+- The [BigQuery MCP server enabled](https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp) in the project (see Step 1 below)
+- Users must have the [required IAM roles](https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp#required_roles) on the project (including `roles/bigquery.dataViewer`, `roles/bigquery.jobUser`, and `roles/mcp.toolUser`)
 - DataHub Cloud with Ask DataHub Plugins enabled
 - Platform admin access in DataHub to configure the plugin
 
@@ -42,22 +39,22 @@ The BigQuery plugin uses **User OAuth** authentication — each user authenticat
 
 ### Step 1: Enable the BigQuery MCP Server
 
-Enable the BigQuery MCP server in your Google Cloud project using the `gcloud` CLI:
+Enable the BigQuery MCP server in your Google Cloud project using the [`gcloud` CLI](https://docs.cloud.google.com/sdk/docs/install):
 
 ```bash
 gcloud beta services mcp enable bigquery.googleapis.com \
     --project=YOUR_PROJECT_ID
 ```
 
-If the BigQuery API is not yet enabled, you'll be prompted to enable it as well.
+:::tip gcloud version
+This command requires a recent version of the gcloud CLI beta component. If you see `Invalid choice: 'mcp'`, run `gcloud components update` to update to the latest version.
+:::
 
-### Step 2: Create an OAuth Client in Google Cloud
+For more details, see the [Google Cloud documentation](https://docs.cloud.google.com/mcp/enable-disable-mcp-servers).
 
-1. In Google Cloud Console, navigate to **Google Auth Platform > [Clients](https://console.cloud.google.com/auth/clients)**
-2. Click **+ Create Client**
-3. Select **Web application** as the application type
-4. Set the **Name** to something recognizable (e.g. `DataHub MCP`)
-5. Under **Authorized redirect URIs**, add your DataHub OAuth callback URL:
+### Step 2: Create an OAuth Client and Collect Credentials
+
+Create a **Web application** OAuth client in [Google Auth Platform > Clients](https://console.cloud.google.com/auth/clients). When configuring the client, add your DataHub OAuth callback URL as an **Authorized redirect URI**:
 
 ```
 https://<your-datahub-url>/integrations/oauth/callback
@@ -71,23 +68,15 @@ https://<your-datahub-url>/integrations/oauth/callback
 The **Authorized redirect URI** must match the OAuth Callback URL shown in the DataHub plugin creation form exactly (e.g. `https://your-org.acryl.io/integrations/oauth/callback`). You can copy this URL from the DataHub form when creating the plugin in Step 3.
 :::
 
-6. Click **Create**
-
-### Step 3: Collect Credentials
-
-After creating the client, a dialog will show your **Client ID** and **Client Secret**. Copy both immediately — the client secret won't be shown again.
+After creating the client, copy the **Client ID** and **Client Secret** immediately — the client secret won't be shown again.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/bigquery_oauth_creds.png"/>
 </p>
 
-You can always find the Client ID later under **Google Auth Platform > Clients**, but the secret must be copied at creation time (or a new one generated).
+For detailed instructions, see [Obtain OAuth 2.0 credentials](https://developers.google.com/identity/protocols/oauth2#1.-obtain-oauth-2.0-credentials-from-the-dynamic_data.setvar.console_name.) in the Google documentation.
 
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/plugins/bigquery_oauth_success.png"/>
-</p>
-
-### Step 4: Create Plugin in DataHub
+### Step 3: Create Plugin in DataHub
 
 1. Navigate to **Settings > AI > Plugins** in DataHub
 2. Click **+ Create** and select **Custom MCP**
@@ -104,8 +93,8 @@ You can always find the Client ID later under **Google Auth Platform > Clients**
 
 | Field              | Value                                      |
 | ------------------ | ------------------------------------------ |
-| **Client ID**      | From Step 3                                |
-| **Client Secret**  | From Step 3                                |
+| **Client ID**      | From Step 2                                |
+| **Client Secret**  | From Step 2                                |
 | **Default Scopes** | `https://www.googleapis.com/auth/bigquery` |
 
 <p align="center">
@@ -123,7 +112,23 @@ The `https://www.googleapis.com/auth/bigquery` scope grants read and write acces
 Navigate to **Settings > My AI Settings**, find the **BigQuery** plugin, and click **Connect**. You'll be redirected to Google to authenticate, then back to DataHub. See the [overview](./overview.md#user-setup-enabling-plugins) for more details.
 
 :::note OAuth Consent Screen
-If the Google Cloud OAuth consent screen is set to **Internal**, only users within your Google Workspace organization can authenticate. If set to **External** and not yet verified, users may see a "Google hasn't verified this app" warning — they can proceed by clicking **Advanced > Go to \<app name\>**. For production use, consider [publishing and verifying](https://support.google.com/cloud/answer/10311615) the consent screen.
+If your OAuth consent screen is set to **Internal**, only users within your Google Workspace organization can authenticate. If set to **External** and not yet verified, users may see a warning — they can proceed by clicking **Advanced > Go to \<app name\>**. For production use, consider [verifying the consent screen](https://support.google.com/cloud/answer/10311615).
+:::
+
+## Available Tools
+
+Once connected, Ask DataHub can use the following [BigQuery MCP tools](https://docs.cloud.google.com/bigquery/docs/reference/mcp):
+
+| Tool                         | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| `bigquery__execute_sql`      | Run SQL queries (SELECT statements only)       |
+| `bigquery__list_dataset_ids` | List datasets in a Google Cloud project        |
+| `bigquery__get_dataset_info` | Get metadata about a dataset                   |
+| `bigquery__list_table_ids`   | List tables in a dataset                       |
+| `bigquery__get_table_info`   | Get metadata about a table (schema, row count) |
+
+:::note Read-Only Queries
+The `execute_sql` tool only supports **SELECT** statements — it cannot modify data. This provides a built-in safety guardrail for production environments.
 :::
 
 ## Troubleshooting
@@ -132,15 +137,15 @@ If the Google Cloud OAuth consent screen is set to **Internal**, only users with
 
 - Verify the **Authorized redirect URI** in Google Cloud matches the OAuth Callback URL shown in DataHub exactly
 - Ensure the Client ID and Client Secret are entered correctly
-- Check that the [OAuth consent screen](https://console.cloud.google.com/auth/audience) is configured (Internal or External) for your Google Cloud project
+- Check that the [OAuth consent screen](https://console.cloud.google.com/auth/audience) is configured for your Google Cloud project
 
 ### Permission Errors
 
-- Ensure the user has the `roles/bigquery.dataViewer`, `roles/bigquery.jobUser`, and `roles/mcp.toolUser` IAM roles on the project
-- Verify the BigQuery MCP server is enabled in the project (`gcloud beta services mcp list --project=YOUR_PROJECT_ID`)
+- Ensure the user has the [required IAM roles](https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp#required_roles) on the project
+- Verify the BigQuery MCP server is enabled in the project
 
 ### Query Failures
 
 - Verify the user has access to the datasets and tables they're querying
-- Note that `execute_sql` queries are limited to 3 minutes by default — longer queries will be canceled automatically
+- Note that `execute_sql` queries are [limited to 3 minutes](https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp#limitations) by default — longer queries are canceled automatically
 - BigQuery MCP does not support querying Google Drive external tables
