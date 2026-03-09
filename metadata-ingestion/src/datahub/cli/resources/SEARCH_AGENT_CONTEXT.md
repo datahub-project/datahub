@@ -49,7 +49,10 @@ The output is JSON with `operation_name`, `graphql_field`, `variables`, and opti
 ## Filters
 
 Use `--filter key=value` for simple cases (repeatable, comma for OR on same field).
+Use `--where 'SQL expr'` for SQL-like expressions (recommended for agents — most readable).
 Use `--filters '{json}'` for complex AND/OR/NOT logic.
+
+These three options are mutually exclusive — use one at a time.
 
 ```bash
 # Simple
@@ -58,7 +61,14 @@ datahub search "*" --filter platform=snowflake --filter env=PROD
 # OR on same field
 datahub search "*" --filter platform=snowflake,bigquery
 
-# Complex
+# SQL-like WHERE (recommended for agents)
+datahub search "*" --where "platform = snowflake AND env = PROD"
+datahub search "*" --where "platform IN (snowflake, bigquery)"
+datahub search "*" --where "entity_type = dataset AND (platform = snowflake OR platform = bigquery)"
+datahub search "*" --where "glossary_term IS NOT NULL"
+datahub search "*" --where "NOT env = DEV"
+
+# Complex JSON
 datahub search "*" --filters '{"and": [{"platform": ["snowflake"]}, {"env": ["PROD"]}]}'
 ```
 
@@ -126,7 +136,13 @@ Exit codes: `0` success, `1` general error, `2` usage error, `4` permission deni
 
 ```bash
 # Find all Snowflake datasets in PROD
-datahub search "*" --filter platform=snowflake --filter env=PROD --filter entity_type=dataset --limit 50
+datahub search "*" --where "platform = snowflake AND env = PROD AND entity_type = dataset" --limit 50
+
+# Find datasets tagged with a specific term
+datahub search "*" --where "glossary_term IS NOT NULL AND platform = snowflake"
+
+# Find entities with a tag (exact URN required)
+datahub search "*" --where "tag = urn:li:tag:PII"
 
 # Get URNs for pipeline input
 datahub search "customers" --filter platform=snowflake --urns-only
@@ -135,5 +151,5 @@ datahub search "customers" --filter platform=snowflake --urns-only
 datahub search "*" --facets-only --format json
 
 # Verify query before running
-datahub search "revenue" --filter platform=bigquery --dry-run
+datahub search "revenue" --where "platform = bigquery" --dry-run
 ```

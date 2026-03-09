@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -101,11 +102,35 @@ class TestFilterParsing:
     def test_validate_and_merge_filters_both_error(self):
         with pytest.raises(Exception) as exc_info:
             validate_and_merge_filters(["platform=snowflake"], '{"env": ["PROD"]}')
-        assert "Cannot use both" in str(exc_info.value)
+        assert "Cannot combine" in str(exc_info.value)
 
     def test_validate_and_merge_filters_neither(self):
         result = validate_and_merge_filters([], None)
         assert result is None
+
+    def test_validate_and_merge_filters_where_only(self):
+        result = validate_and_merge_filters([], None, where_expr="platform = snowflake")
+        assert result is not None
+
+    def test_validate_and_merge_filters_where_and_filter_error(self):
+        with pytest.raises(click.UsageError, match="Cannot combine"):
+            validate_and_merge_filters(
+                ["platform=snowflake"], None, where_expr="env = PROD"
+            )
+
+    def test_validate_and_merge_filters_where_and_filters_error(self):
+        with pytest.raises(click.UsageError, match="Cannot combine"):
+            validate_and_merge_filters(
+                [], '{"env": ["PROD"]}', where_expr="platform = snowflake"
+            )
+
+    def test_validate_and_merge_filters_invalid_where(self):
+        with pytest.raises(click.UsageError, match="Invalid --where expression"):
+            validate_and_merge_filters([], None, where_expr="platform !! snowflake")
+
+    def test_validate_and_merge_filters_where_empty_error(self):
+        with pytest.raises(click.UsageError, match="Invalid --where expression"):
+            validate_and_merge_filters([], None, where_expr="   ")
 
 
 class TestOutputFormatting:
@@ -324,7 +349,41 @@ class TestCliCommand:
             ],
         )
         assert result.exit_code != 0
-        assert "Cannot use both" in result.output
+        assert "Cannot combine" in result.output
+
+    def test_where_and_filter_conflict(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            search,
+            ["*", "--where", "platform = snowflake", "--filter", "env=PROD"],
+        )
+        assert result.exit_code != 0
+        assert "Cannot combine" in result.output
+
+    def test_where_dry_run(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            search,
+            [
+                "query",
+                "*",
+                "--where",
+                "platform = snowflake AND env = PROD",
+                "--dry-run",
+            ],
+        )
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["variables"]["orFilters"] is not None
+        assert len(parsed["variables"]["orFilters"]) > 0
+
+    def test_where_invalid_expression(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            search,
+            ["query", "*", "--where", "platform !! snowflake"],
+        )
+        assert result.exit_code != 0
 
     def test_table_shortcut(self):
         runner = CliRunner()

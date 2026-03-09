@@ -483,6 +483,75 @@ class TestSearchProjectionLive:
         assert len(json.dumps(minimal_entities)) < len(json.dumps(full_entities))
 
 
+class TestSearchWhereFilter:
+    """Prove --where SQL-like expressions filter correctly against a live instance."""
+
+    def test_where_platform_eq(self, auth_session):
+        """--where 'platform = snowflake' returns only snowflake entities."""
+        exit_code, stdout, _ = _run_search(
+            auth_session,
+            ["*", "--where", "platform = snowflake", "--limit", "20"],
+        )
+
+        assert exit_code == 0
+        data = json.loads(stdout)
+        assert data["total"] > 0
+        result_urns = {r["entity"]["urn"] for r in data["searchResults"]}
+        for urn in _SNOWFLAKE_DATASET_URNS:
+            assert urn in result_urns, f"Expected snowflake URN not found: {urn}"
+        for urn in _BIGQUERY_DATASET_URNS:
+            assert urn not in result_urns, (
+                f"BigQuery URN leaked into snowflake --where results: {urn}"
+            )
+
+    def test_where_and_narrows_results(self, auth_session):
+        """--where 'entity_type = dataset AND platform = snowflake' is more selective than either alone."""
+        _, type_stdout, _ = _run_search(
+            auth_session, ["*", "--filter", "entity_type=dataset", "--limit", "1"]
+        )
+        _, where_stdout, _ = _run_search(
+            auth_session,
+            [
+                "*",
+                "--where",
+                "entity_type = dataset AND platform = snowflake",
+                "--limit",
+                "1",
+            ],
+        )
+
+        type_total = json.loads(type_stdout)["total"]
+        where_total = json.loads(where_stdout)["total"]
+        assert where_total <= type_total
+
+    def test_where_in_list(self, auth_session):
+        """--where 'platform IN (snowflake, bigquery)' returns entities from both platforms."""
+        _, snow_stdout, _ = _run_search(
+            auth_session, ["*", "--filter", "platform=snowflake", "--limit", "1"]
+        )
+        _, bq_stdout, _ = _run_search(
+            auth_session, ["*", "--filter", "platform=bigquery", "--limit", "1"]
+        )
+        _, where_stdout, _ = _run_search(
+            auth_session,
+            ["*", "--where", "platform IN (snowflake, bigquery)", "--limit", "50"],
+        )
+
+        snow_total = json.loads(snow_stdout)["total"]
+        bq_total = json.loads(bq_stdout)["total"]
+        where_total = json.loads(where_stdout)["total"]
+        where_urns = {
+            r["entity"]["urn"] for r in json.loads(where_stdout)["searchResults"]
+        }
+
+        assert where_total >= snow_total
+        assert where_total >= bq_total
+        for urn in _SNOWFLAKE_DATASET_URNS + _BIGQUERY_DATASET_URNS:
+            assert urn in where_urns, (
+                f"Expected URN missing from --where IN results: {urn}"
+            )
+
+
 class TestSearchDiagnose:
     """Prove `datahub search diagnose` works against a live instance.
 

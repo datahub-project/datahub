@@ -9,6 +9,7 @@ import click
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
+from datahub.cli.search_filter_parser import parse_filter_string
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.sdk.search_client import compile_filters
@@ -135,27 +136,35 @@ def parse_complex_filters(filters_json: str) -> Filter:
 
 
 def validate_and_merge_filters(
-    simple_filters: List[str], complex_filters: Optional[str]
+    simple_filters: List[str],
+    complex_filters: Optional[str],
+    where_expr: Optional[str] = None,
 ) -> Optional[Filter]:
-    """Ensure --filter and --filters aren't used together and parse filters.
+    """Ensure --filter, --filters, and --where aren't combined and parse filters.
 
     Args:
         simple_filters: List of simple filter strings
         complex_filters: JSON string with complex filter structure
+        where_expr: SQL-like WHERE expression (e.g. 'platform = snowflake AND env = PROD')
 
     Returns:
         Filter object or None if no filters provided
 
     Raises:
-        click.UsageError: If both filter types are used or parsing fails
+        click.UsageError: If multiple filter types are used or parsing fails
     """
-    if simple_filters and complex_filters:
+    options_used = sum([bool(simple_filters), bool(complex_filters), bool(where_expr)])
+    if options_used > 1:
         raise click.UsageError(
-            "Cannot use both --filter and --filters. "
-            "Use --filter for simple filters or --filters for complex logic."
+            "Cannot combine --filter, --filters, and --where. Use one at a time."
         )
 
-    if simple_filters:
+    if where_expr:
+        try:
+            return parse_filter_string(where_expr)
+        except ValueError as e:
+            raise click.UsageError(f"Invalid --where expression: {e}") from e
+    elif simple_filters:
         parsed = parse_simple_filters(simple_filters)
         return convert_simple_to_filter_dsl(parsed)
     elif complex_filters:
@@ -1131,6 +1140,7 @@ def _validate_query_inputs(
     filters_list: tuple,
     filters: Optional[str],
     projection: Optional[str],
+    where_expr: Optional[str] = None,
 ) -> tuple:
     """Validate and prepare query inputs, returning (limit, filter_obj, loaded_projection)."""
     if limit < 1:
@@ -1151,7 +1161,7 @@ def _validate_query_inputs(
         )
 
     try:
-        filter_obj = validate_and_merge_filters(list(filters_list), filters)
+        filter_obj = validate_and_merge_filters(list(filters_list), filters, where_expr)
     except click.UsageError:
         raise
     except Exception as e:
@@ -1193,6 +1203,16 @@ def _validate_query_inputs(
     help="Simple filter: key=value (repeatable, use commas for OR on same field)",
 )
 @click.option("--filters", help="Complex filters as JSON string for AND/OR/NOT logic")
+@click.option(
+    "--where",
+    "where_expr",
+    default=None,
+    help=(
+        "SQL-like filter expression, e.g. 'platform = snowflake AND env = PROD'. "
+        "Supports AND, OR, NOT, IN, IS NULL / IS NOT NULL. "
+        "Mutually exclusive with --filter and --filters."
+    ),
+)
 @click.option(
     "--limit",
     "-n",
@@ -1249,6 +1269,7 @@ def query(
     semantic: bool,
     filters_list: tuple,
     filters: Optional[str],
+    where_expr: Optional[str],
     limit: int,
     offset: int,
     sort_by: Optional[str],
@@ -1287,6 +1308,12 @@ def query(
     # Simple filters (implicit AND)
     datahub search "*" --filter platform=snowflake --filter entity_type=dataset
     datahub search "customers" --filter platform=snowflake,bigquery  # comma = OR
+
+    \b
+    # SQL-like WHERE expression
+    datahub search "*" --where "platform = snowflake AND env = PROD"
+    datahub search "*" --where "platform IN (snowflake, bigquery)"
+    datahub search "*" --where "glossary_term IS NOT NULL"
 
     \b
     # Complex filters (AND/OR/NOT)
@@ -1337,7 +1364,7 @@ def query(
 
     # Validate and prepare inputs
     limit, filter_obj, loaded_projection = _validate_query_inputs(
-        limit, offset, filters_list, filters, projection
+        limit, offset, filters_list, filters, projection, where_expr
     )
 
     # Handle dry-run mode: build query info without connecting to DataHub
