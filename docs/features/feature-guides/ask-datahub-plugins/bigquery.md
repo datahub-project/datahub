@@ -115,21 +115,15 @@ Navigate to **Settings > My AI Settings**, find the **BigQuery** plugin, and cli
 If your OAuth consent screen is set to **Internal**, only users within your Google Workspace organization can authenticate. If set to **External** and not yet verified, users may see a warning — they can proceed by clicking **Advanced > Go to \<app name\>**. For production use, consider [verifying the consent screen](https://support.google.com/cloud/answer/10311615).
 :::
 
-## Available Tools
+## Capabilities
 
-Once connected, Ask DataHub can use the following [BigQuery MCP tools](https://docs.cloud.google.com/bigquery/docs/reference/mcp):
+Once connected, Ask DataHub can use the BigQuery MCP server to:
 
-| Tool                         | Description                                    |
-| ---------------------------- | ---------------------------------------------- |
-| `bigquery__execute_sql`      | Run SQL queries (SELECT statements only)       |
-| `bigquery__list_dataset_ids` | List datasets in a Google Cloud project        |
-| `bigquery__get_dataset_info` | Get metadata about a dataset                   |
-| `bigquery__list_table_ids`   | List tables in a dataset                       |
-| `bigquery__get_table_info`   | Get metadata about a table (schema, row count) |
+- **Run SQL queries** — execute SELECT queries against your BigQuery data (read-only; write operations are not supported)
+- **Browse datasets and tables** — list datasets in a project and tables in a dataset
+- **Inspect table metadata** — view schema, row counts, and other table details
 
-:::note Read-Only Queries
-The `execute_sql` tool only supports **SELECT** statements — it cannot modify data. This provides a built-in safety guardrail for production environments.
-:::
+For the full list of available tools, see the [BigQuery MCP reference](https://docs.cloud.google.com/bigquery/docs/reference/mcp).
 
 ## Troubleshooting
 
