@@ -313,14 +313,17 @@ def create_column_assertions(datasets, columns_dict, client, registry):
     # Supported smart assertion metrics: null_count, unique_count,
     # empty_count, zero_count, negative_count.
     assertion_rules = {
+        # Null count checks for critical columns
         "null_checks": {
             "column_patterns": ["id", "*_id", "user_id", "email"],
             "metric_type": "null_count",
         },
+        # Unique count checks for ID columns
         "unique_checks": {
             "column_patterns": ["*_id", "email", "username"],
             "metric_type": "unique_count",
         },
+        # Empty count checks for string columns
         "empty_checks": {
             "column_patterns": ["name", "description", "title"],
             "metric_type": "empty_count",
