@@ -368,7 +368,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     _token: Optional[str]
     _session: requests.Session
     _openapi_ingestion: Optional[bool]
-    _server_config: RestServiceConfig
+    _server_config: Optional[RestServiceConfig]
 
     def __init__(
         self,
@@ -404,6 +404,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             openapi_ingestion  # Re-evaluated after test connection
         )
         self._server_config_refresh_interval = server_config_refresh_interval
+        self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
 
         headers = {
@@ -475,15 +476,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             ConfigurationError: If there's an error fetching or validating the configuration
         """
 
-        if (
-            not hasattr(self, "_server_config")
-            or self._server_config is None
-            or (
-                self._server_config_refresh_interval is not None
-                and self._config_fetch_time is not None
-                and (time.time() - self._config_fetch_time)
-                > self._server_config_refresh_interval
-            )
+        if self._server_config is None or (
+            self._server_config_refresh_interval is not None
+            and self._config_fetch_time is not None
+            and (time.time() - self._config_fetch_time)
+            > self._server_config_refresh_interval
         ):
             if self._session is None or self._gms_server is None:
                 raise ConfigurationError(
@@ -555,8 +552,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     def invalidate_config_cache(self) -> None:
         """Manually invalidate the configuration cache."""
         if (
-            hasattr(self, "_server_config")
-            and self._server_config is not None
+            self._server_config is not None
             and self._server_config_refresh_interval is not None
         ):
             # Set fetch time to beyond TTL in the past to force refresh on next access
@@ -1077,9 +1073,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         Returns:
             Dict with URN -> aspect -> status structure, or None if server doesn't support tracing
         """
-        if not getattr(
-            self, "_server_config", None
-        ) or not self._server_config.supports_feature(ServiceFeature.API_TRACING):
+        if self._server_config is None or not self._server_config.supports_feature(
+            ServiceFeature.API_TRACING
+        ):
             logger.warning(
                 "get_trace_status() is only available with a newer GMS version that supports API tracing."
             )
