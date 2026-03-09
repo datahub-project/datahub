@@ -439,11 +439,6 @@ public class AspectDaoTest {
     }
 
     @Override
-    public List<EntityAspect> getLatestAspects(Urn urn, Set<String> aspectNames, int maxRows) {
-      return null;
-    }
-
-    @Override
     public Map<String, Map<String, SystemAspect>> getLatestAspects(
         OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate) {
       return null;

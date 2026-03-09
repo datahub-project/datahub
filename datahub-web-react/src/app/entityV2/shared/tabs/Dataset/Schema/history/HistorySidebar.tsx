@@ -12,7 +12,7 @@ import ChangeTransactionView, {
 import { getCategoryOptions } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
-import { ChangeTransaction, DataPlatform, EntityType, SemanticVersionStruct } from '@types';
+import { ChangeCategoryType, ChangeTransaction, DataPlatform, EntityType, SemanticVersionStruct } from '@types';
 
 const MAX_CHANGE_TRANSACTIONS = 100;
 
@@ -91,7 +91,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         variables: {
             input: {
                 urn,
-                changeCategories: allCategoryValues,
+                changeCategories: allCategoryValues as ChangeCategoryType[],
             },
         },
     });
@@ -100,7 +100,7 @@ const HistorySidebar = ({ open, onClose, urn, siblingUrn, versionList, hideSeman
         variables: {
             input: {
                 urn: siblingUrn || '',
-                changeCategories: allCategoryValues,
+                changeCategories: allCategoryValues as ChangeCategoryType[],
             },
         },
     });

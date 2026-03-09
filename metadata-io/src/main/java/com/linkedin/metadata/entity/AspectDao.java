@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,8 +60,30 @@ public interface AspectDao {
   List<EntityAspect> getAspectsInRange(
       @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
+  /**
+   * Fetches the most recent {@code maxRows} aspect rows for the given URN and aspect names, ordered
+   * by creation time descending.
+   *
+   * <p>This method fills a gap not covered by existing DAO methods:
+   *
+   * <ul>
+   *   <li>{@link #getAspectsInRange} requires a time window and returns unbounded results
+   *   <li>{@link #batchGet} requires exact (urn, aspect, version) tuples
+   *   <li>{@link #getLatestAspect} returns only version 0 (current state)
+   * </ul>
+   *
+   * <p>The default implementation delegates to {@link #getAspectsInRange} with a full time range,
+   * then sorts and truncates in Java. Implementations may override for efficiency (e.g. SQL {@code
+   * ORDER BY + LIMIT}).
+   */
   @Nonnull
-  List<EntityAspect> getLatestAspects(@Nonnull Urn urn, Set<String> aspectNames, int maxRows);
+  default List<EntityAspect> getLatestAspects(
+      @Nonnull Urn urn, Set<String> aspectNames, int maxRows) {
+    List<EntityAspect> aspects =
+        getAspectsInRange(urn, aspectNames, 0L, System.currentTimeMillis());
+    aspects.sort(Comparator.comparing(EntityAspect::getCreatedOn).reversed());
+    return aspects.subList(0, Math.min(maxRows, aspects.size()));
+  }
 
   /**
    * @param urn urn to fetch

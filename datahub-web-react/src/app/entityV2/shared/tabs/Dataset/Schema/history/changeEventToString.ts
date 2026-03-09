@@ -1,16 +1,26 @@
+import {
+    CATEGORY_APPLICATION,
+    CATEGORY_DOMAIN,
+    CATEGORY_STRUCTURED_PROPERTY,
+    ChangeCategoryType,
+    ChangeOperationType,
+    GLOSSARY_RELATIONSHIP_TYPE_LABELS,
+    PARAM_DESCRIPTION,
+    PARAM_DOMAIN_URN,
+    PARAM_FIELD_PATH,
+    PARAM_OWNER_TYPE,
+    PARAM_OWNER_TYPE_URN,
+    PARAM_OWNER_URN,
+    PARAM_PROPERTY_URN,
+    PARAM_PROPERTY_VALUES,
+    PARAM_RELATIONSHIP_TYPE,
+    PARAM_TAG_URN,
+    PARAM_TERM_URN,
+    UNINFORMATIVE_OWNER_TYPES,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { downgradeV2FieldPath } from '@src/app/lineageV2/lineageUtils';
 import { ChangeEvent } from '@src/types.generated';
 
-const CATEGORY_TECHNICAL_SCHEMA = 'TECHNICAL_SCHEMA';
-const CATEGORY_DOCUMENTATION = 'DOCUMENTATION';
-const CATEGORY_TAG = 'TAG';
-const CATEGORY_GLOSSARY_TERM = 'GLOSSARY_TERM';
-const CATEGORY_OWNERSHIP = 'OWNERSHIP';
-const CATEGORY_DOMAIN = 'DOMAIN';
-const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
-const CATEGORY_APPLICATION = 'APPLICATION';
-const OPERATION_ADD = 'ADD';
-const OPERATION_REMOVE = 'REMOVE';
 const DEFAULT_FIELD_PATH = 'A new field';
 const EMPTY_ASSET_DOC = 'Asset documentation is empty.';
 const EMPTY_FIELD_DOC = (fieldPath) => `Field documentation for ${downgradeV2FieldPath(fieldPath)} is empty.`;
@@ -18,18 +28,8 @@ const SET_ASSET_DOC = (description) => `Set asset documentation to ${description
 const SET_FIELD_DOC = (fieldPath, description) =>
     `Set field documentation for ${downgradeV2FieldPath(fieldPath)} to ${description}`;
 
-// Maps backend relationship type strings (emitted by GlossaryRelatedTermsChangeEventGenerator)
-// to short labels for change event display. These are different from the UI tab labels
-// ("Contains"/"Inherits") — the backend emits formal type names ("Is A"/"Has A"/etc.).
-const RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
-    'Is A': 'inherited',
-    'Has A': 'contained',
-    'Has Value': 'value',
-    'Is Related To': 'related',
-};
-
 function getRelationshipLabel(relationshipType: string): string {
-    return RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
+    return GLOSSARY_RELATIONSHIP_TYPE_LABELS[relationshipType] || 'related';
 }
 
 // function that iterates through array of key, value objects and returns the value associated with the key or default value
@@ -94,26 +94,27 @@ export function stripEntityUrns(text: string | undefined | null): string {
         .trim();
 }
 
-const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
-
 export function getChangeEventString(changeEvent: ChangeEvent) {
     let displayString = changeEvent.description;
+    // Cast to string — the backend emits categories (DOMAIN, STRUCTURED_PROPERTY, APPLICATION)
+    // not yet present in the generated ChangeCategoryType enum.
+    const category = changeEvent.category as string;
 
-    if (changeEvent.category === CATEGORY_TECHNICAL_SCHEMA) {
-        const fieldPath = getParameter(changeEvent.parameters, 'fieldPath', DEFAULT_FIELD_PATH);
-        if (changeEvent.operation === OPERATION_ADD) {
+    if (category === ChangeCategoryType.TechnicalSchema) {
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH, DEFAULT_FIELD_PATH);
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added column ${downgradeV2FieldPath(fieldPath || '')}.`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed column ${downgradeV2FieldPath(fieldPath || '')}.`;
         }
-    } else if (changeEvent.category === CATEGORY_DOCUMENTATION) {
-        const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === 'description');
+    } else if (category === ChangeCategoryType.Documentation) {
+        const hasDescriptionParam = (changeEvent.parameters || []).some((p) => p.key === PARAM_DESCRIPTION);
 
         // Only override when a description parameter is present (EditableDatasetProperties events).
         // DomainProperties and GlossaryTermInfo events don't emit this parameter — fall through
         // to the backend description which already contains a human-readable message.
         if (hasDescriptionParam) {
-            const description = getParameter(changeEvent.parameters, 'description', '');
+            const description = getParameter(changeEvent.parameters, PARAM_DESCRIPTION, '');
             if (!changeEvent.modifier) {
                 displayString = description === '' ? EMPTY_ASSET_DOC : SET_ASSET_DOC(description);
             } else {
@@ -121,49 +122,49 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
                 displayString = description === '' ? EMPTY_FIELD_DOC(fieldPath) : SET_FIELD_DOC(fieldPath, description);
             }
         }
-    } else if (changeEvent.category === CATEGORY_TAG) {
-        const tagUrn = getParameter(changeEvent.parameters, 'tagUrn', '');
+    } else if (category === ChangeCategoryType.Tag) {
+        const tagUrn = getParameter(changeEvent.parameters, PARAM_TAG_URN, '');
         const tagName = tagUrn ? extractNameFromUrn(tagUrn) : 'Unknown';
-        const fieldPath = getParameter(changeEvent.parameters, 'fieldPath');
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
 
-        if (changeEvent.operation === OPERATION_ADD) {
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = fieldPath
                 ? `Added tag "${tagName}" to field ${downgradeV2FieldPath(fieldPath)}.`
                 : `Added tag "${tagName}".`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = fieldPath
                 ? `Removed tag "${tagName}" from field ${downgradeV2FieldPath(fieldPath)}.`
                 : `Removed tag "${tagName}".`;
         }
-    } else if (changeEvent.category === CATEGORY_GLOSSARY_TERM) {
-        const termUrn = getParameter(changeEvent.parameters, 'termUrn', '');
+    } else if (category === ChangeCategoryType.GlossaryTerm) {
+        const termUrn = getParameter(changeEvent.parameters, PARAM_TERM_URN, '');
         const termName = termUrn ? extractNameFromUrn(termUrn) : 'Unknown';
-        const fieldPath = getParameter(changeEvent.parameters, 'fieldPath');
-        const relationshipType = getParameter(changeEvent.parameters, 'relationshipType');
+        const fieldPath = getParameter(changeEvent.parameters, PARAM_FIELD_PATH);
+        const relationshipType = getParameter(changeEvent.parameters, PARAM_RELATIONSHIP_TYPE);
 
         if (relationshipType) {
             const label = getRelationshipLabel(relationshipType);
-            if (changeEvent.operation === OPERATION_ADD) {
+            if (changeEvent.operation === ChangeOperationType.Add) {
                 displayString = `Added ${label} term "${termName}".`;
-            } else if (changeEvent.operation === OPERATION_REMOVE) {
+            } else if (changeEvent.operation === ChangeOperationType.Remove) {
                 displayString = `Removed ${label} term "${termName}".`;
             }
         } else if (termUrn) {
-            if (changeEvent.operation === OPERATION_ADD) {
+            if (changeEvent.operation === ChangeOperationType.Add) {
                 displayString = fieldPath
                     ? `Added term "${termName}" to field ${downgradeV2FieldPath(fieldPath)}.`
                     : `Added term "${termName}".`;
-            } else if (changeEvent.operation === OPERATION_REMOVE) {
+            } else if (changeEvent.operation === ChangeOperationType.Remove) {
                 displayString = fieldPath
                     ? `Removed term "${termName}" from field ${downgradeV2FieldPath(fieldPath)}.`
                     : `Removed term "${termName}".`;
             }
         }
-    } else if (changeEvent.category === CATEGORY_OWNERSHIP) {
-        const ownerUrn = getParameter(changeEvent.parameters, 'ownerUrn', '');
+    } else if (category === ChangeCategoryType.Ownership) {
+        const ownerUrn = getParameter(changeEvent.parameters, PARAM_OWNER_URN, '');
         const ownerName = ownerUrn ? extractNameFromUrn(ownerUrn) : 'Unknown';
-        const rawOwnerType = getParameter(changeEvent.parameters, 'ownerType');
-        const ownerTypeUrn = getParameter(changeEvent.parameters, 'ownerTypeUrn');
+        const rawOwnerType = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE);
+        const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
         let ownerTypeSuffix = '';
         if (ownerTypeUrn) {
             ownerTypeSuffix = ` (${formatOwnerTypeUrn(ownerTypeUrn)})`;
@@ -171,40 +172,40 @@ export function getChangeEventString(changeEvent: ChangeEvent) {
             ownerTypeSuffix = ` (${formatOwnerType(rawOwnerType)})`;
         }
 
-        if (changeEvent.operation === OPERATION_ADD) {
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added owner "${ownerName}"${ownerTypeSuffix}.`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed owner "${ownerName}"${ownerTypeSuffix}.`;
         }
-    } else if (changeEvent.category === CATEGORY_DOMAIN) {
-        const domainUrn = getParameter(changeEvent.parameters, 'domainUrn', '');
+    } else if (category === CATEGORY_DOMAIN) {
+        const domainUrn = getParameter(changeEvent.parameters, PARAM_DOMAIN_URN, '');
         const domainName = domainUrn ? extractNameFromUrn(domainUrn) : 'Unknown';
 
-        if (changeEvent.operation === OPERATION_ADD) {
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added to domain "${domainName}".`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed from domain "${domainName}".`;
         }
-    } else if (changeEvent.category === CATEGORY_STRUCTURED_PROPERTY) {
-        const propertyUrn = getParameter(changeEvent.parameters, 'propertyUrn', '');
+    } else if (category === CATEGORY_STRUCTURED_PROPERTY) {
+        const propertyUrn = getParameter(changeEvent.parameters, PARAM_PROPERTY_URN, '');
         const propertyName = propertyUrn ? extractNameFromUrn(propertyUrn) : 'Unknown';
-        const propertyValues = getParameter(changeEvent.parameters, 'propertyValues');
+        const propertyValues = getParameter(changeEvent.parameters, PARAM_PROPERTY_VALUES);
         const valuesSuffix = propertyValues ? ` to ${formatPropertyValues(propertyValues)}` : '';
 
-        if (changeEvent.operation === OPERATION_ADD) {
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Set structured property "${propertyName}"${valuesSuffix}.`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed structured property "${propertyName}".`;
-        } else if (changeEvent.operation === 'MODIFY') {
+        } else if (changeEvent.operation === ChangeOperationType.Modify) {
             displayString = `Updated structured property "${propertyName}"${valuesSuffix}.`;
         }
-    } else if (changeEvent.category === CATEGORY_APPLICATION) {
+    } else if (category === CATEGORY_APPLICATION) {
         const appUrn = changeEvent.modifier || '';
         const appName = appUrn ? extractNameFromUrn(appUrn) : 'Unknown';
 
-        if (changeEvent.operation === OPERATION_ADD) {
+        if (changeEvent.operation === ChangeOperationType.Add) {
             displayString = `Added to application "${appName}".`;
-        } else if (changeEvent.operation === OPERATION_REMOVE) {
+        } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = `Removed from application "${appName}".`;
         }
     }

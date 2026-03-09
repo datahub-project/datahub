@@ -1,5 +1,8 @@
 import {
     ALL_CATEGORY_OPTIONS,
+    CATEGORY_APPLICATION,
+    CATEGORY_DOMAIN,
+    CATEGORY_STRUCTURED_PROPERTY,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
@@ -15,10 +18,10 @@ describe('getCategoryOptions', () => {
             ChangeCategoryType.Tag,
             ChangeCategoryType.GlossaryTerm,
             ChangeCategoryType.Ownership,
-            ChangeCategoryType.Domain,
-            ChangeCategoryType.StructuredProperty,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
         ]);
-        expect(values).not.toContain(ChangeCategoryType.Application);
+        expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
     it('returns Documentation, Terms, Owners, Domains, Properties, Applications for glossary terms', () => {
@@ -29,9 +32,9 @@ describe('getCategoryOptions', () => {
             ChangeCategoryType.Documentation,
             ChangeCategoryType.GlossaryTerm,
             ChangeCategoryType.Ownership,
-            ChangeCategoryType.Domain,
-            ChangeCategoryType.StructuredProperty,
-            ChangeCategoryType.Application,
+            CATEGORY_DOMAIN,
+            CATEGORY_STRUCTURED_PROPERTY,
+            CATEGORY_APPLICATION,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
         expect(values).not.toContain(ChangeCategoryType.Tag);
@@ -44,11 +47,11 @@ describe('getCategoryOptions', () => {
         expect(values).toEqual([
             ChangeCategoryType.Documentation,
             ChangeCategoryType.Ownership,
-            ChangeCategoryType.StructuredProperty,
+            CATEGORY_STRUCTURED_PROPERTY,
         ]);
-        expect(values).not.toContain(ChangeCategoryType.Domain);
+        expect(values).not.toContain(CATEGORY_DOMAIN);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-        expect(values).not.toContain(ChangeCategoryType.Application);
+        expect(values).not.toContain(CATEGORY_APPLICATION);
     });
 
     it('falls back to all categories for entity types without a mapping', () => {

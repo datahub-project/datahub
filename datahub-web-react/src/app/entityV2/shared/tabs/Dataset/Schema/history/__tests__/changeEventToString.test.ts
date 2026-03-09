@@ -1,4 +1,9 @@
 import {
+    CATEGORY_APPLICATION,
+    CATEGORY_DOMAIN,
+    CATEGORY_STRUCTURED_PROPERTY,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import {
     getChangeEventString,
     getDocumentationString,
     stripEntityUrns,
@@ -421,7 +426,7 @@ describe('getChangeEventString', () => {
         it('should handle adding a domain', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Domain,
+                category: CATEGORY_DOMAIN as ChangeCategoryType,
                 operation: ChangeOperationType.Add,
                 modifier: 'urn:li:domain:engineering',
                 parameters: [{ key: 'domainUrn', value: 'urn:li:domain:engineering' }],
@@ -435,7 +440,7 @@ describe('getChangeEventString', () => {
         it('should handle removing a domain', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Domain,
+                category: CATEGORY_DOMAIN as ChangeCategoryType,
                 operation: ChangeOperationType.Remove,
                 modifier: 'urn:li:domain:marketing',
                 parameters: [{ key: 'domainUrn', value: 'urn:li:domain:marketing' }],
@@ -449,7 +454,7 @@ describe('getChangeEventString', () => {
         it('should fall back to description for unknown operations', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Domain,
+                category: CATEGORY_DOMAIN as ChangeCategoryType,
                 operation: ChangeOperationType.Modify,
                 parameters: [{ key: 'domainUrn', value: 'urn:li:domain:test' }],
                 description: 'Domain was modified.',
@@ -464,7 +469,7 @@ describe('getChangeEventString', () => {
         it('should handle adding a structured property', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.StructuredProperty,
+                category: CATEGORY_STRUCTURED_PROPERTY as ChangeCategoryType,
                 operation: ChangeOperationType.Add,
                 modifier: 'urn:li:structuredProperty:data_governance.retention_period',
                 parameters: [
@@ -481,7 +486,7 @@ describe('getChangeEventString', () => {
         it('should handle removing a structured property', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.StructuredProperty,
+                category: CATEGORY_STRUCTURED_PROPERTY as ChangeCategoryType,
                 operation: ChangeOperationType.Remove,
                 modifier: 'urn:li:structuredProperty:classification',
                 parameters: [
@@ -498,7 +503,7 @@ describe('getChangeEventString', () => {
         it('should handle modifying a structured property', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.StructuredProperty,
+                category: CATEGORY_STRUCTURED_PROPERTY as ChangeCategoryType,
                 operation: ChangeOperationType.Modify,
                 modifier: 'urn:li:structuredProperty:priority',
                 parameters: [
@@ -515,7 +520,7 @@ describe('getChangeEventString', () => {
         it('should handle multiple values', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.StructuredProperty,
+                category: CATEGORY_STRUCTURED_PROPERTY as ChangeCategoryType,
                 operation: ChangeOperationType.Add,
                 modifier: 'urn:li:structuredProperty:tags',
                 parameters: [
@@ -534,7 +539,7 @@ describe('getChangeEventString', () => {
         it('should handle adding an application', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Application,
+                category: CATEGORY_APPLICATION as ChangeCategoryType,
                 operation: ChangeOperationType.Add,
                 modifier: 'urn:li:application:data-platform',
                 description: "Application 'data-platform' added.",
@@ -547,7 +552,7 @@ describe('getChangeEventString', () => {
         it('should handle removing an application', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Application,
+                category: CATEGORY_APPLICATION as ChangeCategoryType,
                 operation: ChangeOperationType.Remove,
                 modifier: 'urn:li:application:analytics',
                 description: "Application 'analytics' removed.",
@@ -560,7 +565,7 @@ describe('getChangeEventString', () => {
         it('should fall back to description for unknown operations', () => {
             const changeEvent: ChangeEvent = {
                 urn: 'urn:test',
-                category: ChangeCategoryType.Application,
+                category: CATEGORY_APPLICATION as ChangeCategoryType,
                 operation: ChangeOperationType.Modify,
                 modifier: 'urn:li:application:test',
                 description: 'Application was modified.',

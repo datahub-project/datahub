@@ -1019,6 +1019,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
   }
 
+  /** Efficient override using SQL {@code ORDER BY created_on DESC LIMIT maxRows}. */
   @Override
   @Nonnull
   public List<EntityAspect> getLatestAspects(
