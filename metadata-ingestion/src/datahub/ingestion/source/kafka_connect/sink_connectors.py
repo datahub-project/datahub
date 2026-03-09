@@ -816,10 +816,12 @@ class JdbcSinkParserFactory:
 @dataclass
 class JdbcSinkConnector(BaseConnector):
     """
-    Generic JDBC sink connector for Confluent Cloud managed JDBC sinks.
+    Generic JDBC sink connector supporting both Confluent Cloud and self-hosted variants.
 
-    Supports PostgresSink and MySqlSink connectors that write Kafka topics
-    to database tables.
+    Supported connector classes:
+    - PostgresSink / MySqlSink (Confluent Cloud): platform passed explicitly
+    - io.debezium.connector.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
+    - io.confluent.connect.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
 
     This implementation follows the patterns established in source connectors:
     - Uses dedicated parser classes for configuration
@@ -827,17 +829,28 @@ class JdbcSinkConnector(BaseConnector):
     - Utilizes common utility functions for consistency
     """
 
-    platform: str = "postgres"  # Default platform, overridden in __init__
+    platform: str = "unknown"
 
     def __init__(
         self,
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        platform: str = "postgres",
+        platform: str = "",
     ):
         super().__init__(manifest, config, report)
-        self.platform = platform
+        if platform:
+            self.platform = platform
+        else:
+            # Auto-detect from connection.url for self-hosted connectors
+            # (e.g. io.debezium.connector.jdbc.JdbcSinkConnector,
+            #  io.confluent.connect.jdbc.JdbcSinkConnector)
+            connection_url = manifest.config.get("connection.url", "")
+            if connection_url:
+                jdbc_url = remove_prefix(connection_url, "jdbc:")
+                self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
+            else:
+                self.platform = "unknown"
         self._parser_factory = JdbcSinkParserFactory()
 
     def get_parser(self) -> JdbcSinkParser:
@@ -1078,4 +1091,10 @@ BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
 S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+)
+DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.debezium.connector.jdbc.JdbcSinkConnector"
+)
+CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.confluent.connect.jdbc.JdbcSinkConnector"
 )

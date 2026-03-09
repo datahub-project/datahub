@@ -81,12 +81,17 @@ DataHub supports different connector types with varying levels of lineage extrac
 | **Cloud PostgreSQL Sink**<br/>`PostgresSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud MySQL Sink**<br/>`MySqlSink`                                           | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Debezium JDBC Sink**<br/>`io.debezium.connector.jdbc.JdbcSinkConnector`      | ✅ Full             | ❌ Not supported        | Runtime API / Config-based | Topic → Table mapping     |
+| **Confluent JDBC Sink**<br/>`io.confluent.connect.jdbc.JdbcSinkConnector`      | ✅ Full             | ❌ Not supported        | Runtime API / Config-based | Topic → Table mapping     |
 
 **Legend:**
 
 - ✅ **Full**: Complete lineage extraction with accurate topic discovery
 - ✅ **Partial**: Lineage extraction supported but topic discovery may be limited (config-based only)
 - 🔧 **Config Required**: Requires `generic_connectors` configuration for lineage mapping
+- ❌ **Not supported**: Connector class is not used in this environment
+
+**Note on JDBC Sink platform detection:** For `io.debezium.connector.jdbc.JdbcSinkConnector` and `io.confluent.connect.jdbc.JdbcSinkConnector`, the target platform (e.g. `postgres`, `mysql`, `oracle`, `mssql`) is automatically inferred from the `connection.url` in the connector configuration — no extra configuration is required in DataHub.
 
 ### Supported Transforms
 
