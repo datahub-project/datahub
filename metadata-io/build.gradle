@@ -175,7 +175,6 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.iStackCommons
   testImplementation externalDependency.resilience4j
   testImplementation externalDependency.testContainers

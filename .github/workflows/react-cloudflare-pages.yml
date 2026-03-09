@@ -56,8 +56,8 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
-          distribution: "zulu"
-          java-version: 17
+          distribution: "temurin"
+          java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
