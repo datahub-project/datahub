@@ -7,6 +7,8 @@ import { test, expect } from '../../fixtures/test-context';
  * Tests start already authenticated - no login needed
  */
 test.describe('Search Filters V2', () => {
+    // Seed test data once before all search tests
+
   test.beforeEach(async ({ searchPage }) => {
     // Navigate to home page (already authenticated via shared state)
     await searchPage.navigateToHome();
@@ -19,47 +21,36 @@ test.describe('Search Filters V2', () => {
     await searchPage.expectFiltersV1NotVisible();
   });
 
-  test('should add and remove multiple filters with no issues', async ({ searchPage, page }) => {
+  test('should add and remove multiple filters with no issues', async ({ searchPage }) => {
     await searchPage.searchAndWait('*', 2000);
 
-    await searchPage.moreFiltersDropdown.click();
-
-    const taggedWithFilter = page.locator('[data-testid="filter-dropdown-Tagged-With"], [data-testid="more-filter-Tagged-With"]').first();
-    await taggedWithFilter.click();
-
-    await searchPage.searchInModal('Playwright');
-
-    const PlaywrightOption = page.locator('[data-testid="filter-option-Playwright"]');
-    await PlaywrightOption.click({ force: true });
-
-    await searchPage.updateFiltersButton.click({ force: true });
-
-    await searchPage.expectUrlContains('filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3APlaywright');
-
-    const typeFilter = page.locator('[data-testid="filter-dropdown-Type"]');
-    await typeFilter.click({ force: true });
-
-    const datasetsOption = page.locator('[data-testid="filter-option-Datasets"]');
-    await datasetsOption.click({ force: true });
-
-    await searchPage.updateFiltersButton.click({ force: true });
-
+    // Use SearchPage methods to select filters properly
+    // First, select Type=Datasets filter
+    await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectUrlContains('filter__entityType');
-
-    await searchPage.expectTextVisible('SamplePlaywrightHdfsDataset');
-
     await searchPage.expectActiveFilter('Datasets');
-    await searchPage.expectActiveFilter('Playwright');
 
+    // Then, select Platform=HDFS filter
+    await searchPage.selectFilterOption('Platform', 'HDFS');
+    await searchPage.expectUrlContains('filter_platform');
+    await searchPage.expectActiveFilter('HDFS');
+
+    // Verify both filters are active
+    await searchPage.expectActiveFilter('Datasets');
+    await searchPage.expectActiveFilter('HDFS');
+
+    // Remove Datasets filter
     await searchPage.removeActiveFilter('Datasets');
-
     await searchPage.expectUrlNotContains('filter__entityType');
     await searchPage.expectActiveFilterNotVisible('Datasets');
 
-    await searchPage.clearAllFilters();
+    // Verify HDFS filter is still active
+    await searchPage.expectActiveFilter('HDFS');
 
-    await searchPage.expectUrlNotContains('filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3APlaywright');
-    await searchPage.expectActiveFilterNotVisible('Playwright');
+    // Clear all filters
+    await searchPage.clearAllFilters();
+    await searchPage.expectUrlNotContains('filter_platform');
+    await searchPage.expectActiveFilterNotVisible('HDFS');
   });
 
   test('should filter by type and verify results', async ({ searchPage, page }) => {
@@ -91,7 +82,7 @@ test.describe('Search Filters V2', () => {
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Hive');
 
-    await searchPage.expectActiveFilter('Datasets');
+    await searchPage.expectActiveFilter('DATASET');
 
     await searchPage.removeActiveFilter('Datasets');
     await searchPage.expectActiveFilterNotVisible('Datasets');

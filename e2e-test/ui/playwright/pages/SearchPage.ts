@@ -13,6 +13,9 @@ export class SearchPage extends BasePage {
   readonly moreFiltersDropdown: Locator;
   readonly updateFiltersButton: Locator;
   readonly searchBarInput: Locator;
+  readonly clearButton: Locator;
+  readonly autocompleteDropdown: Locator;
+  readonly filterDropdownMenu: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -21,16 +24,21 @@ export class SearchPage extends BasePage {
     this.searchResults = page.locator('[data-testid="search-results"]');
     this.filtersV1 = page.locator('[data-testid="search-filters-v1"]');
     this.filtersV2 = page.locator('[data-testid="search-filters-v2"]');
-    this.advancedButton = page.getByText('Advanced');
+    this.advancedButton = page.getByText('Advanced Filters');
     this.addFilterButton = page.getByText('Add Filter');
     this.clearAllFiltersButton = page.locator('[data-testid="clear-all-filters"]');
     this.moreFiltersDropdown = page.locator('[data-testid="more-filters-dropdown"]');
     this.updateFiltersButton = page.locator('[data-testid="update-filters"]');
     this.searchBarInput = page.locator('[data-testid="search-bar"]');
+    this.clearButton = page.locator('[data-testid="button-clear"]');
+    this.autocompleteDropdown = page.locator('[data-testid="search-bar-dropdown"]');
+    this.filterDropdownMenu = page.locator('[data-testid="filter-dropdown"]');
   }
 
   async navigateToHome(): Promise<void> {
     await this.navigate('/');
+    await this.page.waitForLoadState('networkidle');
+    await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
   }
 
   async search(query: string): Promise<void> {
@@ -40,8 +48,10 @@ export class SearchPage extends BasePage {
   }
 
   async searchAndWait(query: string, waitTime: number = 5000): Promise<void> {
+    await this.searchInput.waitFor({ state: 'visible' });
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
+    await this.page.waitForLoadState('networkidle');
     await this.page.waitForTimeout(waitTime);
   }
 
@@ -59,7 +69,7 @@ export class SearchPage extends BasePage {
   }
 
   async clickResult(resultName: string): Promise<void> {
-    await this.page.getByText(resultName).click();
+    await this.page.getByText(resultName).first().click();
   }
 
   async clickAdvanced(): Promise<void> {
@@ -78,19 +88,67 @@ export class SearchPage extends BasePage {
     const filterDropdown = this.page.locator(`[data-testid="filter-dropdown-${filterName}"]`);
     await filterDropdown.waitFor({ state: 'visible', timeout: 10000 });
     await filterDropdown.click({ force: true });
-    const option = this.page.locator(`[data-testid="filter-option-${optionLabel}"]`);
-    await option.waitFor({ state: 'visible', timeout: 10000 });
-    await option.click({ force: true });
-    await this.updateFiltersButton.click({ force: true, timeout: 5000 });
+
+    // Wait for the dropdown menu to appear
+    await this.page.waitForTimeout(1000);
+
+    // Try checkbox-based selection first (for Type filters)
+    const optionPattern = new RegExp(`^${optionLabel}(\\s+\\d+)?$`);
+    const checkboxOption = this.page.getByRole('checkbox', { name: optionPattern });
+    const checkboxCount = await checkboxOption.count();
+
+    if (checkboxCount > 0) {
+      // Checkbox found - use it
+      if (checkboxCount > 1) {
+        await checkboxOption.first().check();
+      } else {
+        await checkboxOption.check();
+      }
+    } else {
+      // No checkbox - try text-based selection (for Platform filters)
+      let textOption = this.page.getByText(optionLabel, { exact: true });
+      let textCount = await textOption.count();
+
+      // If option not found, try using the search input in the dropdown
+      if (textCount === 0) {
+        const searchInputs = await this.page.locator('[data-testid="search-input"]').all();
+        if (searchInputs.length > 1) {
+          // Use the search input in the dropdown (second one, first is main search bar)
+          await searchInputs[1].fill(optionLabel);
+          await this.page.waitForTimeout(500);
+          textOption = this.page.getByText(optionLabel, { exact: true });
+          textCount = await textOption.count();
+        }
+      }
+
+      if (textCount > 1) {
+        // Multiple matches - click the one inside the dropdown menu
+        await textOption.nth(1).click();
+      } else if (textCount === 1) {
+        await textOption.click();
+      } else {
+        throw new Error(`Could not find filter option: ${optionLabel}`);
+      }
+    }
+
+    await this.page.getByRole('button', { name: 'Update' }).click();
   }
 
   async selectFilterOptionThroughMoreFilters(filterName: string, optionLabel: string): Promise<void> {
     await this.moreFiltersDropdown.click();
     const moreFilter = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
     await moreFilter.click();
-    const option = this.page.getByText(optionLabel);
-    await option.click();
-    await this.updateFiltersButton.click({ force: true });
+
+    // Handle multiple matches by using first occurrence in the filter dropdown
+    const option = this.page.getByText(optionLabel, { exact: true });
+    const count = await option.count();
+    if (count > 1) {
+      await option.first().click();
+    } else {
+      await option.click();
+    }
+
+    await this.page.getByRole('button', { name: 'Update' }).click();
   }
 
   async selectAdvancedFilter(filterName: string): Promise<void> {
@@ -110,16 +168,107 @@ export class SearchPage extends BasePage {
     await this.page.getByText('any filter').click({ force: true });
   }
 
+  /**
+   * Map filter labels to their field names and values
+   * Returns { field, value } or null if it should match by text
+   */
+  private getFilterFieldMapping(filterLabel: string): { field: string; value?: string } | null {
+    // Type filters - map to _entityType␞typeNames field
+    const typeMapping: Record<string, string> = {
+      'Datasets': 'DATASET',
+      'Dataset': 'DATASET',
+      'DATASET': 'DATASET',  // Support the actual value too
+      'Dashboards': 'DASHBOARD',
+      'Dashboard': 'DASHBOARD',
+      'DASHBOARD': 'DASHBOARD',
+      'Charts': 'CHART',
+      'Chart': 'CHART',
+      'CHART': 'CHART',
+      'Data Jobs': 'DATA_JOB',
+      'DATA_JOB': 'DATA_JOB',
+      'Glossary Terms': 'GLOSSARY_TERM',
+      'GLOSSARY_TERM': 'GLOSSARY_TERM',
+    };
+
+    if (typeMapping[filterLabel]) {
+      return { field: '_entityType␞typeNames', value: typeMapping[filterLabel] };
+    }
+
+    // Platform filters - these use lowercase platform names
+    const platformNames = ['Hive', 'Snowflake', 'BigQuery', 'Kafka', 'MySQL', 'PostgreSQL', 'HDFS'];
+    if (platformNames.includes(filterLabel)) {
+      // Platform filter values are URNs like urn:li:dataPlatform:hive
+      // We'll search by the filter container and text content
+      return { field: 'platform' };
+    }
+
+    // Tag filters - match by text since tag values can vary
+    // Tags don't have a predictable pattern, so we'll match by text
+    return null;
+  }
+
   async expectActiveFilter(filterLabel: string): Promise<void> {
-    await expect(this.page.locator(`[data-testid="active-filter-${filterLabel}"]`)).toBeVisible();
+    const mapping = this.getFilterFieldMapping(filterLabel);
+
+    if (mapping) {
+      if (mapping.value) {
+        // Specific field + value selector (e.g., Type filters)
+        const selector = `[data-testid="active-filter-value-${mapping.field}-${mapping.value}"]`;
+        await expect(this.page.locator(selector)).toBeVisible({ timeout: 10000 });
+      } else {
+        // Field container only (e.g., Platform filters) - check by field and text
+        const container = this.page.locator(`[data-testid="active-filter-${mapping.field}"]`);
+        await expect(container).toBeVisible({ timeout: 10000 });
+        // Also verify the label text is present
+        await expect(container.getByText(filterLabel)).toBeVisible();
+      }
+    } else {
+      // Fallback: search by text content (for tags and other dynamic filters)
+      // Look for any active filter containing this text
+      const filterByText = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel });
+      await expect(filterByText.first()).toBeVisible({ timeout: 10000 });
+    }
   }
 
   async expectActiveFilterNotVisible(filterLabel: string): Promise<void> {
-    await expect(this.page.locator(`[data-testid="active-filter-${filterLabel}"]`)).not.toBeVisible();
+    const mapping = this.getFilterFieldMapping(filterLabel);
+
+    if (mapping) {
+      if (mapping.value) {
+        // Specific field + value selector
+        const selector = `[data-testid="active-filter-value-${mapping.field}-${mapping.value}"]`;
+        await expect(this.page.locator(selector)).not.toBeVisible();
+      } else {
+        // Field container - check if it's not visible or doesn't contain the text
+        const container = this.page.locator(`[data-testid="active-filter-${mapping.field}"]`);
+        const count = await container.count();
+        if (count > 0) {
+          // Container exists but should not contain this label
+          await expect(container.getByText(filterLabel)).not.toBeVisible();
+        }
+      }
+    } else {
+      // Fallback: search by text content
+      const filterByText = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel });
+      await expect(filterByText).not.toBeVisible();
+    }
   }
 
   async removeActiveFilter(filterLabel: string): Promise<void> {
-    await this.page.locator(`[data-testid="remove-filter-${filterLabel}"]`).click({ force: true });
+    const mapping = this.getFilterFieldMapping(filterLabel);
+
+    if (mapping) {
+      // Click the remove button for this field
+      const removeButton = this.page.locator(`[data-testid="remove-filter-${mapping.field}"]`);
+      await removeButton.click({ force: true });
+    } else {
+      // Fallback: find the filter by text and click its remove button
+      // First find the active filter container with this text
+      const filterContainer = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel }).first();
+      // Then find the remove button within it
+      const removeButton = filterContainer.locator('button').first();
+      await removeButton.click({ force: true });
+    }
   }
 
   async clearAllFilters(): Promise<void> {
@@ -136,7 +285,7 @@ export class SearchPage extends BasePage {
   }
 
   async expectTextVisible(text: string): Promise<void> {
-    await expect(this.page.getByText(text)).toBeVisible();
+    await expect(this.page.getByText(text).first()).toBeVisible();
   }
 
   async expectFiltersV1Visible(): Promise<void> {
@@ -156,17 +305,20 @@ export class SearchPage extends BasePage {
   }
 
   async searchInModal(searchTerm: string): Promise<void> {
-    const searchBars = await this.page.locator('[data-testid="search-bar"]').all();
-    if (searchBars.length > 1) {
-      await searchBars[1].fill(searchTerm);
+    // Find the search input inside the filter dropdown modal
+    const searchInputs = await this.page.locator('[data-testid="search-input"]').all();
+    if (searchInputs.length > 1) {
+      // Use the second search input (first is the main search bar)
+      await searchInputs[1].fill(searchTerm);
     } else {
-      await searchBars[0].fill(searchTerm);
+      await searchInputs[0].fill(searchTerm);
     }
   }
 
   async clickEntityResult(): Promise<void> {
     const firstResult = this.page.locator('[class*="entityUrn-urn"]').first();
-    const link = firstResult.locator('a[href*="urn:li"] span[class^="ant-typography"]').last();
+    await firstResult.waitFor({ state: 'visible', timeout: 10000 });
+    const link = firstResult.locator('a[href*="urn:li"]').first();
     await link.click();
   }
 

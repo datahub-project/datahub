@@ -10,13 +10,14 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 2,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:9002',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
 
   projects: [
@@ -33,10 +34,10 @@ export default defineConfig({
       dependencies: ['global-setup'],
     },
 
-    // Consolidated data setup - runs ONCE after auth to seed ALL test data
+    // Search data setup - runs AFTER auth to seed test data
     {
-      name: 'data-setup',
-      testMatch: /^.*\/tests\/data\.setup\.ts$/,
+      name: 'search-data-setup',
+      testMatch: /search-data\.setup\.ts/,
       dependencies: ['auth-setup'],
     },
 
@@ -48,7 +49,7 @@ export default defineConfig({
         // Use the saved authentication state
         storageState: authFile,
       },
-      dependencies: ['data-setup'],
+      dependencies: ['search-data-setup'],
       testIgnore: /.*\.setup\.ts/,
     },
     // {

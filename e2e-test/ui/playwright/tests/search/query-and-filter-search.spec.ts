@@ -7,6 +7,8 @@ import { test, expect } from '../../fixtures/test-context';
  * Tests start already authenticated - no login needed
  */
 test.describe('Query and Filter Search', () => {
+    // Seed test data once before all search tests
+
   test.beforeEach(async ({ searchPage }) => {
     // Navigate to home page (already authenticated via shared state)
     await searchPage.navigateToHome();
@@ -96,10 +98,10 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Airflow');
   });
 
-  test('should filter by tag through more filters', async ({ searchPage, page }) => {
+  test('should filter by tag', async ({ searchPage, page }) => {
     await searchPage.searchAndWait('*', 2000);
 
-    await searchPage.selectFilterOptionThroughMoreFilters('Tagged-With', 'PlaywrightFeatureTag');
+    await searchPage.selectFilterOption('Tag', 'PlaywrightFeatureTag');
 
     await searchPage.expectUrlContains('filter_tags');
 
