@@ -43,6 +43,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
@@ -102,6 +103,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    DomainsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -124,7 +126,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.PLATFORM_INSTANCE,
     "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
-@capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
     SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
@@ -496,6 +498,10 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
             yield ContainerClass(container=str(namespace_urn))
 
+            domain_urn = self._gen_domain_urn(dataset_name)
+            if domain_urn:
+                yield DomainsClass(domains=[domain_urn])
+
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
         )
@@ -687,6 +693,17 @@ class IcebergSource(StatefulIngestionSourceBase):
         dpi = self._get_dataplatform_instance_aspect()
         yield dpi
         yield self._create_browse_paths_aspect(dpi.instance)
+
+        domain_urn = self._gen_domain_urn(namespace_repr)
+        if domain_urn:
+            yield DomainsClass(domains=[domain_urn])
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                return make_domain_urn(domain)
+
+        return None
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
