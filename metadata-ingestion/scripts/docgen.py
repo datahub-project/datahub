@@ -169,73 +169,67 @@ def _extract_headings(markdown: str) -> List[tuple[int, str, int]]:
     return headings
 
 
-def _validate_required_h3_contract(
-    file_path: str, markdown: str, required_h3_headings: List[str]
+def _validate_heading_contract(
+    file_path: str,
+    markdown: str,
+    required_level: int,
+    required_headings: List[str],
+    disallowed_levels: List[int],
 ) -> None:
-    headings = _extract_headings(markdown)
-    required_set = set(required_h3_headings)
+    """Validate a strict heading contract for authored markdown content.
 
-    if invalid := [(lvl, title, line) for lvl, title, line in headings if lvl <= 2]:
+    Rules enforced:
+    - Any heading level listed in ``disallowed_levels`` is forbidden.
+    - At ``required_level``, only headings in ``required_headings`` are allowed.
+    - Each required heading must appear exactly once.
+    - Required headings must appear in the same order as ``required_headings``.
+
+    This allows deeper nested headings (e.g. H4+) while ensuring the top-level
+    section contract for a file remains canonical and predictable.
+    """
+    headings = _extract_headings(markdown)
+    required_set = set(required_headings)
+
+    if invalid := [
+        (lvl, title, line)
+        for lvl, title, line in headings
+        if lvl in set(disallowed_levels)
+    ]:
         invalid_str = ", ".join(
             [f"H{lvl} '{title}' (line {line})" for lvl, title, line in invalid]
         )
+        raise ValueError(f"{file_path} contains disallowed headings: {invalid_str}")
+
+    level_headings = [title for lvl, title, _ in headings if lvl == required_level]
+    if extras := [title for title in level_headings if title not in required_set]:
         raise ValueError(
-            f"{file_path} may only contain H3+ headings. Found invalid headings: {invalid_str}"
+            f"{file_path} has unsupported H{required_level} headings: {extras}. "
+            f"Allowed H{required_level} headings: {required_headings}"
         )
 
-    h3_headings = [title for lvl, title, _ in headings if lvl == 3]
-    if extras := [title for title in h3_headings if title not in required_set]:
-        raise ValueError(
-            f"{file_path} has non-canonical H3 headings: {extras}. "
-            f"Allowed H3 headings: {required_h3_headings}"
-        )
-
-    for heading in required_h3_headings:
-        if h3_headings.count(heading) != 1:
+    for heading in required_headings:
+        if level_headings.count(heading) != 1:
             raise ValueError(
-                f"{file_path} must contain exactly one '### {heading}' section."
+                f"{file_path} must contain exactly one "
+                f"'{'#' * required_level} {heading}' section."
             )
 
-    indices = [h3_headings.index(heading) for heading in required_h3_headings]
+    indices = [level_headings.index(heading) for heading in required_headings]
     if indices != sorted(indices):
         raise ValueError(
-            f"{file_path} has required H3 headings out of order. "
-            f"Expected order: {required_h3_headings}"
+            f"{file_path} has required H{required_level} headings out of order. "
+            f"Expected order: {required_headings}"
         )
 
 
 def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
-    headings = _extract_headings(markdown)
-
-    allowed_h2 = {"Overview", "Concept Mapping"}
-
-    if invalid_h1 := [(title, line) for lvl, title, line in headings if lvl == 1]:
-        invalid_str = ", ".join(
-            [f"'{title}' (line {line})" for title, line in invalid_h1]
-        )
-        raise ValueError(
-            f"{file_path} may not contain H1 headings. Found: {invalid_str}"
-        )
-
-    h2_headings = [title for lvl, title, _ in headings if lvl == 2]
-    if extras := [title for title in h2_headings if title not in allowed_h2]:
-        raise ValueError(
-            f"{file_path} has unsupported H2 headings: {extras}. "
-            "Only '## Overview' and '## Concept Mapping' are allowed."
-        )
-
-    for heading in ["Overview", "Concept Mapping"]:
-        if h2_headings.count(heading) != 1:
-            raise ValueError(
-                f"{file_path} must contain exactly one '## {heading}' section."
-            )
-
-    overview_idx = h2_headings.index("Overview")
-    concept_idx = h2_headings.index("Concept Mapping")
-    if overview_idx > concept_idx:
-        raise ValueError(
-            f"{file_path} must list '## Overview' before '## Concept Mapping'."
-        )
+    _validate_heading_contract(
+        file_path=file_path,
+        markdown=markdown,
+        required_level=2,
+        required_headings=["Overview", "Concept Mapping"],
+        disallowed_levels=[1],
+    )
 
 
 def load_connector_registry(connector_registry_dir: str) -> Dict:
@@ -485,23 +479,27 @@ def generate(  # noqa: C901
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
-                        _validate_required_h3_contract(
-                            path,
-                            final_markdown,
-                            required_h3_headings=["Overview", "Prerequisites"],
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=["Overview", "Prerequisites"],
+                            disallowed_levels=[1, 2],
                         )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
-                        _validate_required_h3_contract(
-                            path,
-                            final_markdown,
-                            required_h3_headings=[
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=[
                                 "Capabilities",
                                 "Limitations",
                                 "Troubleshooting",
                             ],
+                            disallowed_levels=[1, 2],
                         )
                         platforms[platform_name].plugins[
                             plugin_name
