@@ -470,7 +470,7 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
 }
 
 superset_common = {
@@ -517,7 +517,8 @@ plugins: Dict[str, Set[str]] = {
         "fastavro>=1.2.0,<2.0.0",
     },
     "datahub-rest": rest_common,
-    "sync-file-emitter": {"filelock<4.0.0"},
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
+    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
     "datahub-lite": {
         "duckdb>=1.0.0,<2.0.0",
         "fastapi<0.129.0",
