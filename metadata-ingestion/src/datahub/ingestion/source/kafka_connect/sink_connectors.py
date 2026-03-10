@@ -6,6 +6,7 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from sqlalchemy.engine.url import URL, make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
+    JDBC_PREFIX,
     KAFKA,
     BaseConnector,
     ConnectorManifest,
@@ -664,7 +665,7 @@ class JdbcSinkParserFactory:
             JdbcSinkParser with parsed configuration
         """
         # Parse JDBC URL using SQLAlchemy
-        jdbc_url = remove_prefix(connection_url, "jdbc:")
+        jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
         url_instance = make_url(jdbc_url)
 
         # Extract database name
@@ -854,7 +855,7 @@ class JdbcSinkConnector(BaseConnector):
                     )
                     self.platform = "unknown"
                 else:
-                    jdbc_url = remove_prefix(connection_url, "jdbc:")
+                    jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
                     self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
                     if self.platform == "external":
                         report.warning(
