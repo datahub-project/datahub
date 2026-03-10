@@ -8,12 +8,37 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
 )
+from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    JdbcSinkConnector,
+    SnowflakeSinkConnector,
+)
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 
 logger = logging.getLogger(__name__)
+
+
+class MockSchemaField:
+    def __init__(self, field_path: str) -> None:
+        self.fieldPath = field_path
+
+
+class MockKafkaSchemaAspect:
+    def __init__(self, fields: List[str]) -> None:
+        self.fields = [MockSchemaField(f) for f in fields]
+
+
+class MockGraph:
+    def __init__(self) -> None:
+        self._kafka_schemas: Dict[str, MockKafkaSchemaAspect] = {}
+
+    def set_kafka_schema(self, topic_urn: str, fields: List[str]) -> None:
+        self._kafka_schemas[topic_urn] = MockKafkaSchemaAspect(fields)
+
+    def get_aspect(self, urn: str, aspect_type: Any) -> Optional[MockKafkaSchemaAspect]:
+        return self._kafka_schemas.get(urn)
 
 
 class MockSchemaResolver(SchemaResolverInterface):
@@ -23,37 +48,30 @@ class MockSchemaResolver(SchemaResolverInterface):
         self._platform = platform
         self._mock_urns = set(mock_urns or [])
         self._schemas: Dict[str, Dict[str, str]] = {}
-        # Additional attributes that production code may access
         self.graph = None
         self.env = "PROD"
 
     @property
     def platform(self) -> str:
-        """Return the platform."""
         return self._platform
 
     def includes_temp_tables(self) -> bool:
-        """Return whether temp tables are included."""
         return False
 
     def get_urns(self):
-        """Return mock URNs."""
         return self._mock_urns
 
     def resolve_table(self, table: Any) -> Tuple[str, Optional[Dict[str, str]]]:
-        """Mock table resolution."""
         table_name = table.table
         urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{table_name},PROD)"
         schema = self._schemas.get(table_name)
         return urn, schema
 
     def get_urn_for_table(self, table: Any) -> str:
-        """Mock URN generation for table."""
         table_name = table.table
         return f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{table_name},PROD)"
 
     def add_schema(self, table_name: str, schema: Dict[str, str]) -> None:
-        """Add a schema for testing."""
         self._schemas[table_name] = schema
 
 
@@ -372,16 +390,19 @@ class TestSchemaResolverFineGrainedLineage:
 
         # Check structure of first lineage
         first_lineage = result[0]
-        assert first_lineage["upstreamType"] == "FIELD_SET"
-        assert first_lineage["downstreamType"] == "FIELD"
-        assert len(first_lineage["upstreams"]) == 1
-        assert len(first_lineage["downstreams"]) == 1
+        assert first_lineage.upstreamType == "FIELD_SET"
+        assert first_lineage.downstreamType == "FIELD"
+        assert first_lineage.upstreams is not None
+        assert first_lineage.downstreams is not None
+        assert len(first_lineage.upstreams) == 1
+        assert len(first_lineage.downstreams) == 1
 
         # Verify all columns are present
         columns = []
         for lineage in result:
             # Extract column name from URN
-            upstream_urn = lineage["upstreams"][0]
+            assert lineage.upstreams is not None
+            upstream_urn = lineage.upstreams[0]
             column_name = upstream_urn.split(",")[-1].rstrip(")")
             columns.append(column_name)
 
@@ -1012,3 +1033,301 @@ class TestJavaRegexPatternMatching:
         assert "testdb.public.user_abcd" in result
         assert "testdb.public.user_" not in result
         assert "testdb.public.user_123" not in result
+
+
+class TestSinkFineGrainedLineage:
+    """Tests for sink connector column-level lineage (Kafka topic -> DB table)."""
+
+    def _config(self, **kwargs: Any) -> KafkaConnectSourceConfig:
+        return KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+            **kwargs,
+        )
+
+    def _resolver(
+        self,
+        platform: str,
+        db_schemas: Optional[Dict[str, Dict[str, str]]] = None,
+        kafka_schemas: Optional[Dict[str, List[str]]] = None,
+    ) -> MockSchemaResolver:
+        resolver = MockSchemaResolver(platform=platform)
+        graph = MockGraph()
+        resolver.graph = graph  # type: ignore[assignment]
+        for table, schema in (db_schemas or {}).items():
+            resolver.add_schema(table, schema)
+        for urn, fields in (kafka_schemas or {}).items():
+            graph.set_kafka_schema(urn, fields)
+        return resolver
+
+    _KAFKA_ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,PROD)"
+
+    def test_disabled_by_default(self) -> None:
+        """Sink fine-grained lineage is off unless use_schema_resolver is enabled."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+        )
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, config, KafkaConnectSourceReport(), platform="postgres"
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is None
+
+    def test_returns_none_without_graph(self) -> None:
+        """Returns None when schema_resolver has no graph (can't fetch Kafka schemas)."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        resolver = MockSchemaResolver(platform="postgres")
+        resolver.graph = None  # type: ignore[assignment]
+        connector.schema_resolver = resolver  # type: ignore[assignment]
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is None
+
+    def test_returns_none_when_kafka_schema_missing(self) -> None:
+        """Returns None gracefully when the Kafka topic has no schema in DataHub."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="postgres",
+            db_schemas={"testdb.public.orders": {"id": "INTEGER", "amount": "NUMERIC"}},
+            kafka_schemas={},
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is None
+
+    def test_returns_none_when_db_schema_missing(self) -> None:
+        """Returns None gracefully when the target DB table has no schema in DataHub."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="postgres",
+            db_schemas={},
+            kafka_schemas={self._KAFKA_ORDERS_URN: ["id", "amount"]},
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is None
+
+    def test_basic_column_lineage(self) -> None:
+        """Kafka fields map 1:1 to matching DB columns by name."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="postgres",
+            db_schemas={
+                "testdb.public.orders": {
+                    "id": "INTEGER",
+                    "customer_id": "INTEGER",
+                    "amount": "NUMERIC",
+                }
+            },
+            kafka_schemas={self._KAFKA_ORDERS_URN: ["id", "customer_id", "amount"]},
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is not None
+        assert len(result) == 3
+
+        downstream_fields = []
+        for entry in result:
+            assert entry.upstreamType == "FIELD_SET"
+            assert entry.downstreamType == "FIELD"
+            assert entry.upstreams is not None
+            assert entry.downstreams is not None
+            assert len(entry.upstreams) == 1
+            assert len(entry.downstreams) == 1
+            assert "kafka" in entry.upstreams[0]
+            assert "orders" in entry.upstreams[0]
+            field_name = entry.downstreams[0].split(",")[-1].rstrip(")")
+            downstream_fields.append(field_name)
+
+        assert "id" in downstream_fields
+        assert "customer_id" in downstream_fields
+        assert "amount" in downstream_fields
+
+    def test_case_insensitive_snowflake_columns(self) -> None:
+        """Kafka lowercase fields match Snowflake uppercase DB columns case-insensitively."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:snowflake://account.snowflakecomputing.com/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="snowflake"
+        )
+        snowflake_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,orders,PROD)"
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="snowflake",
+            db_schemas={
+                "testdb.public.orders": {
+                    "ORDER_ID": "NUMBER",
+                    "CUSTOMER_NAME": "VARCHAR",
+                    "AMOUNT": "FLOAT",
+                }
+            },
+            kafka_schemas={snowflake_urn: ["order_id", "customer_name", "amount"]},
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "snowflake"
+        )
+
+        assert result is not None
+        assert len(result) == 3
+
+        downstream_fields = [
+            entry.downstreams[0].split(",")[-1].rstrip(")")
+            for entry in result
+            if entry.downstreams
+        ]  # type: ignore[index]
+        assert "ORDER_ID" in downstream_fields
+        assert "CUSTOMER_NAME" in downstream_fields
+        assert "AMOUNT" in downstream_fields
+
+    def test_jdbc_sink_extract_lineages_with_column_lineage(self) -> None:
+        """End-to-end: JdbcSinkConnector.extract_lineages() includes column-level lineage."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+            topic_names=["orders"],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="postgres",
+            db_schemas={
+                "testdb.public.orders": {
+                    "id": "INTEGER",
+                    "total": "NUMERIC",
+                    "status": "VARCHAR",
+                }
+            },
+            kafka_schemas={self._KAFKA_ORDERS_URN: ["id", "total", "status"]},
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_platform == "kafka"
+        assert lineage.target_platform == "postgres"
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3
+
+    def test_snowflake_sink_extract_lineages_with_column_lineage(self) -> None:
+        """End-to-end: SnowflakeSinkConnector.extract_lineages() includes column-level lineage."""
+        manifest = ConnectorManifest(
+            name="snowflake-sink",
+            type="sink",
+            config={
+                "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                "snowflake.database.name": "MYDB",
+                "snowflake.schema.name": "PUBLIC",
+                "topics": "events",
+            },
+            tasks=[],
+            topic_names=["events"],
+        )
+        report = KafkaConnectSourceReport()
+        connector = SnowflakeSinkConnector(manifest, self._config(), report)
+        events_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,events,PROD)"
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="snowflake",
+            db_schemas={
+                "MYDB.PUBLIC.events": {
+                    "EVENT_ID": "NUMBER",
+                    "EVENT_TYPE": "VARCHAR",
+                    "PAYLOAD": "VARIANT",
+                }
+            },
+            kafka_schemas={events_urn: ["EVENT_ID", "EVENT_TYPE", "PAYLOAD"]},
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_platform == "kafka"
+        assert lineage.target_platform == "snowflake"
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3

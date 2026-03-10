@@ -93,6 +93,46 @@ DataHub supports different connector types with varying levels of lineage extrac
 
 **Note on JDBC Sink connectors in Confluent Cloud:** `io.debezium.connector.jdbc.JdbcSinkConnector` and `io.confluent.connect.jdbc.JdbcSinkConnector` are not Confluent Cloud managed connectors — they can only appear as custom (self-managed) connectors deployed against a Confluent Cloud Kafka cluster. When present, DataHub supports lineage extraction for them, but with one limitation: the target platform (e.g. `postgres`, `mysql`, `oracle`, `mssql`) must be auto-detected from the `connection.url` field in the connector configuration. If `connection.url` is absent or uses an unrecognised JDBC scheme, platform detection will fail and a warning will be emitted. For Confluent Cloud managed JDBC sink connectors, use the dedicated `PostgresSink` or `MySqlSink` connector classes instead, which have explicit platform support.
 
+### Column-Level Lineage
+
+Column-level lineage maps individual fields/columns through the Kafka Connect pipeline. It is supported for both directions:
+
+- **Source connectors** (DB table → Kafka topic): field names are taken from the source table schema in DataHub
+- **Sink connectors** (Kafka topic → DB table): field names are taken from the Kafka topic schema in DataHub
+
+**Prerequisites:**
+
+Both the source and target schemas must already be ingested into DataHub before running Kafka Connect ingestion:
+
+- For source connectors: ingest the source database (e.g. run the Postgres source)
+- For sink connectors: ingest both the Kafka topics (e.g. run the Kafka source) and the destination database
+
+**Configuration:**
+
+```yaml
+source:
+  type: kafka-connect
+  config:
+    use_schema_resolver: true # required — enables DataHub graph queries
+    schema_resolver_finegrained_lineage: true # required — enables column-level mapping
+```
+
+`use_schema_resolver` is automatically enabled for Confluent Cloud environments. `schema_resolver_finegrained_lineage` defaults to `true` when `use_schema_resolver` is enabled.
+
+Column matching is case-insensitive, so Kafka fields with lowercase names (e.g. `order_id`) will match Snowflake columns stored in uppercase (`ORDER_ID`).
+
+Topic routing transforms (RegexRouter, EventRouter, etc.) work transparently — the complex transform pipeline correctly identifies which topic maps to which dataset, and column-level lineage operates on those resolved pairs.
+
+The following field-level transforms are applied when building the column mapping:
+
+| Transform                             | Effect on column lineage                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ReplaceField$Value`                  | include/exclude filter and field renames are respected                                                |
+| `ExtractField$Value`                  | sub-fields of the extracted struct are promoted as top-level (e.g. Debezium `field=after` unwrapping) |
+| `HoistField$Value`                    | all fields are nested under the new struct field (e.g. `id` → `data.id`)                              |
+| `Flatten$Value`                       | nested struct paths are joined using the configured delimiter (default: `.`)                          |
+| `MaskField`, `Cast`, `Filter`, `Drop` | field names unchanged — lineage is unaffected                                                         |
+
 ### Supported Transforms
 
 DataHub uses an **advanced transform pipeline strategy** that automatically handles complex transform chains by applying the complete pipeline to all topics and checking if results exist. This provides robust support for any combination of transforms.
@@ -105,11 +145,13 @@ DataHub uses an **advanced transform pipeline strategy** that automatically hand
 
 #### Non-Topic Routing Transforms
 
-DataHub recognizes but passes through these transforms (they don't affect lineage):
+These transforms do not affect topic routing (lineage at the dataset level is unaffected):
 
 - InsertField, ReplaceField, MaskField, ValueToKey, HoistField, ExtractField
 - SetSchemaMetadata, Flatten, Cast, HeadersFrom, TimestampConverter
 - Filter, InsertHeader, DropHeaders, Drop, TombstoneHandler
+
+`ReplaceField$Value`, `ExtractField$Value`, `HoistField$Value`, and `Flatten$Value` are applied when generating column-level lineage (see [Column-Level Lineage](#column-level-lineage) above).
 
 #### Transform Pipeline Strategy
 
