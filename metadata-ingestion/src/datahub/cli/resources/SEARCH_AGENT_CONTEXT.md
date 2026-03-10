@@ -75,8 +75,8 @@ datahub search "*" --filters '{"and": [{"platform": ["snowflake"]}, {"env": ["PR
 Discover available filters:
 
 ```bash
-datahub search --list-filters
-datahub search --describe-filter platform
+datahub search list-filters
+datahub search describe-filter platform
 ```
 
 ## Pagination

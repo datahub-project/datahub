@@ -302,25 +302,13 @@ class TestCliCommand:
 
     def test_list_filters(self):
         runner = CliRunner()
-        result = runner.invoke(search, ["--list-filters"])
-        assert result.exit_code == 0
-        assert "Available Filters" in result.output
-
-    def test_list_filters_explicit_query(self):
-        runner = CliRunner()
-        result = runner.invoke(search, ["query", "--list-filters"])
+        result = runner.invoke(search, ["list-filters"])
         assert result.exit_code == 0
         assert "Available Filters" in result.output
 
     def test_describe_filter(self):
         runner = CliRunner()
-        result = runner.invoke(search, ["--describe-filter", "platform"])
-        assert result.exit_code == 0
-        assert "Filter: platform" in result.output
-
-    def test_describe_filter_explicit_query(self):
-        runner = CliRunner()
-        result = runner.invoke(search, ["query", "--describe-filter", "platform"])
+        result = runner.invoke(search, ["describe-filter", "platform"])
         assert result.exit_code == 0
         assert "Filter: platform" in result.output
 
@@ -594,19 +582,19 @@ class TestDryRun:
 
 
 class TestAgentContext:
-    """Tests for --agent-context flag."""
+    """Tests for agent context via --help (non-TTY appends SEARCH_AGENT_CONTEXT.md)."""
 
-    def test_agent_context_prints_content(self):
-        """--agent-context prints the SEARCH_AGENT_CONTEXT.md file and exits."""
+    def test_help_includes_agent_context(self):
+        """--help includes SEARCH_AGENT_CONTEXT.md content in non-TTY context (CliRunner)."""
         runner = CliRunner()
-        result = runner.invoke(search, ["--agent-context"])
+        result = runner.invoke(search, ["--help"])
         assert result.exit_code == 0
         assert "# DataHub Search CLI - Agent Context" in result.output
 
-    def test_agent_context_contains_sections(self):
-        """Output contains expected section headers."""
+    def test_help_contains_sections(self):
+        """--help output contains expected agent context section headers."""
         runner = CliRunner()
-        result = runner.invoke(search, ["query", "--agent-context"])
+        result = runner.invoke(search, ["--help"])
         assert result.exit_code == 0
         assert "## Output Discipline" in result.output
         assert "## Projection" in result.output
@@ -615,11 +603,11 @@ class TestAgentContext:
         assert "## Pagination" in result.output
         assert "## Common Recipes" in result.output
 
-    def test_agent_context_does_not_call_graph(self):
-        """--agent-context does not require a DataHub connection."""
+    def test_help_does_not_call_graph(self):
+        """--help does not require a DataHub connection."""
         with patch("datahub.cli.search_cli.get_default_graph") as mock_get_graph:
             runner = CliRunner()
-            result = runner.invoke(search, ["--agent-context"])
+            result = runner.invoke(search, ["--help"])
             assert result.exit_code == 0
             mock_get_graph.assert_not_called()
 
@@ -1138,10 +1126,10 @@ class TestSearchCliError:
             result = runner.invoke(search, ["query", "test"])
             assert result.exit_code != 0
 
-    def test_agent_context_includes_error_handling_section(self):
+    def test_help_includes_error_handling_section(self):
         """SEARCH_AGENT_CONTEXT.md documents structured error handling."""
         runner = CliRunner()
-        result = runner.invoke(search, ["--agent-context"])
+        result = runner.invoke(search, ["--help"])
         assert result.exit_code == 0
         assert "## Error Handling" in result.output
         assert "usage_error" in result.output

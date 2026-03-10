@@ -1237,8 +1237,6 @@ def _validate_query_inputs(
 )
 @click.option("--table", is_flag=True, help="Shortcut for --format table")
 @click.option("--urns-only", is_flag=True, help="Shortcut for --format urns")
-@click.option("--list-filters", is_flag=True, help="List all available filter fields")
-@click.option("--describe-filter", help="Describe a specific filter field")
 @click.option(
     "--facets-only", is_flag=True, help="Return only facets, no search results"
 )
@@ -1252,11 +1250,6 @@ def _validate_query_inputs(
     "--projection",
     default=None,
     help="GraphQL selection set for Entity type (inline GQL or @file path)",
-)
-@click.option(
-    "--agent-context",
-    is_flag=True,
-    help="Print agent skill context (best practices for AI agents) and exit",
 )
 @upgrade.check_upgrade
 def query(
@@ -1272,13 +1265,10 @@ def query(
     output_format: str,
     table: bool,
     urns_only: bool,
-    list_filters: bool,
-    describe_filter: Optional[str],
     facets_only: bool,
     view: Optional[str],
     dry_run: bool,
     projection: Optional[str],
-    agent_context: bool,
 ) -> None:
     """Execute search query across DataHub entities (default command).
 
@@ -1322,8 +1312,8 @@ def query(
 
     \b
     # Discovery
-    datahub search --list-filters
-    datahub search --describe-filter platform
+    datahub search list-filters
+    datahub search describe-filter platform
     datahub search "*" --filter entity_type=dataset --facets-only
 
     \b
@@ -1332,25 +1322,6 @@ def query(
 
     See https://datahubproject.io/docs/cli for more examples.
     """
-    # Handle agent context
-    if agent_context:
-        text = (
-            pkg_resources.files("datahub.cli.resources")
-            .joinpath("SEARCH_AGENT_CONTEXT.md")
-            .read_text(encoding="utf-8")
-        )
-        click.echo(text)
-        return
-
-    # Handle discovery commands
-    if list_filters:
-        list_available_filters()
-        return
-
-    if describe_filter:
-        describe_filter_func(describe_filter)
-        return
-
     # Determine output format
     if table:
         output_format = "table"
@@ -1454,3 +1425,39 @@ def diagnose(output_format: str) -> None:
         click.echo(json.dumps(diagnostics, indent=2))
     else:
         print_diagnostics()
+
+
+@search.command(name="list-filters")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format (default: text)",
+)
+def list_filters_cmd(output_format: str) -> None:
+    """List all available filter fields.
+
+    Examples:
+
+    \b
+    datahub search list-filters
+    datahub search list-filters --format json
+    """
+    list_available_filters()
+
+
+@search.command(name="describe-filter")
+@click.argument("filter_name")
+def describe_filter_cmd(filter_name: str) -> None:
+    """Describe a specific filter field.
+
+    FILTER_NAME is the name of the filter to describe (e.g. platform, entity_type).
+
+    Examples:
+
+    \b
+    datahub search describe-filter platform
+    datahub search describe-filter entity_type
+    """
+    describe_filter_func(filter_name)

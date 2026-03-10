@@ -420,14 +420,21 @@ class TestSearchErrorHandling:
         )
         assert result.exit_code == 2
 
-    def test_agent_context_exits_cleanly(self):
+    def test_list_filters_subcommand(self):
         result = run_datahub_cmd(
-            ["search", "--agent-context"],
+            ["search", "list-filters"],
             env={"DATAHUB_GMS_URL": "http://localhost:1", "DATAHUB_GMS_TOKEN": "x"},
         )
         assert result.exit_code == 0
-        assert "## Output Discipline" in result.stdout
-        assert "## Error Handling" in result.stdout
+        assert "Available Filters" in result.stdout
+
+    def test_describe_filter_subcommand(self):
+        result = run_datahub_cmd(
+            ["search", "describe-filter", "platform"],
+            env={"DATAHUB_GMS_URL": "http://localhost:1", "DATAHUB_GMS_TOKEN": "x"},
+        )
+        assert result.exit_code == 0
+        assert "Filter: platform" in result.stdout
 
 
 class TestSearchProjectionLive:
