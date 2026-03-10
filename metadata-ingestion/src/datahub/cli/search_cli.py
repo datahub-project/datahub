@@ -179,6 +179,11 @@ _PROJECTION_BLOCKED_PATTERNS = [
         "Projection must be a selection set, not a {match} operation",
     ),
     (
+        re.compile(r"\bfragment\b", re.IGNORECASE),
+        "--projection cannot define GraphQL fragments. "
+        "Use inline spreads (e.g. '... on Dataset {{ properties {{ name }} }}') instead.",
+    ),
+    (
         re.compile(r"__schema|__type", re.IGNORECASE),
         "Introspection queries not allowed in projection",
     ),
@@ -298,28 +303,18 @@ def _build_search_query(
     When projection is provided, uses the template with the user's selection set.
     """
     if projection is None:
-        full_gql = (
+        fragments = (
             pkg_resources.files("datahub.cli.gql")
-            .joinpath("search_queries.gql")
+            .joinpath("fragments.gql")
             .read_text(encoding="utf-8")
         )
-        # The .gql file contains both search and semanticSearch operations.
-        # GraphQL servers validate ALL operations in a document, so sending
-        # the semanticSearch operation to a server that lacks it causes a
-        # validation error — even when only the search operation is named.
-        # Strip the unused operation to avoid this.
-        if semantic:
-            # Keep fragments + semanticSearch, drop the search operation
-            marker = "\nquery search("
-            fragments_end = full_gql.index(marker)
-            semantic_start = full_gql.index("\nquery semanticSearch(")
-            return full_gql[:fragments_end] + full_gql[semantic_start:]
-        else:
-            # Keep fragments + search, drop the semanticSearch operation
-            marker = "\nquery semanticSearch("
-            if marker in full_gql:
-                return full_gql[: full_gql.index(marker)]
-            return full_gql
+        op_file = "semantic_search.gql" if semantic else "search.gql"
+        operation = (
+            pkg_resources.files("datahub.cli.gql")
+            .joinpath(op_file)
+            .read_text(encoding="utf-8")
+        )
+        return fragments + "\n" + operation
 
     entity_projection = _strip_outer_braces(projection)
 

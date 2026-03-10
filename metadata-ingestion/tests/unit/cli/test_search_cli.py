@@ -753,6 +753,27 @@ class TestProjection:
             assert "selection set" in result.output
             mock_graph.assert_not_called()
 
+    def test_validate_projection_blocks_fragment(self):
+        """Fragment definitions are rejected to prevent injection."""
+        with pytest.raises(Exception, match="fragment"):
+            _validate_projection("fragment Foo on Bar { urn }")
+
+    def test_build_search_query_non_semantic(self):
+        """Non-semantic path loads fragments.gql + search.gql."""
+        result = _build_search_query(semantic=False, projection=None)
+        assert "query search(" in result
+        assert "query semanticSearch(" not in result
+        assert "SearchEntityInfo" in result
+        assert "FacetEntityInfo" in result
+
+    def test_build_search_query_semantic(self):
+        """Semantic path loads fragments.gql + semantic_search.gql."""
+        result = _build_search_query(semantic=True, projection=None)
+        assert "query semanticSearch(" in result
+        assert "query search(" not in result
+        assert "SearchEntityInfo" in result
+        assert "FacetEntityInfo" in result
+
 
 class TestDiagnoseKeywordSearch:
     """Tests for keyword search diagnostics."""
