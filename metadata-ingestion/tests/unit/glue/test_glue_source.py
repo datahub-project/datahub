@@ -1054,7 +1054,7 @@ def test_process_dataflow_node_jdbc(
 
     new_dataset_ids: List[str] = []
     new_dataset_mces: List[Any] = []
-    s3_formats: DefaultDict[str, Set] = defaultdict(set)
+    s3_formats: DefaultDict[str, Set[Any]] = defaultdict(set)
 
     result = source.process_dataflow_node(
         node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
