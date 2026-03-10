@@ -2052,7 +2052,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             depends_on_ephemeral_models = False
             if node.materialization == "semantic_view":
                 # CLL parsing uses custom regex (only Snowflake semantic views supported)
-                if node.dbt_adapter != "snowflake":
+                if node.dbt_adapter is None or node.dbt_adapter != "snowflake":
                     self.report.warning(
                         title="Semantic View CLL Unsupported Adapter",
                         message=f"Column-level lineage for semantic views is only supported for Snowflake. "

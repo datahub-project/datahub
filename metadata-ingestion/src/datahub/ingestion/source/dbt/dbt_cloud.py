@@ -729,11 +729,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
         # Resolve database/schema for semantic models from their upstream nodes
-        nodes_by_name = {node.dbt_name: node for node in nodes}
-        for node in nodes:
-            if node.node_type == "semantic_model" and (
-                not node.database or not node.schema
-            ):
+        semantic_models_needing_resolution = [
+            n
+            for n in nodes
+            if n.node_type == "semantic_model" and (not n.database or not n.schema)
+        ]
+        if semantic_models_needing_resolution:
+            nodes_by_name = {node.dbt_name: node for node in nodes}
+            for node in semantic_models_needing_resolution:
                 for upstream_name in node.upstream_nodes:
                     if upstream_name in nodes_by_name:
                         ref_node = nodes_by_name[upstream_name]

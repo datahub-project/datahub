@@ -408,6 +408,32 @@ def extract_dbt_exposures(
     return exposures
 
 
+def _resolve_database_schema(
+    node_relation: Dict[str, Any],
+    depends_on: Dict[str, Any],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve database/schema from node_relation or upstream dependencies."""
+    database = node_relation.get("database")
+    schema = node_relation.get("schema")
+
+    if database and schema:
+        return database, schema
+
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+    for ref_node_id in depends_on_nodes:
+        if ref_node_id in manifest_nodes:
+            ref_node = manifest_nodes[ref_node_id]
+            return (
+                database or ref_node.get("database"),
+                schema or ref_node.get("schema"),
+            )
+
+    return database, schema
+
+
 def extract_semantic_models(
     manifest_semantic_models: Dict[str, Dict[str, Any]],
     manifest_nodes: Dict[str, Dict[str, Any]],
@@ -421,25 +447,12 @@ def extract_semantic_models(
         name = sm_node.get("name", "")
         description = sm_node.get("description", "")
 
-        # node_relation available in dbt 1.8+, fallback to depends_on for older versions
         node_relation = sm_node.get("node_relation", {})
-        database = node_relation.get("database")
-        schema = node_relation.get("schema")
+        depends_on = sm_node.get("depends_on", {})
+        database, schema = _resolve_database_schema(
+            node_relation, depends_on, manifest_nodes
+        )
         alias = node_relation.get("alias")
-
-        if not database or not schema:
-            depends_on = sm_node.get("depends_on", {})
-            depends_on_nodes = (
-                depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
-            )
-            for ref_node_id in depends_on_nodes:
-                if ref_node_id in manifest_nodes:
-                    ref_node = manifest_nodes[ref_node_id]
-                    if not database:
-                        database = ref_node.get("database")
-                    if not schema:
-                        schema = ref_node.get("schema")
-                    break
 
         entities = sm_node.get("entities", [])
         dimensions = sm_node.get("dimensions", [])
@@ -454,7 +467,6 @@ def extract_semantic_models(
         tags = sm_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        depends_on = sm_node.get("depends_on", {})
         upstream_nodes = (
             depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
         )

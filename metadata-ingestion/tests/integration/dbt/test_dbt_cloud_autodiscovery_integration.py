@@ -59,6 +59,45 @@ def mock_graphql_response() -> Dict[str, Any]:
             "seeds": [],
             "snapshots": [],
             "tests": [],
+            "exposures": [],
+            "semanticModels": [
+                {
+                    "uniqueId": "semantic_model.test_project.test_metrics",
+                    "name": "test_metrics",
+                    "description": "Test semantic model",
+                    "resourceType": "semantic_model",
+                    "packageName": "test_project",
+                    "meta": {},
+                    "tags": [],
+                    "dependsOn": ["model.test_project.test_model"],
+                    "entities": [
+                        {
+                            "name": "id",
+                            "type": "primary",
+                            "description": "",
+                            "expr": "id",
+                        }
+                    ],
+                    "dimensions": [
+                        {
+                            "name": "created_at",
+                            "type": "time",
+                            "description": "",
+                            "expr": "created_at",
+                            "typeParams": {},
+                        }
+                    ],
+                    "measures": [
+                        {
+                            "name": "count",
+                            "agg": "count",
+                            "description": "",
+                            "expr": "*",
+                            "createMetric": False,
+                        }
+                    ],
+                }
+            ],
         }
     }
 
@@ -190,8 +229,21 @@ class TestAutoDiscoveryEndToEnd:
         for call in mock_graphql.call_args_list:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models from 2 jobs)
-        assert len(nodes) == 2
+        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
+        assert len(nodes) == 4
+
+        # Verify semantic models were parsed correctly
+        semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
+        assert len(semantic_models) == 2
+
+        for sm in semantic_models:
+            assert len(sm.columns) > 0
+            column_types = {c.data_type for c in sm.columns}
+            assert (
+                any(ct.startswith("entity:") for ct in column_types)
+                or any(ct.startswith("dimension:") for ct in column_types)
+                or any(ct.startswith("measure:") for ct in column_types)
+            )
 
         # Verify metadata contains account_id but not job_id (since multiple jobs)
         assert additional_metadata["account_id"] == "123456"
@@ -240,8 +292,8 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes, _ = source.load_nodes()
 
-        # Should have nodes from jobs 100 and 300 only (2 models)
-        assert len(nodes) == 2
+        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
+        assert len(nodes) == 4
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
@@ -466,11 +518,13 @@ class TestMetadataConsistency:
 
         # Verify both modes produce the same nodes
         assert len(nodes_explicit) == len(nodes_auto)
-        assert len(nodes_explicit) == 1  # One model from our mock response
+        assert (
+            len(nodes_explicit) == 2
+        )  # One model + one semantic model from our mock response
 
-        # Compare node metadata field by field
-        node_explicit = nodes_explicit[0]
-        node_auto = nodes_auto[0]
+        # Compare node metadata field by field (compare models only)
+        node_explicit = next(n for n in nodes_explicit if n.node_type == "model")
+        node_auto = next(n for n in nodes_auto if n.node_type == "model")
 
         # These fields should be identical
         assert node_explicit.name == node_auto.name
