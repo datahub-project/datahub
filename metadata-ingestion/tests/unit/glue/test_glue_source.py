@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, cast
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -1053,8 +1053,8 @@ def test_process_dataflow_node_jdbc(
     )
 
     new_dataset_ids: List[str] = []
-    new_dataset_mces = []
-    s3_formats = defaultdict(set)
+    new_dataset_mces: List[Any] = []
+    s3_formats: DefaultDict[str, Set] = defaultdict(set)
 
     result = source.process_dataflow_node(
         node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
