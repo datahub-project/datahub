@@ -20,10 +20,11 @@ from datahub_agent_context.mcp_tools.search_filter_parser import (
 logger = logging.getLogger(__name__)
 
 # Load GraphQL queries from the canonical copy in datahub.cli.gql
+_gql = pkg_resources.files("datahub.cli.gql")
 search_gql = (
-    pkg_resources.files("datahub.cli.gql")
-    .joinpath("search_queries.gql")
-    .read_text(encoding="utf-8")
+    _gql.joinpath("fragments.gql").read_text(encoding="utf-8")
+    + "\n"
+    + _gql.joinpath("search.gql").read_text(encoding="utf-8")
 )
 
 
