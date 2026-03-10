@@ -41,6 +41,7 @@ KAFKA: Final[str] = "kafka"
 SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
+JDBC_PREFIX: Final[str] = "jdbc:"
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -529,8 +530,7 @@ def validate_jdbc_url(url: str) -> bool:
     if not url or not isinstance(url, str):
         return False
 
-    # Basic JDBC URL validation
-    if not url.startswith("jdbc:"):
+    if not url.startswith(JDBC_PREFIX):
         return False
 
     parts = url.split(":", 3)
