@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { getCheckboxBorder, getCheckboxSize } from '@components/components/Checkbox/utils';
+import { getCheckboxBorder, getCheckboxSize, getCheckboxTouchTarget } from '@components/components/Checkbox/utils';
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { radius, spacing } from '@components/theme';
 
@@ -25,11 +25,13 @@ export const Required = styled.span`
     margin-left: ${spacing.xxsm};
 `;
 
-export const CheckboxBase = styled.div`
+export const CheckboxBase = styled.div<{ $size: SizeOptions }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    min-width: ${(props) => getCheckboxTouchTarget(props.$size)};
+    min-height: ${(props) => getCheckboxTouchTarget(props.$size)};
 
     &[data-disabled='true'] {
         cursor: not-allowed;

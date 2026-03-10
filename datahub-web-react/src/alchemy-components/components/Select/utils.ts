@@ -15,7 +15,8 @@ export const getOptionLabelStyle = (
 
     const getColor = () => {
         if (isDisabled) return themeColors?.textDisabled;
-        return themeColors?.text;
+        if (isSelected) return themeColors?.text;
+        return themeColors?.textSecondary;
     };
 
     return {
@@ -32,7 +33,7 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? themeColors?.bgSurfaceBrandHover : themeColors?.bgHover,
+            backgroundColor: isSelected ? themeColors?.bgSelected : themeColors?.bgHover,
         },
     };
 };

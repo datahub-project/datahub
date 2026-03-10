@@ -21,6 +21,19 @@ export function getCheckboxSize(size: SizeOptions) {
     return sizeMap[size];
 }
 
+const touchTargetMap: Record<SizeOptions, string> = {
+    xs: '18px',
+    sm: '20px',
+    md: '22px',
+    lg: '24px',
+    xl: '24px',
+    inherit: '22px',
+};
+
+export function getCheckboxTouchTarget(size: SizeOptions) {
+    return touchTargetMap[size];
+}
+
 const iconSizeMap: Record<SizeOptions, number> = {
     xs: 10,
     sm: 12,

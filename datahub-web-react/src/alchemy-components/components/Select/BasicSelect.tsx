@@ -87,6 +87,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const [tempValues, setTempValues] = useState<string[]>(values || []);
     const [areAllSelected, setAreAllSelected] = useState(false);
+    const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
 
     useEffect(() => {
         if (values !== undefined && !isEqual(selectedValues, values)) {
@@ -98,10 +99,23 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         setAreAllSelected(tempValues.length === options.length);
     }, [options, tempValues]);
 
-    const filteredOptions = useMemo(
-        () => options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase())),
-        [options, searchQuery],
-    );
+    useEffect(() => {
+        if (isOpen) {
+            setOpenSelectedValues(tempValues);
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const filteredOptions = useMemo(() => {
+        const filtered = options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
+
+        return [...filtered].sort((a, b) => {
+            const aSelected = openSelectedValues.includes(a.value) ? 0 : 1;
+            const bSelected = openSelectedValues.includes(b.value) ? 0 : 1;
+            return aSelected - bSelected;
+        });
+    }, [options, searchQuery, isMultiSelect, openSelectedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {

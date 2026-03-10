@@ -21,7 +21,7 @@ export const checkboxDefaults: CheckboxProps = {
     isIntermediate: false,
     isRequired: false,
     setIsChecked: () => {},
-    size: 'md',
+    size: 'sm',
     justifyContent: 'center',
 };
 
@@ -79,7 +79,13 @@ export const Checkbox = ({
                     </Label>
                 </Tooltip>
             ) : null}
-            <CheckboxBase onClick={onClick} data-testid={dataTestId} data-disabled={isDisabled} data-checked={isActive}>
+            <CheckboxBase
+                onClick={onClick}
+                data-testid={dataTestId}
+                data-disabled={isDisabled}
+                data-checked={isActive}
+                $size={size || 'sm'}
+            >
                 <HiddenInput
                     type="checkbox"
                     checked={isActive}
@@ -89,7 +95,7 @@ export const Checkbox = ({
                     aria-checked={checked}
                     {...props}
                 />
-                <CheckboxBox $checked={isActive} $error={!!error} $disabled={isDisabled || false} $size={size || 'md'}>
+                <CheckboxBox $checked={isActive} $error={!!error} $disabled={isDisabled || false} $size={size || 'sm'}>
                     {isIntermediate && <Minus size={iconSize} weight="bold" />}
                     {!isIntermediate && checked && <Check size={iconSize} weight="bold" />}
                 </CheckboxBox>

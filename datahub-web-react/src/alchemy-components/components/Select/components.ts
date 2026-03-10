@@ -115,12 +115,12 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
 // Styled components for SelectValue (Selected value display)
 export const SelectValue = styled.span(({ theme }) => ({
     ...inputValueTextStyles(),
-    color: theme?.colors?.textSecondary,
+    color: theme?.colors?.text,
 }));
 
 export const Placeholder = styled.span(({ theme }) => ({
     ...inputPlaceholderTextStyles,
-    color: theme?.colors?.text,
+    color: theme?.colors?.textSecondary,
 }));
 
 export const ActionButtonsContainer = styled.div({

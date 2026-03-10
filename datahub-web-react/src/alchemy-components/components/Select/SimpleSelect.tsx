@@ -113,6 +113,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
         toggle: toggleDropdown,
     } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
     const [areAllSelected, setAreAllSelected] = useState(false);
+    const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
 
     useEffect(() => {
         if (values !== undefined && !isEqual(selectedValues, values)) {
@@ -124,13 +125,25 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
         setAreAllSelected(selectedValues.length === options.length);
     }, [options, selectedValues]);
 
-    const filteredOptions = useMemo(
-        () =>
-            filterResultsByQuery
-                ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
-                : options,
-        [options, searchQuery, filterResultsByQuery],
-    );
+    useEffect(() => {
+        if (isOpen) {
+            setOpenSelectedValues(selectedValues);
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const filteredOptions = useMemo(() => {
+        const filtered = filterResultsByQuery
+            ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            : options;
+
+        if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
+
+        return [...filtered].sort((a, b) => {
+            const aSelected = openSelectedValues.includes(a.value) ? 0 : 1;
+            const bSelected = openSelectedValues.includes(b.value) ? 0 : 1;
+            return aSelected - bSelected;
+        });
+    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
