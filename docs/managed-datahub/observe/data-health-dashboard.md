@@ -71,6 +71,10 @@ In addition, both the `By Tables` tab and the `Incidents` tab will apply your gl
 
 Monitoring Rules let you automatically apply [Smart Assertions](./smart-assertions.md) (AI anomaly monitors) across your data landscape using search-based predicates. Instead of manually creating assertions on individual tables, you define a rule that describes _which_ datasets should be monitored and _what_ to monitor, and DataHub takes care of the rest.
 
+### Prerequisites
+
+To create and manage Monitoring Rules, you must have the **`Manage Tests`** platform privilege. Contact your DataHub admin if you do not have this privilege.
+
 ### How It Works
 
 1. **Define a search predicate** — specify the datasets you want to monitor using filters such as DataHub Domain, data platform, schema, tags, or any combination of search criteria.
