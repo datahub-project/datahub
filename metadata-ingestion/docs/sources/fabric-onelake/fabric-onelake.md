@@ -46,18 +46,80 @@ For service principal setup, see [Register an application with Microsoft Entra I
 
 ### Required Permissions
 
-The connector requires **read-only access** to Fabric workspaces and their contents. The authenticated identity (service principal, managed identity, or user) must have:
+The connector requires **read-only access** to Fabric workspaces and their contents. Permission requirements differ based on the authentication method:
 
-**Workspace-Level Permissions:**
+#### For Service Principals and Managed Identities
 
-- **Workspace.Read.All** or **Workspace.ReadWrite.All** (Microsoft Entra delegated scope)
-- **Viewer** role or higher in the Fabric workspaces you want to ingest
+Service principals and managed identities do **not** use API permission scopes. According to [Microsoft's documentation](https://learn.microsoft.com/en-us/rest/api/fabric/articles/scopes), scopes only apply to delegated (interactive user) access. Instead, service principals require:
 
-**API Permissions:**
-The service principal or user must have the following Microsoft Entra API permissions:
+**1. Fabric Tenant Setting (Admin Configuration):**
+
+Enable service principal API access in the Fabric Admin Portal:
+
+- Navigate to **Fabric Admin Portal** → **Tenant Settings**
+- Enable **"Service principals can use Fabric APIs"**
+- Add your service principal to the allowed list (or enable for entire organization)
+
+**2. Workspace Role Assignment (Choose One Approach):**
+
+**Recommended: Contributor/Member Role (Full Access)**
+
+- Assign the service principal **Contributor** or **Member** role in each workspace
+- ✅ Full read access to workspaces, lakehouses, warehouses, and tables
+- ✅ Can access SQL Analytics Endpoint for schema extraction
+- ✅ Bypasses OneLake security (no additional configuration needed)
+- ✅ Simplest setup (workspace-wide access)
+
+**Alternative: Viewer Role + Per-Item Sharing (Granular Control)**
+
+If you need read-only access with fine-grained control:
+
+1. Assign the service principal **Viewer** role in the workspace
+
+2. For each lakehouse/warehouse, grant item-level permissions:
+
+   - **Option A:** Share with **"Read all data using SQL"** (ReadData permission)
+
+     - ✅ Can access SQL Analytics Endpoint for schema extraction
+     - ✅ Can read all tables via SQL queries
+     - Requires per-item sharing (not workspace-wide)
+
+   - **Option B:** Share with **"Read all Apache Spark data"** (ReadAll permission)
+     - ✅ Can list tables via Fabric REST API
+     - ✅ Automatically gets DefaultReader OneLake security role
+     - ❌ **Cannot extract schemas** (Viewer role blocks SQL Analytics Endpoint in default Delegated mode)
+     - Use only if schema extraction is disabled (`extract_schema.enabled: false`)
+
+**Permission Comparison Table:**
+
+| Workspace Role         | Item Permission | SQL Endpoint Access | Table Access    | Schema Extraction | Setup Complexity          |
+| ---------------------- | --------------- | ------------------- | --------------- | ----------------- | ------------------------- |
+| **Contributor/Member** | (none needed)   | ✅ Yes              | ✅ All tables   | ✅ Yes            | Low (workspace-wide)      |
+| **Viewer**             | ReadData        | ✅ Yes              | ✅ All tables   | ✅ Yes            | Medium (per-item sharing) |
+| **Viewer**             | ReadAll         | ❌ No               | ✅ Via REST API | ❌ No             | Medium (per-item sharing) |
+
+**Note on SQL Analytics Endpoint Access:**
+
+Schema extraction requires SQL Analytics Endpoint access. Service principals access the SQL endpoint using [Delegated Identity Mode](https://learn.microsoft.com/en-us/fabric/onelake/sql-analytics-endpoint-onelake-security) (the default mode), where the endpoint connects to OneLake using the workspace/item owner's identity, and access is controlled by workspace roles and item permissions:
+
+- **Contributor/Member/Admin** workspace roles → ✅ SQL endpoint access granted
+- **Viewer** role alone → ❌ SQL endpoint access denied
+- **Viewer + ReadData** item permission → ✅ SQL endpoint access granted (via item sharing)
+
+**Note:** Microsoft Fabric supports an alternative "User Identity Mode" for SQL endpoints, which passes through the calling user's identity to OneLake. However, this mode is only available for interactive users and cannot be used with service principals. Service principals must use Delegated Identity Mode with the permissions listed above.
+
+#### For Interactive User Authentication (Azure CLI, DefaultAzureCredential)
+
+Interactive user authentication uses delegated permissions:
+
+**1. Microsoft Entra Delegated Permissions:**
 
 - `Workspace.Read.All` (delegated) - Required to list and read workspace metadata
 - Or `Workspace.ReadWrite.All` (delegated) - Provides read and write access
+
+**2. Workspace Role Assignment:**
+
+- User must have **Viewer** role or higher in the Fabric workspaces to ingest
 
 **Token Audiences:**
 The connector uses two different token audiences depending on the operation:
@@ -85,21 +147,55 @@ For detailed information on permissions, see:
 
 **For Service Principal:**
 
-1. Register an application in Microsoft Entra ID (Azure AD)
-2. Grant API permissions:
-   - Navigate to **Azure Portal** > **App registrations** > Your app > **API permissions**
-   - Add permission: **Power BI Service** > **Delegated permissions** > `Workspace.Read.All`
-   - Click **Grant admin consent** (if you have admin rights)
-3. Assign workspace roles:
+1. **Register an application** in Microsoft Entra ID (Azure AD)
+
+   - Navigate to **Azure Portal** → **App registrations** → **New registration**
+   - Note the **Application (client) ID** and **Directory (tenant) ID**
+   - Create a **Client secret** under **Certificates & secrets**
+
+2. **Enable Fabric API access** (Fabric Admin required)
+
+   - Navigate to **Fabric Admin Portal** → **Tenant Settings**
+   - Enable **"Service principals can use Fabric APIs"**
+   - Add your service principal's Application ID to the allowed list
+
+3. **Assign workspace roles** (Choose one approach):
+
+   **Recommended Approach: Contributor Role**
+
    - In Fabric portal, navigate to each workspace
-   - Go to **Workspace settings** > **Access**
-   - Add your service principal and assign **Viewer** role or higher
+   - Go to **Workspace settings** → **Access**
+   - Add your service principal (search by Application ID or name)
+   - Assign **Contributor** role
+   - Repeat for all workspaces to ingest
+
+   **Alternative Approach: Viewer + Item Sharing**
+
+   - Assign **Viewer** role in workspace (as above)
+   - For each lakehouse/warehouse:
+     - Click **Share** or **Manage permissions**
+     - Add the service principal
+     - Select **"Read all data using SQL"** (for schema extraction)
+     - Click **Grant access**
+   - Repeat for all lakehouses/warehouses to ingest
 
 **For Managed Identity:**
 
-1. Enable system-assigned managed identity on your Azure resource (VM, AKS, App Service, etc.)
-2. Assign the managed identity to Fabric workspaces with **Viewer** role or higher
-3. The connector will automatically use the managed identity for authentication
+1. **Enable managed identity** on your Azure resource (VM, AKS, App Service, etc.)
+
+   - For system-assigned: Enable in resource settings
+   - For user-assigned: Create and assign managed identity resource
+   - Note the **Object (principal) ID**
+
+2. **Enable Fabric API access** (Fabric Admin required)
+
+   - Navigate to **Fabric Admin Portal** → **Tenant Settings**
+   - Enable **"Service principals can use Fabric APIs"**
+   - Add the managed identity's Object ID to the allowed list
+
+3. **Assign workspace roles** (same as service principal)
+   - Use **Contributor** role (recommended) or **Viewer + item sharing**
+   - The connector will automatically use the managed identity for authentication
 
 ## Configuration
 
