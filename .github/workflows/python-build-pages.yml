@@ -62,6 +62,7 @@ jobs:
           ./gradlew :python-build:buildSite
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Publish
         id: cloudflare
         uses: cloudflare/pages-action@v1
