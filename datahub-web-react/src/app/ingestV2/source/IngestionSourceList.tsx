@@ -167,22 +167,23 @@ export const IngestionSourceList = ({
         [createdOrUpdatedSourceUrnFromLocation],
     );
 
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+    };
+
+    const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
+
     // Initialize search input from URL parameter
     useEffect(() => {
         if (searchQueryFromUrl?.length) {
+            setPage(1);
             setQuery(searchQueryFromUrl);
             setSearchInput(searchQueryFromUrl);
             setTimeout(() => {
                 searchInputRef.current?.focus?.();
             }, 0);
         }
-    }, [searchQueryFromUrl]);
-
-    const handleSearchInputChange = (value: string) => {
-        setSearchInput(value);
-    };
-
-    const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
+    }, [searchQueryFromUrl, setPage]);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
