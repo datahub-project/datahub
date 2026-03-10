@@ -354,8 +354,15 @@ def auto_browse_path_v2(
                         )
                     ),
                 ).as_workunit()
-        elif urn not in emitted_urns and guess_entity_type(urn) == "container":
-            # Root containers have no Container aspect, so they are not handled above
+        elif urn not in emitted_urns and (
+            guess_entity_type(urn) == "container" or platform_instance
+        ):
+            # Emit a browse path for entities that support browsePathsV2 but have
+            # no container, legacy path, or source-provided path. This handles:
+            # - Root containers (no Container aspect, need empty path)
+            # - Top-level entities (e.g. DataFlow) when platform_instance is set,
+            #   so they get grouped under their instance instead of the backend's
+            #   catch-all "Default" folder.
             emitted_urns.add(urn)
             if not dry_run:
                 yield MetadataChangeProposalWrapper(
