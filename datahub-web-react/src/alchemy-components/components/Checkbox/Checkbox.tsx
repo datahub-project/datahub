@@ -79,7 +79,7 @@ export const Checkbox = ({
                     </Label>
                 </Tooltip>
             ) : null}
-            <CheckboxBase onClick={onClick} data-testid={dataTestId} data-disabled={isDisabled}>
+            <CheckboxBase onClick={onClick} data-testid={dataTestId} data-disabled={isDisabled} data-checked={isActive}>
                 <HiddenInput
                     type="checkbox"
                     checked={isActive}
