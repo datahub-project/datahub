@@ -90,6 +90,18 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
 
+        # Defense-in-depth: in slim mode, verify PySpark was not pulled in transitively
+        if slim_mode:
+            python_exe = os.path.join(venv_path, "bin", "python")
+            result = subprocess.run(
+                [python_exe, "-c", "import pyspark"],
+                capture_output=True,
+            )
+            if result.returncode == 0:
+                print(f"  ❌ FAIL: PySpark found in {venv_name} (slim mode requires no PySpark)")
+                return False
+            print(f"  → Verified: No PySpark in {venv_name}")
+
         print(f"  ✅ Successfully created {venv_name}")
         return True
 
