@@ -63,27 +63,14 @@ class FabricCoreClient(BaseFabricClient):
         """
         log_type = item_type or "all"
         logger.info(f"Listing {log_type} items in workspace {workspace_id}")
-        try:
-            params = {"type": item_type} if item_type else None
-            response = self.get(f"workspaces/{workspace_id}/items", params=params)
-            data = response.json()
-
-            items = data.get("value", [])
-            logger.info(
-                f"Found {len(items)} {log_type} item(s) in workspace {workspace_id}"
+        params = {"type": item_type} if item_type else {}
+        for item_data in self._paginate(
+            f"workspaces/{workspace_id}/items", params=params
+        ):
+            yield FabricItem(
+                id=item_data.get("id", ""),
+                name=item_data.get("displayName", ""),
+                type=item_data.get("type", item_type or ""),
+                workspace_id=workspace_id,
+                description=item_data.get("description"),
             )
-
-            for item_data in items:
-                yield FabricItem(
-                    id=item_data.get("id", ""),
-                    name=item_data.get("displayName", ""),
-                    type=item_data.get("type", item_type or ""),
-                    workspace_id=workspace_id,
-                    description=item_data.get("description"),
-                )
-
-        except Exception as e:
-            logger.error(
-                f"Failed to list {log_type} items in workspace {workspace_id}: {e}"
-            )
-            raise
