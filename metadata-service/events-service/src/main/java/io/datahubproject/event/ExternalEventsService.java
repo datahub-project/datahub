@@ -347,10 +347,11 @@ public class ExternalEventsService {
       throw new UnsupportedTopicException(topicName);
     }
     // Custom topic already has prefix: use as-is
-    if (topicName.startsWith(this.topicPrefix)) {
+    String prefixWithSeparator = this.topicPrefix + "_";
+    if (topicName.startsWith(prefixWithSeparator)) {
       return topicName;
     }
     // Custom topic without prefix: prepend it
-    return this.topicPrefix + topicName;
+    return prefixWithSeparator + topicName;
   }
 }

@@ -42,13 +42,13 @@ public class ExternalEventsServiceTest {
         new CheckedConsumer(kafkaConsumer, Duration.ofSeconds(2), Duration.ofMinutes(5), null);
     when(consumerPool.borrowConsumer(anyLong(), any(TimeUnit.class), anyString()))
         .thenReturn(checkedConsumer);
-    topicNames.put(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, "CustomerSpecificTopicName");
+    topicNames.put(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, "InstanceSpecificTopicName");
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-        "CustomerSpecificVersionedTopicName");
+        "InstanceSpecificVersionedTopicName");
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
-        "CustomerSpecificTimeseriesTopicName");
+        "InstanceSpecificTimeseriesTopicName");
     TopicAllowList allowList =
         new TopicAllowList(
             "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1");
@@ -57,7 +57,7 @@ public class ExternalEventsServiceTest {
             allowList, consumerPool, objectMapper, topicNames, false, null, 10, 100);
 
     // Setup to simulate fetching records from Kafka
-    String topicName = "CustomerSpecificTopicName";
+    String topicName = "InstanceSpecificTopicName";
     int partition = 0;
     TopicPartition topicPartition = new TopicPartition(topicName, partition);
 
@@ -164,7 +164,7 @@ public class ExternalEventsServiceTest {
             "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1");
     ExternalEventsService prefixedService =
         new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme-", 10, 100);
+            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
 
     when(kafkaConsumer.partitionsFor("InstanceSpecificTopicName"))
         .thenReturn(Collections.emptyList());
@@ -182,31 +182,31 @@ public class ExternalEventsServiceTest {
             "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,myTopic");
     ExternalEventsService prefixedService =
         new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme-", 10, 100);
+            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
 
-    when(kafkaConsumer.partitionsFor("acme-myTopic")).thenReturn(Collections.emptyList());
+    when(kafkaConsumer.partitionsFor("acme_myTopic")).thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
 
     prefixedService.poll("myTopic", null, 10, 5, null);
 
-    verify(kafkaConsumer).partitionsFor("acme-myTopic");
+    verify(kafkaConsumer).partitionsFor("acme_myTopic");
   }
 
   @Test
   public void testCustomTopicAlreadyPrefixedUsedAsIs() throws Exception {
     TopicAllowList allowList =
         new TopicAllowList(
-            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,acme-myTopic");
+            "PlatformEvent_v1,MetadataChangeLog_Versioned_v1,MetadataChangeLog_Timeseries_v1,acme_myTopic");
     ExternalEventsService prefixedService =
         new ExternalEventsService(
-            allowList, consumerPool, objectMapper, topicNames, true, "acme-", 10, 100);
+            allowList, consumerPool, objectMapper, topicNames, true, "acme", 10, 100);
 
-    when(kafkaConsumer.partitionsFor("acme-myTopic")).thenReturn(Collections.emptyList());
+    when(kafkaConsumer.partitionsFor("acme_myTopic")).thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
 
-    prefixedService.poll("acme-myTopic", null, 10, 5, null);
+    prefixedService.poll("acme_myTopic", null, 10, 5, null);
 
-    verify(kafkaConsumer).partitionsFor("acme-myTopic");
+    verify(kafkaConsumer).partitionsFor("acme_myTopic");
   }
 
   @Test(expectedExceptions = UnsupportedTopicException.class)
