@@ -836,10 +836,10 @@ class JdbcSinkConnector(BaseConnector):
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        platform: str = "",
+        platform: Optional[str] = None,
     ):
         super().__init__(manifest, config, report)
-        if platform:
+        if platform is not None:
             self.platform = platform
         else:
             # Auto-detect from connection.url for self-hosted connectors
@@ -847,9 +847,25 @@ class JdbcSinkConnector(BaseConnector):
             #  io.confluent.connect.jdbc.JdbcSinkConnector)
             connection_url = manifest.config.get("connection.url", "")
             if connection_url:
-                jdbc_url = remove_prefix(connection_url, "jdbc:")
-                self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
+                if not validate_jdbc_url(connection_url):
+                    report.warning(
+                        "Invalid JDBC URL in connector configuration. Expected format: jdbc:<scheme>://<host>/<db>",
+                        context=f"{manifest.name}: {connection_url}",
+                    )
+                    self.platform = "unknown"
+                else:
+                    jdbc_url = remove_prefix(connection_url, "jdbc:")
+                    self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
+                    if self.platform == "external":
+                        report.warning(
+                            "Could not detect target platform from connection.url. JDBC scheme not in known platforms.",
+                            context=f"{manifest.name}: {connection_url}",
+                        )
             else:
+                report.warning(
+                    "No 'connection.url' found in connector configuration. Cannot auto-detect target platform.",
+                    context=manifest.name,
+                )
                 self.platform = "unknown"
         self._parser_factory = JdbcSinkParserFactory()
 
