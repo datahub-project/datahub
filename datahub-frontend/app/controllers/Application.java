@@ -136,26 +136,6 @@ public class Application extends Controller {
   }
 
   /**
-   * Moves permanently the get into version without trailing slash
-   *
-   * @param path String
-   * @return Result
-   */
-  @Nonnull
-  public Result redirectTrailingSlash(@Nullable String path) {
-    String redirectBase = basePath.equals("/") ? "" : basePath;
-
-    if (path == null || path.isEmpty()) {
-      return movedPermanently(redirectBase + "/");
-    }
-    String sanitizedPath = path.replaceFirst("^/+", "");
-    if (sanitizedPath.isEmpty()) {
-      return movedPermanently(redirectBase + "/");
-    }
-    return movedPermanently(redirectBase + "/" + sanitizedPath);
-  }
-
-  /**
    * Proxies requests to the Metadata Service
    *
    * <p>TODO: Investigate using mutual SSL authentication to call Metadata Service.

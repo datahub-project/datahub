@@ -6,6 +6,7 @@ import pandas as pd
 from neo4j import GraphDatabase
 from pydantic import Field
 
+from datahub.configuration.common import TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -47,7 +48,7 @@ class Neo4jConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
     username: str = Field(description="Neo4j Username")
-    password: str = Field(description="Neo4j Password")
+    password: TransparentSecretStr = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -145,7 +146,8 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
     def get_neo4j_metadata(self, query: str) -> Optional[pd.DataFrame]:
         driver = GraphDatabase.driver(
-            self.config.uri, auth=(self.config.username, self.config.password)
+            self.config.uri,
+            auth=(self.config.username, self.config.password.get_secret_value()),
         )
         """
         This process retrieves the metadata for Neo4j objects using an APOC query,

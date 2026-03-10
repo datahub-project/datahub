@@ -13,9 +13,7 @@ import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/st
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { ScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStepSubtitle';
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -47,12 +45,6 @@ const STEPS: IngestionSourceFormStep[] = [
         subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
-    },
-    {
-        label: 'Sync Schedule ',
-        subTitle: <ScheduleStepSubtitle />,
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
     },
 ];
 

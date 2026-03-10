@@ -12,9 +12,19 @@ on:
       - master
       - releases/**
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
     branches:
       - "**"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/docker-unified.yml"
+      - "!.github/scripts/send_failed_tests_to_posthog.py"
+      - "!.github/scripts/docker_helpers.sh"
+      - "!.github/actions/ci-optimization"
+      - "!.github/scripts/check_python_package.py"
+      - "!.github/scripts/parse_failed_cypress_tests.py"
+      - "!.github/scripts/parse_failed_pytest_tests.py"
+      - "!.github/scripts/docker_logs.sh"
   release:
     types: [published]
 
@@ -22,9 +32,7 @@ concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
   # because we don't want to cancel this workflow on master only for PRs
   #   as that makes reproducing issues easier
-  # Adding github.event.action == labeled as a means to differentiate the trigger due to adding a label -- most labels are
-  # no-ops except for `depot`
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'labeled' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -34,8 +42,6 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "s0gr1cr3jd"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
-  # Include Alpine variants for releases, or when PR has 'build-alpine-variant' label
-  INCLUDE_ALPINE_VARIANTS: ${{ github.event_name == 'release' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-alpine-variant')) }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
@@ -46,7 +52,6 @@ permissions:
 jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
-    if: ${{ github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'depot' }}
     outputs:
       # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
@@ -152,10 +157,12 @@ jobs:
         #    and hence short queue times and higher parallelism of smoke tests
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.IS_FORK }}" == "false" ]]; then
-            echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "build_runner_type=depot-ubuntu-24.04-4"
+              echo "test_runner_type=depot-ubuntu-24.04-4"
+              echo "test_runner_type_small=depot-ubuntu-24.04-small"
+              echo "use_depot_cache=true"
+            } >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
@@ -163,8 +170,10 @@ jobs:
             else
               echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             fi
-            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "test_runner_type_small=ubuntu-latest"
+              echo "use_depot_cache=false"
+            } >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
 
@@ -297,15 +306,13 @@ jobs:
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
-
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
-
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -371,7 +378,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.2
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -453,20 +460,6 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - name: Free up disk space
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/.ghcup || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /usr/local/julia* || true
-          sudo rm -rf /usr/local/share/powershell || true
-          sudo rm -rf /usr/share/miniconda || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker system prune -a -f || true
-          df -h
-
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -487,7 +480,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
-
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
@@ -500,10 +494,11 @@ jobs:
       - name: Detect workflow retry
         id: retry-detection
         run: |
-          if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
-            echo "This is retry attempt ${{ github.run_attempt }}"
+          RUN_ATTEMPT="${{ github.run_attempt }}"
+          if [[ "$RUN_ATTEMPT" -gt 1 ]]; then
+            echo "This is retry attempt $RUN_ATTEMPT"
             echo "is_retry=true" >> "$GITHUB_OUTPUT"
-            PREVIOUS_ATTEMPT=$(($(echo "${{ github.run_attempt }}") - 1))
+            PREVIOUS_ATTEMPT=$((RUN_ATTEMPT - 1))
             echo "previous_attempt=${PREVIOUS_ATTEMPT}" >> "$GITHUB_OUTPUT"
           else
             echo "This is the first attempt"
@@ -676,7 +671,7 @@ jobs:
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PincludeAlpineVariants=${{ env.INCLUDE_ALPINE_VARIANTS }}
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -805,22 +800,25 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
+          artifact-name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          test-results-paths: |
             **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/smoke-test-results/cypress-test-*.xml
+            **/junit.*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
@@ -839,7 +837,7 @@ jobs:
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
             --repository "${{ github.repository }}" \
             --workflow-name "${{ github.workflow }}" \
-            --branch "${{ github.head_ref || github.ref_name }}" \
+            --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
             --batch "${{ matrix.batch }}" \
@@ -925,7 +923,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test, publish_images]
+    needs: [setup, smoke_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

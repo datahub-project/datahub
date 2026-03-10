@@ -1,3 +1,4 @@
+import { DropdownProps } from 'antd';
 import React from 'react';
 
 import { IconNames } from '@components/components/Icon';
@@ -19,6 +20,11 @@ export type SelectLabelProps = {
 type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
+
+export interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
 
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
@@ -61,6 +67,9 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     descriptionMaxWidth?: number;
     dataTestId?: string;
     visibilityDeps?: React.DependencyList;
+    placement?: DropdownProps['placement'];
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
 }
 
 export interface SelectStyleProps {

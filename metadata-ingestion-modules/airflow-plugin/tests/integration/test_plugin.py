@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import random
 import signal
 import subprocess
@@ -398,6 +399,18 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": (
             "true" if enable_datajob_lineage else "false"
         ),
+        # macOS: run setproctitle/gunicorn patch before any process forks.
+        # Ensures the Airflow subprocess gets the patch even when the venv has no .pth (e.g. tox).
+        **(
+            {
+                "PYTHONSTARTUP": str(
+                    pathlib.Path(__file__).resolve().parent
+                    / "_airflow_gunicorn_patch.py"
+                ),
+            }
+            if platform.system() == "Darwin"
+            else {}
+        ),
     }
 
     # Configure API authentication based on Airflow version
@@ -521,8 +534,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     print(f"[DEBUG] Starting airflow standalone, logging to {standalone_log}")
 
-    # Note: For Airflow 3.0 on macOS, gunicorn setproctitle is patched via sitecustomize.py
-    # in site-packages to prevent SIGSEGV crashes. See .tox/py311-airflow302/lib/python3.11/site-packages/sitecustomize.py
+    # On macOS, PYTHONSTARTUP (set in environment above) loads _airflow_gunicorn_patch so
+    # setproctitle is no-op'd and gunicorn does not call it after fork (avoids SIGSEGV).
+    # See https://github.com/apache/airflow/issues/55838
 
     airflow_process = subprocess.Popen(
         [str(airflow_executable), "standalone"],

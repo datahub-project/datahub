@@ -68,7 +68,7 @@ export function NameAndOwnersSection({
                     rules={[{ required: true, message: 'Source Name is required' }]}
                     required
                 >
-                    <Input placeholder="Give data source a name" />
+                    <Input placeholder="Give data source a name" inputTestId="data-source-name" />
                 </CustomLabelFormItem>
 
                 <ActorsField

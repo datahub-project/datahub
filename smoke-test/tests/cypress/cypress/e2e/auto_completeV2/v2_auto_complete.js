@@ -1,6 +1,9 @@
 describe("auto-complete", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags(true, (res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+      res.body.data.appConfig.featureFlags.showSearchBarAutocompleteRedesign = false;
+    });
     cy.skipIntroducePage();
     cy.hideOnboardingTour();
     cy.login();

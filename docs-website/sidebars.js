@@ -46,9 +46,54 @@ module.exports = {
         // "docs/how/ui-tabs-guide",
         {
           label: "Ask DataHub",
-          type: "doc",
-          id: "docs/features/feature-guides/ask-datahub",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/ask-datahub",
+          },
+          items: [
+            {
+              label: "Plugins",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/ask-datahub-plugins/overview",
+              },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/snowflake",
+                },
+                {
+                  label: "Databricks",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/databricks",
+                },
+                {
+                  label: "BigQuery",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/bigquery",
+                },
+                {
+                  label: "dbt Cloud",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/dbt",
+                },
+                {
+                  label: "GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/github",
+                },
+                {
+                  label: "Glean",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ask-datahub-plugins/glean",
+                },
+              ],
+            },
+          ],
         },
         {
           label: "Agent Context Kit",
@@ -67,6 +112,11 @@ module.exports = {
               label: "Snowflake",
               type: "doc",
               id: "docs/dev-guides/agent-context/snowflake",
+            },
+            {
+              label: "Microsoft Copilot Studio",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/copilot-studio",
             },
           ],
         },
@@ -723,6 +773,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
+        "metadata-ingestion/datahub-skills",
         {
           "Scheduling Ingestion": [
             "metadata-ingestion/schedule_docs/intro",
@@ -1230,6 +1281,7 @@ module.exports = {
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",
         "docs/how/migrating-graph-service-implementation",
+        "docs/how/migrating-elasticsearch-opensearch",
         "docs/advanced/field-path-spec-v2",
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",

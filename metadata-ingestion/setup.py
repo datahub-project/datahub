@@ -1,3 +1,13 @@
+# NOTE: This file is being migrated to pyproject.toml (PEP 621).
+# pyproject.toml is now the source of truth for uv lock / uv sync.
+# setup.py is kept during the transition for backward compatibility
+# (data_files with sysconfig.get_path() cannot be expressed in pyproject.toml).
+#
+# After editing dependencies or entry points here, regenerate pyproject.toml:
+#   python scripts/generate_pyproject_deps.py
+#   python scripts/verify_pyproject_equivalence.py
+
+import sysconfig
 from typing import Dict, Set
 
 import setuptools
@@ -55,6 +65,9 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
+    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
+    # (not enforced here due to Airflow constraint file conflicts in CI)
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -106,8 +119,12 @@ usage_common = {
 sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but not longer do.
-    "sqlglot[rs]==27.27.0",
+    # but no longer do.
+    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
+    # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
+    # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
+    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
+    "sqlglot[c]==29.0.1",
     "patchy==2.8.0",
 }
 
@@ -198,10 +215,9 @@ aws_common = {
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
     # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0, but botocore requires urllib3<1.27 and does not yet support 2.x.
-    # This is blocked by upstream: https://github.com/boto/botocore/issues/3499
-    # Pin to latest 1.26.x until botocore adds urllib3 2.x support.
-    "urllib3>=1.26.20,<1.27",
+    # fixed in urllib3>=2.6.0
+    # We cannot require >=2.6.0 due to great expectations
+    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -265,7 +281,9 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    # Lower bound >=1.4.6: Versions 1.4.3-1.4.5 require snowflake-connector-python<3.0.0,
+    # but we need snowflake-connector-python>=3.4.0. Version 1.4.6+ supports connector 3.x.
+    # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
     # table column name reflection for non-uppercase table names. While we do not
@@ -280,13 +298,19 @@ snowflake_common = {
     #
     # Reflection failures for case-sensitive object names are a known issue:
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/388
-    #
     # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
     # above issue and we are pinning to a safe version.
-    "snowflake-sqlalchemy>=1.4.3,<1.7.4",
-    "snowflake-connector-python>=3.4.0,<4.0.0",
+    #
+    # Upper bound <1.7.4 was (accidentally?) removed 
+    # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
+    #
+    # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
+    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
+    # incompatible with cryptography 46+. 3.8.0 was yanked.
+    "snowflake-connector-python>=4.0.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography<47.0.0",
+    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -369,11 +393,14 @@ threading_timeout_common = {
     "stopit==1.1.2",
     # stopit uses pkg_resources internally, which means there's an implied
     # dependency on setuptools.
-    "setuptools",
+    # setuptools 82 removed pkg_resources.
+    "setuptools<82",
 }
 
 abs_base = {
-    "azure-core>=1.31.0,<2.0.0",
+    # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
+    # redirect handling in the pipeline transport layer, fixed in 1.38.0.
+    "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-storage-blob>=12.19.0,<13.0.0",
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
@@ -413,6 +440,10 @@ slack = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
+snowplow = {
+    *cachetools_lib,
+}
+
 databricks_common = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
@@ -434,6 +465,7 @@ databricks = {
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
+mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
@@ -625,7 +657,7 @@ plugins: Dict[str, Set[str]] = {
     "iceberg-catalog": aws_common,
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
-    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0"},
+    "kafka-connect": sql_common | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -637,18 +669,19 @@ plugins: Dict[str, Set[str]] = {
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        "setuptools",
+        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
+        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid<2", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib,
-    "mongodb": {"pymongo>=4.8.0,<5.0.0", "packaging<26.0.0"},
+    "mongodb": {"pymongo[aws]>=4.8.0,<5.0.0", "packaging<26.0.0"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc<6.0.0"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
+    "mysql": mysql_common,
+    "mariadb": mysql_common,
+    "doris": mysql_common,
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -679,6 +712,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowplow": snowplow,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -687,8 +721,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    # Note: tableauserverclient>=0.27 requires urllib3>=2, but elasticsearch requires urllib3<2
-    "tableau": {"tableauserverclient>=0.24.0,<0.27"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -827,6 +860,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "freezegun<2.0.0",  # TODO: fully remove and use time-machine
     "time-machine<4.0.0",  # better Pydantic v2 compatibility
@@ -874,12 +908,14 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snowplow",
             "snaplogic",
             "slack",
             "tableau",
             "teradata",
             "trino",
             "hive",
+            "hive-metastore",
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
@@ -927,6 +963,7 @@ full_test_dev_requirements = {
             "db2",
             "debug-recording",
             "delta-lake",
+            "doris",
             "druid",
             "excel",
             "feast",
@@ -953,6 +990,9 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "sqlalchemy.dialects": [
+        "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
+    ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
@@ -1005,7 +1045,8 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
-        "mariadb = datahub.ingestion.source.sql.mariadb.MariaDBSource",
+        "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
@@ -1015,6 +1056,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
+        "snowplow = datahub.ingestion.source.snowplow.snowplow:SnowplowSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
@@ -1154,6 +1196,11 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
         "datahub.ingestion.autogenerated": ["*.json"],
     },
+    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
+    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    data_files=[
+        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+    ],
     entry_points=entry_points,
     # Dependencies.
     install_requires=list(base_requirements | framework_common),

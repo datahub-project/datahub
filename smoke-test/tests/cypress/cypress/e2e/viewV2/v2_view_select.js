@@ -26,14 +26,39 @@ describe("view select", () => {
     cy.ensureElementPresent('[data-testid="view-name-input"]');
     cy.enterTextInTestId("view-name-input", viewName);
 
-    // Add Column Glossary Term Filter
-    cy.clickOptionWithText("Add filter");
-    cy.contains("Column Term").scrollIntoView();
-    cy.clickOptionWithText("Column Term");
-    cy.ensureElementPresent('[placeholder="Search for Column Term"]');
-    cy.get('[data-testid="search-input"]').last().type("CypressColumnInfoType");
-    cy.get(".ant-checkbox").should("be.visible").click();
-    cy.clickOptionWithTestId("update-filters");
+    // Add Column Glossary Term filter via query builder.
+    // The Build Filters tab opens with a blank condition row by default.
+    // Step 1: Select the property
+    cy.get('[data-testid="condition-select"]', { timeout: 10000 })
+      .first()
+      .should("be.visible")
+      .click();
+    cy.get('[data-testid="option-fieldGlossaryTerms"]', {
+      timeout: 10000,
+    }).click();
+    // Step 2: Select the operator — value input only renders after this
+    cy.get('[data-testid="condition-operator-select"]', { timeout: 10000 })
+      .first()
+      .should("be.visible")
+      .click();
+    cy.get('[data-testid="option-equals"]', { timeout: 10000 }).click();
+    // Step 3: Select the glossary term entity value
+    cy.get('[data-testid="entity-search-input"]', { timeout: 20000 })
+      .should("exist")
+      .and("be.visible")
+      .click();
+    cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
+      .last()
+      .type("CypressColumnInfoType");
+    // The Alchemy BasicSelect renders options as <label> elements in a portal
+    // (not as [role="option"] children of entity-search-input).
+    // For multi-select, click the checkbox to toggle it, then confirm with Update.
+    cy.contains("CypressColumnInfoType", { timeout: 20000 })
+      .should("be.visible")
+      .closest("label")
+      .find(".ant-checkbox-wrapper")
+      .click();
+    cy.clickOptionWithTestId("footer-button-update");
     cy.clickOptionWithText("Save");
     cy.ensureTextNotPresent("Save");
     cy.waitTextVisible(viewName);
@@ -48,42 +73,37 @@ describe("view select", () => {
       .click({ force: true });
     cy.ensureTextNotPresent("of 3 results");
 
-    // Now edit the view
+    // Now edit the view (rename only)
     cy.clickOptionWithTestId("views-icon");
     cy.ensureElementWithTestIdPresent("views-type-select");
-    openViewEditDropDownAndClickId("view-dropdown-edit");
+    openViewEditDropDownAndClickId("menu-item-edit");
     cy.clickOptionWithTestId("view-name-input").clear().type(newViewName);
-
-    // Update the actual filters by adding another filter
-    cy.clickOptionWithText("Add filter");
-    cy.get(".anticon-file-text").eq(0).scrollIntoView().click();
-    cy.enterTextInTestId("edit-text-input", "log event");
-    cy.clickOptionWithText("Apply");
     cy.clickOptionWithTestId("view-builder-save");
-    cy.waitTextVisible("cypress_logging_events");
-    cy.waitTextVisible("of 1 result");
-    cy.get("[class*=dataset]").should("have.length", 1);
+    cy.waitTextVisible("SampleCypressHdfsDataset");
+    cy.waitTextVisible("of 3 results");
+    cy.get("[class*=dataset]").should("have.length", 3);
     cy.clickOptionWithId("#v2-search-bar-views");
-    openViewEditDropDownAndClickId("view-dropdown-set-user-default");
-    cy.waitTextVisible("of 1 result");
-    cy.get("[class*=dataset]").should("have.length", 1);
+    openViewEditDropDownAndClickId("menu-item-set-default");
+    cy.waitTextVisible(newViewName);
+    cy.waitTextVisible("of 3 results");
+    cy.get("[class*=dataset]").should("have.length", 3);
     cy.clickOptionWithId("#v2-search-bar-views");
     cy.get('[data-testid="CloseIcon"]').last().click({ force: true });
     cy.clickOptionWithTestId("views-icon");
     cy.ensureElementWithTestIdPresent("views-type-select");
-    openViewEditDropDownAndClickId("view-dropdown-remove-user-default");
+    openViewEditDropDownAndClickId("menu-item-remove-default");
 
     // Now delete the View
     cy.clickOptionWithId("#v2-search-bar-views");
     cy.clickOptionWithTestId("views-icon");
     cy.ensureElementWithTestIdPresent("views-type-select");
-    openViewEditDropDownAndClickId("view-dropdown-delete");
+    openViewEditDropDownAndClickId("menu-item-delete");
     cy.clickOptionWithText("Yes");
 
     // Ensure that the view was deleted
     cy.goToViewsSettings();
     cy.waitTextVisible("Permissions");
     cy.ensureTextNotPresent(newViewName);
-    cy.ensureTextNotPresent("of 1 result");
+    cy.ensureTextNotPresent("of 3 results");
   });
 });

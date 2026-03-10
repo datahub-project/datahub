@@ -44,7 +44,16 @@ Before deploying a Remote Executor, ensure you have the following:
    - Access to your deployment platform (AWS ECS or Kubernetes)
    - Necessary permissions to create resources
 
-3. **Registry Access**
+3. **Network Connectivity**
+
+   The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
+
+   - `https://<your-company>.acryl.io/*` — DataHub GMS API
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
+
+4. **Registry Access**
    - For AWS: Provide your AWS account ID to DataHub Cloud
    - For Kubernetes: Work with DataHub team to set up access to the Remote Executor Docker Image Registry
 
@@ -96,7 +105,7 @@ The DataHub Team will provide a [Cloudformation Template](https://raw.githubuser
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
 - DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
-- Executor Pool ID you set in the Datahub UI
+- Executor Pool ID you set in the DataHub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
@@ -224,7 +233,6 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
-- `image.tag`: DataHub Cloud Remote Executor version
 
 4. **Configure Secret Mounting (Optional)**
 
@@ -277,6 +285,26 @@ source:
 ```
 
 For additional configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
+
+### Update Kubernetes Deployment
+
+To update your Kubernetes deployment (e.g., to deploy a new image version or modify configuration), you'll need to upgrade your existing Helm release. This process involves upgrading the Helm release with any new parameters while preserving your existing parameters.
+
+1. **Upgrade Helm release**
+
+```bash
+# Update Helm repository
+helm repo update acryl
+
+# Upgrade your existing Helm release
+# See https://helm.sh/docs/helm/helm_upgrade/ for more options
+helm upgrade \
+  --reuse-values \
+  --set <key>="<value>" \ # if any new options need to be set
+  acryl-executor-worker acryl/datahub-executor-worker
+```
+
+For configuration options, refer to the [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file in the Helm chart repository.
 
 ## Checking Remote Executor status
 

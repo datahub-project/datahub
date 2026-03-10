@@ -1,3 +1,5 @@
+pytest_plugins = ["tests.utilities.agent_reporter"]
+
 import json
 import logging
 import os

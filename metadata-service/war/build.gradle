@@ -70,8 +70,8 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testRuntimeOnly externalDependency.logbackClassic
 }
-configurations.all{
-  exclude group: "com.charleskorn.kaml", module:"kaml"
+configurations.all {
+  exclude group: "com.charleskorn.kaml", module: "kaml"
 }
 
 tasks.register('run') {
