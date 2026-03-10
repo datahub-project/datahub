@@ -30,11 +30,13 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     extract_dbt_exposures,
     extract_semantic_models,
+    load_run_results,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessCriteria,
     DBTFreshnessInfo,
+    DBTTest,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
     parse_freshness_criteria,
@@ -2488,9 +2490,244 @@ def test_run_results_s3_glob_valid_config():
     assert config.run_results_paths == ["s3://bucket/results/*/run_results.json"]
 
 
-# =============================================================================
-# Semantic Model Tests
-# =============================================================================
+def test_expand_s3_glob_multiple_pages():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {"Contents": [{"Key": "results/model_a/run_results.json"}]},
+        {"Contents": [{"Key": "results/model_b/run_results.json"}]},
+        {"Contents": [{"Key": "results/model_c/run_results.json"}]},
+    ]
+
+    result = DBTCoreSource._expand_s3_glob(
+        "s3://bucket/results/*/run_results.json", mock_aws
+    )
+    assert result == [
+        "s3://bucket/results/model_a/run_results.json",
+        "s3://bucket/results/model_b/run_results.json",
+        "s3://bucket/results/model_c/run_results.json",
+    ]
+
+
+def test_expand_s3_glob_wildcard_at_root():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "run_results_a.json"},
+                {"Key": "run_results_b.json"},
+                {"Key": "other.txt"},
+            ]
+        }
+    ]
+
+    result = DBTCoreSource._expand_s3_glob("s3://bucket/run_results_*.json", mock_aws)
+    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
+    assert result == [
+        "s3://bucket/run_results_a.json",
+        "s3://bucket/run_results_b.json",
+    ]
+
+
+def test_expand_s3_glob_client_error():
+    from botocore.exceptions import ClientError
+
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "ListObjectsV2",
+    )
+
+    with pytest.raises(ClientError, match="Access Denied"):
+        DBTCoreSource._expand_s3_glob(
+            "s3://bucket/results/*/run_results.json", mock_aws
+        )
+
+
+def _make_dbt_node(dbt_name, node_type="model", **overrides):
+    defaults = dict(
+        database=None,
+        schema=None,
+        name=dbt_name.split(".")[-1],
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name=None,
+        node_type=node_type,
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    defaults.update(overrides)
+    return DBTNode(**defaults)
+
+
+def test_load_run_results_skips_generate():
+    run_results_json = {
+        "args": {"which": "generate"},
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "abc-123",
+        },
+        "results": [],
+    }
+    nodes = [_make_dbt_node("model.project.my_model")]
+    config = mock.MagicMock()
+    result = load_run_results(config, run_results_json, nodes)
+    assert result is nodes
+    assert len(nodes[0].test_results) == 0
+    assert len(nodes[0].model_performances) == 0
+
+
+def test_load_run_results_with_test_and_model():
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-001",
+        },
+        "results": [
+            {
+                "unique_id": "test.project.my_test",
+                "status": "pass",
+                "timing": [
+                    {
+                        "name": "execute",
+                        "started_at": "2024-01-01T00:00:01Z",
+                        "completed_at": "2024-01-01T00:00:02Z",
+                    }
+                ],
+            },
+            {
+                "unique_id": "model.project.my_model",
+                "status": "success",
+                "timing": [
+                    {
+                        "name": "execute",
+                        "started_at": "2024-01-01T00:00:03Z",
+                        "completed_at": "2024-01-01T00:00:05Z",
+                    }
+                ],
+            },
+        ],
+    }
+    test_node = _make_dbt_node("test.project.my_test", node_type="test")
+    test_node.test_info = DBTTest(
+        qualified_test_name="dbt_utils.my_test", column_name=None, kw_args={}
+    )
+    model_node = _make_dbt_node("model.project.my_model")
+
+    config = mock.MagicMock()
+    load_run_results(config, run_results_json, [test_node, model_node])
+
+    assert len(test_node.test_results) == 1
+    assert test_node.test_results[0].status == "pass"
+    assert test_node.test_results[0].invocation_id == "inv-001"
+
+    assert len(model_node.model_performances) == 1
+    assert model_node.model_performances[0].status == "success"
+    assert model_node.model_performances[0].run_id == "inv-001"
+
+
+def test_load_run_results_failed_test():
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-002",
+        },
+        "results": [
+            {
+                "unique_id": "test.project.failing_test",
+                "status": "fail",
+                "message": "Got 3 results, expected 0",
+                "failures": 3,
+                "timing": [],
+            },
+        ],
+    }
+    test_node = _make_dbt_node("test.project.failing_test", node_type="test")
+    test_node.test_info = DBTTest(
+        qualified_test_name="dbt_utils.failing_test", column_name=None, kw_args={}
+    )
+
+    config = mock.MagicMock()
+    load_run_results(config, run_results_json, [test_node])
+
+    assert len(test_node.test_results) == 1
+    tr = test_node.test_results[0]
+    assert tr.status == "fail"
+    assert tr.native_results["message"] == "Got 3 results, expected 0"
+    assert tr.native_results["failures"] == "3"
+
+
+def test_load_run_results_unknown_node_skipped():
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-003",
+        },
+        "results": [
+            {
+                "unique_id": "model.project.missing_model",
+                "status": "success",
+                "timing": [
+                    {
+                        "name": "execute",
+                        "started_at": "2024-01-01T00:00:01Z",
+                        "completed_at": "2024-01-01T00:00:02Z",
+                    }
+                ],
+            },
+        ],
+    }
+    config = mock.MagicMock()
+    result = load_run_results(config, run_results_json, [])
+    assert result == []
+
+
+def test_load_file_as_json_s3():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+    mock_s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(read=mock.MagicMock(return_value=b'{"key": "value"}'))
+    }
+
+    result = DBTCoreSource.load_file_as_json(
+        "s3://my-bucket/path/to/manifest.json", mock_aws
+    )
+    assert result == {"key": "value"}
+    mock_s3_client.get_object.assert_called_once_with(
+        Bucket="my-bucket", Key="path/to/manifest.json"
+    )
 
 
 def test_convert_semantic_model_fields_to_columns_basic():
