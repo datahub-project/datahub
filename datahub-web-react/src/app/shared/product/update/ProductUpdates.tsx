@@ -9,7 +9,6 @@ import {
     CloseButton,
     Content,
     FeatureContent,
-    FeatureIconWrapper,
     FeatureItem,
     FeatureList,
     FeaturesSection,
