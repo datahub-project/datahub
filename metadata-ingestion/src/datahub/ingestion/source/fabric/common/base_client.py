@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterator, Optional
+from typing import Dict, Iterator, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -157,6 +157,38 @@ class BaseFabricClient(ABC):
             logger.error(f"Request error for {method} {url}: {e}")
             raise
 
+    def _paginate(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, str]] = None,
+    ) -> Iterator[dict]:
+        """Yield all items from a paginated Fabric API endpoint.
+
+        Handles continuation token pagination transparently — callers
+        just iterate and get all items across all pages.
+
+        Args:
+            endpoint: API endpoint (relative to base URL)
+            params: Initial query parameters
+
+        Yields:
+            Item dictionaries from each page's "value" array
+        """
+        request_params: Dict[str, str] = dict(params or {})
+        page = 1
+        while True:
+            response = self.get(endpoint, params=request_params)
+            data = response.json()
+            items = data.get("value", [])
+            logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
+            yield from items
+
+            continuation_token = data.get("continuationToken")
+            if not continuation_token:
+                break
+            request_params["continuationToken"] = continuation_token
+            page += 1
+
     def _list_workspaces_raw(self) -> Iterator[dict]:
         """List all accessible Fabric workspaces (raw data).
 
@@ -168,25 +200,7 @@ class BaseFabricClient(ABC):
             Workspace data dictionaries
         """
         logger.info("Listing Fabric workspaces")
-        try:
-            response = self.get("workspaces")
-            data = response.json()
-
-            workspaces = data.get("value", [])
-            logger.info(f"Found {len(workspaces)} workspace(s)")
-
-            for workspace_data in workspaces:
-                logger.debug(
-                    f"Processing workspace: {workspace_data.get('displayName', 'Unknown')}"
-                )
-                yield workspace_data
-
-            # TODO: Handle continuation token if present in response
-            # continuation_token = data.get("continuationToken")
-
-        except Exception as e:
-            logger.error(f"Failed to list workspaces: {e}")
-            raise
+        yield from self._paginate("workspaces")
 
     def get(self, endpoint: str, params: Optional[dict] = None) -> requests.Response:
         """Make a GET request.
