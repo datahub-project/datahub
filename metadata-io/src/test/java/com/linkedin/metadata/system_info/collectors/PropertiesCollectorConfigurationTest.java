@@ -114,6 +114,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          // K8 scale-down and Kubernetes config (label selectors, KEDA, rollout, env JSON - not
+          // secrets)
+          "systemUpdate.kubernetesScaleDown.*",
 
           // Consistency checks configuration
           "consistencyChecks.checks.*.*",
@@ -188,6 +191,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "kubernetes.serviceHost",
+          "kubernetes.operationsApiEnabled",
           "tokenService",
           // Configuration keys and settings (not secret keys)
           "key",
@@ -254,6 +259,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.serde.usageEvent.value.deserializer",
           "kafka.bootstrapServers",
           "kafka.consumer.bootstrapServers",
+          "kafka.consumer.securityProtocol",
+          "kafka.consumer.schemaRegistryUrl",
           "kafka.consumer.healthCheckEnabled",
           "kafka.consumer.maxPartitionFetchBytes",
           "kafka.consumer.mcl.aspectsToDrop",
@@ -272,6 +279,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.bootstrapServers",
+          "kafka.producer.securityProtocol",
+          "kafka.producer.schemaRegistryUrl",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
           "kafka.producer.maxRequestSize",
@@ -463,6 +472,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
+          "featureFlags.multipleDataProductsPerAsset",
           "featureFlags.entityVersioning",
           "featureFlags.erModelRelationshipFeatureEnabled",
           "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
@@ -543,6 +553,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
+          "elasticsearch.buildIndices.slowOperationTimeoutSeconds",
+          "elasticsearch.buildIndices.countRetryMaxAttempts",
+          "elasticsearch.buildIndices.countRetryWaitSeconds",
+          "elasticsearch.buildIndices.createIndexRetryEnabled",
           "elasticsearch.bulkDelete.batchSize",
           "elasticsearch.bulkDelete.numRetries",
           "elasticsearch.bulkDelete.pollInterval",
@@ -561,6 +575,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
+          "elasticsearch.socketTimeout",
           "elasticsearch.host",
           "elasticsearch.idHashAlgo",
           "elasticsearch.implementation",

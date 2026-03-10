@@ -46,6 +46,11 @@ jobs:
           # jaraco.context>=6.1.0 (security fix for GHSA-58pv-8j8x-9vj2). This is acceptable
           # for CI testing; the security constraint is enforced in Docker image builds via
           # docker/snippets/ingestion/constraints.txt.
+          #
+          # Similarly, Airflow constraints pin aiohttp to older versions (e.g., 3.10.10 in 2.x,
+          # 3.12.15 in 3.x) which conflicts with acryl-datahub's requirement of aiohttp>=3.13.3
+          # (CVE-2025-30304, CVE-2025-32442). This is acceptable for CI testing; the security
+          # constraint is enforced in Docker image builds via docker/snippets/ingestion/constraints.txt.
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.7.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"

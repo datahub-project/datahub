@@ -8,11 +8,17 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
+# Kubernetes environment (global). When the process runs in a K8 pod, the cluster sets KUBERNETES_SERVICE_HOST.
+kubernetes:
+  serviceHost: ${KUBERNETES_SERVICE_HOST:}
+  # Enable the OpenAPI K8 operations controller (deployments, pods, config maps, cron jobs). Default true.
+  operationsApiEnabled: ${KUBERNETES_OPERATIONS_API_ENABLED:true}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/health/live,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
+  excludedPaths: /schema-registry/*,/health,/health/live,/health/detailed,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus,/openapi/operations/dev/featureFlags,/openapi/operations/dev/featureFlags/*
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
@@ -21,10 +27,6 @@ authentication:
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
-      configs:
-        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
-        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-        salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
     # OAuth/OIDC JWT token authenticator for service accounts
@@ -67,8 +69,8 @@ authentication:
   # Configurations for DataHub token service
   tokenService:
     # Key used to sign new tokens.
-    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-    salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:}
+    salt: ${DATAHUB_TOKEN_SERVICE_SALT:}
     issuer: ${DATAHUB_TOKEN_SERVICE_ISSUER:datahub-metadata-service}
     signingAlgorithm: ${DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM:HS256}
 
@@ -365,6 +367,7 @@ elasticsearch:
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
@@ -497,6 +500,10 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
+    countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
+    countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
+    createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -639,6 +646,8 @@ kafka:
 
   producer:
     bootstrapServers: ${KAFKA_PRODUCER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_PRODUCER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_PRODUCER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
@@ -647,6 +656,8 @@ kafka:
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
   consumer:
     bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_CONSUMER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_CONSUMER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
@@ -714,6 +725,10 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
   autoconfigure:
     exclude:
+      # hazelcast-spring 5.6+ registers HazelcastObjectExtractionConfiguration which requires a
+      # HazelcastInstance bean. We only create one when searchService.cacheImplementation=hazelcast
+      # (default is caffeine). Excluding this avoids context failure when Hazelcast cache is not used.
+      - com.hazelcast.spring.HazelcastObjectExtractionConfiguration
       # We don't use these
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
@@ -791,6 +806,9 @@ springdoc:
 
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
+
+devTooling:
+  enabled: ${DEV_TOOLING_ENABLED:false}
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
@@ -928,6 +946,23 @@ systemUpdate:
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  kubernetesScaleDown:
+    enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
+    useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
+    maxRetries: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES:3}
+    stateConfigMapName: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_STATE_CONFIG_MAP:}
+    # Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE). Set via Helm.
+    scaleDownDeploymentLabelSelectors: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS:}
+    # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
+    # label selector get env set when scaling down; state stores previous env per deployment for restore.
+    # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
+    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
+    kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
+    kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
+    kedaScaledObjectsPlural: ${DATAHUB_UPGRADE_K8_KEDA_SCALED_OBJECTS_PLURAL:scaledobjects}
+    rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
+    # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
+    rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -1007,6 +1042,8 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:false} # Enables assets to belong to multiple data products simultaneously
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

@@ -25,7 +25,6 @@ The minimal configuration for connecting to Glue catalog with S3 warehouse:
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       my_catalog:
         type: "glue"
@@ -41,7 +40,6 @@ to specify secrets directly, use the following configuration as the template:
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       demo:
         type: "glue"
@@ -93,7 +91,6 @@ MinIO listens on port `9000` at `minio-host`. The `uri` parameter points at Iceb
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       demo:
         type: "rest"
@@ -114,7 +111,6 @@ environment (i.e. pod) is already authenticated to perform actions against AWS S
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       demo:
         type: "rest"
@@ -138,7 +134,6 @@ allows for 2 parameters:
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       demo:
         type: "rest"
@@ -199,7 +194,6 @@ export GCS_WAREHOUSE_BUCKET=your-bucket-name
 source:
   type: iceberg
   config:
-    env: dev
     catalog:
       my_biglake_catalog:
         type: rest
@@ -345,7 +339,6 @@ For catalogs that support vended credentials, set `header.X-Iceberg-Access-Deleg
 source:
   type: iceberg
   config:
-    env: dev
     catalog:
       my_biglake_catalog:
         type: rest
@@ -414,7 +407,6 @@ This example targets `Postgres` as the sql-type `Iceberg` catalog and uses Azure
 source:
   type: "iceberg"
   config:
-    env: dev
     catalog:
       demo:
         type: sql

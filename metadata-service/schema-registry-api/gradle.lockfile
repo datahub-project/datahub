@@ -1,16 +1,10 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
-com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-core:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson.core:jackson-databind:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.fasterxml.jackson:jackson-bom:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.google.code.findbugs:jsr305:3.0.2=spotless865458226
-com.google.errorprone:error_prone_annotations:2.21.1=spotless865458226
-com.google.googlejavaformat:google-java-format:1.18.1=spotless865458226
-com.google.guava:failureaccess:1.0.1=spotless865458226
-com.google.guava:guava:32.1.3-jre=spotless865458226
-com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava=spotless865458226
+com.fasterxml.jackson.core:jackson-annotations:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-core:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson.core:jackson-databind:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.fasterxml.jackson:jackson-bom:2.18.6=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.ibm.icu:icu4j:69.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-commons:1.14.13=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.micrometer:micrometer-observation:1.14.13=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -26,7 +20,6 @@ org.antlr:antlr-runtime:3.5.2=compileClasspath,runtimeClasspath,testCompileClass
 org.antlr:antlr4-runtime:4.9.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.antlr:antlr4:4.9.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.assertj:assertj-core:3.11.1=testCompileClasspath,testRuntimeClasspath
-org.checkerframework:checker-qual:3.37.0=spotless865458226
 org.jacoco:org.jacoco.agent:0.8.12=jacocoAgent,jacocoAnt
 org.jacoco:org.jacoco.ant:0.8.12=jacocoAnt
 org.jacoco:org.jacoco.core:0.8.12=jacocoAnt

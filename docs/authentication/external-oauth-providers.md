@@ -1,5 +1,11 @@
 # External OAuth Authentication
 
+:::note DataHub Cloud Customers
+Self-service configuration of external OAuth providers is not yet available on DataHub Cloud.
+
+If you'd like to configure external OAuth for DataHub Cloud, please reach out to your customer support representative with the configuration values outlined below!
+:::
+
 DataHub supports authenticating API requests using JWT tokens from external identity providers like Okta, Azure AD, Google Identity, and others. This is perfect for service-to-service authentication where your applications need to call DataHub APIs.
 
 ## Overview

@@ -270,6 +270,27 @@ public class ESWriteDAO {
   }
 
   /**
+   * Applies a script to a particular document in the V3 index for the specified search group.
+   *
+   * @param opContext the operation context
+   * @param searchGroup the search group name
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        toIndexNameV3(opContext, searchGroup), docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
    * Delete the index
    *
    * @param opContext the operation context

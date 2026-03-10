@@ -1,16 +1,18 @@
 import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     MutableMapping,
     Optional,
+    Set,
     Tuple,
 )
 
@@ -83,6 +85,15 @@ class SnowflakeTag:
     schema: str
     name: str
     value: str
+    inherited_from: Optional[SnowflakeObjectDomain] = None
+
+    @property
+    def is_inherited(self) -> bool:
+        return self.inherited_from is not None
+
+    def as_inherited(self, level: SnowflakeObjectDomain) -> "SnowflakeTag":
+        """Return a copy marked as inherited from a parent object *level*."""
+        return replace(self, inherited_from=level)
 
     def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
@@ -399,7 +410,7 @@ class _SnowflakeTagCache:
         self._database_tags[db_name].append(tag)
 
     def get_database_tags(self, db_name: str) -> List[SnowflakeTag]:
-        return self._database_tags[db_name]
+        return self._database_tags.get(db_name, [])
 
     def add_schema_tag(self, schema_name: str, db_name: str, tag: SnowflakeTag) -> None:
         self._schema_tags[db_name][schema_name].append(tag)
@@ -415,7 +426,9 @@ class _SnowflakeTagCache:
     def get_table_tags(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeTag]:
-        return self._table_tags[db_name][schema_name][table_name]
+        return (
+            self._table_tags.get(db_name, {}).get(schema_name, {}).get(table_name, [])
+        )
 
     def add_column_tag(
         self,
@@ -433,6 +446,99 @@ class _SnowflakeTagCache:
         return (
             self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
         )
+
+    # --- Inheritance-aware methods ---
+    # These emulate Snowflake's tag inheritance: a tag set on a database is
+    # inherited by its schemas, tables, and columns.  A more-specific
+    # assignment (e.g. directly on the table) overrides the inherited value.
+
+    @staticmethod
+    def _deduplicate_tags(tags: List[SnowflakeTag]) -> List[SnowflakeTag]:
+        """Deduplicate tags by (database, schema, name), preferring direct over inherited."""
+        best: Dict[tuple, SnowflakeTag] = {}
+        for tag in tags:
+            key = (tag.database, tag.schema, tag.name)
+            existing = best.get(key)
+            if existing is None or (existing.is_inherited and not tag.is_inherited):
+                best[key] = tag
+        return list(best.values())
+
+    @staticmethod
+    def _mark_inherited(
+        tags: List[SnowflakeTag], level: SnowflakeObjectDomain
+    ) -> List[SnowflakeTag]:
+        return [t.as_inherited(level) for t in tags]
+
+    def get_schema_tags_with_inheritance(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_schema_tags(schema_name, db_name)
+        inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + inherited)
+
+    def get_table_tags_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_table_tags(table_name, schema_name, db_name)
+        schema_inherited = self._mark_inherited(
+            self.get_schema_tags(schema_name, db_name),
+            SnowflakeObjectDomain.SCHEMA,
+        )
+        db_inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + schema_inherited + db_inherited)
+
+    def get_column_tags_for_table_with_inheritance(
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        column_names: Optional[List[str]] = None,
+    ) -> Dict[str, List[SnowflakeTag]]:
+        """Return column tags with inheritance from table, schema, and database levels.
+
+        Args:
+            column_names: All column names in the table. When provided,
+                inherited parent tags are applied to every column, not just
+                those with direct column tags.
+        """
+        direct_column_tags = self.get_column_tags_for_table(
+            table_name, schema_name, db_name
+        )
+
+        # Tags inherited by every column in this table
+        parent_tags = (
+            self._mark_inherited(
+                self.get_table_tags(table_name, schema_name, db_name),
+                SnowflakeObjectDomain.TABLE,
+            )
+            + self._mark_inherited(
+                self.get_schema_tags(schema_name, db_name),
+                SnowflakeObjectDomain.SCHEMA,
+            )
+            + self._mark_inherited(
+                self.get_database_tags(db_name),
+                SnowflakeObjectDomain.DATABASE,
+            )
+        )
+
+        if not parent_tags:
+            return dict(direct_column_tags)
+
+        # Apply parent tags to all known columns, merging with direct tags
+        all_columns = (
+            column_names
+            if column_names is not None
+            else list(direct_column_tags.keys())
+        )
+        result: Dict[str, List[SnowflakeTag]] = {}
+        for col_name in all_columns:
+            col_tags = list(direct_column_tags.get(col_name, []))
+            result[col_name] = self._deduplicate_tags(col_tags + parent_tags)
+        return result
 
 
 class SnowflakeDataDictionary(SupportsAsObj):
@@ -487,11 +593,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
+    def get_databases(
+        self, db_name: str, database_filter: str = ""
+    ) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.get_databases(db_name),
+            SnowflakeQuery.get_databases(db_name, database_filter),
         )
 
         for database in cur:
@@ -505,11 +613,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
+    def get_schemas_for_database(
+        self, db_name: str, schema_filter: str = ""
+    ) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.connection.query(
-            SnowflakeQuery.schemas_for_database(db_name),
+            SnowflakeQuery.schemas_for_database(db_name, schema_filter),
         )
 
         for schema in cur:
@@ -557,12 +667,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str
+        self,
+        db_name: str,
+        table_types: FrozenSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.tables_for_database(db_name),
+                SnowflakeQuery.tables_for_database(
+                    db_name,
+                    table_types=table_types,
+                    table_filter=table_filter,
+                    exclude_dynamic_tables=exclude_dynamic_tables,
+                ),
             )
         except Exception as e:
             logger.debug(
@@ -595,18 +714,30 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions
-        self.populate_dynamic_table_definitions(tables, db_name)
+        # Populate dynamic table definitions only if dynamic tables are not excluded
+        if not exclude_dynamic_tables:
+            self.populate_dynamic_table_definitions(tables, db_name)
 
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
+        table_types: Set[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.tables_for_schema(schema_name, db_name),
+            SnowflakeQuery.tables_for_schema(
+                schema_name,
+                db_name,
+                table_types=table_types,
+                table_filter=table_filter,
+                exclude_dynamic_tables=exclude_dynamic_tables,
+            ),
         )
 
         for table in cur:
@@ -630,18 +761,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-        # Populate dynamic table definitions for just this schema
-        schema_tables = {schema_name: tables}
-        self.populate_dynamic_table_definitions(schema_tables, db_name)
+        # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
+        if not exclude_dynamic_tables:
+            schema_tables = {schema_name: tables}
+            self.populate_dynamic_table_definitions(schema_tables, db_name)
 
         return tables
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         if self._fetch_views_from_information_schema:
-            return self._get_views_for_database_using_information_schema(db_name)
+            return self._get_views_for_database_using_information_schema(
+                db_name, view_filter
+            )
         else:
             return self._get_views_for_database_using_show(db_name)
 
@@ -797,11 +931,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views_with_empty_definition
 
     def _get_views_for_database_using_information_schema(
-        self, db_name: str
+        self, db_name: str, view_filter: str = ""
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         try:
             cur = self.connection.query(
-                SnowflakeQuery.get_views_for_database(db_name),
+                SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
             logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
@@ -827,11 +961,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views
 
     def get_views_for_schema_using_information_schema(
-        self, *, schema_name: str, db_name: str
+        self, *, schema_name: str, db_name: str, view_filter: str = ""
     ) -> List[SnowflakeView]:
         cur = self.connection.query(
             SnowflakeQuery.get_views_for_schema(
-                db_name=db_name, schema_name=schema_name
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
             ),
         )
 
@@ -1463,11 +1597,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
         tags = _SnowflakeTagCache()
 
         for tag in cur:
+            tag_db = tag["TAG_DATABASE"]
+            tag_schema = tag["TAG_SCHEMA"]
+            tag_name = tag["TAG_NAME"]
+            tag_value = tag["TAG_VALUE"]
+            if tag_db is None or tag_schema is None or tag_name is None:
+                logger.warning(
+                    f"Skipping tag with null definition fields: "
+                    f"TAG_DATABASE={tag_db}, TAG_SCHEMA={tag_schema}, "
+                    f"TAG_NAME={tag_name}"
+                )
+                continue
+
             snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
+                database=tag_db,
+                schema=tag_schema,
+                name=tag_name,
+                value=tag_value or "",
             )
 
             # This is the name of the object, unless the object is a column, in which
@@ -1478,17 +1624,47 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # This will be null if the object is a database
             object_database = tag["OBJECT_DATABASE"]
 
-            domain = tag["DOMAIN"].lower()
+            raw_domain = tag["DOMAIN"]
+            if raw_domain is None:
+                logger.warning(
+                    f"Skipping tag with null DOMAIN: "
+                    f"tag={tag_name}, object_name={object_name}"
+                )
+                continue
+            domain = raw_domain.lower()
             if domain == SnowflakeObjectDomain.DATABASE:
                 tags.add_database_tag(object_name, snowflake_tag)
             elif domain == SnowflakeObjectDomain.SCHEMA:
+                if object_database is None:
+                    logger.warning(
+                        f"Skipping schema tag with null OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_schema_tag(object_name, object_database, snowflake_tag)
             elif domain == SnowflakeObjectDomain.TABLE:  # including views
+                if object_schema is None or object_database is None:
+                    logger.warning(
+                        f"Skipping table tag with null OBJECT_SCHEMA/OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_table_tag(
                     object_name, object_schema, object_database, snowflake_tag
                 )
             elif domain == SnowflakeObjectDomain.COLUMN:
                 column_name = tag["COLUMN_NAME"]
+                if (
+                    column_name is None
+                    or object_schema is None
+                    or object_database is None
+                ):
+                    logger.warning(
+                        f"Skipping column tag with null fields: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}, "
+                        f"column_name={column_name}"
+                    )
+                    continue
                 tags.add_column_tag(
                     column_name,
                     object_name,
@@ -1497,56 +1673,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     snowflake_tag,
                 )
             else:
-                # This should never happen.
-                logger.error(f"Encountered an unexpected domain: {domain}")
-                continue
-
-        return tags
-
-    def get_tags_for_object_with_propagation(
-        self,
-        domain: str,
-        quoted_identifier: str,
-        db_name: str,
-    ) -> List[SnowflakeTag]:
-        tags: List[SnowflakeTag] = []
-
-        cur = self.connection.query(
-            SnowflakeQuery.get_all_tags_on_object_with_propagation(
-                db_name, quoted_identifier, domain
-            ),
-        )
-
-        for tag in cur:
-            tags.append(
-                SnowflakeTag(
-                    database=tag["TAG_DATABASE"],
-                    schema=tag["TAG_SCHEMA"],
-                    name=tag["TAG_NAME"],
-                    value=tag["TAG_VALUE"],
+                self.report.warning(
+                    title="Unexpected tag domain encountered",
+                    message=f"Tag '{snowflake_tag.name}' has domain '{domain}' which is not "
+                    "recognized. This tag will be skipped.",
+                    context=f"database={db_name}, object={object_name}",
                 )
-            )
-        return tags
-
-    def get_tags_on_columns_for_table(
-        self, quoted_table_name: str, db_name: str
-    ) -> Dict[str, List[SnowflakeTag]]:
-        tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
-        cur = self.connection.query(
-            SnowflakeQuery.get_tags_on_columns_with_propagation(
-                db_name, quoted_table_name
-            ),
-        )
-
-        for tag in cur:
-            column_name = tag["COLUMN_NAME"]
-            snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
-            )
-            tags[column_name].append(snowflake_tag)
+                continue
 
         return tags
 

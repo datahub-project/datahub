@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - master
+    paths:
+      - ".github/workflows/verify-quickstart-compose.yml"
 jobs:
   verify-quickstart-compose-updated:
     name: Verify quickstart compose file is up-to-date
