@@ -69,6 +69,10 @@ langchain_requirements = {
     "langchain-core>=1.2.7,<2.0.0",
 }
 
+google_adk_requirements = {
+    "google-adk>=1.0.0,<2.0.0",
+}
+
 snowflake_requirements = {
     "click>=8.0.0,<9.0.0",
     "snowflake-connector-python>=4.0.0,<5.0.0",
@@ -79,6 +83,7 @@ dev_requirements = {
     *mypy_stubs,
     *snowflake_requirements,
     *langchain_requirements,
+    *google_adk_requirements,
     "pytest>=8.3.4,<9.0.0",
     "pytest-cov>=2.8.0,<7.0.0",
     "tox>=4.0.0,<5.0.0",
@@ -130,6 +135,7 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "langchain": list(langchain_requirements),
+        "google-adk": list(google_adk_requirements),
         "snowflake": list(snowflake_requirements),
     },
 )
