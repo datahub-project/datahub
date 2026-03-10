@@ -1,4 +1,6 @@
 import dataclasses
+import fnmatch
+import glob as glob_module
 import json
 import logging
 import re
@@ -48,11 +50,18 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 
 logger = logging.getLogger(__name__)
 
+_GLOB_CHARACTERS = frozenset("*?[]")
+
+
+def _has_glob_characters(path: str) -> bool:
+    return any(c in path for c in _GLOB_CHARACTERS)
+
 
 @dataclasses.dataclass
 class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
+    run_results_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -75,8 +84,10 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub. "
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "Glob patterns are supported for both S3 URIs and local paths "
+        "(e.g. 's3://bucket/results/*/run_results.json' or '/path/to/results/*/run_results.json'). "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
@@ -588,6 +599,76 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             with open(uri) as f:
                 return json.load(f)
 
+    @staticmethod
+    def _expand_s3_glob(uri: str, aws_connection: AwsConnectionConfig) -> List[str]:
+        u = urlparse(uri)
+        bucket = u.netloc
+        key_pattern = u.path.lstrip("/")
+
+        # Use the longest static prefix to limit S3 listing scope.
+        prefix_parts: List[str] = []
+        for part in key_pattern.split("/"):
+            if _has_glob_characters(part):
+                break
+            prefix_parts.append(part)
+        prefix = "/".join(prefix_parts)
+        if prefix:
+            prefix += "/"
+
+        s3_client = aws_connection.get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
+
+        matched_keys: List[str] = []
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if fnmatch.fnmatch(key, key_pattern):
+                    matched_keys.append(key)
+
+        return [f"{u.scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+
+        for path in self.config.run_results_paths:
+            if not _has_glob_characters(path):
+                expanded_paths.append(path)
+                continue
+
+            if is_s3_uri(path):
+                assert self.config.aws_connection
+                s3_paths = self._expand_s3_glob(path, self.config.aws_connection)
+                if not s3_paths:
+                    self.report.warning(
+                        title="S3 glob pattern matched no objects",
+                        message=f"Pattern '{path}' did not match any S3 objects",
+                    )
+                else:
+                    logger.info(
+                        f"S3 glob pattern '{path}' expanded to {len(s3_paths)} file(s)"
+                    )
+                expanded_paths.extend(s3_paths)
+            elif re.match("^https?://", path):
+                self.report.warning(
+                    title="Glob patterns not supported for HTTP(S) URIs",
+                    message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
+                    "Please provide explicit file paths.",
+                )
+            else:
+                local_paths = sorted(glob_module.glob(path))
+                if not local_paths:
+                    self.report.warning(
+                        title="Local glob pattern matched no files",
+                        message=f"Pattern '{path}' did not match any local files",
+                    )
+                else:
+                    logger.info(
+                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                    )
+                expanded_paths.extend(local_paths)
+
+        return expanded_paths
+
     def loadManifestAndCatalog(
         self,
     ) -> Tuple[
@@ -730,8 +811,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        for run_results_path in self.config.run_results_paths:
-            # This will populate the test_results and model_performance fields on each node.
+        expanded_run_results_paths = self._expand_run_results_paths()
+        if expanded_run_results_paths:
+            self.report.run_results_paths_expanded = expanded_run_results_paths
+        for run_results_path in expanded_run_results_paths:
             all_nodes = load_run_results(
                 self.config,
                 self.load_file_as_json(run_results_path, self.config.aws_connection),

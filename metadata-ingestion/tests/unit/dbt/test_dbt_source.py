@@ -2288,3 +2288,196 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
     assert isinstance(ownership_mcp.aspect, OwnershipClass)
     # Owner URN should be stripped: "analytics" (not "analytics@company.com")
     assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"
+
+
+def test_has_glob_characters():
+    from datahub.ingestion.source.dbt.dbt_core import _has_glob_characters
+
+    assert _has_glob_characters("s3://bucket/results/*/run_results.json")
+    assert _has_glob_characters("s3://bucket/results/?/run_results.json")
+    assert _has_glob_characters("/local/path/[abc]/file.json")
+    assert not _has_glob_characters("s3://bucket/results/run_results.json")
+    assert not _has_glob_characters("/simple/path/file.json")
+
+
+def test_expand_s3_glob():
+    s3_objects = [
+        {"Key": "results/model_a/run_results.json"},
+        {"Key": "results/model_b/run_results.json"},
+        {"Key": "results/model_c/run_results.json"},
+        {"Key": "results/model_a/manifest.json"},
+        {"Key": "results/other_file.json"},
+    ]
+
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [{"Contents": s3_objects}]
+
+    result = DBTCoreSource._expand_s3_glob(
+        "s3://my-bucket/results/*/run_results.json", mock_aws
+    )
+
+    assert result == [
+        "s3://my-bucket/results/model_a/run_results.json",
+        "s3://my-bucket/results/model_b/run_results.json",
+        "s3://my-bucket/results/model_c/run_results.json",
+    ]
+
+    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
+    mock_paginator.paginate.assert_called_once_with(
+        Bucket="my-bucket", Prefix="results/"
+    )
+
+
+def test_expand_s3_glob_no_matches():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [{"Contents": []}]
+
+    result = DBTCoreSource._expand_s3_glob(
+        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws
+    )
+
+    assert result == []
+
+
+def test_expand_s3_glob_prefix_calculation():
+    mock_aws = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [{"Contents": []}]
+
+    DBTCoreSource._expand_s3_glob("s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws)
+    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="a/b/c/")
+
+
+def test_expand_run_results_paths_plain_paths():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "/path/to/run_results_1.json",
+        "/path/to/run_results_2.json",
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == [
+        "/path/to/run_results_1.json",
+        "/path/to/run_results_2.json",
+    ]
+
+
+def test_expand_run_results_paths_local_glob(tmp_path):
+    results_dir = tmp_path / "results"
+    for model in ["model_a", "model_b", "model_c"]:
+        d = results_dir / model
+        d.mkdir(parents=True)
+        (d / "run_results.json").write_text("{}")
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        str(results_dir / "*" / "run_results.json"),
+    ]
+
+    result = source._expand_run_results_paths()
+    assert len(result) == 3
+    assert all("run_results.json" in p for p in result)
+
+
+def test_expand_run_results_paths_s3_glob():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "s3://bucket/results/*/run_results.json",
+    ]
+    source.config.aws_connection = mock.MagicMock()
+
+    mock_s3_client = mock.MagicMock()
+    source.config.aws_connection.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "results/model_a/run_results.json"},
+                {"Key": "results/model_b/run_results.json"},
+            ]
+        }
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == [
+        "s3://bucket/results/model_a/run_results.json",
+        "s3://bucket/results/model_b/run_results.json",
+    ]
+
+
+def test_expand_run_results_paths_mixed(tmp_path):
+    results_dir = tmp_path / "local_results"
+    d = results_dir / "model_x"
+    d.mkdir(parents=True)
+    (d / "run_results.json").write_text("{}")
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "/explicit/path/run_results.json",
+        str(results_dir / "*" / "run_results.json"),
+        "s3://bucket/results/*/run_results.json",
+    ]
+    source.config.aws_connection = mock.MagicMock()
+
+    mock_s3_client = mock.MagicMock()
+    source.config.aws_connection.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {"Contents": [{"Key": "results/m1/run_results.json"}]}
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result[0] == "/explicit/path/run_results.json"
+    assert "model_x" in result[1]
+    assert result[2] == "s3://bucket/results/m1/run_results.json"
+
+
+def test_expand_run_results_paths_http_glob_warns():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "https://example.com/results/*/run_results.json",
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == []
+
+
+def test_run_results_s3_glob_requires_aws_connection():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "run_results_paths": ["s3://bucket/results/*/run_results.json"],
+    }
+    with pytest.raises(ValidationError, match="provide aws_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+
+def test_run_results_s3_glob_valid_config():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "run_results_paths": ["s3://bucket/results/*/run_results.json"],
+        "aws_connection": {},
+    }
+    config = DBTCoreConfig.model_validate(config_dict)
+    assert config.run_results_paths == ["s3://bucket/results/*/run_results.json"]
