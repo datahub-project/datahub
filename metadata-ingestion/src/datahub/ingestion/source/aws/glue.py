@@ -131,6 +131,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
+JDBC_PLATFORM_MAP: Dict[str, str] = {
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+    "redshift": "redshift",
+    "oracle": "oracle",
+    "sqlserver": "mssql",
+}
+
+JDBC_DEFAULT_SCHEMA: Dict[str, str] = {
+    "postgres": "public",
+    "redshift": "public",
+    "mssql": "dbo",
+}
+
 
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
@@ -600,6 +615,20 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return s3_uri
 
+    def _parse_jdbc_url(self, jdbc_url: str) -> Tuple[str, str]:
+        """Parse a JDBC URL and return (platform, database).
+
+        Strips the "jdbc:" prefix then uses urlparse to extract the protocol
+        (mapped to a DataHub platform name) and the database from the path.
+        """
+        if not jdbc_url.startswith("jdbc:"):
+            raise ValueError(f"Not a valid JDBC URL: {jdbc_url}")
+        url = urlparse(jdbc_url[5:])  # strip "jdbc:" prefix
+        protocol = url.scheme.lower()
+        platform = JDBC_PLATFORM_MAP.get(protocol, protocol)
+        database = url.path.lstrip("/").split("?")[0]
+        return platform, database
+
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
@@ -688,6 +717,45 @@ class GlueSource(StatefulIngestionSourceBase):
                     MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 )
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
+
+            # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
+            elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:
+                connection_options = node_args.get("connection_options", {})
+                jdbc_url = connection_options.get("url")
+                dbtable = connection_options.get("dbtable")
+
+                if not jdbc_url or not dbtable:
+                    self.report_warning(
+                        flow_urn,
+                        f"Missing JDBC URL or table for node {node['NodeType']}-{node['Id']}. Skipping",
+                    )
+                    return None
+
+                try:
+                    platform, database = self._parse_jdbc_url(jdbc_url)
+                except ValueError as e:
+                    self.report_warning(
+                        flow_urn,
+                        f"Failed to parse JDBC URL for node {node['NodeType']}-{node['Id']}: {e}. Skipping",
+                    )
+                    return None
+
+                if "." in dbtable:
+                    schema, table = dbtable.rsplit(".", 1)
+                    dataset_name = f"{database}.{schema}.{table}"
+                else:
+                    default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
+                    if default_schema:
+                        dataset_name = f"{database}.{default_schema}.{dbtable}"
+                    else:
+                        dataset_name = f"{database}.{dbtable}"
+
+                node_urn = make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=dataset_name,
+                    env=self.env,
+                    platform_instance=None,
+                )
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
