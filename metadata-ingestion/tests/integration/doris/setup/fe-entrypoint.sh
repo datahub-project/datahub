@@ -23,7 +23,7 @@ export FE_ID=1
 echo "Starting Doris FE with FE_SERVERS=${FE_SERVERS} FE_ID=${FE_ID}"
 
 # Note: JAVA_TOOL_OPTIONS is set in docker-compose.yml as a workaround for
-# Java 17 cgroup v2 incompatibility in GitHub Actions CI
+# Java 21 cgroup v2 incompatibility in GitHub Actions CI
 
 # Call the original Doris entrypoint
 exec bash init_fe.sh

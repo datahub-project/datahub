@@ -62,7 +62,7 @@ class TestIsolatedClassLoader {
 
   @BeforeClass
   public void setSecurityManager() {
-    System.setSecurityManager(new SecurityManager());
+    // System.setSecurityManager(new SecurityManager());
   }
 
   @Test

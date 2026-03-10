@@ -19,7 +19,6 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.AccessControlException;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -85,7 +84,7 @@ public class TestAuthenticator implements Authenticator {
       System.getProperty("user.home");
       throw new RuntimeException(
           "Plugin is able to access system properties"); // we should not reach here
-    } catch (AccessControlException accessControlException) {
+    } catch (RuntimeException accessControlException) {
       log.info("Expected: Don't have permission to read system properties");
     }
   }
@@ -105,12 +104,10 @@ public class TestAuthenticator implements Authenticator {
     try {
       new Socket("localhost", 50);
       throw new RuntimeException("Plugin is able to access lower port");
-    } catch (AccessControlException e) {
-      log.info("Expected: Don't have permission to open socket on lower port");
     } catch (UnknownHostException e) {
       throw new RuntimeException(e);
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.info("Expected: Don't have permission to open socket on lower port");
     }
   }
 

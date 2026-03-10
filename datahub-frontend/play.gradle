@@ -93,7 +93,6 @@ dependencies {
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.playTest
   testImplementation externalDependency.awaitility
   testImplementation 'no.nav.security:mock-oauth2-server:2.1.9'
@@ -127,7 +126,7 @@ play {
   platform {
     playVersion = "2.8.22" // see also top level build.gradle
     scalaVersion = "2.13"
-    javaVersion = JavaVersion.VERSION_17
+    javaVersion = JavaVersion.VERSION_21
   }
 
   injectedRoutesGenerator = true
@@ -139,7 +138,7 @@ test {
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 
-  def playJava17CompatibleJvmArgs = [
+  def playJava21CompatibleJvmArgs = [
           "--add-opens=java.base/java.lang=ALL-UNNAMED",
           //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
           //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
@@ -155,5 +154,5 @@ test {
           //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
           //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
   ]
-  jvmArgs = playJava17CompatibleJvmArgs
+  jvmArgs = playJava21CompatibleJvmArgs
 }
