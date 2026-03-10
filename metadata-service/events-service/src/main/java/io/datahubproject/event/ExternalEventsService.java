@@ -41,6 +41,8 @@ public class ExternalEventsService {
   private final ObjectMapper objectMapper;
   private final Map<String, String>
       topicNames; // Mapping of standard topic name to customer-specific topic name.
+  private final boolean topicPrefixEnabled;
+  @Nullable private final String topicPrefix;
   private final int defaultPollTimeoutSeconds;
   private final int defaultLimit;
 
@@ -49,12 +51,20 @@ public class ExternalEventsService {
       @Nonnull final KafkaConsumerPool consumerPool,
       @Nonnull final ObjectMapper objectMapper,
       @Nonnull final Map<String, String> topicNames,
+      final boolean topicPrefixEnabled,
+      @Nullable final String topicPrefix,
       final int defaultPollTimeoutSeconds,
       final int defaultLimit) {
     this.topicAllowList = Objects.requireNonNull(topicAllowList, "topicAllowList must not be null");
     this.consumerPool = Objects.requireNonNull(consumerPool, "consumerPool must not be null");
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     this.topicNames = Objects.requireNonNull(topicNames, "topicNames must not be null");
+    this.topicPrefixEnabled = topicPrefixEnabled;
+    if (topicPrefixEnabled && topicPrefix != null && !topicPrefix.isEmpty()) {
+      this.topicPrefix = topicPrefix;
+    } else {
+      this.topicPrefix = null;
+    }
     this.defaultPollTimeoutSeconds = defaultPollTimeoutSeconds;
     this.defaultLimit = defaultLimit;
   }
@@ -78,10 +88,6 @@ public class ExternalEventsService {
       @Nullable final Integer pollTimeoutSeconds,
       @Nullable final Integer lookbackWindowDays)
       throws Exception {
-    if (!topicAllowList.isAllowed(topic)) {
-      throw new UnsupportedTopicException(topic);
-    }
-
     String finalTopic = remapExternalTopicName(topic);
 
     List<GenericRecord> messages = new ArrayList<>();
@@ -328,10 +334,23 @@ public class ExternalEventsService {
   }
 
   private String remapExternalTopicName(@Nonnull final String topicName) {
+    // Known topics: use TopicConvention-based mapping
     if (this.topicNames.containsKey(topicName)) {
       return this.topicNames.get(topicName);
     }
-    // Custom topic — use the name as a literal Kafka topic name.
-    return topicName;
+    // Prefix disabled: pass through as-is
+    if (!this.topicPrefixEnabled) {
+      return topicName;
+    }
+    // Prefix enabled but not configured: block custom topics
+    if (this.topicPrefix == null) {
+      throw new UnsupportedTopicException(topicName);
+    }
+    // Custom topic already has prefix: use as-is
+    if (topicName.startsWith(this.topicPrefix)) {
+      return topicName;
+    }
+    // Custom topic without prefix: prepend it
+    return this.topicPrefix + topicName;
   }
 }

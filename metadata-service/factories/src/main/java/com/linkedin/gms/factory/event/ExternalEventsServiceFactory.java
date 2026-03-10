@@ -30,6 +30,12 @@ public class ExternalEventsServiceFactory {
   @Value("${eventsApi.pollAllowedTopics}")
   private String pollAllowedTopics;
 
+  @Value("${kafka.topicPrefixEnabled}")
+  private boolean topicPrefixEnabled;
+
+  @Value("${kafka.topicPrefix}")
+  private String topicPrefix;
+
   @Autowired private TopicConvention topicConvention;
 
   @Autowired private KafkaConsumerPool consumerPool;
@@ -48,6 +54,8 @@ public class ExternalEventsServiceFactory {
         consumerPool,
         objectMapper,
         buildTopicNameMappings(),
+        topicPrefixEnabled,
+        topicPrefix,
         pollTimeout,
         defaultLimit);
   }

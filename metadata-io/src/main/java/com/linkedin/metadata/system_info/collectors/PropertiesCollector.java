@@ -45,7 +45,8 @@ public class PropertiesCollector {
           "accesskey",
           "private-key",
           "privatekey",
-          "allowedtopics");
+          "allowedtopics",
+          "topicprefix");
 
   private static final Set<Pattern> ALLOWED_PATTERNS =
       compilePatterns(

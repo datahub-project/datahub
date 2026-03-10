@@ -79,7 +79,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // CDC db password
           "mclProcessing.cdcSource.debeziumConfig.config.database.password",
           // Events API allowed topics may reveal internal Kafka topic names
-          "eventsApi.pollAllowedTopics");
+          "eventsApi.pollAllowedTopics",
+          // Kafka topic prefix reveals tenant identity
+          "kafka.topicPrefix");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -953,7 +955,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
-          "metadataChangeLog.consumer.batch.size"
+          "metadataChangeLog.consumer.batch.size",
+          // Kafka topic prefix
+          "kafka.topicPrefixEnabled"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
