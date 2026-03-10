@@ -677,6 +677,35 @@ Key features:
 
 ➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
 
+### search
+
+The `search` command allows you to search across all DataHub entities from the command line with support for both keyword and semantic search.
+
+```shell
+# Basic keyword search
+datahub search "users"
+
+# Semantic search
+datahub search --semantic "financial reports"
+
+# Search with filters
+datahub search "*" --filter platform=snowflake --filter entity_type=dataset
+
+# Get results in table format
+datahub search "*" --table
+```
+
+Key features:
+
+- **Dual search modes**: Keyword search (default) and semantic search
+- **Flexible filtering**: Simple key=value filters and complex JSON filters with AND/OR/NOT logic
+- **Multiple output formats**: JSON (default), table, and URNs-only
+- **Discovery features**: List available filters and describe specific filters
+- **Faceted search**: Explore data distribution with aggregation counts
+- **Pagination & sorting**: Control result size and ordering
+
+➡️ [Learn more about the search command](./cli-commands/search.md)
+
 ### put
 
 The `put` group of commands allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
