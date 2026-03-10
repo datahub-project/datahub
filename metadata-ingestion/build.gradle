@@ -95,6 +95,25 @@ task installAll(type: Exec, dependsOn: [install]) {
     "touch ${sentinel_file}"
 }
 
+task verifyPyprojectSync(type: Exec, dependsOn: installPackageOnly) {
+  def sentinel_file = "${venv_name}/.verify_pyproject_sync_sentinel"
+  inputs.file file('setup.py')
+  inputs.file file('pyproject.toml')
+  inputs.file file('scripts/generate_pyproject_deps.py')
+  inputs.file file('scripts/verify_pyproject_equivalence.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "python scripts/verify_pyproject_equivalence.py && " +
+    "touch ${sentinel_file}"
+}
+
+task generatePyprojectDeps(type: Exec, dependsOn: installPackageOnly) {
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "python scripts/generate_pyproject_deps.py"
+}
+
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
   def outdir = './generated/docs'
   def docsOutdir = '../docs/generated/metamodel'
@@ -286,7 +305,7 @@ task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
-task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
+task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, verifyPyprojectSync]) {
   commandLine 'bash', '-c',
     venv_activate_command +
     "uv pip install ${uv_build_constraints} build && " + 'RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
@@ -295,6 +314,7 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
 build.dependsOn install
 check.dependsOn lint
 check.dependsOn testQuick
+check.dependsOn verifyPyprojectSync
 
 task cleanGeneratedFiles(type: Delete) {
     delete venv_name
