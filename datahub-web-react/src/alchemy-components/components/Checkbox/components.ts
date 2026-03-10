@@ -21,7 +21,7 @@ export const Label = styled.div<{ clickable?: boolean }>(({ clickable }) => ({
 }));
 
 export const Required = styled.span`
-    color: ${(props) => props.theme.colors.textError};
+    color: ${(props) => props.theme?.colors?.textError};
     margin-left: ${spacing.xxsm};
 `;
 
@@ -58,20 +58,20 @@ export const CheckboxBox = styled.div<{
     width: ${(props) => getCheckboxSize(props.$size)};
     height: ${(props) => getCheckboxSize(props.$size)};
     border-radius: ${radius.sm};
-    border: ${(props) => getCheckboxBorder(props.$checked, props.$error, props.$disabled, props.theme.colors)};
+    border: ${(props) => getCheckboxBorder(props.$checked, props.$error, props.$disabled, props.theme?.colors)};
     background: ${(props) => {
-        if (props.$disabled && props.$checked) return props.theme.colors.bgDisabled;
-        if (props.$disabled) return props.theme.colors.bgSurfaceDisabled;
-        if (props.$checked) return props.theme.colors.brandGradient;
-        return props.theme.colors.bg;
+        if (props.$disabled && props.$checked) return props.theme?.colors?.bgDisabled;
+        if (props.$disabled) return props.theme?.colors?.bgSurfaceDisabled;
+        if (props.$checked) return props.theme?.colors?.brandGradient;
+        return props.theme?.colors?.bg;
     }};
     transition: all 0.15s ease-in-out;
     cursor: inherit;
 
     svg {
         color: ${(props) => {
-            if (props.$disabled) return props.theme.colors.iconDisabled;
-            return props.theme.colors.textOnFillBrand;
+            if (props.$disabled) return props.theme?.colors?.iconDisabled;
+            return props.theme?.colors?.textOnFillBrand;
         }};
     }
 `;

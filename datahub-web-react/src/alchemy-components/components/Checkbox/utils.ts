@@ -1,11 +1,11 @@
 import ColorTheme from '@conf/theme/colorThemes/types';
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
-export function getCheckboxBorder(checked: boolean, error: boolean, disabled: boolean, colors: ColorTheme) {
+export function getCheckboxBorder(checked: boolean, error: boolean, disabled: boolean, colors?: ColorTheme) {
     if (checked) return 'none';
-    if (error) return `1px solid ${colors.borderError}`;
-    if (disabled) return `1px solid ${colors.borderDisabled}`;
-    return `1px solid ${colors.borderCheckbox}`;
+    if (error) return `1px solid ${colors?.borderError}`;
+    if (disabled) return `1px solid ${colors?.borderDisabled}`;
+    return `1px solid ${colors?.borderCheckbox}`;
 }
 
 const sizeMap: Record<SizeOptions, string> = {

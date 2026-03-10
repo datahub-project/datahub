@@ -1,10 +1,10 @@
-import { CircleNotch } from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 
 import Dropdown from '@components/components/Dropdown/Dropdown';
 import { Input } from '@components/components/Input/Input';
+import { Loader } from '@components/components/Loader/Loader';
 import {
     DropdownContainer,
     LabelContainer,
@@ -32,29 +32,20 @@ const EntityOptionContainer = styled.div`
     flex: 1;
 `;
 
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
 const LoadingState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: ${(props) => props.theme.colors.textTertiary};
+    color: ${(props) => props.theme?.colors?.textTertiary};
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-
-    svg {
-        animation: ${spin} 1s linear infinite;
-    }
 `;
 
 const EmptyState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: ${(props) => props.theme.colors.textTertiary};
+    color: ${(props) => props.theme?.colors?.textTertiary};
     font-style: italic;
 `;
 
@@ -195,7 +186,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
             <OptionList>
                 {searchLoading && (
                     <LoadingState>
-                        <CircleNotch size={20} />
+                        <Loader size="sm" />
                     </LoadingState>
                 )}
                 {!searchLoading && entityOptions.length === 0 && <EmptyState>No entities found</EmptyState>}

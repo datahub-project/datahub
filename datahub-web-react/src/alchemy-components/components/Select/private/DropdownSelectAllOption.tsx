@@ -23,7 +23,7 @@ interface Props {
 
 export default function DropdownSelectAllOption({ label, selected, onClick, disabled }: Props) {
     return (
-        <SelectAllOption onClick={onClick} isDisabled={disabled}>
+        <SelectAllOption onClick={() => !disabled && onClick?.()} isDisabled={disabled}>
             <LabelContainer>
                 <span>{label}</span>
                 <StyledCheckbox

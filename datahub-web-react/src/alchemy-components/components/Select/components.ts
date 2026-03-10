@@ -14,7 +14,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import { radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
+import { radius, spacing, transition, typography, zIndices } from '@components/theme';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -120,7 +120,7 @@ export const SelectValue = styled.span(({ theme }) => ({
 
 export const Placeholder = styled.span(({ theme }) => ({
     ...inputPlaceholderTextStyles,
-    color: theme?.colors?.textSecondary,
+    color: theme?.colors?.textPlaceholder,
 }));
 
 export const ActionButtonsContainer = styled.div({
@@ -193,26 +193,6 @@ export const StyledIcon = styled(Icon)(({ theme }) => ({
     color: theme?.colors?.text,
 }));
 
-export const StyledClearButton = styled(Button).attrs({
-    variant: 'text',
-})(({ theme }) => ({
-    color: theme?.colors?.text,
-    padding: '0px',
-
-    '&:hover': {
-        border: 'none',
-        backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        boxShadow: shadows.none,
-    },
-
-    '&:focus': {
-        border: 'none',
-        backgroundColor: 'transparent',
-        boxShadow: `0 0 0 2px ${theme?.colors?.bg}, 0 0 0 4px ${theme?.colors?.borderBrand}`,
-    },
-}));
-
 export const ClearIcon = styled.span({
     cursor: 'pointer',
     marginLeft: '8px',
@@ -230,11 +210,11 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) =>
 export { Checkbox as StyledCheckbox } from '@components/components/Checkbox';
 
 export const HighlightedLabel = styled.span`
-    background-color: ${(props) => props.theme.colors.bgSelected};
+    background-color: ${(props) => props.theme?.colors?.bgSelected};
     padding: 4px 6px;
     border-radius: ${radius.md};
     font-size: ${typography.fontSizes.sm};
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme?.colors?.textSecondary};
 `;
 
 export const StyledBubbleButton = styled(Button)(({ theme }) => ({

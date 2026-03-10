@@ -110,9 +110,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
         if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
 
+        const selectedSet = new Set(openSelectedValues);
         return [...filtered].sort((a, b) => {
-            const aSelected = openSelectedValues.includes(a.value) ? 0 : 1;
-            const bSelected = openSelectedValues.includes(b.value) ? 0 : 1;
+            const aSelected = selectedSet.has(a.value) ? 0 : 1;
+            const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
     }, [options, searchQuery, isMultiSelect, openSelectedValues]);
@@ -238,12 +239,14 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                 ) : (
                                                     <div>
                                                         <span>{option.label}</span>
-                                                        {!!option.description && [
-                                                            <br />,
-                                                            <span style={{ color: theme.colors.textTertiary }}>
-                                                                {option.description}
-                                                            </span>,
-                                                        ]}
+                                                        {!!option.description && (
+                                                            <>
+                                                                <br />
+                                                                <span style={{ color: theme?.colors?.textTertiary }}>
+                                                                    {option.description}
+                                                                </span>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                                 <StyledCheckbox

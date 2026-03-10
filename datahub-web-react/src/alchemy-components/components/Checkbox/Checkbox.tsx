@@ -64,7 +64,7 @@ export const Checkbox = ({
     );
 
     const isActive = checked || isIntermediate || false;
-    const iconSize = getCheckIconSize(size || 'md');
+    const iconSize = getCheckIconSize(size || 'sm');
 
     return (
         <CheckboxContainer justifyContent={justifyContent} gap={gap}>

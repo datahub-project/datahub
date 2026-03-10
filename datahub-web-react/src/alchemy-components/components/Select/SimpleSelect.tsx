@@ -1,9 +1,8 @@
 import { Dropdown, Text } from '@components';
-import { CircleNotch } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled, { keyframes } from 'styled-components';
 
+import { Loader } from '@components/components/Loader/Loader';
 import {
     ActionButtonsContainer,
     Container,
@@ -27,21 +26,6 @@ import useSelectDropdown from '@components/components/Select/private/hooks/useSe
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
-
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
-const LoadingWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-    margin: 5px;
-
-    svg {
-        animation: ${spin} 1s linear infinite;
-    }
-`;
 
 export const selectDefaults: Partial<SelectProps> = {
     label: '',
@@ -138,9 +122,10 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
 
         if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
 
+        const selectedSet = new Set(openSelectedValues);
         return [...filtered].sort((a, b) => {
-            const aSelected = openSelectedValues.includes(a.value) ? 0 : 1;
-            const bSelected = openSelectedValues.includes(b.value) ? 0 : 1;
+            const aSelected = selectedSet.has(a.value) ? 0 : 1;
+            const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
     }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
@@ -237,9 +222,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                     />
                                 )}
                                 {isLoading ? (
-                                    <LoadingWrapper>
-                                        <CircleNotch size={20} />
-                                    </LoadingWrapper>
+                                    <Loader size="sm" />
                                 ) : (
                                     !filteredOptions.length && <NoResultsFoundPlaceholder />
                                 )}

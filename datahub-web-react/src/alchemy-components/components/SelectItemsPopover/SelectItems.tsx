@@ -1,8 +1,8 @@
-import { CircleNotch } from '@phosphor-icons/react';
 import React, { ReactNode } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { Loader } from '@components/components/Loader/Loader';
 import { SelectItemCheckboxGroup } from '@components/components/SelectItemsPopover/SelectItemCheckboxGroup';
 import { useEntityOperations } from '@components/components/SelectItemsPopover/hooks';
 import { Text } from '@components/components/Text';
@@ -66,21 +66,12 @@ const StyledCheckBoxContainer = styled.div`
     padding: 12px 0;
 `;
 
-const spin = keyframes`
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-`;
-
 const StyledLoader = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 250px;
     width: 100%;
-
-    svg {
-        animation: ${spin} 1s linear infinite;
-    }
 `;
 
 const StyledEmpty = styled(Text)`
@@ -154,7 +145,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
             />
             {isLoading ? (
                 <StyledLoader>
-                    <CircleNotch size={24} />
+                    <Loader size="sm" />
                 </StyledLoader>
             ) : (
                 <StyledCheckBoxContainer>

@@ -105,7 +105,7 @@ const darkTheme: ColorTheme = {
     bgInputDisabled: colors.gray900,
     borderInput: colors.gray900,
     borderInputFocus: colors.violet400,
-    textPlaceholder: colors.gray600,
+    textPlaceholder: colors.gray300,
     // Scrollbar
     scrollbarTrack: 'transparent',
     scrollbarThumb: colors.gray700,
