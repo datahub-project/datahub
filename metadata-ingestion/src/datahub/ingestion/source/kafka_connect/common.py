@@ -953,12 +953,11 @@ class BaseConnector:
         Returns:
             List of fine-grained lineage dictionaries or None if not available
         """
-        # Check if feature is enabled
-        if not self.config.use_schema_resolver:
-            return None
-        if not self.config.schema_resolver_finegrained_lineage:
-            return None
-        if not self.schema_resolver:
+        if not (
+            self.config.use_schema_resolver
+            and self.config.schema_resolver_finegrained_lineage
+            and self.schema_resolver
+        ):
             return None
 
         # Skip fine-grained lineage for Kafka source platform
@@ -1046,13 +1045,12 @@ class BaseConnector:
         target_platform: str,
     ) -> Optional[List[FineGrainedLineageClass]]:
         """Extract column-level lineage for sink connectors (Kafka topic → DB table)."""
-        if not self.config.use_schema_resolver:
-            return None
-        if not self.config.schema_resolver_finegrained_lineage:
-            return None
-        if not self.schema_resolver:
-            return None
-        if not self.schema_resolver.graph:
+        if not (
+            self.config.use_schema_resolver
+            and self.config.schema_resolver_finegrained_lineage
+            and self.schema_resolver
+            and self.schema_resolver.graph
+        ):
             return None
 
         try:
