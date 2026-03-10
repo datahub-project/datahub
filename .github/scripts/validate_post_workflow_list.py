@@ -3,7 +3,7 @@
 
 GitHub Actions' workflow_run.workflows does not support wildcards, so every workflow
 that should be monitored must be listed explicitly. This script checks that the list
-is complete and contains no stale entries.
+is complete and contains no stale or missed entries.
 
 Usage:
     python .github/scripts/validate_post_workflow_list.py
@@ -20,6 +20,7 @@ WORKFLOWS_DIR = pathlib.Path(".github/workflows")
 POST_WORKFLOW_FILE = WORKFLOWS_DIR / "post-workflow-actions.yml"
 PR_PUSH_TRIGGERS = {"push", "pull_request", "pull_request_target"}
 
+# Workflow names that should be ignored for this validation
 IGNORED_WORKFLOWS = {
     "Create Linear Ticket for PR & Issue Review",
     "PR & Issue Routing (Linear Shadow Mode)",
