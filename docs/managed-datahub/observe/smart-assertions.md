@@ -25,9 +25,7 @@ Today, you can create Smart Assertions for 4 types of assertions. To learn more 
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
 4. [Custom SQL](./custom-sql-assertions.md#anomaly-detection-with-smart-assertions-)
 
-You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
-
-<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+You can also create Smart Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page. Monitoring Rules let you define a search predicate (e.g. a domain, platform, or schema) and automatically apply Freshness, Volume, and Schema anomaly monitors to all matching datasets — including new datasets as they appear.
 
 ## Improving Smart assertion quality
 
