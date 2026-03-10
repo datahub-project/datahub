@@ -49,14 +49,15 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
     if slim_mode:
         print(f"  Slim Mode: Will use -slim variants for data lake sources")
 
+    constraints_path = os.path.join(venv_base_path, "constraints.txt")
     try:
         # Create the venv
         print(f"  → Creating venv...")
         subprocess.run(['uv', 'venv', venv_path], check=True, capture_output=True)
 
-        # Install packages in the venv
+        # Install packages in the venv (with constraints so pip/wheel meet CVE minimums)
         print(f"  → Installing base packages...")
-        base_cmd = f'source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools'
+        base_cmd = f'source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools --constraint {constraints_path}'
         subprocess.run(['bash', '-c', base_cmd], check=True, capture_output=True)
 
         # Determine which plugin extra to use
@@ -80,14 +81,13 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
         # Install DataHub with the specific plugin
         print(f"  → Installing datahub with [{extras_str}]...")
         # Use local metadata-ingestion if available (for development), otherwise use PyPI
-        constraints_path = os.path.join(venv_base_path, "constraints.txt")
         if os.path.exists('/metadata-ingestion/setup.py'):
             print(f"  → Using local /metadata-ingestion source")
             datahub_package = f'-e /metadata-ingestion[{extras_str}]'
-            install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
+            install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraint {constraints_path} --overrides {constraints_path}'
         else:
             datahub_package = f'acryl-datahub[{extras_str}]=={bundled_cli_version}'
-            install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
+            install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraint {constraints_path} --overrides {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
 
         # Defense-in-depth: in slim mode, verify PySpark was not pulled in transitively

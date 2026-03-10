@@ -1073,7 +1073,7 @@ s3-slim = [
 ]
 
 sac = [
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
@@ -1251,7 +1251,7 @@ superset = [
 ]
 
 sync-file-emitter = [
-    "filelock<4.0.0",
+    "filelock>=3.13.1,<4.0.0",
 ]
 
 tableau = [
@@ -1360,7 +1360,7 @@ all = [
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1383,7 +1383,7 @@ all = [
     "dnspython==2.7.0",
     "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
-    "filelock<4.0.0",
+    "filelock>=3.13.1,<4.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
@@ -1488,7 +1488,7 @@ dev = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1678,7 +1678,7 @@ docs = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
