@@ -1009,6 +1009,7 @@ entry_points = {
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
+        "fabric-data-factory = datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
