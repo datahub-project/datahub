@@ -2,79 +2,94 @@
 title: Setup
 ---
 
-# PowerBI Ingestion Guide: Setup & Prerequisites
+# Power BI Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from PowerBI, you'll first have to ensure you have an Azure AD app with permission to access the PowerBI resources.
+DataHub connects to Power BI using a service principal / Microsoft Entra application.
 
-## PowerBI Prerequisites
+In order to configure ingestion from Power BI, you'll first have to ensure you have a Microsoft Entra application with permission to access the Power BI resources.
 
-1. **Create an Azure AD app:** Follow below steps to create an Azure AD app
+## Power BI Prerequisites
 
-   a. Login to https://portal.azure.com
+1. **Register a new Microsoft Entra application:** Follow the below steps to register an Entra application:
 
-   b. Go to `Azure Active Directory`
+   a. Login to the Azure portal at https://portal.azure.com
+
+   b. Go to `Microsoft Entra ID`
 
    c. Navigate to `App registrations`
 
    d. Click on `+ New registration`
 
-   e. On `Register an application` window fill the `Name` of application says `powerbi-app-connector` and keep other default as is
+   e. In the `Register an application` window, fill out the `Name` of the application (e.g. `datahub-powerbi-connector-app`) and keep the other defaults as-is, then click `Register`.
 
       <p align="center">
    <img width="75%" alt="app_registration" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/app-registration.png"/>
       </p>
 
-   f. On `Register an application` window click on `Register`
-
-   g. The Azure portal will open up the `powerbi-app-connector` window as shown below. On this screen note down the `Application (client) ID` and click on `Add a certificate or secret` to generate a secret for the `Application (client) ID`
+   g. Once the app is finished registering, the Azure portal will open up the application overview, as shown below. On this screen, note down the `Application (client) ID` and `Directory (tenant) ID`.
 
       <p align="center">
    <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-connector-window.png"/>
       </p>
 
-   f. On `powerbi-connector-app | Certificates & secrets` window generate the client secret and note down the `Secret`
+2. **Create a client secret for the Entra application:**
 
-2. **Create an Azure AD Security Group:** You need to add the `Azure AD app` into the security group to control resource permissions for the `Azure AD app`. Follow below steps to create an Azure AD Security Group.
+   a. Navigate to `Certificates & secrets` on the Entra application you just created.
 
-   a. Go to `Azure Active Directory`
+   b. Click on `New client secret`
+
+   f. Generate a new secret and note down the secret `Value`
+
+3. **Create a new Microsoft Entra group:** The application you registered will need to be a member of an Entra group in order to be granted Power BI/Fabric permissions. Follow the below steps to create a new Microsoft Entra Group:
+
+   a. Go to `Microsoft Entra ID`
 
    b. Navigate to `Groups` and click on `New group`
 
-   c. On `New group` window fill out the `Group type`,&nbsp; `Group name`, &nbsp;`Group description`. &nbsp;`Group type` should be set to `Security` . &nbsp; `New group` window is shown in below screenshot.
+   c. In the `New group` window, leave `Group type` as the default (`Security`) and fill out the `Group name` (e.g. `datahub-powerbi-connector-group`), as shown in the below screenshot:
 
       <p align="center">
    <img width="75%" alt="powerbi_app_connector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/new-group-window.png"/>
       </p>
 
-   d. On `New group` window click on `No members selected` and add `Azure AD app` i.e. _powerbi-connector-app_ as member
+4. **Add the Entra application as a member of the group:**
 
-   f. On `New group` window click on `Create` to create the security group `powerbi-connector-app-security-group`.
+   a. Navigate to `All groups` and click on your newly created group.
 
-3. **Assign privileges to powerbi-connector-app-security-group:** You need to add the created security group into PowerBI portal to grant resource access. Follow below steps to assign privileges to your security group.
+   b. Navigate to `Members` and click `Add members`.
 
-   a. Login to https://app.powerbi.com/
+   c. Add your Microsoft Entra application (e.g. `datahub-powerbi-connector-app`) as a member.
 
-   b. Go to `Settings` -> `Admin Portal`
+5. **Grant permissions to access Power BI APIs:** You need to add the created Entra group under your Power BI/Fabric tenant settings in order to grant resource access. Follow the below steps to grant privileges to the group and all applications within it:
 
-   c. On `Admin Portal` navigate to `Tenant settings` as shown in below screenshot.
+   a. Login to Power BI: https://app.powerbi.com/
 
-      <p align="center">
-   <img width="75%" alt="powerbi_admin_portal" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-admin-portal.png"/>
-      </p>
+   b. Go to `Settings` -> `Admin portal`
 
-   d. **Enable PowerBI API:** Under `Tenant settings` -> `Developer settings` -> `Allow service principals to use Power BI APIs` add the previously created security group i.e. _powerbi-connector-app-security-group_ into `Specific security groups (Recommended)`
+   c. In the `Admin portal`, navigate to `Tenant settings`.
 
-   e. **Enable Admin API Settings:** Under `Tenant settings` -> `Admin API settings` enable the following options
+   d. For each of the following options, enable the option and add the previously created security group (e.g. _datahub-powerbi-connector-group_) under `Specific security groups`:
 
-   - `Allow service principals to use read-only admin APIs`
-   - `Enhance admin APIs responses with detailed metadata`
-   - `Enhance admin APIs responses with DAX and mashup expressions`
+   - `Developer settings > Service principals can call Fabric public APIs` (or `Allow service principals to use Power BI APIs` in older versions of Power BI)
+   - `Admin API settings > Service principals can access read-only admin APIs`
+   - `Admin API settings > Enhance admin APIs responses with detailed metadata`
+   - `Admin API settings > Enhance admin APIs responses with DAX and mashup expressions`
 
-   f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member. For most cases `Viewer` role is enough, but for profiling the `Contributor` role is required.
+6. **Add the Entra application as a member of your Power BI / Fabric workspaces:** For workspaces which you want to ingest into DataHub, add the Entra application as a member.
+
+   a. Navigate to `Workspaces`
+
+   b. Open the workspace which you want to ingest, as shown in the below screenshot:
 
       <p align="center">
    <img width="75%" alt="workspace-window-underlined" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/workspace-window-undrlined.png"/>
       </p>
+
+   c. Click `Manage Access`
+
+   d. Click `Add people or groups`
+
+   d. Add your Microsoft Entra application (e.g. `datahub-powerbi-connector-app`) as a member. For most cases `Viewer` role is enough, but for profiling the `Contributor` role is required.
 
 ## Next Steps
 
