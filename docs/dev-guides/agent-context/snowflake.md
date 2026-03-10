@@ -1,6 +1,6 @@
 # Snowflake Intelligence Integration
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← LangChain Integration](./langchain.md)
+> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← LangChain Integration](./langchain.md) | [Copilot Studio Integration →](./copilot-studio.md)
 
 ## What Problem Does This Solve?
 

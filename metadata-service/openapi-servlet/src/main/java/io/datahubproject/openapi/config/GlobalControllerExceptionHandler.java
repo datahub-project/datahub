@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -111,7 +112,6 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(ValidationException.class)
   public ResponseEntity<Map<String, String>> handleValidationException(
       ValidationException e, HttpServletRequest request) {
-    log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
 
     Map<String, String> response =
         new LinkedHashMap<>(Map.of("error", "Validation Error", "message", e.getMessage()));
@@ -129,6 +129,19 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
             .contains(ValidationSubType.PRECONDITION)) {
       response.put("error", "Precondition Error");
       statusCode = HttpStatus.PRECONDITION_FAILED;
+    }
+
+    // Precondition-only failures are expected during optimistic work claim (e.g. If-Version-Match
+    // mismatch) and shouldn't be logged as errors since they are normal control flow.
+    if (e.getValidationExceptionCollection() != null
+        && Set.of(ValidationSubType.PRECONDITION)
+            .equals(e.getValidationExceptionCollection().getSubTypes())) {
+      log.info(
+          "Conditional write precondition failed for request:{} - {}",
+          request.getRequestURI(),
+          e.getMessage());
+    } else {
+      log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
     }
 
     return new ResponseEntity<>(response, statusCode);

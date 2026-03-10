@@ -13,6 +13,13 @@ from typing import List, Tuple
 # Adding a new plug-in with a -slim variant has to be defined here
 PLUGINS_WITH_SLIM_VARIANT = ['s3']
 
+# Additional extras to install for specific plugins beyond the standard set.
+# For example, the "file" source type is often used to ingest files stored on S3,
+# so the file-bundled venv needs S3 dependencies (s3 or s3-slim) as well.
+PLUGIN_ADDITIONAL_EXTRAS: dict = {
+    'file': ['s3'],
+}
+
 def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
     """Generate simple venv name mappings using <plugin-name>-bundled pattern."""
     venv_mappings = []
@@ -59,17 +66,27 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
             plugin_extra = f"{plugin}-slim"
             print(f"  → Using {plugin_extra} extra (slim mode, no PySpark)")
 
+        # Collect all extras: standard set + plugin-specific additional extras
+        all_extras = ['datahub-rest', 'datahub-kafka', 'file', plugin_extra]
+        for additional in PLUGIN_ADDITIONAL_EXTRAS.get(plugin, []):
+            if slim_mode and additional in PLUGINS_WITH_SLIM_VARIANT:
+                additional = f"{additional}-slim"
+            if additional not in all_extras:
+                all_extras.append(additional)
+                print(f"  → Adding extra '{additional}' (required by {plugin} plugin)")
+
+        extras_str = ','.join(all_extras)
+
         # Install DataHub with the specific plugin
-        print(f"  → Installing datahub with {plugin_extra} plugin...")
+        print(f"  → Installing datahub with [{extras_str}]...")
         # Use local metadata-ingestion if available (for development), otherwise use PyPI
+        constraints_path = os.path.join(venv_base_path, "constraints.txt")
         if os.path.exists('/metadata-ingestion/setup.py'):
             print(f"  → Using local /metadata-ingestion source")
-            datahub_package = f'-e /metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
+            datahub_package = f'-e /metadata-ingestion[{extras_str}]'
             install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
         else:
-            datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
+            datahub_package = f'acryl-datahub[{extras_str}]=={bundled_cli_version}'
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
 
@@ -87,7 +104,7 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
 def main():
     """Main function to generate and create all bundled venvs."""
     # Get configuration from environment
-    plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data')
+    plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data,file')
     bundled_cli_version = os.environ.get('BUNDLED_CLI_VERSION')
     venv_base_path = os.environ.get('DATAHUB_BUNDLED_VENV_PATH', '/opt/datahub/venvs')
     slim_mode_str = os.environ.get('BUNDLED_VENV_SLIM_MODE', 'false').lower()

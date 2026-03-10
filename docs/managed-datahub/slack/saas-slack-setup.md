@@ -4,15 +4,13 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-## Install the DataHub Slack App into your Slack workspace
-
-You can see the permissions required by the DataHub Slack bot [below](#datahub-slack-bot-permissions).
+## Install the DataHub Slack App
 
 ### Video Walkthrough
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
-### Step-by-step guide
+### Steps to Install
 
 The following steps should be performed by a Slack Workspace Admin.
 
@@ -36,7 +34,7 @@ The following steps should be performed by a Slack Workspace Admin.
 6. You will be automatically re-directed to Slack to confirm DataHub Slack App's permissions and complete the installation process.
 
 :::note
-You may need approval from a workspace admin to do this step. Learn about [what to do in this scenario here](#workspace-admin-approval-guide).
+You may need approval from a workspace admin to do this step. Learn about what to do in this scenario [below](#workspace-admin-approval-guide).
 :::
 
 <p align="center">
@@ -53,45 +51,41 @@ You may need approval from a workspace admin to do this step. Learn about [what 
 
 Now proceed to [connect your Slack account](#connect-your-slack-account) so you can use Subscriptions & Notifications and Ask DataHub, or visit the [Slack App page](saas-slack-app.md) to learn more about DataHub's Slack capabilities.
 
-### DataHub Slack bot permissions
+### DataHub Slack Bot Permissions
 
-The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with their explanations.
+The DataHub Slack bot requires a certain set of Slack scopes to function properly.
 
-```
-# Required for slash commands / shortcuts.
-commands
-# Required to get @DataHub messages and send messages as @DataHub.
-app_mentions:read
-chat:write
-chat:write.public
-# When sending messages we want to use a custom icon_url so that we can display the DataHub Cloud logo.
-chat:write.customize
-# Required to see conversation details + read messages.
-channels:history
-channels:read
-groups:history
-groups:read
-im:history
-im:read
-mpim:history
-mpim:read
-metadata.message:read
-# Required to get workspace ID and create links to user profiles.
-team:read
-# Allows the bot to join a public channel when someone configures notifications to be sent to one.
-channels:join
-# Required to unfurl links.
-links:read
-links:write
-# Required to resolve user IDs to names/emails + enable lookup by email address.
-users:read
-users:read.email
-# Future-proofing.
-reactions:read
-reactions:write
-```
+<details>
+<summary>View all required Slack bot scopes</summary>
 
-### Workspace admin approval guide
+| Scope                   | Purpose                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `commands`              | Required for slash commands / shortcuts                                                         |
+| `app_mentions:read`     | Required to get @DataHub messages                                                               |
+| `chat:write`            | Required to send messages as @DataHub                                                           |
+| `chat:write.public`     | Required to post in public channels the bot hasn't joined                                       |
+| `chat:write.customize`  | Allows using a custom icon so messages display the DataHub Cloud logo                           |
+| `channels:history`      | Required to read message history in public channels                                             |
+| `channels:read`         | Required to see public channel details                                                          |
+| `groups:history`        | Required to read message history in private channels                                            |
+| `groups:read`           | Required to see private channel details                                                         |
+| `im:history`            | Required to read direct message history                                                         |
+| `im:read`               | Required to see direct message details                                                          |
+| `mpim:history`          | Required to read group DM history                                                               |
+| `mpim:read`             | Required to see group DM details                                                                |
+| `metadata.message:read` | Required to read message metadata                                                               |
+| `team:read`             | Required to get workspace ID and create links to user profiles                                  |
+| `channels:join`         | Allows the bot to join a public channel when someone configures notifications to be sent to one |
+| `links:read`            | Required to unfurl links                                                                        |
+| `links:write`           | Required to unfurl links                                                                        |
+| `users:read`            | Required to resolve user IDs to names/emails                                                    |
+| `users:read.email`      | Required to enable user lookup by email address                                                 |
+| `reactions:read`        | Future-proofing                                                                                 |
+| `reactions:write`       | Future-proofing                                                                                 |
+
+</details>
+
+### Workspace Admin Approval
 
 In some workspaces, you will find at step 6 above you will need approval from your workspace admin. In this case, you will want to:
 
@@ -200,22 +194,22 @@ Connecting your Slack account is a one-time setup. Once connected, DataHub will 
 If you try to use Ask DataHub in Slack before connecting your account, the bot will prompt you to connect first:
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_no_user_bound.png"/>
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_no_user_bound.png"/>
 </p>
 
-That's it! This is a one-time setup. Once connected, you can use Subscriptions & Notifications and Ask DataHub. If you ever need to reconnect (e.g. you changed Slack workspaces), you can return to this page and click **Reconnect**.
+Once connected, you can use Subscriptions & Notifications and Ask DataHub. If you ever need to reconnect (e.g. you changed Slack workspaces), you can return to this page and click **Reconnect**.
 
 :::note Migrating from Manual Slack User ID Configuration
-If you previously configured your Slack User ID manually (see [legacy instructions below](#how-to-find-user-id-in-slack-legacy)), your existing setup will continue to work until you connect your account using the new OAuth flow. Once you connect via OAuth, DataHub will use the OAuth-linked account going forward. Starting in v0.3.17, manual Slack User ID configuration is no longer available for new setups.
+If you previously configured your Slack User ID manually (see [legacy instructions below](#how-to-find-user-id-in-slack-legacy)), your existing setup will continue to work until you connect your account using the new OAuth flow. Once you connect via OAuth, DataHub will use the OAuth-linked account going forward. Starting in v0.3.17, manual Slack User ID configuration for subscriptions & notifications is no longer available.
 :::
 
-## Configure Notifications
+## Configure Subscriptions & Notifications
 
-For now, we support sending notifications to
+We support sending notifications to
 
 - Slack Channel Name (e.g. `#troubleshoot`)
 - Slack Channel ID (e.g. `C029A3M079U`)
-- Specific Users (aka Direct Messages or DMs) via user ID
+- Specific Users (once you've connected your account)
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 

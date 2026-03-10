@@ -363,7 +363,11 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart column metric assertion (AI-powered anomaly detection)
+# Create smart column metric assertion (AI-powered anomaly detection).
+# Note: Smart Assertions currently only support the following column metrics:
+# null_count, unique_count, empty_count, zero_count, negative_count.
+# For other metrics (e.g. min, max, mean), use a regular column metric assertion
+# with a fixed threshold (see below).
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
@@ -382,7 +386,8 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
 
 print(f"Created smart column assertion: {smart_column_assertion.urn}")
 
-# Create regular column metric assertion (fixed threshold on aggregated metric)
+# Create regular column metric assertion (fixed threshold on aggregated metric).
+# Use this for metrics not supported by Smart Assertions (e.g. min, max, mean, median, stddev).
 column_metric_assertion = client.assertions.sync_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="price",

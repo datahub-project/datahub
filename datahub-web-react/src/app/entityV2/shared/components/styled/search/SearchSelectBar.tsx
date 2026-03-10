@@ -25,6 +25,10 @@ const CancelButton = styled(Button)`
     }
 `;
 
+const SelectionText = styled(Typography.Text)`
+    white-space: nowrap;
+`;
+
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
     padding-bottom: 0px;
@@ -93,13 +97,13 @@ export const SearchSelectBar = ({
                     id="search-select-bar"
                     disabled={limit !== undefined && limit > 0}
                 />
-                <Typography.Text strong type="secondary">
+                <SelectionText strong type="secondary">
                     {areAllEntitiesSelected ? (
                         <>All {totalResults} assets selected</>
                     ) : (
                         <>{selectedEntityCount} selected</>
                     )}
-                </Typography.Text>
+                </SelectionText>
                 {areAllEntitiesSelected && (
                     <StyledButton
                         type="text"

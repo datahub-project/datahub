@@ -146,6 +146,9 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
         if (isOpen !== undefined) setIsInternalOpen(isOpen);
     }, [isOpen]);
 
+    const userContextRef = useRef(userContext);
+    userContextRef.current = userContext;
+
     useEffect(() => {
         setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
         const selectedView =
@@ -161,6 +164,29 @@ export default function ViewSelectContextProvider({ isOpen, onOpenChange, childr
             setSelectedView(selectedView.name);
         }
     }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
+
+    // Clear stale selectedViewUrn when views data loads/updates and the
+    // referenced view no longer exists. This effect intentionally omits
+    // selectedViewUrn from its dependencies: it only reacts to views-data
+    // changes, so a just-created-and-selected view won't be cleared before
+    // the Apollo cache update propagates to the query hooks.
+    useEffect(() => {
+        if (!privateViewsData || !publicViewsData) return;
+        const { localState, updateLocalState } = userContextRef.current;
+        const viewUrn = localState?.selectedViewUrn;
+        if (!viewUrn) return;
+
+        const viewExists =
+            privateViewsData.listMyViews?.views?.some((v) => v?.urn === viewUrn) ||
+            publicViewsData.listGlobalViews?.views?.some((v) => v?.urn === viewUrn);
+
+        if (!viewExists) {
+            updateLocalState({
+                ...localState,
+                selectedViewUrn: null,
+            });
+        }
+    }, [privateViewsData, publicViewsData]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
     const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);

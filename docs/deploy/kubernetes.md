@@ -148,6 +148,10 @@ You should be able to access the frontend via http://localhost:9002.
 Once you confirm that the pods are running well, you can set up ingress for datahub-frontend to expose the 9002 port to
 the public.
 
+## System update and upgrades
+
+The DataHub Helm chart runs a **system-update** Job on upgrades to apply schema changes, reindex search indices when needed, and run other blocking or non-blocking upgrade steps. When scale-down is enabled (see [Environment variables](environment-vars.md#kubernetes-scale-down-system-update)), the job can temporarily scale down deployments by label selector (e.g. MAE/MCE) and set environment variables on other deployments by label selector (e.g. GMS) before blocking upgrades (e.g. reindex), then restore them afterward. Rollout and scale-down operations run in parallel. Scale-down is conditional: it only runs when a blocking upgrade (such as BuildIndices when reindex is required) requests it. For upgrade behavior and potential downtime, see [Updating DataHub](../how/updating-datahub.md).
+
 ## Other useful commands
 
 | Command                | Description             |

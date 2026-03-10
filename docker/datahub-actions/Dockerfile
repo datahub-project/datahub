@@ -148,7 +148,7 @@ FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
 # Set up bundled venv configuration for FULL variant (with PySpark)
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -190,7 +190,7 @@ USER 0
 
 # Set up bundled venv configuration for SLIM variant (without PySpark)
 # Venv named s3-bundled but uses s3-slim package internally
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
@@ -232,7 +232,7 @@ USER 0
 
 # Set up bundled venv configuration for LOCKED variant (without PySpark, network blocked)
 # Same as slim but will have network access disabled in final stage
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs

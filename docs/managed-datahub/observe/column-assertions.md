@@ -199,7 +199,7 @@ You can choose from any of the columns from the table listed in the dropdown.
   and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
   with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
   specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
-  is less than a specific number. You can also select the **Detect with AI** option to use Smart Assertions to detect anomalies in the column metric.
+  is less than a specific number. You can also select the **Detect with AI** option to use Smart Assertions to detect anomalies in the column metric. Note that the **Detect with AI** option is currently only available for the following metrics: **null_count**, **unique_count**, **empty_count**, **zero_count**, and **negative_count**. For all other metrics (e.g. min, max, mean), use a fixed threshold instead.
 
 #### 9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate.
 
@@ -256,6 +256,10 @@ Once your assertion has run, you will begin to see Success or Failure status for
 ## Anomaly Detection with Smart Assertions ⚡
 
 As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are dynamic, AI-powered Column Metric Assertions that you can use to monitor anomalies on column metrics of important warehouse Tables, without requiring any manual setup.
+
+:::note Supported Metrics
+Smart Assertions for Column Metrics currently support only: **null_count**, **unique_count**, **empty_count**, **zero_count**, and **negative_count**. Other column metrics (e.g. min, max, mean, median, stddev) are available for standard Column Metric Assertions with fixed thresholds, but cannot be used with the **Detect with AI** option at this time. Any existing Smart Assertions using other metrics will continue to operate normally.
+:::
 
 You can create smart assertions by simply selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
 

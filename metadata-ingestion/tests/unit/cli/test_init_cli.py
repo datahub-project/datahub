@@ -87,12 +87,12 @@ class TestNonInteractiveCLIFlags:
         assert temp_config.exists()
         assert "Configuration written" in result.output
 
-        # Verify generate_access_token was called correctly
+        # localhost defaults to ONE_MONTH
         mock_generate_token.assert_called_once_with(
             username="alice",
             password="secret123",
             gms_url="http://localhost:8080",
-            validity="ONE_HOUR",
+            validity="ONE_MONTH",
         )
 
         # Verify generated token was written
@@ -126,28 +126,41 @@ class TestNonInteractiveCLIFlags:
         assert "new-token" in config_content
         assert "existing config" not in config_content
 
-    def test_init_without_force_prompts(
+    def test_init_without_force_prompts_on_tty(
         self, temp_config: Path, clean_env: None
     ) -> None:
-        """Test without --force prompts for confirmation when config exists."""
-        # Create existing config
+        """On an interactive TTY, without --force, prompt for confirmation."""
         temp_config.write_text("existing config")
 
         runner = CliRunner()
-        # Provide 'n' to abort the confirmation
-        result = runner.invoke(
-            init,
-            [
-                "--host",
-                "http://localhost:8080",
-                "--token",
-                "new-token",
-            ],
-            input="n\n",
-        )
+        # Patch sys as seen by entrypoints so CliRunner's stdin replacement doesn't interfere
+        with patch("datahub.entrypoints.sys") as mock_sys:
+            mock_sys.stdin.isatty.return_value = True
+            result = runner.invoke(
+                init,
+                ["--host", "http://localhost:8080", "--token", "new-token"],
+                input="n\n",
+            )
 
         assert result.exit_code == 1
         assert "Aborted" in result.output
+
+    def test_init_without_force_overwrites_on_non_tty(
+        self, temp_config: Path, clean_env: None
+    ) -> None:
+        """On a non-TTY (agent/CI), silently overwrite existing config without prompting."""
+        temp_config.write_text("existing config")
+
+        runner = CliRunner()
+        # CliRunner is non-TTY by default — no --force needed
+        result = runner.invoke(
+            init,
+            ["--host", "http://localhost:8080", "--token", "new-token"],
+        )
+
+        assert result.exit_code == 0
+        assert "Overwrite?" not in result.output
+        assert "new-token" in temp_config.read_text()
 
 
 class TestNonInteractiveEnvVars:
@@ -188,12 +201,12 @@ class TestNonInteractiveEnvVars:
         assert result.exit_code == 0
         assert temp_config.exists()
 
-        # Verify generate_access_token was called with env var values
+        # localhost defaults to ONE_MONTH
         mock_generate_token.assert_called_once_with(
             username="bob",
             password="secret456",
             gms_url="http://localhost:8080",
-            validity="ONE_HOUR",
+            validity="ONE_MONTH",
         )
 
     def test_cli_args_override_env_vars(
@@ -363,12 +376,12 @@ class TestBackwardCompatibility:
         assert result.exit_code == 0
         assert temp_config.exists()
 
-        # Verify generate_access_token was called with prompted values
+        # localhost defaults to ONE_MONTH
         mock_generate_token.assert_called_once_with(
             username="alice",
             password="secret123",
             gms_url="http://localhost:8080",
-            validity="ONE_HOUR",
+            validity="ONE_MONTH",
         )
 
     def test_partial_args_prompts_for_missing(
@@ -451,6 +464,29 @@ class TestRealWorldScenarios:
         assert temp_config.exists()
         assert "Configuration written" in result.output
 
+    def test_localhost_silent_default_no_host_flag(
+        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+    ) -> None:
+        """When --username/--password are given without --host, silently default to localhost."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            ["--username", "datahub", "--password", "datahub", "--force"],
+        )
+
+        assert result.exit_code == 0
+        # Should not have prompted for host
+        assert "Enter your DataHub host" not in result.output
+        config_content = temp_config.read_text()
+        assert "localhost" in config_content
+        # localhost gets ONE_MONTH default
+        mock_generate_token.assert_called_once_with(
+            username="datahub",
+            password="datahub",
+            gms_url="http://localhost:8080",
+            validity="ONE_MONTH",
+        )
+
     def test_ci_cd_scenario(
         self, temp_config: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -489,13 +525,14 @@ class TestAutoDetectionAndDeprecation:
         )
 
         assert result.exit_code == 0
+        # localhost defaults to ONE_MONTH
         mock_generate_token.assert_called_once_with(
             username="alice",
             password="secret",
             gms_url="http://localhost:8080",
-            validity="ONE_HOUR",
+            validity="ONE_MONTH",
         )
-        assert "Generated token (expires: ONE_HOUR)" in result.output
+        assert "Generated token (expires: ONE_MONTH)" in result.output
 
     def test_init_use_password_deprecated(
         self, temp_config: Path, clean_env: None, mock_generate_token: Any
@@ -520,6 +557,13 @@ class TestAutoDetectionAndDeprecation:
         assert (
             "Token generation is now auto-detected when --username and --password are provided"
             in result.output
+        )
+        # localhost defaults to ONE_MONTH
+        mock_generate_token.assert_called_once_with(
+            username="alice",
+            password="secret",
+            gms_url="http://localhost:8080",
+            validity="ONE_MONTH",
         )
 
 
@@ -610,10 +654,10 @@ class TestTokenDuration:
             validity="ONE_WEEK",
         )
 
-    def test_init_default_duration_one_hour(
+    def test_init_default_duration_localhost(
         self, temp_config: Path, clean_env: None, mock_generate_token: Any
     ) -> None:
-        """Test default token duration is ONE_HOUR."""
+        """Test default token duration is ONE_MONTH for localhost."""
         runner = CliRunner()
         result = runner.invoke(
             init,
@@ -628,11 +672,37 @@ class TestTokenDuration:
         )
 
         assert result.exit_code == 0
-        assert "Generated token (expires: ONE_HOUR)" in result.output
+        assert "Generated token (expires: ONE_MONTH)" in result.output
         mock_generate_token.assert_called_once_with(
             username="alice",
             password="secret",
             gms_url="http://localhost:8080",
+            validity="ONE_MONTH",
+        )
+
+    def test_init_default_duration_remote(
+        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+    ) -> None:
+        """Test default token duration is ONE_HOUR for remote instances."""
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--host",
+                "https://my-instance.acryl.io/gms",
+                "--username",
+                "alice",
+                "--password",
+                "secret",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Generated token (expires: ONE_HOUR)" in result.output
+        mock_generate_token.assert_called_once_with(
+            username="alice",
+            password="secret",
+            gms_url="https://my-instance.acryl.io/gms",
             validity="ONE_HOUR",
         )
 

@@ -93,6 +93,7 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+  implementation externalDependency.fabric8KubernetesClient
 
   implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonJsr310

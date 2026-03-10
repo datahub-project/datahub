@@ -1,7 +1,9 @@
-import { Tabs as AntTabs } from 'antd';
-import React, { useEffect, useRef } from 'react';
+import { Tabs as AntTabs, TabsProps } from 'antd';
+import React, { useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
+import { Icon } from '@components/components/Icon';
+import { OverflowText } from '@components/components/OverflowText';
 import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
@@ -19,11 +21,15 @@ const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
 const StyledTabsPrimary = styled(AntTabs)<{
     $navMarginBottom?: number;
     $navMarginTop?: number;
+    $navMarginLeft?: number;
+    $navMarginRight?: number;
     $containerHeight?: 'full' | 'auto';
     $addPaddingLeft?: boolean;
     $hideTabsHeader: boolean;
     $scrollable?: boolean;
     $stickyHeader?: boolean;
+    $hideNavOperations?: boolean;
+    $tabBorderRadius?: string;
 }>`
     ${({ $scrollable, $containerHeight }) => {
         if (!$scrollable) {
@@ -39,6 +45,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
         padding: 8px 0;
         font-size: 14px;
         color: ${colors.gray[600]};
+        ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -60,14 +67,14 @@ const StyledTabsPrimary = styled(AntTabs)<{
                 display: none;
             }
         `}
-    ${({ $stickyHeader }) =>
-        $stickyHeader &&
+    ${(props) =>
+        props.$stickyHeader &&
         `
             .ant-tabs-nav {
                 position: sticky;
                 top: 0;
                 z-index: 10;
-                background-color: white;
+                background-color: ${props.theme.colors.bg};
             }
         `}
     .ant-tabs-tab-active .ant-tabs-tab-btn {
@@ -90,17 +97,31 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-nav {
         margin-bottom: ${(props) => props.$navMarginBottom ?? 8}px;
         margin-top: ${(props) => props.$navMarginTop ?? 0}px;
+        margin-left: ${(props) => props.$navMarginLeft ?? 0}px;
+        margin-right: ${(props) => props.$navMarginRight ?? 0}px;
     }
+
+    ${({ $hideNavOperations }) =>
+        $hideNavOperations &&
+        `
+            .ant-tabs-nav-operations {
+                display: none !important;
+            }
+        `}
 `;
 
 const StyledTabsSecondary = styled(AntTabs)<{
     $navMarginBottom?: number;
     $navMarginTop?: number;
+    $navMarginLeft?: number;
+    $navMarginRight?: number;
     $containerHeight?: 'full' | 'auto';
     $addPaddingLeft?: boolean;
     $hideTabsHeader: boolean;
     $scrollable?: boolean;
     $stickyHeader?: boolean;
+    $hideNavOperations?: boolean;
+    $tabBorderRadius?: string;
 }>`
     ${(props) =>
         props.$containerHeight === 'full'
@@ -114,7 +135,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
 
     .ant-tabs-tab {
         padding: 8px 8px;
-        border-radius: 4px;
+        border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
         color: ${colors.gray[600]};
     }
@@ -162,6 +183,8 @@ const StyledTabsSecondary = styled(AntTabs)<{
     .ant-tabs-nav {
         margin-bottom: ${(props) => props.$navMarginBottom ?? 0}px;
         margin-top: ${(props) => props.$navMarginTop ?? 0}px;
+        margin-left: ${(props) => props.$navMarginLeft ?? 0}px;
+        margin-right: ${(props) => props.$navMarginRight ?? 0}px;
 
         &::before {
             display: none;
@@ -198,21 +221,106 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 16px;
             }
         `}
+
+    ${({ $hideNavOperations }) =>
+        $hideNavOperations &&
+        `
+            .ant-tabs-nav-operations {
+                display: none !important;
+            }
+        `}
 `;
 
-const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
+const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWidth?: string; $minWidth?: string }>`
     display: flex;
     align-items: center;
     gap: 4px;
     ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${({ $width }) => $width && `width: ${$width};`}
+    ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
+    ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}
 `;
 
-function TabView({ tab }: { tab: Tab }) {
+const CloseButtonContainer = styled.div`
+    position: relative;
+    width: 0;
+`;
+
+const CloseButtonAbsoluteContainer = styled.div`
+    position: absolute;
+    opacity: 0;
+    top: 50%;
+    right: -14px; // 14px - icon size
+    transform: translateY(-50%);
+
+    ${TabViewWrapper}:hover & {
+        opacity: 1;
+    }
+`;
+
+const StyledOverflowText = styled(OverflowText)<{ $minWidth?: string }>`
+    max-width: 100%;
+    // 18px - icon size (14px) and gap (4px)
+    ${({ $minWidth }) => $minWidth && `min-width: calc(${$minWidth} - 18px);`}
+
+    ${TabViewWrapper}:hover & {
+        max-width: calc(100% - 14px);
+    }
+`;
+
+interface CloseButtonProps {
+    onClose?: () => void;
+}
+
+function CloseButton({ onClose }: CloseButtonProps) {
+    const onClick = useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onClose?.();
+        },
+        [onClose],
+    );
+
+    return (
+        <CloseButtonContainer>
+            <CloseButtonAbsoluteContainer
+                // Prevent activation of a tab as it's starting to scroll
+                // to the new active tab and breaking closing a tab
+                onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }}
+                onClick={onClick}
+            >
+                <Icon source="phosphor" icon="X" size="md" />
+            </CloseButtonAbsoluteContainer>
+        </CloseButtonContainer>
+    );
+}
+
+interface TabViewProps {
+    tab: Tab;
+    width?: string;
+    maxWidth?: string;
+    minTabWidth?: string;
+    onClose?: () => void;
+}
+
+function TabView({ tab, width, maxWidth, minTabWidth, onClose }: TabViewProps) {
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper id={tab.id} $disabled={tab.disabled} data-testid={tab.dataTestId}>
-                {tab.name}
+            <TabViewWrapper
+                id={tab.id}
+                $disabled={tab.disabled}
+                $width={width}
+                $maxWidth={maxWidth}
+                $minWidth={minTabWidth}
+                data-testid={tab.dataTestId}
+            >
+                {tab.closable ? <StyledOverflowText text={tab.name} $minWidth={minTabWidth} /> : tab.name}
                 {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
+                {tab.closable && <CloseButton onClose={onClose} />}
             </TabViewWrapper>
         </Tooltip>
     );
@@ -228,9 +336,10 @@ export interface Tab {
     id?: string;
     dataTestId?: string;
     disabled?: boolean;
+    closable?: boolean;
 }
 
-export interface Props {
+export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;
@@ -244,6 +353,12 @@ export interface Props {
         containerHeight?: 'full' | 'auto';
         navMarginBottom?: number;
         navMarginTop?: number;
+        navMarginLeft?: number;
+        navMarginRight?: number;
+        tabBorderRadius?: string;
+        tabWidth?: string;
+        tabMaxWidth?: string;
+        tabMinWidth?: string;
     };
     addPaddingLeft?: boolean;
     hideTabsHeader?: boolean;
@@ -251,6 +366,8 @@ export interface Props {
     maxHeight?: string;
     stickyHeader?: boolean;
     destroyInactiveTabPane?: boolean;
+    hideNavOperations?: boolean;
+    onTabClose?: (tabKey: string) => void;
 }
 
 export function Tabs({
@@ -270,6 +387,9 @@ export function Tabs({
     maxHeight = '100%',
     stickyHeader = false,
     destroyInactiveTabPane,
+    tabBarExtraContent,
+    hideNavOperations,
+    onTabClose,
 }: Props) {
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -309,7 +429,15 @@ export function Tabs({
 
     const items = tabs.map((tab) => ({
         key: tab.key,
-        label: <TabView tab={tab} />,
+        label: (
+            <TabView
+                tab={tab}
+                onClose={() => onTabClose?.(tab.key)}
+                width={styleOptions?.tabWidth}
+                maxWidth={styleOptions?.tabMaxWidth}
+                minTabWidth={styleOptions?.tabMinWidth}
+            />
+        ),
         disabled: tab.disabled,
         children: (
             <ErrorBoundary resetKeys={[tab.key]} variant="tab">
@@ -331,11 +459,16 @@ export function Tabs({
             destroyInactiveTabPane={destroyInactiveTabPane}
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
+            $navMarginLeft={styleOptions?.navMarginLeft}
+            $navMarginRight={styleOptions?.navMarginRight}
             $containerHeight={styleOptions?.containerHeight}
+            $tabBorderRadius={styleOptions?.tabBorderRadius}
             $addPaddingLeft={addPaddingLeft}
             $hideTabsHeader={!!hideTabsHeader}
             $scrollable={scrollToTopOnChange}
             $stickyHeader={stickyHeader}
+            $hideNavOperations={hideNavOperations}
+            tabBarExtraContent={tabBarExtraContent}
         />
     );
 

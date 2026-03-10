@@ -176,7 +176,8 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]"
+        "root\\['facets'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [
@@ -232,7 +233,8 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]"
+        "root\\['facets'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [

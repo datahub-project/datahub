@@ -1,16 +1,16 @@
 """Builder for LangChain tools from DataHub MCP tools."""
 
-import functools
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
-from datahub_agent_context.context import set_client
 from datahub_agent_context.mcp_tools import get_me
+from datahub_agent_context.mcp_tools.assertions import get_dataset_assertions
 from datahub_agent_context.mcp_tools.documents import grep_documents, search_documents
 from datahub_agent_context.mcp_tools.domains import remove_domains, set_domains
 from datahub_agent_context.mcp_tools.structured_properties import (
     add_structured_properties,
     remove_structured_properties,
 )
+from datahub_agent_context.utils import create_context_wrapper
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -39,35 +39,6 @@ from datahub_agent_context.mcp_tools.terms import (
     add_glossary_terms,
     remove_glossary_terms,
 )
-
-
-def create_context_wrapper(func: Callable, client: "DataHubClient") -> Callable:
-    """Create a wrapper that sets DataHubGraph context before calling the function.
-
-    This wrapper uses contextvars to set the graph in context for the duration
-    of the function call, allowing the tool to retrieve it using get_graph().
-
-    Args:
-        func: The tool function that retrieves graph from context
-        client: DataHubClient instance whose graph will be set in context
-
-    Returns:
-        Wrapped function that sets context before execution
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # Set graph in context for this function call
-        token = set_client(client)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            # Always reset context, even if function raises
-            from datahub_agent_context.context import reset_client
-
-            reset_client(token)
-
-    return wrapper
 
 
 def build_langchain_tools(
@@ -110,6 +81,7 @@ def build_langchain_tools(
     tools.append(tool(create_context_wrapper(get_lineage_paths_between, client)))
 
     tools.append(tool(create_context_wrapper(get_dataset_queries, client)))
+    tools.append(tool(create_context_wrapper(get_dataset_assertions, client)))
     tools.append(tool(create_context_wrapper(search, client)))
 
     if include_mutations:
