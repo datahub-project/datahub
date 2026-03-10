@@ -545,6 +545,15 @@ repos:
         files: ^docker/.*$
         pass_filenames: false
 
+      - id: validate-post-workflow-list
+        name: Validate post-workflow-actions.yml workflow list
+        entry: python .github/scripts/validate_post_workflow_list.py
+        language: python
+        additional_dependencies:
+          - pyyaml
+        files: ^\.github/workflows/.*\.yml$
+        pass_filenames: false
+
       - id: actionlint-docker
         name: Lint GitHub Actions workflow files
         description: Runs actionlint Docker image to lint GitHub Actions workflow

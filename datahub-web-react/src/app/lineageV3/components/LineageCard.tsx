@@ -119,6 +119,7 @@ const ColumnButtonWrapper = styled.div`
 const StyledPlatformIcon = styled.img`
     height: 16px;
     width: 16px;
+    object-fit: contain;
 `;
 
 // Defaults to phosphor icon if the img fails to load for any reason

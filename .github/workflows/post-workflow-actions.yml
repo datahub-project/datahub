@@ -5,13 +5,37 @@ run-name: Post Workflow Actions for ${{ github.event_name == 'workflow_dispatch'
 # NOTE: workflow_run.workflows does not support wildcards —
 # workflow names must be listed explicitly here.
 # This workflow is NOT listed, so it will not trigger itself (no recursion).
+# Listing workflows that run in PR and Post Commit to the list
 on:
   workflow_run:
     workflows:
-      # List to be updated after testing
-      - "Lint actions"
+      - "DataHub Actions"
+      - "DataHub Agent Context"
+      - "Airflow Plugin"
+      - "build & test"
+      - "Check Datahub Jars"
+      - "check python dependencies"
+      - "code check"
+      - "Dagster Plugin"
       - "Docker Build, Scan, Test"
+      - "ingestion smoke"
+      - "documentation"
+      - "github actions format"
+      - "GX Plugin"
+      - "Lint actions"
+      - "markdown format"
       - "Metadata Ingestion"
+      - "metadata-io"
+      - "metadata model generate"
+      - "Metadata Models Custom CI"
+      - "Prefect Plugin"
+      - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
+      - "Python Build"
+      - "Quickstart Test"
+      - "Frontend Preview"
+      - "spark smoke test"
+      - "Verify Quickstart Compose"
+      - "yaml format"
     types:
       - completed
 
@@ -47,7 +71,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.event == 'pull_request' ||
       (github.event.workflow_run.event == 'push' &&
-        (github.event.workflow_run.head_branch == 'master' ||
+        (github.event.workflow_run.head_branch == github.event.repository.default_branch ||
          startsWith(github.event.workflow_run.head_branch, 'release/') ||
          startsWith(github.event.workflow_run.head_branch, 'hotfix/')))
     runs-on: ubuntu-latest
@@ -66,7 +90,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv pip install requests==2.32.5 --system
+        run: uv pip install requests==2.32.5 posthog==7.9.4 --system
 
       - name: Collect metrics
         id: collect-metrics
@@ -104,4 +128,12 @@ jobs:
           path: .github/scripts/${{ steps.collect-metrics.outputs.artifact_name }}.json
           if-no-files-found: error
           retention-days: 7
-      # TODO(devashish.chandra): Publish to Posthog. Save to S3?
+      - name: Publish metrics to PostHog
+        if: steps.collect-metrics.outputs.publish == 'true'
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        run: |
+          cd .github/scripts
+          python publish_to_posthog.py \
+            --input "${{ steps.collect-metrics.outputs.artifact_name }}.json"
+      # TODO(devashish.chandra): Save to S3?
