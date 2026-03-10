@@ -1,3 +1,7 @@
+:::caution Not Supported with Remote Executor
+This source is available as a private beta feature on DataHub Cloud. Note that running the connector using the Remote Executor is not yet supported.
+:::
+
 ## Overview
 
 The Notion source ingests pages and databases from Notion workspaces as DataHub Document entities with optional semantic embeddings for semantic search.

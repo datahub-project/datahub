@@ -42,25 +42,12 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     type: EntityType = EntityType.Mlfeature;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ChartScatter
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
-                    weight="regular"
-                />
-            );
-        }
-
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
-                weight="regular"
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };

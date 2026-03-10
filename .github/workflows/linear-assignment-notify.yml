@@ -1,0 +1,147 @@
+name: Notify PR Author of Linear Assignment
+
+# Polls every 15 minutes. Uses a single paginated GraphQL query to fetch all
+# open PRs with their comments (~8 API calls total regardless of PR count),
+# then only calls Linear for PRs that have a ticket but no notification yet.
+#
+# Designed to fail silently — errors are logged but never propagate.
+# continue-on-error: true ensures this job never blocks other workflows.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - name: Notify PR authors when Linear ticket is assigned
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Never let any failure exit the script — log and move on
+          set +e
+
+          OWNER=$(echo "$GH_REPO" | cut -d'/' -f1)
+          REPO=$(echo "$GH_REPO" | cut -d'/' -f2)
+
+          if [ -z "$OWNER" ] || [ -z "$REPO" ]; then
+            echo "⚠️  Could not parse GH_REPO=$GH_REPO, exiting"
+            exit 0
+          fi
+
+          CURSOR=""
+          PAGE=0
+          MAX_PAGES=20  # safety cap (~1000 PRs)
+
+          while true; do
+            PAGE=$((PAGE + 1))
+            if [ "$PAGE" -gt "$MAX_PAGES" ]; then
+              echo "⚠️  Reached page cap ($MAX_PAGES), stopping pagination"
+              break
+            fi
+
+            # shellcheck disable=SC2016
+            ARGS=(-f query='
+              query($owner: String!, $repo: String!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequests(first: 50, states: [OPEN], after: $cursor) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      number
+                      comments(first: 100) {
+                        nodes { body }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f owner="$OWNER" -f repo="$REPO")
+            [ -n "$CURSOR" ] && ARGS+=(-f cursor="$CURSOR")
+
+            RESULT=$(gh api graphql "${ARGS[@]}" 2>&1)
+            if [ -z "$RESULT" ]; then
+              echo "⚠️  Empty response from GitHub GraphQL on page $PAGE, stopping"
+              break
+            fi
+
+            # Validate it's parseable JSON before doing anything with it
+            if ! echo "$RESULT" | jq empty 2>/dev/null; then
+              echo "⚠️  Invalid JSON from GitHub GraphQL on page $PAGE, stopping"
+              break
+            fi
+
+            # Client-side: find PRs with a Linear ticket but no notification yet
+            CANDIDATES=$(echo "$RESULT" | jq -c '
+              .data.repository.pullRequests.nodes[] |
+              . as $pr |
+              ($pr.comments.nodes | map(.body) | join("\n")) as $comments |
+              select(
+                ($comments | test("<!-- linear-assigned -->") | not) and
+                ($comments | test("Linear: [A-Z]+-[0-9]+"))
+              ) |
+              {
+                number: $pr.number,
+                ticket: ($comments | capture("Linear: (?<id>[A-Z]+-[0-9]+)") | .id)
+              }
+            ' 2>/dev/null)
+
+            echo "$CANDIDATES" | while read -r CANDIDATE; do
+              [ -z "$CANDIDATE" ] && continue
+
+              PR_NUMBER=$(echo "$CANDIDATE" | jq -r '.number' 2>/dev/null)
+              TICKET_ID=$(echo "$CANDIDATE" | jq -r '.ticket' 2>/dev/null)
+
+              # Sanity-check extracted values before acting on them
+              if [ -z "$PR_NUMBER" ] || [ -z "$TICKET_ID" ]; then
+                echo "⚠️  Skipping malformed candidate: $CANDIDATE"
+                continue
+              fi
+              if ! echo "$PR_NUMBER" | grep -qE '^[0-9]+$'; then
+                echo "⚠️  PR_NUMBER '$PR_NUMBER' is not numeric, skipping"
+                continue
+              fi
+              if ! echo "$TICKET_ID" | grep -qE '^[A-Z]+-[0-9]+$'; then
+                echo "⚠️  TICKET_ID '$TICKET_ID' has unexpected format, skipping"
+                continue
+              fi
+
+              RESPONSE=$(curl -s --max-time 10 -X POST https://api.linear.app/graphql \
+                -H "Authorization: $LINEAR_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{\"query\": \"query { issue(id: \\\"$TICKET_ID\\\") { state { name } assignee { displayName } } }\"}" 2>/dev/null)
+
+              if [ -z "$RESPONSE" ]; then
+                echo "⚠️  Empty response from Linear for $TICKET_ID, skipping"
+                continue
+              fi
+
+              STATE=$(echo "$RESPONSE" | jq -r '.data.issue.state.name' 2>/dev/null)
+              ASSIGNEE=$(echo "$RESPONSE" | jq -r '.data.issue.assignee.displayName' 2>/dev/null)
+
+              if [ "$STATE" != "Triage" ] && [ -n "$ASSIGNEE" ] && [ "$ASSIGNEE" != "null" ]; then
+                echo "Notifying PR #$PR_NUMBER — $TICKET_ID assigned to $ASSIGNEE"
+                BODY=$(printf '<!-- linear-assigned -->\nYour PR has been assigned to **%s** for review (%s).' "$ASSIGNEE" "$TICKET_ID")
+                gh pr comment "$PR_NUMBER" --body "$BODY" 2>/dev/null \
+                  && echo "✅ Commented on PR #$PR_NUMBER" \
+                  || echo "⚠️  Failed to comment on PR #$PR_NUMBER, will retry next run"
+              fi
+            done
+
+            HAS_NEXT=$(echo "$RESULT" | jq -r '.data.repository.pullRequests.pageInfo.hasNextPage' 2>/dev/null)
+            [ "$HAS_NEXT" != "true" ] && break
+            CURSOR=$(echo "$RESULT" | jq -r '.data.repository.pullRequests.pageInfo.endCursor' 2>/dev/null)
+            if [ -z "$CURSOR" ] || [ "$CURSOR" = "null" ]; then
+              echo "⚠️  Missing endCursor despite hasNextPage=true, stopping"
+              break
+            fi
+          done
+
+          echo "✅ Done (processed $PAGE page(s))"
+          # Always exit 0 — this workflow is non-critical
+          exit 0
