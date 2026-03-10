@@ -1,6 +1,7 @@
 import json
+from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -14,6 +15,7 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    JDBC_PLATFORM_MAP,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
@@ -950,3 +952,146 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+
+def _make_jdbc_node(
+    node_id: str,
+    node_type: str,
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": f'"{connection_type}"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": f'{{"url": "{jdbc_url}", "dbtable": "{dbtable}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "jdbc_url, expected_platform, expected_database",
+    [
+        ("jdbc:postgresql://myhost:5432/mydb", "postgres", "mydb"),
+        ("jdbc:mysql://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:mariadb://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:redshift://myhost:5439/mydb", "redshift", "mydb"),
+        ("jdbc:oracle://myhost:1521/mydb", "oracle", "mydb"),
+        ("jdbc:sqlserver://myhost:1433/mydb", "mssql", "mydb"),
+        ("jdbc:postgresql://myhost:5432/mydb?sslmode=require", "postgres", "mydb"),
+    ],
+)
+def test_parse_jdbc_url(
+    jdbc_url: str, expected_platform: str, expected_database: str
+) -> None:
+    source = glue_source()
+    platform, database = source._parse_jdbc_url(jdbc_url)
+    assert platform == expected_platform
+    assert database == expected_database
+
+
+def test_parse_jdbc_url_invalid() -> None:
+    source = glue_source()
+    with pytest.raises(ValueError, match="Not a valid JDBC URL"):
+        source._parse_jdbc_url("postgresql://myhost/mydb")
+
+
+@pytest.mark.parametrize(
+    "connection_type, jdbc_url, dbtable, expected_urn",
+    [
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "myschema.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.myschema.orders,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_jdbc(
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+    expected_urn: str,
+) -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_jdbc_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_type=connection_type,
+        jdbc_url=jdbc_url,
+        dbtable=dbtable,
+    )
+
+    new_dataset_ids: List[str] = []
+    new_dataset_mces = []
+    s3_formats = defaultdict(set)
+
+    result = source.process_dataflow_node(
+        node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
+    )
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+    assert new_dataset_mces == []
+
+
+def test_process_dataflow_node_jdbc_missing_url() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {"Name": "connection_type", "Value": '"postgresql"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": '{"dbtable": "public.customers"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_jdbc_platform_map_coverage() -> None:
+    source = glue_source()
+    for jdbc_protocol, expected_platform in JDBC_PLATFORM_MAP.items():
+        url = f"jdbc:{jdbc_protocol}://host:1234/db"
+        platform, database = source._parse_jdbc_url(url)
+        assert platform == expected_platform, f"Failed for {jdbc_protocol}"
+        assert database == "db"
