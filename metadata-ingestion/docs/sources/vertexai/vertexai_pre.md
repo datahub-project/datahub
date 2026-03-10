@@ -85,6 +85,19 @@ Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, 
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
 
+> **Deprecation Notice**: The `project_id` (singular) configuration field is deprecated. Use `project_ids` (list) instead:
+>
+> ```yaml
+> # Deprecated — will be removed in a future major release
+> project_id: my-project
+>
+> # Preferred
+> project_ids:
+>   - my-project
+> ```
+>
+> Existing recipes using `project_id` continue to work and are automatically migrated at startup, but will emit a deprecation warning in the ingestion logs.
+
 **Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
 
 Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
