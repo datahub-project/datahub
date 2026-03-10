@@ -31,7 +31,9 @@ export const useGetStatsData = () => {
 
     const latestFullTableProfile = (statsEntity as any)?.latestFullTableProfile?.[0];
     const latestPartitionProfile = (statsEntity as any)?.latestPartitionProfile?.[0];
-    const latestProfile = latestFullTableProfile || latestPartitionProfile;
+    // Fallback to datasetProfiles if latestFullTableProfile/latestPartitionProfile not available
+    const datasetProfilesFallback = (statsEntity as any)?.datasetProfiles?.[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile || datasetProfilesFallback;
     const queryCountLast30Days = (statsEntity as any)?.statsSummary?.queryCountLast30Days;
 
     const usageStats = (usageStatsData?.dataset?.usageStats as UsageQueryResult) ?? undefined;
@@ -41,6 +43,7 @@ export const useGetStatsData = () => {
     const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const rowCount = latestProfile?.rowCount ?? undefined;
     const columnCount = latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined;
+    const sizeInBytes = latestProfile?.sizeInBytes ?? undefined;
     const queryCount = queryCountLast30Days ?? totalSqlQueries ?? undefined;
     const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations ?? undefined;
 
@@ -49,6 +52,7 @@ export const useGetStatsData = () => {
         columnStats,
         rowCount,
         columnCount,
+        sizeInBytes,
         queryCount,
         totalOperations,
         users,
