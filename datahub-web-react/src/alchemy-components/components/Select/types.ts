@@ -21,6 +21,11 @@ type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
+export interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
@@ -63,6 +68,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     dataTestId?: string;
     visibilityDeps?: React.DependencyList;
     placement?: DropdownProps['placement'];
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
 }
 
 export interface SelectStyleProps {

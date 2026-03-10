@@ -389,9 +389,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return
 
         if self.config.extract_tags != TagOption.skip:
-            snowflake_db.tags = self.tag_extractor.get_tags_on_object(
-                domain="database", db_name=db_name
-            )
+            try:
+                snowflake_db.tags = self.tag_extractor.get_tags_on_object(
+                    domain=SnowflakeObjectDomain.DATABASE, db_name=db_name
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Failed to get tags for database", db_name, exc=e
+                )
 
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
@@ -493,7 +498,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags != TagOption.skip:
-            self._process_tags(snowflake_schema, schema_name, db_name, domain="schema")
+            try:
+                self._process_tags(
+                    snowflake_schema,
+                    schema_name,
+                    db_name,
+                    domain=SnowflakeObjectDomain.SCHEMA,
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Failed to get tags for schema",
+                    f"{db_name}.{schema_name}",
+                    exc=e,
+                )
 
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
@@ -563,7 +580,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         snowflake_schema: SnowflakeSchema,
         schema_name: str,
         db_name: str,
-        domain: str,
+        domain: SnowflakeObjectDomain,
     ) -> None:
         snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
             schema_name=schema_name, db_name=db_name, domain=domain
@@ -1001,10 +1018,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 table.name, snowflake_schema, db_name
             )
             table.column_count = len(table.columns)
-            if self.config.extract_tags != TagOption.skip:
-                table.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    table.name, schema_name, db_name
-                )
         except Exception as e:
             self.structured_reporter.warning(
                 "Failed to get columns for table", table_identifier, exc=e
@@ -1012,11 +1025,26 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if self.config.extract_tags != TagOption.skip:
             try:
+                table.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    table.name,
+                    schema_name,
+                    db_name,
+                    column_names=[c.name for c in table.columns],
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Failed to get column tags for table",
+                    table_identifier,
+                    exc=e,
+                )
+
+        if self.config.extract_tags != TagOption.skip:
+            try:
                 table.tags = self.tag_extractor.get_tags_on_object(
                     table_name=table.name,
                     schema_name=schema_name,
                     db_name=db_name,
-                    domain="table",
+                    domain=SnowflakeObjectDomain.TABLE,
                 )
             except Exception as e:
                 self.structured_reporter.warning(
@@ -1083,7 +1111,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    view.name, schema_name, db_name
+                    view.name,
+                    schema_name,
+                    db_name,
+                    column_names=[c.name for c in view.columns],
                 )
         except Exception as e:
             self.structured_reporter.warning(
@@ -1096,7 +1127,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table_name=view.name,
                     schema_name=schema_name,
                     db_name=db_name,
-                    domain="table",
+                    domain=SnowflakeObjectDomain.TABLE,
                 )
             except Exception as e:
                 self.structured_reporter.warning(
@@ -1140,7 +1171,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             try:
                 semantic_view.column_tags = (
                     self.tag_extractor.get_column_tags_for_table(
-                        semantic_view.name, schema_name, db_name
+                        semantic_view.name,
+                        schema_name,
+                        db_name,
+                        column_names=[c.name for c in semantic_view.columns],
                     )
                 )
             except Exception as e:
@@ -1156,7 +1190,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table_name=semantic_view.name,
                     schema_name=schema_name,
                     db_name=db_name,
-                    domain="table",
+                    domain=SnowflakeObjectDomain.TABLE,
                 )
             except Exception as e:
                 logger.debug(
