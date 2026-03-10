@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
@@ -8,6 +6,7 @@ import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import React from 'react';
 
 import {
     EXECUTION_REQUEST_STATUS_ABORTED,

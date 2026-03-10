@@ -97,24 +97,9 @@ export default function SearchControl() {
                                 {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
                             </span>
                             <VerticalDivider margin={8} />
-                            <Button
-                                icon={{ icon: CaretUp }}
-                                variant="outline"
-                                size="sm"
-                                onClick={prev}
-                            />
-                            <Button
-                                icon={{ icon: CaretDown }}
-                                variant="outline"
-                                size="sm"
-                                onClick={next}
-                            />
-                            <Button
-                                icon={{ icon: X }}
-                                variant="outline"
-                                size="sm"
-                                onClick={close}
-                            />
+                            <Button icon={{ icon: CaretUp }} variant="outline" size="sm" onClick={prev} />
+                            <Button icon={{ icon: CaretDown }} variant="outline" size="sm" onClick={next} />
+                            <Button icon={{ icon: X }} variant="outline" size="sm" onClick={close} />
                         </>
                     )
                 }

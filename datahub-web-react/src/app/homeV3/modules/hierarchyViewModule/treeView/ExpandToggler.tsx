@@ -24,13 +24,7 @@ export default function ExpandToggler({ expanded, expandable, onToggle }: Props)
 
     return (
         <Wrapper>
-            <Icon
-                color="gray"
-                icon={CaretRight}
-                rotate={expanded ? '90' : '0'}
-                size="lg"
-                onClick={onToggle}
-            />
+            <Icon color="gray" icon={CaretRight} rotate={expanded ? '90' : '0'} size="lg" onClick={onToggle} />
         </Wrapper>
     );
 }

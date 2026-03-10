@@ -1,6 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';

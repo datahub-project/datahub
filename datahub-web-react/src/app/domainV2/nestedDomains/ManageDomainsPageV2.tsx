@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -7,7 +8,6 @@ import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsC
 import RootDomains from '@app/domainV2/nestedDomains/RootDomains';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button } from '@src/alchemy-components';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';

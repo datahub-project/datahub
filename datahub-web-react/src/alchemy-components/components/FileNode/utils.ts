@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileArrowDown } from '@phosphor-icons/react/dist/csr/FileArrowDown';
 import { FileAudio } from '@phosphor-icons/react/dist/csr/FileAudio';
 import { FileCode } from '@phosphor-icons/react/dist/csr/FileCode';
@@ -16,6 +15,7 @@ import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { FileVideo } from '@phosphor-icons/react/dist/csr/FileVideo';
 import { FileXls } from '@phosphor-icons/react/dist/csr/FileXls';
 import { FileZip } from '@phosphor-icons/react/dist/csr/FileZip';
+import React from 'react';
 
 /**
  * Get icon component to show based on file extension

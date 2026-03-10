@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Dropdown } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,7 +8,6 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';

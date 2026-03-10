@@ -1,3 +1,4 @@
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React, { useMemo, useState } from 'react';
 
@@ -7,7 +8,6 @@ import Operands from '@app/sharedV2/queryBuilder/Operands';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { convertToLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CardIcons, StyledCollapse } from '@app/sharedV2/queryBuilder/styledComponents';
 import { Icon } from '@src/alchemy-components';
 

@@ -1,6 +1,7 @@
-import { ItemType } from '@src/alchemy-components/components/Menu/types';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+
+import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { Document, InstitutionalMemoryMetadata } from '@types';
 

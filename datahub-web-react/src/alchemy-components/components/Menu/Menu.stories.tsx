@@ -1,6 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { Menu } from '@components/components/Menu/Menu';

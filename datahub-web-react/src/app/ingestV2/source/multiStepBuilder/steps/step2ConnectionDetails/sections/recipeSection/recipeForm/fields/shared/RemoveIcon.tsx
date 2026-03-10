@@ -1,21 +1,21 @@
 import { Icon } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 
 const StyledIcon = styled(Icon)`
- flex-shrink: 0;
+    flex-shrink: 0;
 
- &:hover {
- cursor: pointer;
- }
+    &:hover {
+        cursor: pointer;
+    }
 `;
 
 interface Props {
- onClick?: () => void;
- className?: string;
+    onClick?: () => void;
+    className?: string;
 }
 
 export function RemoveIcon({ onClick, className }: Props) {
- return <StyledIcon icon={Trash} onClick={onClick} size="lg" color="red" className={className} />;
+    return <StyledIcon icon={Trash} onClick={onClick} size="lg" color="red" className={className} />;
 }

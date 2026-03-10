@@ -1,6 +1,6 @@
 import { Icon } from '@components';
-import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,13 +14,5 @@ type Props = {
 };
 
 export default function DragHandle({ isDragging, listeners }: Props) {
-    return (
-        <DragIcon
-            {...listeners}
-            size="lg"
-            color="gray"
-            icon={DotsSixVertical}
-            $isDragging={isDragging}
-        />
-    );
+    return <DragIcon {...listeners} size="lg" color="gray" icon={DotsSixVertical} $isDragging={isDragging} />;
 }

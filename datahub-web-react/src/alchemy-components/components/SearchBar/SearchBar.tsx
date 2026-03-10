@@ -1,3 +1,4 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { InputProps, InputRef } from 'antd';
 import React, { forwardRef } from 'react';
 
@@ -5,7 +6,6 @@ import { StyledSearchBar } from '@components/components/SearchBar/components';
 import { SearchBarProps } from '@components/components/SearchBar/types';
 
 import { Icon } from '@src/alchemy-components';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 
 export const searchBarDefaults: SearchBarProps = {
     placeholder: 'Search...',

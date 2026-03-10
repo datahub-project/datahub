@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Tooltip } from '@components';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 

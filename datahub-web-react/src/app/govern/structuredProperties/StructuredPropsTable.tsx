@@ -312,7 +312,11 @@ const StructuredPropsTable = ({
                     <>
                         <CardIcons>
                             <Menu items={items} trigger={['click']}>
-                                <Icon icon={DotsThreeVertical} size="md" data-testid="structured-props-more-options-icon" />
+                                <Icon
+                                    icon={DotsThreeVertical}
+                                    size="md"
+                                    data-testid="structured-props-more-options-icon"
+                                />
                             </Menu>
                         </CardIcons>
                     </>

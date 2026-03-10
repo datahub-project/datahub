@@ -1,7 +1,7 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
 import { Download } from '@phosphor-icons/react/dist/csr/Download';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { Icon } from '@components/components/Icon';

@@ -1,3 +1,4 @@
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 
 import OperatorSelect from '@app/sharedV2/queryBuilder/OperatorSelect';
@@ -12,7 +13,6 @@ import {
     IconsContainer,
     SelectContainer,
 } from '@app/sharedV2/queryBuilder/styledComponents';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Icon } from '@src/alchemy-components';
 
 interface Props {

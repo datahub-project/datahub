@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -9,7 +10,6 @@ import {
     OperationButton,
     ToolbarContainer,
 } from '@app/sharedV2/queryBuilder/styledComponents';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
 
 interface Props {

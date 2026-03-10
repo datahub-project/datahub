@@ -1,11 +1,11 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { ActionButtonsContainer, StyledIcon } from '@components/components/Select/components';
 import { ActionButtonsProps } from '@components/components/Select/types';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 
 import { colors, shadows } from '@src/alchemy-components/theme';
 

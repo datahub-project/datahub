@@ -1,7 +1,7 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';

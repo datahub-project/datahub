@@ -58,14 +58,7 @@ export const AnnouncementCard = ({ announcement, onDismiss }: Props) => {
                     <StyledEditor content={announcement.content.description} readOnly />
                 ) : undefined
             }
-            button={
-                <StyledIcon
-                    icon={X}
-                    color="violet"
-                    size="xl"
-                    onClick={() => onDismiss(announcement.urn)}
-                />
-            }
+            button={<StyledIcon icon={X} color="violet" size="xl" onClick={() => onDismiss(announcement.urn)} />}
             width="100%"
             style={cardStyles}
             isCardClickable={false}

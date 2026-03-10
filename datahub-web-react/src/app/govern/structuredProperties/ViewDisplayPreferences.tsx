@@ -1,3 +1,4 @@
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React from 'react';
 
@@ -10,7 +11,6 @@ import {
     StyledFormSubItem,
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Checkbox, Icon, Switch, Text, colors } from '@src/alchemy-components';
 import { StructuredPropertyEntity } from '@src/types.generated';
 

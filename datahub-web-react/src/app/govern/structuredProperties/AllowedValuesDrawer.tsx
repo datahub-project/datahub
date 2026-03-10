@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect, useRef } from 'react';
 
@@ -12,7 +13,6 @@ import {
     ValuesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { PropValueField } from '@app/govern/structuredProperties/utils';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue } from '@src/types.generated';
 

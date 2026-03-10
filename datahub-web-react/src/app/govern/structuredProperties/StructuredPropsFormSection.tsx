@@ -1,3 +1,4 @@
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 
@@ -17,7 +18,6 @@ import {
     StructuredProp,
     isEntityTypeSelected,
 } from '@app/govern/structuredProperties/utils';
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 

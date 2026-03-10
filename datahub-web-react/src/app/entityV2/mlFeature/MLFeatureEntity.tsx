@@ -1,6 +1,6 @@
-import { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
 import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';

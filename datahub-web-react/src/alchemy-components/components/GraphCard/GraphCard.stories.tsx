@@ -1,6 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import type { Meta, StoryObj } from '@storybook/react';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { Button } from '@components/components/Button';

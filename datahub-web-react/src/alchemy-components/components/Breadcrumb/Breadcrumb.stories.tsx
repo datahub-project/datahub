@@ -1,4 +1,5 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -7,7 +8,6 @@ import styled, { ThemeProvider } from 'styled-components';
 import { Breadcrumb } from '@components/components/Breadcrumb';
 import { breadcrumbDefaults } from '@components/components/Breadcrumb/defaults';
 import { Icon } from '@components/components/Icon';
-import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 
 import themes from '@conf/theme/themes';
 

@@ -1,7 +1,7 @@
+import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import { useMemo } from 'react';
 
 import { ItemType } from '@components/components/Menu/types';
-import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import { sortMenuItems } from '@components/components/Menu/utils';
 
 import useBasicAssetProperties from '@app/entityV2/summary/properties/hooks/useBasicAssetProperties';

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
@@ -7,6 +5,7 @@ import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import React from 'react';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';

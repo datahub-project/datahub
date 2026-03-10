@@ -1,3 +1,4 @@
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -6,7 +7,6 @@ import { useParentDocumentTitle } from '@app/entityV2/document/changeHistory/hoo
 import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/changeUtils';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import { Icon } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 

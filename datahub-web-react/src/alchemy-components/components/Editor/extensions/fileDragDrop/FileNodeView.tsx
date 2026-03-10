@@ -1,11 +1,11 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,

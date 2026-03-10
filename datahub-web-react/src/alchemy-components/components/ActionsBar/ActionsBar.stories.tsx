@@ -1,4 +1,5 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import styled from 'styled-components';
@@ -7,7 +8,6 @@ import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/A
 import { Button } from '@components/components/Button';
 import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
-import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import colors from '@components/theme/foundations/colors';
 
 // Auto Docs

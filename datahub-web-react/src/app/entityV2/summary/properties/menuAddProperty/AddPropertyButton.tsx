@@ -1,46 +1,46 @@
 import { Button, Menu } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 const StyledButton = styled(Button)`
- // prevent horizontal stretching of the button
- height: 36px;
+    // prevent horizontal stretching of the button
+    height: 36px;
 `;
 
 export default function AddPropertyButton() {
- const [isOpened, setIsOpened] = useState<boolean>(false);
- const { addSummaryElement } = usePageTemplateContext();
+    const [isOpened, setIsOpened] = useState<boolean>(false);
+    const { addSummaryElement } = usePageTemplateContext();
 
- const onAddProperty = useCallback(
- (property: AssetProperty) => {
- addSummaryElement({ elementType: property.type, structuredProperty: property.structuredProperty });
- setIsOpened(false);
- },
- [addSummaryElement],
- );
+    const onAddProperty = useCallback(
+        (property: AssetProperty) => {
+            addSummaryElement({ elementType: property.type, structuredProperty: property.structuredProperty });
+            setIsOpened(false);
+        },
+        [addSummaryElement],
+    );
 
- const menuItems = useAddPropertyMenuItems(onAddProperty);
+    const menuItems = useAddPropertyMenuItems(onAddProperty);
 
- // Hide button if there are no properties available to add
- if (menuItems.length === 0) {
- return null;
- }
+    // Hide button if there are no properties available to add
+    if (menuItems.length === 0) {
+        return null;
+    }
 
- return (
- <Menu open={isOpened} onOpenChange={(open) => setIsOpened(open)} items={menuItems} trigger={['click']}>
- <StyledButton
- color="gray"
- variant="text"
- size="xl"
- isCircle
- icon={{ icon: Plus, color: 'gray', size: '2xl' }}
- data-testid="add-property-button"
- />
- </Menu>
- );
+    return (
+        <Menu open={isOpened} onOpenChange={(open) => setIsOpened(open)} items={menuItems} trigger={['click']}>
+            <StyledButton
+                color="gray"
+                variant="text"
+                size="xl"
+                isCircle
+                icon={{ icon: Plus, color: 'gray', size: '2xl' }}
+                data-testid="add-property-button"
+            />
+        </Menu>
+    );
 }

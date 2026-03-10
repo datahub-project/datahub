@@ -1,6 +1,5 @@
-import styled from 'styled-components';
-
 import React from 'react';
+import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 import { TextAreaProps } from '@components/components/TextArea/types';

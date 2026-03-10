@@ -31,9 +31,7 @@ export default function useShowToast() {
             placement: 'bottomRight',
             duration: 0,
             icon: <Icon icon={Info} weight="fill" color="blue" />,
-            closeIcon: (
-                <Icon icon={X} color="blue" size="lg" data-testid="toast-notification-close-icon" />
-            ),
+            closeIcon: <Icon icon={X} color="blue" size="lg" data-testid="toast-notification-close-icon" />,
             style: notificationStyles,
         });
     }

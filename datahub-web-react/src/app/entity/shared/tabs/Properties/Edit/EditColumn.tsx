@@ -1,10 +1,10 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Icon, Text, colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';

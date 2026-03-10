@@ -1,13 +1,13 @@
 import { Tooltip } from '@components';
-import React from 'react';
-import styled from 'styled-components';
-
-import { Icon } from '@components/components/Icon';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import React from 'react';
+import styled from 'styled-components';
+
+import { Icon } from '@components/components/Icon';
 import {
     ErrorMessage,
     HelperText,
@@ -119,9 +119,7 @@ export const Input = ({
                         {warning && <Icon icon={Warning} color="yellow" size="lg" />}
                     </Tooltip>
                 )}
-                {!!onClear && value && (
-                    <ClearIcon className="clear-search" icon={X} size="lg" onClick={onClear} />
-                )}
+                {!!onClear && value && <ClearIcon className="clear-search" icon={X} size="lg" onClick={onClear} />}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}

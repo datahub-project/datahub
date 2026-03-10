@@ -1,6 +1,6 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
-import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import { useDraggable } from '@dnd-kit/core';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 

@@ -1,9 +1,9 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
 import { Icon, IconProps } from '@components/components/Icon';
 import { NotificationType } from '@components/components/Notification/types';
-import { X } from '@phosphor-icons/react/dist/csr/X';
 
 const IconWrapper = styled.div`
     display: flex;

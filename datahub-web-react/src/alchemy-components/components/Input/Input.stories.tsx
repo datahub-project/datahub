@@ -52,9 +52,7 @@ const meta = {
             description: 'The icon to display in the Input.',
             type: 'string',
             options: MATERIAL_UI_ICONS,
-            mapping: Object.fromEntries(
-                MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }]),
-            ),
+            mapping: Object.fromEntries(MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }])),
             table: {
                 defaultValue: { summary: 'undefined' },
             },

@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 
@@ -14,7 +15,6 @@ import {
 } from '@app/govern/structuredProperties/styledComponents';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import { PropValueField, StructuredProp, valueTypes } from '@app/govern/structuredProperties/utils';
-import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 

@@ -1,4 +1,5 @@
 import { Icon, Switch, Text } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import cronstrue from 'cronstrue';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -13,7 +14,6 @@ import { useScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/s
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
-import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const SectionContainer = styled.div`
     display: flex;

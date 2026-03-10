@@ -1,3 +1,4 @@
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React, { useState } from 'react';
 
 import { AvatarImage, AvatarImageWrapper, AvatarText, Container } from '@components/components/Avatar/components';
@@ -5,7 +6,6 @@ import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
-import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 

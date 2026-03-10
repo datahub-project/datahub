@@ -1,4 +1,5 @@
 import { Dropdown, colors } from '@components';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled from 'styled-components';
@@ -6,7 +7,6 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import { StyledIcon } from '@app/homeV3/styledComponents';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -107,12 +107,7 @@ export default function EditHomePageSettingsButton() {
                         trigger={['click']}
                         dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
                     >
-                        <StyledIcon
-                            icon={Gear}
-                            color="gray"
-                            size="4xl"
-                            data-testid="edit-home-page-settings"
-                        />
+                        <StyledIcon icon={Gear} color="gray" size="4xl" data-testid="edit-home-page-settings" />
                     </Dropdown>
                 </ButtonWrapper>,
                 document.body,

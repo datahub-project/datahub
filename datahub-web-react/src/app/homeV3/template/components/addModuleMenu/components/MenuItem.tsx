@@ -1,8 +1,7 @@
 import { Icon, Text, Tooltip } from '@components';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 
 import spacing from '@components/theme/foundations/spacing';
 
@@ -68,9 +67,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
 
             <SpaceFiller />
 
-            {hasChildren && (
-                <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />
-            )}
+            {hasChildren && <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />}
         </Wrapper>
     );
 

@@ -1,56 +1,56 @@
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { MatchLabelText, SearchContainer, StyledInput } from '@app/entityV2/shared/components/search/styledComponents';
 import { pluralize } from '@src/app/shared/textUtil';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 
 interface InlineListSearchProps {
- searchText: string;
- debouncedSetFilterText: (value: string) => void;
- matchResultCount: number;
- numRows: number;
- options?: {
- hidePrefix?: boolean;
- placeholder?: string;
- allowClear?: boolean;
- hideMatchCountText?: boolean;
- };
- entityTypeName: string;
+    searchText: string;
+    debouncedSetFilterText: (value: string) => void;
+    matchResultCount: number;
+    numRows: number;
+    options?: {
+        hidePrefix?: boolean;
+        placeholder?: string;
+        allowClear?: boolean;
+        hideMatchCountText?: boolean;
+    };
+    entityTypeName: string;
 }
 
 export const InlineListSearch: React.FC<InlineListSearchProps> = ({
- searchText,
- debouncedSetFilterText,
- matchResultCount,
- numRows,
- entityTypeName,
- options,
+    searchText,
+    debouncedSetFilterText,
+    matchResultCount,
+    numRows,
+    entityTypeName,
+    options,
 }) => {
- const [localSearchText, setLocalSearchText] = useState(searchText);
+    const [localSearchText, setLocalSearchText] = useState(searchText);
 
- useDebounce(
- () => {
- debouncedSetFilterText(localSearchText);
- },
- 500,
- [localSearchText],
- );
+    useDebounce(
+        () => {
+            debouncedSetFilterText(localSearchText);
+        },
+        500,
+        [localSearchText],
+    );
 
- return (
- <SearchContainer>
- <StyledInput
- value={localSearchText}
- placeholder={options?.placeholder || 'Search...'}
- onChange={(e) => setLocalSearchText(e.target.value)}
- icon={options?.hidePrefix ? undefined : { icon: MagnifyingGlass}}
- label=""
- />
- {searchText && !options?.hideMatchCountText && (
- <MatchLabelText data-testid="inline-search-matched-result-text">
- Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
- </MatchLabelText>
- )}
- </SearchContainer>
- );
+    return (
+        <SearchContainer>
+            <StyledInput
+                value={localSearchText}
+                placeholder={options?.placeholder || 'Search...'}
+                onChange={(e) => setLocalSearchText(e.target.value)}
+                icon={options?.hidePrefix ? undefined : { icon: MagnifyingGlass }}
+                label=""
+            />
+            {searchText && !options?.hideMatchCountText && (
+                <MatchLabelText data-testid="inline-search-matched-result-text">
+                    Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
+                </MatchLabelText>
+            )}
+        </SearchContainer>
+    );
 };
