@@ -237,7 +237,7 @@ For smart assertions with bucketing enabled, you can also configure **historical
 
 Once these are in place, you're ready to create your Volume Assertions!
 
-You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+You can also apply Smart Volume Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
 
 ### Steps
 

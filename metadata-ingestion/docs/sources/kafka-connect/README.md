@@ -81,12 +81,17 @@ DataHub supports different connector types with varying levels of lineage extrac
 | **Cloud PostgreSQL Sink**<br/>`PostgresSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud MySQL Sink**<br/>`MySqlSink`                                           | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Debezium JDBC Sink**<br/>`io.debezium.connector.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
+| **Confluent JDBC Sink**<br/>`io.confluent.connect.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
 
 **Legend:**
 
 - ✅ **Full**: Complete lineage extraction with accurate topic discovery
 - ✅ **Partial**: Lineage extraction supported but topic discovery may be limited (config-based only)
 - 🔧 **Config Required**: Requires `generic_connectors` configuration for lineage mapping
+- ❌ **Not supported**: Connector class is not used in this environment
+
+**Note on JDBC Sink connectors in Confluent Cloud:** `io.debezium.connector.jdbc.JdbcSinkConnector` and `io.confluent.connect.jdbc.JdbcSinkConnector` are not Confluent Cloud managed connectors — they can only appear as custom (self-managed) connectors deployed against a Confluent Cloud Kafka cluster. When present, DataHub supports lineage extraction for them, but with one limitation: the target platform (e.g. `postgres`, `mysql`, `oracle`, `mssql`) must be auto-detected from the `connection.url` field in the connector configuration. If `connection.url` is absent or uses an unrecognised JDBC scheme, platform detection will fail and a warning will be emitted. For Confluent Cloud managed JDBC sink connectors, use the dedicated `PostgresSink` or `MySqlSink` connector classes instead, which have explicit platform support.
 
 ### Supported Transforms
 
