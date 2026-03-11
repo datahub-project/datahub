@@ -187,8 +187,22 @@ public class AssertionServiceTest {
   @Test
   public void testAddAssertionRunEventRequiredFields() throws Exception, RemoteInvocationException {
     SystemEntityClient mockedEntityClient = mock(SystemEntityClient.class);
-    AssertionService assertionService =
-        new AssertionService(mockedEntityClient, mock(GraphClient.class));
+    GraphClient mockGraphClient = mock(GraphClient.class);
+    Mockito.when(
+            mockGraphClient.getRelatedEntities(
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ImmutableSet.of("Asserts")),
+                Mockito.eq(RelationshipDirection.OUTGOING),
+                Mockito.eq(0),
+                Mockito.eq(1),
+                Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setTotal(1)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(new EntityRelationship().setEntity(TEST_DATASET_URN)))));
+    AssertionService assertionService = new AssertionService(mockedEntityClient, mockGraphClient);
     Long eventtime = 1718619000000L;
 
     Mockito.doAnswer(
@@ -230,8 +244,22 @@ public class AssertionServiceTest {
   @Test
   public void testAddAssertionRunEventAllFields() throws Exception, RemoteInvocationException {
     SystemEntityClient mockedEntityClient = mock(SystemEntityClient.class);
-    AssertionService assertionService =
-        new AssertionService(mockedEntityClient, mock(GraphClient.class));
+    GraphClient mockGraphClient = mock(GraphClient.class);
+    Mockito.when(
+            mockGraphClient.getRelatedEntities(
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ImmutableSet.of("Asserts")),
+                Mockito.eq(RelationshipDirection.OUTGOING),
+                Mockito.eq(0),
+                Mockito.eq(1),
+                Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setTotal(1)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(new EntityRelationship().setEntity(TEST_DATASET_URN)))));
+    AssertionService assertionService = new AssertionService(mockedEntityClient, mockGraphClient);
     Long eventtime = 1718619000000L;
     StringMap nativeResults = new StringMap(Map.of("prop-1", "value-1"));
     StringMap errorProps = new StringMap(Map.of("message", "errorMessage"));
