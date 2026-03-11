@@ -1,6 +1,7 @@
 import contextlib
 import json
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -8,7 +9,8 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -311,3 +313,33 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
         emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
         stack.enter_context(emitter)
         emitter.emit(record)
+
+
+@patch("datahub.ingestion.sink.datahub_rest._DEFAULT_EMIT_MODE", EmitMode.ASYNC)
+def test_emit_batch_wrapper_uses_default_emit_mode():
+    """Regression test: _emit_batch_wrapper must pass _DEFAULT_EMIT_MODE
+    through to emit_mcps. Patched to ASYNC so the test is isolated from
+    env var state. See f7496b6dcc."""
+
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        aspect=models.StatusClass(removed=False),
+    )
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.return_value = 1
+
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = MagicMock()
+    type(sink).emitter = property(lambda self: mock_emitter)
+    sink.report = MagicMock()
+
+    sink._emit_batch_wrapper([(mcp,)])
+
+    mock_emitter.emit_mcps.assert_called_once()
+    call_kwargs = mock_emitter.emit_mcps.call_args
+    actual_mode = call_kwargs[1]["emit_mode"]
+    assert actual_mode == EmitMode.ASYNC, (
+        f"Expected _DEFAULT_EMIT_MODE (patched to ASYNC) but got {actual_mode}. "
+        "The batch wrapper must pass _DEFAULT_EMIT_MODE through to emit_mcps."
+    )
