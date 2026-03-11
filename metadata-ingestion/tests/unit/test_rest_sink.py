@@ -1,5 +1,6 @@
 import contextlib
 import json
+import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -330,8 +331,8 @@ def test_emit_batch_wrapper_uses_default_emit_mode():
     mock_emitter.emit_mcps.return_value = 1
 
     sink = DatahubRestSink.__new__(DatahubRestSink)
-    sink._emitter_thread_local = MagicMock()
-    type(sink).emitter = property(lambda self: mock_emitter)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
     sink.report = MagicMock()
 
     sink._emit_batch_wrapper([(mcp,)])
