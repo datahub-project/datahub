@@ -8,6 +8,7 @@ from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
 from datahub.ingestion.source.fabric.common.models import FabricJobInstance
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
+from datahub.ingestion.source.fabric.data_factory.models import PipelineActivity
 
 logger = logging.getLogger(__name__)
 
@@ -79,3 +80,47 @@ class FabricDataFactoryClient(FabricCoreClient):
             runs.append(job_instance)
 
         return runs
+
+    def get_pipeline_activities(
+        self,
+        workspace_id: str,
+        pipeline_id: str,
+    ) -> List[PipelineActivity]:
+        """Fetch pipeline definition and parse activities from it.
+
+        Uses the Core API's get_item_definition() to retrieve the pipeline
+        definition, then extracts activities from the pipeline-content.json part.
+        Malformed activities (missing name/type) are skipped.
+
+        Args:
+            workspace_id: Workspace GUID
+            pipeline_id: Data Pipeline item GUID
+
+        Returns:
+            List of PipelineActivity parsed from the definition.
+        """
+        parts = self.get_item_definition(workspace_id, pipeline_id)
+
+        for part in parts:
+            if part.get("path") == "pipeline-content.json":
+                content = part.get("content", {})
+                if not isinstance(content, dict):
+                    break
+                raw_activities = content.get("properties", {}).get("activities", [])
+                activities: List[PipelineActivity] = []
+                for activity_dict in raw_activities:
+                    if not isinstance(activity_dict, dict):
+                        continue
+                    try:
+                        activities.append(PipelineActivity.from_dict(activity_dict))
+                    except KeyError as e:
+                        logger.debug(
+                            f"Skipping malformed activity in pipeline "
+                            f"{pipeline_id}: missing required field {e}"
+                        )
+                return activities
+
+        logger.warning(
+            f"No pipeline-content.json found in definition for pipeline {pipeline_id}"
+        )
+        return []
