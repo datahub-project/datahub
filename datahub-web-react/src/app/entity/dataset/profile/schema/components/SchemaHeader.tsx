@@ -15,6 +15,7 @@ import styled from 'styled-components/macro';
 
 import CustomPagination from '@app/entity/dataset/profile/schema/components/CustomPagination';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import getSchemaFilterFromQueryString from '@app/entity/shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
 import { navigateToVersionedDatasetUrl } from '@app/entity/shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';

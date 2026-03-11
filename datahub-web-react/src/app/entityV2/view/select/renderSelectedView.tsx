@@ -5,6 +5,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewLabel } from '@app/entityV2/view/select/styledComponents';
 import { colors } from '@src/alchemy-components';

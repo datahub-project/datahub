@@ -33,6 +33,7 @@ export class DocumentEntity implements Entity<Document> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
             return <FileText size={fontSize || 20} color={color || '#1890ff'} weight="duotone" />;
         }
 

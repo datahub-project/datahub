@@ -8,6 +8,7 @@ import { ActionsBar, ActionsBarProps } from '@components/components/ActionsBar/A
 import { Button } from '@components/components/Button';
 import { Drawer } from '@components/components/Drawer/Drawer';
 import { Icon } from '@components/components/Icon';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@components/theme/foundations/colors';
 
 // Auto Docs

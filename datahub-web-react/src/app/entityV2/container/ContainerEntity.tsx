@@ -47,6 +47,7 @@ export class ContainerEntity implements Entity<Container> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
             return <FolderOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 

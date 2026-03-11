@@ -49,6 +49,7 @@ export class DomainEntity implements Entity<Domain> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
             return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 

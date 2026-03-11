@@ -8,6 +8,7 @@ import React from 'react';
 import { IncidentStageLabel } from '@components/components/IncidentStagePill/constant';
 import { Pill } from '@components/components/Pills';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { IncidentStage } from '@src/types.generated';
 

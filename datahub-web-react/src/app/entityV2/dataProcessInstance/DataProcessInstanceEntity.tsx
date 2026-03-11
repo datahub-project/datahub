@@ -43,6 +43,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
             return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 

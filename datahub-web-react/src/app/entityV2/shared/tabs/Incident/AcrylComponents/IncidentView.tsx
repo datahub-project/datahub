@@ -32,6 +32,7 @@ import { IconType } from '@src/alchemy-components/components/IconLabel/types';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

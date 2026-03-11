@@ -105,6 +105,7 @@ export class DatasetEntity implements Entity<Dataset> {
             return (
                 <ViewComfyOutlinedIcon
                     className={TYPE_ICON_CLASS_NAME}
+                    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
                     style={{ fontSize, color: color || '#B37FEB' }}
                 />
             );

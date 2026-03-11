@@ -8,6 +8,7 @@ import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { createDefaultDocumentInput, extractRelatedAssetUrns, mergeUrns } from '@app/document/utils/documentUtils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { colors } from '@src/alchemy-components/theme';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';

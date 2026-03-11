@@ -56,6 +56,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
+                // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
                 <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />
             );
         }

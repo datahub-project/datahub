@@ -53,6 +53,7 @@ export class ApplicationEntity implements Entity<Application> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
+                // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
                 <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
             );
         }
@@ -68,6 +69,7 @@ export class ApplicationEntity implements Entity<Application> {
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
+                    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
                     color: color || '#BFBFBF',
                 }}
             />

@@ -11,7 +11,6 @@ import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
 import { TabType } from '@app/entityV2/group/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -28,6 +27,7 @@ import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { useGetGroupQuery } from '@graphql/group.generated';
@@ -47,7 +47,7 @@ const GroupProfileWrapper = styled.div`
         margin: 0;
     }
 
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     overflow: hidden;
     height: 100%;
@@ -59,7 +59,7 @@ const GroupProfileWrapper = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && `border-right: 1px solid ${REDESIGN_COLORS.SIDE_BAR_BORDER_RIGHT};`}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: inherit;
 `;
 

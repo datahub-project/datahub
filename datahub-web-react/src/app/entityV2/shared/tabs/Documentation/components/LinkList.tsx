@@ -10,7 +10,6 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -30,7 +29,7 @@ const LinkListItem = styled(List.Item)`
         }
     }
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgHover};
         ${LinkButtonsContainer} {
             > .ant-btn {
                 opacity: 1;

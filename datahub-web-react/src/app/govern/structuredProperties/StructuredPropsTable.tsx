@@ -144,6 +144,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
+                            {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once brand purple token is added */}
                             <TableIcon color="#705EE4" />
                         </IconContainer>
                         <DataContainer>

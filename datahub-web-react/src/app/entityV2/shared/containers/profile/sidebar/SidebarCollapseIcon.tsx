@@ -4,7 +4,6 @@ import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { getColor } from '@src/alchemy-components/theme/utils';
 
@@ -37,11 +36,11 @@ const CloseButton = styled.div<{ $isClosed: boolean }>`
         props.$isClosed &&
         `
         background-color: ${getColor('primary', 600, props.theme)};
-        color: ${REDESIGN_COLORS.WHITE};  
+        color: ${(p) => p.theme.colors.bg};
     `}
     :hover {
         background-color: ${(p) => getColor('primary', 600, p.theme)};
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(p) => p.theme.colors.bg};
     }
 `;
 

@@ -10,6 +10,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(9, 1, 61, 0.12) is mapped
         box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
         border-radius: 12px;
     }
@@ -18,7 +19,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren }) => (hasChildren ? `1px solid #F0F0F0` : '0')};
+        border-bottom: ${({ hasChildren, theme }) => (hasChildren ? `1px solid ${theme.colors.border}` : '0')};
     }
 
     .ant-modal-body {

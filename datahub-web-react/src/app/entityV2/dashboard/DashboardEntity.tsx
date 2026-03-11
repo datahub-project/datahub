@@ -82,6 +82,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             return (
                 <DashboardFilled
                     className={TYPE_ICON_CLASS_NAME}
+                    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
                     style={{ fontSize, color: color || 'rgb(144 163 236)' }}
                 />
             );

@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { getActorDisplayName, isActor } from '@app/entityV2/shared/utils/actorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Document } from '@types';

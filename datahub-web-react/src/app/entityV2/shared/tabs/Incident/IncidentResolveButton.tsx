@@ -69,6 +69,7 @@ export const IncidentResolveButton = ({
     };
 
     const checkIconRenderer = () => {
+        // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once success color token is added
         return <Check color="#248F5B" height={9} width={12} />;
     };
 

@@ -54,6 +54,7 @@ export const Preview = ({
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
+            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token
             typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
             owners={owners}
             insights={insights}

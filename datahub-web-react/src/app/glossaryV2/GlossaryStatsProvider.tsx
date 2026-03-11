@@ -4,6 +4,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 import OwnersIcon from '@images/glossary_account_circle.svg?react';

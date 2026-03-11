@@ -54,6 +54,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return (
+                // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once entity-specific color tokens are added
                 <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
             );
         }
