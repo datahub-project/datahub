@@ -1,24 +1,26 @@
+### Overview
+
+The `mysql` module ingests metadata from Mysql into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
 ### Prerequisites
 
-In order to execute this source the user credentials needs the following privileges
+Grant the following privileges to the ingestion user:
 
-- `grant select on DATABASE.* to 'USERNAME'@'%'`
-- `grant show view on DATABASE.* to 'USERNAME'@'%'`
+- `grant select on DATABASE.* to 'USERNAME'@'%'` (required for metadata and profiling)
+- `grant show view on DATABASE.* to 'USERNAME'@'%'` (required for view definitions)
 
-`select` is required to see the table structure as well as for profiling.
+#### AWS RDS IAM Authentication
 
-### AWS RDS IAM Authentication
-
-For AWS RDS MySQL instances, you can use IAM authentication instead of traditional username/password authentication.
+AWS RDS MySQL supports IAM authentication instead of username/password.
 
 **Setup:**
 
-Follow the [AWS RDS IAM Database Authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) documentation to:
+Follow [AWS RDS IAM Database Authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) to:
 
-- Enable IAM database authentication on your RDS instance
-- Create database users that use IAM authentication
-- Configure IAM policies with `rds-db:connect` permissions
+1. Enable IAM database authentication on your RDS instance
+2. Create database users with IAM authentication
+3. Configure IAM policies with `rds-db:connect` permissions
 
 **Configuration:**
 
-Set `auth_mode: "AWS_IAM"` in your recipe and optionally configure `aws_config` for AWS credentials and region (see example below). If `aws_config` is not specified, boto3 will automatically use the default credential chain from environment variables, AWS config files, or IAM role metadata.
+Set `auth_mode: "AWS_IAM"` in your recipe. Optionally configure `aws_config` for credentials and region (defaults to boto3's credential chain).

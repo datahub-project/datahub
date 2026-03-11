@@ -377,16 +377,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 )
 class SQLServerSource(SQLAlchemySource):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, views and tables
-    - Column types associated with each table/view
-    - Table, row, and column statistics via optional SQL profiling
+    Source that extracts metadata from Microsoft SQL Server via SQLAlchemy.
 
-    Two source types are available:
-    - `mssql`: Uses [python-tds](https://github.com/denisenkom/pytds) library (pure Python, easier to install)
-    - `mssql-odbc`: Uses [pyodbc](https://github.com/mkleehammer/pyodbc) library (required for encryption, Azure managed services)
-
-    If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
+    Implementation notes:
+    - Supports both python-tds (mssql) and pyodbc (mssql-odbc) backends
+    - Uses MSSQLLineageExtractor for extracting stored procedure and view lineage via T-SQL parsing
+    - Implements SqlParsingAggregator for query-based lineage from Query Store or DMVs
+    - Fetches extended properties for table and column descriptions
+    - Uses three-part naming (database.schema.table) for URN generation
     """
 
     report: SQLSourceReport

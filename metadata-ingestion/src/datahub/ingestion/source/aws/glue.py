@@ -286,77 +286,13 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 )
 class GlueSource(StatefulIngestionSourceBase):
     """
-    Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+    Source that extracts tables, databases, and jobs from AWS Glue Data Catalog.
 
-    This plugin extracts the following:
-
-    - Tables in the Glue catalog
-    - Column types associated with each table
-    - Table metadata, such as owner, description and parameters
-    - Jobs and their component transformations, data sources, and data sinks
-
-    ### IAM permissions
-
-    For ingesting datasets, the following IAM permissions are required:
-    ```json
-    {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetDatabases",
-            "glue:GetTables"
-        ],
-        "Resource": [
-            "arn:aws:glue:$region-id:$account-id:catalog",
-            "arn:aws:glue:$region-id:$account-id:database/*",
-            "arn:aws:glue:$region-id:$account-id:table/*"
-        ]
-    }
-    ```
-
-    For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
-    ```json
-    {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetDataflowGraph",
-            "glue:GetJobs",
-            "s3:GetObject",
-        ],
-        "Resource": "*"
-    }
-    ```
-
-    For profiling datasets, the following additional permissions are required:
-    ```json
-        {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetPartitions",
-        ],
-        "Resource": "*"
-    }
-    ```
-
-    ### Glue Cross-account Access
-
-    Glue ingestion supports cross-account access and lineage by allowing you to specify the target AWS account's Glue catalog using the `catalog_id` parameter in the ingestion recipe.
-    This enables ingestion of Glue metadata from different AWS accounts, supporting cross-account lineage scenarios.
-    You must ensure the correct IAM roles and permissions are set up for cross-account access.
-
-    Example: There are 2 AWS accounts A and B, A has shared metadata with B. Account A has Glue table - tableA.
-    If you ingest account A using Glue it will create dataset tableA in DataHub.
-    If you want to ingest tableA via account B you can pass `catalog_id` parameter in recipe with A's catalog id.
-
-    **Ingestion without platform instance parameter**
-    - If both catalogs are ingested without platform instance parameter, DataHub should be able to understand that the database and tables are same
-    - DataHub will create single entity for table tableA
-    - It should show lineage between Glue and S3.
-      You have to ingest S3 as separate source (https://docs.datahub.com/docs/generated/ingestion/sources/s3)
-
-    **Ingestion with platform instance parameter**
-    - It will create separate entities for tableA as it will have different URN path
-    - It should show lineage between Glue and S3
-
+    Implementation notes:
+    - Uses boto3 Glue client to fetch metadata
+    - Supports cross-account access via catalog_id parameter
+    - Job lineage extraction requires Glue Studio scripts with proper annotations
+    - Caches LF tags to reduce API calls
     """
 
     source_config: GlueSourceConfig
@@ -951,23 +887,25 @@ class GlueSource(StatefulIngestionSourceBase):
                     s3_dataset_urn = make_s3_urn_for_lineage(
                         location, self.source_config.env
                     )
-                    assert self.ctx.graph
-                    schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
-                        self.ctx.graph.get_schema_metadata(s3_dataset_urn)
-                    )
 
                     if self.source_config.glue_s3_lineage_direction == "upstream":
+                        if self.ctx.graph:
+                            schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
+                                s3_dataset_urn
+                            )
+                        else:
+                            schema_metadata_for_s3 = None
+
                         fine_grained_lineages = None
                         if (
                             self.source_config.include_column_lineage
                             and schema_metadata
-                            and schema_metadata_for_s3
                         ):
                             fine_grained_lineages = self.get_fine_grained_lineages(
                                 mce.proposedSnapshot.urn,
                                 s3_dataset_urn,
                                 schema_metadata,
-                                schema_metadata_for_s3,
+                                schema_metadata_for_s3 or schema_metadata,
                             )
                         upstream_lineage = UpstreamLineageClass(
                             upstreams=[

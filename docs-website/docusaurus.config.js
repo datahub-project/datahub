@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><span>February Town Hall 2/26</span><a href="https://luma.com/zp3h4ex8?utm_term=docs" target="_blank" class="button"><div>Register Here<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>February Town Hall 2/26</span><a href="https://www.youtube.com/watch?v=vXJd2ho0i-o&list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9?utm_term=docs" target="_blank" class="button"><div>Watch the Recording<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -329,6 +329,10 @@ module.exports = {
       contextualSearch: true,
       // debug: true,
     },
+    tableOfContents: {
+      minHeadingLevel: 2,
+      maxHeadingLevel: 4,
+    },
   },
   presets: [
     [
@@ -351,6 +355,17 @@ module.exports = {
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
+          // Exclude internal files from public docs
+          // Note: We must include Docusaurus defaults since providing exclude overrides them
+          exclude: [
+            // Docusaurus defaults
+            '**/_*.{js,jsx,ts,tsx,md,mdx}',
+            '**/_*/**',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+            // Our additions
+            'metadata-ingestion/**/CLAUDE.md',
+          ],
         },
         blog: {
           blogTitle: "DataHub Learn",
