@@ -247,7 +247,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                    batch_size=self.config.schema_resolution_batch_size,
                 )
             else:
                 logger.warning(

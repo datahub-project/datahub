@@ -162,7 +162,12 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 
 
 class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
-    def __init__(self, config: DatahubClientConfig) -> None:
+    def __init__(
+        self,
+        config: DatahubClientConfig,
+        *,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
+    ) -> None:
         self.config = config
         super().__init__(
             gms_server=self.config.server,
@@ -181,7 +186,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
-        self._schema_resolver_provider = SchemaResolverProvider(graph=self)
+        self._schema_resolver_provider = (
+            schema_resolver_provider or SchemaResolverProvider(graph=self)
+        )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1562,15 +1569,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        batch_size: Optional[int] = None,
-        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
-        # These only take effect before the first get() call for this (platform, instance, env).
-        # Subsequent calls return the cached resolver unchanged.
-        if batch_size is not None:
-            self._schema_resolver_provider._batch_size = batch_size
-        if report is not None:
-            self._schema_resolver_provider._report = report
         return self._schema_resolver_provider.get(platform, platform_instance, env)
 
     def parse_sql_lineage(
