@@ -1,12 +1,12 @@
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.delta_lake.config import (
     AzureBlob,
     DeltaLakeSourceConfig,
 )
 from datahub.ingestion.source.delta_lake.source import DeltaLakeSource
-from datahub.metadata.schema_classes import DomainsClass
 
 
 @pytest.mark.parametrize(
@@ -56,19 +56,35 @@ def test_delta_lake_azure_storage_options_from_account_key() -> None:
     assert storage_options["access_key"] == "my-secret"
 
 
-def test_delta_lake_strip_azure_prefix() -> None:
+@pytest.mark.parametrize(
+    ("path", "expected_browse_path"),
+    [
+        (
+            "abfss://container@acct.dfs.core.windows.net/delta/table",
+            "container/delta/table",
+        ),
+        ("az://container/delta/table", "container/delta/table"),
+        (
+            "https://acct.dfs.core.windows.net/container/delta/table",
+            "container/delta/table",
+        ),
+        (
+            "https://acct.blob.core.windows.net/container/delta/table",
+            "container/delta/table",
+        ),
+    ],
+)
+def test_delta_lake_strip_azure_prefix(path: str, expected_browse_path: str) -> None:
     config = DeltaLakeSourceConfig.model_validate(
         {
             "base_path": "abfss://container@acct.dfs.core.windows.net/delta/table",
-            "azure": {"account_key": "my-secret"},
+            "azure": {"account_key": "my-secret", "account_name": "acct"},
         }
     )
     source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-azure-test"))
 
-    browse_path = source.strip_azure_prefix(
-        "abfss://container@acct.dfs.core.windows.net/delta/table"
-    )
-    assert browse_path == "container/delta/table"
+    browse_path = source.strip_azure_prefix(path)
+    assert browse_path == expected_browse_path
 
 
 def test_delta_lake_az_path_requires_account_name() -> None:
@@ -84,31 +100,21 @@ def test_delta_lake_az_path_requires_account_name() -> None:
         source.get_storage_options()
 
 
-def test_delta_lake_domain_assignment_workunit() -> None:
+def test_delta_lake_folder_listing_rejects_unified_credential() -> None:
     config = DeltaLakeSourceConfig.model_validate(
         {
             "base_path": "abfss://container@acct.dfs.core.windows.net/delta",
-            "azure": {"account_key": "my-secret"},
-            "domain": {
-                "urn:li:domain:some-test": {
-                    "allow": ["container/delta/.*"],
-                }
+            "azure": {
+                "credential": AzureCredentialConfig(
+                    authentication_method="cli"
+                ).model_dump()
             },
         }
     )
-    source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-domain-test"))
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:delta-lake,container/delta/table,PROD)"
-    )
+    source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-azure-test"))
 
-    domain_workunits = list(
-        source._get_domain_wu(
-            dataset_name="container/delta/table",
-            dataset_urn=dataset_urn,
-        )
-    )
-
-    assert len(domain_workunits) == 1
-    domain_aspect = domain_workunits[0].get_aspect_of_type(DomainsClass)
-    assert domain_aspect is not None
-    assert list(domain_aspect.domains) == ["urn:li:domain:some-test"]
+    with pytest.raises(
+        ValueError,
+        match="Azure folder discovery reuses shared Azure Blob helpers",
+    ):
+        list(source.azure_get_folders(config.base_path))

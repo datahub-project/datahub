@@ -156,6 +156,10 @@ The above recipes are minimal recipes. Please refer to [Config Details](#config-
 
 You can ingest Delta tables stored in Azure using `abfss://`, `abfs://`, `az://`, `adl://`, or Azure HTTPS paths.
 
+Azure folder discovery reuses shared Azure Blob helpers from the Azure ingestion module.
+As a result, recursive folder scanning requires static credentials in `source.config.azure`
+(`account_key`, `sas_token`, or `client_id` + `client_secret` + `tenant_id`).
+
 #### Example using account key
 
 ```yaml
@@ -192,3 +196,27 @@ sink:
 ```
 
 If you use `az://` or `adl://` URIs, set `azure.account_name` explicitly.
+
+If you use `azure.credential` (unified token-based auth), use `base_path` that points directly
+to a Delta table. Token-based credential is not used for recursive folder listing.
+
+### Assigning domains with a transformer
+
+Delta Lake source does not provide connector-specific `domain` config.
+To assign domains, use the dataset transformer `simple_add_dataset_domain`.
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "abfss://my-container@myaccount.dfs.core.windows.net/delta/sales"
+
+transformers:
+  - type: "simple_add_dataset_domain"
+    config:
+      domains:
+        - ${DATAHUB_DOMAIN_URN}
+```
+
+For additional options (`PATCH`, `replace_existing`, multiple domains), see
+[Simple Add Dataset Domains](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-domains).

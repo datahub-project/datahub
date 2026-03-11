@@ -831,12 +831,6 @@
           "supported": true
         },
         {
-          "capability": "DOMAINS",
-          "description": "Supported via the `domain` config field",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
           "subtype_modifier": null,

@@ -1,6 +1,6 @@
 import logging
 from functools import cached_property
-from typing import Dict, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -175,10 +175,6 @@ class DeltaLakeSourceConfig(
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
-    )
-    domain: Dict[str, AllowDenyPattern] = Field(
-        default=dict(),
-        description='Attach domains to Delta tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing". If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
     version_history_lookback: Optional[int] = Field(
         default=1,
