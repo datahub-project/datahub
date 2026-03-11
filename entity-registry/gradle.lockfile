@@ -282,6 +282,7 @@ org.apache.velocity:velocity-engine-core:2.4=testRuntimeClasspath
 org.apache.yetus:audience-annotations:0.12.0=pegasusPlugin,restClient,restClientCompile,testRestClient,testRuntimeClasspath
 org.apache.zookeeper:zookeeper-jute:3.8.6=pegasusPlugin,restClient,restClientCompile,testRestClient,testRuntimeClasspath
 org.apache.zookeeper:zookeeper:3.8.6=pegasusPlugin,restClient,restClientCompile,testRestClient,testRuntimeClasspath
+org.assertj:assertj-core:3.11.1=testCompileClasspath,testRuntimeClasspath
 org.checkerframework:checker-qual:2.6.0=dataTemplateCompile,testFixturesCompileClasspath
 org.checkerframework:checker-qual:3.37.0=compileClasspath,dataModel,dataTemplate,runtimeClasspath,testCompileClasspath,testDataModel,testDataTemplate,testFixturesRuntimeClasspath
 org.checkerframework:checker-qual:3.42.0=pegasusPlugin,restClient,restClientCompile,testRestClient,testRuntimeClasspath
