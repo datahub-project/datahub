@@ -404,7 +404,7 @@
         }
       ],
       "classname": "datahub.ingestion.source.usage.clickhouse_usage.ClickHouseUsageSource",
-      "platform_id": "clickhouse-usage",
+      "platform_id": "clickhouse",
       "platform_name": "ClickHouse",
       "support_status": "CERTIFIED"
     },
@@ -1702,9 +1702,9 @@
         },
         {
           "capability": "DOMAINS",
-          "description": "Supported via the `domain` config field",
+          "description": "Currently not supported.",
           "subtype_modifier": null,
-          "supported": true
+          "supported": false
         },
         {
           "capability": "OWNERSHIP",
@@ -2794,9 +2794,8 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
-            "Table",
             "View"
           ],
           "supported": true
@@ -3628,7 +3627,7 @@
         }
       ],
       "classname": "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource",
-      "platform_id": "starburst-trino-usage",
+      "platform_id": "trino",
       "platform_name": "Trino",
       "support_status": "CERTIFIED"
     },
@@ -3852,9 +3851,8 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
-            "Table",
             "View"
           ],
           "supported": true
