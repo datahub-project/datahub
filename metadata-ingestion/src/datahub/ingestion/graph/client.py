@@ -1562,7 +1562,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform: str,
         platform_instance: Optional[str],
         env: str,
+        batch_size: Optional[int] = None,
     ) -> "SchemaResolver":
+        if batch_size is not None:
+            self._schema_resolver_provider._batch_size = batch_size
         return self._schema_resolver_provider.get(platform, platform_instance, env)
 
     def parse_sql_lineage(
