@@ -74,18 +74,12 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
 
   EXTRACTION_COMPLETE="${WORK_DIR}/.extraction-complete"
 
-  # Idempotent extraction with validation: reuse if valid, cleanup if incomplete
+  # Always do fresh extraction (no reuse to avoid stale data on image updates)
   EXTRACTION_SUCCESS=false
 
-  if [[ -d "$WORK_DIR/BOOT-INF/classes" ]]; then
-    echo "[STARTUP] Reusing valid previous extraction from $WORK_DIR"
-    EXTRACTION_SUCCESS=true
-  else
-    # Directory missing or extraction incomplete - cleanup and re-extract
-    if [[ -d "$WORK_DIR" ]]; then
-      echo "[WARN] Incomplete extraction detected (missing BOOT-INF/classes). Cleaning up..."
-      rm -rf "$WORK_DIR" || true
-    fi
+  if [[ -d "$WORK_DIR" ]]; then
+    rm -rf "$WORK_DIR"
+  fi
 
     echo "[STARTUP] Extracting WAR to tmpfs: $WORK_DIR"
     START_EXTRACT=$(date +%s%3N)
@@ -107,7 +101,6 @@ if [[ $EXTRACT_JAR_ENABLED == true ]]; then
       rm -rf "$WORK_DIR" || true
       # Disable extraction optimization, use normal WAR startup
       JAR_EXTRACTION_OPTS="-jar /datahub/datahub-gms/bin/war.war"
-    fi
   fi
 
   # Process classpath only if extraction succeeded
