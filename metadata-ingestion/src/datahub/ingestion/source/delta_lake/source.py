@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
@@ -34,18 +33,14 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.azure.abs_folder_utils import list_folders
 from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
+    parse_azure_path,
     strip_abs_prefix,
+    to_blob_https_uri,
 )
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
-from datahub.ingestion.source.delta_lake.config import (
-    AZURE_CONTAINER_SCHEMES,
-    AZURE_FILESYSTEM_SCHEMES,
-    AZURE_SUPPORTED_FORMATS_HINT,
-    DeltaLakeSourceConfig,
-    is_azure_http_netloc,
-)
+from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
@@ -94,13 +89,6 @@ OPERATION_STATEMENT_TYPES = {
     "REPLACE TABLE AS SELECT": OperationTypeClass.UPDATE,
     "COPY INTO": OperationTypeClass.UPDATE,
 }
-
-
-@dataclass
-class AzurePathParts:
-    account_name: str
-    container_name: str
-    object_path: str
 
 
 @platform_name("Delta Lake", id="delta-lake")
@@ -237,7 +225,16 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             if self.source_config.is_s3:
                 browse_path = strip_s3_prefix(path)
             elif self.source_config.is_azure:
-                browse_path = self.strip_azure_prefix(path)
+                browse_path = strip_abs_prefix(
+                    to_blob_https_uri(
+                        path,
+                        account_name=(
+                            self.source_config.azure.account_name
+                            if self.source_config.azure
+                            else None
+                        ),
+                    )
+                )
             else:
                 browse_path = path.strip("/")
         else:
@@ -336,7 +333,14 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
                 opts["AWS_ENDPOINT_URL"] = aws_config.aws_endpoint_url
             return opts
         elif self.source_config.is_azure:
-            path_parts = self._parse_azure_path(self.source_config.complete_path)
+            path_parts = parse_azure_path(
+                self.source_config.complete_path,
+                account_name=(
+                    self.source_config.azure.account_name
+                    if self.source_config.azure
+                    else None
+                ),
+            )
             if self.source_config.azure is not None:
                 return self.source_config.azure.build_storage_options(
                     account_name=path_parts.account_name,
@@ -383,78 +387,16 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
         for folder in os.listdir(path):
             yield os.path.join(path, folder)
 
-    def strip_azure_prefix(self, path: str) -> str:
-        return strip_abs_prefix(self._to_blob_https_uri(path))
-
-    def _parse_azure_path(self, path: str) -> AzurePathParts:
-        parsed = urlparse(path)
-        scheme = parsed.scheme.lower()
-
-        if scheme in AZURE_FILESYSTEM_SCHEMES:
-            container_name, account_domain = parsed.netloc.split("@", 1)
-            account_name = account_domain.split(".")[0]
-            return AzurePathParts(
-                account_name=account_name,
-                container_name=container_name,
-                object_path=parsed.path.lstrip("/"),
-            )
-
-        if scheme in AZURE_CONTAINER_SCHEMES:
-            container_name = parsed.netloc
-            object_path = parsed.path.lstrip("/")
-            if (
-                self.source_config.azure is None
-                or not self.source_config.azure.account_name
-            ):
-                raise ValueError(
-                    "For `az://` and `adl://` paths, set `source.config.azure.account_name`."
-                )
-            return AzurePathParts(
-                account_name=self.source_config.azure.account_name,
-                container_name=container_name,
-                object_path=object_path,
-            )
-
-        if scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc):
-            account_name = parsed.netloc.split(".")[0]
-            stripped_path = parsed.path.lstrip("/")
-            parts = stripped_path.split("/", 1)
-            container_name = parts[0]
-            object_path = parts[1] if len(parts) > 1 else ""
-            return AzurePathParts(
-                account_name=account_name,
-                container_name=container_name,
-                object_path=object_path,
-            )
-
-        raise ValueError(
-            f"Unsupported Azure path format: {path}. Supported formats: {AZURE_SUPPORTED_FORMATS_HINT}."
-        )
-
-    def _to_blob_https_uri(self, path: str) -> str:
-        parsed = urlparse(path)
-        if parsed.scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc):
-            blob_netloc = parsed.netloc.replace(
-                ".dfs.core.windows.net", ".blob.core.windows.net"
-            )
-            return f"{parsed.scheme}://{blob_netloc}{parsed.path}"
-
-        path_parts = self._parse_azure_path(path)
-        if path_parts.object_path:
-            return (
-                f"https://{path_parts.account_name}.blob.core.windows.net/"
-                f"{path_parts.container_name}/{path_parts.object_path}"
-            )
-        return (
-            f"https://{path_parts.account_name}.blob.core.windows.net/"
-            f"{path_parts.container_name}"
-        )
-
     def _build_azure_connection_config(
-        self, path_parts: AzurePathParts
+        self, path: str
     ) -> Optional[AzureConnectionConfig]:
         if self.source_config.azure is None:
             return None
+        account_name = self.source_config.azure.account_name
+        path_parts = parse_azure_path(
+            path,
+            account_name=account_name,
+        )
 
         try:
             return AzureConnectionConfig(
@@ -478,15 +420,23 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
             ) from exc
 
     def azure_get_folders(self, path: str) -> Iterable[str]:
-        path_parts = self._parse_azure_path(path)
-        azure_config = self._build_azure_connection_config(path_parts)
+        account_name = (
+            self.source_config.azure.account_name if self.source_config.azure else None
+        )
+        path_parts = parse_azure_path(
+            path,
+            account_name=account_name,
+        )
+        azure_config = self._build_azure_connection_config(path)
         if azure_config is None:
             raise ValueError(
                 "Azure credentials are required for folder discovery. Configure "
                 "`source.config.azure` with account_key, sas_token, or service principal fields."
             )
 
-        prefix = get_container_relative_path(self._to_blob_https_uri(path))
+        prefix = get_container_relative_path(
+            to_blob_https_uri(path, account_name=account_name)
+        )
         for folder in list_folders(path_parts.container_name, prefix, azure_config):
             yield azure_config.get_abfss_url(folder)
 

@@ -1,6 +1,12 @@
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure.abs_utils import (
+    get_container_relative_path,
+    parse_azure_path,
+    strip_abs_prefix,
+    to_blob_https_uri,
+)
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
 from datahub.ingestion.source.delta_lake.config import (
     AzureBlob,
@@ -57,24 +63,52 @@ def test_delta_lake_azure_storage_options_from_account_key() -> None:
 
 
 @pytest.mark.parametrize(
-    ("path", "expected_browse_path"),
+    ("path", "account_name", "expected_blob_uri", "expected_browse_path"),
     [
         (
             "abfss://container@acct.dfs.core.windows.net/delta/table",
+            None,
+            "https://acct.blob.core.windows.net/container/delta/table",
             "container/delta/table",
         ),
-        ("az://container/delta/table", "container/delta/table"),
+        (
+            "az://container/delta/table",
+            "acct",
+            "https://acct.blob.core.windows.net/container/delta/table",
+            "container/delta/table",
+        ),
         (
             "https://acct.dfs.core.windows.net/container/delta/table",
+            None,
+            "https://acct.blob.core.windows.net/container/delta/table",
             "container/delta/table",
         ),
         (
+            "https://acct.blob.core.windows.net/container/delta/table",
+            None,
             "https://acct.blob.core.windows.net/container/delta/table",
             "container/delta/table",
         ),
     ],
 )
-def test_delta_lake_strip_azure_prefix(path: str, expected_browse_path: str) -> None:
+def test_delta_lake_shared_azure_path_helpers(
+    path: str,
+    account_name: str | None,
+    expected_blob_uri: str,
+    expected_browse_path: str,
+) -> None:
+    blob_uri = to_blob_https_uri(path, account_name=account_name)
+    assert blob_uri == expected_blob_uri
+    assert strip_abs_prefix(blob_uri) == expected_browse_path
+    assert get_container_relative_path(blob_uri) == "delta/table"
+
+    parsed = parse_azure_path(path, account_name=account_name)
+    assert parsed.account_name == "acct"
+    assert parsed.container_name == "container"
+    assert parsed.object_path == "delta/table"
+
+
+def test_delta_lake_azure_get_folders_uses_shared_helpers() -> None:
     config = DeltaLakeSourceConfig.model_validate(
         {
             "base_path": "abfss://container@acct.dfs.core.windows.net/delta/table",
@@ -82,9 +116,12 @@ def test_delta_lake_strip_azure_prefix(path: str, expected_browse_path: str) -> 
         }
     )
     source = DeltaLakeSource(config, PipelineContext(run_id="delta-lake-azure-test"))
+    azure_config = source._build_azure_connection_config(config.base_path)
 
-    browse_path = source.strip_azure_prefix(path)
-    assert browse_path == expected_browse_path
+    assert azure_config is not None
+    assert azure_config.get_abfss_url("delta/folder") == (
+        "abfss://container@acct.dfs.core.windows.net/delta/folder"
+    )
 
 
 def test_delta_lake_az_path_requires_account_name() -> None:

@@ -1,7 +1,6 @@
 import logging
 from functools import cached_property
 from typing import Optional
-from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from typing_extensions import Literal
@@ -13,6 +12,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.azure.abs_utils import is_azure_path
 from datahub.ingestion.source.azure.azure_auth import (
     AzureAuthenticationMethod,
     AzureCredentialConfig,
@@ -25,26 +25,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-AZURE_FILESYSTEM_SCHEMES = ("abfs", "abfss")
-AZURE_CONTAINER_SCHEMES = ("az", "adl")
-AZURE_URI_SCHEMES = (*AZURE_FILESYSTEM_SCHEMES, *AZURE_CONTAINER_SCHEMES)
-AZURE_HTTP_HOST_SUFFIXES = (".blob.core.windows.net", ".dfs.core.windows.net")
-AZURE_SUPPORTED_FORMATS_HINT = "abfss://, abfs://, az://, adl://, and Azure HTTPS"
-
-
-def is_azure_http_netloc(netloc: str) -> bool:
-    lowered = netloc.lower()
-    return any(lowered.endswith(suffix) for suffix in AZURE_HTTP_HOST_SUFFIXES)
-
-
-def is_azure_path(path: str) -> bool:
-    parsed = urlparse(path or "")
-    scheme = parsed.scheme.lower()
-    return scheme in AZURE_URI_SCHEMES or (
-        scheme in {"http", "https"} and is_azure_http_netloc(parsed.netloc)
-    )
 
 
 class S3(ConfigModel):
