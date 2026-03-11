@@ -45,6 +45,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -88,18 +89,20 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
 
-  private SystemEntityClient _mockClient;
+  private EventProducer mockProducer;
+  private SystemEntityClient mockProcessInstanceEntityClient;
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    _mockClient = Mockito.mock(SystemEntityClient.class);
+    mockProducer = Mockito.mock(EventProducer.class);
+    mockProcessInstanceEntityClient = Mockito.mock(SystemEntityClient.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
-        createEntityChangeEventGeneratorRegistry();
+        createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient);
     _entityChangeEventHook =
         new EntityChangeEventGeneratorHook(
-            createMockOperationContext(), entityChangeEventGeneratorRegistry, _mockClient, true);
+            createMockOperationContext(), entityChangeEventGeneratorRegistry, mockProducer, true);
   }
 
   @Test
@@ -131,7 +134,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("tagUrn", newTagUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -163,7 +166,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("tagUrn", newTagUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -199,7 +202,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -235,7 +238,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -266,7 +269,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("domainUrn", domainUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -297,7 +300,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("domainUrn", domainUrn.toString()),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -344,7 +347,7 @@ public class EntityChangeEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.TECHNICAL_OWNER.toString()),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent1, false);
+    verifyProducePlatformEvent(mockProducer, platformEvent1, false);
 
     PlatformEvent platformEvent2 =
         createChangeEvent(
@@ -359,7 +362,7 @@ public class EntityChangeEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.BUSINESS_OWNER.toString()),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent2, false);
+    verifyProducePlatformEvent(mockProducer, platformEvent2, false);
 
     PlatformEvent platformEvent3 =
         createChangeEvent(
@@ -376,7 +379,7 @@ public class EntityChangeEventGeneratorHookTest {
                 "ownerTypeUrn",
                 "urn:li:ownershipType:my_custom_type"),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent3, true);
+    verifyProducePlatformEvent(mockProducer, platformEvent3, true);
   }
 
   @Test
@@ -410,7 +413,7 @@ public class EntityChangeEventGeneratorHookTest {
             ImmutableMap.of("status", "DEPRECATED"),
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -444,7 +447,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -478,7 +481,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -510,7 +513,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -554,7 +557,7 @@ public class EntityChangeEventGeneratorHookTest {
             paramsMap,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -582,7 +585,9 @@ public class EntityChangeEventGeneratorHookTest {
         buildEntityResponse(
             ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
+    Mockito.when(
+            mockProcessInstanceEntityClient.getV2(
+                any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
         .thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
@@ -607,7 +612,7 @@ public class EntityChangeEventGeneratorHookTest {
             parameters,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+    verifyProducePlatformEvent(mockProducer, platformEvent, false);
   }
 
   @Test
@@ -637,7 +642,9 @@ public class EntityChangeEventGeneratorHookTest {
         buildEntityResponse(
             ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
+    Mockito.when(
+            mockProcessInstanceEntityClient.getV2(
+                any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
         .thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
@@ -664,7 +671,7 @@ public class EntityChangeEventGeneratorHookTest {
             parameters,
             actorUrn);
 
-    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+    verifyProducePlatformEvent(mockProducer, platformEvent, false);
   }
 
   @Test
@@ -685,7 +692,7 @@ public class EntityChangeEventGeneratorHookTest {
     // No previous tags aspect.
     _entityChangeEventHook.invoke(event);
     // Verify 0 interactions
-    Mockito.verifyNoMoreInteractions(_mockClient);
+    Mockito.verifyNoMoreInteractions(mockProducer);
   }
 
   @Test
@@ -711,7 +718,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -739,7 +746,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -768,7 +775,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -796,7 +803,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", oldDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -823,7 +830,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -853,7 +860,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -884,7 +891,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", newDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -913,7 +920,7 @@ public class EntityChangeEventGeneratorHookTest {
             null,
             ImmutableMap.of("description", oldDescription),
             actorUrn);
-    verifyProducePlatformEvent(_mockClient, platformEvent);
+    verifyProducePlatformEvent(mockProducer, platformEvent);
   }
 
   @Test
@@ -952,7 +959,7 @@ public class EntityChangeEventGeneratorHookTest {
     _entityChangeEventHook.invoke(event);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
@@ -964,7 +971,7 @@ public class EntityChangeEventGeneratorHookTest {
         false);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
@@ -976,7 +983,7 @@ public class EntityChangeEventGeneratorHookTest {
         false);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
@@ -1027,7 +1034,7 @@ public class EntityChangeEventGeneratorHookTest {
     _entityChangeEventHook.invoke(event);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c1"),
@@ -1039,7 +1046,7 @@ public class EntityChangeEventGeneratorHookTest {
         false);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c2"),
@@ -1051,7 +1058,7 @@ public class EntityChangeEventGeneratorHookTest {
         false);
 
     verifyProducePlatformEvent(
-        _mockClient,
+        mockProducer,
         createChangeEvent(
             SCHEMA_FIELD_ENTITY_NAME,
             generateSchemaFieldUrn(Urn.createFromString(TEST_DATASET_URN), "c3"),
@@ -1094,7 +1101,8 @@ public class EntityChangeEventGeneratorHookTest {
     return platformEvent;
   }
 
-  private EntityChangeEventGeneratorRegistry createEntityChangeEventGeneratorRegistry() {
+  private EntityChangeEventGeneratorRegistry createEntityChangeEventGeneratorRegistry(
+      SystemEntityClient entityClient) {
     final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
     registry.register(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsChangeEventGenerator());
@@ -1118,7 +1126,7 @@ public class EntityChangeEventGeneratorHookTest {
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
         new DataProcessInstanceRunEventChangeEventGenerator(
-            mock(OperationContext.class), _mockClient));
+            mock(OperationContext.class), entityClient));
     return registry;
   }
 
@@ -1191,23 +1199,22 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   private void verifyProducePlatformEvent(
-      SystemEntityClient mockClient, PlatformEvent platformEvent) throws Exception {
-    verifyProducePlatformEvent(mockClient, platformEvent, true);
+      EventProducer eventProducer, PlatformEvent platformEvent) throws Exception {
+    verifyProducePlatformEvent(eventProducer, platformEvent, true);
   }
 
   private void verifyProducePlatformEvent(
-      SystemEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions)
+      EventProducer eventProducer, PlatformEvent platformEvent, boolean noMoreInteractions)
       throws Exception {
     // Verify event has been emitted.
-    verify(mockClient, Mockito.times(1))
+    verify(eventProducer, Mockito.times(1))
         .producePlatformEvent(
-            any(OperationContext.class),
             eq(CHANGE_EVENT_PLATFORM_EVENT_NAME),
             Mockito.anyString(),
             argThat(new PlatformEventMatcher(platformEvent)));
 
     if (noMoreInteractions) {
-      Mockito.verifyNoMoreInteractions(_mockClient);
+      Mockito.verifyNoMoreInteractions(eventProducer);
     }
   }
 

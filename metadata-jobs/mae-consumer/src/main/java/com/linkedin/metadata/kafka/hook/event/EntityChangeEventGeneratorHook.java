@@ -7,9 +7,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -85,17 +85,17 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
   private final OperationContext systemOperationContext;
-  private final SystemEntityClient systemEntityClient;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
   private final List<String> entityExclusions;
+  private final EventProducer eventProducer;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
       @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
@@ -103,7 +103,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    this.systemEntityClient = Objects.requireNonNull(entityClient);
+    this.eventProducer = Objects.requireNonNull(eventProducer);
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
@@ -113,12 +113,12 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   public EntityChangeEventGeneratorHook(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final EventProducer eventProducer,
       @Nonnull Boolean isEnabled) {
     this(
         systemOperationContext,
         entityChangeEventGeneratorRegistry,
-        entityClient,
+        eventProducer,
         isEnabled,
         "",
         Collections.emptyList());
@@ -215,8 +215,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    systemEntityClient.producePlatformEvent(
-        systemOperationContext, Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
+    eventProducer.producePlatformEvent(Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {
