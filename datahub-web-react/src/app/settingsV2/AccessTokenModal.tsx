@@ -1,47 +1,45 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { Button, Modal, Text } from '@src/alchemy-components';
-import { IconNames } from '@src/alchemy-components/components/Icon/types';
-import { colors } from '@src/alchemy-components/theme';
+import { Button, Icon, Modal, Text, toast } from '@src/alchemy-components';
+import { radius, spacing, typography } from '@src/alchemy-components/theme';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ModalContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: ${spacing.lg};
 `;
 
 const InfoAlert = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: ${colors.blue[100]};
-    border: 1px solid ${colors.blue[300]};
-    border-radius: 8px;
-    color: ${colors.blue[600]};
+    gap: ${spacing.xsm};
+    padding: ${spacing.sm} ${spacing.md};
+    background: ${(props) => props.theme.colors.bgSurfaceInfo};
+    border: 1px solid ${(props) => props.theme.colors.borderInformation};
+    border-radius: ${radius.md};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
-const InfoIcon = styled(InfoCircleOutlined)`
-    font-size: 16px;
-    color: ${colors.blue[500]};
+const InfoIconWrapper = styled.div`
+    display: flex;
+    font-size: ${typography.fontSizes.lg};
+    color: ${(props) => props.theme.colors.iconInformation};
 `;
 
 const Section = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const CodeBlock = styled.div`
     position: relative;
-    background: ${colors.gray[100]};
-    border: 1px solid ${colors.gray[200]};
-    border-radius: 6px;
-    padding: 12px;
+    background: ${(props) => props.theme.colors.bgCode};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: ${radius.md};
+    padding: ${spacing.sm};
     overflow-x: auto;
 `;
 
@@ -49,39 +47,39 @@ const CodeContent = styled.pre`
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 12px;
+    font-family: ${typography.fonts.mono};
+    font-size: ${typography.fontSizes.sm};
     line-height: 1.5;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const CopyButton = styled(Button)`
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: ${colors.white};
+    top: ${spacing.xsm};
+    right: ${spacing.xsm};
+    background: ${(props) => props.theme.colors.bg};
 
     &:hover {
-        background: ${colors.gray[50]};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
 const Kbd = styled.code`
     display: inline;
-    padding: 2px 6px;
-    background: ${colors.gray[100]};
-    border: 1px solid ${colors.gray[200]};
-    border-radius: 4px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 12px;
+    padding: ${spacing.xxsm} ${spacing.xsm};
+    background: ${(props) => props.theme.colors.bgCode};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: ${radius.sm};
+    font-family: ${typography.fonts.mono};
+    font-size: ${typography.fontSizes.sm};
 `;
 
 const ExpirationText = styled(Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const Link = styled.a`
-    color: ${colors.blue[500]};
+    color: ${(props) => props.theme.colors.hyperlinks};
     text-decoration: none;
 
     &:hover {
@@ -109,8 +107,10 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
 --data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;
 
     const copyToClipboard = (text: string, label: string) => {
-        navigator.clipboard.writeText(text);
-        message.success(`${label} copied to clipboard`);
+        navigator.clipboard.writeText(text).then(
+            () => toast.success(`${label} copied to clipboard`),
+            () => toast.error(`Failed to copy ${label.toLowerCase()}`),
+        );
     };
 
     if (!visible) {
@@ -133,7 +133,9 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
         >
             <ModalContent>
                 <InfoAlert>
-                    <InfoIcon />
+                    <InfoIconWrapper>
+                        <Icon icon="Info" source="phosphor" size="inherit" />
+                    </InfoIconWrapper>
                     <Text size="sm">
                         Make sure to copy your access token now. You won&apos;t be able to see it again.
                     </Text>
@@ -151,7 +153,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessToken, 'Token')}
                             data-testid="copy-token-button"
-                            icon={{ icon: 'ContentCopy' as IconNames, source: 'material' }}
+                            icon={{ icon: 'Copy', source: 'phosphor' }}
                         >
                             Copy
                         </CopyButton>
@@ -173,7 +175,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                             size="sm"
                             onClick={() => copyToClipboard(accessTokenCurl, 'cURL command')}
                             data-testid="copy-curl-button"
-                            icon={{ icon: 'ContentCopy' as IconNames, source: 'material' }}
+                            icon={{ icon: 'Copy', source: 'phosphor' }}
                         >
                             Copy
                         </CopyButton>

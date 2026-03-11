@@ -1,12 +1,11 @@
-import { Empty } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Loader, Modal, Table, Text } from '@src/alchemy-components';
+import { Button, EmptyState, Input, Loader, Modal, Table, Text } from '@src/alchemy-components';
 import { Column } from '@src/alchemy-components/components/Table';
-import { colors } from '@src/alchemy-components/theme';
+import { radius, spacing } from '@src/alchemy-components/theme';
 
 import { useListServiceAccountsQuery } from '@graphql/auth.generated';
 import { ServiceAccount } from '@types';
@@ -20,30 +19,30 @@ type Props = {
 const ModalContent = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: ${spacing.md};
 `;
 
 const DescriptionText = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const LoadingContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 60px;
+    padding: ${spacing.xxlg};
     min-height: 200px;
 `;
 
 const TableWrapper = styled.div`
-    border: 1px solid ${colors.gray[200]};
-    border-radius: 8px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: ${radius.md};
     overflow: hidden;
     max-height: 350px;
     overflow-y: auto;
 
     .selected-row {
-        background-color: ${colors.violet[0]} !important;
+        background-color: ${(props) => props.theme.colors.bgSelected} !important;
     }
 
     tr {
@@ -54,13 +53,13 @@ const TableWrapper = styled.div`
 const ServiceAccountDetails = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: ${spacing.xxsm};
 `;
 
 const ModalFooter = styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const DEBOUNCE_MS = 300;
@@ -165,7 +164,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                 <Input
                     label=""
                     placeholder="Search service accounts..."
-                    icon={{ icon: 'Search', source: 'material' }}
+                    icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
                     value={searchText}
                     setValue={setSearchText}
                     inputTestId="search-service-accounts-input"
@@ -176,15 +175,18 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
                     </LoadingContainer>
                 )}
                 {!loading && serviceAccounts.length === 0 && !debouncedSearchText && (
-                    <Empty
-                        description="No service accounts found. Create a service account first."
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    <EmptyState
+                        icon="Robot"
+                        title="No service accounts found"
+                        description="Create a service account first."
+                        size="sm"
                     />
                 )}
                 {!loading && serviceAccounts.length === 0 && debouncedSearchText && (
-                    <Empty
-                        description={`No service accounts match "${debouncedSearchText}"`}
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    <EmptyState
+                        icon="MagnifyingGlass"
+                        title={`No service accounts match "${debouncedSearchText}"`}
+                        size="sm"
                     />
                 )}
                 {!loading && serviceAccounts.length > 0 && (

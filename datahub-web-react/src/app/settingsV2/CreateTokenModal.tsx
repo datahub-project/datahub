@@ -1,5 +1,3 @@
-import { red } from '@ant-design/colors';
-import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -7,8 +5,8 @@ import analytics, { EventType } from '@app/analytics';
 import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Modal, SimpleSelect, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
+import { Button, Input, Modal, SimpleSelect, Text, toast } from '@src/alchemy-components';
+import { spacing } from '@src/alchemy-components/theme';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -35,38 +33,38 @@ type Props = {
 const FormContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: ${spacing.lg};
 `;
 
 const FormGroup = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ExpirationContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    ${(props) => props.$isWarning && `color: ${red[5]};`}
+    ${(props) => props.$isWarning && `color: ${props.theme.colors.textError};`}
 `;
 
 const ModalFooter = styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 export default function CreateTokenModal({
@@ -152,6 +150,7 @@ export default function CreateTokenModal({
         createAccessToken({ variables: { input } })
             .then(({ errors }) => {
                 if (!errors) {
+                    toast.success('Access token created successfully');
                     setSelectedTokenDuration(selectedDuration);
                     analytics.event({
                         type: EventType.CreateAccessTokenEvent,
@@ -162,8 +161,7 @@ export default function CreateTokenModal({
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create token: ${e.message || ''}`, duration: 3 });
+                toast.error(`Failed to create token: ${e.message || ''}`);
                 onModalClose();
             });
     };
