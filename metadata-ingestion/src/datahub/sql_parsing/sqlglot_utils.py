@@ -3,7 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import functools
 import logging
 import re
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
@@ -19,6 +19,43 @@ logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
+
+# Snowflake governance DDL syntax that sqlglot does not support. When sqlglot
+# encounters any of these it silently falls back to parsing the whole statement
+# as a Command node, causing DataHub to lose all lineage for that statement.
+# None of these constructs carry table-reference information, so stripping them
+# before parsing is safe for lineage purposes.
+# Limitation: parenthesised content is matched with [^)]* and will break if a
+# string literal inside the parens contains a literal ')'. This is not a
+# realistic concern for policy names or column identifiers.
+#
+# TODO: If other dialects accumulate similar pre-parse fixups, consider
+# extracting this into a dialect preprocessor registry:
+#   Dict[str, Callable[[str], str]] mapping dialect name → sanitizer function,
+# housed in a sql_parsing/dialect_preprocessors/ subpackage. For now a single
+# dialect-specific block in parse_statement() is simpler and easier to follow.
+_SNOWFLAKE_UNSUPPORTED_DDL_PATTERNS: List[re.Pattern] = [
+    # col WITH TAG (schema.tag_name = 'value')
+    re.compile(r"\s+WITH\s+TAG\s*\([^)]*\)", re.IGNORECASE),
+    # col WITH MASKING POLICY db.schema.policy [USING (col1, col2)]
+    re.compile(
+        r"\s+WITH\s+MASKING\s+POLICY\s+[^\s,)(]+(?:\s+USING\s*\([^)]*\))?",
+        re.IGNORECASE,
+    ),
+    # col WITH PROJECTION POLICY db.schema.policy
+    re.compile(r"\s+WITH\s+PROJECTION\s+POLICY\s+[^\s,)(]+", re.IGNORECASE),
+    # CREATE TABLE/VIEW ... WITH ROW ACCESS POLICY db.schema.policy ON (col_list)
+    re.compile(
+        r"\s+WITH\s+ROW\s+ACCESS\s+POLICY\s+[^\s,)(]+\s+ON\s*\([^)]*\)", re.IGNORECASE
+    ),
+]
+
+
+def _sanitize_snowflake_ddl(sql: str) -> str:
+    """Strip Snowflake governance DDL constructs unsupported by sqlglot (see patterns above)."""
+    for pattern in _SNOWFLAKE_UNSUPPORTED_DDL_PATTERNS:
+        sql = pattern.sub("", sql)
+    return sql
 
 
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
@@ -87,10 +124,15 @@ def parse_statement(
     # Because the expressions are mutable, we don't want to allow the caller
     # to modify the parsed expression that sits in the cache. We keep
     # the cached versions pristine by returning a copy on each call.
+    if isinstance(sql, str) and is_dialect_instance(dialect, "snowflake"):
+        sql = _sanitize_snowflake_ddl(sql)
     return _parse_statement(sql, dialect).copy()
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+    # Note: does not go through parse_statement, so _sanitize_snowflake_ddl is
+    # not applied here. This is intentional — callers (e.g. dbt) pass compiled
+    # SELECT SQL, never raw DDL with governance metadata.
     logger.debug("Parsing SQL query: %s", sql)
 
     dialect = get_dialect(platform)
