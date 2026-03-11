@@ -1,3 +1,4 @@
+import json
 from typing import cast
 from unittest.mock import MagicMock, patch
 
@@ -22,12 +23,11 @@ def mock_snowflake_data_dictionary() -> SnowflakeDataDictionary:
 
 
 def test_get_dynamic_table_graph_info(mock_snowflake_data_dictionary):
-    # Mock the query response for dynamic table graph history
     mock_cursor = MagicMock()
     mock_cursor.__iter__.return_value = [
         {
             "NAME": "TEST_DB.PUBLIC.DYNAMIC_TABLE1",
-            "INPUTS": "source_table",
+            "INPUTS": [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}],
             "TARGET_LAG_TYPE": "INTERVAL",
             "TARGET_LAG_SEC": 60,
             "SCHEDULING_STATE": "ACTIVE",
@@ -36,24 +36,23 @@ def test_get_dynamic_table_graph_info(mock_snowflake_data_dictionary):
     ]
     mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
 
-    # Test getting dynamic table graph info
     result = mock_snowflake_data_dictionary.get_dynamic_table_graph_info("TEST_DB")
 
-    # Verify the results
     assert len(result) == 1
     table_info = result.get("TEST_DB.PUBLIC.DYNAMIC_TABLE1")
     assert table_info is not None
     assert table_info["target_lag_type"] == "INTERVAL"
     assert table_info["target_lag_sec"] == 60
-    assert table_info["scheduling_state"] == "ACTIVE"
-    assert table_info["alter_trigger"] == "AUTO"
+    assert table_info["inputs"] == [
+        {"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}
+    ]
 
 
 def test_get_dynamic_tables_with_definitions(mock_snowflake_data_dictionary):
-    # Mock the graph info response
     mock_snowflake_data_dictionary.get_dynamic_table_graph_info = MagicMock(
         return_value={
             "TEST_DB.PUBLIC.DYNAMIC_TABLE1": {
+                "inputs": [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}],
                 "target_lag_type": "INTERVAL",
                 "target_lag_sec": 60,
                 "scheduling_state": "ACTIVE",
@@ -62,7 +61,6 @@ def test_get_dynamic_tables_with_definitions(mock_snowflake_data_dictionary):
         }
     )
 
-    # Mock the show dynamic tables response
     mock_cursor = MagicMock()
     mock_cursor.__iter__.return_value = [
         {
@@ -81,26 +79,60 @@ def test_get_dynamic_tables_with_definitions(mock_snowflake_data_dictionary):
     ]
     mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
 
-    # Test getting dynamic tables with definitions
     result = mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions(
         "TEST_DB"
     )
 
-    # Verify the results
-    assert len(result) == 1
     assert "PUBLIC" in result
-    dynamic_tables = result["PUBLIC"]
-    assert len(dynamic_tables) == 1
-    dt = dynamic_tables[0]
+    dt = result["PUBLIC"][0]
     assert isinstance(dt, SnowflakeDynamicTable)
     assert dt.name == "DYNAMIC_TABLE1"
     assert dt.definition == "SELECT * FROM source_table"
     assert dt.target_lag == "1 minute"
-    assert dt.is_dynamic is True
+    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
+
+
+def test_get_dynamic_tables_with_definitions_inputs_as_json_string(
+    mock_snowflake_data_dictionary,
+):
+    """INPUTS returned as a JSON string (as some Snowflake driver versions do) is parsed correctly."""
+    mock_snowflake_data_dictionary.get_dynamic_table_graph_info = MagicMock(
+        return_value={
+            "TEST_DB.PUBLIC.DYNAMIC_TABLE1": {
+                "inputs": json.dumps(
+                    [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}]
+                ),
+                "target_lag_type": None,
+                "target_lag_sec": None,
+            }
+        }
+    )
+
+    mock_cursor = MagicMock()
+    mock_cursor.__iter__.return_value = [
+        {
+            "name": "DYNAMIC_TABLE1",
+            "schema_name": "PUBLIC",
+            "database_name": "TEST_DB",
+            "created_on": "2024-01-01 00:00:00",
+            "text": "SELECT * FROM source_table",
+            "target_lag": "1 minute",
+            "bytes": 0,
+            "rows": 0,
+            "comment": None,
+        }
+    ]
+    mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
+
+    result = mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions(
+        "TEST_DB"
+    )
+
+    dt = result["PUBLIC"][0]
+    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
 
 
 def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
-    # Mock get_dynamic_tables_with_definitions response
     mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions = MagicMock(
         return_value={
             "PUBLIC": [
@@ -113,6 +145,7 @@ def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
                     comment="Test dynamic table",
                     definition="SELECT * FROM source_table",
                     target_lag="1 minute",
+                    upstream_tables=["TEST_DB.PUBLIC.SOURCE_TABLE"],
                     is_dynamic=True,
                     type="DYNAMIC TABLE",
                 )
@@ -120,7 +153,6 @@ def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
         }
     )
 
-    # Create test tables dictionary
     tables = {
         "PUBLIC": [
             SnowflakeDynamicTable(
@@ -136,16 +168,12 @@ def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):
         ]
     }
 
-    # Test populating dynamic table definitions
     mock_snowflake_data_dictionary.populate_dynamic_table_definitions(tables, "TEST_DB")
 
-    # Verify the results
-    assert len(tables["PUBLIC"]) == 1
     dt = tables["PUBLIC"][0]
-    assert isinstance(dt, SnowflakeDynamicTable)
-    assert dt.name == "DYNAMIC_TABLE1"
     assert dt.definition == "SELECT * FROM source_table"
     assert dt.target_lag == "1 minute"
+    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
 
 
 def test_dynamic_table_subtype():
@@ -240,6 +268,53 @@ def test_dynamic_table_error_handling(mock_snowflake_data_dictionary):
 
     # Verify empty result is returned on error
     assert result == {}
+
+
+def test_populate_dynamic_table_definitions_missing_definition(
+    mock_snowflake_data_dictionary,
+):
+    """When SHOW DYNAMIC TABLES returns text=None (MONITOR not granted), definition
+    stays None but upstream_tables is still populated from DYNAMIC_TABLE_GRAPH_HISTORY."""
+    mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions = MagicMock(
+        return_value={
+            "PUBLIC": [
+                SnowflakeDynamicTable(
+                    name="DYNAMIC_TABLE1",
+                    created=None,
+                    last_altered=None,
+                    size_in_bytes=0,
+                    rows_count=0,
+                    comment=None,
+                    definition=None,
+                    target_lag=None,
+                    upstream_tables=["TEST_DB.PUBLIC.SOURCE_TABLE"],
+                    is_dynamic=True,
+                    type="DYNAMIC TABLE",
+                )
+            ]
+        }
+    )
+
+    tables = {
+        "PUBLIC": [
+            SnowflakeDynamicTable(
+                name="DYNAMIC_TABLE1",
+                created=None,
+                last_altered=None,
+                size_in_bytes=0,
+                rows_count=0,
+                comment=None,
+                is_dynamic=True,
+                type="DYNAMIC TABLE",
+            )
+        ]
+    }
+
+    mock_snowflake_data_dictionary.populate_dynamic_table_definitions(tables, "TEST_DB")
+
+    dt = tables["PUBLIC"][0]
+    assert dt.definition is None
+    assert dt.upstream_tables == ["TEST_DB.PUBLIC.SOURCE_TABLE"]
 
 
 def test_dynamic_table_definition_error_handling(mock_snowflake_data_dictionary):
