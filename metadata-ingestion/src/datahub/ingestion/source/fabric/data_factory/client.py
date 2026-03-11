@@ -1,10 +1,12 @@
 """REST API client for Microsoft Fabric Data Factory items."""
 
 import logging
-from typing import Optional
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.core_client import FabricCoreClient
+from datahub.ingestion.source.fabric.common.models import FabricJobInstance
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 
 logger = logging.getLogger(__name__)
@@ -26,3 +28,54 @@ class FabricDataFactoryClient(FabricCoreClient):
         report: Optional[FabricClientReport] = None,
     ):
         super().__init__(auth_helper, timeout, report)
+
+    def get_pipeline_runs(
+        self,
+        workspace_id: str,
+        pipeline_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricJobInstance]:
+        """Fetch pipeline job instances within the lookback window.
+
+        Uses the Core API's list_item_job_instances() which returns runs
+        in descending order by startTimeUtc (newest first).
+
+        Stops consuming the lazy iterator as soon as a run's startTimeUtc
+        falls before the lookback_window_start, avoiding unnecessary pages.
+
+        API limitation: Returns at most 100 recently completed runs
+        plus all currently active runs.
+
+        Args:
+            workspace_id: Workspace GUID
+            pipeline_id: Data Pipeline item GUID
+            lookback_window_start: Cutoff datetime (UTC). Runs older than
+                this are excluded and iteration stops.
+
+        Returns:
+            List of FabricJobInstance within the lookback window.
+        """
+        logger.debug(
+            f"Fetching pipeline runs for {pipeline_id} "
+            f"(lookback since {lookback_window_start.isoformat()})"
+        )
+
+        runs: List[FabricJobInstance] = []
+        for job_instance in self.list_item_job_instances(workspace_id, pipeline_id):
+            if job_instance.start_time_utc:
+                run_start = datetime.fromisoformat(
+                    job_instance.start_time_utc.replace("Z", "+00:00")
+                )
+                # Fabric API returns UTC timestamps without offset suffix
+                if run_start.tzinfo is None:
+                    run_start = run_start.replace(tzinfo=timezone.utc)
+                if run_start < lookback_window_start:
+                    logger.debug(
+                        f"Reached lookback boundary for pipeline {pipeline_id}, "
+                        f"stopping after {len(runs)} run(s)"
+                    )
+                    break
+
+            runs.append(job_instance)
+
+        return runs

@@ -91,6 +91,22 @@ def make_table_name(
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{item_id}{URN_PATTERN_SEPARATOR}{schema_name}{URN_PATTERN_SEPARATOR}{table_name}"
 
 
+def make_pipeline_flow_id(workspace_id: str, pipeline_id: str) -> str:
+    """Generate flow ID for a Fabric Data Pipeline.
+
+    Flow ID format: {workspaceGUID}.{pipelineGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}"
+
+
+def make_pipeline_run_id(workspace_id: str, pipeline_id: str, run_id: str) -> str:
+    """Generate DPI ID for a Fabric Data Pipeline run.
+
+    Run ID format: {workspaceGUID}.{pipelineGUID}.{runGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}{URN_PATTERN_SEPARATOR}{run_id}"
+
+
 def make_onelake_urn(
     workspace_id: str,
     item_id: str,

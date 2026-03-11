@@ -8,8 +8,13 @@ This connector extracts metadata from Microsoft Fabric Data Factory items:
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Union
 
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -22,8 +27,18 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapabi
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.models import (
+    FABRIC_WORKSPACE_PLATFORM,
+    FabricItem,
+    FabricItemType,
+    FabricJobInstance,
     FabricWorkspace,
+    ItemJobStatus,
+    WorkspaceKey,
     build_workspace_container,
+)
+from datahub.ingestion.source.fabric.common.urn_generator import (
+    make_pipeline_flow_id,
+    make_pipeline_run_id,
 )
 from datahub.ingestion.source.fabric.data_factory.client import (
     FabricDataFactoryClient,
@@ -41,11 +56,31 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import DataProcessTypeClass
+from datahub.metadata.urns import DataFlowUrn
+from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 
 PLATFORM = "fabric-data-factory"
+
+# Fabric run status → DataHub InstanceRunResult
+_FABRIC_STATUS_TO_RESULT: dict[str, InstanceRunResult] = {
+    ItemJobStatus.COMPLETED: InstanceRunResult.SUCCESS,
+    ItemJobStatus.FAILED: InstanceRunResult.FAILURE,
+    ItemJobStatus.CANCELLED: InstanceRunResult.SKIPPED,
+    ItemJobStatus.DEDUPED: InstanceRunResult.SKIPPED,
+}
+
+
+def _parse_iso_to_millis(iso_str: str) -> int:
+    """Convert an ISO 8601 timestamp string to epoch milliseconds."""
+    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    # Fabric API returns UTC timestamps without offset suffix
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
 
 
 @platform_name("Fabric Data Factory")
@@ -104,8 +139,6 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             workspaces = list(self.client.list_workspaces())
 
             for workspace in workspaces:
-                self.report.report_api_call()
-
                 if not self.config.workspace_pattern.allowed(workspace.name):
                     self.report.report_workspace_filtered(workspace.name)
                     continue
@@ -116,10 +149,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 try:
                     yield from self._create_workspace_container(workspace)
 
-                    # TODO: Process pipelines, copy jobs, dataflows
-                    # yield from self._process_pipelines(workspace)
-                    # yield from self._process_copyjobs(workspace)
-                    # yield from self._process_dataflows(workspace)
+                    yield from self._process_pipelines(workspace)
+                    # TODO: yield from self._process_copyjobs(workspace)
+                    # TODO: yield from self._process_dataflows(workspace)
 
                 except Exception as e:
                     self.report.report_warning(
@@ -147,3 +179,138 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+
+    def _process_pipelines(
+        self, workspace: FabricWorkspace
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        if not self.config.extract_pipelines:
+            return
+
+        workspace_key = WorkspaceKey(
+            platform=FABRIC_WORKSPACE_PLATFORM,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            workspace_id=workspace.id,
+        )
+
+        for item in self.client.list_items(
+            workspace.id, item_type=FabricItemType.DATA_PIPELINE
+        ):
+            if not self.config.pipeline_pattern.allowed(item.name):
+                self.report.report_pipeline_filtered(item.name)
+                continue
+
+            self.report.report_pipeline_scanned()
+            logger.debug(f"Processing pipeline: {item.name} ({item.id})")
+
+            flow_id = make_pipeline_flow_id(
+                workspace_id=workspace.id,
+                pipeline_id=item.id,
+            )
+            dataflow = DataFlow(
+                platform=PLATFORM,
+                name=flow_id,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                display_name=item.name,
+                description=item.description,
+                custom_properties={
+                    "pipeline_id": item.id,
+                    "workspace_id": workspace.id,
+                },
+                parent_container=workspace_key,
+            )
+            yield dataflow
+
+            if self.config.extract_pipeline_runs:
+                yield from self._process_pipeline_runs(item, dataflow.urn)
+
+    def _process_pipeline_runs(
+        self,
+        pipeline_item: FabricItem,
+        flow_urn: DataFlowUrn,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit DataProcessInstances for recent pipeline runs."""
+        lookback_window_start = datetime.now(timezone.utc) - timedelta(
+            days=self.config.lookback_days
+        )
+
+        try:
+            runs = self.client.get_pipeline_runs(
+                workspace_id=pipeline_item.workspace_id,
+                pipeline_id=pipeline_item.id,
+                lookback_window_start=lookback_window_start,
+            )
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Fetch Pipeline Runs",
+                message="Could not retrieve run history. Skipping runs for this pipeline.",
+                context=f"pipeline={pipeline_item.name}",
+                exc=e,
+            )
+            return
+
+        for run in runs:
+            if run.status == ItemJobStatus.NOT_STARTED:
+                continue
+            yield from self._emit_pipeline_run(run, flow_urn)
+            self.report.report_pipeline_run_scanned()
+
+    def _emit_pipeline_run(
+        self,
+        run: FabricJobInstance,
+        flow_urn: DataFlowUrn,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit MCPs for a single pipeline run as a DataProcessInstance."""
+        dpi_id = make_pipeline_run_id(
+            workspace_id=run.workspace_id,
+            pipeline_id=run.item_id,
+            run_id=run.id,
+        )
+
+        custom_properties: dict[str, str] = {
+            "run_id": run.id,
+            "workspace_id": run.workspace_id,
+            "pipeline_id": run.item_id,
+        }
+        if run.invoke_type is not None:
+            custom_properties["invoke_type"] = run.invoke_type
+        if run.failure_reason:
+            custom_properties["failure_reason"] = run.failure_reason
+
+        dpi = DataProcessInstance(
+            id=dpi_id,
+            orchestrator=PLATFORM,
+            cluster=self.config.env or "PROD",
+            template_urn=flow_urn,
+            type=DataProcessTypeClass.BATCH_SCHEDULED,
+            properties=custom_properties,
+            data_platform_instance=self.config.platform_instance,
+        )
+
+        # Emit DPI properties + relationships
+        start_ts_millis = (
+            _parse_iso_to_millis(run.start_time_utc) if run.start_time_utc else None
+        )
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_ts_millis,
+            materialize_iolets=False,
+        ):
+            yield mcp.as_workunit()
+
+        # Emit start event
+        if start_ts_millis:
+            for mcp in dpi.start_event_mcp(start_timestamp_millis=start_ts_millis):
+                yield mcp.as_workunit()
+
+        # Emit end event for completed runs
+        result = _FABRIC_STATUS_TO_RESULT.get(run.status)
+        if result is not None and run.end_time_utc:
+            end_ts_millis = _parse_iso_to_millis(run.end_time_utc)
+            for mcp in dpi.end_event_mcp(
+                end_timestamp_millis=end_ts_millis,
+                result=result,
+                result_type=PLATFORM,
+                start_timestamp_millis=start_ts_millis,
+            ):
+                yield mcp.as_workunit()
