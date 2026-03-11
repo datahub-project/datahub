@@ -8,13 +8,15 @@ from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
 import pytest
-from graphql import GraphQLSchema, build_schema
+from graphql import GraphQLSchema, TypeInfo, TypeInfoVisitor, build_schema, parse, visit
 from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import (
     SCHEMA_FAILURE_TTL_SECONDS,
     SCHEMA_TTL_SECONDS,
     QueryProjector,
+    RequiredFieldUnsupportedError,
+    UnsupportedFieldRemover,
 )
 
 
@@ -1097,3 +1099,426 @@ class TestDiskCacheResilience:
         if cache_dir.exists():
             tmp_files = list(cache_dir.glob("*.tmp"))
             assert len(tmp_files) == 0
+
+
+class TestRequiredFields:
+    """Tests for the required_fields parameter on adapt_query."""
+
+    QUERY_WITH_DOCUMENT = """
+        query {
+            searchAcrossEntities(input: {query: "*"}) {
+                searchResults {
+                    entity {
+                        ... on Dataset {
+                            urn
+                            name
+                        }
+                        ... on Document {
+                            urn
+                            info {
+                                title
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+    def test_required_type_present_passes(self, mock_graph_new_schema):
+        """No error when required type exists in the server schema."""
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(
+            self.QUERY_WITH_DOCUMENT,
+            mock_graph_new_schema,
+            required_fields=["Document"],
+        )
+        assert len(removed) == 0
+        assert "... on Document" in adapted
+
+    def test_required_type_missing_raises(self, mock_graph_old_schema):
+        """RequiredFieldUnsupportedError when required type is absent."""
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Document"],
+            )
+        assert "Document" in exc_info.value.unsupported_fields
+
+    def test_required_type_field_missing_raises(self, mock_graph_old_schema):
+        """Requiring a field on a missing type is violated (parent removed)."""
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Document.info"],
+            )
+        assert "Document.info" in exc_info.value.unsupported_fields
+
+    def test_required_deep_path_violated_by_parent(self, mock_graph_old_schema):
+        """A deep required path is violated when an ancestor is removed."""
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Document.info.title"],
+            )
+        assert "Document.info.title" in exc_info.value.unsupported_fields
+
+    def test_required_field_on_existing_type(self):
+        """Requiring a field that doesn't exist on an existing type raises."""
+        schema = build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchInput!): SearchResults
+            }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! name: String! }
+        """)
+        graph = _make_mock_graph(schema)
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn name description }
+                        }
+                    }
+                }
+            }
+        """
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(query, graph, required_fields=["Dataset.description"])
+        assert "Dataset.description" in exc_info.value.unsupported_fields
+
+    def test_unrequired_field_still_stripped(self, mock_graph_old_schema):
+        """Non-required fields are still silently stripped."""
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(
+            self.QUERY_WITH_DOCUMENT,
+            mock_graph_old_schema,
+            required_fields=["Dataset"],
+        )
+        assert len(removed) == 1
+        assert "... on Document" not in adapted
+        assert "... on Dataset" in adapted
+
+    def test_multiple_required_fields_partial_violation(self, mock_graph_old_schema):
+        """Only the violated required fields appear in the error."""
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Dataset", "Document.info"],
+            )
+        assert "Document.info" in exc_info.value.unsupported_fields
+        assert "Dataset" not in exc_info.value.unsupported_fields
+
+    def test_no_required_fields_is_graceful_degradation(self, mock_graph_old_schema):
+        """Without required_fields, unsupported types are silently stripped."""
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(
+            self.QUERY_WITH_DOCUMENT, mock_graph_old_schema
+        )
+        assert len(removed) == 1
+        assert "... on Document" not in adapted
+
+    def test_required_fields_work_with_cache(self, mock_graph_old_schema):
+        """Required fields are checked even on cache hits."""
+        projector = QueryProjector()
+        # First call: no required_fields, succeeds and populates cache
+        adapted, removed = projector.adapt_query(
+            self.QUERY_WITH_DOCUMENT, mock_graph_old_schema
+        )
+        assert len(removed) == 1
+
+        # Second call: same query, but with required_fields — should raise from cache
+        with pytest.raises(RequiredFieldUnsupportedError):
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Document"],
+            )
+
+    def test_root_field_required(self):
+        """Root-anchored required field path works."""
+        schema = build_schema("""
+            type Query {
+                me: User
+            }
+            type User { urn: String! }
+        """)
+        graph = _make_mock_graph(schema)
+        query = """
+            query {
+                me { urn }
+                nonExistentField { foo }
+            }
+        """
+        projector = QueryProjector()
+        # nonExistentField doesn't exist on Query type
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(query, graph, required_fields=["nonExistentField"])
+        assert "nonExistentField" in exc_info.value.unsupported_fields
+
+    def test_error_message_is_descriptive(self, mock_graph_old_schema):
+        """The error message lists the unsupported fields."""
+        projector = QueryProjector()
+        with pytest.raises(
+            RequiredFieldUnsupportedError,
+            match="Server schema does not support required fields: Document",
+        ):
+            projector.adapt_query(
+                self.QUERY_WITH_DOCUMENT,
+                mock_graph_old_schema,
+                required_fields=["Document"],
+            )
+
+
+def _run_visitor(schema: GraphQLSchema, query: str) -> UnsupportedFieldRemover:
+    """Run the UnsupportedFieldRemover on a query and return the visitor."""
+    document = parse(query)
+    type_info = TypeInfo(schema)
+    visitor = UnsupportedFieldRemover(schema, type_info)
+    visit(document, TypeInfoVisitor(type_info, visitor))
+    return visitor
+
+
+class TestStructuralPaths:
+    """Tests that removed_structural_paths are built correctly for required_fields matching."""
+
+    @pytest.fixture
+    def schema_dataset_only(self) -> GraphQLSchema:
+        """Schema with Dataset that has urn and name, but no description."""
+        return build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchInput!): SearchResults
+            }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! name: String! }
+        """)
+
+    @pytest.fixture
+    def schema_dataset_with_properties(self) -> GraphQLSchema:
+        """Schema with Dataset.properties but properties lacks 'description'."""
+        return build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchInput!): SearchResults
+            }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! properties: DatasetProperties }
+            type DatasetProperties { name: String! }
+        """)
+
+    def test_inline_fragment_type_removed_gives_type_path(self, old_server_schema):
+        """Removing '... on Document' records structural path 'Document'."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn }
+                            ... on Document { urn }
+                        }
+                    }
+                }
+            }
+        """
+        visitor = _run_visitor(old_server_schema, query)
+        assert "Document" in visitor.removed_structural_paths
+
+    def test_field_inside_inline_fragment_gives_type_dot_field(
+        self, schema_dataset_only
+    ):
+        """Removing 'description' from '... on Dataset' records 'Dataset.description'."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn name description }
+                        }
+                    }
+                }
+            }
+        """
+        visitor = _run_visitor(schema_dataset_only, query)
+        assert "Dataset.description" in visitor.removed_structural_paths
+        # urn and name survive — only description removed
+        assert len(visitor.removed_structural_paths) == 1
+
+    def test_nested_field_inside_inline_fragment(self, schema_dataset_with_properties):
+        """Removing 'description' from Dataset.properties records 'Dataset.properties.description'."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset {
+                                urn
+                                properties {
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """
+        visitor = _run_visitor(schema_dataset_with_properties, query)
+        assert "Dataset.properties.description" in visitor.removed_structural_paths
+
+    def test_nested_required_field_inside_inline_fragment(
+        self, schema_dataset_with_properties
+    ):
+        """required_fields='Dataset.properties.description' raises when field is missing."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset {
+                                urn
+                                properties { name description }
+                            }
+                        }
+                    }
+                }
+            }
+        """
+        graph = _make_mock_graph(schema_dataset_with_properties)
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                query,
+                graph,
+                required_fields=["Dataset.properties.description"],
+            )
+        assert "Dataset.properties.description" in exc_info.value.unsupported_fields
+
+    def test_nested_required_parent_survives_when_child_removed(
+        self, schema_dataset_with_properties
+    ):
+        """Requiring 'Dataset.properties' passes even though properties.description is removed."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset {
+                                urn
+                                properties { name description }
+                            }
+                        }
+                    }
+                }
+            }
+        """
+        graph = _make_mock_graph(schema_dataset_with_properties)
+        projector = QueryProjector()
+        # properties exists — only description under it is removed
+        adapted, removed = projector.adapt_query(
+            query, graph, required_fields=["Dataset.properties"]
+        )
+        assert len(removed) == 1
+        assert "description" in removed[0].lower()
+
+    def test_multiple_fragments_mixed_removals(self):
+        """Both type removal and field removal tracked in the same query."""
+        schema = build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchInput!): SearchResults
+            }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset | Chart
+            type Dataset { urn: String! name: String! }
+            type Chart { urn: String! }
+        """)
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn name description }
+                            ... on Chart { urn title }
+                            ... on Document { urn }
+                        }
+                    }
+                }
+            }
+        """
+        visitor = _run_visitor(schema, query)
+        # Document type removed entirely
+        assert "Document" in visitor.removed_structural_paths
+        # description doesn't exist on Dataset
+        assert "Dataset.description" in visitor.removed_structural_paths
+        # title doesn't exist on Chart
+        assert "Chart.title" in visitor.removed_structural_paths
+        assert len(visitor.removed_structural_paths) == 3
+
+    def test_root_field_removal_structural_path(self):
+        """Removing a root-level field gives a root-anchored path."""
+        schema = build_schema("""
+            type Query { me: User }
+            type User { urn: String! }
+        """)
+        query = """
+            query {
+                me { urn }
+                nonExistentField { foo }
+            }
+        """
+        visitor = _run_visitor(schema, query)
+        # nonExistentField is at query root, no inline fragment context
+        assert "nonExistentField" in visitor.removed_structural_paths
+
+    def test_required_fields_prefix_matching_direction(self, old_server_schema):
+        """A deeper removal does NOT violate a shallower requirement."""
+        # old_server_schema has Dataset with urn and name, but no description
+        schema = build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchInput!): SearchResults
+            }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! name: String! }
+        """)
+        graph = _make_mock_graph(schema)
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn name description }
+                        }
+                    }
+                }
+            }
+        """
+        projector = QueryProjector()
+        # Requiring "Dataset" should pass — Dataset type exists,
+        # only description (a child) is removed
+        adapted, removed = projector.adapt_query(
+            query, graph, required_fields=["Dataset"]
+        )
+        assert len(removed) == 1
+        assert "description" in removed[0].lower()

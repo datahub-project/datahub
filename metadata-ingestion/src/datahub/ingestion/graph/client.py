@@ -1236,7 +1236,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
         format_exception: bool = True,
-        strip_unsupported_fields: bool = True,
+        strip_unsupported_fields: bool = False,
+        required_fields: Optional[List[str]] = None,
     ) -> Dict:
         """Execute a GraphQL query against the DataHub server.
 
@@ -1246,14 +1247,22 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             operation_name: Optional GraphQL operation name.
             format_exception: If True, format GraphQL errors into a readable message.
             strip_unsupported_fields: Controls schema-compatibility projection.
-                When True (default), fields and types not present in the server's
-                schema are automatically removed so the query succeeds. Callers
-                should treat projected-away fields as absent in the response rather
-                than assuming they will always be returned.
-                When False, the query is sent as-is and the server will return a
-                GraphQL error if it references unknown fields. Use this when the
-                caller requires specific fields and needs a hard failure if they
-                are unavailable.
+                When True, fields and types not present in the server's schema are
+                automatically removed so the query succeeds. Callers should treat
+                projected-away fields as absent in the response rather than assuming
+                they will always be returned. Recommended for agentic / exploratory
+                callers (MCP tools, CLI) that can tolerate missing fields.
+                When False (default), the query is sent as-is and the server will
+                return a GraphQL error if it references unknown fields. Use this
+                when the caller requires specific fields and needs a hard failure
+                if they are unavailable.
+            required_fields: Optional list of dot-separated field paths that must
+                survive projection. Only meaningful when strip_unsupported_fields
+                is True. If any required path would be removed, raises
+                RequiredFieldUnsupportedError instead of silently stripping.
+                Paths can be type-anchored (``Dataset.properties``) or
+                root-anchored (``searchAcrossEntities``). See
+                :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
         """
         if strip_unsupported_fields:
             try:
@@ -1261,10 +1270,23 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     from datahub.utilities.graphql_query_adapter import QueryProjector
 
                     self._query_projector = QueryProjector()
-                query, removed = self._query_projector.adapt_query(query, self)
+                query, removed = self._query_projector.adapt_query(
+                    query, self, required_fields=required_fields
+                )
                 if removed:
                     logger.info(f"Stripped unsupported fields from query: {removed}")
             except Exception as e:
+                # Let RequiredFieldUnsupportedError propagate — the caller
+                # explicitly declared these fields as mandatory.
+                try:
+                    from datahub.utilities.graphql_query_adapter import (
+                        RequiredFieldUnsupportedError,
+                    )
+
+                    if isinstance(e, RequiredFieldUnsupportedError):
+                        raise
+                except ImportError:
+                    pass
                 logger.warning(
                     f"Failed to adapt query for schema compatibility, "
                     f"falling back to original query: {e}"

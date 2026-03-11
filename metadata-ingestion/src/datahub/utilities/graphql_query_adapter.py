@@ -42,6 +42,21 @@ QUERY_CACHE_MAX_SIZE: int = 128
 DISK_CACHE_DIR: str = os.path.join(os.path.expanduser("~"), ".datahub", "schema_cache")
 
 
+class RequiredFieldUnsupportedError(Exception):
+    """Raised when required fields are not supported by the server schema.
+
+    Attributes:
+        unsupported_fields: The required field paths that the server cannot fulfill.
+    """
+
+    def __init__(self, unsupported_fields: List[str]) -> None:
+        self.unsupported_fields = unsupported_fields
+        fields_str = ", ".join(unsupported_fields)
+        super().__init__(
+            f"Server schema does not support required fields: {fields_str}"
+        )
+
+
 class UnsupportedFieldRemover(Visitor):
     """AST visitor that removes fields and fragments not supported by the server schema.
 
@@ -64,6 +79,7 @@ class UnsupportedFieldRemover(Visitor):
         self.schema = schema
         self.type_info = type_info
         self.removed_fields: List[str] = []
+        self.removed_structural_paths: List[str] = []
         self._fragment_definitions: Set[str] = set()
 
     def enter_fragment_definition(
@@ -96,6 +112,7 @@ class UnsupportedFieldRemover(Visitor):
 
             if type_obj is None:
                 self.removed_fields.append(f"InlineFragment(... on {type_name})")
+                self.removed_structural_paths.append(type_name)
                 logger.debug(
                     f"Removing inline fragment for unsupported type: {type_name}"
                 )
@@ -136,6 +153,9 @@ class UnsupportedFieldRemover(Visitor):
             if field_name not in fields:
                 field_path = self._get_field_path(ancestors, node)
                 self.removed_fields.append(f"Field({field_path})")
+                self.removed_structural_paths.append(
+                    self._get_structural_path(ancestors, node)
+                )
                 logger.debug(
                     f"Removing unsupported field: {field_name} on {parent_type}"
                 )
@@ -154,6 +174,63 @@ class UnsupportedFieldRemover(Visitor):
 
         path_parts.append(current_node.name.value)
         return ".".join(path_parts)
+
+    def _get_structural_path(
+        self, ancestors: List[object], current_node: FieldNode
+    ) -> str:
+        """Build a dot-path for required_fields matching.
+
+        The path is anchored at the innermost inline fragment type boundary,
+        or at the root query field if there is no enclosing inline fragment.
+
+        Examples:
+            - Field 'name' inside '... on Dataset { properties { name } }'
+              → 'Dataset.properties.name'
+            - Root field 'searchAcrossEntities' with no inline fragment
+              → 'searchAcrossEntities'
+        """
+        # Find the innermost InlineFragmentNode to anchor the path
+        last_inline_idx = -1
+        last_inline_type: Optional[str] = None
+        for i, ancestor in enumerate(ancestors):
+            if (
+                isinstance(ancestor, InlineFragmentNode)
+                and ancestor.type_condition is not None
+            ):
+                last_inline_idx = i
+                last_inline_type = ancestor.type_condition.name.value
+
+        parts: List[str] = []
+        if last_inline_type is not None:
+            parts.append(last_inline_type)
+
+        # Collect FieldNode names after the inline fragment (or from start)
+        start = last_inline_idx + 1 if last_inline_idx >= 0 else 0
+        for ancestor in ancestors[start:]:
+            if isinstance(ancestor, FieldNode):
+                parts.append(ancestor.name.value)
+
+        parts.append(current_node.name.value)
+        return ".".join(parts)
+
+
+def _check_required_fields(
+    required_fields: List[str], removed_paths: List[str]
+) -> None:
+    """Raise RequiredFieldUnsupportedError if any required path was removed.
+
+    A required path R is violated when any removed path D satisfies:
+    - D == R (exact match), or
+    - R starts with D + "." (a parent of R was removed)
+    """
+    unsupported: List[str] = []
+    for req in required_fields:
+        for removed in removed_paths:
+            if req == removed or req.startswith(removed + "."):
+                unsupported.append(req)
+                break
+    if unsupported:
+        raise RequiredFieldUnsupportedError(unsupported)
 
 
 class QueryProjector:
@@ -189,23 +266,36 @@ class QueryProjector:
         self._schema_lock: threading.Lock = threading.Lock()
         self._schema_generation: int = 0
 
-        # Query result cache: (query_string, generation) -> (adapted_query, removed_fields)
-        self._query_cache: Dict[Tuple[str, int], Tuple[str, List[str]]] = {}
+        # Query result cache: (query_string, generation) ->
+        #   (adapted_query, removed_fields, removed_structural_paths)
+        self._query_cache: Dict[Tuple[str, int], Tuple[str, List[str], List[str]]] = {}
 
-    def adapt_query(self, query: str, graph: "DataHubGraph") -> Tuple[str, List[str]]:
+    def adapt_query(
+        self,
+        query: str,
+        graph: "DataHubGraph",
+        required_fields: Optional[List[str]] = None,
+    ) -> Tuple[str, List[str]]:
         """Adapt a GraphQL query to match the server's schema capabilities.
 
         Args:
-            query: The GraphQL query string to adapt
-            graph: DataHubGraph instance for schema introspection
+            query: The GraphQL query string to adapt.
+            graph: DataHubGraph instance for schema introspection.
+            required_fields: Optional list of dot-separated field paths that
+                must survive projection. If any would be removed, raises
+                RequiredFieldUnsupportedError instead of silently stripping them.
+                Paths can be type-anchored (``Dataset.properties.name``) or
+                root-anchored (``searchAcrossEntities``). A path is violated
+                when any prefix of it was removed.
 
         Returns:
             A tuple of (adapted_query, removed_fields) where:
             - adapted_query: The modified query with unsupported fields removed
-            - removed_fields: List of field paths that were removed
+            - removed_fields: List of human-readable field paths that were removed
 
         Raises:
-            Exception: If query parsing or schema introspection fails
+            RequiredFieldUnsupportedError: If any required_fields would be removed.
+            Exception: If query parsing or schema introspection fails.
         """
         # Get the server schema (cached with commit-hash + TTL invalidation)
         schema = self._get_schema(graph)
@@ -214,7 +304,10 @@ class QueryProjector:
         cache_key = (query, self._schema_generation)
         cached_result = self._query_cache.get(cache_key)
         if cached_result is not None:
-            return cached_result
+            adapted_query, removed_fields, removed_paths = cached_result
+            if required_fields:
+                _check_required_fields(required_fields, removed_paths)
+            return adapted_query, removed_fields
 
         # Parse the query to an AST
         try:
@@ -236,7 +329,8 @@ class QueryProjector:
         # Convert the modified AST back to a query string
         adapted_query = print_ast(modified_ast)
 
-        result = (adapted_query, visitor.removed_fields)
+        removed_paths = visitor.removed_structural_paths
+        result = (adapted_query, visitor.removed_fields, removed_paths)
 
         # Store in query cache, evicting oldest if over capacity
         if len(self._query_cache) >= QUERY_CACHE_MAX_SIZE:
@@ -244,7 +338,10 @@ class QueryProjector:
             del self._query_cache[oldest_key]
         self._query_cache[cache_key] = result
 
-        return result
+        if required_fields:
+            _check_required_fields(required_fields, removed_paths)
+
+        return adapted_query, visitor.removed_fields
 
     def _get_commit_hash(self, graph: "DataHubGraph") -> Optional[str]:
         """Safely get the server's commit hash. Returns None on failure."""
