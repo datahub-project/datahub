@@ -1,0 +1,9 @@
+source:
+  type: metabase
+  config:
+    connect_uri: "http://localhost:3000"
+    username: "user@example.com"
+    password: "${METABASE_PASSWORD}"
+
+sink:
+  # sink configs
