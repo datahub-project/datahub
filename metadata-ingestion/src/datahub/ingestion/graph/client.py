@@ -86,8 +86,8 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -181,6 +181,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
+        self._schema_resolver_provider = SchemaResolverProvider(graph=self)
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1556,42 +1557,13 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             report=report,
         )
 
-    @functools.lru_cache
     def initialize_schema_resolver_from_datahub(
         self,
         platform: str,
         platform_instance: Optional[str],
         env: str,
     ) -> "SchemaResolver":
-        logger.info("Initializing schema resolver")
-        schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False
-        )
-
-        logger.info(f"Fetching schemas for platform {platform}, env {env}")
-        count = 0
-        with PerfTimer() as timer:
-            for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-            ):
-                try:
-                    schema_resolver.add_graphql_schema_metadata(urn, schema_info)
-                    count += 1
-                except Exception:
-                    logger.warning("Failed to add schema info", exc_info=True)
-
-                if count % 1000 == 0:
-                    logger.debug(
-                        f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
-                    )
-            logger.info(
-                f"Finished loading total {count} schema info in {timer.elapsed_seconds()} seconds"
-            )
-
-        logger.info("Finished initializing schema resolver")
-        return schema_resolver
+        return self._schema_resolver_provider.get(platform, platform_instance, env)
 
     def parse_sql_lineage(
         self,
@@ -2322,7 +2294,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
-        self.initialize_schema_resolver_from_datahub.cache_clear()
+        self._schema_resolver_provider.close()
         super().close()
 
 
