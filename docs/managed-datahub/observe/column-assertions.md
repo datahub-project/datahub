@@ -111,6 +111,88 @@ from the following options:
   have changed. A **High Watermark Column** is a column that contains a constantly incrementing value - a date, a time, or
   another always-increasing number - that can be used to find the "new rows" that were added since previous evaluation. When selected, a query will be issued to the table to find only the rows that have changed since the previous assertion evaluation.
 
+## Time-Series Bucketing for Column Metric Assertions
+
+By default, column metric assertions evaluate a metric (e.g., null count, min, max) across all rows or changed rows in your table. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate column metrics within each bucket.
+
+This is useful when:
+
+- You want to monitor column quality at a day or week granularity
+- You want to detect issues like "null count spiked for today's data" rather than checking the entire table
+- Your column metrics have seasonal patterns that vary by day of week or time of year
+
+### Bucketing Configuration
+
+A time-series bucketing strategy for column assertions consists of:
+
+- **Timestamp column**: The date/time column used to partition rows into buckets (e.g., `created_at`, `updated_at`).
+- **Bucket interval**: **Daily** (1 DAY) or **Weekly** (1 WEEK).
+- **Timezone**: The IANA timezone for bucket boundaries. Defaults to UTC.
+- **Late arrival grace period** (optional): A buffer after the bucket end time before evaluation.
+
+:::note
+When time-series bucketing is enabled, the evaluation schedule is automatically computed from the bucket configuration. Column Value assertions (`FIELD_VALUES` type) do not support time-series bucketing — only Column Metric assertions (`FIELD_METRIC` type) do.
+:::
+
+### Configuring Bucketing in the UI
+
+When creating a column metric assertion, you will see a **Row Evaluation Type** section with three options:
+
+- **All Table Rows**: Evaluate the assertion across all rows in the table (default).
+- **Only Rows That Have Changed**: Use a high watermark column to evaluate only new rows.
+- **Rows Within a Time Bucket**: Partition data into daily or weekly time buckets and evaluate each bucket independently.
+
+When selecting **Rows Within a Time Bucket**, you will configure the timestamp column, bucket size, timezone, and optional grace period.
+
+### Configuring Bucketing via the Python SDK
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+dataset_urn = DatasetUrn.from_string(
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+)
+
+# Column metric assertion with daily bucketing
+column_assertion = client.assertions.sync_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="price",
+    metric_type="min",
+    operator="greater_than_or_equal_to",
+    criteria_parameters=0,
+    display_name="Daily Price Min Check",
+    time_bucketing_strategy={
+        "timestamp_field_path": "order_date",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+    },
+    tags=["automated", "column_quality"],
+    enabled=True,
+)
+
+# Smart column metric assertion with weekly bucketing and backfill
+smart_column = client.assertions.sync_smart_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="user_id",
+    metric_type="null_count",
+    display_name="Weekly Null Count Monitor",
+    detection_mechanism="all_rows_query_datahub_dataset_profile",
+    sensitivity="medium",
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "WEEK", "multiple": 1},
+    },
+    backfill_config={"backfill_start_date_ms": 1704067200000},
+    enabled=True,
+)
+```
+
+:::info
+For smart column metric assertions with bucketing enabled, you can configure **historical backfill** to populate metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+:::
+
 ## Creating a Column Assertion
 
 ### Prerequisites

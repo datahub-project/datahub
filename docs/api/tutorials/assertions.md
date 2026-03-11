@@ -246,6 +246,14 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     tags=["automated", "volume", "data_quality"],
     # Schedule (optional - defaults to hourly)
     schedule="0 */6 * * *",  # Every 6 hours
+    # Optional: partition data into daily/weekly time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+    },
+    # Optional: backfill historical data for smarter predictions
+    backfill_config={"backfill_start_date_ms": 1704067200000},  # 2024-01-01
     # Enable the assertion
     enabled=True
 )
@@ -262,6 +270,11 @@ volume_assertion = client.assertions.sync_volume_assertion(
     detection_mechanism="information_schema",
     # Evaluation schedule
     schedule="0 */4 * * *",  # Every 4 hours
+    # Optional: partition data into daily time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "event_date",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+    },
     # Tags
     tags=["automated", "volume", "threshold_check"],
     enabled=True
@@ -379,6 +392,14 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     detection_mechanism="all_rows_query_datahub_dataset_profile",
     # Smart sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
+    # Optional: partition data into daily time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "UTC",
+    },
+    # Optional: backfill historical data for smarter predictions
+    backfill_config={"backfill_start_date_ms": 1704067200000},  # 2024-01-01
     # Tags
     tags=["automated", "column_quality", "null_checks"],
     enabled=True
@@ -397,6 +418,11 @@ column_metric_assertion = client.assertions.sync_column_metric_assertion(
     display_name="Price Minimum Check",
     # Evaluation schedule
     schedule="0 */4 * * *",  # Every 4 hours
+    # Optional: partition data into weekly time buckets
+    time_bucketing_strategy={
+        "timestamp_field_path": "order_date",
+        "bucket_interval": {"unit": "WEEK", "multiple": 1},
+    },
     # Tags
     tags=["automated", "column_quality", "price_validation"],
     enabled=True
