@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
 import pytest
-from graphql import build_schema
+from graphql import GraphQLSchema, build_schema
 from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import (
@@ -121,7 +121,7 @@ def new_server_schema():
 
 
 def _make_mock_graph(
-    schema,
+    schema: GraphQLSchema,
     commit_hash: str = "abc123",
     server_url: str = "http://localhost:8080",
 ) -> Mock:
@@ -134,14 +134,12 @@ def _make_mock_graph(
     graph = Mock()
     call_log: List[Dict[str, Any]] = []
 
-    def execute_graphql(
-        query: str, strip_unsupported_fields: bool = False
-    ) -> Dict[str, Any]:
+    def execute_graphql(query: str, strip_unsupported_fields: bool = False) -> dict:
         call_log.append(
             {"query": query, "strip_unsupported_fields": strip_unsupported_fields}
         )
         if "__schema" in query:
-            return introspection_from_schema(schema)
+            return dict(introspection_from_schema(schema))
         return {}
 
     graph.execute_graphql = execute_graphql
@@ -521,7 +519,9 @@ class TestSchemaInvalidation:
         # Make introspection fail
         original_execute = graph.execute_graphql
 
-        def failing_execute(query: str, strip_unsupported_fields: bool = False):
+        def failing_execute(
+            query: str, strip_unsupported_fields: bool = False
+        ) -> Dict[str, Any]:
             if "__schema" in query:
                 raise RuntimeError("server down")
             return original_execute(query, strip_unsupported_fields)
@@ -823,15 +823,15 @@ class TestExecuteGraphqlFailSafe:
                 return {"data": {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}}
 
             graph._gms_server = "http://localhost:8080"
-            graph._post_generic = fake_post_generic
 
-            result = graph.execute_graphql(
-                original_query, strip_unsupported_fields=True
-            )
+            with patch.object(graph, "_post_generic", fake_post_generic):
+                result = graph.execute_graphql(
+                    original_query, strip_unsupported_fields=True
+                )
 
-            # The original query should have been sent (not a projected one)
-            assert sent_body["query"] == original_query
-            assert result == {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}
+                # The original query should have been sent (not a projected one)
+                assert sent_body["query"] == original_query
+                assert result == {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}
 
     def test_import_error_falls_back_gracefully(self):
         """When graphql-core is not installed, execute_graphql should fall back."""
@@ -850,11 +850,14 @@ class TestExecuteGraphqlFailSafe:
                 return {"data": {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}}
 
             graph._gms_server = "http://localhost:8080"
-            graph._post_generic = fake_post_generic
 
             # Simulate graphql-core not being installed
-            with patch.dict(
-                "sys.modules", {"datahub.utilities.graphql_query_adapter": None}
+            with (
+                patch.object(graph, "_post_generic", fake_post_generic),
+                patch.dict(
+                    "sys.modules",
+                    {"datahub.utilities.graphql_query_adapter": None},
+                ),
             ):
                 result = graph.execute_graphql(
                     original_query, strip_unsupported_fields=True

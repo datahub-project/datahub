@@ -13,13 +13,14 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, cast
 
 from graphql import (
     FieldNode,
     FragmentDefinitionNode,
     GraphQLSchema,
     InlineFragmentNode,
+    IntrospectionQuery,
     TypeInfo,
     TypeInfoVisitor,
     Visitor,
@@ -341,7 +342,7 @@ class QueryProjector:
                 logger.warning(f"Ignoring symlinked cache file: {path}")
                 return None
             # Use direct read (no exists() check) to avoid TOCTOU race
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data: IntrospectionQuery = json.loads(path.read_text(encoding="utf-8"))
             schema = build_client_schema(data)
             logger.debug(f"Loaded schema from disk cache: {path}")
             return schema
@@ -436,7 +437,7 @@ class QueryProjector:
 
             # Build client schema from introspection result
             # execute_graphql already unwraps result["data"]
-            schema = build_client_schema(result)
+            schema = build_client_schema(cast(IntrospectionQuery, result))
 
             # Save to disk cache (requires both server_url and commit_hash)
             if server_url and commit_hash:
