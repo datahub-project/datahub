@@ -1,4 +1,4 @@
-import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
+import { Button, Menu, Pill, Table, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTheme } from 'styled-components';
@@ -313,10 +313,14 @@ const StructuredPropsTable = ({
                     <>
                         <CardIcons>
                             <Menu items={items} trigger={['click']}>
-                                <Icon
-                                    icon="DotsThreeVertical"
+                                <Button
+                                    variant="text"
                                     size="md"
-                                    weight="bold"
+                                    icon={{
+                                        icon: 'DotsThreeVertical',
+                                        size: '2xl',
+                                        weight: 'bold',
+                                    }}
                                     data-testid="structured-props-more-options-icon"
                                 />
                             </Menu>

@@ -1,4 +1,4 @@
-import { Icon, Menu, Text } from '@components';
+import { Button, Menu, Text } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
@@ -275,7 +275,16 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="DotsThreeVertical" size="md" weight="bold" data-testid={`${tagUrn}-actions`} />
+                    <Button
+                        variant="text"
+                        size="md"
+                        icon={{
+                            icon: 'DotsThreeVertical',
+                            size: '2xl',
+                            weight: 'bold',
+                        }}
+                        data-testid={`${tagUrn}-actions`}
+                    />
                 </Menu>
             </CardIcons>
         );

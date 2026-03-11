@@ -1,4 +1,4 @@
-import { Icon, typography } from '@components';
+import { Button, typography } from '@components';
 import { Dropdown } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -146,7 +146,16 @@ export const ApplicationActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
-                    <Icon icon="DotsThreeVertical" size="md" weight="bold" data-testid="actions-more-icon" />
+                    <Button
+                        variant="text"
+                        size="md"
+                        icon={{
+                            icon: 'DotsThreeVertical',
+                            size: '2xl',
+                            weight: 'bold',
+                        }}
+                        data-testid="actions-more-icon"
+                    />
                 </Dropdown>
             </CardIcons>
         );

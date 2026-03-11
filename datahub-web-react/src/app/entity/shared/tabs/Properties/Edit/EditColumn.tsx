@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Text } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -121,10 +121,14 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon
-                        icon="DotsThreeVertical"
+                    <Button
+                        variant="text"
                         size="md"
-                        weight="bold"
+                        icon={{
+                            icon: 'DotsThreeVertical',
+                            size: '2xl',
+                            weight: 'bold',
+                        }}
                         data-testid="structured-prop-entity-more-icon"
                     />
                 </Dropdown>

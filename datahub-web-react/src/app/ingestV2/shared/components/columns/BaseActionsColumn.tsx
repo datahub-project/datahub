@@ -1,4 +1,4 @@
-import { Icon, colors, typography } from '@components';
+import { Button, colors, typography } from '@components';
 import { Dropdown } from 'antd';
 import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import React from 'react';
@@ -18,7 +18,8 @@ const ActionIcons = styled.div`
     justify-content: end;
     gap: 12px;
 
-    div {
+    div,
+    button {
         border: 1px solid ${colors.gray[100]};
         border-radius: 200px;
         width: 24px;
@@ -41,7 +42,16 @@ export default function BaseActionsColumn({ dropdownItems, extraActions }: Props
         <ActionIcons onClick={(e) => e.stopPropagation()}>
             {extraActions}
             <Dropdown menu={{ items: dropdownItems }} trigger={['click']}>
-                <Icon icon="DotsThreeVertical" weight="bold" data-testid="ingestion-more-options" />
+                <Button
+                    variant="text"
+                    size="md"
+                    icon={{
+                        icon: 'DotsThreeVertical',
+                        size: '2xl',
+                        weight: 'bold',
+                    }}
+                    data-testid="ingestion-more-options"
+                />
             </Dropdown>
         </ActionIcons>
     );
