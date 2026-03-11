@@ -107,6 +107,15 @@ def make_pipeline_run_id(workspace_id: str, pipeline_id: str, run_id: str) -> st
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{pipeline_id}{URN_PATTERN_SEPARATOR}{run_id}"
 
 
+def make_activity_job_id(activity_name: str) -> str:
+    """Generate job ID for a pipeline activity DataJob.
+
+    Activity names are unique within a pipeline (enforced by Fabric),
+    so the name is used directly as the job ID.
+    """
+    return activity_name
+
+
 def make_onelake_urn(
     workspace_id: str,
     item_id: str,

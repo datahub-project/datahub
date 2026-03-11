@@ -37,6 +37,7 @@ from datahub.ingestion.source.fabric.common.models import (
     build_workspace_container,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import (
+    make_activity_job_id,
     make_pipeline_flow_id,
     make_pipeline_run_id,
 )
@@ -56,9 +57,14 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import DataProcessTypeClass
-from datahub.metadata.urns import DataFlowUrn
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    DataProcessTypeClass,
+    EdgeClass,
+)
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
@@ -222,8 +228,88 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             )
             yield dataflow
 
+            yield from self._process_pipeline_activities(item, dataflow)
+
             if self.config.extract_pipeline_runs:
                 yield from self._process_pipeline_runs(item, dataflow.urn)
+
+    def _process_pipeline_activities(
+        self,
+        pipeline_item: FabricItem,
+        dataflow: DataFlow,
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        """Emit DataJobs for pipeline activities with dependency lineage."""
+        try:
+            activities = self.client.get_pipeline_activities(
+                workspace_id=pipeline_item.workspace_id,
+                pipeline_id=pipeline_item.id,
+            )
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Fetch Pipeline Activities",
+                message="Could not retrieve activities. Skipping activities for this pipeline.",
+                context=f"pipeline={pipeline_item.name}",
+                exc=e,
+            )
+            return
+
+        if not activities:
+            return
+
+        # Build activity_name → DataJobUrn lookup for dependency resolution
+        activity_urn_map: dict[str, DataJobUrn] = {}
+        for activity in activities:
+            job_id = make_activity_job_id(activity.name)
+            activity_urn_map[activity.name] = DataJobUrn.create_from_ids(
+                job_id=job_id,
+                data_flow_urn=str(dataflow.urn),
+            )
+
+        # Emit each activity as a DataJob
+        for activity in activities:
+            custom_props: dict[str, str] = {
+                "activity_type": activity.type,
+            }
+            if activity.state:
+                custom_props["state"] = activity.state
+            if activity.on_inactive_mark_as:
+                custom_props["on_inactive_mark_as"] = activity.on_inactive_mark_as
+
+            # Resolve upstream job dependencies from dependsOn
+            upstream_edges: list[EdgeClass] = []
+            if activity.depends_on:
+                for dep in activity.depends_on:
+                    upstream_urn = activity_urn_map.get(dep.activity)
+                    if upstream_urn:
+                        upstream_edges.append(
+                            EdgeClass(destinationUrn=str(upstream_urn))
+                        )
+                    else:
+                        self.report.report_warning(
+                            title="Unknown Activity Dependency",
+                            message="Activity depends on an activity not found in this pipeline.",
+                            context=f"pipeline={pipeline_item.name}, "
+                            f"activity={activity.name}, dependency={dep.activity}",
+                        )
+
+            datajob = DataJob(
+                name=make_activity_job_id(activity.name),
+                flow=dataflow,
+                display_name=activity.name,
+                custom_properties=custom_props,
+                extra_aspects=[
+                    DataJobInputOutputClass(
+                        inputDatasets=[],
+                        outputDatasets=[],
+                        inputDatajobEdges=upstream_edges,
+                    )
+                ]
+                if upstream_edges
+                else None,
+            )
+
+            yield datajob
+            self.report.report_activity_scanned()
 
     def _process_pipeline_runs(
         self,

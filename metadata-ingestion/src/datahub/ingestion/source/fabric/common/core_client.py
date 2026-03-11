@@ -1,5 +1,7 @@
+import base64
+import json
 import logging
-from typing import Iterator, Optional
+from typing import Dict, Iterator, List, Optional
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
@@ -78,6 +80,45 @@ class FabricCoreClient(BaseFabricClient):
                 workspace_id=workspace_id,
                 description=item_data.get("description"),
             )
+
+    def get_item_definition(
+        self, workspace_id: str, item_id: str
+    ) -> List[Dict[str, object]]:
+        """Get the definition parts for a Fabric item.
+
+        Calls POST /v1/workspaces/{workspaceId}/items/{itemId}/getDefinition
+        and decodes each base64 payload in the response.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item-definition
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Item GUID
+
+        Returns:
+            List of dicts, each with 'path' (str) and 'content' (parsed JSON object).
+        """
+        endpoint = f"workspaces/{workspace_id}/items/{item_id}/getDefinition"
+        logger.debug(f"Fetching item definition for {item_id}")
+
+        response = self.post(endpoint)
+        data = response.json()
+
+        result: List[Dict[str, object]] = []
+        parts = data.get("definition", {}).get("parts", [])
+        for part in parts:
+            path = part.get("path", "")
+            payload_b64 = part.get("payload", "")
+            try:
+                content = json.loads(base64.b64decode(payload_b64))
+            except Exception:
+                logger.warning(
+                    f"Failed to decode definition part '{path}' for item {item_id}"
+                )
+                continue
+            result.append({"path": path, "content": content})
+
+        return result
 
     def list_item_job_instances(
         self, workspace_id: str, item_id: str
