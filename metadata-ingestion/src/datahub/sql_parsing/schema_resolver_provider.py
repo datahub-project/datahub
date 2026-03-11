@@ -2,7 +2,11 @@ import functools
 import logging
 from typing import Iterable, Optional, Protocol, Tuple
 
-from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata, SchemaResolver
+from datahub.sql_parsing.schema_resolver import (
+    GraphQLSchemaMetadata,
+    SchemaResolver,
+    SchemaResolverReport,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -26,9 +30,15 @@ class SchemaResolverProvider:
     responsible only for fetching raw schema data.
     """
 
-    def __init__(self, graph: _SchemaFetcher, batch_size: int = 100) -> None:
+    def __init__(
+        self,
+        graph: _SchemaFetcher,
+        batch_size: int = 100,
+        report: Optional[SchemaResolverReport] = None,
+    ) -> None:
         self._graph = graph
         self._batch_size = batch_size
+        self._report = report
 
     @functools.lru_cache
     def get(
@@ -43,6 +53,7 @@ class SchemaResolverProvider:
             platform_instance=platform_instance,
             env=env,
             graph=None,
+            report=self._report,
         )
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
         count = 0
