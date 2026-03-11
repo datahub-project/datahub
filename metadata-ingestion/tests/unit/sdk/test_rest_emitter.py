@@ -194,7 +194,7 @@ class TestDataHubRestEmitter:
             openapi_emitter.emit_mcp(item)
 
             mock_method.assert_called_once_with(
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
                 payload=[
                     {
                         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
@@ -260,7 +260,7 @@ class TestDataHubRestEmitter:
             call_args = mock_emit.call_args
             assert (
                 call_args[0][0]
-                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
+                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
             )
             assert isinstance(call_args[1]["payload"], str)  # Should be JSON string
 
@@ -414,11 +414,11 @@ class TestDataHubRestEmitter:
             # Verify each URL got the right aspects
             for url, payload in calls.items():
                 if "datasetProfile" in payload[0]:
-                    assert url.endswith("dataset?async=false")
+                    assert url.endswith("dataset?async=true")
                     assert len(payload) == 2
                     assert all("datasetProfile" in item for item in payload)
                 else:
-                    assert url.endswith("dashboard?async=false")
+                    assert url.endswith("dashboard?async=true")
                     assert len(payload) == 2
                     assert all("status" in item for item in payload)
 
@@ -971,11 +971,11 @@ class TestDataHubRestEmitter:
 
             assert (
                 "post",
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
             ) in calls
             assert (
                 "patch",
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
             ) in calls
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
@@ -1063,14 +1063,14 @@ class TestDataHubRestEmitter:
             for call in post_calls:
                 assert (
                     call[0][0]
-                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
+                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
                 )
 
             # Verify all patch calls are to the dataset endpoint
             for call in patch_calls:
                 assert (
                     call[0][0]
-                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
+                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
                 )
 
     def test_openapi_sync_full_emit_mode(self, openapi_emitter):
