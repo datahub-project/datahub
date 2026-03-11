@@ -127,7 +127,12 @@ const meta: Meta = {
                 type: 'text',
             },
             table: {
-                defaultValue: { summary: selectDefaults.placeholder },
+                defaultValue: {
+                    summary:
+                        typeof selectDefaults.placeholder === 'string'
+                            ? selectDefaults.placeholder
+                            : 'Select an option',
+                },
             },
         },
         disabledValues: {

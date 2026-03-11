@@ -55,3 +55,10 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
+
+    - name: ingestion-datahub-documents
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
+      values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_DOCUMENTS_REVISION"
