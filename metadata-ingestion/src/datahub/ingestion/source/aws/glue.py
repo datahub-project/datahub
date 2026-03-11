@@ -647,7 +647,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         result: Optional[Tuple[str, str]] = None
         try:
-            kwargs: Dict[str, Any] = {"Name": connection_name}
+            kwargs: Dict[str, Any] = {"Name": connection_name, "HidePassword": True}
             if self.source_config.catalog_id:
                 kwargs["CatalogId"] = self.source_config.catalog_id
             response = self.glue_client.get_connection(**kwargs)
@@ -684,6 +684,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 flow_urn,
                 f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
             )
+            return None
 
         self._glue_connection_cache[connection_name] = result
         return result
