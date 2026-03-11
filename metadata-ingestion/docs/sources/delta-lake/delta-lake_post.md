@@ -148,7 +148,7 @@ Execute the ingestion recipe:
 datahub ingest -c delta.s3.dhub.yaml
 ```
 
-### Delta Table on Azure Data Lake Storage (ADLS Gen2 / Blob)
+#### Delta Table on Azure Data Lake Storage (ADLS Gen2 / Blob)
 
 You can ingest Delta tables stored in Azure using `abfss://`, `abfs://`, `az://`, `adl://`, or Azure HTTPS paths.
 
@@ -196,7 +196,7 @@ If you use `az://` or `adl://` URIs, set `azure.account_name` explicitly.
 If you use `azure.credential` (unified token-based auth), use `base_path` that points directly
 to a Delta table. Token-based credential is not used for recursive folder listing.
 
-### Assigning domains with a transformer
+#### Assigning domains with a transformer
 
 Delta Lake source does not provide connector-specific `domain` config.
 To assign domains, use the dataset transformer `simple_add_dataset_domain`.
