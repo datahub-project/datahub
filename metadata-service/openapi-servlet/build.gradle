@@ -25,6 +25,7 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.fabric8KubernetesClient
   implementation externalDependency.swaggerCore
   implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi

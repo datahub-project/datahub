@@ -22,6 +22,8 @@ from datahub.ingestion.source.kafka_connect.connector_registry import (
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BIGQUERY_SINK_CONNECTOR_CLASS,
+    CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+    DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
     S3_SINK_CONNECTOR_CLASS,
     SNOWFLAKE_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
@@ -243,6 +245,75 @@ class TestConnectorRegistrySinkConnectors:
     def test_mysql_sink_cloud(self) -> None:
         """Test routing for Confluent Cloud MySQL sink connector."""
         manifest = create_manifest(SINK, MYSQL_SINK_CLOUD)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, JdbcSinkConnector)
+        assert connector.get_platform() == "mysql"
+
+    def test_debezium_jdbc_sink_postgres(self) -> None:
+        """Test routing for Debezium JDBC sink with Postgres connection URL."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type=SINK,
+            config={
+                "connector.class": DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, JdbcSinkConnector)
+        assert connector.get_platform() == "postgres"
+
+    def test_debezium_jdbc_sink_oracle(self) -> None:
+        """Test routing for Debezium JDBC sink with Oracle connection URL."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type=SINK,
+            config={
+                "connector.class": DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+                "connection.url": "jdbc:oracle:thin:@localhost:1521/orcl",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, JdbcSinkConnector)
+        assert connector.get_platform() == "oracle"
+
+    def test_confluent_jdbc_sink_mysql(self) -> None:
+        """Test routing for Confluent JDBC sink with MySQL connection URL."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type=SINK,
+            config={
+                "connector.class": CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+                "connection.url": "jdbc:mysql://localhost:3306/mydb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
         config = create_mock_config()
         report = create_mock_report()
 

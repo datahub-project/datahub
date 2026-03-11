@@ -92,18 +92,14 @@ logger = logging.getLogger(__name__)
 )
 class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
     """
-    Extracts metadata from Hive Metastore.
+    Source that extracts metadata from Hive Metastore via SQL or Thrift connection.
 
-    Supports two connection methods selected via `connection_type`:
-    - sql: Direct connection to HMS backend database (MySQL/PostgreSQL)
-    - thrift: Connection to HMS Thrift API with Kerberos support
-
-    Features:
-    - Table and view metadata extraction
-    - Schema field types including complex types (struct, map, array)
-    - Storage lineage to S3, HDFS, Azure, GCS
-    - View lineage via SQL parsing
-    - Stateful ingestion for stale entity removal
+    Implementation notes:
+    - Uses HiveDataFetcher abstraction (SQLAlchemyDataFetcher or ThriftDataFetcher based on connection_type)
+    - Uses SqlParsingAggregator for extracting view lineage from view definitions
+    - Supports Presto/Trino view parsing from TABLE_PARAMS
+    - Implements stateful ingestion with StaleEntityRemovalHandler
+    - Complex type handling for struct/map/array schema fields
     """
 
     def __init__(self, config: HiveMetastore, ctx: PipelineContext) -> None:
