@@ -89,7 +89,8 @@ class ConnectorRegistry:
         except Exception as e:
             logger.warning(
                 f"Failed to create SchemaResolver for connector {connector.connector_manifest.name}: {e}. "
-                "Falling back to standard lineage extraction."
+                "Falling back to standard lineage extraction.",
+                exc_info=True,
             )
             return None
 

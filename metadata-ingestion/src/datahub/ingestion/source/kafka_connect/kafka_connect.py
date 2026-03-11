@@ -980,6 +980,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
             self.report.report_connector_scanned(connector.name)
 
+    def close(self) -> None:
+        if self._schema_resolver_provider:
+            try:
+                self._schema_resolver_provider.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close schema resolver provider", exc_info=True
+                )
+        super().close()
+
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
 

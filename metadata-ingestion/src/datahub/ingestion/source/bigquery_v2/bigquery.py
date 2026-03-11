@@ -244,14 +244,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
-                return SchemaResolverProvider(
-                    graph=self.ctx.graph,
-                    batch_size=self.config.schema_resolution_batch_size,
-                ).get(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
+                try:
+                    return SchemaResolverProvider(
+                        graph=self.ctx.graph,
+                        batch_size=self.config.schema_resolution_batch_size,
+                    ).get(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to bulk-load schemas from DataHub for SQL lineage. "
+                        "Lineage resolution will proceed with an empty schema resolver.",
+                        exc_info=True,
+                    )
             else:
                 logger.warning(
                     "Failed to load schema info from DataHub as DataHubGraph is missing. "

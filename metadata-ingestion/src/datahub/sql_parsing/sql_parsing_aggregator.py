@@ -459,13 +459,28 @@ class SqlParsingAggregator(Closeable):
             self._schema_resolver = schema_resolver
         elif graph is not None and eager_graph_load and self._need_schemas:
             # Bulk load schemas using the graph client.
-            self._schema_resolver = SchemaResolverProvider(
-                graph=graph,
-            ).get(
-                platform=self.platform.urn(),
-                platform_instance=self.platform_instance,
-                env=self.env,
-            )
+            try:
+                self._schema_resolver = SchemaResolverProvider(
+                    graph=graph,
+                ).get(
+                    platform=self.platform.platform_name,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to bulk-load schemas from DataHub. "
+                    "Falling back to lazy-loading schema resolver.",
+                    exc_info=True,
+                )
+                self._schema_resolver = self._exit_stack.enter_context(
+                    SchemaResolver(
+                        platform=self.platform.platform_name,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                        graph=graph,
+                    )
+                )
         else:
             # Otherwise, use a lazy-loading schema resolver.
             self._schema_resolver = self._exit_stack.enter_context(

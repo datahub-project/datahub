@@ -68,14 +68,23 @@ class SchemaResolverProvider:
                     resolver.add_graphql_schema_metadata(urn, schema_info)
                     count += 1
                 except Exception:
-                    logger.warning("Failed to add schema info", exc_info=True)
+                    logger.warning(
+                        f"Failed to add schema info for {urn}", exc_info=True
+                    )
 
-                if count % 1000 == 0:
+                if count > 0 and count % 1000 == 0:
                     logger.debug(
                         f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
                     )
             logger.info(
                 f"Finished loading {count} schema info in {timer.elapsed_seconds()} seconds"
+            )
+
+        if count == 0:
+            logger.warning(
+                f"Bulk schema fetch returned 0 results for platform={platform}, "
+                f"platform_instance={platform_instance}, env={env}. "
+                "Schema resolver will be empty — SQL lineage may be incomplete."
             )
         return resolver
 
