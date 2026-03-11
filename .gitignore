@@ -44,6 +44,7 @@ fix-failing-tests/
 /config
 */i18n
 out/
+post-workflow-validation-summary.md
 
 # Mac OS
 **/.DS_Store

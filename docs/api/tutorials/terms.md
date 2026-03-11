@@ -21,7 +21,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before modifying terms, you need to ensure the target dataset is already present in your DataHub instance.

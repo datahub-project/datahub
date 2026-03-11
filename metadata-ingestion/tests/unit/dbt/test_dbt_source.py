@@ -18,6 +18,10 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
+    SemanticModelDimension,
+    SemanticModelEntity,
+    SemanticModelMeasure,
+    convert_semantic_model_fields_to_columns,
     get_column_type,
     parse_semantic_view_cll,
 )
@@ -25,6 +29,7 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
     extract_dbt_exposures,
+    extract_semantic_models,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -402,6 +407,90 @@ def test_default_convert_column_urns_to_lowercase():
         }
     )
     assert config.convert_column_urns_to_lowercase is False
+
+
+def test_default_convert_urns_to_lowercase():
+    """convert_urns_to_lowercase is opt-in only, never auto-enabled."""
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+
+    config = DBTCoreConfig.model_validate({**config_dict})
+    assert config.convert_urns_to_lowercase is False
+
+    # Snowflake should NOT auto-enable convert_urns_to_lowercase.
+    config = DBTCoreConfig.model_validate(
+        {**config_dict, "target_platform": "snowflake"}
+    )
+    assert config.convert_urns_to_lowercase is False
+
+    # Explicit opt-in should work.
+    config = DBTCoreConfig.model_validate(
+        {
+            **config_dict,
+            "convert_urns_to_lowercase": True,
+            "target_platform": "snowflake",
+        }
+    )
+    assert config.convert_urns_to_lowercase is True
+
+
+def test_convert_urns_to_lowercase_affects_dbt_urns():
+    """When convert_urns_to_lowercase is True, dbt platform URNs should be lowercased."""
+    node = DBTNode(
+        dbt_name="model.my_project.dim_industry",
+        dbt_adapter="snowflake",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="MY_DB",
+        schema="APP_SALES",
+        name="dim_industry",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/dim_industry.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Without the flag, dbt platform URNs preserve original casing.
+    dbt_urn_without_flag = node.get_urn(
+        target_platform="dbt",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "MY_DB.APP_SALES.dim_industry" in dbt_urn_without_flag
+
+    # With the flag set on the node, dbt platform URNs are lowercased.
+    node.convert_urns_to_lowercase = True
+    dbt_urn_with_flag = node.get_urn(
+        target_platform="dbt",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "my_db.app_sales.dim_industry" in dbt_urn_with_flag
+
+    # Target platform URNs are always lowercased regardless of the flag.
+    node.convert_urns_to_lowercase = False
+    target_urn = node.get_urn(
+        target_platform="snowflake",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "my_db.app_sales.dim_industry" in target_urn
 
 
 def test_dbt_entity_emission_configuration_helpers():
@@ -2204,3 +2293,505 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
     assert isinstance(ownership_mcp.aspect, OwnershipClass)
     # Owner URN should be stripped: "analytics" (not "analytics@company.com")
     assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"
+
+
+# =============================================================================
+# Semantic Model Tests
+# =============================================================================
+
+
+def test_convert_semantic_model_fields_to_columns_basic():
+    """Test converting semantic model entities, dimensions, and measures to columns."""
+    entities: list[SemanticModelEntity] = [
+        {"name": "order_id", "type": "primary", "description": "Primary order key"},
+        {"name": "customer_id", "type": "foreign", "description": ""},
+    ]
+    dimensions: list[SemanticModelDimension] = [
+        {"name": "order_date", "type": "time", "description": "When order was placed"},
+        {"name": "status", "type": "categorical", "description": ""},
+    ]
+    measures: list[SemanticModelMeasure] = [
+        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
+        {"name": "order_count", "agg": "count", "description": ""},
+    ]
+
+    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+
+    assert len(columns) == 6
+
+    order_id_col = next(c for c in columns if c.name == "order_id")
+    assert order_id_col.data_type == "entity:primary"
+    assert order_id_col.description == "Primary order key"
+
+    customer_id_col = next(c for c in columns if c.name == "customer_id")
+    assert customer_id_col.data_type == "entity:foreign"
+    assert "Entity" in customer_id_col.description
+
+    order_date_col = next(c for c in columns if c.name == "order_date")
+    assert order_date_col.data_type == "dimension:time"
+    assert order_date_col.description == "When order was placed"
+
+    total_revenue_col = next(c for c in columns if c.name == "total_revenue")
+    assert total_revenue_col.data_type == "measure:sum"
+    assert total_revenue_col.description == "Sum of order amounts"
+
+
+def test_convert_semantic_model_fields_empty_descriptions():
+    """Test default description generation when descriptions are empty."""
+    entities: list[SemanticModelEntity] = [
+        {"name": "id", "type": "primary", "description": ""},
+    ]
+    dimensions: list[SemanticModelDimension] = [
+        {"name": "category", "type": "categorical", "description": ""},
+    ]
+    measures: list[SemanticModelMeasure] = [
+        {"name": "total", "agg": "sum", "description": ""},
+    ]
+
+    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+
+    assert len(columns) == 3
+
+    id_col = next(c for c in columns if c.name == "id")
+    assert "Entity" in id_col.description
+    assert "primary" in id_col.description
+
+    category_col = next(c for c in columns if c.name == "category")
+    assert "Dimension" in category_col.description
+    assert "categorical" in category_col.description
+
+    total_col = next(c for c in columns if c.name == "total")
+    assert "Measure" in total_col.description
+    assert "sum" in total_col.description
+
+
+def test_extract_semantic_models_partial_node_relation():
+    """Test fallback when node_relation has only database (schema from depends_on)."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.partial_metrics": {
+            "name": "partial_metrics",
+            "description": "Test partial node_relation",
+            "node_relation": {"database": "my_database"},
+            "depends_on": {"nodes": ["model.my_project.ref_model"]},
+            "entities": [],
+            "dimensions": [],
+            "measures": [{"name": "count", "agg": "count", "description": ""}],
+            "tags": [],
+            "meta": {},
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.ref_model": {
+            "database": "other_db",
+            "schema": "ref_schema",
+            "name": "ref_model",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+    assert node.database == "my_database"
+    assert node.schema == "ref_schema"
+    assert node.dbt_adapter == "snowflake"
+
+
+def test_dbt_semantic_model_subtype() -> None:
+    """Test that semantic models get the correct SEMANTIC_MODEL subtype."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    semantic_model_node = DBTNode(
+        database="analytics",
+        schema="public",
+        name="order_metrics",
+        alias="order_metrics",
+        dbt_name="semantic_model.my_project.order_metrics",
+        dbt_adapter="snowflake",
+        node_type="semantic_model",  # The key difference from regular models
+        max_loaded_at=None,
+        materialization=None,  # Semantic models don't have materialization
+        comment="",
+        description="Order metrics semantic model",
+        dbt_file_path=None,
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner="",
+    )
+
+    subtype_wu = source._create_subType_wu(
+        semantic_model_node,
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.public.order_metrics,PROD)",
+    )
+
+    assert subtype_wu is not None
+    assert isinstance(subtype_wu.metadata, MetadataChangeProposalWrapper)
+    aspect = subtype_wu.metadata.aspect
+    assert aspect is not None
+    assert isinstance(aspect, SubTypesClass)
+    assert DatasetSubTypes.SEMANTIC_MODEL in aspect.typeNames
+
+
+def test_extract_semantic_models_basic():
+    """Test extracting semantic models from manifest.json."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.order_metrics": {
+            "name": "order_metrics",
+            "description": "Metrics for order analysis",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "order_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.stg_orders"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [
+                {"name": "order_date", "type": "time", "description": "Order date"}
+            ],
+            "measures": [
+                {"name": "revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "tags": ["metrics", "orders"],
+            "meta": {"team": "analytics"},
+            "original_file_path": "models/semantic_models/order_metrics.yml",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.stg_orders": {
+            "database": "analytics",
+            "schema": "staging",
+            "name": "stg_orders",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.name == "order_metrics"
+    assert node.description == "Metrics for order analysis"
+    assert node.node_type == "semantic_model"
+    assert node.database == "analytics"
+    assert node.dbt_adapter == "snowflake"
+    assert node.schema == "public"
+    assert node.language == "yaml"
+    assert node.materialization is None
+
+    # Check columns were converted from entities/dimensions/measures
+    assert len(node.columns) == 3
+    column_names = [c.name for c in node.columns]
+    assert "order_id" in column_names
+    assert "order_date" in column_names
+    assert "revenue" in column_names
+
+    # Check tags have prefix
+    assert "dbt:metrics" in node.tags
+    assert "dbt:orders" in node.tags
+
+
+def test_extract_semantic_models_fallback_to_depends_on():
+    """Test extracting semantic models when node_relation is missing db/schema."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.customer_metrics": {
+            "name": "customer_metrics",
+            "description": "Customer metrics",
+            "node_relation": {},  # Empty - should fallback to depends_on
+            "depends_on": {"nodes": ["model.my_project.dim_customers"]},
+            "entities": [{"name": "customer_id", "type": "primary", "description": ""}],
+            "dimensions": [],
+            "measures": [{"name": "count", "agg": "count", "description": ""}],
+            "tags": [],
+            "meta": {},
+            "original_file_path": "models/semantic_models/customer_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    # The referenced model has database/schema info
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.dim_customers": {
+            "database": "warehouse",
+            "schema": "analytics",
+            "name": "dim_customers",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="postgres",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.database == "warehouse"
+    assert node.schema == "analytics"
+    assert node.name == "customer_metrics"
+    assert node.node_type == "semantic_model"
+
+
+def test_extract_semantic_models_no_db_schema():
+    """Test extracting semantic models when neither node_relation nor depends_on has db/schema."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.orphan_metrics": {
+            "name": "orphan_metrics",
+            "description": "Orphan metrics",
+            "node_relation": {},
+            "depends_on": {"nodes": []},  # No dependencies
+            "entities": [],
+            "dimensions": [],
+            "measures": [{"name": "count", "agg": "count", "description": ""}],
+            "tags": [],
+            "meta": {},
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes={},
+        manifest_adapter=None,
+        tag_prefix="",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.database is None
+    assert node.schema is None
+    assert node.dbt_adapter is None
+    assert node.name == "orphan_metrics"
+
+
+def test_dbt_entities_enabled_semantic_models_default():
+    """Test that semantic models are enabled by default."""
+    config = DBTEntitiesEnabled()
+    assert config.semantic_models == EmitDirective.YES
+    assert config.can_emit_semantic_models is True
+    assert config.can_emit_node_type("semantic_model") is True
+
+
+def test_dbt_entities_enabled_semantic_models_disabled():
+    """Test disabling semantic models emission."""
+    config = DBTEntitiesEnabled(semantic_models=EmitDirective.NO)
+    assert config.semantic_models == EmitDirective.NO
+    assert config.can_emit_semantic_models is False
+    assert config.can_emit_node_type("semantic_model") is False
+
+
+def test_dbt_entities_enabled_semantic_models_only():
+    """Test setting semantic models to ONLY mode."""
+    config = DBTEntitiesEnabled(semantic_models=EmitDirective.ONLY)
+
+    # ONLY directive should be converted to YES, others to NO
+    assert config.semantic_models == EmitDirective.YES
+    assert config.can_emit_semantic_models is True
+    assert config.can_emit_node_type("semantic_model") is True
+
+    # Other node types should be disabled
+    assert config.models == EmitDirective.NO
+    assert config.sources == EmitDirective.NO
+    assert config.can_emit_node_type("model") is False
+
+
+def test_dbt_cloud_parse_semantic_model_node():
+    """Test parsing semantic model nodes from dbt Cloud GraphQL response."""
+    config = DBTCloudConfig(
+        access_url="https://cloud.getdbt.com",
+        token="dummy_token",
+        account_id=123456,
+        project_id=1234567,
+        job_id=12345678,
+        target_platform="snowflake",
+    )
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+    source = DBTCloudSource(config, ctx)
+
+    # Mock semantic model node from GraphQL (no database/schema - API doesn't expose these)
+    semantic_model_node = {
+        "uniqueId": "semantic_model.my_project.order_metrics",
+        "name": "order_metrics",
+        "description": "Order metrics for analysis",
+        "resourceType": "semantic_model",
+        "packageName": "my_project",
+        "meta": {},
+        "tags": ["metrics"],
+        "dependsOn": ["model.my_project.stg_orders"],
+        "entities": [
+            {
+                "name": "order_id",
+                "type": "primary",
+                "description": "Primary key",
+                "expr": "order_id",
+            }
+        ],
+        "dimensions": [
+            {
+                "name": "order_date",
+                "type": "time",
+                "description": "Order date",
+                "expr": "order_date",
+                "typeParams": {},
+            }
+        ],
+        "measures": [
+            {
+                "name": "total_revenue",
+                "agg": "sum",
+                "description": "Total revenue",
+                "expr": "amount",
+                "createMetric": True,
+            }
+        ],
+    }
+
+    node = source._parse_into_dbt_node(semantic_model_node)
+
+    assert node.name == "order_metrics"
+    assert node.node_type == "semantic_model"
+    assert (
+        node.database is None
+    )  # dbt Cloud API doesn't expose database for semantic models
+    assert (
+        node.schema is None
+    )  # dbt Cloud API doesn't expose schema for semantic models
+    assert node.materialization is None
+    assert node.language == "yaml"
+    assert len(node.columns) == 3
+
+    # Verify columns were converted correctly
+    column_names = [c.name for c in node.columns]
+    assert "order_id" in column_names
+    assert "order_date" in column_names
+    assert "total_revenue" in column_names
+
+
+def test_dbt_cloud_semantic_model_column_types():
+    """Test that semantic model columns have correct data types."""
+    config = DBTCloudConfig(
+        access_url="https://cloud.getdbt.com",
+        token="dummy_token",
+        account_id=123456,
+        project_id=1234567,
+        job_id=12345678,
+        target_platform="snowflake",
+    )
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+    source = DBTCloudSource(config, ctx)
+
+    semantic_model_node = {
+        "uniqueId": "semantic_model.my_project.test_metrics",
+        "name": "test_metrics",
+        "description": "",
+        "resourceType": "semantic_model",
+        "packageName": "my_project",
+        "meta": {},
+        "tags": [],
+        "dependsOn": [],
+        "entities": [{"name": "id", "type": "primary", "description": "", "expr": ""}],
+        "dimensions": [
+            {
+                "name": "category",
+                "type": "categorical",
+                "description": "",
+                "expr": "",
+                "typeParams": {},
+            }
+        ],
+        "measures": [
+            {
+                "name": "count",
+                "agg": "count",
+                "description": "",
+                "expr": "",
+                "createMetric": False,
+            }
+        ],
+    }
+
+    node = source._parse_into_dbt_node(semantic_model_node)
+
+    # Find columns by name
+    id_col = next(c for c in node.columns if c.name == "id")
+    category_col = next(c for c in node.columns if c.name == "category")
+    count_col = next(c for c in node.columns if c.name == "count")
+
+    assert id_col.data_type == "entity:primary"
+    assert category_col.data_type == "dimension:categorical"
+    assert count_col.data_type == "measure:count"
+
+
+def test_dbt_common_semantic_model_subtype_assignment():
+    """Test that _create_subType_wu assigns correct subtypes for different node types."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    # Test with different node types
+    # For model/source/seed/snapshot, subtype is node_type.capitalize()
+    # For semantic_model, subtype is DatasetSubTypes.SEMANTIC_MODEL
+    test_cases = [
+        ("model", "Model"),
+        ("source", "Source"),
+        ("seed", "Seed"),
+        ("snapshot", "Snapshot"),
+        ("semantic_model", DatasetSubTypes.SEMANTIC_MODEL),
+    ]
+
+    for node_type, expected_subtype in test_cases:
+        node = DBTNode(
+            database="test_db",
+            schema="test_schema",
+            name="test_node",
+            alias=None,
+            comment="",
+            description="",
+            language="sql" if node_type != "semantic_model" else "yaml",
+            raw_code=None,
+            compiled_code=None,
+            dbt_adapter="snowflake" if node_type != "semantic_model" else None,
+            dbt_name=f"{node_type}.my_project.test_node",
+            dbt_file_path=None,
+            dbt_package_name="my_project",
+            node_type=node_type,
+            max_loaded_at=None,
+            materialization="table" if node_type == "model" else None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            meta={},
+            query_tag={},
+            tags=[],
+            owner=None,
+            columns=[],
+        )
+
+        wu = source._create_subType_wu(
+            node, f"urn:li:dataset:(urn:li:dataPlatform:dbt,test.{node_type},PROD)"
+        )
+
+        assert wu is not None
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, SubTypesClass)
+        assert expected_subtype in aspect.typeNames, f"Failed for node_type={node_type}"

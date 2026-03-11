@@ -389,9 +389,9 @@ For advanced use cases with the legacy OpenLineage package (`openlineage-airflow
 
 See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
 
-## Cleanup obsolete pipelines and tasks from Datahub
+## Cleanup obsolete pipelines and tasks from DataHub
 
-There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the Datahub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the DataHub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
 
 Following are the steps to cleanup them from the datahub:
 
@@ -419,7 +419,7 @@ with DAG(
 
 ```
 
-- ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
+- ingest this DAG, and it will remove all the obsolete pipelines and tasks from the DataHub based on the `cluster` value set in the `airflow.cfg`
 
 ## Get all dataJobs associated with a dataFlow
 
@@ -450,7 +450,7 @@ If you can't use the plugin or annotate inlets/outlets, you can also emit lineag
 
 Reference [`lineage_emission_dag.py`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/lineage_emission_dag.py) for a full example.
 
-In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See the plugin configuration for examples.
+In order to use this example, you must first configure the DataHub hook. Like in ingestion, we support a DataHub REST hook and a Kafka-based hook. See the plugin configuration for examples.
 
 ## Debugging
 
@@ -536,7 +536,7 @@ DataHub also previously supported an Airflow [lineage backend](https://airflow.a
 
 ## Additional references
 
-Related Datahub videos:
+Related DataHub videos:
 
 - [Airflow Lineage](https://www.youtube.com/watch?v=3wiaqhb8UR0)
 - [Airflow Run History in DataHub](https://www.youtube.com/watch?v=YpUOqDU5ZYg)

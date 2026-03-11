@@ -289,7 +289,7 @@ Then use the settings below.
         secretKey: elasticsearch-password
 ```
 
-If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+If you have access control enabled with IAM auth, enable AWS auth signing in DataHub
 
 ```
  OPENSEARCH_USE_AWS_IAM_AUTH=true

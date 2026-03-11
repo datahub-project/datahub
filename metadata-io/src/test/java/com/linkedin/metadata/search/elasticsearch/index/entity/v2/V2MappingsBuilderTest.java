@@ -13,6 +13,8 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
@@ -283,6 +285,74 @@ public class V2MappingsBuilderTest {
 
     // Results should be the same as with only the related structured property
     assertEquals(resultWithBothStructuredProps.size(), resultWithOnlyRelatedStructuredProp.size());
+  }
+
+  @Test
+  public void testStructuredPropertiesMappingHasDynamicTrue() throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+    StructuredPropertyDefinition structPropForThisEntity =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propForThis")
+            .setDisplayName("propForThis")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propForThis"),
+                    structPropForThisEntity)));
+    IndexMapping mapping =
+        result.stream()
+            .filter(
+                m ->
+                    ((Map<String, Object>) m.getMappings().get("properties"))
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
+            .findFirst()
+            .orElse(null);
+    assertNotNull(mapping, "One mapping should include structuredProperties");
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        structuredPropsMapping.get("type"),
+        "object",
+        "structuredProperties root must be type object");
+    assertEquals(
+        structuredPropsMapping.get("dynamic"),
+        true,
+        "structuredProperties root must have dynamic=true for nested indexing");
+  }
+
+  @Test
+  public void testObjectFieldMappingHasDynamicTrue() {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    SearchableFieldSpec objectFieldSpec = mock(SearchableFieldSpec.class);
+    SearchableAnnotation objectAnnotation = mock(SearchableAnnotation.class);
+    when(objectAnnotation.getFieldName()).thenReturn("objectField");
+    when(objectAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.OBJECT);
+    when(objectFieldSpec.getSearchableAnnotation()).thenReturn(objectAnnotation);
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of(objectFieldSpec));
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> result =
+        mappingsBuilder.getIndexMappings(operationContext.getEntityRegistry(), mockEntitySpec);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> props = (Map<String, Object>) result.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectFieldMapping = (Map<String, Object>) props.get("objectField");
+    assertNotNull(objectFieldMapping, "Object field should have a mapping");
+    assertEquals(objectFieldMapping.get("type"), "object", "Object field must have type object");
+    assertEquals(objectFieldMapping.get("dynamic"), true, "Object field must have dynamic=true");
   }
 
   @Test

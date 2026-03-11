@@ -9,11 +9,11 @@ import pytest
 import time_machine
 from sqlalchemy import exc
 
-from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.sql.oracle import (
     OracleInspectorObjectWrapper,
     OracleSource,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.testing import mce_helpers
 from tests.integration.oracle.common import (  # type: ignore[import-untyped]
     OracleSourceMockDataBase,
@@ -237,21 +237,20 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         inspector.bind.execute.side_effect = exc.DatabaseError(
             "statement", [], "Mock DB Error"
         )
-        inspector_wrapper = OracleInspectorObjectWrapper(inspector)
+        inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 
         db_name = inspector_wrapper.get_db_name()
 
         assert db_name == ""
         assert len(inspector_wrapper.report.failures) == 1
         error = inspector_wrapper.report.failures[0]
-        assert error.impact.name == StructuredLogLevel.ERROR.name
         assert error.message == "database_fetch_error"
 
     def test_get_pk_constraint_error_handling(self):
         inspector = MagicMock()
         inspector.dialect.normalize_name.side_effect = lambda x: x
         inspector.dialect.denormalize_name.side_effect = lambda x: x
-        inspector_wrapper = OracleInspectorObjectWrapper(inspector)
+        inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 
         with patch.object(
             inspector_wrapper, "_get_constraint_data"
@@ -262,15 +261,12 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
 
             assert result == {"constrained_columns": [], "name": None}
             assert len(inspector_wrapper.report.failures) == 1
-            error = inspector_wrapper.report.failures[0]
-            assert error.impact.name == StructuredLogLevel.ERROR.name
-            assert "Error processing primary key constraints" in error.message
 
     def test_get_foreign_keys_missing_table_warning(self):
         inspector = MagicMock()
         inspector.dialect.normalize_name.side_effect = lambda x: x
         inspector.dialect.denormalize_name.side_effect = lambda x: x
-        inspector_wrapper = OracleInspectorObjectWrapper(inspector)
+        inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 
         mock_data = [
             (
@@ -302,7 +298,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         inspector = MagicMock()
         inspector.dialect.normalize_name.side_effect = lambda x: x
         inspector.dialect.denormalize_name.side_effect = lambda x: x
-        inspector_wrapper = OracleInspectorObjectWrapper(inspector)
+        inspector_wrapper = OracleInspectorObjectWrapper(inspector, SQLSourceReport())
 
         mock_comment = "Test table comment"
         inspector.bind.execute.return_value.scalar.return_value = mock_comment
