@@ -9,6 +9,7 @@ References:
 """
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterable, Optional
 
 from datahub.emitter.mcp_builder import ContainerKey
@@ -20,6 +21,10 @@ from datahub.sdk.container import Container
 # workspace appears as a single node in DataHub regardless of which
 # connector ingested it.
 FABRIC_WORKSPACE_PLATFORM = "fabric"
+
+
+class FabricItemType:
+    DATA_PIPELINE = "DataPipeline"
 
 
 class WorkspaceKey(ContainerKey):
@@ -91,3 +96,47 @@ class FabricItem:
     type: str  # e.g. "DataPipeline", "CopyJob", "Dataflow", "Lakehouse", "Warehouse"
     workspace_id: str
     description: Optional[str] = None
+
+
+class ItemJobStatus(str, Enum):
+    """Fabric Job Scheduler status values.
+
+    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
+    """
+
+    NOT_STARTED = "NotStarted"
+    IN_PROGRESS = "InProgress"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    CANCELLED = "Cancelled"
+    DEDUPED = "Deduped"
+
+
+class InvokeType(str, Enum):
+    """Fabric Job Scheduler invoke type values.
+
+    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
+    """
+
+    SCHEDULED = "Scheduled"
+    MANUAL = "Manual"
+
+
+@dataclass
+class FabricJobInstance:
+    """A single job execution instance from the Fabric Job Scheduler API.
+
+    Returned by GET /workspaces/{workspaceId}/items/{itemId}/jobs/instances.
+    Generic across all item types (pipelines, copy jobs, dataflows, etc.).
+
+    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/list-item-job-instances
+    """
+
+    id: str
+    item_id: str
+    workspace_id: str
+    status: str
+    start_time_utc: Optional[str] = None  # ISO 8601
+    end_time_utc: Optional[str] = None  # ISO 8601
+    invoke_type: Optional[str] = None
+    failure_reason: Optional[str] = None

@@ -1,6 +1,6 @@
 """Data models specific to Microsoft Fabric Data Factory.
 
-Shared Fabric models (FabricWorkspace, FabricItem) are in
+Shared Fabric models (FabricWorkspace, FabricItem, FabricJobInstance) are in
 datahub.ingestion.source.fabric.common.models.
 
 References:

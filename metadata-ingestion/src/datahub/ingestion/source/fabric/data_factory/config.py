@@ -73,6 +73,22 @@ class FabricDataFactorySourceConfig(
         description="Whether to extract Dataflow Gen2 items.",
     )
 
+    # Pipeline runs
+    extract_pipeline_runs: bool = Field(
+        default=True,
+        description="Whether to extract pipeline run history as DataProcessInstances.",
+    )
+
+    lookback_days: int = Field(
+        default=7,
+        description=(
+            "Number of days of pipeline run history to ingest. "
+            "Only runs with startTimeUtc within this window are fetched. "
+            "Note: Fabric API returns at most 100 recently completed runs per pipeline."
+        ),
+        ge=1,
+    )
+
     # API timeout
     api_timeout: int = Field(
         default=30,

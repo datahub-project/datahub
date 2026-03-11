@@ -25,16 +25,13 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     copyjobs_scanned: int = 0
     dataflows_scanned: int = 0
     activities_scanned: int = 0
+    pipeline_runs_scanned: int = 0
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
     filtered_pipelines: LossyList[str] = field(default_factory=LossyList)
     filtered_copyjobs: LossyList[str] = field(default_factory=LossyList)
     filtered_dataflows: LossyList[str] = field(default_factory=LossyList)
-
-    # API metrics
-    api_calls_total_count: int = 0
-    api_calls_total_error_count: int = 0
 
     # Client report
     client_report: Optional[FabricDataFactoryClientReport] = None
@@ -66,13 +63,5 @@ class FabricDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_activity_scanned(self) -> None:
         self.activities_scanned += 1
 
-    def report_api_call(self) -> None:
-        self.api_calls_total_count += 1
-
-    def report_api_error(self, endpoint: str, error: str) -> None:
-        self.api_calls_total_error_count += 1
-        self.report_warning(
-            title="API Error",
-            message="Failed to call Fabric REST API.",
-            context=f"endpoint={endpoint}, error={error}",
-        )
+    def report_pipeline_run_scanned(self) -> None:
+        self.pipeline_runs_scanned += 1
