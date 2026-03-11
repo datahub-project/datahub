@@ -1569,8 +1569,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         platform: str,
         platform_instance: Optional[str],
         env: str,
+        *,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> "SchemaResolver":
-        return self._schema_resolver_provider.get(platform, platform_instance, env)
+        provider = schema_resolver_provider or self._schema_resolver_provider
+        return provider.get(platform, platform_instance, env)
 
     def parse_sql_lineage(
         self,
