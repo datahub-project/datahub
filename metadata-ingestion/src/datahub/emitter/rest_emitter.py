@@ -198,7 +198,7 @@ class EmitMode(ConfigEnum):
 
 
 _DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
-    get_emit_mode() or EmitMode.SYNC_PRIMARY,
+    get_emit_mode() or EmitMode.ASYNC,
 )
 
 
