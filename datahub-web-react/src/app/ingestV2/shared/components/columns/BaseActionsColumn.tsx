@@ -41,7 +41,7 @@ export default function BaseActionsColumn({ dropdownItems, extraActions }: Props
         <ActionIcons onClick={(e) => e.stopPropagation()}>
             {extraActions}
             <Dropdown menu={{ items: dropdownItems }} trigger={['click']}>
-                <Icon icon="DotsThreeVertical" source="phosphor" data-testid="ingestion-more-options" />
+                <Icon icon="DotsThreeVertical" weight="bold" data-testid="ingestion-more-options" />
             </Dropdown>
         </ActionIcons>
     );

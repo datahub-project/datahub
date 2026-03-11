@@ -89,7 +89,7 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
             </SelectContainer>
             <IconsContainer>
                 <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => onDeletePredicate(index)} />
+                    <Icon icon="Trash" size="md" onClick={() => onDeletePredicate(index)} />
                 </CardIcons>
             </IconsContainer>
         </ConditionContainer>

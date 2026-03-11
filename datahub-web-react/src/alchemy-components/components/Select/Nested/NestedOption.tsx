@@ -1,4 +1,4 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { Checkbox } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -21,7 +21,7 @@ const ChildOptions = styled.div`
 
 const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
     .ant-checkbox-inner {
-        border: 1px solid ${colors.gray[300]} !important;
+        border: 1px solid ${(props) => props.theme.colors.border} !important;
         border-radius: 3px;
     }
     margin-left: auto;
@@ -47,7 +47,7 @@ const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: bool
         props.disabled &&
         `
 		.ant-checkbox-inner {
-			background-color: ${colors.gray[200]} !important;
+			background-color: ${props.theme.colors.bgDisabled} !important;
 		}
 	`}
 `;
@@ -170,7 +170,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                                     loadData?.(option);
                                 }
                             }}
-                            icon="ChevronLeft"
+                            icon="CaretLeft"
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
                             color="gray"

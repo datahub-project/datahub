@@ -105,7 +105,7 @@ const AllowedValuesDrawer = ({
                                                         showArrow={false}
                                                     >
                                                         <Icon
-                                                            icon="Delete"
+                                                            icon="Trash"
                                                             onClick={() => remove(field.name)}
                                                             color="gray"
                                                             size="xl"

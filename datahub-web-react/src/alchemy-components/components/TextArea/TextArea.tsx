@@ -71,8 +71,8 @@ export const TextArea = ({
                     {...props}
                 />
                 {isSuccess && <StyledStatusIcon icon="CheckCircle" color="green" size="lg" />}
-                {invalid && <StyledStatusIcon icon="WarningAmber" color="red" size="lg" />}
-                {warning && <StyledStatusIcon icon="ErrorOutline" color="yellow" size="lg" />}
+                {invalid && <StyledStatusIcon icon="Warning" color="red" size="lg" />}
+                {warning && <StyledStatusIcon icon="WarningCircle" color="yellow" size="lg" />}
             </TextAreaContainer>
             {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

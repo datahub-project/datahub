@@ -76,7 +76,7 @@ describe("manage applications", () => {
 
     // Find the table row containing the application name and click its actions dropdown
     cy.contains("tr", "test-new-name").within(() => {
-      cy.get('[data-testid$="MoreVertOutlinedIcon"]').click();
+      cy.get('[data-testid="actions-more-icon"]').click();
     });
 
     // Click the delete option from the dropdown menu

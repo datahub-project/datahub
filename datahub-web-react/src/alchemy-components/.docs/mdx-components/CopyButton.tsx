@@ -10,7 +10,7 @@ interface Props {
 export const CopyButton = ({ text }: Props) => (
     <div style={{ display: 'inline-block' }}>
         <Button variant="text" color="gray" size="sm" onClick={() => copyToClipboard(text)}>
-            <Icon icon="ContentCopy" size="xs" />
+            <Icon icon="Copy" size="xs" />
         </Button>
     </div>
 );

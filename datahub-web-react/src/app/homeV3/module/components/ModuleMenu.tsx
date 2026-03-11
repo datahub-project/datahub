@@ -117,7 +117,7 @@ export default function ModuleMenu({ module, position }: Props) {
                     dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
                     menu={menu}
                 >
-                    <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
+                    <StyledIcon icon="DotsThreeVertical" size="lg" weight="bold" />
                 </Dropdown>
             </DropdownWrapper>
 

@@ -35,7 +35,7 @@ const EntityOptionContainer = styled.div`
 const LoadingState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -45,7 +45,7 @@ const LoadingState = styled.div`
 const EmptyState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-style: italic;
 `;
 
@@ -179,7 +179,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     value={searchQuery}
                     setValue={handleSearchChange}
                     placeholder={placeholder}
-                    icon={{ icon: 'Search' }}
+                    icon={{ icon: 'MagnifyingGlass' }}
                     data-testid="entity-search-select-input"
                 />
             </SearchInputContainer>
