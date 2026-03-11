@@ -87,7 +87,6 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub.utilities.graphql_query_adapter import QueryProjector
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
@@ -106,6 +105,7 @@ if TYPE_CHECKING:
         SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+    from datahub.utilities.graphql_query_adapter import QueryProjector
 
 
 logger = logging.getLogger(__name__)
@@ -182,7 +182,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
-        self._query_projector = QueryProjector()
+        self._query_projector: Optional["QueryProjector"] = None
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1238,10 +1238,37 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         format_exception: bool = True,
         strip_unsupported_fields: bool = True,
     ) -> Dict:
+        """Execute a GraphQL query against the DataHub server.
+
+        Args:
+            query: The GraphQL query string.
+            variables: Optional variables for the query.
+            operation_name: Optional GraphQL operation name.
+            format_exception: If True, format GraphQL errors into a readable message.
+            strip_unsupported_fields: Controls schema-compatibility projection.
+                When True (default), fields and types not present in the server's
+                schema are automatically removed so the query succeeds. Callers
+                should treat projected-away fields as absent in the response rather
+                than assuming they will always be returned.
+                When False, the query is sent as-is and the server will return a
+                GraphQL error if it references unknown fields. Use this when the
+                caller requires specific fields and needs a hard failure if they
+                are unavailable.
+        """
         if strip_unsupported_fields:
-            query, removed = self._query_projector.adapt_query(query, self)
-            if removed:
-                logger.info(f"Stripped unsupported fields from query: {removed}")
+            try:
+                if self._query_projector is None:
+                    from datahub.utilities.graphql_query_adapter import QueryProjector
+
+                    self._query_projector = QueryProjector()
+                query, removed = self._query_projector.adapt_query(query, self)
+                if removed:
+                    logger.info(f"Stripped unsupported fields from query: {removed}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to adapt query for schema compatibility, "
+                    f"falling back to original query: {e}"
+                )
 
         url = f"{self._gms_server}/api/graphql"
 
