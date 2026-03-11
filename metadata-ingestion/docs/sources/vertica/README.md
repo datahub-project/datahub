@@ -1,22 +1,10 @@
-## Integration Details
+## Overview
 
-<!-- Plain-language description of what this integration is meant to do.  -->
-<!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
+Vertica is a data platform used to store and query analytical or operational data. Learn more in the [official Vertica documentation](https://www.opentext.com/products/vertica).
 
-The DataHub Vertica Plugin extracts the following:
+The DataHub integration for Vertica covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
 
-- Metadata for databases, schemas, views, tables, and projections
-- Table level lineage
-- Metadata for ML Models
-
-### Concept Mapping
-
-<!-- This should be a manual mapping of concepts from the source to the DataHub Metadata Model -->
-<!-- Authors should provide as much context as possible about how this mapping was generated, including assumptions made, known shortcuts, & any other caveats -->
-
-This ingestion source maps the following Source System Concepts to DataHub Concepts:
-
-<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+## Concept Mapping
 
 | Source Concept | DataHub Concept                                           | Notes |
 | -------------- | --------------------------------------------------------- | ----- |
@@ -24,7 +12,3 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Table          | [Dataset](../../metamodel/entities/dataset.md)            |       |
 | View           | [Dataset](../../metamodel/entities/dataset.md)            |       |
 | Projections    | [Dataset](../../metamodel/entities/dataset.md)            |       |
-
-## Metadata Ingestion Quickstart
-
-For context on getting started with ingestion, check out our [metadata ingestion guide](../../../../metadata-ingestion/README.md).

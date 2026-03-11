@@ -329,6 +329,10 @@ module.exports = {
       contextualSearch: true,
       // debug: true,
     },
+    tableOfContents: {
+      minHeadingLevel: 2,
+      maxHeadingLevel: 4,
+    },
   },
   presets: [
     [
@@ -351,6 +355,17 @@ module.exports = {
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
+          // Exclude internal files from public docs
+          // Note: We must include Docusaurus defaults since providing exclude overrides them
+          exclude: [
+            // Docusaurus defaults
+            '**/_*.{js,jsx,ts,tsx,md,mdx}',
+            '**/_*/**',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+            // Our additions
+            'metadata-ingestion/**/CLAUDE.md',
+          ],
         },
         blog: {
           blogTitle: "DataHub Learn",
