@@ -13,11 +13,13 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 from graphql import (
+    DocumentNode,
     FieldNode,
     FragmentDefinitionNode,
+    FragmentSpreadNode,
     GraphQLSchema,
     InlineFragmentNode,
     IntrospectionQuery,
@@ -39,7 +41,64 @@ logger = logging.getLogger(__name__)
 SCHEMA_TTL_SECONDS: float = 600.0  # 10 min backstop TTL
 SCHEMA_FAILURE_TTL_SECONDS: float = 60.0  # 1 min negative cache
 QUERY_CACHE_MAX_SIZE: int = 128
+INLINE_CACHE_MAX_SIZE: int = 128
 DISK_CACHE_DIR: str = os.path.join(os.path.expanduser("~"), ".datahub", "schema_cache")
+_MAX_INLINE_DEPTH: int = 10  # guard against pathological fragment nesting
+
+
+class _FragmentInliner(Visitor):
+    """Visitor that replaces FragmentSpreadNodes with InlineFragmentNodes."""
+
+    def __init__(self, fragments: Dict[str, FragmentDefinitionNode]) -> None:
+        super().__init__()
+        self._fragments = fragments
+        self.had_spreads = False
+
+    def enter_fragment_spread(
+        self,
+        node: FragmentSpreadNode,
+        *_args: object,
+    ) -> object:
+        frag = self._fragments.get(node.name.value)
+        if frag is None:
+            return None
+        self.had_spreads = True
+        return InlineFragmentNode(
+            type_condition=frag.type_condition,
+            selection_set=frag.selection_set,
+        )
+
+    def enter_fragment_definition(
+        self,
+        node: FragmentDefinitionNode,
+        *_args: object,
+    ) -> object:
+        return REMOVE
+
+
+def _inline_fragments(document: DocumentNode) -> DocumentNode:
+    """Replace all named fragment spreads with inline fragments and drop definitions.
+
+    Runs in a loop to handle fragments that reference other fragments (up to
+    ``_MAX_INLINE_DEPTH`` iterations).  The result contains only
+    ``OperationDefinitionNode``s with ``InlineFragmentNode``s — no
+    ``FragmentSpreadNode`` or ``FragmentDefinitionNode`` remains.
+    """
+    for _ in range(_MAX_INLINE_DEPTH):
+        fragments: Dict[str, FragmentDefinitionNode] = {}
+        for defn in document.definitions:
+            if isinstance(defn, FragmentDefinitionNode):
+                fragments[defn.name.value] = defn
+
+        if not fragments:
+            return document
+
+        inliner = _FragmentInliner(fragments)
+        document = visit(document, inliner)
+        if not inliner.had_spreads:
+            return document
+
+    return document
 
 
 class RequiredFieldUnsupportedError(Exception):
@@ -80,18 +139,6 @@ class UnsupportedFieldRemover(Visitor):
         self.type_info = type_info
         self.removed_fields: List[str] = []
         self.removed_structural_paths: List[str] = []
-        self._fragment_definitions: Set[str] = set()
-
-    def enter_fragment_definition(
-        self,
-        node: FragmentDefinitionNode,
-        key: Optional[int],
-        parent: Optional[List[FragmentDefinitionNode]],
-        path: List[int],
-        ancestors: List[object],
-    ) -> None:
-        """Track fragment definitions as we encounter them."""
-        self._fragment_definitions.add(node.name.value)
 
     def enter_inline_fragment(
         self,
@@ -266,7 +313,11 @@ class QueryProjector:
         self._schema_lock: threading.Lock = threading.Lock()
         self._schema_generation: int = 0
 
-        # Query result cache: (query_string, generation) ->
+        # Tier 1 — inline cache: query_string -> inlined DocumentNode
+        # Pure function of query text, no schema dependency. Never invalidated.
+        self._inline_cache: Dict[str, DocumentNode] = {}
+
+        # Tier 2 — projection cache: (query_string, generation) ->
         #   (adapted_query, removed_fields, removed_structural_paths)
         self._query_cache: Dict[Tuple[str, int], Tuple[str, List[str], List[str]]] = {}
 
@@ -309,12 +360,18 @@ class QueryProjector:
                 _check_required_fields(required_fields, removed_paths)
             return adapted_query, removed_fields
 
-        # Parse the query to an AST
-        try:
-            document = parse(query)
-        except Exception as e:
-            logger.error(f"Failed to parse GraphQL query: {e}")
-            raise
+        # Tier 1: inline cache (schema-independent)
+        document = self._inline_cache.get(query)
+        if document is None:
+            try:
+                document = _inline_fragments(parse(query))
+            except Exception as e:
+                logger.error(f"Failed to parse GraphQL query: {e}")
+                raise
+            if len(self._inline_cache) >= INLINE_CACHE_MAX_SIZE:
+                oldest_key = next(iter(self._inline_cache))
+                del self._inline_cache[oldest_key]
+            self._inline_cache[query] = document
 
         # Visit the AST with type-aware field removal
         type_info = TypeInfo(schema)
@@ -334,8 +391,8 @@ class QueryProjector:
 
         # Store in query cache, evicting oldest if over capacity
         if len(self._query_cache) >= QUERY_CACHE_MAX_SIZE:
-            oldest_key = next(iter(self._query_cache))
-            del self._query_cache[oldest_key]
+            evict_key = next(iter(self._query_cache))
+            del self._query_cache[evict_key]
         self._query_cache[cache_key] = result
 
         if required_fields:

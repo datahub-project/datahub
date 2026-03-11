@@ -8,7 +8,15 @@ from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
 import pytest
-from graphql import GraphQLSchema, TypeInfo, TypeInfoVisitor, build_schema, parse, visit
+from graphql import (
+    GraphQLSchema,
+    TypeInfo,
+    TypeInfoVisitor,
+    build_schema,
+    parse,
+    print_ast,
+    visit,
+)
 from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import (
@@ -17,6 +25,7 @@ from datahub.utilities.graphql_query_adapter import (
     QueryProjector,
     RequiredFieldUnsupportedError,
     UnsupportedFieldRemover,
+    _inline_fragments,
 )
 
 
@@ -1522,3 +1531,785 @@ class TestStructuralPaths:
         )
         assert len(removed) == 1
         assert "description" in removed[0].lower()
+
+
+class TestFragmentInlining:
+    """Tests for the _inline_fragments pre-pass and its integration with QueryProjector."""
+
+    def test_inline_fragments_unit_simple(self):
+        """Named fragment is replaced with an inline fragment."""
+        doc = parse("""
+            fragment DatasetFields on Dataset { urn name }
+            query { searchAcrossEntities(input: {query: "*"}) {
+                searchResults { entity { ...DatasetFields } }
+            }}
+        """)
+        inlined = _inline_fragments(doc)
+        text = print_ast(inlined)
+        assert "fragment DatasetFields" not in text
+        assert "...DatasetFields" not in text
+        assert "... on Dataset" in text
+        assert "urn" in text
+        assert "name" in text
+
+    def test_inline_fragments_nested(self):
+        """Fragment referencing another fragment is fully resolved."""
+        doc = parse("""
+            fragment Inner on Dataset { urn }
+            fragment Outer on Entity { ... on Dataset { ...Inner name } }
+            query { searchAcrossEntities(input: {query: "*"}) {
+                searchResults { entity { ...Outer } }
+            }}
+        """)
+        inlined = _inline_fragments(doc)
+        text = print_ast(inlined)
+        assert "fragment" not in text.lower().split("(")[0]  # no fragment defs
+        assert "...Inner" not in text
+        assert "...Outer" not in text
+        assert "urn" in text
+        assert "name" in text
+
+    def test_inline_fragments_no_fragments_is_noop(self):
+        """Document with no fragments is returned unchanged."""
+        doc = parse("""
+            query { searchAcrossEntities(input: {query: "*"}) {
+                searchResults { entity { ... on Dataset { urn } } }
+            }}
+        """)
+        inlined = _inline_fragments(doc)
+        assert print_ast(inlined) == print_ast(doc)
+
+    def test_fragment_with_missing_type_stripped_by_projection(
+        self, mock_graph_old_schema
+    ):
+        """Fragment targeting a missing type (Document) is inlined then stripped."""
+        query = """
+            fragment SearchEntityInfo on Entity {
+                ... on Dataset { urn name }
+                ... on Document { urn }
+            }
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...SearchEntityInfo } }
+                }
+            }
+        """
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(query, mock_graph_old_schema)
+        assert "Document" not in adapted
+        assert "Dataset" in adapted
+        assert "urn" in adapted
+        assert len(removed) == 1
+
+    def test_fragment_field_on_existing_type_stripped(self):
+        """Field inside a named fragment on an existing type is stripped if missing."""
+        schema = build_schema("""
+            type Query { searchAcrossEntities(input: SearchInput!): SearchResults }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! name: String! }
+        """)
+        graph = _make_mock_graph(schema)
+        query = """
+            fragment DatasetFields on Dataset { urn name description }
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...DatasetFields } }
+                }
+            }
+        """
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(query, graph)
+        assert "description" not in adapted
+        assert "urn" in adapted
+        assert "name" in adapted
+        assert len(removed) == 1
+
+    def test_required_fields_through_named_fragment_raises(self, mock_graph_old_schema):
+        """required_fields detects violation inside an inlined named fragment."""
+        query = """
+            fragment DocFields on Document { urn }
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...DocFields } }
+                }
+            }
+        """
+        projector = QueryProjector()
+        with pytest.raises(RequiredFieldUnsupportedError) as exc_info:
+            projector.adapt_query(
+                query, mock_graph_old_schema, required_fields=["Document"]
+            )
+        assert "Document" in exc_info.value.unsupported_fields
+
+    def test_required_fields_through_named_fragment_passes(self, mock_graph_old_schema):
+        """required_fields passes when the required type exists in a named fragment."""
+        query = """
+            fragment DatasetFields on Dataset { urn name }
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...DatasetFields } }
+                }
+            }
+        """
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(
+            query, mock_graph_old_schema, required_fields=["Dataset"]
+        )
+        assert len(removed) == 0
+        assert "urn" in adapted
+
+    def test_real_world_multi_fragment_query(self, mock_graph_old_schema):
+        """Multi-fragment concatenated query with mixed supported/unsupported types."""
+        query = """
+            fragment DatasetInfo on Dataset { urn name }
+            fragment ChartInfo on Chart { urn title }
+            fragment DocInfo on Document { urn }
+            query SearchQuery {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ...DatasetInfo
+                            ...ChartInfo
+                            ...DocInfo
+                        }
+                    }
+                }
+            }
+        """
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(query, mock_graph_old_schema)
+        # Document doesn't exist in old schema
+        assert "Document" not in adapted
+        # Dataset and Chart survive
+        assert "... on Dataset" in adapted
+        assert "... on Chart" in adapted
+        assert len(removed) == 1
+
+    def test_inline_cache_reused_across_schema_generations(self):
+        """Same query string reuses the inlined DocumentNode even after schema change."""
+        schema = build_schema("""
+            type Query { searchAcrossEntities(input: SearchInput!): SearchResults }
+            input SearchInput { query: String! }
+            type SearchResults { searchResults: [SearchResult!]! }
+            type SearchResult { entity: Entity }
+            union Entity = Dataset
+            type Dataset { urn: String! name: String! }
+        """)
+        graph = _make_mock_graph(schema, commit_hash="v1")
+
+        query = """
+            fragment F on Dataset { urn }
+            query { searchAcrossEntities(input: {query: "*"}) {
+                searchResults { entity { ...F } }
+            }}
+        """
+        projector = QueryProjector()
+        projector.adapt_query(query, graph)
+        assert len(projector._inline_cache) == 1
+
+        # Force schema refresh
+        graph.server_config.commit_hash = "v2"
+        projector._schema_fetched_at = 0.0
+
+        projector.adapt_query(query, graph)
+        # Inline cache still has exactly 1 entry — reused, not re-parsed
+        assert len(projector._inline_cache) == 1
+        assert projector._schema_generation == 2
+
+
+class TestRealSearchGqlFragments:
+    """Tests using the actual .gql files from datahub.cli.gql.
+
+    These exercise the full pipeline (inline → project → prune) against the
+    same concatenated query that the search CLI sends to execute_graphql.
+    """
+
+    @pytest.fixture
+    def search_query(self) -> str:
+        """Load fragments.gql + search.gql exactly as the CLI does."""
+        import importlib.resources as pkg_resources
+
+        fragments = (
+            pkg_resources.files("datahub.cli.gql").joinpath("fragments.gql").read_text()
+        )
+        operation = (
+            pkg_resources.files("datahub.cli.gql").joinpath("search.gql").read_text()
+        )
+        return fragments + "\n" + operation
+
+    @pytest.fixture
+    def old_search_schema(self) -> GraphQLSchema:
+        """Schema covering the search query's types, but missing Document."""
+        return build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResultsWithFacets
+            }
+            input SearchAcrossEntitiesInput {
+                query: String!
+                count: Int
+                start: Int
+                types: [EntityType!]
+                orFilters: [AndFilterInput!]
+                viewUrn: String
+                sortInput: SearchSortInput
+                searchFlags: SearchFlags
+            }
+            enum EntityType { DATASET CHART DASHBOARD DATA_JOB DATA_FLOW CORP_USER CORP_GROUP
+                DOMAIN CONTAINER GLOSSARY_TERM TAG ML_MODEL ML_FEATURE ML_FEATURE_TABLE
+                ML_PRIMARY_KEY ML_MODEL_GROUP }
+            input AndFilterInput { and: [FacetFilterInput!] }
+            input FacetFilterInput { field: String! values: [String!] condition: FilterOperator }
+            enum FilterOperator { EQUAL CONTAIN }
+            input SearchSortInput { sortCriterion: SortCriterion }
+            input SortCriterion { field: String! sortOrder: SortOrder }
+            enum SortOrder { ASCENDING DESCENDING }
+            input SearchFlags { skipHighlighting: Boolean maxAggValues: Int }
+
+            type SearchResultsWithFacets {
+                start: Int!
+                count: Int!
+                total: Int!
+                searchResults: [SearchResult!]!
+                facets: [FacetMetadata!]!
+            }
+            type SearchResult { entity: Entity }
+            type FacetMetadata {
+                field: String!
+                displayName: String
+                aggregations: [AggregationMetadata!]!
+            }
+            type AggregationMetadata {
+                value: String!
+                count: Int!
+                displayName: String
+                entity: Entity
+            }
+
+            union Entity = Dataset | Chart | Dashboard | DataJob | DataFlow
+                | CorpUser | CorpGroup | Domain | Container | GlossaryTerm | Tag
+                | MLModel | MLFeature | MLFeatureTable | MLPrimaryKey | MLModelGroup
+                | DataPlatform
+
+            type DataPlatform {
+                urn: String!
+                name: String!
+                properties: DataPlatformProperties
+            }
+            type DataPlatformProperties { displayName: String logoUrl: String }
+
+            type Dataset {
+                urn: String!
+                type: EntityType!
+                name: String
+                origin: String
+                properties: DatasetProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+                container: Container
+            }
+            type DatasetProperties {
+                name: String
+                description: String
+                customProperties: [CustomPropertiesEntry!]
+            }
+            type CustomPropertiesEntry { key: String! value: String }
+
+            type Chart {
+                urn: String!
+                type: EntityType!
+                properties: ChartProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type ChartProperties { name: String description: String }
+
+            type Dashboard {
+                urn: String!
+                type: EntityType!
+                properties: DashboardProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DashboardProperties { name: String description: String }
+
+            type DataJob {
+                urn: String!
+                type: EntityType!
+                dataFlow: DataFlow
+                jobId: String
+                properties: DataJobProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DataJobProperties { name: String description: String }
+
+            type DataFlow {
+                urn: String!
+                type: EntityType!
+                flowId: String
+                cluster: String
+                properties: DataFlowProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DataFlowProperties { name: String description: String }
+
+            type CorpUser {
+                urn: String!
+                type: EntityType!
+                username: String!
+                properties: CorpUserProperties
+            }
+            type CorpUserProperties { displayName: String email: String }
+
+            type CorpGroup {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: CorpGroupProperties
+            }
+            type CorpGroupProperties { displayName: String email: String }
+
+            type Domain {
+                urn: String!
+                type: EntityType!
+                properties: DomainProperties
+            }
+            type DomainProperties { name: String description: String }
+
+            type Container {
+                urn: String!
+                type: EntityType!
+                properties: ContainerProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type ContainerProperties { name: String description: String }
+
+            type GlossaryTerm {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: GlossaryTermProperties
+            }
+            type GlossaryTermProperties { name: String description: String }
+
+            type Tag {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: TagProperties
+            }
+            type TagProperties { name: String description: String colorHex: String }
+
+            type MLModel {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLModelProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLModelProperties { description: String }
+
+            type MLFeature {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLFeatureProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLFeatureProperties { description: String }
+
+            type MLFeatureTable {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLFeatureTableProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLFeatureTableProperties { description: String }
+
+            type MLPrimaryKey {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLPrimaryKeyProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLPrimaryKeyProperties { description: String }
+
+            type MLModelGroup {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLModelGroupProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLModelGroupProperties { description: String }
+
+            type GlobalTags { tags: [TagAssociation!] }
+            type TagAssociation { tag: Tag }
+            type GlossaryTermAssociation { terms: [GlossaryTermAssociationEntry!] }
+            type GlossaryTermAssociationEntry { term: GlossaryTerm }
+            type Ownership { owners: [Owner!] }
+            type Owner { owner: OwnerEntity }
+            union OwnerEntity = CorpUser | CorpGroup
+            type DomainAssociation { domain: Domain }
+        """)
+
+    def test_search_gql_against_old_schema_strips_document(
+        self, search_query: str, old_search_schema: GraphQLSchema
+    ) -> None:
+        """Real search.gql query: Document type stripped on old server, rest survives."""
+        graph = _make_mock_graph(old_search_schema)
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(search_query, graph)
+
+        # Document was the only missing type — exactly 1 removal
+        assert len(removed) == 1
+        assert "Document" in removed[0]
+
+        # All other entity types survive
+        for entity_type in [
+            "Dataset",
+            "Chart",
+            "Dashboard",
+            "DataJob",
+            "DataFlow",
+            "CorpUser",
+            "CorpGroup",
+            "Domain",
+            "Container",
+            "GlossaryTerm",
+            "Tag",
+            "MLModel",
+        ]:
+            assert f"... on {entity_type}" in adapted, (
+                f"{entity_type} should survive projection"
+            )
+
+        # Named fragments should be fully inlined — no fragment defs or spreads
+        assert "fragment " not in adapted
+        assert "...SearchEntityInfo" not in adapted
+        assert "...FacetEntityInfo" not in adapted
+        assert "...PlatformFields" not in adapted
+
+        # PlatformFields content was inlined (displayName appears in platform blocks)
+        assert "displayName" in adapted
+        assert "logoUrl" in adapted
+
+    def test_search_gql_against_full_schema_no_removals(
+        self, search_query: str, old_search_schema: GraphQLSchema
+    ) -> None:
+        """When schema has all types including Document, nothing is removed."""
+        # Extend the old schema with Document
+        full_schema = build_schema("""
+            type Query {
+                searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResultsWithFacets
+            }
+            input SearchAcrossEntitiesInput {
+                query: String!
+                count: Int
+                start: Int
+                types: [EntityType!]
+                orFilters: [AndFilterInput!]
+                viewUrn: String
+                sortInput: SearchSortInput
+                searchFlags: SearchFlags
+            }
+            enum EntityType { DATASET CHART DASHBOARD DATA_JOB DATA_FLOW CORP_USER CORP_GROUP
+                DOMAIN CONTAINER GLOSSARY_TERM TAG ML_MODEL ML_FEATURE ML_FEATURE_TABLE
+                ML_PRIMARY_KEY ML_MODEL_GROUP DOCUMENT }
+            input AndFilterInput { and: [FacetFilterInput!] }
+            input FacetFilterInput { field: String! values: [String!] condition: FilterOperator }
+            enum FilterOperator { EQUAL CONTAIN }
+            input SearchSortInput { sortCriterion: SortCriterion }
+            input SortCriterion { field: String! sortOrder: SortOrder }
+            enum SortOrder { ASCENDING DESCENDING }
+            input SearchFlags { skipHighlighting: Boolean maxAggValues: Int }
+
+            type SearchResultsWithFacets {
+                start: Int!
+                count: Int!
+                total: Int!
+                searchResults: [SearchResult!]!
+                facets: [FacetMetadata!]!
+            }
+            type SearchResult { entity: Entity }
+            type FacetMetadata {
+                field: String!
+                displayName: String
+                aggregations: [AggregationMetadata!]!
+            }
+            type AggregationMetadata {
+                value: String!
+                count: Int!
+                displayName: String
+                entity: Entity
+            }
+
+            union Entity = Dataset | Chart | Dashboard | DataJob | DataFlow
+                | CorpUser | CorpGroup | Domain | Container | GlossaryTerm | Tag
+                | MLModel | MLFeature | MLFeatureTable | MLPrimaryKey | MLModelGroup
+                | DataPlatform | Document
+
+            type DataPlatform {
+                urn: String!
+                name: String!
+                properties: DataPlatformProperties
+            }
+            type DataPlatformProperties { displayName: String logoUrl: String }
+
+            type Dataset {
+                urn: String!
+                type: EntityType!
+                name: String
+                origin: String
+                properties: DatasetProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+                container: Container
+            }
+            type DatasetProperties {
+                name: String
+                description: String
+                customProperties: [CustomPropertiesEntry!]
+            }
+            type CustomPropertiesEntry { key: String! value: String }
+
+            type Chart {
+                urn: String!
+                type: EntityType!
+                properties: ChartProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type ChartProperties { name: String description: String }
+
+            type Dashboard {
+                urn: String!
+                type: EntityType!
+                properties: DashboardProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DashboardProperties { name: String description: String }
+
+            type DataJob {
+                urn: String!
+                type: EntityType!
+                dataFlow: DataFlow
+                jobId: String
+                properties: DataJobProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DataJobProperties { name: String description: String }
+
+            type DataFlow {
+                urn: String!
+                type: EntityType!
+                flowId: String
+                cluster: String
+                properties: DataFlowProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type DataFlowProperties { name: String description: String }
+
+            type CorpUser {
+                urn: String!
+                type: EntityType!
+                username: String!
+                properties: CorpUserProperties
+            }
+            type CorpUserProperties { displayName: String email: String }
+
+            type CorpGroup {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: CorpGroupProperties
+            }
+            type CorpGroupProperties { displayName: String email: String }
+
+            type Domain {
+                urn: String!
+                type: EntityType!
+                properties: DomainProperties
+            }
+            type DomainProperties { name: String description: String }
+
+            type Container {
+                urn: String!
+                type: EntityType!
+                properties: ContainerProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type ContainerProperties { name: String description: String }
+
+            type GlossaryTerm {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: GlossaryTermProperties
+            }
+            type GlossaryTermProperties { name: String description: String }
+
+            type Tag {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: TagProperties
+            }
+            type TagProperties { name: String description: String colorHex: String }
+
+            type MLModel {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLModelProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLModelProperties { description: String }
+
+            type MLFeature {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLFeatureProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLFeatureProperties { description: String }
+
+            type MLFeatureTable {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLFeatureTableProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLFeatureTableProperties { description: String }
+
+            type MLPrimaryKey {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLPrimaryKeyProperties
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLPrimaryKeyProperties { description: String }
+
+            type MLModelGroup {
+                urn: String!
+                type: EntityType!
+                name: String
+                properties: MLModelGroupProperties
+                platform: DataPlatform
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+                domain: DomainAssociation
+            }
+            type MLModelGroupProperties { description: String }
+
+            type Document {
+                urn: String!
+                type: EntityType!
+                subType: String
+                platform: DataPlatform
+                info: DocumentInfo
+                domain: DomainAssociation
+                tags: GlobalTags
+                glossaryTerms: GlossaryTermAssociation
+                ownership: Ownership
+            }
+            type DocumentInfo { title: String }
+
+            type GlobalTags { tags: [TagAssociation!] }
+            type TagAssociation { tag: Tag }
+            type GlossaryTermAssociation { terms: [GlossaryTermAssociationEntry!] }
+            type GlossaryTermAssociationEntry { term: GlossaryTerm }
+            type Ownership { owners: [Owner!] }
+            type Owner { owner: OwnerEntity }
+            union OwnerEntity = CorpUser | CorpGroup
+            type DomainAssociation { domain: Domain }
+        """)
+
+        graph = _make_mock_graph(full_schema)
+        projector = QueryProjector()
+        adapted, removed = projector.adapt_query(search_query, graph)
+
+        assert len(removed) == 0
+        assert "... on Document" in adapted
+        assert "... on Dataset" in adapted
