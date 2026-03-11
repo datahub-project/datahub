@@ -63,7 +63,13 @@ class AutoDiscoveryConfig(ConfigModel):
 
     enabled: bool = Field(
         default=False,
-        description="Enable/disable auto-discovery mode. When enabled, discovers jobs for the specified project. Only production jobs with generate_docs=True are ingested.",
+        description="Enable/disable auto-discovery mode. When enabled, discovers production jobs for the specified project.",
+    )
+
+    require_generate_docs: bool = Field(
+        default=False,
+        description="If True, only ingest jobs that have 'Generate docs on run' enabled in dbt Cloud. "
+        "If False (default), ingest all production jobs regardless of the generate_docs setting.",
     )
 
     job_id_pattern: AllowDenyPattern = Field(
@@ -640,22 +646,35 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
             raise
 
-        # Filter jobs by generate_docs=True and job_id_pattern
+        # Filter jobs by job_id_pattern and optionally by generate_docs
         filtered_job_ids: List[int] = []
         for job in all_jobs:
-            if job.generate_docs and self.config.auto_discovery.job_id_pattern.allowed(
+            passes_docs_check = (
+                not self.config.auto_discovery.require_generate_docs
+                or job.generate_docs
+            )
+            passes_pattern_check = self.config.auto_discovery.job_id_pattern.allowed(
                 str(job.id)
-            ):
+            )
+
+            if passes_docs_check and passes_pattern_check:
                 filtered_job_ids.append(job.id)
             else:
                 self.report.total_jobs_processed_skipped += 1
+                skip_reasons = []
+                if not passes_pattern_check:
+                    skip_reasons.append("did not match job_id_pattern")
+                if not passes_docs_check:
+                    skip_reasons.append("generate_docs is not enabled")
+                reason_str = " and ".join(skip_reasons)
                 logger.debug(
                     f"Skipping job {job.id}: generate_docs={job.generate_docs}, "
-                    f"matches_pattern={self.config.auto_discovery.job_id_pattern.allowed(str(job.id))}"
+                    f"matches_pattern={passes_pattern_check}, reason={reason_str}"
                 )
                 self.report.warning(
                     title="DBT Cloud Jobs Skipped Processing",
-                    message=f"Jobs from account_id: {self.config.account_id}, project_id: {self.config.project_id}, environment_id: {production_env.id} were skipped because it did not match the job_id_pattern or did not generate_docs",
+                    message=f"Job from account_id: {self.config.account_id}, project_id: {self.config.project_id}, "
+                    f"environment_id: {production_env.id} was skipped because {reason_str}",
                     context=str(job.id),
                 )
 

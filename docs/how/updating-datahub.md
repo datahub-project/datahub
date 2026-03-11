@@ -50,6 +50,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #16385 Default token signing key and salt have been removed from `metadata-service/configuration/src/main/resources/application.yaml`. It is recommended to set `authentication.tokenService.signingKey` or env var `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `authentication.tokenService.salt` or env var `DATAHUB_TOKEN_SERVICE_SALT` before starting DataHub. Refer the linked pages to know this is handled for [local development](../developers.md) and [CLI quickstart](../quickstart.md).
   - If you are using helm to deploy DataHub you should be unaffected as the helm charts don't use the default values in application.yaml but rather generate a random secret to use.
   - IMPACT: Due to the change in signing keys for local development and quickstart, PATs generated before this release will be invalidated and will need to be regenerated in those instances.
+- #16453 (Ingestion) dbt Cloud: Auto-discovery now ingests all production jobs by default, regardless of the "Generate docs on run" setting. Previously, jobs without `generate_docs=True` were silently skipped. If you rely on the old behavior (only ingesting jobs with doc generation enabled), add `require_generate_docs: true` under `auto_discovery` in your recipe.
 
 ### Known Issues
 
