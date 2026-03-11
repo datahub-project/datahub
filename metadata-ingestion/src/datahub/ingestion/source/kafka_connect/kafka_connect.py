@@ -45,6 +45,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
         else:
             logger.info("Detected self-hosted Kafka Connect - using runtime topics API")
+
+        # Create shared SchemaResolverProvider if graph is available.
+        # The provider's lru_cache deduplicates bulk fetches across connectors.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = None
+        if self.config.use_schema_resolver and self.ctx.graph:
+            self._schema_resolver_provider = SchemaResolverProvider(
+                graph=self.ctx.graph
+            )
 
         # Note: Removed topic handler registry - topic resolution moved to connector registry
 
@@ -182,7 +191,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
-            connector_manifest, self.config, self.report, self.ctx
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
         # For Confluent Cloud, populate all_cluster_topics for validation purposes
@@ -751,7 +760,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         return ConnectorRegistry.get_topics_from_config(
-            connector_manifest, self.config, self.report, self.ctx
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
     # Note: _get_topic_fields_for_connector and get_platform_from_connector_class removed

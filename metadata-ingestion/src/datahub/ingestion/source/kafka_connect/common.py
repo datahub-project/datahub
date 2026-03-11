@@ -744,8 +744,8 @@ class BaseConnector:
         capture ALL tables from the database.
 
         The SchemaResolver cache is pre-populated during initialization via
-        initialize_schema_resolver_from_datahub(), which fetches all schema metadata
-        from DataHub for the configured platform and environment.
+        SchemaResolverProvider, which bulk-fetches all schema metadata from DataHub
+        for the configured platform and environment.
 
         Args:
             database_name: The database name (e.g., "mydb", "testdb")

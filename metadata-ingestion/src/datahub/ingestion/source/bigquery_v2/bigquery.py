@@ -244,14 +244,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                return SchemaResolverProvider(
+                    graph=self.ctx.graph,
+                    batch_size=self.config.schema_resolution_batch_size,
+                ).get(
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
-                    schema_resolver_provider=SchemaResolverProvider(
-                        graph=self.ctx.graph,
-                        batch_size=self.config.schema_resolution_batch_size,
-                    ),
                 )
             else:
                 logger.warning(

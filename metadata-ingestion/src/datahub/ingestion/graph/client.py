@@ -86,7 +86,6 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
-from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
@@ -162,12 +161,7 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 
 
 class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
-    def __init__(
-        self,
-        config: DatahubClientConfig,
-        *,
-        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
-    ) -> None:
+    def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
             gms_server=self.config.server,
@@ -186,9 +180,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
-        self._schema_resolver_provider = (
-            schema_resolver_provider or SchemaResolverProvider(graph=self)
-        )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1564,17 +1555,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             report=report,
         )
 
-    def initialize_schema_resolver_from_datahub(
-        self,
-        platform: str,
-        platform_instance: Optional[str],
-        env: str,
-        *,
-        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
-    ) -> "SchemaResolver":
-        provider = schema_resolver_provider or self._schema_resolver_provider
-        return provider.get(platform, platform_instance, env)
-
     def parse_sql_lineage(
         self,
         sql: str,
@@ -2304,7 +2284,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
-        self._schema_resolver_provider.close()
         super().close()
 
 

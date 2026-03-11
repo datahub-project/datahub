@@ -2,7 +2,6 @@
 
 from unittest.mock import Mock
 
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka_connect.common import (
     MYSQL_SINK_CLOUD,
     POSTGRES_CDC_SOURCE_CLOUD,
@@ -37,6 +36,7 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
     MongoSourceConnector,
     SnowflakeSourceConnector,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 
 def create_mock_config() -> KafkaConnectSourceConfig:
@@ -356,32 +356,15 @@ class TestConnectorRegistrySchemaResolver:
         assert connector is not None
         assert connector.schema_resolver is None
 
-    def test_schema_resolver_no_context(self) -> None:
-        """Test schema resolver not created when PipelineContext is None."""
+    def test_schema_resolver_no_provider(self) -> None:
+        """Test schema resolver not created when no provider is available."""
         manifest = create_manifest(SOURCE, JDBC_SOURCE_CONNECTOR_CLASS)
         config = create_mock_config()
         config.use_schema_resolver = True
         report = create_mock_report()
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=None
-        )
-
-        assert connector is not None
-        assert connector.schema_resolver is None
-
-    def test_schema_resolver_no_graph(self) -> None:
-        """Test schema resolver not created when graph is not available."""
-        manifest = create_manifest(SOURCE, JDBC_SOURCE_CONNECTOR_CLASS)
-        config = create_mock_config()
-        config.use_schema_resolver = True
-        report = create_mock_report()
-
-        ctx = Mock(spec=PipelineContext)
-        ctx.graph = None
-
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=ctx
+            manifest, config, report
         )
 
         assert connector is not None
@@ -395,22 +378,17 @@ class TestConnectorRegistrySchemaResolver:
         report = create_mock_report()
 
         mock_schema_resolver = Mock()
-        mock_graph = Mock()
-        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
-            mock_schema_resolver
-        )
-        ctx = Mock(spec=PipelineContext)
-        ctx.graph = mock_graph
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.get.return_value = mock_schema_resolver
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=ctx
+            manifest, config, report, schema_resolver_provider=mock_provider
         )
 
         assert connector is not None
         assert connector.schema_resolver == mock_schema_resolver
 
-        # Verify initialize_schema_resolver_from_datahub was called with correct parameters
-        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
+        mock_provider.get.assert_called_once_with(
             platform="postgres",
             platform_instance=None,
             env="PROD",
@@ -430,21 +408,16 @@ class TestConnectorRegistrySchemaResolver:
         report = create_mock_report()
 
         mock_schema_resolver = Mock()
-        mock_graph = Mock()
-        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
-            mock_schema_resolver
-        )
-        ctx = Mock(spec=PipelineContext)
-        ctx.graph = mock_graph
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.get.return_value = mock_schema_resolver
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=ctx
+            manifest, config, report, schema_resolver_provider=mock_provider
         )
 
         assert connector is not None
 
-        # Verify initialize_schema_resolver_from_datahub was called with platform instance
-        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
+        mock_provider.get.assert_called_once_with(
             platform="postgres",
             platform_instance="my-instance",
             env="PROD",
@@ -457,15 +430,11 @@ class TestConnectorRegistrySchemaResolver:
         config.use_schema_resolver = True
         report = create_mock_report()
 
-        mock_graph = Mock()
-        mock_graph.initialize_schema_resolver_from_datahub.side_effect = Exception(
-            "Schema resolver creation failed"
-        )
-        ctx = Mock(spec=PipelineContext)
-        ctx.graph = mock_graph
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.get.side_effect = Exception("Schema resolver creation failed")
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=ctx
+            manifest, config, report, schema_resolver_provider=mock_provider
         )
 
         # Connector should still be created
@@ -489,15 +458,11 @@ class TestConnectorRegistrySchemaResolver:
         report = create_mock_report()
 
         mock_schema_resolver = Mock()
-        mock_graph = Mock()
-        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
-            mock_schema_resolver
-        )
-        ctx = Mock(spec=PipelineContext)
-        ctx.graph = mock_graph
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.get.return_value = mock_schema_resolver
 
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report, ctx=ctx
+            manifest, config, report, schema_resolver_provider=mock_provider
         )
 
         assert connector is not None
@@ -505,7 +470,7 @@ class TestConnectorRegistrySchemaResolver:
         assert connector.schema_resolver == mock_schema_resolver
 
         # The key assertion: SchemaResolver must be initialized with "mssql", not "sqlserver"
-        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
+        mock_provider.get.assert_called_once_with(
             platform="mssql",
             platform_instance=None,
             env="PROD",

@@ -65,6 +65,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -891,7 +892,9 @@ ORDER by DataBaseName, TableName;
     def _init_schema_resolver(self) -> SchemaResolver:
         if not self.config.include_tables or not self.config.include_views:
             if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
+                return SchemaResolverProvider(
+                    graph=self.ctx.graph,
+                ).get(
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
