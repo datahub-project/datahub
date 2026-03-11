@@ -36,20 +36,6 @@ const FormContainer = styled.div`
     gap: ${spacing.lg};
 `;
 
-const FormGroup = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: ${spacing.xsm};
-`;
-
-const FormLabel = styled(Text)`
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
-
-const FormDescription = styled(Text)`
-    color: ${(props) => props.theme.colors.text};
-`;
-
 const ExpirationContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -223,42 +209,27 @@ export default function CreateTokenModal({
                     }
                 >
                     <FormContainer>
-                        <FormGroup>
-                            <FormLabel size="md" weight="semiBold">
-                                Token Name
-                            </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                Give this token a name to identify it.
-                            </FormDescription>
-                            <Input
-                                value={tokenName}
-                                setValue={setTokenName}
-                                placeholder="A name for the token"
-                                error={tokenNameError}
-                                maxLength={50}
-                                inputTestId="create-access-token-name"
-                            />
-                        </FormGroup>
-                        <FormGroup>
-                            <FormLabel size="md" weight="semiBold">
-                                Description
-                            </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                An optional description for this token.
-                            </FormDescription>
-                            <Input
-                                value={tokenDescription}
-                                setValue={setTokenDescription}
-                                placeholder="A description for the token"
-                                maxLength={500}
-                                inputTestId="create-access-token-description"
-                            />
-                        </FormGroup>
+                        <Input
+                            label="Token Name"
+                            isRequired
+                            value={tokenName}
+                            setValue={setTokenName}
+                            placeholder="A name for the token"
+                            error={tokenNameError}
+                            maxLength={50}
+                            inputTestId="create-access-token-name"
+                        />
+                        <Input
+                            label="Description"
+                            value={tokenDescription}
+                            setValue={setTokenDescription}
+                            placeholder="A description for the token"
+                            maxLength={500}
+                            inputTestId="create-access-token-description"
+                        />
                         <ExpirationContainer>
-                            <FormLabel size="md" weight="semiBold">
-                                Expires in
-                            </FormLabel>
                             <SimpleSelect
+                                label="Expires in"
                                 options={durationOptions}
                                 values={[selectedDuration]}
                                 onUpdate={(values) => {
