@@ -1,38 +1,29 @@
 import functools
 import logging
-from typing import Iterable, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from datahub.sql_parsing.schema_resolver import (
-    GraphQLSchemaMetadata,
     SchemaResolver,
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
 
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
+
 logger = logging.getLogger(__name__)
-
-
-class _SchemaFetcher(Protocol):
-    def _bulk_fetch_schema_info_by_filter(
-        self,
-        *,
-        platform: str,
-        platform_instance: Optional[str],
-        env: str,
-        batch_size: int,
-    ) -> Iterable[Tuple[str, GraphQLSchemaMetadata]]: ...
 
 
 class SchemaResolverProvider:
     """Creates and bulk-initializes SchemaResolver instances from DataHub.
 
     Separates SchemaResolver lifecycle management from DataHubGraph, which is
-    responsible only for fetching raw schema data.
+    responsible only for fetching raw schema data via _bulk_fetch_schema_info_by_filter().
     """
 
     def __init__(
         self,
-        graph: _SchemaFetcher,
+        graph: "DataHubGraph",
         batch_size: int = 100,
         report: Optional[SchemaResolverReport] = None,
     ) -> None:
