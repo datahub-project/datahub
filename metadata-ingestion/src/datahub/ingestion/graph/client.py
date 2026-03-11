@@ -181,9 +181,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
-        self._initialized_schema_resolvers: Dict[
-            Tuple[str, Optional[str], str], "SchemaResolver"
-        ] = {}
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1559,24 +1556,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             report=report,
         )
 
+    @functools.lru_cache
     def initialize_schema_resolver_from_datahub(
         self,
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        batch_size: int = 100,
-        report: Optional["SchemaResolverReport"] = None,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
-        cache_key = (platform, platform_instance, env)
-        if cache_key in self._initialized_schema_resolvers:
-            logger.debug(
-                f"Schema resolver for {platform}/{env} already initialized, reusing cached resolver"
-            )
-            return self._initialized_schema_resolvers[cache_key]
-
         schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False, report=report
+            platform, platform_instance, env, include_graph=False
         )
 
         logger.info(f"Fetching schemas for platform {platform}, env {env}")
@@ -1586,7 +1575,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
-                batch_size=batch_size,
             ):
                 try:
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)
@@ -1603,7 +1591,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             )
 
         logger.info("Finished initializing schema resolver")
-        self._initialized_schema_resolvers[cache_key] = schema_resolver
         return schema_resolver
 
     def parse_sql_lineage(
@@ -2335,6 +2322,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
+        self.initialize_schema_resolver_from_datahub.cache_clear()
         super().close()
 
 
