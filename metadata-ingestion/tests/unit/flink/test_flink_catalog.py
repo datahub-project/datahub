@@ -94,3 +94,38 @@ class TestCatalogExtractorErrorRecovery:
         assert report.tables_scanned == 2
         assert report.catalogs_scanned == 1
         assert report.databases_scanned == 1
+
+    def test_get_databases_failure_continues_to_next_catalog(self) -> None:
+        extractor, sql_client, report = _extractor()
+        sql_client.get_catalogs.return_value = ["bad_catalog", "good_catalog"]
+        sql_client.get_databases.side_effect = [
+            RuntimeError("Timeout"),
+            ["my_db"],
+        ]
+        sql_client.get_tables.return_value = ["t1"]
+        sql_client.get_table_schema.return_value = [
+            FlinkColumnSchema(name="id", type="INT", nullable=False, comment=None)
+        ]
+
+        wus = list(extractor.extract())
+        assert report.catalogs_scanned == 2
+        assert report.databases_scanned == 1
+        assert report.tables_scanned == 1
+        assert len(wus) > 0
+
+    def test_get_tables_failure_continues_to_next_database(self) -> None:
+        extractor, sql_client, report = _extractor()
+        sql_client.get_catalogs.return_value = ["my_catalog"]
+        sql_client.get_databases.return_value = ["bad_db", "good_db"]
+        sql_client.get_tables.side_effect = [
+            RuntimeError("Permission denied"),
+            ["t1"],
+        ]
+        sql_client.get_table_schema.return_value = [
+            FlinkColumnSchema(name="id", type="INT", nullable=False, comment=None)
+        ]
+
+        list(extractor.extract())
+        assert report.catalogs_scanned == 1
+        assert report.databases_scanned == 2
+        assert report.tables_scanned == 1

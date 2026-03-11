@@ -7,7 +7,6 @@ from datahub.ingestion.source.flink.lineage import (
     LineageExtractor,
     NodeRole,
 )
-from datahub.ingestion.source.flink.report import FlinkSourceReport
 
 
 def _node(node_id: str, description: str) -> FlinkPlanNode:
@@ -73,7 +72,7 @@ class TestKafkaLineageExtractor:
 
 class TestFlinkLineageOrchestrator:
     def setup_method(self) -> None:
-        self.orchestrator = FlinkLineageOrchestrator(report=FlinkSourceReport())
+        self.orchestrator = FlinkLineageOrchestrator()
 
     def test_datastream_separate_nodes(self) -> None:
         nodes = [
@@ -171,10 +170,10 @@ class TestFlinkLineageOrchestrator:
         broken_extractor.can_extract.return_value = True
         broken_extractor.extract_dataset.side_effect = RuntimeError("bug")
 
-        orchestrator = FlinkLineageOrchestrator(
-            report=FlinkSourceReport(), extractors=[broken_extractor]
-        )
+        orchestrator = FlinkLineageOrchestrator(extractors=[broken_extractor])
         nodes = [_node("1", "Source: KafkaSource-topic1 -> Map")]
         result = orchestrator.extract(nodes)
         assert not result.sources
         assert len(result.unclassified) == 1
+        assert len(result.extractor_warnings) == 1
+        assert result.extractor_warnings[0].node_id == "1"

@@ -66,3 +66,12 @@ class TestFlinkSourceConfig:
                     "include_job_states": [],
                 }
             )
+
+    def test_job_states_normalized_to_uppercase(self) -> None:
+        config = FlinkSourceConfig.model_validate(
+            {
+                "connection": {"rest_api_url": "http://localhost:8081"},
+                "include_job_states": ["running", "Failed"],
+            }
+        )
+        assert config.include_job_states == ["RUNNING", "FAILED"]

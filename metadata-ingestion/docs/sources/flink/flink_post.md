@@ -1,16 +1,6 @@
-### Concept Mapping
+### Capabilities
 
-| Source Concept | DataHub Concept                                                                 | Notes                                         |
-| -------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
-| Flink Job      | [DataFlow](docs/generated/metamodel/entities/dataFlow.md)                       | One DataFlow per Flink job                    |
-| Flink Operator | [DataJob](docs/generated/metamodel/entities/dataJob.md)                         | Granularity depends on `operator_granularity` |
-| Job Execution  | [DataProcessInstance](docs/generated/metamodel/entities/dataProcessInstance.md) | When `include_run_history` is enabled         |
-| Kafka Topic    | [Dataset](docs/generated/metamodel/entities/dataset.md)                         | Via lineage (inlets/outlets)                  |
-| Catalog Table  | [Dataset](docs/generated/metamodel/entities/dataset.md)                         | When `include_catalog_metadata` is enabled    |
-| Catalog        | [Container](docs/generated/metamodel/entities/container.md)                     | _subType_: `Catalog`                          |
-| Database       | [Container](docs/generated/metamodel/entities/container.md)                     | _subType_: `Database`, nested under Catalog   |
-
-### Extracting Lineage from Kafka Connectors
+#### Extracting Lineage from Kafka Connectors
 
 The connector automatically extracts table-level lineage from Kafka sources and sinks by analyzing Flink execution plans. It supports both the **DataStream API** and the **SQL/Table API**.
 
@@ -24,9 +14,9 @@ Supported plan node formats:
 
 Lineage is emitted as DataJob inlets (sources) and outlets (sinks), linking Flink jobs to the Kafka topics they read from and write to.
 
-The lineage extractor is designed for Kafka connectors. For DataStream API jobs, non-Kafka connectors (e.g., `JdbcSource`, `ElasticsearchSink`) will be reported as "unclassified" in the ingestion report. For SQL/Table API jobs, the `TableSourceScan` and `Writer` patterns are generic Flink plan formats — any connector using these patterns will be matched and the extracted table name will be attributed to the `kafka` platform. This means non-Kafka SQL connectors (e.g., datagen, blackhole, JDBC via SQL) may produce lineage with incorrect platform attribution.
+The lineage extractor is designed for Kafka connectors. For DataStream API jobs, non-Kafka connectors (e.g., `JdbcSource`, `ElasticsearchSink`) will be reported as "unclassified" (since not yet supported) in the ingestion report. For SQL/Table API jobs, the `TableSourceScan` and `Writer` patterns are generic Flink plan formats — any connector using these patterns will be matched and the extracted table name will be attributed to the `kafka` platform. This means non-Kafka SQL connectors (e.g., datagen, blackhole, JDBC via SQL) may produce lineage with incorrect platform attribution.
 
-### Mapping Kafka Topics to Platform Instances
+#### Mapping Kafka Topics to Platform Instances
 
 If your Kafka topics belong to a specific platform instance (e.g., a particular Kafka cluster), use `platform_instance_map` to ensure lineage URNs are constructed correctly:
 
@@ -40,7 +30,7 @@ source:
       kafka: "my-kafka-cluster"
 ```
 
-### Operator Granularity
+#### Operator Granularity
 
 By default (`operator_granularity: job`), the connector emits **one DataJob per Flink job** with all source and sink lineage coalesced into that single DataJob.
 
@@ -55,7 +45,7 @@ source:
     operator_granularity: "vertex"
 ```
 
-### Catalog Metadata via SQL Gateway
+#### Catalog Metadata via SQL Gateway
 
 When `include_catalog_metadata` is enabled with a `sql_gateway_url`, the connector queries the Flink SQL Gateway to extract:
 
@@ -76,7 +66,7 @@ source:
         - "^my_catalog$"
 ```
 
-### Run History
+#### Run History
 
 When `include_run_history` is enabled (the default), the connector emits `DataProcessInstance` entities that track individual job executions. Each instance captures:
 
@@ -86,7 +76,7 @@ When `include_run_history` is enabled (the default), the connector emits `DataPr
 
 Jobs in `RUNNING` state emit a start event only (no end event). Completed jobs emit both start and end events.
 
-### Known Limitations
+### Limitations
 
 1. **Kafka-centric lineage**: Lineage extraction is designed for Kafka connectors. DataStream API non-Kafka operators (e.g., JDBC, Elasticsearch) appear as "unclassified." SQL/Table API non-Kafka connectors using `TableSourceScan`/`Writer` patterns will be matched but incorrectly attributed to the `kafka` platform.
 2. **No column-level lineage**: Only table-level lineage is extracted from execution plans.

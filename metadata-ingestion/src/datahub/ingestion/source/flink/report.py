@@ -5,6 +5,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 
 @dataclass
@@ -24,6 +25,9 @@ class FlinkSourceReport(StaleEntityRemovalSourceReport):
     databases_scanned: int = 0
     tables_scanned: int = 0
     flink_version: Optional[str] = None
+    cluster_config_timer: PerfTimer = field(default_factory=PerfTimer)
+    jobs_overview_timer: PerfTimer = field(default_factory=PerfTimer)
+    job_processing_timer: PerfTimer = field(default_factory=PerfTimer)
 
     def report_job_scanned(self) -> None:
         self.jobs_discovered += 1

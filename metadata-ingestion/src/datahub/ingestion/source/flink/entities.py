@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import Dict, Iterable, List, Optional
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -24,7 +23,7 @@ from datahub.sdk.dataset import Dataset
 logger = logging.getLogger(__name__)
 
 
-def _compute_dataset_urns(
+def compute_dataset_urns(
     nodes: List[ClassifiedNode],
     config: FlinkSourceConfig,
 ) -> List[DatasetUrnOrStr]:
@@ -49,7 +48,7 @@ def _compute_dataset_urns(
     return urns
 
 
-def _materialize_dataset_workunits(
+def materialize_dataset_workunits(
     urns: List[DatasetUrnOrStr],
 ) -> List[MetadataWorkUnit]:
     """Emit key aspects for lineage datasets so they exist in DataHub.
@@ -129,8 +128,8 @@ class FlinkEntityBuilder:
         lineage_result: LineageResult,
     ) -> DataJob:
         """Build a single coalesced DataJob for the entire job (operator_granularity='job')."""
-        inlets = _compute_dataset_urns(lineage_result.sources, self.config)
-        outlets = _compute_dataset_urns(lineage_result.sinks, self.config)
+        inlets = compute_dataset_urns(lineage_result.sources, self.config)
+        outlets = compute_dataset_urns(lineage_result.sinks, self.config)
 
         return DataJob(
             name=job_detail.name,
@@ -168,9 +167,9 @@ class FlinkEntityBuilder:
             outlets: List[DatasetUrnOrStr] = []
 
             if node.id in source_by_node:
-                inlets = _compute_dataset_urns([source_by_node[node.id]], self.config)
+                inlets = compute_dataset_urns([source_by_node[node.id]], self.config)
             if node.id in sink_by_node:
-                outlets = _compute_dataset_urns([sink_by_node[node.id]], self.config)
+                outlets = compute_dataset_urns([sink_by_node[node.id]], self.config)
 
             vertex_name = f"{job_detail.name}_{node.id}"
             jobs.append(
@@ -203,8 +202,8 @@ class FlinkEntityBuilder:
         else:
             process_type = DataProcessTypeClass.STREAMING
 
-        inlets = _compute_dataset_urns(lineage_result.sources, self.config)
-        outlets = _compute_dataset_urns(lineage_result.sinks, self.config)
+        inlets = compute_dataset_urns(lineage_result.sources, self.config)
+        outlets = compute_dataset_urns(lineage_result.sinks, self.config)
 
         dpi = DataProcessInstance(
             id=f"{job_detail.name}_{job_detail.start_time}",
@@ -237,14 +236,9 @@ class FlinkEntityBuilder:
             "FAILED": InstanceRunResult.FAILURE,
             "CANCELED": InstanceRunResult.SKIPPED,
         }
-        if job_detail.state in state_to_result:
-            end_ts = (
-                job_detail.end_time
-                if job_detail.end_time > 0
-                else int(time.time() * 1000)
-            )
+        if job_detail.state in state_to_result and job_detail.end_time > 0:
             for mcp in dpi.end_event_mcp(
-                end_timestamp_millis=end_ts,
+                end_timestamp_millis=job_detail.end_time,
                 result=state_to_result[job_detail.state],
                 result_type="flink",
                 start_timestamp_millis=start_ts,

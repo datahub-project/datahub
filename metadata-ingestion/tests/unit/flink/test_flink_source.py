@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Set
 from unittest.mock import patch
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.flink.source import FlinkSource
 
 _FLINK_REST_CLIENT_GET = "datahub.ingestion.source.flink.client.FlinkRestClient._get"
 
@@ -411,3 +412,32 @@ def test_flink_source_jobs_overview_failure(tmp_path: pathlib.Path) -> None:
         expect_success=False,
     )
     assert not entity_urns
+
+
+class TestTestConnection:
+    def test_reports_success_when_cluster_reachable(self) -> None:
+        def mock_api(path: str) -> dict:
+            if path == "/v1/config":
+                return {"flink-version": "1.19.0"}
+            if path == "/v1/jobs/overview":
+                return {"jobs": []}
+            return {}
+
+        with patch(_FLINK_REST_CLIENT_GET, side_effect=mock_api):
+            report = FlinkSource.test_connection(
+                {"connection": {"rest_api_url": "http://localhost:8081"}}
+            )
+        assert report.basic_connectivity is not None
+        assert report.basic_connectivity.capable is True
+        assert report.capability_report is not None
+
+    def test_reports_failure_when_cluster_unreachable(self) -> None:
+        with patch(
+            _FLINK_REST_CLIENT_GET,
+            side_effect=RuntimeError("Connection refused"),
+        ):
+            report = FlinkSource.test_connection(
+                {"connection": {"rest_api_url": "http://localhost:8081"}}
+            )
+        assert report.basic_connectivity is not None
+        assert report.basic_connectivity.capable is False

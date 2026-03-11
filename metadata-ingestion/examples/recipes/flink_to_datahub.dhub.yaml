@@ -1,0 +1,44 @@
+---
+# see https://docs.datahub.com/docs/generated/ingestion/sources/flink for complete documentation
+source:
+  type: "flink"
+  config:
+    connection:
+      rest_api_url: "http://localhost:8081"
+
+      # Optional: SQL Gateway for catalog metadata extraction
+      # sql_gateway_url: "http://localhost:8083"
+
+      # Optional: authentication
+      # token: "${FLINK_TOKEN}"
+      # OR
+      # username: "admin"
+      # password: "${FLINK_PASSWORD}"
+
+    # Include table-level lineage from Kafka sources/sinks (default: true)
+    include_lineage: true
+
+    # Emit DataProcessInstance entities for job run tracking (default: true)
+    include_run_history: true
+
+    # Extract catalog metadata via SQL Gateway (default: false)
+    # Requires sql_gateway_url in connection config
+    # include_catalog_metadata: true
+
+    # Filter jobs by name (default: allow all)
+    # job_name_pattern:
+    #   allow:
+    #     - "^prod_.*"
+    #   deny:
+    #     - "^test_.*"
+
+    # Filter jobs by state (default: RUNNING, FINISHED, CANCELED, FAILED)
+    # include_job_states:
+    #   - "RUNNING"
+    #   - "FINISHED"
+
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

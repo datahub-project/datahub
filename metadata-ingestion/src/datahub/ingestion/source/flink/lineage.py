@@ -5,12 +5,9 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional, Set
+from typing import List, Optional, Set
 
 from datahub.ingestion.source.flink.client import FlinkPlanNode
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.flink.report import FlinkSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +34,21 @@ class ClassifiedNode:
     dataset_name: Optional[str]
 
 
+@dataclass(frozen=True)
+class ExtractorWarning:
+    """Warning from a lineage extractor, deferred for main-thread reporting."""
+
+    extractor_name: str
+    node_id: str
+    exc: BaseException
+
+
 @dataclass
 class LineageResult:
     sources: List[ClassifiedNode] = field(default_factory=list)
     sinks: List[ClassifiedNode] = field(default_factory=list)
     unclassified: List[str] = field(default_factory=list)
+    extractor_warnings: List[ExtractorWarning] = field(default_factory=list)
 
 
 class LineageExtractor(ABC):
@@ -71,6 +78,11 @@ class KafkaLineageExtractor(LineageExtractor):
        - Source: "[N]:TableSourceScan(table=[[catalog, db, table]])"
        - Sink:   "tableName[N]: Writer"
        Source and sink may be in the SAME node, separated by <br/>.
+
+    Limitation: TableSourceScan nodes are assumed to be Kafka-backed.
+    Non-Kafka connectors (JDBC, filesystem) using TableSourceScan will be
+    misclassified with platform="kafka". Future extractors can override
+    this by registering before KafkaLineageExtractor in the orchestrator.
     """
 
     # DataStream API: "KafkaSource-<topic>" / "KafkaSink-<topic>"
@@ -189,13 +201,11 @@ class FlinkLineageOrchestrator:
 
     def __init__(
         self,
-        report: "FlinkSourceReport",
         extractors: Optional[List[LineageExtractor]] = None,
     ) -> None:
         self.extractors: List[LineageExtractor] = extractors or [
             KafkaLineageExtractor(),
         ]
-        self.report = report
 
     def extract(self, plan_nodes: List[FlinkPlanNode]) -> LineageResult:
         result = LineageResult()
@@ -204,7 +214,7 @@ class FlinkLineageOrchestrator:
             for role in roles:
                 if role == NodeRole.TRANSFORM:
                     continue
-                classified = self._try_extractors(node, role)
+                classified = self._try_extractors(node, role, result)
                 if classified:
                     target = result.sources if role == NodeRole.SOURCE else result.sinks
                     target.append(classified)
@@ -230,7 +240,10 @@ class FlinkLineageOrchestrator:
         return roles or {NodeRole.TRANSFORM}
 
     def _try_extractors(
-        self, node: FlinkPlanNode, role: NodeRole
+        self,
+        node: FlinkPlanNode,
+        role: NodeRole,
+        lineage_result: LineageResult,
     ) -> Optional[ClassifiedNode]:
         for extractor in self.extractors:
             try:
@@ -245,10 +258,11 @@ class FlinkLineageOrchestrator:
                     node.id,
                     exc_info=True,
                 )
-                self.report.warning(
-                    title="Lineage extractor failed",
-                    message="A lineage extractor threw an exception while processing a plan node.",
-                    context=f"extractor={extractor.__class__.__name__}, node_id={node.id}",
-                    exc=e,
+                lineage_result.extractor_warnings.append(
+                    ExtractorWarning(
+                        extractor_name=extractor.__class__.__name__,
+                        node_id=node.id,
+                        exc=e,
+                    )
                 )
         return None

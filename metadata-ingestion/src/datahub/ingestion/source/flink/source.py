@@ -30,10 +30,11 @@ from datahub.ingestion.source.flink.client import (
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
 from datahub.ingestion.source.flink.entities import (
     FlinkEntityBuilder,
-    _compute_dataset_urns,
-    _materialize_dataset_workunits,
+    compute_dataset_urns,
+    materialize_dataset_workunits,
 )
 from datahub.ingestion.source.flink.lineage import (
+    ExtractorWarning,
     FlinkLineageOrchestrator,
     LineageResult,
 )
@@ -61,8 +62,10 @@ class _JobProcessingResult:
     lineage_sources: int = 0
     lineage_sinks: int = 0
     lineage_unclassified: List[str] = field(default_factory=list)
+    lineage_extractor_warnings: List[ExtractorWarning] = field(default_factory=list)
     lineage_error: Optional[str] = None
     lineage_exc: Optional[BaseException] = None
+    checkpoint_exc: Optional[BaseException] = None
     dpis_emitted: int = 0
     dpi_exc: Optional[BaseException] = None
 
@@ -100,7 +103,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
         self.sql_gateway_client: Optional[FlinkSQLGatewayClient] = None
         if config.include_catalog_metadata and config.connection.sql_gateway_url:
             self.sql_gateway_client = FlinkSQLGatewayClient(config.connection)
-        self.lineage_orchestrator = FlinkLineageOrchestrator(report=self.report)
+        self.lineage_orchestrator = FlinkLineageOrchestrator()
         self.entity_builder = FlinkEntityBuilder(config)
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, config, ctx
@@ -125,8 +128,9 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         # 1. Connect and get cluster info
         try:
-            cluster_config = self.client.get_cluster_config()
-            self.report.flink_version = cluster_config.flink_version
+            with self.report.cluster_config_timer:
+                cluster_config = self.client.get_cluster_config()
+                self.report.flink_version = cluster_config.flink_version
             logger.info("Connected to Flink %s", cluster_config.flink_version)
         except Exception as e:
             self.report.failure(
@@ -139,7 +143,8 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
 
         # 2. Fetch and filter jobs
         try:
-            jobs = self.client.get_jobs_overview()
+            with self.report.jobs_overview_timer:
+                jobs = self.client.get_jobs_overview()
         except Exception as e:
             self.report.failure(
                 title="Failed to fetch job overview",
@@ -153,7 +158,10 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
         deduplicated = self._deduplicate_jobs(filtered)
 
         # 3. Process jobs in parallel
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+        with (
+            self.report.job_processing_timer,
+            ThreadPoolExecutor(max_workers=self.config.max_workers) as executor,
+        ):
             futures = {
                 executor.submit(self._process_job, summary, cluster_config): summary
                 for summary in deduplicated.values()
@@ -174,6 +182,21 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                             result.job_name,
                             result.lineage_error,
                             exc=result.lineage_exc,
+                        )
+                    for ew in result.lineage_extractor_warnings:
+                        self.report.warning(
+                            title="Lineage extractor failed",
+                            message="A lineage extractor threw an exception while processing a plan node.",
+                            context=f"extractor={ew.extractor_name}, node_id={ew.node_id}",
+                            exc=ew.exc,
+                        )
+                    if result.checkpoint_exc:
+                        self.report.warning(
+                            title="Failed to fetch checkpoint config",
+                            message="Checkpoint configuration could not be retrieved. "
+                            "Job metadata was emitted without checkpoint properties.",
+                            context=f"job={result.job_name}",
+                            exc=result.checkpoint_exc,
                         )
                     if result.dpi_exc:
                         self.report.warning(
@@ -236,7 +259,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
     ) -> _JobProcessingResult:
         result = _JobProcessingResult(job_name=summary.name, job_id=summary.jid)
         job_detail = self.client.get_job_details(summary.jid)
-        checkpoint_config = self._fetch_checkpoint_config(summary)
+        checkpoint_config = self._fetch_checkpoint_config(summary, result)
         lineage_result = self._extract_lineage(result, job_detail)
         datajob_for_dpi = self._build_flow_and_jobs(
             result, job_detail, checkpoint_config, cluster_config, lineage_result
@@ -245,7 +268,9 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
         return result
 
     def _fetch_checkpoint_config(
-        self, summary: FlinkJobSummary
+        self,
+        summary: FlinkJobSummary,
+        result: _JobProcessingResult,
     ) -> Optional[FlinkCheckpointConfig]:
         try:
             return self.client.get_checkpoint_config(summary.jid)
@@ -256,13 +281,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                 e,
                 exc_info=True,
             )
-            self.report.warning(
-                title="Failed to fetch checkpoint config",
-                message="Checkpoint configuration could not be retrieved. "
-                "Job metadata will be emitted without checkpoint properties.",
-                context=f"job={summary.name}",
-                exc=e,
-            )
+            result.checkpoint_exc = e
             return None
 
     def _extract_lineage(
@@ -279,6 +298,9 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
                 result.lineage_sources = len(lineage_result.sources)
                 result.lineage_sinks = len(lineage_result.sinks)
                 result.lineage_unclassified = list(lineage_result.unclassified)
+                result.lineage_extractor_warnings = list(
+                    lineage_result.extractor_warnings
+                )
             except Exception as e:
                 result.lineage_error = str(e)
                 result.lineage_exc = e
@@ -318,10 +340,10 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
 
         # Materialize lineage dataset entities (new SDK doesn't auto-create them)
         if self.config.include_lineage:
-            all_urns = _compute_dataset_urns(
+            all_urns = compute_dataset_urns(
                 lineage_result.sources, self.config
-            ) + _compute_dataset_urns(lineage_result.sinks, self.config)
-            result.workunits.extend(_materialize_dataset_workunits(all_urns))
+            ) + compute_dataset_urns(lineage_result.sinks, self.config)
+            result.workunits.extend(materialize_dataset_workunits(all_urns))
 
         return datajob_for_dpi
 

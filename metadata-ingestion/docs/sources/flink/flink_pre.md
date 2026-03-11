@@ -1,3 +1,7 @@
+### Overview
+
+The `flink` module ingests metadata from Apache Flink into DataHub. It connects to the Flink JobManager REST API to extract jobs, execution plans, and run history, and optionally queries the Flink SQL Gateway for catalog table schemas.
+
 ### Prerequisites
 
 In order to ingest metadata from Apache Flink, you will need:
@@ -6,7 +10,7 @@ In order to ingest metadata from Apache Flink, you will need:
 - Flink version >= 1.19 (tested with 1.19)
 - For catalog metadata extraction: access to a **Flink SQL Gateway** (default port 8083)
 
-### Required Permissions
+#### Required Permissions
 
 | Capability                | API                                   | Required Access                    |
 | ------------------------- | ------------------------------------- | ---------------------------------- |

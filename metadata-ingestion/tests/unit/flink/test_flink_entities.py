@@ -9,7 +9,7 @@ from datahub.ingestion.source.flink.client import (
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
 from datahub.ingestion.source.flink.entities import (
     FlinkEntityBuilder,
-    _materialize_dataset_workunits,
+    materialize_dataset_workunits,
 )
 from datahub.ingestion.source.flink.lineage import (
     ClassifiedNode,
@@ -82,7 +82,7 @@ class TestMaterializeDatasetWorkunits:
             "urn:li:dataset:(urn:li:dataPlatform:kafka,transactions,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:kafka,alerts,PROD)",
         ]
-        wus = _materialize_dataset_workunits(urns)
+        wus = materialize_dataset_workunits(urns)
         assert len(wus) > 0
         entity_urns = {
             wu.metadata.entityUrn
@@ -93,7 +93,7 @@ class TestMaterializeDatasetWorkunits:
         assert any("alerts" in str(u) for u in entity_urns)
 
     def test_empty_urns_returns_empty(self) -> None:
-        assert _materialize_dataset_workunits([]) == []
+        assert materialize_dataset_workunits([]) == []
 
 
 class TestBuildDataflow:
@@ -227,3 +227,23 @@ class TestBuildDpiWorkunits:
         assert len(run_events) == 2
         end_event = run_events[-1].metadata.aspect
         assert expected_result in str(end_event)
+
+    def test_terminal_job_missing_end_time_skips_end_event(self) -> None:
+        """Guard against non-deterministic end events: if a terminal job
+        lacks a valid end_time (rare API inconsistency), skip the end event
+        rather than fabricating a timestamp with time.time()."""
+        wus = self._build_dpi_mcps(state="FINISHED", end_time=-1)
+        run_events = [
+            wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
+        ]
+        assert len(run_events) == 1
+        assert run_events[0].metadata.aspect.status == "STARTED"
+
+    def test_zero_start_time_skips_start_event(self) -> None:
+        """start_time=0 means the Flink API didn't provide a valid timestamp.
+        Skip the start event rather than emitting epoch-zero."""
+        wus = self._build_dpi_mcps(state="RUNNING", start_time=0)
+        run_events = [
+            wu for wu in wus if wu.metadata.aspectName == "dataProcessInstanceRunEvent"
+        ]
+        assert len(run_events) == 0
