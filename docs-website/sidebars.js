@@ -118,6 +118,16 @@ module.exports = {
               type: "doc",
               id: "docs/dev-guides/agent-context/copilot-studio",
             },
+            {
+              label: "Google Vertex AI",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-vertex-ai",
+            },
+            {
+              label: "Google ADK",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/google-adk",
+            },
           ],
         },
         {
