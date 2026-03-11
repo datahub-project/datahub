@@ -27,16 +27,22 @@ public class ConfigEntityRegistryFactory {
   @Value("${configEntityRegistry.resource}")
   Resource entityRegistryResource;
 
+  @Value("${configEntityRegistry.useOptimizedLoading}")
+  private boolean useOptimizedLoading;
+
   @Bean(name = "configEntityRegistry")
   @Nonnull
   protected ConfigEntityRegistry getInstance() throws IOException, EntityRegistryException {
     BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider =
         (config, loaders) -> new SpringPluginFactory(applicationContext, config, loaders);
     if (entityRegistryConfigPath != null) {
-      return new ConfigEntityRegistry(entityRegistryConfigPath, pluginFactoryProvider);
+      ConfigEntityRegistry cfg =
+          new ConfigEntityRegistry(
+              entityRegistryConfigPath, pluginFactoryProvider, useOptimizedLoading);
+      return cfg;
     } else {
       return new ConfigEntityRegistry(
-          entityRegistryResource.getInputStream(), pluginFactoryProvider);
+          entityRegistryResource.getInputStream(), pluginFactoryProvider, useOptimizedLoading);
     }
   }
 }
