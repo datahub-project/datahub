@@ -1567,7 +1567,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             log.error(
                 "Failed to produce MCLs: {}",
                 failedMCLs.stream()
-                    .map(result -> result.getMetadataChangeLog().getEntityUrn())
+                    .map(
+                        result -> {
+                          MetadataChangeLog mcl = result.getMetadataChangeLog();
+                          return mcl.getEntityUrn() + "/" + mcl.getAspectName();
+                        })
                     .collect(Collectors.toList()));
             // TODO restoreIndices?
             throw new RuntimeException("Failed to produce MCLs");
