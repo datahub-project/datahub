@@ -1,0 +1,12 @@
+source:
+  type: datahub-gc
+  config:
+    dry_run: false
+    cleanup_expired_tokens: true
+    truncate_indices: true
+    dataprocess_cleanup:
+      retention_days: 10
+      delete_empty_data_jobs: true
+      delete_empty_data_flows: true
+      hard_delete_entities: false
+      keep_last_n: 5
