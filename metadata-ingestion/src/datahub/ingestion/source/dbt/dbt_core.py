@@ -715,12 +715,18 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         paginator = s3_client.get_paginator("list_objects_v2")
 
         matched_keys: List[str] = []
+        total_scanned = 0
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
+                total_scanned += 1
                 key = obj["Key"]
                 if fnmatch.fnmatch(key, key_pattern):
                     matched_keys.append(key)
 
+        logger.info(
+            f"S3 glob '{uri}': scanned {total_scanned} object(s) under "
+            f"prefix '{prefix}', matched {len(matched_keys)}"
+        )
         return [f"{u.scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
 
     def _expand_run_results_paths(self) -> List[str]:
