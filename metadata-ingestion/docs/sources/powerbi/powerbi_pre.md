@@ -10,18 +10,18 @@ This plugin extracts the following:
 
 ### Prerequisites
 
-In order to execute this source, you will need to have a Microsoft Entra Application service principal with permissions granted to it for reading metadata from Power BI's APIs.
+In order to execute this source, you will need to have a Microsoft Entra Application service principal and grant permissions to it inside Power BI.
 
-[Power BI's APIs](https://learn.microsoft.com/en-us/rest/api/power-bi/) can be categorized into two sets of API methods, with different permissions:
+[Power BI's APIs](https://learn.microsoft.com/en-us/rest/api/power-bi/) can be categorized into two sets of API methods, with different permission structures:
 
-- Basic APIs only return metadata of Power BI resources where the Entra application has been explicitly granted access.
-- The Admin APIs return metadata of all Power BI resources irrespective of whether the application was granted explicit access.
+- Public APIs are designed for developers to interact with specific resources within a tenant, and require the Entra application to be explicitly granted access to individual Workspaces.
+- The Admin APIs are designed for administrators to interact with the entire Power BI tenant at a high level, and return metadata on all Power BI resources.
 
-The recommended way to execute Power BI ingestion is to do both: add your Entra application to the workspaces you want to ingest, as well as granting it access to the Admin APIs (explained below). That way ingestion can extract the most metadata.
+The recommended way to execute Power BI ingestion is to do both: add your Entra application to the workspaces you want to ingest, andgrant it access to the public _and_ Admin APIs. That way ingestion can extract the most metadata.
 
-#### Basic Ingestion
+#### Ingestion from public APIs
 
-To grant basic API access to your Entra application:
+To grant public API access to your Entra application:
 
 1. **Grant permissions to access Fabric public APIs:** Add your Entra Application's parent Entra Group under your Power BI/Fabric tenant settings in order to grant API access.
 
@@ -40,15 +40,13 @@ If you have granted your Entra application permissions to the public APIs and ad
 - Reports
 - Report Pages
 
-If you don't want to add an Entra application as a member in your workspace, then you can enable the `admin_apis_only: true` in recipe to use the Power BI Admin API only.
+If you don't want to add an Entra application as a member in your workspace, then you can enable `admin_apis_only: true` in your recipe to use the Power BI Admin API only. Caveats of setting `admin_apis_only` to `true`:
 
-Caveats of setting `admin_apis_only` to `true`:
-
-- Reports' pages will not get ingested as the page API is not available in the Power BI Admin API
+- Report Pages will not get ingested as the page API is not available in the Power BI Admin API
 - [Power BI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) will not get resolved to actual values while processing M-Query for table lineage
 - Dataset profiling is unavailable, as it requires access to the non-admin workspace API
 
-#### Admin Ingestion
+#### Ingestion from Admin APIs
 
 To grant admin API access to the Entra application:
 
