@@ -511,6 +511,17 @@ The following field-level transforms are applied when building the column mappin
 | `Flatten$Value`                       | nested struct paths are joined using the configured delimiter (default: `.`)                          |
 | `MaskField`, `Cast`, `Filter`, `Drop` | field names unchanged — lineage is unaffected                                                         |
 
+For example, a `ReplaceField` that excludes internal columns:
+
+```yml
+transforms: "removeFields"
+transforms.removeFields.type: "org.apache.kafka.connect.transforms.ReplaceField$Value"
+transforms.removeFields.exclude: "internal_id,temp_column"
+# Source schema: [user_id, email, internal_id, temp_column]
+# After transform: [user_id, email]
+# Column lineage created only for: user_id, email
+```
+
 **Configuration:**
 
 ```yml
