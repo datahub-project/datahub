@@ -19,7 +19,7 @@ In order to execute this source, you will need to have a Microsoft Entra Applica
 
 The recommended way to execute Power BI ingestion is to do both: add your Entra application to the workspaces you want to ingest, andgrant it access to the public _and_ Admin APIs. That way ingestion can extract the most metadata.
 
-#### Ingestion from public APIs
+#### Public APIs ingestion
 
 To grant public API access to your Entra application:
 
@@ -46,7 +46,7 @@ If you don't want to add an Entra application as a member in your workspace, the
 - [Power BI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) will not get resolved to actual values while processing M-Query for table lineage
 - Dataset profiling is unavailable, as it requires access to the non-admin workspace API
 
-#### Ingestion from Admin APIs
+#### Admin APIs ingestion
 
 To grant admin API access to the Entra application:
 
