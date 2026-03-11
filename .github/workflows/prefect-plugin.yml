@@ -61,8 +61,8 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: ingestion-prefect-test-results-${{ strategy.job-index }}
-          test-results-path: "metadata-ingestion-modules/prefect-plugin/test-results/**"
-          junit-file-glob: "metadata-ingestion-modules/prefect-plugin/test-results/*.xml"
+          test-results-paths: "metadata-ingestion-modules/prefect-plugin/test-results/**"
+          junit-file-globs: "metadata-ingestion-modules/prefect-plugin/test-results/*.xml"
       - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5

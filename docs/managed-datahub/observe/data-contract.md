@@ -68,9 +68,9 @@ _API guide on creating data contract is coming soon!_
 
 ## How to Run Data Contracts
 
-Running Data Contracts is dependent on running the contract’s assertions and getting the results on Datahub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on Datahub itself. Otherwise, you can run your assertions outside of Datahub and have the results published back to Datahub.
+Running Data Contracts is dependent on running the contract’s assertions and getting the results on DataHub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on DataHub itself. Otherwise, you can run your assertions outside of DataHub and have the results published back to DataHub.
 
-Datahub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
+DataHub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
 
 ### DBT Test
 
@@ -82,7 +82,7 @@ During DBT Ingestion, we pick up the dbt `run_results` file, which contains the 
 
 ### Great Expectations
 
-For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to Datahub. [See the guide here](../../../metadata-ingestion/integration_docs/great-expectations.md).
+For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to DataHub. [See the guide here](../../../metadata-ingestion/integration_docs/great-expectations.md).
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/gx-test.png"/>

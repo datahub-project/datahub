@@ -1,4 +1,4 @@
-query getDashboard($urn: String!) {
+query getDashboard($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dashboard(urn: $urn) {
         urn
         type

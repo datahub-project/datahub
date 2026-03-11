@@ -1,0 +1,493 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "azure-data-factory",
+                "env": "DEV",
+                "resource_group": "test-resource-group",
+                "factory_name": "cll-test-factory",
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory",
+                "location": "eastus",
+                "provisioning_state": "Succeeded"
+            },
+            "externalUrl": "https://adf.azure.com/en/home?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory",
+            "name": "cll-test-factory",
+            "description": "Azure Data Factory: cll-test-factory",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Factory"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "factory_name": "cll-test-factory",
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory/pipelines/ColumnLineagePipeline"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ColumnLineagePipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory",
+            "name": "ColumnLineagePipeline",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+                    "urn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Copy"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ColumnLineagePipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory",
+            "name": "CopyWithDictMappings",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Copy Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceTable,DEV)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,SourceTable,DEV),source_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_id)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,SourceTable,DEV),source_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_name)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,SourceTable,DEV),source_email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,DestTable,DEV),target_email)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+                    "urn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
+                },
+                {
+                    "id": "cll-test-factory.ColumnLineagePipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Copy"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ColumnLineagePipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/cll-test-factory",
+            "name": "CopyWithListMappings",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Copy Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV),col_a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_x)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,source/data.csv,DEV),col_b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abs,dest/output.csv,DEV),column_y)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+                    "urn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
+                },
+                {
+                    "id": "cll-test-factory.ColumnLineagePipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithDictMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV),CopyWithListMappings)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-test-column-lineage",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

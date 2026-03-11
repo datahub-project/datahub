@@ -9,6 +9,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
+    JDBC_PREFIX,
     KAFKA,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     MYSQL_CDC_SOURCE_V2_CLOUD,
@@ -37,9 +38,6 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Constants for JDBC URL parsing
-JDBC_PREFIX_LENGTH: Final[int] = 5  # Length of "jdbc:" prefix
 
 
 @dataclass(frozen=True)
@@ -93,7 +91,7 @@ class JdbcParserFactory:
         """Create parser for traditional JDBC connector using connection.url."""
         # Reference: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#connection-url
         url = remove_prefix(
-            str(connector_manifest.config.get("connection.url")), "jdbc:"
+            str(connector_manifest.config.get("connection.url")), JDBC_PREFIX
         )
         url_instance = make_url(url)
         source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
@@ -1460,8 +1458,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            # Remove jdbc: prefix and extract protocol
-            remaining_url = jdbc_url[JDBC_PREFIX_LENGTH:]  # Remove "jdbc:" prefix
+            remaining_url = remove_prefix(jdbc_url, JDBC_PREFIX)
             protocol_end = remaining_url.find(":")
             if protocol_end == -1:
                 return "unknown"
@@ -2121,11 +2118,19 @@ class MongoSourceConnector(BaseConnector):
             if found:
                 table_name = get_dataset_name(found.group(1), found.group(2))
 
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=table_name,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                )
+
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
                     source_platform=source_platform,
                     target_dataset=topic,
                     target_platform=KAFKA,
+                    fine_grained_lineages=fine_grained,
                 )
                 lineages.append(lineage)
         return lineages
@@ -2201,11 +2206,7 @@ class DebeziumSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
-        # Map connector class to platform
         platform = self.get_platform()
-
-        # Map handler platform to parser platform (handler uses "sqlserver", parser expects "mssql")
-        parser_platform = "mssql" if platform == "sqlserver" else platform
 
         # Get database name based on platform
         database_name = self._get_database_name_for_platform(
@@ -2228,7 +2229,7 @@ class DebeziumSourceConnector(BaseConnector):
                     transform[key.replace(f"transforms.{name}.", "")] = config[key]
 
         return self.DebeziumParser(
-            source_platform=parser_platform,
+            source_platform=platform,
             server_name=self.get_server_name(connector_manifest),
             database_name=database_name,
             transforms=transforms,
@@ -2601,7 +2602,7 @@ class DebeziumSourceConnector(BaseConnector):
         """Get database name based on platform-specific configuration."""
         if platform in ["mysql", "mongodb"]:
             return None
-        elif platform in ["sqlserver", "mssql"]:
+        elif platform == "mssql":
             database_name = config.get("database.names") or config.get(
                 "database.dbname"
             )
@@ -2625,7 +2626,7 @@ class DebeziumSourceConnector(BaseConnector):
         elif "postgres" in connector_class.lower():
             return "postgres"
         elif "sqlserver" in connector_class.lower():
-            return "sqlserver"
+            return "mssql"
         elif "oracle" in connector_class.lower():
             return "oracle"
         elif "db2" in connector_class.lower():

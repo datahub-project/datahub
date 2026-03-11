@@ -44,6 +44,7 @@ fix-failing-tests/
 /config
 */i18n
 out/
+post-workflow-validation-summary.md
 
 # Mac OS
 **/.DS_Store
@@ -84,6 +85,11 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+
+# Generated flag classification manifest (produced by generateFlagClassification Gradle task)
+scripts/generated/
+# Dev-scripts ruff venv (managed by scriptsInstallRuff Gradle task)
+scripts/.venv/
 tmp*
 temp/**
 
@@ -101,6 +107,10 @@ coverage*.xml
 
 # Local dev environment overrides (user-specific GMS/Kafka settings)
 docker/profiles/my-settings.env
+
+# Agents Skills
+.agents/
+skills-lock.json
 
 # Claude ignores
 .claude/
@@ -155,3 +165,6 @@ test-models/bin/
 
 # Git credentials (should never be committed)
 .git-credentials
+
+# Git Worktree management (wtp)
+.wtp.yml

@@ -56,6 +56,13 @@ jobs:
       - name: Run tests
         run: |
           ./gradlew --info :metadata-ingestion:testScripts
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: metadata-ingestion-scripts-test-results
+          test-results-paths: "metadata-ingestion/scripts/test-results/**"
+          junit-file-globs: "metadata-ingestion/scripts/test-results/*.xml"
       - name: Build Docs
         run: |
           ./gradlew --info docs-website:build

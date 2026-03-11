@@ -1,10 +1,11 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "86f1a7a73a195c923f5e5240fd21b5481daa3b7d4ee3f8558018dd4d86d6869f",
+    "query_fingerprint": "e549a89890e26f0e6ac26bc52bffbf963c662636d84ebc2f3fef2b89653bf1d5",
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,default.my_dict,PROD)"
     ],
     "out_tables": [],
     "column_lineage": [
@@ -17,7 +18,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
                     "column": "event_id"
                 }
             ],
@@ -35,7 +36,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.users,PROD)",
                     "column": "user_name"
                 }
             ],
@@ -47,19 +48,19 @@
         {
             "downstream": {
                 "table": null,
-                "column": "category_name",
+                "column": "dict_name",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
                     "column": "category_id"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "DICTGETORDEFAULT(\"default\".\"categories\", 'name', \"e\".\"category_id\", 'Unknown') AS \"category_name\""
+                "column_logic": "DICTGETORDEFAULT(\"default\".\"my_dict\", 'name', \"e\".\"category_id\", 'Unknown') AS \"dict_name\""
             }
         }
     ],
@@ -67,19 +68,19 @@
         {
             "join_type": "JOIN",
             "left_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)"
             ],
             "right_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.users,PROD)"
             ],
             "on_clause": "\"e\".\"user_id\" = \"u\".\"id\"",
             "columns_involved": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.events,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
                     "column": "user_id"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.users,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.users,PROD)",
                     "column": "id"
                 }
             ]
@@ -87,6 +88,6 @@
     ],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "SELECT e.event_id, u.user_name, DICTGETORDEFAULT(default.categories, {?: }, e.category_id, {?: }) AS category_name FROM analytics.events AS e JOIN analytics.users AS u ON e.user_id = u.id"
+        "generalized_statement": "SELECT e.event_id, u.user_name, DICTGETORDEFAULT(default.my_dict, {?: }, e.category_id, {?: }) AS dict_name FROM db1.events AS e JOIN db1.users AS u ON e.user_id = u.id"
     }
 }

@@ -48,14 +48,14 @@ jobs:
         uses: ./.github/actions/report-test-results
         with:
           artifact-name: datahub-agent-context-test-results
-          test-results-path: "datahub-agent-context/test-results/**"
-          junit-file-glob: "datahub-agent-context/test-results/*.xml"
+          test-results-paths: "datahub-agent-context/test-results/**"
+          junit-file-globs: "datahub-agent-context/test-results/*.xml"
       - name: Upload datahub-agent-context coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           disable_search: true
-          files: ./datahub-agent-context/.coverage
+          files: ./build/coverage-reports/datahub-agent-context/
           #handle_no_reports_found: true
           fail_ci_if_error: false
           name: datahub-agent-context

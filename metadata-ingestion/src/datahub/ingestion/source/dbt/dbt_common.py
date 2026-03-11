@@ -13,8 +13,10 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Set,
     Tuple,
+    TypedDict,
     Union,
 )
 
@@ -36,6 +38,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -316,6 +319,9 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
         default_factory=lambda: defaultdict(int)
     )
 
+    # Semantic model entity emission statistics
+    num_semantic_models_emitted: int = 0
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -363,6 +369,11 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for dbt exposures when set to Yes or Only. "
         "Exposures represent downstream consumers like dashboards, notebooks, or applications.",
     )
+    semantic_models: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt semantic models when set to Yes or Only. "
+        "Semantic models define entities, dimensions, and measures for the dbt semantic layer (dbt 1.6+).",
+    )
     queries: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit Query entities from meta.queries field when set to Yes or Only.",
@@ -406,6 +417,7 @@ class DBTEntitiesEnabled(ConfigModel):
             "snapshot": self.snapshots,
             "test": self.test_definitions,
             "exposure": self.exposures,
+            "semantic_model": self.semantic_models,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -437,6 +449,10 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.exposures == EmitDirective.YES
 
     @property
+    def can_emit_semantic_models(self) -> bool:
+        return self.semantic_models == EmitDirective.YES
+
+    @property
     def can_emit_queries(self) -> bool:
         return self.queries == EmitDirective.YES
 
@@ -463,6 +479,7 @@ class DBTCommonConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
@@ -625,9 +642,7 @@ class DBTCommonConfig(
 
     @model_validator(mode="before")
     @classmethod
-    def set_convert_column_urns_to_lowercase_default_for_snowflake(
-        cls, values: dict
-    ) -> dict:
+    def set_lowercase_defaults_for_snowflake(cls, values: dict) -> dict:
         # In-place update of the input dict would cause state contamination.
         # So a deepcopy is performed first.
         values = deepcopy(values)
@@ -708,6 +723,93 @@ class DBTColumn:
     tags: List[str] = field(default_factory=list)
 
     datahub_data_type: Optional[SchemaFieldDataType] = None
+
+
+# Semantic model constants and types
+SEMANTIC_MODEL_UNKNOWN_DATA_TYPE = "UNKNOWN"
+
+
+class SemanticModelEntity(TypedDict, total=False):
+    """TypedDict for dbt semantic model entity definition."""
+
+    name: str
+    type: str  # e.g., "primary", "foreign", "natural"
+    description: str
+    expr: str
+
+
+class SemanticModelDimension(TypedDict, total=False):
+    """TypedDict for dbt semantic model dimension definition."""
+
+    name: str
+    type: str  # e.g., "categorical", "time"
+    description: str
+    expr: str
+    type_params: Dict[str, Any]  # For time dimensions: time_granularity, etc.
+
+
+class SemanticModelMeasure(TypedDict, total=False):
+    """TypedDict for dbt semantic model measure definition."""
+
+    name: str
+    agg: str  # Aggregation type: sum, count, average, min, max, count_distinct
+    description: str
+    expr: str
+    create_metric: bool
+
+
+def convert_semantic_model_fields_to_columns(
+    entities: Sequence[SemanticModelEntity],
+    dimensions: Sequence[SemanticModelDimension],
+    measures: Sequence[SemanticModelMeasure],
+) -> List[DBTColumn]:
+    """Convert semantic model fields to DBTColumn objects for schema display."""
+    columns: List[DBTColumn] = []
+    index = 0
+
+    for entity in entities:
+        entity_type = entity.get("type", "unknown")
+        description = entity.get("description", "") or f"Entity ({entity_type})"
+        columns.append(
+            DBTColumn(
+                name=entity["name"],
+                comment="",
+                description=description,
+                index=index,
+                data_type=f"entity:{entity_type}",
+            )
+        )
+        index += 1
+
+    for dimension in dimensions:
+        dim_type = dimension.get("type", "categorical")
+        description = dimension.get("description", "") or f"Dimension ({dim_type})"
+        columns.append(
+            DBTColumn(
+                name=dimension["name"],
+                comment="",
+                description=description,
+                index=index,
+                data_type=f"dimension:{dim_type}",
+            )
+        )
+        index += 1
+
+    for measure in measures:
+        agg_type = measure.get("agg", "unknown")
+        description = measure.get("description", "") or f"Measure ({agg_type})"
+        columns.append(
+            DBTColumn(
+                name=measure["name"],
+                comment="",
+                description=description,
+                index=index,
+                data_type=f"measure:{agg_type}",
+            )
+        )
+        index += 1
+
+    return columns
 
 
 @dataclass(frozen=True)
@@ -869,7 +971,7 @@ class DBTNode:
     language: Optional[str]
     raw_code: Optional[str]
 
-    dbt_adapter: str
+    dbt_adapter: Optional[str]
     dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
@@ -912,6 +1014,8 @@ class DBTNode:
 
     model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
+    convert_urns_to_lowercase: bool = False
+
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
         joined = ".".join([part for part in parts if part])
@@ -932,7 +1036,7 @@ class DBTNode:
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
-        if target_platform != DBT_PLATFORM:
+        if target_platform != DBT_PLATFORM or self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
@@ -1614,6 +1718,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         all_nodes, additional_custom_props = self.load_nodes()
 
+        if self.config.convert_urns_to_lowercase:
+            for node in all_nodes:
+                node.convert_urns_to_lowercase = True
+
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         additional_custom_props_filtered = {
             key: value
@@ -1944,7 +2052,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             depends_on_ephemeral_models = False
             if node.materialization == "semantic_view":
                 # CLL parsing uses custom regex (only Snowflake semantic views supported)
-                if node.dbt_adapter != "snowflake":
+                if node.dbt_adapter is None or node.dbt_adapter != "snowflake":
                     self.report.warning(
                         title="Semantic View CLL Unsupported Adapter",
                         message=f"Column-level lineage for semantic views is only supported for Snowflake. "
@@ -2761,7 +2869,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 nativeDataType=column.data_type,
                 type=column.datahub_data_type
                 or get_column_type(
-                    report, node.dbt_name, column.data_type, node.dbt_adapter
+                    report, node.dbt_name, column.data_type, node.dbt_adapter or ""
                 ),
                 description=description,
                 nullable=False,  # TODO: actually autodetect this
@@ -2844,6 +2952,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         if node.materialization == "semantic_view":
             subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
+        elif node.node_type == "semantic_model":
+            subtypes = [DatasetSubTypes.SEMANTIC_MODEL]
         else:
             subtypes = [node.node_type.capitalize()]
 

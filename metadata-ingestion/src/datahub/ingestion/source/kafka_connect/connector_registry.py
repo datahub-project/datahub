@@ -214,6 +214,8 @@ class ConnectorRegistry:
         """Get appropriate sink connector implementation."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
             BIGQUERY_SINK_CONNECTOR_CLASS,
+            CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+            DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
@@ -238,11 +240,17 @@ class ConnectorRegistry:
             SNOWFLAKE_SINK_CLOUD,
         ):
             return SnowflakeSinkConnector(manifest, config, report)
-        # Confluent Cloud JDBC sink connectors (Postgres, MySQL)
+        # Confluent Cloud JDBC sink connectors (Postgres, MySQL) — platform known from class name
         elif connector_class_value == POSTGRES_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="postgres")
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
+        # Self-hosted JDBC sink connectors — platform auto-detected from connection.url
+        elif connector_class_value in (
+            DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+            CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+        ):
+            return JdbcSinkConnector(manifest, config, report)
 
         return None
 
@@ -296,14 +304,17 @@ class _GenericConnector(BaseConnector):
         """Create basic lineage from generic configuration."""
         from datahub.ingestion.source.kafka_connect.common import KafkaConnectLineage
 
-        return [
-            KafkaConnectLineage(
-                source_platform=self.generic_config.source_platform,
-                source_dataset=self.generic_config.source_dataset,
-                target_dataset="",  # Will be filled by kafka_connect.py
-                target_platform="kafka",
+        lineages: List[KafkaConnectLineage] = []
+        for topic in self.connector_manifest.topic_names:
+            lineages.append(
+                KafkaConnectLineage(
+                    source_platform=self.generic_config.source_platform,
+                    source_dataset=self.generic_config.source_dataset,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
             )
-        ]
+        return lineages
 
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from manifest configuration."""
