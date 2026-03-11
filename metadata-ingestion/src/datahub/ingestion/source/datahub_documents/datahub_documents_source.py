@@ -13,7 +13,7 @@ Supports both batch (GraphQL) and event-driven (Kafka MCL) modes.
 import hashlib
 import json
 import logging
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
@@ -55,6 +55,7 @@ from datahub.ingestion.source.unstructured.event_consumer import DocumentEventCo
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
 
@@ -67,7 +68,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_embeddings_generated: int = 0
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
-    processing_errors: list[str] = []
+    processing_errors: list[str] = field(default_factory=list)
     num_documents_limit_reached: bool = False
 
     def report_document_fetched(self) -> None:
