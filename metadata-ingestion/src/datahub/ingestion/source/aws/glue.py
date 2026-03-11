@@ -146,6 +146,14 @@ JDBC_DEFAULT_SCHEMA: Dict[str, str] = {
     "mssql": "dbo",
 }
 
+GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
+    "POSTGRESQL": "postgres",
+    "MYSQL": "mysql",
+    "REDSHIFT": "redshift",
+    "ORACLE": "oracle",
+    "SQLSERVER": "mssql",
+}
+
 
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
@@ -392,6 +400,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+        self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -629,6 +638,56 @@ class GlueSource(StatefulIngestionSourceBase):
         database = url.path.lstrip("/").split("?")[0]
         return platform, database
 
+    def _resolve_glue_connection(
+        self, connection_name: str, flow_urn: str
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a named Glue connection to (platform, database)."""
+        if connection_name in self._glue_connection_cache:
+            return self._glue_connection_cache[connection_name]
+
+        result: Optional[Tuple[str, str]] = None
+        try:
+            kwargs: Dict[str, Any] = {"Name": connection_name}
+            if self.source_config.catalog_id:
+                kwargs["CatalogId"] = self.source_config.catalog_id
+            response = self.glue_client.get_connection(**kwargs)
+            connection = response["Connection"]
+            conn_type = connection.get("ConnectionType", "")
+            props = connection.get("ConnectionProperties", {})
+
+            if conn_type == "JDBC":
+                jdbc_url = props.get("JDBC_CONNECTION_URL")
+                if not jdbc_url:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
+                    )
+                else:
+                    result = self._parse_jdbc_url(jdbc_url)
+            elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
+                platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
+                database = props.get("DATABASE")
+                if not database:
+                    self.report_warning(
+                        flow_urn,
+                        f"Glue connection {connection_name!r} has no DATABASE property. Skipping",
+                    )
+                else:
+                    result = (platform, database)
+            else:
+                self.report_warning(
+                    flow_urn,
+                    f"Unsupported Glue connection type {conn_type!r} for connection {connection_name!r}. Skipping",
+                )
+        except Exception as e:
+            self.report_warning(
+                flow_urn,
+                f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
+            )
+
+        self._glue_connection_cache[connection_name] = result
+        return result
+
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
@@ -717,6 +776,43 @@ class GlueSource(StatefulIngestionSourceBase):
                     MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 )
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
+
+            # if data object references a named Glue connection (visual editor style)
+            elif node_args.get("useConnectionProperties") == "true" and node_args.get(
+                "connectionName"
+            ):
+                connection_name = node_args["connectionName"]
+                dbtable = node_args.get("dbtable")
+
+                if not dbtable:
+                    self.report_warning(
+                        flow_urn,
+                        f"Missing dbtable for node {node['NodeType']}-{node['Id']}. Skipping",
+                    )
+                    return None
+
+                resolved = self._resolve_glue_connection(connection_name, flow_urn)
+                if resolved is None:
+                    return None
+
+                platform, database = resolved
+
+                if "." in dbtable:
+                    schema, table = dbtable.rsplit(".", 1)
+                    dataset_name = f"{database}.{schema}.{table}"
+                else:
+                    default_schema = JDBC_DEFAULT_SCHEMA.get(platform)
+                    if default_schema:
+                        dataset_name = f"{database}.{default_schema}.{dbtable}"
+                    else:
+                        dataset_name = f"{database}.{dbtable}"
+
+                node_urn = make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=dataset_name,
+                    env=self.env,
+                    platform_instance=None,
+                )
 
             # if data object is a JDBC source (e.g. Postgres, MySQL, Redshift)
             elif node_args.get("connection_type") in JDBC_PLATFORM_MAP:

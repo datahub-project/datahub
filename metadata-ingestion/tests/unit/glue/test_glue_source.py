@@ -15,6 +15,7 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    GLUE_NATIVE_CONNECTION_TYPE_MAP,
     JDBC_PLATFORM_MAP,
     GlueProfilingConfig,
     GlueSource,
@@ -1095,3 +1096,194 @@ def test_jdbc_platform_map_coverage() -> None:
         platform, database = source._parse_jdbc_url(url)
         assert platform == expected_platform, f"Failed for {jdbc_protocol}"
         assert database == "db"
+
+
+def _make_glue_connection_node(
+    node_id: str,
+    node_type: str,
+    connection_name: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "useConnectionProperties",
+                "Value": '"true"',
+                "Param": False,
+            },
+            {
+                "Name": "connectionName",
+                "Value": f'"{connection_name}"',
+                "Param": False,
+            },
+            {
+                "Name": "dbtable",
+                "Value": f'"{dbtable}"',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "dbtable, expected_urn",
+    [
+        (
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_jdbc(
+    dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My PG Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+@pytest.mark.parametrize(
+    "conn_type, dbtable, expected_urn",
+    [
+        (
+            "POSTGRESQL",
+            "public.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "POSTGRESQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "MYSQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_native(
+    conn_type: str, dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": conn_type,
+            "ConnectionProperties": {
+                "HOST": "myhost",
+                "DATABASE": "mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {"Name": "useConnectionProperties", "Value": '"true"', "Param": False},
+            {"Name": "connectionName", "Value": '"My Connection"', "Param": False},
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_process_dataflow_node_glue_connection_fetch_failure() -> None:
+    source = glue_source()
+
+    def _raise(**kw: Any) -> None:
+        raise Exception("Connection not found")
+
+    source.glue_client.get_connection = _raise  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node("DataSource0", "DataSource", "Missing", "mytable")
+
+    result = source.process_dataflow_node(node, flow_urn, [], [], defaultdict(set))
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_resolve_glue_connection_caching() -> None:
+    source = glue_source()
+    call_count = 0
+
+    def _get_connection(**kw: Any) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        return {
+            "Connection": {
+                "ConnectionType": "POSTGRESQL",
+                "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+            }
+        }
+
+    source.glue_client.get_connection = _get_connection  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    source._resolve_glue_connection("My Connection", flow_urn)
+    source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert call_count == 1
+
+
+def test_glue_native_connection_type_map_coverage() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    for conn_type, expected_platform in GLUE_NATIVE_CONNECTION_TYPE_MAP.items():
+        source._glue_connection_cache.clear()
+
+        def _make_get_connection(ct: str) -> Any:
+            def _get_connection(**kw: Any) -> Dict[str, Any]:
+                return {
+                    "Connection": {
+                        "ConnectionType": ct,
+                        "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+                    }
+                }
+
+            return _get_connection
+
+        source.glue_client.get_connection = _make_get_connection(conn_type)  # type: ignore[method-assign]
+        result = source._resolve_glue_connection(conn_type, flow_urn)
+        assert result is not None, f"Failed for {conn_type}"
+        assert result[0] == expected_platform
