@@ -152,6 +152,25 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
 
+        logger.debug(
+            f"REST sink initialized: rest_sink_mode={self.config.mode.value}, "
+            f"default_emit_mode={_DEFAULT_EMIT_MODE.value}, "
+            f"max_threads={self.config.max_threads}, "
+            f"max_per_batch={self.config.max_per_batch}"
+        )
+
+        if self.config.mode in (
+            RestSinkMode.ASYNC,
+            RestSinkMode.ASYNC_BATCH,
+        ) and _DEFAULT_EMIT_MODE not in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT):
+            logger.warning(
+                f"REST sink mode is {self.config.mode.value} but DATAHUB_EMIT_MODE "
+                f"is explicitly set to {_DEFAULT_EMIT_MODE.value}. This combination "
+                f"causes GMS to process batch requests synchronously, which may fail "
+                f"the whole batch of records. Consider setting DATAHUB_EMIT_MODE=ASYNC "
+                f"or removing the override."
+            )
+
         self.executor: Union[PartitionExecutor, BatchPartitionExecutor]
         if self.config.mode == RestSinkMode.ASYNC_BATCH:
             self.executor = BatchPartitionExecutor(
