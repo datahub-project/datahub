@@ -35,13 +35,13 @@ interface AlchemyRoutedTabsProps {
 const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
     height: 100%;
 `;
 
 const RouteContainer = styled.div`
-    flex: 1;
-    overflow: auto;
+    height: 100%;
+    overflow: hidden;
 `;
 
 /**

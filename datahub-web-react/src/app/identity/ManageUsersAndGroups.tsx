@@ -33,6 +33,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     const location = useLocation();
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
     const [isCreatingServiceAccount, setIsCreatingServiceAccount] = useState(false);
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const authenticatedUser = useUserContext();
     const canManageUserCredentials = authenticatedUser?.platformPrivileges?.manageUserCredentials || false;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts || false;
@@ -99,7 +100,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
             {
                 name: TabType.Groups,
                 path: TabType.Groups.toLocaleLowerCase(),
-                content: <GroupList />,
+                content: <GroupList isCreatingGroup={isCreatingGroup} setIsCreatingGroup={setIsCreatingGroup} />,
                 tabType: TabType.Groups,
                 customTitle: <TabTitleWithCount name={TabType.Groups} count={groupCount} />,
                 display: {
@@ -142,6 +143,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
                 activeTab={activeTab}
                 onInviteUsers={() => setIsViewingInviteToken(true)}
                 onCreateServiceAccount={() => setIsCreatingServiceAccount(true)}
+                onCreateGroup={() => setIsCreatingGroup(true)}
             />
             <Content>
                 <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />

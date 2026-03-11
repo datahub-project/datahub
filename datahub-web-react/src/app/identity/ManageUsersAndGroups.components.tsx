@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Button, PageTitle, Pill } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 export const PageContainer = styled.div`
     padding: 16px 20px;
@@ -34,10 +33,25 @@ export const Content = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    color: ${colors.gray[600]};
+    overflow: hidden;
+    color: ${(props) => props.theme.colors.textSecondary};
 
     &&& .ant-tabs-nav {
         margin-bottom: 0;
+    }
+
+    &&& .ant-tabs {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &&& .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+    }
+
+    &&& .ant-tabs-content {
+        height: 100%;
     }
 `;
 
@@ -66,6 +80,7 @@ type ManageUsersAndGroupsHeaderProps = {
     activeTab: string;
     onInviteUsers: () => void;
     onCreateServiceAccount: () => void;
+    onCreateGroup: () => void;
 };
 
 export const ManageUsersAndGroupsHeader = ({
@@ -75,8 +90,37 @@ export const ManageUsersAndGroupsHeader = ({
     activeTab,
     onInviteUsers,
     onCreateServiceAccount,
+    onCreateGroup,
 }: ManageUsersAndGroupsHeaderProps) => {
     const isServiceAccountsTab = activeTab === 'service-accounts';
+    const isGroupsTab = activeTab === 'groups';
+
+    const renderActionButton = () => {
+        if (isServiceAccountsTab) {
+            return (
+                <Button
+                    variant="filled"
+                    disabled={!canManageServiceAccounts}
+                    onClick={onCreateServiceAccount}
+                    data-testid="create-service-account-button"
+                >
+                    Create Service Account
+                </Button>
+            );
+        }
+        if (isGroupsTab) {
+            return (
+                <Button variant="filled" onClick={onCreateGroup} data-testid="create-group-button">
+                    Create Group
+                </Button>
+            );
+        }
+        return (
+            <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                Invite Users
+            </Button>
+        );
+    };
 
     return (
         <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
@@ -86,22 +130,7 @@ export const ManageUsersAndGroupsHeader = ({
                     subTitle="View your DataHub users &amp; groups. Take administrative actions."
                 />
             </HeaderLeft>
-            <HeaderRight>
-                {isServiceAccountsTab ? (
-                    <Button
-                        variant="filled"
-                        disabled={!canManageServiceAccounts}
-                        onClick={onCreateServiceAccount}
-                        data-testid="create-service-account-button"
-                    >
-                        Create Service Account
-                    </Button>
-                ) : (
-                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
-                        Invite Users
-                    </Button>
-                )}
-            </HeaderRight>
+            <HeaderRight>{renderActionButton()}</HeaderRight>
         </PageHeaderContainer>
     );
 };
