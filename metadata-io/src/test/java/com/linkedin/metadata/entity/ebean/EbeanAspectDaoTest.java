@@ -508,4 +508,55 @@ public class EbeanAspectDaoTest {
         testDao.getAspect("urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
   }
+
+  @Test
+  public void testGetLatestAspectsByCount() throws Exception {
+    testDao.setConnectionValidated(true);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:testGetLatestAspectsByCount");
+    String urnStr = urn.toString();
+
+    // Insert rows at different timestamps for two aspects
+    long baseTime = System.currentTimeMillis() - 10000;
+    for (int i = 0; i < 5; i++) {
+      EbeanAspectV2 row = new EbeanAspectV2();
+      row.setKey(new EbeanAspectV2.PrimaryKey(urnStr, "status", i));
+      row.setMetadata("{\"removed\":false}");
+      row.setCreatedBy("urn:li:corpuser:test");
+      row.setCreatedOn(new Timestamp(baseTime + i * 1000));
+      row.setSystemMetadata(null);
+      testDao.getServer().save(row);
+    }
+    for (int i = 0; i < 3; i++) {
+      EbeanAspectV2 row = new EbeanAspectV2();
+      row.setKey(new EbeanAspectV2.PrimaryKey(urnStr, "corpUserInfo", i));
+      row.setMetadata("{\"active\":true}");
+      row.setCreatedBy("urn:li:corpuser:test");
+      row.setCreatedOn(new Timestamp(baseTime + 5000 + i * 1000));
+      row.setSystemMetadata(null);
+      testDao.getServer().save(row);
+    }
+
+    // Fetch all 8 rows — should return all
+    List<EntityAspect> allRows =
+        testDao.getLatestAspects(urn, Set.of("status", "corpUserInfo"), 100);
+    assertEquals(allRows.size(), 8, "Should return all 8 rows");
+
+    // Verify descending order by createdOn (most recent first)
+    for (int i = 1; i < allRows.size(); i++) {
+      assertTrue(
+          allRows.get(i).getCreatedOn().getTime() <= allRows.get(i - 1).getCreatedOn().getTime(),
+          "Rows should be ordered by createdOn DESC");
+    }
+
+    // Fetch with limit of 3 — should return 3 most recent rows
+    List<EntityAspect> limitedRows =
+        testDao.getLatestAspects(urn, Set.of("status", "corpUserInfo"), 3);
+    assertEquals(limitedRows.size(), 3, "Should return exactly 3 rows");
+
+    // Most recent 3 should be corpUserInfo rows (timestamps baseTime+5000..baseTime+7000)
+    assertEquals(
+        limitedRows.get(0).getCreatedOn().getTime(),
+        allRows.get(0).getCreatedOn().getTime(),
+        "First row should be the most recent overall");
+  }
 }

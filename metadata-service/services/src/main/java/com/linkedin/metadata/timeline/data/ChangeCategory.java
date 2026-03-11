@@ -11,7 +11,7 @@ public enum ChangeCategory {
   // (field or top level) add term, remove term, etc.
   GLOSSARY_TERM,
   // add new owner, remove owner, change ownership type etc.
-  OWNER,
+  OWNERSHIP,
   // new field, remove field, field type change,
   TECHNICAL_SCHEMA,
   // (field or top level) add tag, remove tag,
@@ -26,6 +26,10 @@ public enum ChangeCategory {
   RUN,
 
   BUSINESS_ATTRIBUTE,
+  // Structured property assignment changes
+  STRUCTURED_PROPERTY,
+  // Application association changes
+  APPLICATION,
   // Parent relationship changes (for hierarchical entities like documents)
   PARENT,
   // Related entities changes (Currently used for document related assets, related documents, etc.)

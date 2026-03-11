@@ -335,7 +335,7 @@ public class EntityChangeEventGeneratorHookTest {
         createChangeEvent(
             DATASET_ENTITY_NAME,
             Urn.createFromString(TEST_DATASET_URN),
-            ChangeCategory.OWNER,
+            ChangeCategory.OWNERSHIP,
             ChangeOperation.ADD,
             ownerUrn1.toString(),
             ImmutableMap.of(
@@ -350,7 +350,7 @@ public class EntityChangeEventGeneratorHookTest {
         createChangeEvent(
             DATASET_ENTITY_NAME,
             Urn.createFromString(TEST_DATASET_URN),
-            ChangeCategory.OWNER,
+            ChangeCategory.OWNERSHIP,
             ChangeOperation.ADD,
             ownerUrn2.toString(),
             ImmutableMap.of(
@@ -365,7 +365,7 @@ public class EntityChangeEventGeneratorHookTest {
         createChangeEvent(
             DATASET_ENTITY_NAME,
             Urn.createFromString(TEST_DATASET_URN),
-            ChangeCategory.OWNER,
+            ChangeCategory.OWNERSHIP,
             ChangeOperation.ADD,
             ownerUrn3.toString(),
             ImmutableMap.of(

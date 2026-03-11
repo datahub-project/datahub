@@ -192,7 +192,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     final Urn entityUrn =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testPEConsumption,PROD)");
     final EntityChangeEvent changeEvent = new EntityChangeEvent();
-    final ChangeCategory category = ChangeCategory.OWNER;
+    final ChangeCategory category = ChangeCategory.OWNERSHIP;
     final ChangeOperation operation = ChangeOperation.ADD;
 
     changeEvent.setEntityType(DATASET_ENTITY_NAME);

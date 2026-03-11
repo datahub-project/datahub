@@ -31,6 +31,7 @@ import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
