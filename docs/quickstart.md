@@ -72,7 +72,7 @@ datahub docker quickstart
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
 If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
-Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md) is configured.
+Starting CLI version 1.5 has changed how the signing key for generationg tokens via [Metadata Service Authentication](./authentication/introducing-metadata-service-authentication.md) is configured.
 
 Quickstart resolves the values in the following order:
 

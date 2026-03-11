@@ -1,3 +1,4 @@
+import importlib.resources
 import logging
 import multiprocessing
 import os
@@ -28,6 +29,7 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
+from datahub.cli.search_cli import search
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -126,12 +128,32 @@ def version(include_server: bool = False) -> None:
         click.echo(f"Server config: {server_config}")
 
 
+def _make_agent_aware_command(resource_name: str) -> type:
+    """Return a click.Command subclass that appends an agent context file to --help on non-TTY."""
+
+    class _AgentAwareCommand(click.Command):
+        def format_help(
+            self, ctx: click.Context, formatter: click.HelpFormatter
+        ) -> None:
+            super().format_help(ctx, formatter)
+            if not sys.stdout.isatty():
+                agent_text: str = (
+                    importlib.resources.files("datahub.cli.resources")
+                    .joinpath(resource_name)
+                    .read_text(encoding="utf-8")
+                )
+                formatter.write("\n")
+                formatter.write(agent_text)
+
+    return _AgentAwareCommand
+
+
 def _validate_init_inputs(
     use_password: bool,
     token: Optional[str],
     username: Optional[str],
     password: Optional[str],
-    token_duration: str,
+    token_duration: Optional[str],
 ) -> None:
     """Validate init command inputs for consistency.
 
@@ -169,13 +191,13 @@ def _validate_init_inputs(
         )
 
     # Validate: token duration only applies when generating token
-    if not should_generate_token and not use_password and token_duration != "ONE_HOUR":
+    if not should_generate_token and not use_password and token_duration is not None:
         raise click.UsageError(
             "--token-duration only applies when generating token from username/password"
         )
 
 
-@datahub.command()
+@datahub.command(cls=_make_agent_aware_command("INIT_AGENT_CONTEXT.md"))
 @click.option(
     "--use-password",
     is_flag=True,
@@ -226,8 +248,8 @@ def _validate_init_inputs(
         ],
         case_sensitive=False,
     ),
-    default="ONE_HOUR",
-    help="Token expiration duration (when generating from username/password)",
+    default=None,
+    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
 )
 @click.option(
     "--force",
@@ -236,14 +258,21 @@ def _validate_init_inputs(
     default=False,
     help="Overwrite existing config without confirmation",
 )
+@click.option(
+    "--agent-context",
+    is_flag=True,
+    default=False,
+    help="Print agent best-practices guide and exit",
+)
 def init(
     use_password: bool = False,
     host: Optional[str] = None,
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
-    token_duration: str = "ONE_HOUR",
+    token_duration: Optional[str] = None,
     force: bool = False,
+    agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
 
@@ -261,7 +290,7 @@ def init(
 
     \b
     Mode 1: Auto-Generate Token from Username/Password
-        # Default duration (1 hour)
+        # Default duration: ONE_MONTH for localhost, ONE_HOUR for remote instances
         datahub init --username alice --password secret
 
         # Custom duration (for long-running jobs)
@@ -283,13 +312,23 @@ def init(
 
     \b
     Available Token Durations:
-        ONE_HOUR (default), ONE_DAY, ONE_WEEK, ONE_MONTH,
+        ONE_HOUR, ONE_DAY, ONE_WEEK, ONE_MONTH,
         THREE_MONTHS, SIX_MONTHS, ONE_YEAR, NO_EXPIRY
+        (Default: ONE_MONTH for localhost, ONE_HOUR for remote instances)
 
     \b
     DataHub Cloud (Acryl-hosted instances):
         datahub init --host https://your-instance.acryl.io/gms --token <your-token>
     """
+    if agent_context:
+        text: str = (
+            importlib.resources.files("datahub.cli.resources")
+            .joinpath("INIT_AGENT_CONTEXT.md")
+            .read_text(encoding="utf-8")
+        )
+        click.echo(text)
+        return
+
     # Show deprecation warning if --use-password used
     if use_password:
         click.echo(
@@ -301,18 +340,40 @@ def init(
     # Validate input combinations
     _validate_init_inputs(use_password, token, username, password, token_duration)
 
-    # Handle overwrite confirmation
-    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force:
+    # Handle overwrite confirmation: prompt only on interactive TTYs.
+    # Non-TTY environments (agents, CI) silently overwrite — same as --force.
+    if os.path.isfile(DATAHUB_CONFIG_PATH) and not force and sys.stdin.isatty():
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    # Get host (CLI arg > Env var > Prompt)
-    host_value = get_init_config_value(
-        arg_value=host,
-        env_var="DATAHUB_GMS_URL",
-        prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
-        default="http://localhost:8080",
-    )
+    # Get host (CLI arg > Env var > silent default if credentials provided > prompt)
+    # When credentials are supplied non-interactively, skip the prompt and default to
+    # localhost:8080 — users connecting to a different host will pass --host explicitly.
+    _credentials_non_interactive = bool(
+        (username or get_username()) and (password or get_password())
+    ) or bool(token or os.environ.get("DATAHUB_GMS_TOKEN"))
+    if (
+        host is None
+        and not os.environ.get("DATAHUB_GMS_URL")
+        and _credentials_non_interactive
+    ):
+        host_value = "http://localhost:8080"
+    else:
+        host_value = get_init_config_value(
+            arg_value=host,
+            env_var="DATAHUB_GMS_URL",
+            prompt_text="Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for DataHub Cloud)\nEnter your DataHub host",
+            default="http://localhost:8080",
+        )
     host_value = fixup_gms_url(host_value)
+
+    # Resolve effective token duration: explicit > host-based default
+    # Local dev gets a generous default so tokens don't expire mid-session.
+    _is_localhost = "localhost" in host_value or "127.0.0.1" in host_value
+    effective_duration = (
+        token_duration.upper()
+        if token_duration
+        else ("ONE_MONTH" if _is_localhost else "ONE_HOUR")
+    )
 
     # Determine token acquisition mode (check both CLI args and env vars)
     username_provided = username or get_username()
@@ -339,10 +400,10 @@ def init(
             username=username_value,
             password=password_value,
             gms_url=host_value,
-            validity=token_duration.upper(),
+            validity=effective_duration,
         )
 
-        click.echo(f"✓ Generated token (expires: {token_duration.upper()})")
+        click.echo(f"✓ Generated token (expires: {effective_duration})")
     else:
         # Get token directly
         token_value = get_init_config_value(
@@ -366,6 +427,7 @@ datahub.add_command(exists)
 datahub.add_command(get)
 datahub.add_command(graphql)
 datahub.add_command(put)
+datahub.add_command(search)
 datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
@@ -444,7 +506,7 @@ def main(**kwargs):
         sys.exit(1)
     except click.ClickException as error:
         error.show()
-        sys.exit(1)
+        sys.exit(error.exit_code)
     except Exception as exc:
         if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.
