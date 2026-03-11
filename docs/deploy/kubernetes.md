@@ -112,6 +112,10 @@ the [prerequisites](https://github.com/acryldata/datahub-helm/tree/master/charts
 chart with release name "prerequisites". If you deployed the helm chart using a different release name, update the
 quickstart-values.yaml file accordingly before installing.
 
+:::note
+The default values in [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml) auto generate secret values for the signing key and salt used for metadata_service_authentication. (To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](../authentication/introducing-metadata-service-authentication.md). If you want to provide your own values refer to the `datahub.metadata_service_authentication` block in the [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml)
+:::
+
 Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below.
 
 ```
@@ -143,6 +147,10 @@ You should be able to access the frontend via http://localhost:9002.
 
 Once you confirm that the pods are running well, you can set up ingress for datahub-frontend to expose the 9002 port to
 the public.
+
+## System update and upgrades
+
+The DataHub Helm chart runs a **system-update** Job on upgrades to apply schema changes, reindex search indices when needed, and run other blocking or non-blocking upgrade steps. When scale-down is enabled (see [Environment variables](environment-vars.md#kubernetes-scale-down-system-update)), the job can temporarily scale down deployments by label selector (e.g. MAE/MCE) and set environment variables on other deployments by label selector (e.g. GMS) before blocking upgrades (e.g. reindex), then restore them afterward. Rollout and scale-down operations run in parallel. Scale-down is conditional: it only runs when a blocking upgrade (such as BuildIndices when reindex is required) requests it. For upgrade behavior and potential downtime, see [Updating DataHub](../how/updating-datahub.md).
 
 ## Other useful commands
 

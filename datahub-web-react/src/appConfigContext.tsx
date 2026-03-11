@@ -100,6 +100,7 @@ export const DEFAULT_APP_CONFIG = {
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
         glossaryBasedPoliciesEnabled: false,
+        multipleDataProductsPerAsset: false,
     },
     chromeExtensionConfig: {
         enabled: false,

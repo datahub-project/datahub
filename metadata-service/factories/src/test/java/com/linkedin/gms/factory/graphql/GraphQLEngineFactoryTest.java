@@ -76,6 +76,8 @@ import org.testng.annotations.Test;
       "platformAnalytics.enabled=false",
       "graphQL.concurrency.separateThreadPool=true",
       "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
     })
 public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 

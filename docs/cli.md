@@ -677,6 +677,35 @@ Key features:
 
 ➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
 
+### search
+
+The `search` command allows you to search across all DataHub entities from the command line with support for both keyword and semantic search.
+
+```shell
+# Basic keyword search
+datahub search "users"
+
+# Semantic search
+datahub search --semantic "financial reports"
+
+# Search with filters
+datahub search "*" --filter platform=snowflake --filter entity_type=dataset
+
+# Get results in table format
+datahub search "*" --table
+```
+
+Key features:
+
+- **Dual search modes**: Keyword search (default) and semantic search
+- **Flexible filtering**: Simple key=value filters and complex JSON filters with AND/OR/NOT logic
+- **Multiple output formats**: JSON (default), table, and URNs-only
+- **Discovery features**: List available filters and describe specific filters
+- **Faceted search**: Explore data distribution with aggregation counts
+- **Pagination & sorting**: Control result size and ordering
+
+➡️ [Learn more about the search command](./cli-commands/search.md)
+
 ### put
 
 The `put` group of commands allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
@@ -759,7 +788,7 @@ The `user` command allows you to interact with the User entity in DataHub. It su
 
 #### upsert
 
-Create or update users from a YAML file. For detailed information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+Create or update users from a YAML file. For detailed information, please refer to [Creating Users and Groups with DataHub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub user upsert -f users.yaml
@@ -813,7 +842,7 @@ datahub user add --email user@example.com --display-name "Jane Smith" --password
 
 The `group` command allows you to interact with the Group entity.
 It currently supports the `upsert` operation, which can be used to create a new group or update an existing one with embedded Users.
-For more information, please refer to [Creating Users and Groups with Datahub CLI](/docs/api/tutorials/owners.md#upsert-users).
+For more information, please refer to [Creating Users and Groups with DataHub CLI](/docs/api/tutorials/owners.md#upsert-users).
 
 ```shell
 datahub group upsert -f group.yaml

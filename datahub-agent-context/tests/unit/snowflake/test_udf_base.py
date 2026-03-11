@@ -61,7 +61,7 @@ class TestGeneratePythonUdfCode:
             function_body="return {}",
         )
 
-        assert "PACKAGES = ('datahub-agent-context==1.4.0.3')" in result
+        assert "PACKAGES = ('datahub-agent-context==1.4.0.5')" in result
 
     def test_secrets_configuration(self) -> None:
         """Test that secrets are properly configured."""
@@ -161,7 +161,7 @@ return x + y"""
         assert (
             "ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository" in result
         )
-        assert "PACKAGES = ('datahub-agent-context==1.4.0.3')" in result
+        assert "PACKAGES = ('datahub-agent-context==1.4.0.5')" in result
         assert "SECRETS = " in result
         assert "EXTERNAL_ACCESS_INTEGRATIONS = " in result
         assert "HANDLER = " in result
