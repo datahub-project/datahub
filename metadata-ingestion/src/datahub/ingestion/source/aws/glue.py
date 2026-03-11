@@ -887,23 +887,25 @@ class GlueSource(StatefulIngestionSourceBase):
                     s3_dataset_urn = make_s3_urn_for_lineage(
                         location, self.source_config.env
                     )
-                    assert self.ctx.graph
-                    schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
-                        self.ctx.graph.get_schema_metadata(s3_dataset_urn)
-                    )
 
                     if self.source_config.glue_s3_lineage_direction == "upstream":
+                        if self.ctx.graph:
+                            schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
+                                s3_dataset_urn
+                            )
+                        else:
+                            schema_metadata_for_s3 = None
+
                         fine_grained_lineages = None
                         if (
                             self.source_config.include_column_lineage
                             and schema_metadata
-                            and schema_metadata_for_s3
                         ):
                             fine_grained_lineages = self.get_fine_grained_lineages(
                                 mce.proposedSnapshot.urn,
                                 s3_dataset_urn,
                                 schema_metadata,
-                                schema_metadata_for_s3,
+                                schema_metadata_for_s3 or schema_metadata,
                             )
                         upstream_lineage = UpstreamLineageClass(
                             upstreams=[

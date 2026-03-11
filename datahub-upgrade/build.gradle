@@ -63,6 +63,9 @@ dependencies {
     implementation('io.netty:netty-codec-smtp:4.1.130.Final') {
       because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection, CVE-2025-67735 - CRLF Injection")
     }
+    implementation(externalDependency.commonsLang3) {
+      because("CVE-2025-48924")
+    }
   }
 
 
