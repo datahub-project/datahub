@@ -296,10 +296,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
-                },
-                {
-                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
-                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
                 }
             ]
         }
@@ -607,10 +603,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
-                },
-                {
-                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
-                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
                 }
             ]
         }

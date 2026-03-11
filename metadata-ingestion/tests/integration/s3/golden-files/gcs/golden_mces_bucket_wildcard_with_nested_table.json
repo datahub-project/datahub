@@ -143,6 +143,27 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:c78c49720d1209075f10e2a386884b10",
     "changeType": "UPSERT",
@@ -612,43 +633,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
-                },
-                {
-                    "id": "urn:li:container:c78c49720d1209075f10e2a386884b10",
-                    "urn": "urn:li:container:c78c49720d1209075f10e2a386884b10"
-                },
-                {
-                    "id": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466",
-                    "urn": "urn:li:container:cd68b4a5e7ec36d0a633e227a08f5466"
-                },
-                {
-                    "id": "urn:li:container:cec27b752c098e441e1cbed7922e888e",
-                    "urn": "urn:li:container:cec27b752c098e441e1cbed7922e888e"
-                },
-                {
-                    "id": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce",
-                    "urn": "urn:li:container:ad23384acf1ae73e4b373d69dd721dce"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "bucket_wildcard_with_nested_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -990,6 +974,27 @@
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847820000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1458,43 +1463,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:938a1c59907f9d3512d01f925e2b41ad"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "bucket_wildcard_with_nested_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:gcs,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gcs,test-platform-instance)"
-                },
-                {
-                    "id": "urn:li:container:2410b2f1c7139af1cfb9a4bdac2e1403",
-                    "urn": "urn:li:container:2410b2f1c7139af1cfb9a4bdac2e1403"
-                },
-                {
-                    "id": "urn:li:container:e0aef08a245fd066cadb0d865c678f4a",
-                    "urn": "urn:li:container:e0aef08a245fd066cadb0d865c678f4a"
-                },
-                {
-                    "id": "urn:li:container:fcc561c2692120600f278b113b884a9b",
-                    "urn": "urn:li:container:fcc561c2692120600f278b113b884a9b"
-                },
-                {
-                    "id": "urn:li:container:938a1c59907f9d3512d01f925e2b41ad",
-                    "urn": "urn:li:container:938a1c59907f9d3512d01f925e2b41ad"
-                }
-            ]
         }
     },
     "systemMetadata": {

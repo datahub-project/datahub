@@ -468,6 +468,27 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
     "changeType": "UPSERT",
@@ -2755,59 +2776,6 @@
                         "None",
                         "None"
                     ]
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-                },
-                {
-                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
-                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
-                },
-                {
-                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
-                },
-                {
-                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
-                },
-                {
-                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
-                },
-                {
-                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
-                },
-                {
-                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
-                },
-                {
-                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
-                },
-                {
-                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
                 }
             ]
         }

@@ -235,6 +235,27 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,dynamodb_test.us-west-2.Location,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,dynamodb_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,dynamodb_test)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "glossaryTerm",
     "entityUrn": "urn:li:glossaryTerm:Phone_Number",
     "changeType": "UPSERT",
