@@ -215,7 +215,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
-    eventProducer.producePlatformEvent(Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
+    eventProducer.producePlatformEvent(
+        Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {

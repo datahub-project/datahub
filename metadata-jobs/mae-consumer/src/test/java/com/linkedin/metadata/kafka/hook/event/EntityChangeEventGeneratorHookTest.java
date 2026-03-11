@@ -1198,8 +1198,8 @@ public class EntityChangeEventGeneratorHookTest {
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
 
-  private void verifyProducePlatformEvent(
-      EventProducer eventProducer, PlatformEvent platformEvent) throws Exception {
+  private void verifyProducePlatformEvent(EventProducer eventProducer, PlatformEvent platformEvent)
+      throws Exception {
     verifyProducePlatformEvent(eventProducer, platformEvent, true);
   }
 
