@@ -289,61 +289,13 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class ModeSource(StatefulIngestionSourceBase):
     """
+    Source that extracts reports and charts from Mode Analytics via REST API.
 
-    This plugin extracts Charts, Reports, and associated metadata from a given Mode workspace. This plugin is in beta and has only been tested
-    on PostgreSQL database.
-
-    ### Report
-
-    [/api/{account}/reports/{report}](https://mode.com/developer/api-reference/analytics/reports/) endpoint is used to
-    retrieve the following report information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the Report in Mode for exploration
-    - Associated charts within the report
-
-    ### Chart
-
-    [/api/{workspace}/reports/{report}/queries/{query}/charts'](https://mode.com/developer/api-reference/analytics/charts/#getChart) endpoint is used to
-    retrieve the following information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the chart in Metabase
-    - Datasource and lineage information from Report queries.
-
-    The following properties for a chart are ingested in DataHub.
-
-    #### Chart Information
-    | Name      | Description                            |
-    |-----------|----------------------------------------|
-    | `Filters` | Filters applied to the chart           |
-    | `Metrics` | Fields or columns used for aggregation |
-    | `X`       | Fields used in X-axis                  |
-    | `X2`      | Fields used in second X-axis           |
-    | `Y`       | Fields used in Y-axis                  |
-    | `Y2`      | Fields used in second Y-axis           |
-
-
-    #### Table Information
-    | Name      | Description                  |
-    |-----------|------------------------------|
-    | `Columns` | Column names in a table      |
-    | `Filters` | Filters applied to the table |
-
-
-
-    #### Pivot Table Information
-    | Name      | Description                            |
-    |-----------|----------------------------------------|
-    | `Columns` | Column names in a table                |
-    | `Filters` | Filters applied to the table           |
-    | `Metrics` | Fields or columns used for aggregation |
-    | `Rows`    | Row names in a table                   |
-
+    Implementation notes:
+    - Uses Mode API v3 for workspace, reports, queries, and charts
+    - Parses SQL from query definitions to extract lineage
+    - Only tested with PostgreSQL; other databases may work but are not validated
+    - Chart properties extracted vary by visualization type (chart, table, pivot table)
     """
 
     ctx: PipelineContext

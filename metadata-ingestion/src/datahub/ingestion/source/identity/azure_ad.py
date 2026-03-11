@@ -171,77 +171,13 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 )
 class AzureADSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts users, groups, and group membership from Azure AD via Microsoft Graph API.
 
-    - Users
-    - Groups
-    - Group Membership
-
-    from your Azure AD instance.
-
-    Note that any users ingested from this connector will not be able to log into DataHub unless you have Azure AD OIDC
-    SSO enabled. You can, however, have these users ingested into DataHub before they log in for the first time if you
-    would like to take actions like adding them to a group or assigning them a role.
-
-    For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
-    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
-
-    ### Extracting DataHub Users
-
-    #### Usernames
-
-    Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the
-    "userPrincipalName" field of an [Azure AD User Response](https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1),
-    which is the unique identifier for your Azure AD users.
-
-    If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_username_attr`
-    and `azure_ad_response_to_username_regex`.
-
-    #### Responses
-
-    This connector also extracts basic user response information from Azure. The following fields of the Azure User Response are extracted
-    and mapped to the DataHub `CorpUserInfo` aspect:
-
-    - display name
-    - first name
-    - last name
-    - email
-    - title
-    - country
-
-    ### Extracting DataHub Groups
-
-    #### Group Names
-
-    Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Azure Group Response.
-    By default, a URL-encoded version of the full group name is used as the unique identifier (CorpGroupKey) and the raw "name" attribute is mapped
-    as the display name that will appear in DataHub's UI.
-
-    If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_groupname_attr`
-    and `azure_ad_response_to_groupname_regex`.
-
-    #### Responses
-
-    This connector also extracts basic group information from Azure. The following fields of the [Azure AD Group Response](https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1) are extracted and mapped to the
-    DataHub `CorpGroupInfo` aspect:
-
-    - name
-    - description
-
-    ### Extracting Group Membership
-
-    This connector additional extracts the edges between Users and Groups that are stored in [Azure AD](https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http#response-1). It maps them to the `GroupMembership` aspect
-    associated with DataHub users (CorpUsers).
-
-    ### Prerequisite
-
-    [Create a DataHub Application](https://docs.microsoft.com/en-us/graph/toolkit/get-started/add-aad-app-registration) within the Azure AD Portal with the permissions
-    to read your organization's Users and Groups. The following permissions are required, with the `Application` permission type:
-
-    - `Group.Read.All`
-    - `GroupMember.Read.All`
-    - `User.Read.All`
-
+    Implementation notes:
+    - Uses Microsoft Graph REST API v1.0
+    - Requires OAuth2 client credentials flow for authentication
+    - Supports regex-based username/groupname mapping from Azure AD responses
+    - Implements pagination for large user/group sets
     """
 
     config: AzureADConfig
