@@ -84,7 +84,7 @@ rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
     # Required for GraphQL query adaptation and schema introspection
-    "graphql-core>=3.2.0",
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {

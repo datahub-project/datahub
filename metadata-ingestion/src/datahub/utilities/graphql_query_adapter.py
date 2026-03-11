@@ -240,11 +240,15 @@ class QueryProjector:
         introspection_query = get_introspection_query()
 
         try:
-            # Execute introspection query
-            result = graph.execute_graphql(introspection_query)
+            # Execute introspection query with strip_unsupported_fields=False
+            # to avoid recursion (the projector itself calls execute_graphql)
+            result = graph.execute_graphql(
+                introspection_query, strip_unsupported_fields=False
+            )
 
             # Build client schema from introspection result
-            schema = build_client_schema(result["data"])
+            # execute_graphql already unwraps result["data"]
+            schema = build_client_schema(result)
 
             logger.info("Successfully introspected server GraphQL schema")
             return schema

@@ -87,6 +87,8 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.graphql_query_adapter import QueryProjector
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -180,6 +182,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
+        self._query_projector = QueryProjector()
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1233,7 +1236,13 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
         format_exception: bool = True,
+        strip_unsupported_fields: bool = True,
     ) -> Dict:
+        if strip_unsupported_fields:
+            query, removed = self._query_projector.adapt_query(query, self)
+            if removed:
+                logger.info(f"Stripped unsupported fields from query: {removed}")
+
         url = f"{self._gms_server}/api/graphql"
 
         body: Dict = {

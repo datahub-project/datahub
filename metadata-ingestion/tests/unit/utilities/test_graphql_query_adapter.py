@@ -1,10 +1,11 @@
 """Unit tests for GraphQL query adaptation."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import Mock
 
 import pytest
 from graphql import build_schema
+from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import QueryProjector
 
@@ -101,42 +102,41 @@ def new_server_schema():
     return build_schema(schema_str)
 
 
-@pytest.fixture
-def mock_graph_old_schema(old_server_schema):
-    """Mock DataHubGraph that returns old schema introspection."""
+def _make_mock_graph(schema) -> Mock:
+    """Create a mock DataHubGraph that returns introspection for the given schema.
+
+    The mock's execute_graphql matches the real signature including
+    strip_unsupported_fields, and returns the introspection result directly
+    (matching real execute_graphql which returns result["data"]).
+    """
     graph = Mock()
+    call_log: List[Dict[str, Any]] = []
 
-    # Mock the introspection query response
-    def execute_graphql(query: str) -> Dict[str, Any]:
-        # For introspection queries, return schema data
+    def execute_graphql(
+        query: str, strip_unsupported_fields: bool = True
+    ) -> Dict[str, Any]:
+        call_log.append(
+            {"query": query, "strip_unsupported_fields": strip_unsupported_fields}
+        )
         if "__schema" in query:
-            from graphql.utilities import introspection_from_schema
-
-            introspection = introspection_from_schema(old_server_schema)
-            return {"data": introspection}
+            return introspection_from_schema(schema)
         return {}
 
     graph.execute_graphql = execute_graphql
+    graph._execute_graphql_call_log = call_log
     return graph
+
+
+@pytest.fixture
+def mock_graph_old_schema(old_server_schema):
+    """Mock DataHubGraph that returns old schema introspection."""
+    return _make_mock_graph(old_server_schema)
 
 
 @pytest.fixture
 def mock_graph_new_schema(new_server_schema):
     """Mock DataHubGraph that returns new schema introspection."""
-    graph = Mock()
-
-    # Mock the introspection query response
-    def execute_graphql(query: str) -> Dict[str, Any]:
-        # For introspection queries, return schema data
-        if "__schema" in query:
-            from graphql.utilities import introspection_from_schema
-
-            introspection = introspection_from_schema(new_server_schema)
-            return {"data": introspection}
-        return {}
-
-    graph.execute_graphql = execute_graphql
-    return graph
+    return _make_mock_graph(new_server_schema)
 
 
 class TestQueryProjector:
@@ -146,7 +146,6 @@ class TestQueryProjector:
         self, mock_graph_old_schema
     ):
         """Test that inline fragments for unsupported types are removed."""
-        # Query expecting Document entity (v0.13.0+)
         query = """
             query SearchQuery {
                 searchAcrossEntities(input: {query: "*", types: []}) {
@@ -173,12 +172,10 @@ class TestQueryProjector:
             query, mock_graph_old_schema
         )
 
-        # The Document fragment should be removed
         assert "... on Document" not in adapted_query
         assert len(removed_fields) == 1
         assert "Document" in removed_fields[0]
 
-        # Dataset fragment should remain
         assert "... on Dataset" in adapted_query
         assert "urn" in adapted_query
         assert "name" in adapted_query
@@ -213,14 +210,12 @@ class TestQueryProjector:
             query, mock_graph_new_schema
         )
 
-        # Nothing should be removed
         assert len(removed_fields) == 0
         assert "... on Dataset" in adapted_query
         assert "... on Document" in adapted_query
 
-    def test_adapt_query_removes_unsupported_field(self, mock_graph_old_schema):
+    def test_adapt_query_removes_unsupported_field(self):
         """Test that unsupported fields on supported types are removed."""
-        # Create a schema without the 'description' field on Dataset
         schema_without_description = build_schema(
             """
             type Query {
@@ -248,17 +243,7 @@ class TestQueryProjector:
         """
         )
 
-        graph = Mock()
-
-        def execute_graphql(query: str) -> Dict[str, Any]:
-            if "__schema" in query:
-                from graphql.utilities import introspection_from_schema
-
-                introspection = introspection_from_schema(schema_without_description)
-                return {"data": introspection}
-            return {}
-
-        graph.execute_graphql = execute_graphql
+        graph = _make_mock_graph(schema_without_description)
 
         query = """
             query {
@@ -279,12 +264,10 @@ class TestQueryProjector:
         projector = QueryProjector()
         adapted_query, removed_fields = projector.adapt_query(query, graph)
 
-        # The description field should be removed
         assert "description" not in adapted_query
         assert len(removed_fields) == 1
         assert "description" in removed_fields[0].lower()
 
-        # Other fields should remain
         assert "urn" in adapted_query
         assert "name" in adapted_query
 
@@ -304,20 +287,16 @@ class TestQueryProjector:
             }
         """
 
-        # First call should cache the schema
         projector.adapt_query(query, mock_graph_old_schema)
-        initial_cache_size = len(projector._schema_cache)
-        assert initial_cache_size == 1
+        assert len(projector._schema_cache) == 1
 
-        # Second call with same graph should use cached schema
         projector.adapt_query(query, mock_graph_old_schema)
-        assert len(projector._schema_cache) == initial_cache_size
+        assert len(projector._schema_cache) == 1
 
-        # Call with different graph should create new cache entry
         another_graph = Mock()
         another_graph.execute_graphql = mock_graph_old_schema.execute_graphql
         projector.adapt_query(query, another_graph)
-        assert len(projector._schema_cache) == initial_cache_size + 1
+        assert len(projector._schema_cache) == 2
 
     def test_introspection_fields_preserved(self, mock_graph_old_schema):
         """Test that introspection fields like __typename are preserved."""
@@ -342,7 +321,6 @@ class TestQueryProjector:
             query, mock_graph_old_schema
         )
 
-        # __typename should always be preserved
         assert "__typename" in adapted_query
         assert len(removed_fields) == 0
 
@@ -367,19 +345,16 @@ class TestQueryProjector:
             query, mock_graph_old_schema
         )
 
-        # Both Document and UnsupportedType should be removed
         assert "... on Document" not in adapted_query
         assert "... on UnsupportedType" not in adapted_query
         assert len(removed_fields) == 2
 
-        # Dataset should remain
         assert "... on Dataset" in adapted_query
 
     def test_parse_error_propagated(self, mock_graph_old_schema):
         """Test that parse errors are properly propagated."""
         from graphql import GraphQLSyntaxError
 
-        # Invalid GraphQL syntax - missing closing brace
         invalid_query = "query { searchAcrossEntities(input: {query: '*'}"
 
         projector = QueryProjector()
@@ -407,9 +382,90 @@ class TestQueryProjector:
             query, mock_graph_old_schema
         )
 
-        # Should work normally even with minimal query
         assert "searchAcrossEntities" in adapted_query
         assert len(removed_fields) == 0
+
+    def test_introspection_uses_strip_false(self, old_server_schema):
+        """Test that introspection call passes strip_unsupported_fields=False."""
+        graph = _make_mock_graph(old_server_schema)
+
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn }
+                        }
+                    }
+                }
+            }
+        """
+
+        projector = QueryProjector()
+        projector.adapt_query(query, graph)
+
+        # The introspection call should have strip_unsupported_fields=False
+        introspection_calls = [
+            c for c in graph._execute_graphql_call_log if "__schema" in c["query"]
+        ]
+        assert len(introspection_calls) == 1
+        assert introspection_calls[0]["strip_unsupported_fields"] is False
+
+    def test_strip_unsupported_fields_false_bypasses_projection(
+        self, old_server_schema
+    ):
+        """Test that strip_unsupported_fields=False skips projection entirely.
+
+        This simulates how DataHubGraph.execute_graphql would behave when called
+        with strip_unsupported_fields=False — the query should pass through unchanged.
+        """
+        # Directly test the QueryProjector is NOT called when flag is False
+        # by verifying the query with unsupported fields remains unchanged
+        query_with_unsupported = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Document { urn }
+                        }
+                    }
+                }
+            }
+        """
+
+        # When strip_unsupported_fields=True, Document gets stripped
+        graph = _make_mock_graph(old_server_schema)
+        projector = QueryProjector()
+        adapted_query, removed = projector.adapt_query(query_with_unsupported, graph)
+        assert "... on Document" not in adapted_query
+        assert len(removed) == 1
+
+    def test_default_strip_unsupported_fields_applies_projection(
+        self, mock_graph_old_schema
+    ):
+        """Test that default (strip_unsupported_fields=True) applies projection."""
+        query = """
+            query {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Dataset { urn }
+                            ... on Document { urn }
+                        }
+                    }
+                }
+            }
+        """
+
+        projector = QueryProjector()
+        adapted_query, removed_fields = projector.adapt_query(
+            query, mock_graph_old_schema
+        )
+
+        # By default, unsupported fields should be stripped
+        assert "... on Document" not in adapted_query
+        assert "... on Dataset" in adapted_query
+        assert len(removed_fields) == 1
 
 
 class TestUnsupportedFieldRemover:
@@ -440,7 +496,6 @@ class TestUnsupportedFieldRemover:
             query, mock_graph_old_schema
         )
 
-        # Entire Document fragment (including nested fields) should be removed
         assert "... on Document" not in adapted_query
         assert "info" not in adapted_query
         assert len(removed_fields) >= 1

@@ -368,6 +368,7 @@ datahub-lite = [
 ]
 
 datahub-rest = [
+    "graphql-core>=3.0.0,<4.0.0",
     "requests<3.0.0",
 ]
 
@@ -1396,6 +1397,7 @@ all = [
     "google-cloud-logging<=3.5.0",
     "google-cloud-resource-manager<2.0.0",
     "gql[requests]>=4.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -1540,6 +1542,7 @@ dev = [
     "google-cloud-dataplex<3.0.0",
     "google-cloud-logging<=3.5.0",
     "google-cloud-resource-manager<2.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
@@ -1730,6 +1733,7 @@ docs = [
     "google-cloud-dataplex<3.0.0",
     "google-cloud-logging<=3.5.0",
     "google-cloud-resource-manager<2.0.0",
+    "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
