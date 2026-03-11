@@ -13,9 +13,9 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 :::warning Considerations
 
-- For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings
-- Some advanced connector-specific features may not be fully supported
-  :::
+For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings.
+Some advanced connector-specific features may not be fully supported
+:::
 
 #### Environment-Specific Behavior
 
