@@ -383,6 +383,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             "type": "console"
         },
         "pipeline_name": "statefulpipeline",
+        "run_id": "glue-2020_04_14-07_00_00-xds5dj",
     }
 
     with patch(
