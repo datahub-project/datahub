@@ -31,6 +31,7 @@ export const HeaderRight = styled.div`
 
 export const Content = styled.div`
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -38,20 +39,6 @@ export const Content = styled.div`
 
     &&& .ant-tabs-nav {
         margin-bottom: 0;
-    }
-
-    &&& .ant-tabs {
-        display: flex;
-        flex-direction: column;
-    }
-
-    &&& .ant-tabs-content-holder {
-        flex: 1;
-        min-height: 0;
-    }
-
-    &&& .ant-tabs-content {
-        height: 100%;
     }
 `;
 

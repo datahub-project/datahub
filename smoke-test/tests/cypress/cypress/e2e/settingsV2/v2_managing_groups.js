@@ -39,7 +39,7 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
       "be.visible",
     );
-    cy.clickOptionWithText("Create group");
+    cy.clickOptionWithText("Create Group");
     cy.waitTextVisible("Create new group");
     cy.get("#name").type(group_name);
     cy.get("#description").type("Test group description");
@@ -239,13 +239,14 @@ describe("create and manage group", () => {
       "be.visible",
     );
 
-    // Wait for the group link to be present before trying to interact
+    // Wait for the group to be present, then open its actions menu
     cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, { timeout: 10000 })
-      .should("be.visible")
-      .openThreeDotDropdown();
-
+      .should("be.visible");
+    cy.get(
+      `[data-testid="group-menu-Test group EDITED ${test_id}"]`,
+    ).click();
     cy.clickOptionWithText("Delete");
-    cy.clickOptionWithText("Yes");
+    cy.get('[role="dialog"] button').contains("Delete").click();
     cy.waitTextVisible("Deleted Group!");
     cy.ensureTextNotPresent(`Test group EDITED ${test_id}`);
   });

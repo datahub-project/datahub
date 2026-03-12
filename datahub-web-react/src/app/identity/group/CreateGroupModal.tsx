@@ -1,13 +1,12 @@
 import { message } from 'antd';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Editor, Input, Modal } from '@src/alchemy-components';
-import { Label } from '@src/alchemy-components/components/Input/components';
+import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
@@ -23,11 +22,6 @@ const FormSection = styled.div`
     flex-direction: column;
     gap: 4px;
     margin-bottom: 16px;
-`;
-
-const StyledEditor = styled(Editor)`
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 8px;
 `;
 
 const AdvancedContent = styled.div`
@@ -52,8 +46,6 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [createGroupMutation] = useCreateGroupMutation();
     const [addOwnerMutation] = useAddOwnerMutation();
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
-
-    const styledEditorRef = useRef<HTMLDivElement>(null);
 
     const validateName = (value: string) => {
         if (!value || !value.trim()) {
@@ -80,10 +72,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const isCreateDisabled = !stagedName.trim() || !!nameError || !!idError;
 
     const onCreateGroup = () => {
-        const isEditorNewlineKeypress =
-            document.activeElement !== styledEditorRef.current &&
-            !styledEditorRef.current?.contains(document.activeElement);
-        if (!isEditorNewlineKeypress) return;
+        if (document.activeElement instanceof HTMLTextAreaElement) return;
         if (!validateName(stagedName) || !validateId(stagedId)) return;
 
         createGroupMutation({
@@ -184,6 +173,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
         >
             <FormSection>
                 <Input
+                    id="name"
                     label="Name"
                     isRequired
                     placeholder="A name for your group"
@@ -197,10 +187,14 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 />
             </FormSection>
             <FormSection>
-                <Label>Description</Label>
-                <div ref={styledEditorRef}>
-                    <StyledEditor doNotFocus content={stagedDescription} onChange={setStagedDescription} />
-                </div>
+                <TextArea
+                    id="description"
+                    label="Description"
+                    placeholder="A description for your group"
+                    value={stagedDescription}
+                    onChange={(e) => setStagedDescription(e.target.value)}
+                    rows={3}
+                />
             </FormSection>
             <AdvancedButton
                 variant="text"
@@ -219,6 +213,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 <AdvancedContent>
                     <FormSection>
                         <Input
+                            id="groupId"
                             label="Group Id"
                             placeholder="product_engineering"
                             value={stagedId || ''}

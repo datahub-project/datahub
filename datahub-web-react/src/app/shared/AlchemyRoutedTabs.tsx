@@ -37,10 +37,30 @@ const RoutedTabsStyle = styled.div`
     flex-direction: column;
     overflow: hidden;
     height: 100%;
+
+    .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .ant-tabs-content {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ant-tabs-tabpane-active {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
 `;
 
 const RouteContainer = styled.div`
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 `;
 

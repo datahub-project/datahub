@@ -32,9 +32,10 @@ import { CorpGroup, DataHubRole, EntityType, OriginType } from '@types';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
 
 const PageContainer = styled.div`
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    height: 100%;
     overflow: hidden;
 `;
 
@@ -50,6 +51,10 @@ const TableContainer = styled.div`
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+
+    table {
+        table-layout: fixed;
+    }
 `;
 
 const FiltersHeader = styled.div`
@@ -132,15 +137,31 @@ const GroupNameCell = ({ group }: { group: CorpGroup }) => {
     );
 };
 
-const GroupDescriptionCell = ({ group }: { group: CorpGroup }) => (
-    <Text color="gray" size="md">
-        {group.properties?.description || '-'}
-    </Text>
-);
+const DescriptionText = styled(Text)`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const GroupDescriptionCell = ({ group }: { group: CorpGroup }) => {
+    const description = group.editableProperties?.description || group.info?.description || '';
+    return description ? (
+        <DescriptionText color="gray" size="md">
+            {description}
+        </DescriptionText>
+    ) : null;
+};
 
 const GroupMembersCell = ({ group }: { group: CorpGroup }) => {
     const memberCount = (group as any).memberCount?.total || 0;
-    return <Pill variant="filled" color="violet" label={`${getElasticCappedTotalValueText(memberCount)} members`} />;
+    return (
+        <Pill
+            variant="outline"
+            color="gray"
+            size="sm"
+            label={`${getElasticCappedTotalValueText(memberCount)} members`}
+        />
+    );
 };
 
 type GroupRoleCellProps = {
@@ -416,26 +437,26 @@ export const GroupList = ({
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            minWidth: '25%',
+            width: '30%',
             render: (group: CorpGroup) => <GroupNameCell group={group} />,
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
-            minWidth: '30%',
+            width: '35%',
             render: (group: CorpGroup) => <GroupDescriptionCell group={group} />,
         },
         {
             title: 'Members',
             key: 'members',
-            minWidth: '15%',
+            width: '12%',
             render: (group: CorpGroup) => <GroupMembersCell group={group} />,
         },
         {
             title: 'Role',
             key: 'role',
-            minWidth: '15%',
+            width: '15%',
             render: (group: CorpGroup) => (
                 <GroupRoleCell
                     group={group}
@@ -448,7 +469,7 @@ export const GroupList = ({
         {
             title: '',
             key: 'actions',
-            minWidth: '5%',
+            width: '8%',
             render: (group: CorpGroup) => (
                 <ActionsContainer>
                     <GroupActionsMenu group={group} onDelete={handleDelete} />
