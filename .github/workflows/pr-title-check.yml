@@ -35,10 +35,6 @@ jobs:
           message: |
             ## PR Title Check Failed
 
-            ```
-            ${{ steps.lint_pr_title.outputs.error_message }}
-            ```
-
             Your PR title must follow the format: `<type>(<scope>): <description>`
 
             **Example:** `feat(ingestion): add Snowflake v2 source`
