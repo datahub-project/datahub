@@ -1,9 +1,9 @@
 import { ArrowRight } from '@phosphor-icons/react';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
@@ -15,6 +15,7 @@ import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
@@ -22,7 +23,7 @@ import { AutoCompleteResultForEntity } from '@types';
 const getStyles = ($isShowNavBarRedesign?: boolean) => {
     return {
         input: {
-            backgroundColor: $isShowNavBarRedesign ? 'white' : '#343444',
+            backgroundColor: 'white',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -77,8 +78,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
     align-items: center;
 `;
 
-const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => !props.$isShowNavBarRedesign && 'background-color: #171723;'}
+const HeaderBackground = styled.div`
     position: fixed;
     height: 100px;
     width: 100%;
@@ -99,7 +99,7 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: center;
 
     font-family: Mulish;
@@ -115,7 +115,7 @@ const StyledButton = styled(Button)`
     &:hover,
     :active,
     :focus {
-        color: ${REDESIGN_COLORS.GREY_300};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -157,13 +157,17 @@ export const SearchHeader = ({
     const isHomePage = useIsHomePage();
     const hideNavToggler = showHomepageRedesign && isHomePage;
     const styles = getStyles(isShowNavBarRedesign);
+    const location = useLocation();
+
+    // Hide recommendations on analytics page since they are not displayed
+    const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
 
     return (
         <>
-            <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
+            <HeaderBackground />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
@@ -188,6 +192,7 @@ export const SearchHeader = ({
                                 setIsSearchBarFocused={setIsSearchBarFocused}
                                 viewsEnabled={viewsEnabled}
                                 isShowNavBarRedesign={isShowNavBarRedesign}
+                                hideRecommendations={isAnalyticsPage}
                                 combineSiblings
                                 fixAutoComplete
                                 showQuickFilters

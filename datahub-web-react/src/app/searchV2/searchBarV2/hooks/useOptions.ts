@@ -15,6 +15,7 @@ export default function useOptions(
     shouldCombineSiblings: boolean,
     isSearching: boolean,
     shouldShowAutoCompleteResults: boolean,
+    skipRecommendations?: boolean,
 ) {
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
@@ -32,8 +33,8 @@ export default function useOptions(
         }
     }, [isDataLoading, previousIsLoading]);
 
-    const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
-    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
+    const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions(skipRecommendations);
+    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions(skipRecommendations);
 
     const initialOptions = useMemo(() => {
         return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];

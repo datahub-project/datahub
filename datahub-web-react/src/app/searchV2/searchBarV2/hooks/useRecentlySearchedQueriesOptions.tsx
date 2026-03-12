@@ -6,8 +6,8 @@ import { RELEVANCE_QUERY_OPTION_TYPE } from '@app/searchV2/searchBarV2/constants
 import useRecentlySearchedQueries from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueries';
 import { SectionOption } from '@app/searchV2/searchBarV2/types';
 
-export default function useRecentlySearchedQueriesOptions(): SectionOption[] {
-    const { recentlySearchedQueries } = useRecentlySearchedQueries();
+export default function useRecentlySearchedQueriesOptions(skip?: boolean): SectionOption[] {
+    const { recentlySearchedQueries } = useRecentlySearchedQueries(skip);
     const recentlySearchedQueriesOptions = useMemo(() => {
         if (recentlySearchedQueries === undefined || recentlySearchedQueries.length === 0) return [];
 
