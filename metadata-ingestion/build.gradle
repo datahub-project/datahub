@@ -117,8 +117,8 @@ task checkLockFile(type: Exec, dependsOn: verifyPyprojectSync) {
   commandLine 'bash', '-c',
     venv_activate_command +
     "uv lock --check && " +
-    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt && " +
-    "git diff --exit-code constraints.txt && " +
+    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o /tmp/constraints-check.txt && " +
+    "diff <(grep -v '^#' constraints.txt) <(grep -v '^#' /tmp/constraints-check.txt) && " +
     "touch ${sentinel_file}"
 }
 
@@ -126,6 +126,14 @@ task generatePyprojectDeps(type: Exec, dependsOn: installPackageOnly) {
   commandLine 'bash', '-c',
     venv_activate_command +
     "python scripts/generate_pyproject_deps.py"
+}
+
+task generateLockFile(type: Exec, dependsOn: generatePyprojectDeps) {
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "python scripts/verify_pyproject_equivalence.py && " +
+    "uv lock && " +
+    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt"
 }
 
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
