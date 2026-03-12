@@ -107,8 +107,7 @@ kafka_protobuf = {
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     # NOTE: potential conflict with feast also depending on grpcio
     "grpcio>=1.44.0,<2.0.0",
-    # Note: grpcio-tools>=1.63 requires protobuf>=5, but google-cloud-* requires protobuf<5
-    # So grpcio-tools is constrained to <1.63.0 automatically
+    # grpcio-tools>=1.63 requires protobuf>=5. We intentionally allow that range.
     "grpcio-tools>=1.44.0,<2.0.0",
 }
 
@@ -245,7 +244,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging<=3.5.0",
+    "google-cloud-logging<4.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -263,12 +262,16 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+datacatalog_lineage_common = {
+    # 0.3.0+ uses google.cloud.datacatalog_lineage import path.
+    "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
+    # Enforce non-vulnerable protobuf baseline (CVE-2026-0994).
+    "protobuf>=5.0.0,<7.0.0",
+}
+
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
-    # Pinned to 0.2.2 because 0.3.0 changed the import path from
-    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-    # which breaks existing code using the old import path
-    "google-cloud-datacatalog-lineage==0.2.2",
+    *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
 
@@ -567,12 +570,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | sqlglot_lib
     | classification_lib
-    | {
-        # Pinned to 0.2.2 because 0.3.0 changed the import path from
-        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
-        # which breaks existing code using the old import path
-        "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
