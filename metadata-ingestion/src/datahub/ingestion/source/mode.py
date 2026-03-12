@@ -1213,6 +1213,9 @@ class ModeSource(StatefulIngestionSourceBase):
 
         data_source_id = query_data.get("data_source_id")
         if data_source_id is None:
+            logger.debug(
+                f"No data_source_id for report {report_token} query {query_token}, skipping lineage"
+            )
             return
         (
             upstream_warehouse_platform,

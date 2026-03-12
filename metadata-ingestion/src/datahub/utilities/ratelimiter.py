@@ -29,15 +29,12 @@ class RateLimiter(AbstractContextManager):
         self._lock = threading.Lock()
 
     def __enter__(self) -> "RateLimiter":
-        # Compute sleep time under the lock, but sleep outside it so other
-        # threads aren't blocked while we wait.
-        sleeptime = 0.0
         with self._lock:
             if len(self.calls) >= self.max_calls:
                 until = time.time() + self.period - self._timespan
                 sleeptime = until - time.time()
-        if sleeptime > 0:
-            time.sleep(sleeptime)
+                if sleeptime > 0:
+                    time.sleep(sleeptime)
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
