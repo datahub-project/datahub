@@ -628,6 +628,7 @@ plugins: Dict[str, Set[str]] = {
         "numpy<2",
     },
     "grafana": {"requests<3.0.0", *sqlglot_lib},
+    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -938,6 +939,7 @@ base_dev_requirements = {
             "neo4j",
             "vertexai",
             "mssql-odbc",
+            "omni",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -1093,6 +1095,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "omni = datahub.ingestion.source.omni.omni:OmniSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
