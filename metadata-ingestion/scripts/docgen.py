@@ -94,15 +94,30 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
             raise ValueError(f"Unknown capability name: {capability_name}") from None
 
 
+_LEGACY_CATEGORY_ALIASES = {
+    # Map old enum keys from previous taxonomy to current keys
+    "ORCHESTRATOR": "ORCHESTRATION",
+    "ETL_AND_PROCESSING": "ETL_ELT",
+    "STREAMING_AND_MESSAGING": "ETL_ELT",
+    "AI_AND_ML": "ML_PLATFORMS",
+    "OBSERVABILITY": "BI_AND_ANALYTICS",
+    "IDENTITY_AND_ACCESS": "MISCELLANEOUS",
+    "METADATA_AND_GOVERNANCE": "MISCELLANEOUS",
+    "PUSH_INTEGRATIONS": "ORCHESTRATION",
+    "DATAHUB_INTERNAL": "DATAHUB_TOOLS",
+}
+
+
 def map_source_category_name_to_enum(
     source_category_name: str,
 ) -> IngestionSourceCategory:
     """Maps source category names from JSON to IngestionSourceCategory enum values."""
+    name = _LEGACY_CATEGORY_ALIASES.get(source_category_name, source_category_name)
     try:
-        return IngestionSourceCategory[source_category_name]
+        return IngestionSourceCategory[name]
     except KeyError:
         try:
-            return IngestionSourceCategory(source_category_name)
+            return IngestionSourceCategory(name)
         except ValueError:
             raise ValueError(
                 f"Unknown source category name: {source_category_name}"
