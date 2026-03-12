@@ -750,17 +750,19 @@ module.exports = {
         {
           type: "category",
           label: "Data Warehouse",
+          // Sorted: BigQuery, Redshift, SAP HANA, Snowflake, Vertica
           items: [
             "docs/generated/ingestion/sources/bigquery",
             "docs/generated/ingestion/sources/redshift",
+            "docs/generated/ingestion/sources/hana",
             "docs/generated/ingestion/sources/snowflake",
             "docs/generated/ingestion/sources/vertica",
-            "docs/generated/ingestion/sources/hana",
           ],
         },
         {
           type: "category",
           label: "Data Lake",
+          // Sorted: ABS Data Lake, Databricks, Delta Lake, Google Cloud Storage, Glue, Iceberg, S3
           items: [
             "docs/generated/ingestion/sources/abs",
             "docs/generated/ingestion/sources/databricks",
@@ -774,6 +776,8 @@ module.exports = {
         {
           type: "category",
           label: "BI & Analytics",
+          // Sorted: Grafana, Hex, Looker, Metabase, Mode, PowerBI, PowerBI Report Server,
+          //         Preset, Qlik Sense, Redash, SAP Analytics Cloud, Sigma, Superset, Tableau
           items: [
             "docs/generated/ingestion/sources/grafana",
             "docs/generated/ingestion/sources/hex",
@@ -794,6 +798,9 @@ module.exports = {
         {
           type: "category",
           label: "Database",
+          // Sorted: Cassandra, ClickHouse, CockroachDB, Druid, DynamoDB, Elasticsearch,
+          //         MariaDB, Microsoft SQL Server, MongoDB, MySQL, Neo4j, Oracle, Postgres,
+          //         Salesforce, SQLAlchemy, Teradata
           items: [
             "docs/generated/ingestion/sources/cassandra",
             "docs/generated/ingestion/sources/clickhouse",
@@ -802,8 +809,8 @@ module.exports = {
             "docs/generated/ingestion/sources/dynamodb",
             "docs/generated/ingestion/sources/elasticsearch",
             "docs/generated/ingestion/sources/mariadb",
-            "docs/generated/ingestion/sources/mongodb",
             "docs/generated/ingestion/sources/mssql",
+            "docs/generated/ingestion/sources/mongodb",
             "docs/generated/ingestion/sources/mysql",
             "docs/generated/ingestion/sources/neo4j",
             "docs/generated/ingestion/sources/oracle",
@@ -816,6 +823,7 @@ module.exports = {
         {
           type: "category",
           label: "ETL / ELT",
+          // Sorted: dbt, File Based Lineage, Fivetran, Kafka, Kafka Connect, NiFi, Pulsar, SQL Queries
           items: [
             "docs/generated/ingestion/sources/dbt",
             "docs/generated/ingestion/sources/file-based-lineage",
@@ -830,6 +838,7 @@ module.exports = {
         {
           type: "category",
           label: "Query Engine",
+          // Sorted: Athena, Dremio, Hive, Hive Metastore, Presto, Trino
           items: [
             "docs/generated/ingestion/sources/athena",
             "docs/generated/ingestion/sources/dremio",
@@ -842,6 +851,7 @@ module.exports = {
         {
           type: "category",
           label: "ML Platforms",
+          // Sorted: Feast, MLflow, SageMaker, Vertex AI
           items: [
             "docs/generated/ingestion/sources/feast",
             "docs/generated/ingestion/sources/mlflow",
@@ -879,20 +889,22 @@ module.exports = {
         {
           type: "category",
           label: "Miscellaneous",
+          // Sorted: Azure AD, CSV Enricher, Demo Data, Excel, Great Expectations,
+          //         JSON Schemas, LDAP, Metadata File, Okta, OpenAPI, Protobuf Schemas, Slack
           items: [
             "docs/generated/ingestion/sources/azure-ad",
             "docs/generated/ingestion/sources/csv-enricher",
             "docs/generated/ingestion/sources/demo-data",
             "docs/generated/ingestion/sources/excel",
+            "metadata-ingestion/integration_docs/great-expectations",
             "docs/generated/ingestion/sources/json-schema",
             "docs/generated/ingestion/sources/ldap",
             "docs/generated/ingestion/sources/metadata-file",
             "docs/generated/ingestion/sources/okta",
             "docs/generated/ingestion/sources/openapi",
+            "metadata-integration/java/datahub-protobuf/README",
             "docs/generated/ingestion/sources/slack",
             //"docker/airflow/local_airflow",
-            "metadata-ingestion/integration_docs/great-expectations",
-            "metadata-integration/java/datahub-protobuf/README",
             //"metadata-integration/java/spark-lineage-legacy/README",
             //"metadata-ingestion/source-docs-template",
           ],
@@ -900,6 +912,7 @@ module.exports = {
         {
           type: "category",
           label: "DataHub Internal",
+          // Sorted: Business Glossary, DataHub, DataHubApply, DataHubDebug, DataHubGc
           // Internal DataHub jobs: GC, forms reporting, metadata apply, debugging, etc.
           items: [
             "docs/generated/ingestion/sources/business-glossary",

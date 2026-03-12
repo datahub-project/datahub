@@ -250,7 +250,10 @@ export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
 
   const orderedGroups = PLATFORM_TYPE_ORDER.filter(
     (t) => grouped[t]?.length > 0
-  ).map((t) => [t, grouped[t]]);
+  ).map((t) => [
+    t,
+    [...grouped[t]].sort((a, b) => a.Title.localeCompare(b.Title)),
+  ]);
 
   // Any ungrouped (unknown Platform Type)
   const knownTypes = new Set(PLATFORM_TYPE_ORDER);
