@@ -51,15 +51,15 @@ def test_platform_sources_have_source_category_decorator() -> None:
                 ),
                 None,
             )
-            assert (
-                source_category_decorator is not None
-            ), f"{path}::{class_def.name} is missing @source_category(...)"
+            assert source_category_decorator is not None, (
+                f"{path}::{class_def.name} is missing @source_category(...)"
+            )
 
             # Evaluate the decorator call with the source file path as filename.
             # This validates the enum reference and marks decorator lines as covered.
             decorator_expr = ast.Expression(body=source_category_decorator)
             ast.fix_missing_locations(decorator_expr)
-            eval(  # noqa: S307
+            eval(
                 compile(decorator_expr, str(path), "eval"),
                 {
                     "source_category": source_category,
@@ -82,17 +82,17 @@ def test_platform_sources_import_source_category_symbols() -> None:
         assert import_nodes, f"{path} is missing decorators import"
 
         imported_names = {name.name for node in import_nodes for name in node.names}
-        assert (
-            "source_category" in imported_names
-        ), f"{path} must import source_category"
-        assert (
-            "IngestionSourceCategory" in imported_names
-        ), f"{path} must import IngestionSourceCategory"
+        assert "source_category" in imported_names, (
+            f"{path} must import source_category"
+        )
+        assert "IngestionSourceCategory" in imported_names, (
+            f"{path} must import IngestionSourceCategory"
+        )
 
         # Execute the decorators import node for coverage and validation.
         import_module = ast.Module(body=[import_nodes[0]], type_ignores=[])
         ast.fix_missing_locations(import_module)
-        exec(compile(import_module, str(path), "exec"), {}, {})  # noqa: S102
+        exec(compile(import_module, str(path), "exec"), {}, {})
         inspected_files += 1
 
     assert inspected_files > 0
