@@ -1026,6 +1026,27 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
             "urn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
@@ -1042,6 +1063,27 @@
                         "name": "test-job-2",
                         "description": "The second test job"
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
@@ -1091,6 +1133,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
             "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1_job1)",
@@ -1129,6 +1192,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
             "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)",
@@ -1156,6 +1240,27 @@
                         "outputDatasets": [],
                         "inputDatajobs": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
@@ -1206,6 +1311,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
             "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)",
@@ -1231,6 +1357,27 @@
                         "outputDatasets": [],
                         "inputDatajobs": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
@@ -1278,6 +1425,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
@@ -1297,6 +1465,27 @@
                         },
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
@@ -1348,6 +1537,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
             "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)",
@@ -1375,6 +1585,27 @@
                         "outputDatasets": [],
                         "inputDatajobs": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
@@ -1424,6 +1655,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
             "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3_job2)",
@@ -1453,6 +1705,27 @@
                             "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)"
                         ]
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
                 }
             ]
         }
