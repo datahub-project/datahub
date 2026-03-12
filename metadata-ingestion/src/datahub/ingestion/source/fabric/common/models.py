@@ -123,6 +123,34 @@ class InvokeType(str, Enum):
 
 
 @dataclass
+class FabricConnection:
+    """A Fabric connection parsed from the Core API List Connections response.
+
+    Used by lineage resolvers to map an activity's connection reference to a
+    DataHub platform via FABRIC_CONNECTION_PLATFORM_MAP.
+
+    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-connections
+    """
+
+    id: str
+    display_name: str
+    connection_type: str  # connectionDetails.type — e.g. "SQL", "Snowflake", "AmazonS3"
+    connection_path: Optional[str] = (
+        None  # connectionDetails.path — e.g. "server;database"
+    )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FabricConnection":
+        connection_details = data.get("connectionDetails") or {}
+        return cls(
+            id=data["id"],
+            display_name=data.get("displayName", ""),
+            connection_type=connection_details.get("type", ""),
+            connection_path=connection_details.get("path"),
+        )
+
+
+@dataclass
 class FabricJobInstance:
     """A single job execution instance from the Fabric Job Scheduler API.
 
