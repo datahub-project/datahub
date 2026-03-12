@@ -235,7 +235,7 @@ Caveat: Some packages like Great Expectations and Airflow frequently make breaki
 After changing dependencies in `setup.py`, regenerate all generated files:
 
 ```shell
-../gradlew :metadata-ingestion:generateLockFile
+../gradlew :metadata-ingestion:updateLockFile
 ```
 
 This runs the full chain: `setup.py` → `pyproject.toml` → `uv.lock` → `constraints.txt`.
