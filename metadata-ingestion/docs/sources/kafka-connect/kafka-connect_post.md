@@ -462,9 +462,19 @@ Patterns are treated as literal table names, resulting in potentially incorrect 
 
 ##### Column-Level Lineage
 
-Generates field-level lineage by matching column names between source tables and Kafka topics.
+Generates field-level lineage by matching column names through the Kafka Connect pipeline. It is supported for both directions:
 
-**Example: PostgreSQL to Kafka CDC**
+- **Source connectors** (DB table → Kafka topic): field names are taken from the source table schema in DataHub
+- **Sink connectors** (Kafka topic → DB table): field names are taken from the Kafka topic schema in DataHub
+
+**Prerequisites:**
+
+Both the source and target schemas must already be ingested into DataHub before running Kafka Connect ingestion:
+
+- For source connectors: ingest the source database (e.g. run the Postgres source)
+- For sink connectors: ingest both the Kafka topics (e.g. run the Kafka source) and the destination database
+
+**Example: PostgreSQL to Kafka CDC (source direction)**
 
 ```yml
 source:
@@ -485,29 +495,28 @@ source:
 #   postgres.public.users.updated_at -> kafka.server.public.users.updated_at
 ```
 
-**Requirements:**
+Column matching is case-insensitive, so Kafka fields with lowercase names (e.g. `order_id`) will match Snowflake columns stored in uppercase (`ORDER_ID`).
 
-- Source table schema exists in DataHub (from database ingestion)
-- Kafka topic schema exists in DataHub (from schema registry or Kafka ingestion)
-- Column names match between source and target (case-insensitive matching)
+Topic routing transforms (RegexRouter, EventRouter, etc.) work transparently — the transform pipeline correctly identifies which topic maps to which dataset, and column-level lineage operates on those resolved pairs.
 
-**Benefits:**
+**Field-Level Transform Support:**
 
-- **Impact Analysis**: See which fields are affected by schema changes
-- **Data Tracing**: Track specific data elements through pipelines
-- **Schema Understanding**: Visualize how data flows at the field level
+The following field-level transforms are applied when building the column mapping:
 
-**ReplaceField Transform Support:**
+| Transform                             | Effect on column lineage                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ReplaceField$Value`                  | include/exclude filter and field renames are respected                                                |
+| `ExtractField$Value`                  | sub-fields of the extracted struct are promoted as top-level (e.g. Debezium `field=after` unwrapping) |
+| `HoistField$Value`                    | all fields are nested under the new struct field (e.g. `id` → `data.id`)                              |
+| `Flatten$Value`                       | nested struct paths are joined using the configured delimiter (default: `.`)                          |
+| `MaskField`, `Cast`, `Filter`, `Drop` | field names unchanged — lineage is unaffected                                                         |
 
-Column-level lineage respects ReplaceField transforms that filter or rename columns:
+For example, a `ReplaceField` that excludes internal columns:
 
 ```yml
-# Connector excludes specific fields
-connector.config:
-  transforms: "removeFields"
-  transforms.removeFields.type: "org.apache.kafka.connect.transforms.ReplaceField$Value"
-  transforms.removeFields.exclude: "internal_id,temp_column"
-# DataHub behavior:
+transforms: "removeFields"
+transforms.removeFields.type: "org.apache.kafka.connect.transforms.ReplaceField$Value"
+transforms.removeFields.exclude: "internal_id,temp_column"
 # Source schema: [user_id, email, internal_id, temp_column]
 # After transform: [user_id, email]
 # Column lineage created only for: user_id, email

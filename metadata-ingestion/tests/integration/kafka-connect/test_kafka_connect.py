@@ -821,6 +821,321 @@ def test_kafka_connect_snowflake_sink_ingest(
 
 
 @freeze_time(FROZEN_TIME)
+def test_kafka_connect_snowflake_sink_column_lineage(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Integration test: Snowflake sink connector with column-level lineage enabled.
+
+    Verifies that when use_schema_resolver + schema_resolver_finegrained_lineage are enabled
+    the emitted dataJobInputOutput includes fineGrainedLineages mapping individual
+    Kafka topic fields to Snowflake table columns.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+
+    # Reuse the same Kafka Connect API mock data as the basic snowflake sink test
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["snowflake_sink1"],
+        },
+        "http://localhost:28083/connectors/snowflake_sink1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake_sink1",
+                "config": {
+                    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "snowflake.database.name": "kafka_db",
+                    "snowflake.schema.name": "kafka_schema",
+                    "snowflake.topic2table.map": "topic1:table1",
+                    "tasks.max": "1",
+                    "topics": "topic1,_topic+2",
+                    "snowflake.user.name": "kafka_connector_user_1",
+                    "snowflake.private.key": "rrSnqU=",
+                    "name": "snowflake_sink1",
+                    "snowflake.url.name": "bcaurux-lc62744.snowflakecomputing.com:443",
+                },
+                "tasks": [{"connector": "snowflake_sink1", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake_sink1/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "snowflake_sink1": {"topics": ["topic1", "_topic+2", "extra_old_topic"]}
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    # Minimal inline schema mocks: Kafka topic → DB column schema
+    # topic1 maps to table1 (via snowflake.topic2table.map); Snowflake columns are uppercase
+    class _KafkaField:
+        def __init__(self, path: str) -> None:
+            self.fieldPath = path
+
+    class _KafkaSchema:
+        def __init__(self, fields: List[str]) -> None:
+            self.fields = [_KafkaField(f) for f in fields]
+
+    _kafka_schemas: Dict[str, Any] = {
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,PROD)": _KafkaSchema(
+            ["ORDER_ID", "CUSTOMER_NAME", "AMOUNT"]
+        ),
+    }
+
+    _db_schemas: Dict[str, Optional[Dict[str, str]]] = {
+        "kafka_db.kafka_schema.table1": {
+            "ORDER_ID": "NUMBER",
+            "CUSTOMER_NAME": "VARCHAR",
+            "AMOUNT": "FLOAT",
+        },
+    }
+
+    class _MockGraph:
+        def get_aspect(self, urn: str, aspect_type: Any) -> Any:
+            return _kafka_schemas.get(urn)
+
+    class _MockSchemaResolver:
+        platform = "snowflake"
+        env = "PROD"
+        graph = _MockGraph()
+
+        def get_urns(self) -> set:
+            return set()
+
+        def includes_temp_tables(self) -> bool:
+            return False
+
+        def resolve_table(self, table: Any) -> tuple:
+            tname: str = table.table
+            urn = f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{tname},PROD)"
+            return urn, _db_schemas.get(tname)
+
+    with mock.patch(
+        "datahub.ingestion.source.kafka_connect.connector_registry.ConnectorRegistry.create_schema_resolver",
+        return_value=_MockSchemaResolver(),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "kafka-connect-test",
+                "source": {
+                    "type": "kafka-connect",
+                    "config": {
+                        "platform_instance": "connect-instance-1",
+                        "connect_uri": KAFKA_CONNECT_SERVER,
+                        "use_schema_resolver": True,
+                        "schema_resolver_finegrained_lineage": True,
+                        "schema_resolver_expand_patterns": False,
+                        "connector_patterns": {"allow": ["snowflake_sink1"]},
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/kafka_connect_snowflake_sink_col_lineage_mces.json",
+                    },
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_snowflake_sink_col_lineage_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_snowflake_sink_col_lineage_mces_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_column_lineage_source_and_sink(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Integration test: column-level lineage in BOTH directions through a shared topic.
+
+    A Debezium Postgres source publishes ``debezium.public.orders`` and a Snowflake sink
+    consumes it.  With schema resolver enabled, the emitted metadata should contain:
+
+    - Source job (Debezium):  Postgres columns  → Kafka topic fields
+    - Sink job   (Snowflake): Kafka topic fields → Snowflake columns  (case-insensitive)
+
+    The shared Kafka field URNs connect the two lineage entries end-to-end.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    ORDERS_TOPIC = "debezium.public.orders"
+
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["debezium_orders_source", "snowflake_sink_orders"],
+        },
+        # ── Debezium Postgres source ──────────────────────────────────────
+        "http://localhost:28083/connectors/debezium_orders_source": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "debezium_orders_source",
+                "config": {
+                    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                    "database.hostname": "test_postgres",
+                    "database.port": "5432",
+                    "database.user": "postgres",
+                    "database.password": "datahub",
+                    "database.dbname": "testdb",
+                    # topic.prefix used as server_name → topic = debezium.public.orders
+                    "topic.prefix": "debezium",
+                    "table.include.list": "public.orders",
+                    "plugin.name": "pgoutput",
+                    "slot.name": "debezium_slot",
+                },
+                "tasks": [],
+                "type": "source",
+            },
+        },
+        "http://localhost:28083/connectors/debezium_orders_source/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"debezium_orders_source": {"topics": [ORDERS_TOPIC]}},
+        },
+        "http://localhost:28083/connectors/debezium_orders_source/tasks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [],
+        },
+        # ── Snowflake sink ────────────────────────────────────────────────
+        "http://localhost:28083/connectors/snowflake_sink_orders": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake_sink_orders",
+                "config": {
+                    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "snowflake.database.name": "analytics_db",
+                    "snowflake.schema.name": "public",
+                    # Explicit topic→table map so the Snowflake table name is "orders"
+                    "snowflake.topic2table.map": f"{ORDERS_TOPIC}:orders",
+                    "topics": ORDERS_TOPIC,
+                    "snowflake.url.name": "account.snowflakecomputing.com:443",
+                    "snowflake.user.name": "kafka_user",
+                    "name": "snowflake_sink_orders",
+                },
+                "tasks": [{"connector": "snowflake_sink_orders", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake_sink_orders/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"snowflake_sink_orders": {"topics": [ORDERS_TOPIC]}},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    # ── Inline schema mocks ───────────────────────────────────────────────
+    # Postgres / Kafka: lowercase column names; Snowflake: uppercase
+    _COLUMNS_LOWER = ["id", "customer_name", "amount"]
+
+    class _KafkaField:
+        def __init__(self, path: str) -> None:
+            self.fieldPath = path
+
+    class _KafkaSchema:
+        def __init__(self, fields: List[str]) -> None:
+            self.fields = [_KafkaField(f) for f in fields]
+
+    _KAFKA_TOPIC_URN = f"urn:li:dataset:(urn:li:dataPlatform:kafka,{ORDERS_TOPIC},PROD)"
+
+    _kafka_schemas: Dict[str, Any] = {
+        _KAFKA_TOPIC_URN: _KafkaSchema(_COLUMNS_LOWER),
+    }
+
+    _db_schemas: Dict[str, Optional[Dict[str, str]]] = {
+        # Source side: Postgres table (lowercase columns)
+        "testdb.public.orders": {
+            "id": "INTEGER",
+            "customer_name": "VARCHAR",
+            "amount": "NUMERIC",
+        },
+        # Sink side: Snowflake table (uppercase columns — case-insensitive match)
+        "analytics_db.public.orders": {
+            "ID": "NUMBER",
+            "CUSTOMER_NAME": "VARCHAR",
+            "AMOUNT": "FLOAT",
+        },
+    }
+
+    class _MockGraph:
+        def get_aspect(self, urn: str, aspect_type: Any) -> Any:
+            return _kafka_schemas.get(urn)
+
+    class _MockSchemaResolver:
+        env = "PROD"
+        graph = _MockGraph()
+
+        def get_urns(self) -> set:
+            return set()
+
+        def includes_temp_tables(self) -> bool:
+            return False
+
+        def resolve_table(self, table: Any) -> tuple:
+            tname: str = table.table
+            platform = "snowflake" if tname.startswith("analytics_db") else "postgres"
+            urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{tname},PROD)"
+            return urn, _db_schemas.get(tname)
+
+    with mock.patch(
+        "datahub.ingestion.source.kafka_connect.connector_registry.ConnectorRegistry.create_schema_resolver",
+        return_value=_MockSchemaResolver(),
+    ):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "kafka-connect-test",
+                "source": {
+                    "type": "kafka-connect",
+                    "config": {
+                        "platform_instance": "connect-instance-1",
+                        "connect_uri": KAFKA_CONNECT_SERVER,
+                        "use_schema_resolver": True,
+                        "schema_resolver_finegrained_lineage": True,
+                        "schema_resolver_expand_patterns": False,
+                        "connector_patterns": {
+                            "allow": [
+                                "debezium_orders_source",
+                                "snowflake_sink_orders",
+                            ]
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/kafka_connect_col_lineage_e2e_mces.json",
+                    },
+                },
+            }
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_col_lineage_e2e_mces.json",
+        golden_path=test_resources_dir
+        / "kafka_connect_col_lineage_e2e_mces_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
