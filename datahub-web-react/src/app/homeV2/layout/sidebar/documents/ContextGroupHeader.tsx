@@ -5,7 +5,7 @@ import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
+
 
 const ButtonsContainer = styled.div`
     display: flex;
@@ -65,7 +65,7 @@ const IconButton = styled(Button)<{ $show: boolean }>`
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.icon};
     cursor: pointer;
     transition: all 0.2s ease;
     padding: 0;
@@ -75,8 +75,8 @@ const IconButton = styled(Button)<{ $show: boolean }>`
     pointer-events: ${(props) => (props.$show ? 'auto' : 'none')};
 
     &:hover {
-        background: ${colors.gray[100]};
-        color: ${colors.violet[600]};
+        background: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 
     &:active {
