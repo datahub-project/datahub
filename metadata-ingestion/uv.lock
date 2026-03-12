@@ -1309,6 +1309,7 @@ mlflow = [
     { name = "setuptools" },
 ]
 mode = [
+    { name = "cachetools" },
     { name = "patchy" },
     { name = "python-liquid" },
     { name = "requests" },
@@ -2081,6 +2082,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'integration-tests'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'kafka-connect'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mariadb'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'mode'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mssql'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mssql-odbc'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'mysql'", specifier = "<6.0.0" },
