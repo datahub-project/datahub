@@ -102,6 +102,20 @@ abs = [
     "wcmatch<11.0.0",
 ]
 
+abs-slim = [
+    "azure-core>=1.38.0,<2.0.0",
+    "azure-identity>=1.21.0,<2.0.0",
+    "azure-storage-blob>=12.19.0,<13.0.0",
+    "azure-storage-file-datalake>=12.14.0,<13.0.0",
+    "more-itertools>=8.12.0,<11.0.0",
+    "parse>=1.19.0,<2.0.0",
+    "pyarrow>14.0.0,<23.0.0",
+    "smart-open[azure]>=5.2.1,<8.0.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.2.0,<6.0.0",
+    "wcmatch<11.0.0",
+]
+
 athena = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
@@ -584,6 +598,21 @@ gcs = [
     "wcmatch<11.0.0",
 ]
 
+gcs-slim = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
+    "more-itertools>=8.12.0,<11.0.0",
+    "moto[s3]<5.0.0",
+    "parse>=1.19.0,<2.0.0",
+    "pyarrow>14.0.0,<23.0.0",
+    "smart-open[gcs,s3]>=5.2.1,<8.0.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.2.0,<6.0.0",
+    "urllib3>=1.26,<3.0",
+    "wcmatch<11.0.0",
+]
+
 glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -764,6 +793,7 @@ mlflow = [
 ]
 
 mode = [
+    "cachetools<6.0.0",
     "patchy==2.8.0",
     "python-liquid<2",
     "requests<3.0.0",
@@ -859,6 +889,7 @@ notion = [
 ]
 
 okta = [
+    "flatdict!=4.0.1",
     "nest-asyncio<2.0.0",
     "okta~=1.7.0,<2.0.0",
 ]
@@ -1043,7 +1074,7 @@ s3-slim = [
 ]
 
 sac = [
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
@@ -1221,7 +1252,7 @@ superset = [
 ]
 
 sync-file-emitter = [
-    "filelock<4.0.0",
+    "filelock>=3.13.1,<4.0.0",
 ]
 
 tableau = [
@@ -1330,7 +1361,7 @@ all = [
     "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1353,7 +1384,8 @@ all = [
     "dnspython==2.7.0",
     "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
-    "filelock<4.0.0",
+    "filelock>=3.13.1,<4.0.0",
+    "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
@@ -1457,7 +1489,7 @@ dev = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1497,6 +1529,7 @@ dev = [
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
+    "flatdict!=4.0.1",
     "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
@@ -1646,7 +1679,7 @@ docs = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib<2.0.0",
+    "Authlib>=1.6.7,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1686,6 +1719,7 @@ docs = [
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
+    "flatdict!=4.0.1",
     "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",

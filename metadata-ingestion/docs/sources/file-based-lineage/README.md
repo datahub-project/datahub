@@ -1,0 +1,17 @@
+## Overview
+
+File Based Lineage is a storage and lakehouse platform. Learn more in the [official File Based Lineage documentation](https://datahub.com/docs/).
+
+The DataHub integration for File Based Lineage covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+
+## Concept Mapping
+
+While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
+
+| Source Concept                                           | DataHub Concept              | Notes                                                            |
+| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
+| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
+| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
+| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
+| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
+| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
