@@ -575,7 +575,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 if s3_uri is None:
                     self.report_warning(
                         flow_urn,
-                        f"Could not find script path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
                     )
                     return None
 
