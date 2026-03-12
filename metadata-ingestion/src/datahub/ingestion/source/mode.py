@@ -121,15 +121,12 @@ from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
-    _sqlglot_lineage_cached,
     create_and_cache_schema_resolver,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    _parse_statement,
     parse_statements_and_pick,
-    try_format_query,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
@@ -142,6 +139,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Default API limit for items returned per API call
 # Used for the default per_page value for paginated API requests
 DEFAULT_API_ITEMS_PER_PAGE = 30
+MAX_API_ITEMS_PER_PAGE = 1000
 
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
@@ -272,11 +270,11 @@ class ModeConfig(
     @field_validator("items_per_page", mode="after")
     @classmethod
     def validate_items_per_page(cls, v):
-        if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
+        if 1 <= v <= MAX_API_ITEMS_PER_PAGE:
             return v
         else:
             raise ValueError(
-                f"items_per_page must be between 1 and {DEFAULT_API_ITEMS_PER_PAGE}"
+                f"items_per_page must be between 1 and {MAX_API_ITEMS_PER_PAGE}"
             )
 
 
@@ -1244,7 +1242,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 upstream_warehouse_db_name = matches.group(1)
 
         # Parse multi-statement SQL and pick the last meaningful statement.
-        # Uses cached parse_statement internally, with proper dialect.
+        platform_instance = (
+            self.config.platform_instance_map.get(upstream_warehouse_platform)
+            if upstream_warehouse_platform and self.config.platform_instance_map
+            else None
+        )
         sql_parse_start = time.perf_counter()
         try:
             parsed_expression = parse_statements_and_pick(
@@ -1257,15 +1259,6 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             query_to_parse = normalized_query
 
-        # Use create_and_cache_schema_resolver + sqlglot_lineage directly.
-        # This enables the _sqlglot_lineage_cached lru_cache to get hits,
-        # since the same SchemaResolver instance is reused for the same
-        # (platform, env, graph, platform_instance) combination.
-        platform_instance = (
-            self.config.platform_instance_map.get(upstream_warehouse_platform)
-            if upstream_warehouse_platform and self.config.platform_instance_map
-            else None
-        )
         try:
             schema_resolver = create_and_cache_schema_resolver(
                 platform=upstream_warehouse_platform,
@@ -1878,6 +1871,33 @@ class ModeSource(StatefulIngestionSourceBase):
                     exc_info=True,
                 )
 
+    def _process_dataset(
+        self, space_token: str, dataset: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single dataset: queries and lineage."""
+        dataset_token = dataset.get("token", "")
+        try:
+            queries = self._get_queries(dataset_token)
+            for query in queries:
+                yield from self.construct_query_or_dataset(
+                    dataset_token,
+                    query,
+                    space_token=space_token,
+                    report_info=dataset,
+                    is_mode_dataset=True,
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to process dataset {dataset_token} in space {space_token}",
+                exc_info=True,
+            )
+            self.report.report_failure(
+                title="Failed to Process Dataset",
+                message=f"Unexpected error processing dataset {dataset_token}.",
+                context=f"Space Token: {space_token}, Error: {str(e)}",
+                exc=e,
+            )
+
     def _process_report_inner(
         self,
         space_token: str,
@@ -1983,54 +2003,30 @@ class ModeSource(StatefulIngestionSourceBase):
                     query_name=query.get("name", query.get("token", "unknown")),
                 )
 
-    def _emit_workunits_for_space(
+    def _collect_space_work_items(
         self, space_token: str, space_name: str
-    ) -> Iterable[MetadataWorkUnit]:
-        yield from self.construct_space_container(space_token, space_name)
+    ) -> Tuple[
+        List[Tuple[str, dict]],
+        List[Tuple[str, dict]],
+        List[MetadataWorkUnit],
+    ]:
+        """Collect report and dataset work items for a space.
 
-        all_reports = [
-            report
-            for report_page in self._get_reports(space_token)
-            for report in report_page
-        ]
+        Returns (report_args, dataset_args, container_workunits).
+        """
+        container_wus = list(self.construct_space_container(space_token, space_name))
 
-        if self.config.max_threads > 1:
-            yield from ThreadedIteratorExecutor.process(
-                worker_func=self._process_report,
-                args_list=[(space_token, report) for report in all_reports],
-                max_workers=self.config.max_threads,
-            )
-        else:
-            for report in all_reports:
-                yield from self._process_report(space_token, report)
+        report_args: List[Tuple[str, dict]] = []
+        for report_page in self._get_reports(space_token):
+            for report in report_page:
+                report_args.append((space_token, report))
 
-        # Datasets use a separate API endpoint
+        dataset_args: List[Tuple[str, dict]] = []
         for dataset_page in self._get_datasets(space_token):
-            for dataset_report in dataset_page:
-                try:
-                    report_token = dataset_report.get("token", "")
-                    queries = self._get_queries(report_token)
-                    for query in queries:
-                        yield from self.construct_query_or_dataset(
-                            report_token,
-                            query,
-                            space_token=space_token,
-                            report_info=dataset_report,
-                            is_mode_dataset=True,
-                        )
-                except Exception as e:
-                    dataset_token = dataset_report.get("token", "")
-                    logger.warning(
-                        f"Failed to process dataset {dataset_token} "
-                        f"in space {space_token}",
-                        exc_info=True,
-                    )
-                    self.report.report_failure(
-                        title="Failed to Process Dataset",
-                        message=f"Unexpected error processing dataset {dataset_token}.",
-                        context=f"Space Token: {space_token}, Error: {str(e)}",
-                        exc=e,
-                    )
+            for dataset in dataset_page:
+                dataset_args.append((space_token, dataset))
+
+        return report_args, dataset_args, container_wus
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
@@ -2045,23 +2041,39 @@ class ModeSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    @staticmethod
-    def _clear_sql_parsing_caches() -> None:
-        """Release memory held by the global SQL parsing LRU caches.
-
-        These caches store large sqlglot ASTs and parsing results keyed by
-        the full SQL string. For Mode's definition-expanded queries (often
-        64 KB+), the cached ASTs can be 10-100x larger than the source SQL.
-        Clearing between spaces prevents unbounded memory growth.
-        """
-        _parse_statement.cache_clear()
-        _sqlglot_lineage_cached.cache_clear()
-        try_format_query.cache_clear()
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Phase 1: Emit space containers and collect all work items
+        all_report_args: List[Tuple[str, dict]] = []
+        all_dataset_args: List[Tuple[str, dict]] = []
         for space_token, space_name in self.space_tokens.items():
-            yield from self._emit_workunits_for_space(space_token, space_name)
-            self._clear_sql_parsing_caches()
+            report_args, dataset_args, container_wus = self._collect_space_work_items(
+                space_token, space_name
+            )
+            yield from container_wus
+            all_report_args.extend(report_args)
+            all_dataset_args.extend(dataset_args)
+
+        # Phase 2: Process ALL reports across ALL spaces in one global pool
+        if self.config.max_threads > 1:
+            yield from ThreadedIteratorExecutor.process(
+                worker_func=self._process_report,
+                args_list=all_report_args,
+                max_workers=self.config.max_threads,
+            )
+        else:
+            for args in all_report_args:
+                yield from self._process_report(*args)
+
+        # Phase 3: Process ALL datasets across ALL spaces
+        if self.config.max_threads > 1 and all_dataset_args:
+            yield from ThreadedIteratorExecutor.process(
+                worker_func=self._process_dataset,
+                args_list=all_dataset_args,
+                max_workers=self.config.max_threads,
+            )
+        else:
+            for args in all_dataset_args:
+                yield from self._process_dataset(*args)
 
         memory_used = self._get_process_memory()
         self.report.process_memory_used_mb = round(memory_used["rss"], 2)

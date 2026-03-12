@@ -520,7 +520,7 @@ class TestProcessReportErrorIsolation:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Dataset error isolation in _emit_workunits_for_space
+# Dataset error isolation in _process_dataset
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -529,7 +529,6 @@ class TestDatasetErrorIsolation:
         """An exception processing one dataset should not prevent
         subsequent datasets from being processed."""
         source = _make_source()
-        source.space_tokens = {"space1": "TestSpace"}
 
         dataset_good = {"token": "ds_good"}
         dataset_bad = {"token": "ds_bad"}
@@ -555,24 +554,15 @@ class TestDatasetErrorIsolation:
             return original_construct(report_token, query_data, **kwargs)
 
         with (
-            patch.object(
-                source,
-                "construct_space_container",
-                return_value=iter([]),
-            ),
-            patch.object(source, "_get_reports", return_value=iter([])),
-            patch.object(
-                source,
-                "_get_datasets",
-                return_value=iter([[dataset_bad, dataset_good]]),
-            ),
             patch.object(source, "_get_queries", return_value=[query]),
             patch.object(
                 source, "construct_query_or_dataset", side_effect=mock_construct
             ),
         ):
-            # Should not raise
-            list(source._emit_workunits_for_space("space1", "TestSpace"))
+            # Processing bad dataset should not raise
+            list(source._process_dataset("space1", dataset_bad))
+            # Processing good dataset should also succeed
+            list(source._process_dataset("space1", dataset_good))
 
         # Both datasets should have been attempted
         assert "ds_bad" in call_order
