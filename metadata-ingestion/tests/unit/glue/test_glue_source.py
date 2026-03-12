@@ -1109,13 +1109,8 @@ def _make_glue_connection_node(
         "NodeType": node_type,
         "Args": [
             {
-                "Name": "useConnectionProperties",
-                "Value": '"true"',
-                "Param": False,
-            },
-            {
-                "Name": "connectionName",
-                "Value": f'"{connection_name}"',
+                "Name": "connection_info",
+                "Value": f'{{"connectionName": "{connection_name}"}}',
                 "Param": False,
             },
             {
@@ -1215,8 +1210,11 @@ def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
         "Id": "DataSource0",
         "NodeType": "DataSource",
         "Args": [
-            {"Name": "useConnectionProperties", "Value": '"true"', "Param": False},
-            {"Name": "connectionName", "Value": '"My Connection"', "Param": False},
+            {
+                "Name": "connection_info",
+                "Value": '{"connectionName": "My Connection"}',
+                "Param": False,
+            },
         ],
         "LineNumber": 1,
     }

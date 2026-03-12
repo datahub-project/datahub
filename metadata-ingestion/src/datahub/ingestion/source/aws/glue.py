@@ -729,10 +729,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
             # if data object references a named Glue connection (visual editor style)
-            elif node_args.get("useConnectionProperties") == "true" and node_args.get(
-                "connectionName"
-            ):
-                connection_name = node_args["connectionName"]
+            elif (node_args.get("connection_info") or {}).get("connectionName"):
+                connection_name = node_args["connection_info"]["connectionName"]
                 dbtable = node_args.get("dbtable")
 
                 if not dbtable:
