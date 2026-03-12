@@ -134,6 +134,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
+GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
+
 
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
@@ -897,7 +899,8 @@ class GlueSource(StatefulIngestionSourceBase):
             table_storage_urn: Optional[str] = None
             if (
                 dataset_properties
-                and dataset_properties.customProperties.get("table_type") == "ICEBERG"
+                and dataset_properties.customProperties.get("table_type")
+                == GLUE_TABLE_TYPE_ICEBERG
             ):
                 table_storage_urn = mce.proposedSnapshot.urn.replace(
                     "urn:li:dataPlatform:glue", "urn:li:dataPlatform:iceberg"
