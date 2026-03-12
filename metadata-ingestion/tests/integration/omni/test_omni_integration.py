@@ -10,7 +10,6 @@ Run tests:
 Re-generate the golden file after intentional changes:
     pytest tests/integration/omni/ -v --update-golden-files
 """
-
 from __future__ import annotations
 
 import json
@@ -100,9 +99,7 @@ def _collect_workunits(source: OmniSource) -> List[Dict[str, Any]]:
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_omni_ingestion_golden_file(
-    pytestconfig: pytest.Config, tmp_path: pathlib.Path
-) -> None:
+def test_omni_ingestion_golden_file(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     """Full end-to-end ingestion compared against a golden JSON file.
 
     Run with --update-golden-files to regenerate after intentional changes.
@@ -169,13 +166,13 @@ def test_all_expected_aspect_types_present() -> None:
 
     aspect_names = {e["aspectName"] for e in events}
     required_aspects = {
-        "datasetProperties",  # SDK V2 emits editableDatasetProperties
-        "dataPlatformInstance",  # Every entity gets platform instance
-        "upstreamLineage",  # Lineage edges are emitted
-        "dashboardInfo",  # Dashboard entities
-        "chartInfo",  # Chart/tile entities
-        "schemaMetadata",  # Semantic views get column fields
-        "subTypes",  # Every entity gets a subtype
+        "datasetProperties",       # SDK V2 emits editableDatasetProperties
+        "dataPlatformInstance",    # Every entity gets platform instance
+        "upstreamLineage",         # Lineage edges are emitted
+        "dashboardInfo",           # Dashboard entities
+        "chartInfo",               # Chart/tile entities
+        "schemaMetadata",          # Semantic views get column fields
+        "subTypes",                # Every entity gets a subtype
     }
     # editableDatasetProperties is the SDK V2 name for description
     required_aspects.discard("datasetProperties")
@@ -193,9 +190,9 @@ def test_platform_metadata_emitted() -> None:
 
     platform_events = [e for e in events if e["entityType"] == "dataPlatform"]
     assert platform_events, "No dataPlatform event emitted"
-    assert any("omni" in e["entityUrn"] for e in platform_events), (
-        "Omni platform URN not found"
-    )
+    assert any(
+        "omni" in e["entityUrn"] for e in platform_events
+    ), "Omni platform URN not found"
 
 
 @time_machine.travel(FROZEN_TIME)
@@ -205,8 +202,7 @@ def test_connections_emitted_as_datasets() -> None:
     events = _collect_workunits(source)
 
     conn_urns = [
-        e["entityUrn"]
-        for e in events
+        e["entityUrn"] for e in events
         if "connection.conn-snow-prod" in e.get("entityUrn", "")
         or "connection.conn-snow-staging" in e.get("entityUrn", "")
     ]
@@ -220,9 +216,9 @@ def test_topics_emitted_with_cleared_upstream_lineage() -> None:
     events = _collect_workunits(source)
 
     topic_lineage = [
-        e
-        for e in events
-        if ".topic." in e.get("entityUrn", "") and e["aspectName"] == "upstreamLineage"
+        e for e in events
+        if ".topic." in e.get("entityUrn", "")
+        and e["aspectName"] == "upstreamLineage"
     ]
     assert topic_lineage, "No upstreamLineage aspect found on topic entities"
     for event in topic_lineage:
@@ -276,17 +272,14 @@ def test_physical_tables_downstream_of_semantic_views() -> None:
     )
 
     physical_lineage = [
-        e
-        for e in events
+        e for e in events
         if e["entityUrn"] == orders_physical_urn
         and e["aspectName"] == "upstreamLineage"
     ]
     assert physical_lineage, (
         f"No upstreamLineage emitted for physical table {orders_physical_urn}"
     )
-    upstreams = {
-        u["dataset"] for u in physical_lineage[0]["aspect"].get("upstreams", [])
-    }
+    upstreams = {u["dataset"] for u in physical_lineage[0]["aspect"].get("upstreams", [])}
     assert orders_view_urn in upstreams, (
         f"Physical ORDERS table should be downstream of semantic orders view; "
         f"actual upstreams: {upstreams}"
@@ -308,7 +301,10 @@ def test_dashboard_tiles_reference_topics() -> None:
     def _extract_input_urns(aspect: dict) -> set:
         """ChartInfoClass.inputs serializes as [{"string": "urn:..."}, ...] via avro."""
         raw = aspect.get("inputs") or []
-        return {item["string"] if isinstance(item, dict) else item for item in raw}
+        return {
+            item["string"] if isinstance(item, dict) else item
+            for item in raw
+        }
 
     tile_revenue = next(
         (e for e in chart_info_events if "tile-revenue" in e["entityUrn"]), None
@@ -335,21 +331,16 @@ def test_dashboard_upstream_is_folder_not_topic() -> None:
     source = _build_source()
     events = _collect_workunits(source)
 
-    dashboard_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
-    )
+    dashboard_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
     folder_urn = source._folder_dataset_urn("folder-1")
 
     lineage_events = [
-        e
-        for e in events
+        e for e in events
         if e["entityUrn"] == dashboard_dataset_urn
         and e["aspectName"] == "upstreamLineage"
     ]
     if lineage_events:
-        upstreams = {
-            u["dataset"] for u in lineage_events[0]["aspect"].get("upstreams", [])
-        }
+        upstreams = {u["dataset"] for u in lineage_events[0]["aspect"].get("upstreams", [])}
         assert folder_urn in upstreams, (
             f"Dashboard should be downstream of folder; actual upstreams: {upstreams}"
         )
@@ -366,12 +357,9 @@ def test_fine_grained_lineage_emitted_for_dashboard() -> None:
     source = _build_source()
     events = _collect_workunits(source)
 
-    dashboard_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
-    )
+    dashboard_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
     lineage_events = [
-        e
-        for e in events
+        e for e in events
         if e["entityUrn"] == dashboard_dataset_urn
         and e["aspectName"] == "upstreamLineage"
     ]
@@ -380,9 +368,7 @@ def test_fine_grained_lineage_emitted_for_dashboard() -> None:
         assert fine_grained, (
             "No fine-grained lineage edges emitted for dashboard dataset"
         )
-        upstream_fields = {
-            u for edge in fine_grained for u in (edge.get("upstreams") or [])
-        }
+        upstream_fields = {u for edge in fine_grained for u in (edge.get("upstreams") or [])}
         assert any("schemaField" in u for u in upstream_fields), (
             f"Fine-grained lineage should reference semantic view fields; got: {upstream_fields}"
         )
@@ -396,17 +382,15 @@ def test_semantic_views_have_schema_metadata() -> None:
 
     orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
     schema_events = [
-        e
-        for e in events
-        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "schemaMetadata"
+        e for e in events
+        if e["entityUrn"] == orders_view_urn
+        and e["aspectName"] == "schemaMetadata"
     ]
     assert schema_events, f"No schemaMetadata emitted for {orders_view_urn}"
 
     fields = {f["fieldPath"] for f in schema_events[0]["aspect"].get("fields", [])}
     assert "order_id" in fields, f"Expected order_id in schema fields; got: {fields}"
-    assert "total_revenue" in fields, (
-        f"Expected total_revenue in schema fields; got: {fields}"
-    )
+    assert "total_revenue" in fields, f"Expected total_revenue in schema fields; got: {fields}"
 
 
 @time_machine.travel(FROZEN_TIME)
@@ -417,13 +401,11 @@ def test_ownership_emitted_for_dashboard() -> None:
 
     dashboard_urn = "urn:li:dashboard:(omni,doc-dashboard-1)"
     ownership_events = [
-        e
-        for e in events
-        if e["entityUrn"] == dashboard_urn and e["aspectName"] == "ownership"
+        e for e in events
+        if e["entityUrn"] == dashboard_urn
+        and e["aspectName"] == "ownership"
     ]
-    assert ownership_events, (
-        f"No ownership aspect emitted for dashboard {dashboard_urn}"
-    )
+    assert ownership_events, f"No ownership aspect emitted for dashboard {dashboard_urn}"
     owners = ownership_events[0]["aspect"].get("owners", [])
     assert owners, "Ownership aspect has no owners"
     assert any("user-admin" in str(o) for o in owners), (
@@ -438,7 +420,9 @@ def test_subtypes_emitted_for_all_datasets() -> None:
     events = _collect_workunits(source)
 
     dataset_urns = {e["entityUrn"] for e in events if e["entityType"] == "dataset"}
-    subtype_urns = {e["entityUrn"] for e in events if e["aspectName"] == "subTypes"}
+    subtype_urns = {
+        e["entityUrn"] for e in events if e["aspectName"] == "subTypes"
+    }
     missing = dataset_urns - subtype_urns
     # Allow physical tables (they are emitted via SDK V2 Dataset which auto-includes subTypes)
     # The key requirement is all omni-platform datasets have subtypes
@@ -476,9 +460,7 @@ def test_document_pattern_filters_documents() -> None:
     )
     events = _collect_workunits(source)
 
-    workbook_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD)"
-    )
+    workbook_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:omni,doc-workbook-1,PROD)"
     emitted_urns = {e["entityUrn"] for e in events}
     assert workbook_dataset_urn not in emitted_urns, (
         "doc-workbook-1 should have been filtered by document_pattern deny"
@@ -492,8 +474,7 @@ def test_snowflake_names_normalised_to_uppercase() -> None:
     events = _collect_workunits(source)
 
     physical_urns = [
-        e["entityUrn"]
-        for e in events
+        e["entityUrn"] for e in events
         if "dataPlatform:snowflake" in e.get("entityUrn", "")
     ]
     assert physical_urns, "No Snowflake physical dataset URNs emitted"

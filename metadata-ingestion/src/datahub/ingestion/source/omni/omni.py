@@ -109,6 +109,7 @@ class SemanticField:
     SourceCapability.PLATFORM_INSTANCE,
     "Supported via connection_to_platform_instance config",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class OmniSource(StatefulIngestionSourceBase, TestableSource):
     """Ingestion source for the Omni BI platform."""
 
