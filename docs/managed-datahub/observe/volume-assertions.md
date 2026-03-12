@@ -257,7 +257,7 @@ When time-series bucketing is enabled, the assertion's **evaluation schedule is 
 When creating a volume assertion:
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/volume-timeseries-bucketing.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/volume-timeseries-bucketing.png"/>
 </p>
 
 1. In the assertion builder, expand the **Time-Series Bucketing** section.

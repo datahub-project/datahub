@@ -74,7 +74,7 @@ When creating a new smart assertion with [time-series bucketing](./volume-assert
 3. Complete the rest of the assertion configuration and click **Save**.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/backfill.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/backfill.png"/>
 </p>
 
 After creation, you can update the backfill start date, but you cannot change the bucketing configuration (timestamp column, bucket interval, or timezone).

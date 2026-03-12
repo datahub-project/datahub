@@ -301,7 +301,7 @@ When time-series bucketing is enabled, the evaluation schedule is automatically 
 When creating a column metric assertion, you will see a **Row Evaluation Type** section with three options:
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/column-metric-timeseries-bucketing.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/column-metric-timeseries-bucketing.png"/>
 </p>
 
 - **All Table Rows**: Evaluate the assertion across all rows in the table (default).
