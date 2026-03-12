@@ -27,7 +27,7 @@ jobs:
             style
             build
             ci
-          requireScope: true
+          requireScope: false
       - if: always() && steps.lint_pr_title.outputs.error_message != null
         uses: marocchino/sticky-pull-request-comment@v2
         with:
@@ -35,9 +35,11 @@ jobs:
           message: |
             ## PR Title Check Failed
 
-            Your PR title must follow the format: `<type>(<scope>): <description>`
+            Your PR title must follow the format: `<type>[optional scope]: <description>`
 
-            **Example:** `feat(ingestion): add Snowflake v2 source`
+            **Examples:**
+            - `feat(ingestion): add Snowflake v2 source`
+            - `fix: resolve crash on empty dashboard`
 
             See the [Contributing Guide](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md#pr-title-format) for allowed types and format details.
       - if: always() && steps.lint_pr_title.outputs.error_message == null
