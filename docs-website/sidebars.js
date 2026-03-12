@@ -737,7 +737,7 @@ module.exports = {
     {
       type: "category",
       label: "Sources",
-      link: { type: "doc", id: "metadata-ingestion/source_overview" },
+      link: { type: "doc", id: "docs/integrations/sources" },
       items: [
         // ---------------------------------------------------------------
         // Grouped by platform type — matches the frontend "Create Source"
