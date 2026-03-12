@@ -244,8 +244,6 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
-    # Schedule (optional - defaults to hourly)
-    schedule="0 */6 * * *",  # Every 6 hours
     # Optional: partition data into daily/weekly time buckets
     time_bucketing_strategy={
         "timestamp_field_path": "created_at",
@@ -270,11 +268,6 @@ volume_assertion = client.assertions.sync_volume_assertion(
     detection_mechanism="information_schema",
     # Evaluation schedule
     schedule="0 */4 * * *",  # Every 4 hours
-    # Optional: partition data into daily time buckets
-    time_bucketing_strategy={
-        "timestamp_field_path": "event_date",
-        "bucket_interval": {"unit": "DAY", "multiple": 1},
-    },
     # Tags
     tags=["automated", "volume", "threshold_check"],
     enabled=True
@@ -418,11 +411,6 @@ column_metric_assertion = client.assertions.sync_column_metric_assertion(
     display_name="Price Minimum Check",
     # Evaluation schedule
     schedule="0 */4 * * *",  # Every 4 hours
-    # Optional: partition data into weekly time buckets
-    time_bucketing_strategy={
-        "timestamp_field_path": "order_date",
-        "bucket_interval": {"unit": "WEEK", "multiple": 1},
-    },
     # Tags
     tags=["automated", "column_quality", "price_validation"],
     enabled=True

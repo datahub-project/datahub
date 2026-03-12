@@ -126,104 +126,6 @@ source types vary by the platform, but generally fall into these categories:
 
 Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
-## Time-Series Bucketing
-
-By default, volume assertions evaluate the **total row count** of a table at a point in time. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate volume metrics within each bucket. This fundamentally changes what the assertion measures:
-
-|                      | Without Bucketing                          | With Bucketing                                              |
-| -------------------- | ------------------------------------------ | ----------------------------------------------------------- |
-| **Total row count**  | Total table row count                      | Rows matching the timestamp-in-bucket condition             |
-| Example              | "Total row count should stay above 10,000" | "Rows added per day should be above 500"                    |
-| **Row count change** | Row count change since previous evaluation | Row count compared to previous bucket                       |
-| Example              | "Row count should grow by at least 100"    | "Difference in rows added per week should not exceed 5,000" |
-
-Time-series bucketing is useful when:
-
-- Your table has a timestamp column that represents when rows were created or updated
-- You want to monitor data quality at a day or week granularity rather than the whole table
-- You want to detect issues like "no data arrived today" or "this week's volume is abnormally low"
-
-### Bucketing Configuration
-
-A time-series bucketing strategy consists of:
-
-- **Timestamp column**: The date/time column used to partition rows into buckets (e.g., `created_at`, `event_date`).
-- **Bucket interval**: The size of each time bucket. Currently supported intervals are **Daily** (1 DAY) and **Weekly** (1 WEEK).
-- **Timezone**: The IANA timezone for bucket boundaries (e.g., `America/Los_Angeles`, `UTC`). This should match your timestamp column's timezone. Defaults to UTC.
-- **Late arrival grace period** (optional): A buffer after the bucket end time before the bucket is considered complete. This accounts for late-arriving data. For example, a 2-day grace period on a daily bucket means the bucket for Monday won't be evaluated until Thursday at midnight (instead of Tuesday at midnight).
-
-:::note
-When time-series bucketing is enabled, the assertion's **evaluation schedule is automatically computed** based on the bucket interval and grace period. You do not need to (and cannot) manually set a cron schedule for bucketed assertions.
-:::
-
-### Limitations
-
-- Only **Query** source type supports bucketing. Information Schema and DataHub Dataset Profile sources cannot be bucketed.
-- Only single-unit bucket intervals are supported (1 DAY or 1 WEEK, not 2 DAYs).
-- Bucketing configuration (timestamp column, bucket interval, timezone) **cannot be changed after creation**. The late arrival grace period can be updated.
-- If a bucket is missed due to downtime, it will not be retroactively evaluated.
-
-### Configuring Bucketing in the UI
-
-When creating a volume assertion:
-
-1. In the assertion builder, expand the **Time-Series Bucketing** section.
-2. Toggle bucketing **on**.
-3. Select the **timestamp column** from the dropdown (filtered to date/time fields).
-4. Choose the **bucket size** (Daily or Weekly).
-5. Select a **timezone** that matches your timestamp column's timezone.
-6. (Optional) Set a **grace period** to account for late-arriving data.
-
-### Configuring Bucketing via the Python SDK
-
-```python
-from datahub.sdk import DataHubClient
-from datahub.metadata.urns import DatasetUrn
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-dataset_urn = DatasetUrn.from_string(
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
-)
-
-# Volume assertion with daily bucketing
-volume_assertion = client.assertions.sync_volume_assertion(
-    dataset_urn=dataset_urn,
-    display_name="Daily Row Count Check",
-    criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
-    criteria_parameters=100,
-    detection_mechanism="information_schema",
-    time_bucketing_strategy={
-        "timestamp_field_path": "created_at",
-        "bucket_interval": {"unit": "DAY", "multiple": 1},
-        "timezone": "America/Los_Angeles",
-        "late_arrival_grace_period": {"unit": "DAY", "multiple": 2},
-    },
-    tags=["automated", "volume", "daily"],
-    enabled=True,
-)
-
-# Smart volume assertion with weekly bucketing and backfill
-smart_volume = client.assertions.sync_smart_volume_assertion(
-    dataset_urn=dataset_urn,
-    display_name="Weekly Volume Anomaly Monitor",
-    detection_mechanism="information_schema",
-    sensitivity="medium",
-    time_bucketing_strategy={
-        "timestamp_field_path": "event_date",
-        "bucket_interval": {"unit": "WEEK", "multiple": 1},
-        "timezone": "UTC",
-    },
-    backfill_config={"backfill_start_date_ms": 1704067200000},
-    enabled=True,
-)
-```
-
-The `time_bucketing_strategy` parameter accepts a dict, a `TimeBucketingStrategy` Pydantic model, or a raw `AssertionTimeBucketingStrategyClass`. See the [Assertions SDK tutorial](/docs/api/tutorials/assertions.md) for more examples.
-
-:::info
-For smart assertions with bucketing enabled, you can also configure **historical backfill** to populate the assertion's metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
-:::
-
 ## Creating a Volume Assertion
 
 ### Prerequisites
@@ -312,6 +214,108 @@ You can create smart assertions by simply selecting the `Detect with AI` option 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
 </p>
+
+## Time-Series Bucketing
+
+By default, volume assertions evaluate the **total row count** of a table at a point in time. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate volume metrics within each bucket. This fundamentally changes what the assertion measures:
+
+|                      | Without Bucketing                          | With Bucketing                                              |
+| -------------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| **Total row count**  | Total table row count                      | Rows matching the timestamp-in-bucket condition             |
+| Example              | "Total row count should stay above 10,000" | "Rows added per day should be above 500"                    |
+| **Row count change** | Row count change since previous evaluation | Row count compared to previous bucket                       |
+| Example              | "Row count should grow by at least 100"    | "Difference in rows added per week should not exceed 5,000" |
+
+Time-series bucketing is useful when:
+
+- Your table has a timestamp column that represents when rows were created or updated
+- You want to monitor data quality at a day or week granularity rather than the whole table
+- You want to detect issues like "no data arrived today" or "this week's volume is abnormally low"
+
+### Bucketing Configuration
+
+A time-series bucketing strategy consists of:
+
+- **Timestamp column**: The date/time column used to partition rows into buckets (e.g., `created_at`, `event_date`).
+- **Bucket interval**: The size of each time bucket. Currently supported intervals are **Daily** (1 DAY) and **Weekly** (1 WEEK).
+- **Timezone**: The IANA timezone for bucket boundaries (e.g., `America/Los_Angeles`, `UTC`). This should match your timestamp column's timezone. Defaults to UTC.
+- **Late arrival grace period** (optional): A buffer after the bucket end time before the bucket is considered complete. This accounts for late-arriving data. For example, a 2-day grace period on a daily bucket means the bucket for Monday won't be evaluated until Thursday at midnight (instead of Tuesday at midnight).
+
+:::note
+When time-series bucketing is enabled, the assertion's **evaluation schedule is automatically computed** based on the bucket interval and grace period. You do not need to (and cannot) manually set a cron schedule for bucketed assertions.
+:::
+
+### Limitations
+
+- Only **Query** source type supports bucketing. Information Schema and DataHub Dataset Profile sources cannot be bucketed.
+- Only single-unit bucket intervals are supported (1 DAY or 1 WEEK, not 2 DAYs).
+- Bucketing configuration (timestamp column, bucket interval, timezone) **cannot be changed after creation**. The late arrival grace period can be updated.
+- If a bucket is missed due to downtime, it will not be retroactively evaluated.
+
+### Configuring Bucketing in the UI
+
+When creating a volume assertion:
+
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/volume-timeseries-bucketing.png"/>
+</p>
+
+1. In the assertion builder, expand the **Time-Series Bucketing** section.
+2. Toggle bucketing **on**.
+3. Select the **timestamp column** from the dropdown (filtered to date/time fields).
+4. Choose the **bucket size** (Daily or Weekly).
+5. Select a **timezone** that matches your timestamp column's timezone.
+6. (Optional) Set a **grace period** to account for late-arriving data.
+
+### Configuring Bucketing via the Python SDK
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+dataset_urn = DatasetUrn.from_string(
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+)
+
+# Volume assertion with daily bucketing
+volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Daily Row Count Check",
+    criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+    criteria_parameters=100,
+    detection_mechanism="information_schema",
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+        "late_arrival_grace_period": {"unit": "DAY", "multiple": 2},
+    },
+    tags=["automated", "volume", "daily"],
+    enabled=True,
+)
+
+# Smart volume assertion with weekly bucketing and backfill
+smart_volume = client.assertions.sync_smart_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Weekly Volume Anomaly Monitor",
+    detection_mechanism="information_schema",
+    sensitivity="medium",
+    time_bucketing_strategy={
+        "timestamp_field_path": "event_date",
+        "bucket_interval": {"unit": "WEEK", "multiple": 1},
+        "timezone": "UTC",
+    },
+    backfill_config={"backfill_start_date_ms": 1704067200000},
+    enabled=True,
+)
+```
+
+See the [Assertions SDK tutorial](/docs/api/tutorials/assertions.md) for more examples.
+
+:::info
+For smart assertions with bucketing enabled, you can also configure **historical backfill** to populate the assertion's metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+:::
 
 ## Stopping a Volume Assertion
 

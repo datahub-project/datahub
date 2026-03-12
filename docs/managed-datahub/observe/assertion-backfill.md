@@ -19,13 +19,13 @@ When you create a new [Smart Assertion](./smart-assertions.md), it needs histori
 
 Backfill is available for the following assertion types:
 
-| Assertion Type                    | Backfill Support                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------ |
-| **Smart Volume Assertion**        | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing)) |
-| **Smart Column Metric Assertion** | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing)) |
-| **Freshness Assertion**           | No                                                                                   |
-| **Schema Assertion**              | No                                                                                   |
-| **Custom SQL Assertion**          | No                                                                                   |
+| Assertion Type                    | Backfill Support                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Smart Volume Assertion**        | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
+| **Smart Column Metric Assertion** | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
+| **Freshness Assertion**           | No                                                                                                                |
+| **Schema Assertion**              | No                                                                                                                |
+| **Custom SQL Assertion**          | No                                                                                                                |
 
 ## How Backfill Works
 
@@ -72,6 +72,10 @@ When creating a new smart assertion with [time-series bucketing](./volume-assert
 1. Toggle **Backfill historical data** to on (this defaults to on when bucketing is enabled for smart assertions).
 2. Select a **backfill start date** using the date picker. The date picker enforces the maximum lookback constraints (365 days for daily, 156 weeks for weekly bucketing).
 3. Complete the rest of the assertion configuration and click **Save**.
+
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/backfill.png"/>
+</p>
 
 After creation, you can update the backfill start date, but you cannot change the bucketing configuration (timestamp column, bucket interval, or timezone).
 
@@ -137,7 +141,7 @@ assertion = client.assertions.sync_smart_column_metric_assertion(
 ```
 
 :::note
-`backfill_config` requires `time_bucketing_strategy` to also be set. If you provide `backfill_config` without `time_bucketing_strategy` on a column metric assertion, the backend will reject the configuration.
+`backfill_config` requires `time_bucketing_strategy` to also be set. If you provide `backfill_config` without `time_bucketing_strategy` on a column metric assertion the configuration will be rejected, and the assertion will not be created.
 :::
 
 ## Retrying a Failed Backfill
@@ -145,21 +149,18 @@ assertion = client.assertions.sync_smart_column_metric_assertion(
 If a backfill fails (due to a warehouse timeout, network error, etc.), you can retry it from the assertion detail page. There are two retry modes:
 
 - **Soft retry** (default): Resumes the backfill from the last successfully evaluated bucket. Only the remaining gaps are filled in.
-- **Hard reset**: Restarts the backfill from scratch, re-evaluating all buckets and overwriting any previously collected metrics. Use this if you suspect the existing backfilled data is incorrect.
+- **Hard reset**: Restarts the backfill from scratch, re-evaluating all buckets and overwriting any previously collected metrics. Use this if you suspect the existing backfilled data is incorrect. This currently only available via the GraphQL API.
 
 ### Via the UI
 
-Navigate to the assertion detail page, find the **Backfill** section, and click **Retry**.
+Navigate to the assertion detail page. The backfill status will appear near the top of the page, alongside the error encountered. Click **Retry**.
 
 ### Via GraphQL
 
 ```graphql
 mutation retryMonitorBackfill {
   retryMonitorBackfill(
-    input: {
-      assertionUrn: "urn:li:assertion:your-assertion-id"
-      hardReset: false
-    }
+    input: { monitorUrn: "urn:li:monitor:your-monitor-id", hardReset: false }
   )
 }
 ```
@@ -168,7 +169,7 @@ Set `hardReset: true` to perform a full re-backfill from scratch. This is useful
 
 ## Prerequisites
 
-- **Remote Executor**: Backfill requires the Acryl Remote Executor at version **v0.3.17-acryl** or later.
+- **Remote Executor**: Backfill requires the Remote Executor at version **v0.3.17-acryl** or later.
 - **Warehouse connection**: An Ingestion Source must be configured for your data platform (Snowflake, BigQuery, Redshift, or Databricks) under the **Integrations** tab.
 - **Permissions**: The actor must have `Edit Assertions` and `Edit Monitors` privileges for the target dataset.
 
