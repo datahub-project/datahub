@@ -266,10 +266,6 @@ def auto_browse_path_v2(
     paths: Dict[str, List[BrowsePathEntryClass]] = {}
 
     emitted_urns: Set[str] = set()
-    # Tracks urns emitted via the platform_instance fallback (empty container path).
-    # If a Container aspect arrives later in a separate batch for such an urn,
-    # we emit a correction with the proper container-based path.
-    fallback_emitted_urns: Set[str] = set()
     containers_used_as_parent: Set[str] = set()
     for urn, batch in _batch_workunits_by_urn(stream):
         # Do not generate browse path v2 for entities that do not support it
@@ -331,19 +327,6 @@ def auto_browse_path_v2(
             # Batch invariant violated
             # TODO: Add sentry alert
             num_out_of_batch += 1
-            if urn in fallback_emitted_urns and not dry_run:
-                # A Container aspect arrived in a later batch after we already emitted
-                # a platform_instance fallback path. Emit a correction with the proper
-                # container-based path so the entity is placed in the right folder.
-                fallback_emitted_urns.discard(urn)
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance(
-                            path, platform, platform_instance
-                        )
-                    ),
-                ).as_workunit()
         elif browse_path_v2 is not None:
             emitted_urns.add(urn)
             if not dry_run:
@@ -372,16 +355,20 @@ def auto_browse_path_v2(
                     ),
                 ).as_workunit()
         elif urn not in emitted_urns and (
-            guess_entity_type(urn) == "container" or platform_instance
+            guess_entity_type(urn) == "container"
+            or (platform_instance and guess_entity_type(urn) != "dataset")
         ):
             # Emit a browse path for entities that support browsePathsV2 but have
             # no container, legacy path, or source-provided path. This handles:
             # - Root containers (no Container aspect, need empty path)
-            # - Top-level entities (e.g. DataFlow) when platform_instance is set,
-            #   so they get grouped under their instance instead of the backend's
-            #   catch-all "Default" folder.
+            # - Top-level entities (e.g. DataFlow, DataJob) when platform_instance
+            #   is set, so they get grouped under their instance instead of the
+            #   backend's catch-all "Default" folder.
+            # Datasets are excluded here because they always arrive with Container
+            # aspects (possibly in a later batch) and will get their path then.
+            # Eagerly emitting a fallback for datasets would create OS-dependent
+            # golden file output due to filesystem ordering of batch processing.
             emitted_urns.add(urn)
-            fallback_emitted_urns.add(urn)
             if not dry_run:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,

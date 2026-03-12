@@ -485,13 +485,13 @@ def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_m
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_late_container_aspect_corrects_fallback(
+def test_auto_browse_path_v2_late_container_aspect_for_dataset(
     telemetry_ping_mock,
 ):
-    """When an entity's initial batch has no Container aspect (e.g. an MCE snapshot
-    arrives before the Container MCP), the platform_instance fallback fires.
-    When the Container aspect arrives in a later batch, a correction with the full
-    container-based path is emitted, overriding the initial fallback."""
+    """When a dataset's initial batch has no Container aspect (e.g. an MCE snapshot
+    arrives before the Container MCP), no fallback path is emitted for datasets.
+    When the Container aspect arrives in a later batch, the full container-based path
+    is emitted. No num_out_of_batch violation since the dataset was never emitted."""
     platform = "delta-lake"
     platform_instance = "my-platform"
     platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
@@ -529,7 +529,7 @@ def test_auto_browse_path_v2_late_container_aspect_corrects_fallback(
         auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
     )
 
-    # The final browse path for the dataset should reflect the full container hierarchy
+    # The browse path for the dataset reflects the full container hierarchy
     paths = _get_browse_paths_from_wu(new_wus)
     dataset_key = dataset_urn.split(":")[-1]
     assert dataset_key in paths
@@ -539,10 +539,8 @@ def test_auto_browse_path_v2_late_container_aspect_corrects_fallback(
     ]
     assert paths[dataset_key] == expected_path
 
-    # The initial fallback path [pi] is also emitted (before the correction), so
-    # num_out_of_batch is incremented for the late Container aspect
-    assert telemetry_ping_mock.call_count == 1
-    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 1
+    # No batch invariant violation: dataset was never emitted in batch 1
+    assert telemetry_ping_mock.call_count == 0
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")

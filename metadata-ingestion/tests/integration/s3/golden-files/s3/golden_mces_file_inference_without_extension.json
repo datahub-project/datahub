@@ -157,27 +157,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_inference_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
     "changeType": "UPSERT",
@@ -780,6 +759,47 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                },
+                {
+                    "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+                    "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+                },
+                {
+                    "id": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+                    "urn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+                },
+                {
+                    "id": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+                    "urn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+                },
+                {
+                    "id": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
+                    "urn": "urn:li:container:9b4624d58669059c9e62afb3d7341944"
+                }
+            ]
         }
     },
     "systemMetadata": {
