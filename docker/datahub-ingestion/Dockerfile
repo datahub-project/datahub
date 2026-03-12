@@ -198,6 +198,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
 FROM add-code-locked AS final-locked
 
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+ENV UV_CONSTRAINT=/metadata-ingestion/constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
