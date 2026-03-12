@@ -90,6 +90,8 @@ def assert_metadata_files_equal(
 
     ignore_paths = (*ignore_paths, *default_exclude_paths)
 
+    output = sort_output_in_same_order_as_golden(output, golden)
+
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and settings.update_golden:
         if isinstance(diff, MCPDiff) and diff.is_delta_valid:
@@ -99,7 +101,7 @@ def assert_metadata_files_equal(
         else:
             # Fallback: just overwrite the golden file
             logger.info(f"Overwriting golden file {golden_path}")
-            shutil.copyfile(str(output_path), str(golden_path))
+            write_metadata_file(pathlib.Path(golden_path), output)
         return
 
     if diff:
@@ -144,3 +146,58 @@ def diff_metadata_json(
         exclude_regex_paths=ignore_paths,
         ignore_order=ignore_order,
     )
+
+
+def sort_output_in_same_order_as_golden(
+    output: MetadataJson,
+    golden: MetadataJson,
+):
+    # iterate through golden and for each entry, find the matching one from output if it exists
+    # then append any extras from output that weren't found in golden
+
+    # 1. build matching index for output
+    mcps_index = {}
+    mces_index = {}
+    raw_index = set()
+
+    for entry in output:
+        if "entityUrn" in entry and "aspectName" in entry:
+            # MCP
+            mcps_index[(entry["entityUrn"], entry["aspectName"])] = entry
+        elif "proposedSnapshot" in entry:
+            # MCE
+            key = next(iter(entry["proposedSnapshot"].values()))["urn"]
+            mces_index[key] = entry
+        else:
+            raw_index.add(entry)
+
+    # 2. iterate through golden, find matching ones from output
+    new_array = []
+    for entry in golden:
+        if "entityUrn" in entry and "aspectName" in entry:
+            # MCP
+            key = (entry["entityUrn"], entry["aspectName"])
+            if key in mcps_index:
+                new_array.append(mcps_index[key])
+                del mcps_index[key]
+        elif "proposedSnapshot" in entry:
+            # MCE
+            key = next(iter(entry["proposedSnapshot"].values()))["urn"]
+            if key in mces_index:
+                new_array.append(mces_index[key])
+                del mces_index[key]
+        else:
+            if entry in raw_index:
+                new_array.append(entry)
+                raw_index.remove(entry)
+
+    # 3. add the remaining ones from output
+    # TODO: sort these better? e.g. add MCPs near other entries for that URN
+    for entry in mcps_index.values():
+        new_array.append(entry)
+    for entry in mces_index.values():
+        new_array.append(entry)
+    for entry in raw_index:
+        new_array.append(entry)
+
+    return new_array
