@@ -22,11 +22,13 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
-#### Bulk Creating Assertions
+#### Monitoring Rules — Assertions at Scale
 
-You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md).
+[Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) let you automatically apply [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across your data landscape. Define a search predicate — such as a DataHub Domain, data platform, or schema — and DataHub will create Freshness, Volume, and Schema anomaly monitors on all matching datasets. As your data landscape evolves, new datasets that match the predicate are automatically covered, and datasets that no longer match have their monitors removed.
 
-To bulk create column metric assertions on a given dataset, follow the steps under the **Anomaly Detection** section of [Column Assertion](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
+You can create and manage Monitoring Rules from the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md).
+
+To create column metric anomaly monitors for multiple columns on a single dataset, see the **Anomaly Detection** section of [Column Assertions](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
 
 ### Detecting Anomalies Across Massive Data Landscapes
 

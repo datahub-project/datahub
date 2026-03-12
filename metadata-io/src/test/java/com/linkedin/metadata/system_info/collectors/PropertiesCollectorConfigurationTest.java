@@ -425,6 +425,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "bootstrap.servlets.waitTimeout",
           "configEntityRegistry.path",
           "configEntityRegistry.resource",
+          "configEntityRegistry.useOptimizedLoading",
           "spring.application.name",
           "spring.application.pid",
           "spring.error.include-exception",

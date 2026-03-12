@@ -66,6 +66,8 @@ dependencies {
   implementation("javax.xml.bind:jaxb-api:2.3.1")
   implementation("org.glassfish.jaxb:jaxb-runtime:2.3.8")
 
+  implementation externalDependency.commonsLang3  // CVE-2025-48924
+
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest
   testRuntimeOnly externalDependency.logbackClassic

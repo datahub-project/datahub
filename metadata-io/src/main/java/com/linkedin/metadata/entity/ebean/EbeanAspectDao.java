@@ -931,13 +931,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
-    for (EbeanAspectV2.PrimaryKey key : dbResults) {
-      if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {
-        result.get(key.getUrn()).put(key.getAspect(), key.getVersion() + 1L);
-      }
-    }
+    mergeNextVersionsFromDb(result, dbResults);
 
     return result;
+  }
+
+  /**
+   * Merges DB max-version results into the request-keyed result map. Package-private for testing.
+   */
+  static void mergeNextVersionsFromDb(
+      Map<String, Map<String, Long>> result, List<EbeanAspectV2.PrimaryKey> dbResults) {
+    for (EbeanAspectV2.PrimaryKey key : dbResults) {
+      try {
+        if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {
+          result.get(key.getUrn()).put(key.getAspect(), key.getVersion() + 1L);
+        }
+      } catch (NullPointerException e) {
+        throw new IllegalStateException(
+            "URN or aspect from database did not match request keys (urn=\""
+                + key.getUrn()
+                + "\", aspect=\""
+                + key.getAspect()
+                + "\"). "
+                + "Possible cause: MySQL database/table created with different charset or collation "
+                + "than mysql-setup (ensure CHARACTER SET utf8mb4 COLLATE utf8mb4_bin). "
+                + "Create schema via docker/mysql-setup or datahub-upgrade SqlSetup with aligned DDL.",
+            e);
+      }
+    }
   }
 
   @Nonnull

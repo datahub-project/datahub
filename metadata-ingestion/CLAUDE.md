@@ -107,3 +107,28 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - `src/datahub/emitter/mcp_builder.py`: Examples of defining various aspect types
 - `setup.py`, `pyproject.toml`, `setup.cfg`: Code style and dependency configuration
 - `.github/workflows/metadata-ingestion.yml`: CI workflow configuration
+
+## Connector Documentation
+
+Connector documentation follows a structured format with specific file types and heading conventions.
+
+**Authoring guidelines**: See `docs/sources/CLAUDE.md` in this directory for:
+
+- File structure (`_pre.md`, `_post.md`, `_recipe.yml`)
+- Heading level rules (H3 baseline, H2 reserved for module headings)
+- Section ordering (Overview → Concept Mapping → Prerequisites)
+- Content placement guidelines
+- Style conventions and formatting requirements
+
+**Quick reference:**
+
+```bash
+# Regenerate documentation after changes
+./gradlew :metadata-ingestion:docGen
+
+# Preview locally
+./gradlew :docs-website:yarnStart  # Opens localhost:3000
+
+# Format markdown before committing
+./gradlew :datahub-web-react:mdPrettierWrite
+```

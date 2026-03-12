@@ -18,7 +18,9 @@ target_database_tables = [
         "Name": "transactions",
         "DatabaseName": "test-database",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+        ),
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
@@ -102,7 +104,9 @@ tables_1 = [
         "DatabaseName": "flights-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -173,7 +177,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
-        "UpdateTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 2, 12, 6, 59, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 2, 12, 6, 59),
         "Retention": 0,
         "StorageDescriptor": {
@@ -231,7 +237,9 @@ tables_2 = [
         "DatabaseName": "test-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
-        "UpdateTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 1, 16, 14, 53, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 1, 16, 14, 53),
         "Retention": 0,
         "StorageDescriptor": {
@@ -828,7 +836,9 @@ delta_tables_1 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -858,7 +868,9 @@ delta_tables_2 = [
         "DatabaseName": "delta-database",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -906,7 +918,9 @@ tables_lineage_1 = [
         "DatabaseName": "flights-database-lineage",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {
@@ -999,7 +1013,9 @@ tables_profiling_1 = [
         "DatabaseName": "flights-database-profiling",
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
-        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(
+            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+        ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
         "StorageDescriptor": {

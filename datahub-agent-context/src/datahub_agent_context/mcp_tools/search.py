@@ -1,7 +1,7 @@
 """Search tools for DataHub."""
 
+import importlib.resources as pkg_resources
 import logging
-import pathlib
 import textwrap
 from typing import Any, Dict, Literal, Optional
 
@@ -19,9 +19,13 @@ from datahub_agent_context.mcp_tools.search_filter_parser import (
 
 logger = logging.getLogger(__name__)
 
-# Load GraphQL queries
-_gql_dir = pathlib.Path(__file__).parent / "gql"
-search_gql = (_gql_dir / "search.gql").read_text()
+# Load GraphQL queries from the canonical copy in datahub.cli.gql
+_gql = pkg_resources.files("datahub.cli.gql")
+search_gql = (
+    _gql.joinpath("fragments.gql").read_text(encoding="utf-8")
+    + "\n"
+    + _gql.joinpath("search.gql").read_text(encoding="utf-8")
+)
 
 
 def search(

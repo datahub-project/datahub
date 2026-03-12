@@ -23,6 +23,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
           GH_REPO: ${{ github.repository }}
+          TEAM_MEMBERS: ${{ vars.DATAHUB_TEAM_MEMBERS }}
         run: |
           # Never let any failure exit the script — log and move on
           set +e
@@ -126,7 +127,16 @@ jobs:
 
               if [ "$STATE" != "Triage" ] && [ -n "$ASSIGNEE" ] && [ "$ASSIGNEE" != "null" ]; then
                 echo "Notifying PR #$PR_NUMBER — $TICKET_ID assigned to $ASSIGNEE"
-                BODY=$(printf '<!-- linear-assigned -->\nYour PR has been assigned to **%s** for review (%s).' "$ASSIGNEE" "$TICKET_ID")
+                GH_USER=$(echo "$TEAM_MEMBERS" | jq -r --arg linear "$ASSIGNEE" '.[] | select(.linear == $linear) | .github' 2>/dev/null | head -n1)
+                if [ -n "$GH_USER" ] && [ "$GH_USER" != "null" ]; then
+                  ASSIGNEE_TAG="@${GH_USER} (${ASSIGNEE})"
+                  gh pr edit "$PR_NUMBER" --add-reviewer "$GH_USER" 2>/dev/null \
+                    && echo "✅ Assigned $GH_USER as reviewer on PR #$PR_NUMBER" \
+                    || echo "⚠️  Failed to assign reviewer on PR #$PR_NUMBER"
+                else
+                  ASSIGNEE_TAG="**${ASSIGNEE}**"
+                fi
+                BODY=$(printf '<!-- linear-assigned -->\nYour PR has been assigned to %s for review (%s).' "$ASSIGNEE_TAG" "$TICKET_ID")
                 gh pr comment "$PR_NUMBER" --body "$BODY" 2>/dev/null \
                   && echo "✅ Commented on PR #$PR_NUMBER" \
                   || echo "⚠️  Failed to comment on PR #$PR_NUMBER, will retry next run"

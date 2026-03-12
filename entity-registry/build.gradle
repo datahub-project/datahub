@@ -41,6 +41,7 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.assertJ
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
   testImplementation externalDependency.classGraph

@@ -365,6 +365,7 @@ def _restore(
     restore_indices: Optional[bool],
     primary_restore_file: Optional[str],
 ) -> int:
+    _resolve_token_service_secrets()
     assert restore_primary or restore_indices, (
         "Either restore_primary or restore_indices must be set"
     )
@@ -419,7 +420,8 @@ GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
 KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 SCHEMA_REGISTRY_TYPE=INTERNAL
-
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
+DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
 ELASTICSEARCH_HOST=search
 ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
 ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true

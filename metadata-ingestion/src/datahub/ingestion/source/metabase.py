@@ -139,46 +139,13 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
-    on PostgreSQL and H2 database.
+    Source that extracts dashboards, charts, and collections from Metabase via REST API.
 
-    ### Collection
-
-    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
-    retrieve the available collections.
-
-    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
-
-     ### Dashboard
-
-    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the dashboard in Metabase
-    - Associated charts
-
-    ### Chart
-
-    [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
-    retrieve the following information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the chart in Metabase
-    - Datasource and lineage
-
-    The following properties for a chart are ingested in DataHub.
-
-    | Name          | Description                                     |
-    | ------------- | ----------------------------------------------- |
-    | `Dimensions`  | Column names                                    |
-    | `Filters`     | Any filters applied to the chart                |
-    | `Metrics`     | All columns that are being used for aggregation |
-
-
+    Implementation notes:
+    - Uses Metabase API for metadata extraction
+    - Parses native SQL queries for lineage extraction
+    - Maps Metabase database engines to DataHub platforms via engine_platform_map
+    - Only tested with PostgreSQL and H2; other databases may work but are not validated
     """
 
     config: MetabaseConfig

@@ -308,6 +308,9 @@
                         },
                         "name": "avro",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database/avro",
+                        "lastModified": {
+                            "time": 1623248255000
+                        },
                         "tags": []
                     }
                 },
@@ -563,6 +566,9 @@
                         },
                         "name": "test_jsons_markers",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_jsons_markers",
+                        "lastModified": {
+                            "time": 1622635619000
+                        },
                         "tags": []
                     }
                 },
@@ -780,6 +786,9 @@
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_parquet",
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
                         "tags": []
                     }
                 },

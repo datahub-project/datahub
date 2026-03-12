@@ -186,6 +186,19 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
 </details>
 
 <details>
+  <summary>Claude Code</summary>
+
+Claude Code natively supports streamable HTTP, so no proxy or additional dependencies are needed.
+
+Run the following command, replacing `<tenant>` and `<token>` with your own values:
+
+```bash
+claude mcp add --transport http datahub-cloud "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+```
+
+</details>
+
+<details>
   <summary>Cursor</summary>
 
 1. Make sure you're using Cursor v1.1 or newer.
@@ -273,6 +286,20 @@ These are passed to the `mcp-server-datahub` process at startup (see configurati
     }
   }
 }
+```
+
+</details>
+
+<details>
+  <summary>Claude Code</summary>
+
+Run the following command, replacing the placeholder values:
+
+```bash
+claude mcp add datahub \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  -- uvx mcp-server-datahub@latest
 ```
 
 </details>

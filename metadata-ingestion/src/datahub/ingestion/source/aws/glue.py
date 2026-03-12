@@ -38,6 +38,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -118,6 +119,7 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
     SchemaMetadataClass,
     TagAssociationClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -286,77 +288,13 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 )
 class GlueSource(StatefulIngestionSourceBase):
     """
-    Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+    Source that extracts tables, databases, and jobs from AWS Glue Data Catalog.
 
-    This plugin extracts the following:
-
-    - Tables in the Glue catalog
-    - Column types associated with each table
-    - Table metadata, such as owner, description and parameters
-    - Jobs and their component transformations, data sources, and data sinks
-
-    ### IAM permissions
-
-    For ingesting datasets, the following IAM permissions are required:
-    ```json
-    {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetDatabases",
-            "glue:GetTables"
-        ],
-        "Resource": [
-            "arn:aws:glue:$region-id:$account-id:catalog",
-            "arn:aws:glue:$region-id:$account-id:database/*",
-            "arn:aws:glue:$region-id:$account-id:table/*"
-        ]
-    }
-    ```
-
-    For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
-    ```json
-    {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetDataflowGraph",
-            "glue:GetJobs",
-            "s3:GetObject",
-        ],
-        "Resource": "*"
-    }
-    ```
-
-    For profiling datasets, the following additional permissions are required:
-    ```json
-        {
-        "Effect": "Allow",
-        "Action": [
-            "glue:GetPartitions",
-        ],
-        "Resource": "*"
-    }
-    ```
-
-    ### Glue Cross-account Access
-
-    Glue ingestion supports cross-account access and lineage by allowing you to specify the target AWS account's Glue catalog using the `catalog_id` parameter in the ingestion recipe.
-    This enables ingestion of Glue metadata from different AWS accounts, supporting cross-account lineage scenarios.
-    You must ensure the correct IAM roles and permissions are set up for cross-account access.
-
-    Example: There are 2 AWS accounts A and B, A has shared metadata with B. Account A has Glue table - tableA.
-    If you ingest account A using Glue it will create dataset tableA in DataHub.
-    If you want to ingest tableA via account B you can pass `catalog_id` parameter in recipe with A's catalog id.
-
-    **Ingestion without platform instance parameter**
-    - If both catalogs are ingested without platform instance parameter, DataHub should be able to understand that the database and tables are same
-    - DataHub will create single entity for table tableA
-    - It should show lineage between Glue and S3.
-      You have to ingest S3 as separate source (https://docs.datahub.com/docs/generated/ingestion/sources/s3)
-
-    **Ingestion with platform instance parameter**
-    - It will create separate entities for tableA as it will have different URN path
-    - It should show lineage between Glue and S3
-
+    Implementation notes:
+    - Uses boto3 Glue client to fetch metadata
+    - Supports cross-account access via catalog_id parameter
+    - Job lineage extraction requires Glue Studio scripts with proper annotations
+    - Caches LF tags to reduce API calls
     """
 
     source_config: GlueSourceConfig
@@ -947,55 +885,55 @@ class GlueSource(StatefulIngestionSourceBase):
 
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
-                if is_s3_uri(location):
-                    s3_dataset_urn = make_s3_urn_for_lineage(
-                        location, self.source_config.env
-                    )
-                    assert self.ctx.graph
-                    schema_metadata_for_s3: Optional[SchemaMetadataClass] = (
-                        self.ctx.graph.get_schema_metadata(s3_dataset_urn)
-                    )
+                if not is_s3_uri(location):
+                    return None
+                s3_dataset_urn = make_s3_urn_for_lineage(
+                    location, self.source_config.env
+                )
 
-                    if self.source_config.glue_s3_lineage_direction == "upstream":
-                        fine_grained_lineages = None
-                        if (
-                            self.source_config.include_column_lineage
-                            and schema_metadata
-                            and schema_metadata_for_s3
-                        ):
-                            fine_grained_lineages = self.get_fine_grained_lineages(
-                                mce.proposedSnapshot.urn,
-                                s3_dataset_urn,
-                                schema_metadata,
-                                schema_metadata_for_s3,
-                            )
-                        upstream_lineage = UpstreamLineageClass(
-                            upstreams=[
-                                UpstreamClass(
-                                    dataset=s3_dataset_urn,
-                                    type=DatasetLineageTypeClass.COPY,
-                                )
-                            ],
-                            fineGrainedLineages=fine_grained_lineages or None,
+                if self.source_config.glue_s3_lineage_direction == "upstream":
+                    if self.ctx.graph:
+                        schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
+                            s3_dataset_urn
                         )
-                        return MetadataChangeProposalWrapper(
-                            entityUrn=mce.proposedSnapshot.urn,
-                            aspect=upstream_lineage,
-                        ).as_workunit()
                     else:
-                        # Need to mint the s3 dataset with upstream lineage from it to glue
-                        upstream_lineage = UpstreamLineageClass(
-                            upstreams=[
-                                UpstreamClass(
-                                    dataset=mce.proposedSnapshot.urn,
-                                    type=DatasetLineageTypeClass.COPY,
-                                )
-                            ]
+                        schema_metadata_for_s3 = None
+
+                    fine_grained_lineages = None
+                    if self.source_config.include_column_lineage and schema_metadata:
+                        fine_grained_lineages = self.get_fine_grained_lineages(
+                            mce.proposedSnapshot.urn,
+                            s3_dataset_urn,
+                            schema_metadata,
+                            schema_metadata_for_s3 or schema_metadata,
                         )
-                        return MetadataChangeProposalWrapper(
-                            entityUrn=s3_dataset_urn,
-                            aspect=upstream_lineage,
-                        ).as_workunit()
+                    upstream_lineage = UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=s3_dataset_urn,
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ],
+                        fineGrainedLineages=fine_grained_lineages or None,
+                    )
+                    return MetadataChangeProposalWrapper(
+                        entityUrn=mce.proposedSnapshot.urn,
+                        aspect=upstream_lineage,
+                    ).as_workunit()
+                else:
+                    # Need to mint the s3 dataset with upstream lineage from it to glue
+                    upstream_lineage = UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=mce.proposedSnapshot.urn,
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ]
+                    )
+                    return MetadataChangeProposalWrapper(
+                        entityUrn=s3_dataset_urn,
+                        aspect=upstream_lineage,
+                    ).as_workunit()
         return None
 
     def get_fine_grained_lineages(
@@ -1510,6 +1448,12 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        last_modified = None
+        if table.get("UpdateTime"):
+            updated_ts = make_ts_millis(table["UpdateTime"])
+            if updated_ts is not None:
+                last_modified = TimeStampClass(updated_ts)
+
         return DatasetPropertiesClass(
             description=table.get("Description"),
             customProperties=custom_properties,
@@ -1521,6 +1465,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            lastModified=last_modified,
         )
 
     def _get_schema_metadata(
