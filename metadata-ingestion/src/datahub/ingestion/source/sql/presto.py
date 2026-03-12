@@ -11,14 +11,14 @@ from sqlalchemy.engine.base import Engine
 from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SourceCapability,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
-    SourceCapability,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,

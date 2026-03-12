@@ -17,14 +17,14 @@ from sqlglot.dialects.dialect import NormalizationStrategy
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SourceCapability,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
-    SourceCapability,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig

@@ -9,14 +9,14 @@ from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SourceCapability,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
-    SourceCapability,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,

@@ -39,14 +39,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SourceCapability,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
-    SourceCapability,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph

@@ -20,14 +20,14 @@ from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SourceCapability,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
-    SourceCapability,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit

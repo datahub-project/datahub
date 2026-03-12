@@ -11,13 +11,13 @@ from typing import Dict, Iterable, List, Optional, Union
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.incremental_properties_helper import (

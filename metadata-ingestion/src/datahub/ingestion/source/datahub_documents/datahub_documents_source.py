@@ -20,12 +20,12 @@ from typing import Any, Dict, Iterable, Optional, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    config_class,
     IngestionSourceCategory,
+    SupportStatus,
+    config_class,
     platform_name,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit

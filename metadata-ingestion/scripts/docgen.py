@@ -332,7 +332,9 @@ def create_plugin_from_capability_data(
 
         # Backfill source category from source class when connector registry data
         # is stale and doesn't include source_category yet.
-        if plugin.source_category is None and hasattr(source_type, "get_source_category"):
+        if plugin.source_category is None and hasattr(
+            source_type, "get_source_category"
+        ):
             source_category = source_type.get_source_category()
             if isinstance(source_category, IngestionSourceCategory):
                 plugin.source_category = source_category
@@ -401,7 +403,9 @@ def create_plugin_from_capability_data(
     return plugin
 
 
-def generate_source_category_manifest(out_dir: str, platforms: Dict[str, Platform]) -> None:
+def generate_source_category_manifest(
+    out_dir: str, platforms: Dict[str, Platform]
+) -> None:
     categories_to_sources: Dict[str, List[Tuple[str, str]]] = {}
 
     for platform_id, platform in platforms.items():
@@ -429,7 +433,9 @@ def generate_source_category_manifest(out_dir: str, platforms: Dict[str, Platfor
             (platform_id, platform.name)
         )
 
-    sorted_categories = sorted(categories_to_sources.items(), key=lambda x: x[0].casefold())
+    sorted_categories = sorted(
+        categories_to_sources.items(), key=lambda x: x[0].casefold()
+    )
     manifest_categories = []
     for category_name, source_entries in sorted_categories:
         sorted_source_entries = sorted(source_entries, key=lambda x: x[1].casefold())

@@ -22,12 +22,12 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    config_class,
     IngestionSourceCategory,
+    SupportStatus,
+    config_class,
     platform_name,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.source import CapabilityReport, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit

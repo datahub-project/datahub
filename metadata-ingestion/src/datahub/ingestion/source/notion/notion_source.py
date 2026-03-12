@@ -10,13 +10,13 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
+    SupportStatus,
     capability,
     config_class,
-    IngestionSourceCategory,
     platform_name,
     source_category,
     support_status,
-    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
