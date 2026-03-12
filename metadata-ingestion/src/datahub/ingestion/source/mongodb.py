@@ -256,7 +256,7 @@ def construct_schema_pymongo(
     return construct_schema(list(documents), delimiter)
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)
+@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)

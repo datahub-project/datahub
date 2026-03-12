@@ -175,7 +175,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 }
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)
+@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
 @platform_name("DynamoDB", id="dynamodb")
 @config_class(DynamoDBConfig)
 @support_status(SupportStatus.INCUBATING)

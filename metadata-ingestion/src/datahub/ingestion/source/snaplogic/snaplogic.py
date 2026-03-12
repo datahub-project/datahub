@@ -58,7 +58,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
 @platform_name("SnapLogic")
 @config_class(SnaplogicConfig)
 @support_status(SupportStatus.TESTING)

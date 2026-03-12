@@ -189,7 +189,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

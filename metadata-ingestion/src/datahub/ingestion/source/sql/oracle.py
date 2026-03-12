@@ -1239,7 +1239,7 @@ def _parse_oracle_procedure_dependencies(
     return input_jobs
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Oracle")
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)

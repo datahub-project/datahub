@@ -172,7 +172,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
 @support_status(SupportStatus.TESTING)

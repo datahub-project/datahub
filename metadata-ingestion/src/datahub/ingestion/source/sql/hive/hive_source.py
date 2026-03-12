@@ -156,7 +156,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         return config_clean.remove_protocol(v)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Hive")
 @config_class(HiveConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -134,7 +134,7 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)

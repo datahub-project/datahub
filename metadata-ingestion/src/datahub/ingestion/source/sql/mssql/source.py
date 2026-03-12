@@ -354,7 +354,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return self.database
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.CERTIFIED)

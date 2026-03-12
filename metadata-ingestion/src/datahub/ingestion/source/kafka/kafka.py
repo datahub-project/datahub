@@ -224,7 +224,7 @@ class KafkaConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)
+@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

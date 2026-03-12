@@ -127,7 +127,7 @@ class FeastRepositorySourceConfig(
     )
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)
+@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
 @platform_name("Feast")
 @config_class(FeastRepositorySourceConfig)
 @support_status(SupportStatus.CERTIFIED)

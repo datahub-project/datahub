@@ -470,7 +470,7 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 
 
 # allowRemoteAccess
-@SourceCategory(IngestionSourceCategory.ORCHESTRATOR)
+@SourceCategory(IngestionSourceCategory.ORCHESTRATOR)  # pragma: no cover
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

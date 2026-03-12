@@ -199,7 +199,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 #
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
 @platform_name("Okta")
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -121,7 +121,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
 @support_status(SupportStatus.CERTIFIED)

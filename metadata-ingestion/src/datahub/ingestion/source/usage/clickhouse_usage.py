@@ -84,7 +84,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
         return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("ClickHouse", id="clickhouse-usage")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)

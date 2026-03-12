@@ -94,7 +94,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
         self.processing_errors.append(error)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DataHubDocumentsSourceConfig)

@@ -92,7 +92,7 @@ class DataHubGcSourceReport(
     expired_tokens_revoked: int = 0
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHubGc")
 @config_class(DataHubGcSourceConfig)
 @support_status(SupportStatus.TESTING)

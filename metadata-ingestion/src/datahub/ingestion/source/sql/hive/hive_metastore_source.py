@@ -56,7 +56,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)

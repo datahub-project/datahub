@@ -74,7 +74,7 @@ class KeyspaceKey(ContainerKey):
     keyspace: str
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)
+@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
 @platform_name("Cassandra")
 @config_class(CassandraSourceConfig)
 @support_status(SupportStatus.INCUBATING)

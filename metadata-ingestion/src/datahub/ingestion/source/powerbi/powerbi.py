@@ -1533,7 +1533,7 @@ class Mapper:
                 yield self._to_user_work_unit(mcp)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

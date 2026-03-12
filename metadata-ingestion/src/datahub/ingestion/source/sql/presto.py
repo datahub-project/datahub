@@ -93,7 +93,7 @@ class PrestoConfig(TrinoConfig):
     scheme: HiddenFromDocs[str] = Field(default="presto")
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Presto", doc_order=1)
 @config_class(PrestoConfig)
 @support_status(SupportStatus.CERTIFIED)

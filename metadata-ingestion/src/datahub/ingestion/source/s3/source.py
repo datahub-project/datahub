@@ -186,7 +186,7 @@ class TableData:
     content_type: Optional[str] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -121,7 +121,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
 @platform_name("Iceberg")
 @support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)

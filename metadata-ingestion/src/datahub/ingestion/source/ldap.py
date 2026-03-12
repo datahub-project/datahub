@@ -201,7 +201,7 @@ def guess_person_ldap(
         return None
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

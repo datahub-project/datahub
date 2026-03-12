@@ -511,7 +511,7 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)

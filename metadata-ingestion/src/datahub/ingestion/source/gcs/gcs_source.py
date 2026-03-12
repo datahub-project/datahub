@@ -88,7 +88,7 @@ class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)

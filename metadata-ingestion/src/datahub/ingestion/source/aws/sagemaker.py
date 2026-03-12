@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)
+@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

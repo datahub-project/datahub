@@ -69,7 +69,7 @@ GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.OBSERVABILITY)
+@SourceCategory(IngestionSourceCategory.OBSERVABILITY)  # pragma: no cover
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

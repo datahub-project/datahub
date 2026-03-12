@@ -107,7 +107,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
 @support_status(SupportStatus.INCUBATING)

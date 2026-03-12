@@ -531,7 +531,7 @@ class SalesforceApi:
         return sobject_record_counts[0]
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
 @support_status(SupportStatus.CERTIFIED)

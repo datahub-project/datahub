@@ -358,7 +358,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
             super().info(*args, **kwargs)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)

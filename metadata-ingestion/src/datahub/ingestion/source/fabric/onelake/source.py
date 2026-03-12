@@ -103,7 +103,7 @@ class WarehouseSchemaKey(WarehouseKey):
     schema_name: str
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Fabric OneLake")
 @config_class(FabricOneLakeSourceConfig)
 @support_status(SupportStatus.TESTING)

@@ -288,7 +288,7 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)

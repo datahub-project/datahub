@@ -137,7 +137,7 @@ class LineageConfig(VersionedConfig):
             raise ValueError("Only version 1 is supported")
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

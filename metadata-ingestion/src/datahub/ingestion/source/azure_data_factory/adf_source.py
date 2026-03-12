@@ -199,7 +199,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
     factory_name: str
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
 @platform_name("Azure Data Factory")
 @config_class(AzureDataFactoryConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -120,7 +120,7 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
         super().__init__(**data)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name(platform_name="JSON Schemas", id="json-schema")
 @config_class(JsonSchemaSourceConfig)
 @support_status(SupportStatus.INCUBATING)

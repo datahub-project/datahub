@@ -110,7 +110,7 @@ def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
 @support_status(SupportStatus.TESTING)

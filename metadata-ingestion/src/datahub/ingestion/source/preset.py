@@ -74,7 +74,7 @@ class PresetConfig(SupersetConfig):
         return self
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Preset")
 @config_class(PresetConfig)
 @support_status(SupportStatus.CERTIFIED)

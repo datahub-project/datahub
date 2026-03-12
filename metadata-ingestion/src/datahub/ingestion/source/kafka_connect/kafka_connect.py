@@ -51,7 +51,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)
+@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
 @platform_name("Kafka Connect")
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

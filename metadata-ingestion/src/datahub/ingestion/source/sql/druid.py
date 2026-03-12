@@ -60,7 +60,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
         return f"{table}"
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Druid")
 @config_class(DruidConfig)
 @support_status(SupportStatus.INCUBATING)

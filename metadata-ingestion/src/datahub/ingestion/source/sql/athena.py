@@ -342,7 +342,7 @@ class Partitionitem:
     max_partition: Optional[Dict[str, str]] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Athena")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(AthenaConfig)

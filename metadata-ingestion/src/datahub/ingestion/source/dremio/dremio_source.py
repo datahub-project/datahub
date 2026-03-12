@@ -146,7 +146,7 @@ class DremioSourceMapEntry:
     env: Optional[str] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Dremio")
 @config_class(DremioSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

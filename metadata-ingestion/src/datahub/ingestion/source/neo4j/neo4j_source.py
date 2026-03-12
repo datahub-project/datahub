@@ -62,7 +62,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
     obj_created: int = 0
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)
+@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @capability(

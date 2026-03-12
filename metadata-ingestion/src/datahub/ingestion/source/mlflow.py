@@ -137,7 +137,7 @@ class MLflowRegisteredModelStageInfo:
     color_hex: str
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)
+@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
 @platform_name("MLflow")
 @config_class(MLflowConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -28,7 +28,7 @@ class DataHubDebugSourceConfig(ConfigModel):
     dns_probe_url: Optional[str] = None
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
 @support_status(SupportStatus.TESTING)

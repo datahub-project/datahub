@@ -281,7 +281,7 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         return self
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Postgres")
 @config_class(PostgresConfig)
 @support_status(SupportStatus.CERTIFIED)

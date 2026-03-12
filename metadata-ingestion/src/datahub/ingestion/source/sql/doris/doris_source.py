@@ -93,7 +93,7 @@ class DorisConfig(MySQLConfig):
     )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
 @support_status(SupportStatus.INCUBATING)

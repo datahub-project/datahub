@@ -111,7 +111,7 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("MySQL")
 @config_class(MySQLConfig)
 @support_status(SupportStatus.CERTIFIED)

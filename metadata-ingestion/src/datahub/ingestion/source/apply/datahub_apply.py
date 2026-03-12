@@ -146,7 +146,7 @@ class DataHubApplyConfig(ConfigModel):
     )
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHubApply")
 @config_class(DataHubApplyConfig)
 @support_status(SupportStatus.TESTING)

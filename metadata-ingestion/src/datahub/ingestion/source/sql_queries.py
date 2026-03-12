@@ -121,7 +121,7 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.INCUBATING)

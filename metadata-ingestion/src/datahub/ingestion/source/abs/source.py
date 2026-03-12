@@ -126,7 +126,7 @@ class TableData:
     number_of_files: int
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)

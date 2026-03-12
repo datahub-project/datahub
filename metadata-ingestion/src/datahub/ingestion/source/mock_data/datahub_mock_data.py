@@ -154,7 +154,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)

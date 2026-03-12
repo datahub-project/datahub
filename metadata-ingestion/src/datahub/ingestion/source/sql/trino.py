@@ -266,7 +266,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         return f"{self.database}.{schema}.{table}"
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)

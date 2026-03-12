@@ -23,7 +23,7 @@ class HanaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="hana+hdbcli")
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
 @support_status(SupportStatus.TESTING)

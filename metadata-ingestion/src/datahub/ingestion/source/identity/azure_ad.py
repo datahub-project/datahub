@@ -166,7 +166,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)

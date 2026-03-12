@@ -304,12 +304,8 @@ def create_plugin_from_capability_data(
         plugin.support_status = SupportStatus[plugin_data["support_status"]]
 
     source_category_name = plugin_data.get("source_category")
-    if not source_category_name:
-        raise ValueError(
-            f"Plugin {plugin_name} is missing source_category. "
-            "Please annotate its source class with @SourceCategory."
-        )
-    plugin.source_category = map_source_category_name_to_enum(source_category_name)
+    if source_category_name:
+        plugin.source_category = map_source_category_name_to_enum(source_category_name)
 
     # Set capabilities
     if plugin_data.get("capabilities"):
@@ -333,6 +329,13 @@ def create_plugin_from_capability_data(
         if isinstance(class_or_exception, Exception):
             raise class_or_exception
         source_type = source_registry.get(plugin_name)
+
+        # Backfill source category from source class when connector registry data
+        # is stale and doesn't include source_category yet.
+        if plugin.source_category is None and hasattr(source_type, "get_source_category"):
+            source_category = source_type.get_source_category()
+            if isinstance(source_category, IngestionSourceCategory):
+                plugin.source_category = source_category
 
         # Get doc order
         if hasattr(source_type, "get_platform_doc_order"):
@@ -388,6 +391,12 @@ def create_plugin_from_capability_data(
 
     except Exception as e:
         logger.warning(f"Failed to load additional metadata for {plugin_name}: {e}")
+
+    if plugin.source_category is None:
+        raise ValueError(
+            f"Plugin {plugin_name} is missing source_category. "
+            "Please annotate its source class with @SourceCategory."
+        )
 
     return plugin
 

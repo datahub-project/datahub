@@ -11,7 +11,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("MariaDB")
 @config_class(MySQLConfig)
 @support_status(SupportStatus.CERTIFIED)

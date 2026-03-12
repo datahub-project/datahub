@@ -24,7 +24,7 @@ class CockroachDBConfig(PostgresConfig):
     )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("CockroachDB")
 @config_class(CockroachDBConfig)
 @support_status(SupportStatus.TESTING)

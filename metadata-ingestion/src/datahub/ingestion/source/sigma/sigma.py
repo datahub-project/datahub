@@ -95,7 +95,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)

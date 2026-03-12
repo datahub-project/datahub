@@ -266,7 +266,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(table)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -42,7 +42,7 @@ from datahub.utilities.progress_timer import ProgressTimer
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)

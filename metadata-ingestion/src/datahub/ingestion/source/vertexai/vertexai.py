@@ -96,7 +96,7 @@ from datahub.utilities.ratelimiter import RateLimiter
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)
+@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
 @platform_name("Vertex AI", id=PLATFORM)
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)

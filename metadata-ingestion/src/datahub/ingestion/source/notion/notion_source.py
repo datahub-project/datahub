@@ -41,7 +41,7 @@ from datahub.ingestion.source.unstructured.document_builder import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("Notion")
 @config_class(NotionSourceConfig)
 @support_status(SupportStatus.INCUBATING)

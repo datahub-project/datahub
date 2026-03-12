@@ -113,7 +113,7 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Trino", id="starburst-trino-usage")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)

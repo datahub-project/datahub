@@ -64,7 +64,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         return self.connect_uri
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -569,7 +569,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Teradata")
 @config_class(TeradataConfig)
 @support_status(SupportStatus.TESTING)

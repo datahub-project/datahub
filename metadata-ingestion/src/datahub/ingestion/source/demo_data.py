@@ -21,7 +21,7 @@ class DemoDataConfig(ConfigModel):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("Demo Data")
 @config_class(DemoDataConfig)
 @support_status(SupportStatus.UNKNOWN)

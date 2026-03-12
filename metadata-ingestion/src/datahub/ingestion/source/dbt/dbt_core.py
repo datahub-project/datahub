@@ -633,7 +633,7 @@ def load_run_results(
     return all_nodes
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
 @support_status(SupportStatus.CERTIFIED)

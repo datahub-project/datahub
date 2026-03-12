@@ -367,7 +367,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 """
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)

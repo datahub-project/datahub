@@ -477,7 +477,7 @@ class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_reports.append(view)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)

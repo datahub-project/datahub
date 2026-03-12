@@ -96,7 +96,7 @@ class DocumentChunkingReport(SourceReport):
         self.embedding_failures.append(f"{document_urn}: {error}")
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("DataHub")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DocumentChunkingSourceConfig)

@@ -113,7 +113,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         return config_clean.remove_protocol(v)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Vertica")
 @config_class(VerticaConfig)
 @support_status(SupportStatus.CERTIFIED)

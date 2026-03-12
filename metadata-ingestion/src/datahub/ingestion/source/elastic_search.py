@@ -359,7 +359,7 @@ class ElasticsearchSourceConfig(
         )
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)
+@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

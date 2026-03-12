@@ -323,7 +323,7 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(item)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)

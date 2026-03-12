@@ -60,7 +60,7 @@ from datahub.sdk.document import Document
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
 @support_status(SupportStatus.INCUBATING)

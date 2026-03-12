@@ -107,7 +107,7 @@ class PulsarSchema:
         self.properties = schema.get("properties")
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)
+@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
 @platform_name("Pulsar")
 @support_status(SupportStatus.INCUBATING)
 @config_class(PulsarSourceConfig)

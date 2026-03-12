@@ -58,7 +58,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
 @platform_name("Dataplex", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)

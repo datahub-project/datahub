@@ -227,7 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.INCUBATING)

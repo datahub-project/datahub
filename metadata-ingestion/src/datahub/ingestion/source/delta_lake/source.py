@@ -84,7 +84,7 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
