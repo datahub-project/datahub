@@ -312,6 +312,7 @@ class QueryProjector:
         self._schema_fetch_failed: bool = False
         self._schema_lock: threading.Lock = threading.Lock()
         self._schema_generation: int = 0
+        self._fetching_schema: bool = False
 
         # Tier 1 — inline cache: query_string -> inlined DocumentNode
         # Pure function of query text, no schema dependency. Never invalidated.
@@ -348,6 +349,13 @@ class QueryProjector:
             RequiredFieldUnsupportedError: If any required_fields would be removed.
             Exception: If query parsing or schema introspection fails.
         """
+        # Guard against re-entry (e.g. introspection query routed back through projection)
+        if self._fetching_schema:
+            raise RuntimeError(
+                "QueryProjector.adapt_query called re-entrantly during schema fetch. "
+                "Ensure the introspection call uses strip_unsupported_fields=False."
+            )
+
         # Get the server schema (cached with commit-hash + TTL invalidation)
         schema = self._get_schema(graph)
 
@@ -582,9 +590,8 @@ class QueryProjector:
 
         introspection_query = get_introspection_query()
 
+        self._fetching_schema = True
         try:
-            # Execute introspection query with strip_unsupported_fields=False
-            # to avoid recursion (the projector itself calls execute_graphql)
             result = graph.execute_graphql(
                 introspection_query, strip_unsupported_fields=False
             )
@@ -603,3 +610,5 @@ class QueryProjector:
         except Exception as e:
             logger.error(f"Failed to introspect server schema: {e}")
             raise
+        finally:
+            self._fetching_schema = False
