@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';

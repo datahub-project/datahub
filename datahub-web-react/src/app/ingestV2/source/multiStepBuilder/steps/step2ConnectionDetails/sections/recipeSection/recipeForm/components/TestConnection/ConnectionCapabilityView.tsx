@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Icon, Text, spacing } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';

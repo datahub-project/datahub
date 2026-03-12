@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';

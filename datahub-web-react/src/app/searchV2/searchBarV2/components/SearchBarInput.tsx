@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';

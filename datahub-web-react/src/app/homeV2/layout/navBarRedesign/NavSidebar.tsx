@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import { BookBookmark } from '@phosphor-icons/react/dist/csr/BookBookmark';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';

@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';

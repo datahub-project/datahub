@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { ApiOutlined } from '@ant-design/icons';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';

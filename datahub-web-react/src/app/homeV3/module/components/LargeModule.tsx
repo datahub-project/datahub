@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
 import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';

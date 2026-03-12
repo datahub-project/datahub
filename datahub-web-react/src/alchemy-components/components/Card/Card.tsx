@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';

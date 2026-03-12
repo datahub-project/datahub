@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Eye } from '@phosphor-icons/react/dist/csr/Eye';

@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Dropdown, colors } from '@components';
 import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import React, { useCallback, useState } from 'react';

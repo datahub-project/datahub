@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { message } from 'antd';

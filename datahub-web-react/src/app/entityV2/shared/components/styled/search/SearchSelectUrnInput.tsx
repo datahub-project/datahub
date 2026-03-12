@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';

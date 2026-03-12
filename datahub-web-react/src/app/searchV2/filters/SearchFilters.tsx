@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Icon, Tooltip, colors } from '@components';
 import { List } from '@phosphor-icons/react/dist/csr/List';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';

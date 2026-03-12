@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, Pill, StructuredPopover, Switch } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Card, Divider } from 'antd';

@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { useApolloClient } from '@apollo/client';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';

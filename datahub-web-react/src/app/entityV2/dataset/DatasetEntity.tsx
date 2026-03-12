@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import {
     CheckCircleOutlined,
     CodeOutlined,

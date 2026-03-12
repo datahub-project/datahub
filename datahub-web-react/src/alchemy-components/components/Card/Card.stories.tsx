@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
 import { Download } from '@phosphor-icons/react/dist/csr/Download';

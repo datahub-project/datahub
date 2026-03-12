@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { colors } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import styled from 'styled-components';

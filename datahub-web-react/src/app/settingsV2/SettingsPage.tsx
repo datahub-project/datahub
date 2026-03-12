@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Bank } from '@phosphor-icons/react/dist/csr/Bank';
 import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';

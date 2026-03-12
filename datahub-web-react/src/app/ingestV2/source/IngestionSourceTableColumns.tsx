@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
 import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';

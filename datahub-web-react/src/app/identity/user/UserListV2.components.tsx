@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';

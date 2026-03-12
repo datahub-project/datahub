@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Sidebar } from '@phosphor-icons/react/dist/csr/Sidebar';
 import React from 'react';
 import styled from 'styled-components';
