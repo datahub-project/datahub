@@ -84,6 +84,8 @@ To create and manage Monitoring Rules, you must have the **`Manage Tests`** plat
 
 You can create and manage Monitoring Rules from the **Data Health Dashboard** by clicking the **Monitoring Rules** button.
 
+<div align="center"><iframe width="561" height="409" src="https://www.loom.com/embed/6b372ee252e840dbb504cc2561e88712" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
 ### Automatic Lifecycle Management
 
 Monitoring Rules are continuously evaluated as your data landscape evolves:

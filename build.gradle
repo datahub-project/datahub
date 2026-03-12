@@ -62,6 +62,7 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
   ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
+  ext.nettyVersion = '4.1.130.Final' // CVE-2025-55163, CVE-2025-58056, CVE-2025-67735; align all io.netty modules
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -472,6 +473,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
         details.because("Jackson aligned to ${v}")
       }
+      // Align all Netty modules to nettyVersion (e.g. from awssdk netty-nio-client).
+      // Exclude netty-tcnative-*: they use a separate 2.x version line and have no 4.1.x release.
+      if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
+        details.useVersion(rootProject.ext.nettyVersion)
+        details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
     }
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
@@ -616,11 +623,13 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.130.Final')
-        implementation('io.netty:netty-codec:4.1.130.Final') // CVE-2025-58057
-        implementation('io.netty:netty-resolver-dns-native-macos:4.1.130.Final')
-        implementation('io.netty:netty-transport-native-epoll:4.1.130.Final')
-        implementation('io.netty:netty-transport-native-kqueue:4.1.130.Final')
+        implementation("io.netty:netty-all:${rootProject.ext.nettyVersion}")
+        implementation("io.netty:netty-codec:${rootProject.ext.nettyVersion}") // CVE-2025-58057
+        implementation("io.netty:netty-handler:${rootProject.ext.nettyVersion}")
+        implementation("io.netty:netty-resolver-dns-native-macos:${rootProject.ext.nettyVersion}")
+        implementation("io.netty:netty-transport-native-epoll:${rootProject.ext.nettyVersion}")
+        implementation("io.netty:netty-transport-native-kqueue:${rootProject.ext.nettyVersion}")
+        implementation("io.netty:netty-transport-native-unix-common:${rootProject.ext.nettyVersion}")
         implementation('io.projectreactor.netty:reactor-netty-core:1.2.13')
         implementation('io.projectreactor.netty:reactor-netty-http:1.2.13')
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
