@@ -66,9 +66,12 @@ def execute_graphql(
     )
 
     try:
-        # Execute the GraphQL query
+        # Execute the GraphQL query with projection enabled for agentic callers
         result = graph.execute_graphql(
-            query=query, variables=variables, operation_name=operation_name
+            query=query,
+            variables=variables,
+            operation_name=operation_name,
+            strip_unsupported_fields=True,
         )
         return result
 
@@ -107,6 +110,7 @@ def execute_graphql(
                     query=fallback_query,
                     variables=variables,
                     operation_name=operation_name,
+                    strip_unsupported_fields=True,
                 )
                 logger.info(
                     f"Fallback query succeeded without newer GMS fields for operation: {operation_name}"
