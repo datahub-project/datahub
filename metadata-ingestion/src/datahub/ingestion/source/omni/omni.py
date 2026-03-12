@@ -134,6 +134,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._model_context_by_id: Dict[str, Dict[str, Optional[str]]] = {}
         self._topic_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._view_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._current_tile_model_id: Optional[str] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "OmniSource":
@@ -730,7 +731,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.connections_scanned += 1
                 yield from self._ensure_connection_dataset(connection_id, connection)
         except Exception as exc:
-            self.report.report_warning(
+            self.report.warning(
                 "connections-fetch",
                 f"Failed to fetch Omni connections; proceeding with config overrides only: {exc}",
             )
@@ -824,7 +825,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 model_yaml_payload = self.client.get_model_yaml(model_id)
             except Exception as exc:
-                self.report.report_warning(
+                self.report.warning(
                     "model-yaml-fetch",
                     f"Failed to fetch model YAML for {model_id}: {exc}",
                 )
@@ -842,7 +843,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 try:
                     topic = self.client.get_topic(model_id, topic_name)
                 except Exception as exc:
-                    self.report.report_warning(
+                    self.report.warning(
                         "topic-fetch",
                         f"Failed to fetch topic {topic_name} for model {model_id}; using YAML fallback: {exc}",
                     )
@@ -951,7 +952,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if yt.get("views"):
                 yield from self._ingest_topic_payload(topic=yt, **kwargs)  # type: ignore[arg-type]
             else:
-                self.report.report_warning(
+                self.report.warning(
                     "topic-fetch-from-dashboard",
                     f"Failed to fetch topic {topic_name} for model {model_id}: {exc}",
                 )
@@ -969,10 +970,17 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         dashboard_topics: Set[str],
         dashboard_topic_urns: Set[str],
     ) -> Iterator[MetadataWorkUnit]:
-        """Fetch dashboard payload and populate tile/topic state dicts. Yields topic ingestion workunits."""
+        """Fetch dashboard payload and populate tile/topic state dicts.
+
+        Yields topic ingestion workunits and stores the resolved modelId in
+        ``self._current_tile_model_id`` as a side-effect. Callers should read
+        that attribute after exhausting this generator.
+        """
+        self._current_tile_model_id = None
         try:
             dashboard_payload = self.client.get_dashboard_document(doc_id)
             model_id = dashboard_payload.get("modelId")
+            self._current_tile_model_id = model_id
             for idx, qp in enumerate(dashboard_payload.get("queryPresentations", [])):
                 qp_id = qp.get("id") or f"{doc_id}:{idx}"
                 chart_ids.append(qp_id)
@@ -1006,17 +1014,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     chart_inputs[qp_id].add(topic_urn)
                     dashboard_topic_urns.add(topic_urn)
                 chart_urls[qp_id] = f"{dashboard_url}?queryPresentationId={qp_id}"
-            return model_id  # type: ignore[return-value]  # caller reads via StopIteration value
         except Exception as exc:
-            self.report.report_warning(
+            self.report.warning(
                 "dashboard-document-fetch",
                 f"Failed to fetch dashboard payload for {doc_id}: {exc}",
             )
-        return None  # type: ignore[return-value]
 
     def _emit_inferred_view_datasets(
         self,
-        doc_id: str,
         model_id: str,
         fields_by_dashboard: Set[Any],
         dashboard_topic_urns: Set[str],
@@ -1170,17 +1175,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             dashboard_topic_urns: Set[str] = set()
 
             if has_dashboard:
-                tile_gen = self._collect_tile_data(
+                yield from self._collect_tile_data(
                     doc_id, dashboard_url, dashboard_title,
                     fields_by_dashboard, chart_ids, chart_inputs, chart_titles,
                     chart_urls, dashboard_topics, dashboard_topic_urns,
                 )
-                # Exhaust the generator to populate state; capture model_id via StopIteration
-                try:
-                    while True:
-                        yield next(tile_gen)
-                except StopIteration as si:
-                    model_id_from_dashboard = si.value
+                model_id_from_dashboard = self._current_tile_model_id
 
             try:
                 for query in self.client.get_document_queries(doc_id):
@@ -1190,7 +1190,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         parse_field_list((query.get("query") or {}).get("fields", []))
                     )
             except Exception as exc:
-                self.report.report_warning(
+                self.report.warning(
                     "document-queries-fetch",
                     f"Failed to fetch queries for {doc_id}: {exc}",
                 )
@@ -1207,7 +1207,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             if model_id_from_dashboard and fields_by_dashboard:
                 yield from self._emit_inferred_view_datasets(
-                    doc_id=doc_id,
                     model_id=model_id_from_dashboard,
                     fields_by_dashboard=fields_by_dashboard,
                     dashboard_topic_urns=dashboard_topic_urns,
@@ -1279,4 +1278,4 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._ingest_folders()
             yield from self._ingest_documents()
         except Exception as exc:
-            self.report.report_failure("omni-source", str(exc))
+            self.report.failure("omni-source", str(exc))
