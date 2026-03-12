@@ -14,6 +14,26 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@functools.lru_cache
+def provide_schema_resolver(
+    graph: "DataHubGraph",
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    batch_size: int = 100,
+) -> SchemaResolver:
+    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env).
+
+    Using a module-level cache ensures deduplication across all callers in the same
+    process, even when different SchemaResolverProvider instances are created.
+    """
+    return SchemaResolverProvider(graph=graph, batch_size=batch_size).get(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+    )
+
+
 class SchemaResolverProvider:
     """Creates and bulk-initializes SchemaResolver instances from DataHub.
 
