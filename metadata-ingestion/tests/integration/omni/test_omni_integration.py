@@ -18,8 +18,8 @@ from typing import Any, Dict, List
 
 import pytest
 import time_machine
-from datahub.ingestion.api.common import PipelineContext
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.omni.omni import OmniSource
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from tests.integration.omni.fixtures import (
