@@ -74,6 +74,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Chart, Dashboard, Dataset
 
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: OmniSourceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
         self.config = config
-        self.report = OmniSourceReport()
+        self.report: OmniSourceReport = OmniSourceReport()
         self.client = OmniClient(
             base_url=config.base_url,
             api_key=config.api_key,
@@ -338,7 +339,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         )
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            dataset.set_owners([(owner_urn, OwnershipTypeClass.DATAOWNER)])
+            dataset.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from dataset.as_workunits()
 
     def _emit_dashboard(
@@ -364,7 +365,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             external_url=external_url,
             dashboard_url=external_url,
             custom_properties=custom_properties,
-            parent_container=folder_urn,
+            parent_container=folder_urn,  # type: ignore[arg-type]
         )
         dashboard.set_charts(chart_urns)
         if updated_at:
@@ -375,7 +376,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 pass
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            dashboard.set_owners([(owner_urn, OwnershipTypeClass.DATAOWNER)])
+            dashboard.set_owners(
+                [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
+            )
         yield from dashboard.as_workunits()
 
     def _emit_chart(
@@ -410,7 +413,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 pass
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            chart.set_owners([(owner_urn, OwnershipTypeClass.DATAOWNER)])
+            chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from chart.as_workunits()
 
     # ------------------------------------------------------------------
@@ -803,8 +806,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         connections: Dict[str, Dict[str, object]] = {}
         try:
             connections = {
-                c.get("id"): c
+                str(c["id"]): c
                 for c in self.client.list_connections(self.config.include_deleted)
+                if c.get("id") is not None
             }
             self._connections_by_id = connections
             for connection_id, connection in connections.items():
@@ -846,15 +850,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self._model_dataset_urns.add(model_urn)
 
             connection_id = model.get("connectionId") or ""
-            connection = connections.get(connection_id)
+            connection: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
                 yield from self._ensure_connection_dataset(connection_id, connection)
-            platform = (connection or {}).get("dialect") or "database"
+            platform: str = str((connection or {}).get("dialect") or "database")
             if self.config.connection_to_platform:
                 platform = self.config.connection_to_platform.get(
                     connection_id, platform
                 )
-            database = (connection or {}).get("database") or ""
+            database: str = str((connection or {}).get("database") or "")
             if self.config.connection_to_database:
                 database = self.config.connection_to_database.get(
                     connection_id, database

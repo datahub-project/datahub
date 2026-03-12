@@ -62,7 +62,7 @@ def _build_source(extra_config: Dict[str, Any] | None = None) -> OmniSource:
         cfg.update(extra_config)
     config = OmniSourceConfig.model_validate(cfg)
     source = OmniSource(config, PipelineContext(run_id="test-integration"))
-    source.client = FakeOmniClientFull()
+    source.client = FakeOmniClientFull()  # type: ignore[assignment]
     return source
 
 
@@ -88,7 +88,9 @@ def _collect_workunits(source: OmniSource) -> List[Dict[str, Any]]:
                 "entityType": entity_type,
                 "entityUrn": urn,
                 "aspectName": aspect_name,
-                "aspect": aspect.to_obj() if hasattr(aspect, "to_obj") else {},
+                "aspect": aspect.to_obj()
+                if aspect is not None and hasattr(aspect, "to_obj")
+                else {},
             }
         )
     return events
@@ -522,7 +524,7 @@ def test_topic_fetch_failure_falls_back_to_yaml() -> None:
         def get_topic(self, model_id: str, topic_name: str) -> dict:
             raise RuntimeError(f"404 Not Found: {topic_name}")
 
-    source.client = _NoTopicClient()
+    source.client = _NoTopicClient()  # type: ignore[assignment]
     events = _collect_workunits(source)
 
     orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
@@ -544,7 +546,7 @@ def test_model_yaml_failure_logs_warning_but_continues() -> None:
                 raise RuntimeError("403 Forbidden")
             return {"files": {}}
 
-    source.client = _YamlForbiddenClient()
+    source.client = _YamlForbiddenClient()  # type: ignore[assignment]
     events = _collect_workunits(source)
 
     # Ingestion should still emit model datasets despite the YAML failure
