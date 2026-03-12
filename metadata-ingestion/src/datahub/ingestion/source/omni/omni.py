@@ -376,9 +376,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 pass
         if owner_id or owner_name:
             owner_urn = make_user_urn(owner_id or owner_name)
-            dashboard.set_owners(
-                [(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)]
-            )
+            dashboard.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from dashboard.as_workunits()
 
     def _emit_chart(
@@ -634,7 +632,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.semantic_datasets_emitted += 1
 
-        for view in topic.get("views", []):  # type: ignore[union-attr]
+        for view in topic.get("views", []):  # type: ignore[union-attr,attr-defined]
             view_name = (view or {}).get("name") if isinstance(view, dict) else None
             if not view_name:
                 continue
@@ -850,15 +848,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self._model_dataset_urns.add(model_urn)
 
             connection_id = model.get("connectionId") or ""
-            connection: Optional[Dict[str, object]] = connections.get(connection_id)
+            conn: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
-                yield from self._ensure_connection_dataset(connection_id, connection)
-            platform: str = str((connection or {}).get("dialect") or "database")
+                yield from self._ensure_connection_dataset(connection_id, conn)
+            platform: str = str((conn or {}).get("dialect") or "database")
             if self.config.connection_to_platform:
                 platform = self.config.connection_to_platform.get(
                     connection_id, platform
                 )
-            database: str = str((connection or {}).get("database") or "")
+            database: str = str((conn or {}).get("database") or "")
             if self.config.connection_to_database:
                 database = self.config.connection_to_database.get(
                     connection_id, database
