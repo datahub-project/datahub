@@ -9,7 +9,7 @@ This connector extracts metadata from Microsoft Fabric Data Factory items:
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -228,7 +228,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             )
             yield dataflow
 
-            yield from self._process_pipeline_activities(item, dataflow)
+            yield from self._process_pipeline_activities(item, dataflow, workspace_key)
 
             if self.config.extract_pipeline_runs:
                 yield from self._process_pipeline_runs(item, dataflow.urn)
@@ -237,6 +237,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         self,
         pipeline_item: FabricItem,
         dataflow: DataFlow,
+        workspace_key: WorkspaceKey,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Emit DataJobs for pipeline activities with dependency lineage."""
         try:
@@ -281,8 +282,18 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 for dep in activity.depends_on:
                     upstream_urn = activity_urn_map.get(dep.activity)
                     if upstream_urn:
+                        edge_props: Optional[Dict[str, str]] = None
+                        if dep.dependency_conditions:
+                            edge_props = {
+                                "dependencyConditions": ",".join(
+                                    dep.dependency_conditions
+                                )
+                            }
                         upstream_edges.append(
-                            EdgeClass(destinationUrn=str(upstream_urn))
+                            EdgeClass(
+                                destinationUrn=str(upstream_urn),
+                                properties=edge_props,
+                            )
                         )
                     else:
                         self.report.report_warning(
@@ -307,6 +318,7 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 if upstream_edges
                 else None,
             )
+            datajob._set_container(workspace_key)
 
             yield datajob
             self.report.report_activity_scanned()
