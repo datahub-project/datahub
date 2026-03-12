@@ -11,10 +11,12 @@ from pydantic import Field
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
@@ -90,6 +92,7 @@ class DataHubGcSourceReport(
     expired_tokens_revoked: int = 0
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubGc")
 @config_class(DataHubGcSourceConfig)
 @support_status(SupportStatus.TESTING)

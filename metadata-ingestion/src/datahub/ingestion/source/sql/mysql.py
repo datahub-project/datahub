@@ -14,12 +14,14 @@ if TYPE_CHECKING:
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
@@ -109,6 +111,7 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     )
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("MySQL")
 @config_class(MySQLConfig)
 @support_status(SupportStatus.CERTIFIED)

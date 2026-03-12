@@ -17,12 +17,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     auto_incremental_lineage,
@@ -1531,6 +1533,7 @@ class Mapper:
                 yield self._to_user_work_unit(mcp)
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

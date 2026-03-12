@@ -14,11 +14,13 @@ from typing import Any, Dict, Iterable, Optional
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -105,6 +107,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
 @support_status(SupportStatus.INCUBATING)

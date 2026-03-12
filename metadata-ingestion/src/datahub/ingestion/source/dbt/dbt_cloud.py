@@ -15,12 +15,14 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -365,6 +367,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 """
 
 
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)

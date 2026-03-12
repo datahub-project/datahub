@@ -7,12 +7,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -90,6 +92,7 @@ from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 logger = logging.getLogger(__name__)
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)

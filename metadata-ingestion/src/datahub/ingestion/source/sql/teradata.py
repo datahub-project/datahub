@@ -39,12 +39,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -567,6 +569,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     )
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Teradata")
 @config_class(TeradataConfig)
 @support_status(SupportStatus.TESTING)

@@ -38,12 +38,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -1237,6 +1239,7 @@ def _parse_oracle_procedure_dependencies(
     return input_jobs
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Oracle")
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)

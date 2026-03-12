@@ -10,12 +10,14 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -63,6 +65,7 @@ logger = logging.getLogger(__name__)
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

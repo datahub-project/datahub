@@ -18,12 +18,14 @@ from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -197,6 +199,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 #
 
 
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("Okta")
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -13,11 +13,13 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -60,6 +62,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
     obj_created: int = 0
 
 
+@SourceCategory(IngestionSourceCategory.DATABASE)
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @capability(

@@ -4,12 +4,14 @@ import pydantic
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
@@ -21,6 +23,7 @@ class HanaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="hana+hdbcli")
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
 @support_status(SupportStatus.TESTING)

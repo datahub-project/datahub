@@ -14,12 +14,14 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -82,6 +84,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
         return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("ClickHouse", id="clickhouse-usage")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)

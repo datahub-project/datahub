@@ -17,12 +17,15 @@ from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
-    SupportStatus,
+from datahub.ingestion.api.decorators import (
+    # SourceCapability,; capability,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -163,6 +166,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
 
 
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)

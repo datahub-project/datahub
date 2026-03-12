@@ -20,10 +20,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -549,6 +551,7 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
     return path_vs_id
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Business Glossary")
 @config_class(BusinessGlossarySourceConfig)
 @support_status(SupportStatus.CERTIFIED)

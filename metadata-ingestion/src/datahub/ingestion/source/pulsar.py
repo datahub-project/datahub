@@ -18,12 +18,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -105,6 +107,7 @@ class PulsarSchema:
         self.properties = schema.get("properties")
 
 
+@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)
 @platform_name("Pulsar")
 @support_status(SupportStatus.INCUBATING)
 @config_class(PulsarSourceConfig)

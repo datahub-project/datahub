@@ -30,12 +30,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
@@ -264,6 +266,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         return f"{self.database}.{schema}.{table}"
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)

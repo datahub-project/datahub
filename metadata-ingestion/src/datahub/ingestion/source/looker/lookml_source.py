@@ -15,11 +15,13 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -262,6 +264,7 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

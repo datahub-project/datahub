@@ -10,11 +10,13 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -86,6 +88,7 @@ class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)

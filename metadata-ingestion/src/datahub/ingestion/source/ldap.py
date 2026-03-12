@@ -14,10 +14,12 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -199,6 +201,7 @@ def guess_person_ldap(
         return None
 
 
+@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

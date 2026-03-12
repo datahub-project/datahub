@@ -41,12 +41,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -197,6 +199,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
     factory_name: str
 
 
+@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Azure Data Factory")
 @config_class(AzureDataFactoryConfig)
 @support_status(SupportStatus.INCUBATING)

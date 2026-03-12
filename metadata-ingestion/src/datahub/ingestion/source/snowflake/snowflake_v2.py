@@ -11,11 +11,13 @@ from typing import Dict, Iterable, List, Optional, Union
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.incremental_properties_helper import (
@@ -96,6 +98,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
 @support_status(SupportStatus.CERTIFIED)

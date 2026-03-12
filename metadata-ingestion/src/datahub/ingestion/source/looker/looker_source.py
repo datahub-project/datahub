@@ -33,11 +33,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -113,6 +115,7 @@ class DashboardProcessingResult:
     end_time: datetime.datetime
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)

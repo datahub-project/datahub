@@ -22,12 +22,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -124,6 +126,7 @@ class TableData:
     number_of_files: int
 
 
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)

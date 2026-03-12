@@ -75,6 +75,21 @@ class SupportStatus(Enum):
     """
 
 
+class IngestionSourceCategory(Enum):
+    BI_AND_ANALYTICS = "BI & Analytics"
+    DATA_WAREHOUSE = "Data Warehouse"
+    DATABASE = "Database"
+    DATA_LAKE = "Data Lake"
+    ORCHESTRATOR = "Orchestrator"
+    ETL_AND_PROCESSING = "ETL & Processing"
+    STREAMING_AND_MESSAGING = "Streaming & Messaging"
+    METADATA_AND_GOVERNANCE = "Metadata & Governance"
+    IDENTITY_AND_ACCESS = "Identity & Access"
+    AI_AND_ML = "AI & ML"
+    OBSERVABILITY = "Observability"
+    PUSH_INTEGRATIONS = "Push Integrations"
+
+
 def support_status(
     support_status: SupportStatus,
 ) -> Callable[[Type], Type]:
@@ -85,6 +100,22 @@ def support_status(
         return cls
 
     return wrapper
+
+
+def SourceCategory(
+    source_category: IngestionSourceCategory,
+) -> Callable[[Type], Type]:
+    """Adds a get_source_category method to the decorated class."""
+
+    def wrapper(cls: Type) -> Type:
+        cls.get_source_category = lambda: source_category
+        return cls
+
+    return wrapper
+
+
+# Alias for users preferring snake_case decorator naming.
+source_category = SourceCategory
 
 
 @dataclass

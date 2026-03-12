@@ -14,12 +14,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -82,6 +84,7 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
+@SourceCategory(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)

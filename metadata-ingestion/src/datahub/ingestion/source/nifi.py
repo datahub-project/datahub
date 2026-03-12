@@ -29,11 +29,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -468,6 +470,7 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 
 
 # allowRemoteAccess
+@SourceCategory(IngestionSourceCategory.ORCHESTRATOR)
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

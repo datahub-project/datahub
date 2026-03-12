@@ -10,11 +10,13 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -39,6 +41,7 @@ from datahub.ingestion.source.unstructured.document_builder import (
 logger = logging.getLogger(__name__)
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Notion")
 @config_class(NotionSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -33,12 +33,14 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -509,6 +511,7 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)

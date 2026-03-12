@@ -17,12 +17,14 @@ from sqlglot.dialects.dialect import NormalizationStrategy
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
@@ -108,6 +110,7 @@ def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
 @support_status(SupportStatus.TESTING)

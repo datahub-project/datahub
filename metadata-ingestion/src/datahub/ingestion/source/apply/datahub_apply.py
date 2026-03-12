@@ -9,10 +9,12 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
@@ -144,6 +146,7 @@ class DataHubApplyConfig(ConfigModel):
     )
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubApply")
 @config_class(DataHubApplyConfig)
 @support_status(SupportStatus.TESTING)

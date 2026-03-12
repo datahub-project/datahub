@@ -11,12 +11,14 @@ from sqlalchemy.engine.base import Engine
 from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
@@ -91,6 +93,7 @@ class PrestoConfig(TrinoConfig):
     scheme: HiddenFromDocs[str] = Field(default="presto")
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Presto", doc_order=1)
 @config_class(PrestoConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -11,10 +11,12 @@ import requests
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -26,6 +28,7 @@ class DataHubDebugSourceConfig(ConfigModel):
     dns_probe_url: Optional[str] = None
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
 @support_status(SupportStatus.TESTING)

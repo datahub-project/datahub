@@ -26,11 +26,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -170,6 +172,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     pass
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
 @support_status(SupportStatus.TESTING)

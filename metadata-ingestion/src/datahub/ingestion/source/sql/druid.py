@@ -8,12 +8,14 @@ from sqlalchemy.exc import ResourceClosedError
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
@@ -58,6 +60,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
         return f"{table}"
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Druid")
 @config_class(DruidConfig)
 @support_status(SupportStatus.INCUBATING)

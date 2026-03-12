@@ -64,12 +64,14 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -892,6 +894,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
         )
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)

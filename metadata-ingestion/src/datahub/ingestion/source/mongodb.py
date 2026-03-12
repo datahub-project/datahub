@@ -27,12 +27,14 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -254,6 +256,7 @@ def construct_schema_pymongo(
     return construct_schema(list(documents), delimiter)
 
 
+@SourceCategory(IngestionSourceCategory.DATABASE)
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)

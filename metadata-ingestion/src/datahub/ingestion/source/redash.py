@@ -16,12 +16,15 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
-    SupportStatus,
+from datahub.ingestion.api.decorators import (
+    # SourceCapability,; capability,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -320,6 +323,7 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(item)
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)

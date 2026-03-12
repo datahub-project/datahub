@@ -26,12 +26,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
@@ -279,6 +281,7 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         return self
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Postgres")
 @config_class(PostgresConfig)
 @support_status(SupportStatus.CERTIFIED)

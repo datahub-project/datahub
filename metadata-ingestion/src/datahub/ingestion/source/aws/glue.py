@@ -48,12 +48,14 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -264,6 +266,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(table)
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

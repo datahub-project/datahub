@@ -7,11 +7,13 @@ from typing import Iterable, List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
@@ -73,6 +75,7 @@ def cleanup(config: BigQueryV2Config) -> None:
         os.unlink(config._credentials_path)
 
 
+@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)

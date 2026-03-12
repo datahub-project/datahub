@@ -20,10 +20,12 @@ from typing import Any, Dict, Iterable, Optional, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -92,6 +94,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
         self.processing_errors.append(error)
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DataHubDocumentsSourceConfig)

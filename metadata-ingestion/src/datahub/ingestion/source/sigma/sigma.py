@@ -12,12 +12,14 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
     capability,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCapability,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -93,6 +95,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 logger = logging.getLogger(__name__)
 
 
+@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)

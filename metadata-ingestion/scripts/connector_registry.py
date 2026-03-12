@@ -8,7 +8,7 @@ import click
 from docgen_types import Plugin
 from utils import should_write_json_file
 
-from datahub.ingestion.api.decorators import SupportStatus
+from datahub.ingestion.api.decorators import IngestionSourceCategory, SupportStatus
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,11 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
 
         if hasattr(source_type, "get_support_status"):
             plugin.support_status = source_type.get_support_status()
+
+        if hasattr(source_type, "get_source_category"):
+            source_category = source_type.get_source_category()
+            if isinstance(source_category, IngestionSourceCategory):
+                plugin.source_category = source_category
 
         if hasattr(source_type, "get_capabilities"):
             capabilities = list(source_type.get_capabilities())
@@ -128,6 +133,9 @@ def generate_connector_registry() -> ConnectorRegistry:
             "classname": plugin.classname,
             "support_status": plugin.support_status.name
             if plugin.support_status != SupportStatus.UNKNOWN
+            else None,
+            "source_category": plugin.source_category.name
+            if plugin.source_category is not None
             else None,
             "capabilities": [],
         }

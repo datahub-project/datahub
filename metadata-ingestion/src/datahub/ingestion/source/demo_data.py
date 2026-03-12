@@ -3,10 +3,12 @@ from typing import Iterable
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SupportStatus,
     config_class,
+    IngestionSourceCategory,
     platform_name,
+    SourceCategory,
     support_status,
+    SupportStatus,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -19,6 +21,7 @@ class DemoDataConfig(ConfigModel):
     pass
 
 
+@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Demo Data")
 @config_class(DemoDataConfig)
 @support_status(SupportStatus.UNKNOWN)
