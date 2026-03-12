@@ -18,10 +18,12 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -117,6 +119,7 @@ def _quote_identifier(value: str) -> str:
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@source_type(SourceType.DATABASE)
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         # The ibm_db package is not installable on ARM aside from macOS ARM

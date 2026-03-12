@@ -16,10 +16,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -175,6 +177,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@source_type(SourceType.QUERY_ENGINE)
 class HiveSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

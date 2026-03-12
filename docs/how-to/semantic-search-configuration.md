@@ -163,7 +163,7 @@ This automatically connects to DataHub, fetches your embedding config from the s
 datahub ingest -c recipe.yml
 ```
 
-For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
+For external document sources (Notion, Confluence, etc.), see the [Integrations page](/integrations) for available source connectors.
 
 ## Supported Models
 

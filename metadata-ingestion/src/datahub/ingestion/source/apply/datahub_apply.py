@@ -9,9 +9,11 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
@@ -147,6 +149,7 @@ class DataHubApplyConfig(ConfigModel):
 @platform_name("DataHubApply")
 @config_class(DataHubApplyConfig)
 @support_status(SupportStatus.TESTING)
+@source_type(SourceType.DATAHUB_INTERNAL)
 class DataHubApplySource(Source):
     """
     This source is a helper over CLI

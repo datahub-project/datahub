@@ -21,10 +21,12 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -367,6 +369,7 @@ class Partitionitem:
     ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@source_type(SourceType.QUERY_ENGINE)
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena

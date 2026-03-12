@@ -28,10 +28,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -375,6 +377,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@source_type(SourceType.DATABASE)
 class SQLServerSource(SQLAlchemySource):
     """
     Source that extracts metadata from Microsoft SQL Server via SQLAlchemy.

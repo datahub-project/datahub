@@ -10,10 +10,12 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -43,6 +45,7 @@ logger = logging.getLogger(__name__)
 @config_class(NotionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@source_type(SourceType.CONTEXT_DOCUMENT_SOURCES)
 class NotionSource(StatefulIngestionSourceBase, TestableSource):
     platform = "notion"  # Required for stateful ingestion checkpoint job_id
     """

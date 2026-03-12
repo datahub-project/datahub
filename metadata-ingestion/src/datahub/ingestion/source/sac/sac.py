@@ -26,10 +26,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -186,6 +188,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default (only for Import Data Models)",
 )
+@source_type(SourceType.BI_AND_ANALYTICS)
 class SACSource(StatefulIngestionSourceBase, TestableSource):
     config: SACSourceConfig
     report: SACSourceReport

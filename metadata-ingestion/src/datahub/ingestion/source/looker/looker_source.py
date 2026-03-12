@@ -33,10 +33,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -139,6 +141,7 @@ class DashboardProcessingResult:
         SourceCapabilityModifier.LOOKER_FOLDER,
     ],
 )
+@source_type(SourceType.BI_AND_ANALYTICS)
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
     Source that extracts dashboards, explores, and charts from Looker via the Looker API.

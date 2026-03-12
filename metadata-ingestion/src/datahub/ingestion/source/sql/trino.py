@@ -31,10 +31,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -285,6 +287,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@source_type(SourceType.QUERY_ENGINE)
 class TrinoSource(SQLAlchemySource):
     """
     Extracts metadata and two distinct relations to connector datasets (e.g. Iceberg, Hive):

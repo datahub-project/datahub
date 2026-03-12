@@ -15,10 +15,12 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -281,6 +283,7 @@ class LookerManifest:
         SourceCapabilityModifier.LOOKML_PROJECT,
     ],
 )
+@source_type(SourceType.BI_AND_ANALYTICS)
 class LookMLSource(StatefulIngestionSourceBase):
     """
     Source that parses LookML files to extract view and model metadata.

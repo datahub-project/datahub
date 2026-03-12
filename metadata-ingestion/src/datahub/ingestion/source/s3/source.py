@@ -22,10 +22,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -200,6 +202,7 @@ class TableData:
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@source_type(SourceType.DATA_LAKE)
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport

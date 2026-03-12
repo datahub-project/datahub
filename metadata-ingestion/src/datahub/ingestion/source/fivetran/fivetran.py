@@ -11,10 +11,12 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -71,6 +73,7 @@ CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
+@source_type(SourceType.ETL_ELT)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.

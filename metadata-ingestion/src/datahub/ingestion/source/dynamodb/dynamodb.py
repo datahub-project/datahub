@@ -26,10 +26,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -188,6 +190,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.TAGS,
     "Optionally enabled via `extract_table_tags` to extract dynamoDB table tags as DataHub tags",
 )
+@source_type(SourceType.DATABASE)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

@@ -16,10 +16,12 @@ from datahub.configuration.common import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -369,6 +371,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@source_type(SourceType.ETL_ELT)
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
     report: DBTSourceReport  # nothing cloud-specific in the report

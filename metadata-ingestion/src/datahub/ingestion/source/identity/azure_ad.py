@@ -17,11 +17,13 @@ from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -169,6 +171,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@source_type(SourceType.MISCELLANEOUS)
 class AzureADSource(StatefulIngestionSourceBase):
     """
     Source that extracts users, groups, and group membership from Azure AD via Microsoft Graph API.

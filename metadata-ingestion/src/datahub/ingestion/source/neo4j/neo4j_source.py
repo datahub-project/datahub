@@ -13,10 +13,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -66,6 +68,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
     SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
 )
 @support_status(SupportStatus.CERTIFIED)
+@source_type(SourceType.DATABASE)
 class Neo4jSource(StatefulIngestionSourceBase):
     config: Neo4jConfig
     report: Neo4jSourceReport

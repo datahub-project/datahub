@@ -28,10 +28,12 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -267,6 +269,7 @@ def construct_schema_pymongo(
     ],
 )
 @dataclass
+@source_type(SourceType.DATABASE)
 class MongoDBSource(StatefulIngestionSourceBase):
     """
     Source that extracts databases and collections from MongoDB with inferred schemas.

@@ -18,10 +18,12 @@ from datahub.emitter.mcp_builder import add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -130,6 +132,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     "Enabled by default via stateful ingestion",
     supported=True,
 )
+@source_type(SourceType.DATA_WAREHOUSE)
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform

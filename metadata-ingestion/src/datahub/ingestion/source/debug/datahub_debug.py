@@ -11,9 +11,11 @@ import requests
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -29,6 +31,7 @@ class DataHubDebugSourceConfig(ConfigModel):
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
 @support_status(SupportStatus.TESTING)
+@source_type(SourceType.DATAHUB_INTERNAL)
 class DataHubDebugSource(Source):
     """
     DataHubDebugSource is helper to debug things in executor where ingestion is running.

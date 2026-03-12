@@ -5,10 +5,12 @@ import pydantic
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -30,6 +32,7 @@ class HanaConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@source_type(SourceType.DATA_WAREHOUSE)
 class HanaSource(SQLAlchemySource):
     def __init__(self, config: HanaConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "hana")

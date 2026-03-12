@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from datahub.ingestion.api.decorators import CapabilitySetting, SupportStatus
+from datahub.ingestion.api.decorators import (
+    CapabilitySetting,
+    SourceType,
+    SupportStatus,
+)
 
 
 @dataclass
@@ -22,6 +26,7 @@ class Plugin:
 
     # Optional metadata fields
     support_status: SupportStatus = SupportStatus.UNKNOWN
+    source_type: Optional[SourceType] = None
     filename: Optional[str] = None
     doc_order: Optional[int] = None
 

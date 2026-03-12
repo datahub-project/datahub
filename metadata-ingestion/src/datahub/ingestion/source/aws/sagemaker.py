@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, DefaultDict, Dict, Iterable, List, Optional
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -44,6 +46,7 @@ logger = logging.getLogger(__name__)
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@source_type(SourceType.ML_PLATFORMS)
 class SagemakerSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

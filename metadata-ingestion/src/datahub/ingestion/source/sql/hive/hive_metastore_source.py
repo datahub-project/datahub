@@ -22,10 +22,12 @@ if TYPE_CHECKING:
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -90,6 +92,7 @@ logger = logging.getLogger(__name__)
         SourceCapabilityModifier.SCHEMA,
     ],
 )
+@source_type(SourceType.QUERY_ENGINE)
 class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
     """
     Source that extracts metadata from Hive Metastore via SQL or Thrift connection.

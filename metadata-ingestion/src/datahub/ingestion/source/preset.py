@@ -10,10 +10,12 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -78,6 +80,7 @@ class PresetConfig(SupersetConfig):
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@source_type(SourceType.BI_AND_ANALYTICS)
 class PresetSource(SupersetSource):
     """
     Variation of the Superset plugin that works with Preset.io (Apache Superset SaaS).

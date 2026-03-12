@@ -10,10 +10,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -67,6 +69,7 @@ from datahub.metadata.schema_classes import (
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Not supported yet", supported=False)
+@source_type(SourceType.ETL_ELT)
 class SnaplogicSource(StatefulIngestionSourceBase):
     """
     A source plugin for ingesting lineage and metadata from SnapLogic.

@@ -42,10 +42,12 @@ from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -223,6 +225,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
         SourceCapabilityModifier.ADF_DATA_FACTORY,
     ],
 )
+@source_type(SourceType.ETL_ELT)
 class AzureDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 

@@ -14,10 +14,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -142,6 +144,7 @@ class UriType(Enum):
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
+@source_type(SourceType.MISCELLANEOUS)
 class ExcelSource(StatefulIngestionSourceBase):
     config: ExcelSourceConfig
     report: ExcelSourceReport

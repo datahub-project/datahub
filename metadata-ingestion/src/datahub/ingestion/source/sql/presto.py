@@ -12,10 +12,12 @@ from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.source.sql.trino import (
@@ -96,6 +98,7 @@ class PrestoConfig(TrinoConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@source_type(SourceType.QUERY_ENGINE)
 class PrestoSource(TrinoSource):
     """
 

@@ -25,10 +25,12 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -132,6 +134,7 @@ class FeastRepositorySourceConfig(
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
+@source_type(SourceType.ML_PLATFORMS)
 class FeastRepositorySource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

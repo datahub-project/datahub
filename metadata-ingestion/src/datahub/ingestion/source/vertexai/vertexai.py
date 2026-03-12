@@ -20,10 +20,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -117,6 +119,7 @@ logger = logging.getLogger(__name__)
     SourceCapability.PLATFORM_INSTANCE,
     "Optionally set via the `platform_instance` config field to namespace resources when ingesting from multiple Vertex AI setups",
 )
+@source_type(SourceType.ML_PLATFORMS)
 class VertexAISource(StatefulIngestionSourceBase):
     platform: Literal["vertexai"] = PLATFORM
 

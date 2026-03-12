@@ -58,10 +58,12 @@ from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -139,6 +141,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@source_type(SourceType.DATA_LAKE)
 class IcebergSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Iceberg tables via pyiceberg library.

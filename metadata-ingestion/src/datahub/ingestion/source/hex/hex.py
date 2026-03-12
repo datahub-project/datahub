@@ -15,10 +15,12 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -191,6 +193,7 @@ class HexReport(
         SourceCapabilityModifier.HEX_PROJECT,
     ],
 )
+@source_type(SourceType.BI_AND_ANALYTICS)
 class HexSource(StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

@@ -20,9 +20,11 @@ from typing import Any, Dict, Iterable, Optional, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import SourceReport
@@ -95,6 +97,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DataHubDocumentsSourceConfig)
+@source_type(SourceType.DATAHUB_INTERNAL)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
     Extract Document entities from DataHub and generate semantic embeddings for semantic search.

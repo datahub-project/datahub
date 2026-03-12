@@ -39,10 +39,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import TestConnectionReport
@@ -1261,6 +1263,7 @@ def _parse_oracle_procedure_dependencies(
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
 )
+@source_type(SourceType.DATABASE)
 class OracleSource(SQLAlchemySource):
     """
     This plugin extracts the following:

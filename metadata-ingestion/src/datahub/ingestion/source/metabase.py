@@ -20,10 +20,12 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -137,6 +139,7 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@source_type(SourceType.BI_AND_ANALYTICS)
 class MetabaseSource(StatefulIngestionSourceBase):
     """
     Source that extracts dashboards, charts, and collections from Metabase via REST API.

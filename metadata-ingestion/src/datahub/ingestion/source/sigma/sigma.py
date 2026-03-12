@@ -13,10 +13,12 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -111,6 +113,7 @@ logger = logging.getLogger(__name__)
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@source_type(SourceType.BI_AND_ANALYTICS)
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

@@ -18,6 +18,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
     CapabilitySetting,
     SourceCapability,
+    SourceType,
     SupportStatus,
 )
 from datahub.ingestion.source.source_registry import source_registry
@@ -286,6 +287,10 @@ def create_plugin_from_capability_data(
     # Set support status
     if plugin_data.get("support_status"):
         plugin.support_status = SupportStatus[plugin_data["support_status"]]
+
+    # Set source type
+    if plugin_data.get("source_type"):
+        plugin.source_type = SourceType(plugin_data["source_type"])
 
     # Set capabilities
     if plugin_data.get("capabilities"):
@@ -560,9 +565,24 @@ def generate(  # noqa: C901
         #     metrics["source_platforms"]["warnings"].append(warning_msg)  # type: ignore
         #     continue
 
+        first_plugin = next(iter(platform.plugins.values()))
+        if first_plugin.source_type is None:
+            logger.warning(
+                f"Platform '{platform.id}' has no @source_type decorator. "
+                "Add @source_type(SourceType.X) to the source class. "
+                "See metadata-ingestion/src/datahub/ingestion/api/decorators.py for valid values."
+            )
+
         with open(platform_doc_file, "w") as f:
             i += 1
-            f.write(f"---\nsidebar_position: {i}\n---\n\n")
+            source_type_value = (
+                first_plugin.source_type.value
+                if first_plugin.source_type is not None
+                else ""
+            )
+            f.write(
+                f"---\nsidebar_position: {i}\ncustom_source_type: {source_type_value!r}\n---\n\n"
+            )
             f.write(
                 "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
             )

@@ -35,10 +35,12 @@ from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -295,6 +297,7 @@ def get_filter_name(filter_obj):
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(SourceCapability.TAGS, "Supported by default")
+@source_type(SourceType.BI_AND_ANALYTICS)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

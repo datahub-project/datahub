@@ -24,11 +24,13 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -147,6 +149,7 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
     supported=False,
 )
 @dataclass
+@source_type(SourceType.MISCELLANEOUS)
 class JsonSchemaSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from JSON Schema files with reference resolution.

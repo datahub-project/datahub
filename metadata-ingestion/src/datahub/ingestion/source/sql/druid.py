@@ -9,10 +9,12 @@ from sqlalchemy.exc import ResourceClosedError
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -62,6 +64,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
 @config_class(DruidConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@source_type(SourceType.DATABASE)
 class DruidSource(SQLAlchemySource):
     """
     Source that extracts metadata from Apache Druid via SQLAlchemy.

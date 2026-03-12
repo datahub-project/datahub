@@ -22,10 +22,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -124,6 +126,7 @@ class SqlQueriesSourceReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
+@source_type(SourceType.ETL_ELT)
 class SqlQueriesSource(Source):
     """
     Source that parses SQL queries from a newline-delimited JSON file to generate lineage.

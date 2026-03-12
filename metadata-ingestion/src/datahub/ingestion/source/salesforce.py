@@ -26,10 +26,12 @@ from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -565,6 +567,7 @@ class SalesforceApi:
         SourceCapabilityModifier.SALESFORCE_STANDARD_OBJECT,
     ],
 )
+@source_type(SourceType.DATABASE)
 class SalesforceSource(StatefulIngestionSourceBase):
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)

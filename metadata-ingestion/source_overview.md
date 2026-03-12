@@ -1,3 +1,7 @@
+import { Redirect } from "@docusaurus/router";
+
+<Redirect to="/integrations" />
+
 # Sources
 
 Sources are **the data systems that we are extracting metadata from.**

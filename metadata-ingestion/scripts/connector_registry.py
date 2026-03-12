@@ -64,6 +64,9 @@ def load_plugin_capabilities(plugin_name: str) -> Optional[Plugin]:
         if hasattr(source_type, "get_support_status"):
             plugin.support_status = source_type.get_support_status()
 
+        if hasattr(source_type, "get_source_type"):
+            plugin.source_type = source_type.get_source_type()
+
         if hasattr(source_type, "get_capabilities"):
             capabilities = list(source_type.get_capabilities())
             if capabilities:
@@ -128,6 +131,9 @@ def generate_connector_registry() -> ConnectorRegistry:
             "classname": plugin.classname,
             "support_status": plugin.support_status.name
             if plugin.support_status != SupportStatus.UNKNOWN
+            else None,
+            "source_type": plugin.source_type.value
+            if plugin.source_type is not None
             else None,
             "capabilities": [],
         }

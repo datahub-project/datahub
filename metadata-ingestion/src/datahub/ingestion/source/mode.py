@@ -48,10 +48,12 @@ from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -287,6 +289,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(SourceCapability.LINEAGE_FINE, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
+@source_type(SourceType.BI_AND_ANALYTICS)
 class ModeSource(StatefulIngestionSourceBase):
     """
     Source that extracts reports and charts from Mode Analytics via REST API.

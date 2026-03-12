@@ -19,10 +19,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -191,6 +193,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@source_type(SourceType.MISCELLANEOUS)
 class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin pulls metadata from a previously generated file.

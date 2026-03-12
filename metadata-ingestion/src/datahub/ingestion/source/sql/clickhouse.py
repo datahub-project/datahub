@@ -34,10 +34,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
+    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
+    source_type,
     support_status,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -532,6 +534,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_usage_statistics`",
 )
+@source_type(SourceType.DATABASE)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.
