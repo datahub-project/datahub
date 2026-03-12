@@ -997,6 +997,9 @@
                         },
                         "name": "test_iceberg",
                         "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_iceberg",
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
                         "tags": []
                     }
                 },
