@@ -155,6 +155,10 @@ def sort_output_in_same_order_as_golden(
     # iterate through golden and for each entry, find the matching one from output if it exists
     # then append any extras from output that weren't found in golden
 
+    if not isinstance(output, list) or not isinstance(golden, list):
+        # avoid pathological inputs, as seen in tests/unit/sql_parsing/test_sql_aggregator.py::test_aggregator_dump
+        return output
+
     # 1. build matching index for output
     mcps_index: dict[tuple[str, str], MetadataJson] = {}
     mces_index: dict[str, MetadataJson] = {}
