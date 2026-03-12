@@ -5,7 +5,7 @@ on:
     types: [opened, edited, synchronize, reopened]
 
 permissions:
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   validate:
@@ -28,14 +28,24 @@ jobs:
             build
             ci
           requireScope: true
-      - if: always() && steps.lint_pr_title.outcome == 'failure'
-        run: |
-          cat <<'MSG' >> "$GITHUB_STEP_SUMMARY"
-          ## PR Title Check Failed
+      - if: always() && steps.lint_pr_title.outputs.error_message != null
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-check
+          message: |
+            ## PR Title Check Failed
 
-          Your PR title must follow the format: `<type>(<scope>): <description>`
+            ```
+            ${{ steps.lint_pr_title.outputs.error_message }}
+            ```
 
-          **Example:** `feat(ingestion): add Snowflake v2 source`
+            Your PR title must follow the format: `<type>(<scope>): <description>`
 
-          See the [Contributing Guide](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md#pr-title-format) for details.
-          MSG
+            **Example:** `feat(ingestion): add Snowflake v2 source`
+
+            See the [Contributing Guide](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md#pr-title-format) for allowed types and format details.
+      - if: always() && steps.lint_pr_title.outputs.error_message == null
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-check
+          delete: true
