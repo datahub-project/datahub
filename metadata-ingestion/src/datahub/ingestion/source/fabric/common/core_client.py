@@ -120,6 +120,20 @@ class FabricCoreClient(BaseFabricClient):
 
         return result
 
+    def list_connections(self) -> Iterator[dict]:
+        """List all tenant-scoped connections accessible to the caller.
+
+        Connections are referenced by pipeline activities via
+        externalReferences.connection (the connection GUID).
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-connections
+
+        Yields:
+            Raw connection dicts from the API response.
+        """
+        logger.info("Listing Fabric connections")
+        yield from self._paginate("connections")
+
     def list_item_job_instances(
         self, workspace_id: str, item_id: str
     ) -> Iterator[FabricJobInstance]:

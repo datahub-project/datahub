@@ -28,6 +28,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
+    FabricConnection,
     FabricItem,
     FabricItemType,
     FabricJobInstance,
@@ -46,6 +47,9 @@ from datahub.ingestion.source.fabric.data_factory.client import (
 )
 from datahub.ingestion.source.fabric.data_factory.config import (
     FabricDataFactorySourceConfig,
+)
+from datahub.ingestion.source.fabric.data_factory.lineage import (
+    CopyActivityLineageExtractor,
 )
 from datahub.ingestion.source.fabric.data_factory.report import (
     FabricDataFactoryClientReport,
@@ -115,6 +119,27 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         )
         self.report.client_report = self.client_report
 
+        # Connection cache: connection GUID → FabricConnection
+        # Populated once before processing pipelines, used by lineage
+        # resolvers to map activity connection refs to DataHub platforms.
+        self._connections_cache: dict[str, FabricConnection] = {}
+
+    def _cache_connections(self) -> None:
+        """Fetch all tenant connections and cache them keyed by ID.
+
+        Mirrors ADF's _cache_factory_resources pattern — called once in
+        get_workunits_internal before processing any workspaces.
+        """
+        for raw in self.client.list_connections():
+            connection_id = raw.get("id", "")
+            if connection_id:
+                self._connections_cache[connection_id] = FabricConnection.from_dict(raw)
+        logger.info(f"Cached {len(self._connections_cache)} Fabric connection(s)")
+
+    def get_connection(self, connection_id: str) -> Optional[FabricConnection]:
+        """Look up a cached connection by GUID."""
+        return self._connections_cache.get(connection_id)
+
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
@@ -142,6 +167,14 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         logger.info("Starting Fabric Data Factory ingestion")
 
         try:
+            # Cache connections up-front for lineage resolution
+            self._cache_connections()
+            self._copy_lineage_extractor = CopyActivityLineageExtractor(
+                connections_cache=self._connections_cache,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+
             workspaces = list(self.client.list_workspaces())
 
             for workspace in workspaces:
@@ -303,6 +336,15 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                             f"activity={activity.name}, dependency={dep.activity}",
                         )
 
+            # Extract dataset lineage for Copy activities
+            input_urns: list[str] = []
+            output_urns: list[str] = []
+            if activity.type == "Copy":
+                input_urns, output_urns = self._copy_lineage_extractor.extract_lineage(
+                    activity=activity,
+                    workspace_id=pipeline_item.workspace_id,
+                )
+
             datajob = DataJob(
                 name=make_activity_job_id(activity.name),
                 flow=dataflow,
@@ -310,12 +352,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 custom_properties=custom_props,
                 extra_aspects=[
                     DataJobInputOutputClass(
-                        inputDatasets=[],
-                        outputDatasets=[],
+                        inputDatasets=input_urns,
+                        outputDatasets=output_urns,
                         inputDatajobEdges=upstream_edges,
                     )
                 ]
-                if upstream_edges
+                if upstream_edges or input_urns or output_urns
                 else None,
             )
             datajob._set_container(workspace_key)
