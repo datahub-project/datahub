@@ -719,7 +719,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",
