@@ -19,8 +19,11 @@ import os
 import statistics
 import time
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, NamedTuple, Optional, Tuple
 from unittest.mock import Mock
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 import pytest
 from graphql import (
@@ -75,7 +78,7 @@ def _percentile(sorted_vals: List[float], pct: float) -> float:
     return sorted_vals[min(idx, len(sorted_vals) - 1)]
 
 
-def _time_n(fn, n: int = N_ITERATIONS) -> Tuple[float, float]:
+def _time_n(fn: Callable[[], object], n: int = N_ITERATIONS) -> Tuple[float, float]:
     """Run *fn* n times, return (median_ms, p95_ms)."""
     times: List[float] = []
     for _ in range(n):
@@ -774,7 +777,7 @@ def _get_live_graph():
     return DataHubGraph(config)
 
 
-def _time_live_introspection(graph) -> Tuple[float, float]:
+def _time_live_introspection(graph: "DataHubGraph") -> Tuple[float, float]:
     """Time the raw introspection query against the live server."""
     from graphql import get_introspection_query
 
@@ -844,10 +847,11 @@ def test_graphql_projection_benchmark_live() -> None:
         # Warm: reuse projector with populated caches (tier 2 hit)
         projector = QueryProjector()
         projector.adapt_query(query_text, graph)  # warm up
-        warm_stats = _time_n(
-            lambda q=query_text, p=projector: p.adapt_query(q, graph),
-            n=_LIVE_N_ITERATIONS,
-        )
+
+        def do_warm(q: str = query_text, p: QueryProjector = projector) -> None:
+            p.adapt_query(q, graph)
+
+        warm_stats = _time_n(do_warm, n=_LIVE_N_ITERATIONS)
 
         print(f"  {name:<28} {_fmt(cold_stats):>25} {_fmt(warm_stats):>25}")
 
