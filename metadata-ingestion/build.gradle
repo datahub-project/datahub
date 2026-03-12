@@ -108,6 +108,20 @@ task verifyPyprojectSync(type: Exec, dependsOn: installPackageOnly) {
     "touch ${sentinel_file}"
 }
 
+task checkLockFile(type: Exec, dependsOn: verifyPyprojectSync) {
+  def sentinel_file = "${venv_name}/.check_lock_file_sentinel"
+  inputs.file file('pyproject.toml')
+  inputs.file file('uv.lock')
+  inputs.file file('constraints.txt')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "uv lock --check && " +
+    "uv export --format requirements-txt --no-hashes --all-extras --no-emit-project -o constraints.txt && " +
+    "git diff --exit-code constraints.txt && " +
+    "touch ${sentinel_file}"
+}
+
 task generatePyprojectDeps(type: Exec, dependsOn: installPackageOnly) {
   commandLine 'bash', '-c',
     venv_activate_command +
@@ -314,7 +328,7 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, veri
 build.dependsOn install
 check.dependsOn lint
 check.dependsOn testQuick
-check.dependsOn verifyPyprojectSync
+check.dependsOn checkLockFile
 
 task cleanGeneratedFiles(type: Delete) {
     delete venv_name
