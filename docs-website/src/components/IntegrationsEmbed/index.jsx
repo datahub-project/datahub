@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
 import FilterBar from "../../pages/docs/_components/FilterBar";
+import filterTagIndexes from "../../../filterTagIndexes.json";
+
+const DEFAULT_METADATA = filterTagIndexes.ingestionSources;
 
 // ─── Design tokens (match frontend Create Source UI) ─────────────────────────
 const COLORS = {
@@ -188,7 +191,7 @@ function SectionHeader({ label, count }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function IntegrationsEmbed({ metadata }) {
+export default function IntegrationsEmbed({ metadata = DEFAULT_METADATA }) {
   const [textState, setTextState] = useState("");
   const [filterState, setFilterState] = useState([]);
   const [isExclusive, setIsExclusive] = useState(false);
