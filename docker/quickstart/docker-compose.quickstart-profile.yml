@@ -52,6 +52,7 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING: 'true'
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
