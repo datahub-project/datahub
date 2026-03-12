@@ -6,6 +6,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     source_category,
 )
+from datahub.ingestion.source.source_registry import source_registry
 
 
 def _source_files_with_platform_name() -> Iterable[Tuple[Path, ast.Module]]:
@@ -96,3 +97,25 @@ def test_platform_sources_import_source_category_symbols() -> None:
         inspected_files += 1
 
     assert inspected_files > 0
+
+
+def test_loaded_plugins_expose_source_category() -> None:
+    loaded_plugins = 0
+    failed_plugins = {}
+
+    for plugin_name in sorted(source_registry.mapping.keys()):
+        class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+        if isinstance(class_or_exception, Exception):
+            failed_plugins[plugin_name] = str(class_or_exception)
+            continue
+
+        source_type = source_registry.get(plugin_name)
+        assert hasattr(source_type, "get_source_category"), (
+            f"{plugin_name} is missing get_source_category()"
+        )
+        assert isinstance(source_type.get_source_category(), IngestionSourceCategory)
+        loaded_plugins += 1
+
+    # In docs CI, the azure-data-factory plugin may fail to import due optional deps.
+    assert set(failed_plugins).issubset({"azure-data-factory"}), failed_plugins
+    assert loaded_plugins > 80
