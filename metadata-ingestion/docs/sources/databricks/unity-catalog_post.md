@@ -1,6 +1,10 @@
-### Advanced
+### Capabilities
 
-#### Multiple Databricks Workspaces
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Advanced
+
+##### Multiple Databricks Workspaces
 
 If you have multiple databricks workspaces **that point to the same Unity Catalog metastore**, our suggestion is to use separate recipes for ingesting the workspace-specific Hive Metastore catalog and Unity Catalog metastore's information schema.
 
@@ -19,6 +23,10 @@ To ingest Unity Catalog information schema
   - Ingest usage from only one workspace (you lose usage from other workspace)
   - Use filters to only ingest each catalog once, but shouldn’t be necessary
 
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
 ### Troubleshooting
 
 #### No data lineage captured or missing lineage
@@ -29,4 +37,4 @@ Also check the [Unity Catalog limitations](https://docs.databricks.com/data-gove
 
 #### Lineage extraction is too slow
 
-Currently, there is no way to get table or column lineage in bulk from the Databricks Unity Catalog REST api. Table lineage calls require one API call per table, and column lineage calls require one API call per column. If you find metadata extraction taking too long, you can turn off column level lineage extraction via the `include_column_lineage` config flag.
+Unity Catalog REST API requires one call per table (table lineage) and one call per column (column lineage). To improve performance, disable column lineage with `include_column_lineage: false`.

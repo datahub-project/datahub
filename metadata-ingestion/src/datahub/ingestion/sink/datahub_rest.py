@@ -23,6 +23,7 @@ from datahub.configuration.env_vars import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
+    _DEFAULT_EMIT_MODE,
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
     DataHubRestEmitter,
@@ -284,12 +285,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        chunks = self.emitter.emit_mcps(events, emit_mode=EmitMode.ASYNC)
+        trace_data = self.emitter.emit_mcps(events, emit_mode=_DEFAULT_EMIT_MODE)
+        num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
-        if chunks > 1:
-            self.report.async_batches_split += chunks
+        if num_chunks > 1:
+            self.report.async_batches_split += num_chunks
             logger.info(
-                f"In async_batch mode, the payload was split into {chunks} batches. "
+                f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
 
@@ -315,7 +317,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     partition_key,
                     self._emit_wrapper,
                     record,
-                    EmitMode.ASYNC,
+                    _DEFAULT_EMIT_MODE,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -327,7 +329,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.executor.submit(
                     partition_key,
                     record,
-                    EmitMode.ASYNC,
+                    _DEFAULT_EMIT_MODE,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),

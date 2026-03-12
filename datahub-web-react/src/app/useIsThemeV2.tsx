@@ -64,7 +64,11 @@ function setThemeV2LocalStorage(isThemeV2: boolean) {
 const THEME_V2_STATUS_KEY = 'isThemeV2Enabled';
 
 export function loadThemeV2FromLocalStorage(): boolean {
-    return localStorage.getItem(THEME_V2_STATUS_KEY) === 'true';
+    const localStorageItem = localStorage.getItem(THEME_V2_STATUS_KEY);
+    if (localStorageItem === null) {
+        return true;
+    }
+    return localStorageItem === 'true';
 }
 
 function saveToLocalStorage(isThemeV2: boolean) {

@@ -1,0 +1,52 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "9cf4666a1416bf02693292a03a1e6860f1f41f7c96806f8337699437c09c8c10",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,events,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "user_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,events,PROD)",
+                    "column": "user_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"USER_ID\" AS \"USER_ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "activity",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,events,PROD)",
+                    "column": "activity"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"ACTIVITY\" AS \"ACTIVITY\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT user_id, activity FROM SEMANTIC_VIEW(events FACTS activity) WHERE user_id > ?"
+    }
+}

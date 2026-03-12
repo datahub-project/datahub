@@ -1,3 +1,4 @@
+import { DropdownProps } from 'antd';
 import React from 'react';
 
 import { IconNames } from '@components/components/Icon';
@@ -20,6 +21,11 @@ type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
+export interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
@@ -36,6 +42,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     isRequired?: boolean;
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
+    minWidth?: string;
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
@@ -59,6 +66,10 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
     dataTestId?: string;
+    visibilityDeps?: React.DependencyList;
+    placement?: DropdownProps['placement'];
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
 }
 
 export interface SelectStyleProps {

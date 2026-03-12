@@ -1,4 +1,4 @@
-import { Card } from '@components';
+import { Card, Pill } from '@components';
 import React from 'react';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
@@ -6,6 +6,7 @@ import SourceLogo from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectS
 import {
     CARD_HEIGHT,
     CARD_WIDTH,
+    PillLabel,
     getPillLabel,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function SourcePlatformCard({ source, onSelect }: Props) {
+    const pillLabel = getPillLabel(source);
     return (
         <Card
             title={source.displayName}
@@ -29,7 +31,17 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
             noOfSubtitleLines={2}
             iconAlignment="horizontal"
             iconStyles={logoStyles}
-            pillLabel={getPillLabel(source)}
+            pill={
+                pillLabel && (
+                    <Pill
+                        label={pillLabel}
+                        size="sm"
+                        color={pillLabel === PillLabel.New ? 'blue' : 'primary'}
+                        clickable={false}
+                        variant={pillLabel === PillLabel.External ? 'outline' : 'filled'}
+                    />
+                )
+            }
             onClick={() => onSelect(source)}
             isCardClickable
         />

@@ -9,39 +9,16 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
 
+from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str as _get_dialect_str
 
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
-SQL_PARSE_CACHE_SIZE = 1000
-
-FORMAT_QUERY_CACHE_SIZE = 1000
-
-
-def _get_dialect_str(platform: str) -> str:
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    # TODO: define SalesForce SOQL dialect
-    # Temporary workaround is to treat SOQL as databricks dialect
-    # At least it allows to parse simple SQL queries and built linage for them
-    elif platform == "salesforce":
-        return "databricks"
-    elif platform in {"mysql", "mariadb"}:
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        # MariaDB is a fork of MySQL, so we reuse the same dialect.
-        return "mysql, normalization_strategy = lowercase"
-    else:
-        return platform
+SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
+FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
 
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
@@ -70,6 +47,36 @@ def _parse_statement(
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
+
+    # Handle Block statements from sqlglot v29+
+    # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
+    # We only process the non None statement, if there is 1 and only 1.
+    if isinstance(statement, sqlglot.exp.Block):
+        if not statement.expressions:
+            raise sqlglot.errors.ParseError(
+                "Block statement must have at least one expression"
+            )
+
+        # Filter out None expressions (empty statements from double semicolons)
+        non_none_expressions = [e for e in statement.expressions if e is not None]
+
+        if not non_none_expressions:
+            raise sqlglot.errors.ParseError(
+                "Block contains only None expressions - no valid SQL statement found"
+            )
+
+        if len(non_none_expressions) > 1:
+            # parse_statement expects a single statement, not multiple
+            raise sqlglot.errors.ParseError(
+                f"Block contains {len(non_none_expressions)} statements: "
+                f"{[type(e).__name__ for e in non_none_expressions]}. "
+                f"Use parse_statements_and_pick() for multi-statement SQL."
+            )
+
+        # Return the single non-None statement
+        statement = non_none_expressions[0]
+
     return statement
 
 

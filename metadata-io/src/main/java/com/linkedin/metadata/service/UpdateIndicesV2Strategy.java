@@ -289,6 +289,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     if (shouldWrite) {
       writeToSemanticIndex(entityName, finalDocument, docId);
     }
+
+    // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
+    if (systemMetadata != null && systemMetadata.hasRunId()) {
+      elasticSearchService.appendRunId(opContext, urn, systemMetadata.getRunId());
+    }
   }
 
   void deleteSearchData(

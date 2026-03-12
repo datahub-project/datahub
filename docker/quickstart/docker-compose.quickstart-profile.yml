@@ -30,6 +30,18 @@ services:
     image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
       default: null
+    volumes:
+    - type: bind
+      source: ${HOME}/.aws
+      target: /home/datahub/.aws
+      read_only: true
+      bind:
+        create_host_path: true
+    - type: bind
+      source: ${HOME}/.aws/sso/cache
+      target: /home/datahub/.aws/sso/cache
+      bind:
+        create_host_path: true
   datahub-gms-quickstart:
     profiles:
     - quickstart
@@ -40,10 +52,13 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING: 'true'
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
       DATAHUB_TELEMETRY_ENABLED: 'false'
+      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
+      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
@@ -62,6 +77,7 @@ services:
       ENTITY_SERVICE_ENABLE_RETENTION: 'true'
       ENTITY_VERSIONING_ENABLED: 'true'
       ES_BULK_REFRESH_POLICY: WAIT_UNTIL
+      EXTRACT_JAR_ENABLED: 'true'
       GRAPH_SERVICE_DIFF_MODE_ENABLED: 'true'
       GRAPH_SERVICE_IMPL: elasticsearch
       JAVA_OPTS: -Xms1g -Xmx1g
@@ -411,6 +427,8 @@ services:
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PRECREATE_TOPICS: 'true'
       DATAHUB_SQL_SETUP_ENABLED: 'true'
+      DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
+      DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub

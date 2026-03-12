@@ -95,7 +95,7 @@ Specifically `sasl.username` and `sasl.password` are the differences from the ba
 Additionally, you will need to set up environment variables for `KAFKA_PROPERTIES_SASL_USERNAME` and `KAFKA_PROPERTIES_SASL_PASSWORD`
 which will use the same username and API Key you generated for the JAAS config.
 
-See [Overwriting a System Action Config](https://github.com/acryldata/datahub-actions/blob/main/docker/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
+See [Overwriting a System Action Config](https://github.com/datahub-project/datahub/blob/master/docker/datahub-actions/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
 
 Next, configure datahub-actions to connect to Confluent Cloud by changing `docker/datahub-actions/env/docker.env`:
 
@@ -218,7 +218,7 @@ Specifically `sasl.username` and `sasl.password` are the differences from the ba
 Additionally, you will need to set up secrets for `KAFKA_PROPERTIES_SASL_USERNAME` and `KAFKA_PROPERTIES_SASL_PASSWORD`
 which will use the same username and API Key you generated for the JAAS config.
 
-See [Overwriting a System Action Config](https://github.com/acryldata/datahub-actions/blob/main/docker/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
+See [Overwriting a System Action Config](https://github.com/datahub-project/datahub/blob/master/docker/datahub-actions/README.md#overwriting-a-system-action-config) for detailed reflection procedures.
 
 ```yaml
 credentialsAndCertsSecrets:

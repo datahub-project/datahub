@@ -154,17 +154,122 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     return new_content
 
 
-def load_capability_data(capability_summary_path: str) -> Dict:
-    """Load capability data from the capability summary JSON file."""
-    try:
-        with open(capability_summary_path, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Capability summary file not found: {capability_summary_path}")
-        raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse capability summary JSON: {e}")
-        raise
+def _extract_headings(markdown: str) -> List[tuple[int, str, int]]:
+    headings: List[tuple[int, str, int]] = []
+    in_fence = False
+    for idx, line in enumerate(markdown.splitlines(), start=1):
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if m := re.match(r"^(#{1,6})\s+(.*)$", line):
+            headings.append((len(m.group(1)), m.group(2).strip(), idx))
+    return headings
+
+
+def _validate_heading_contract(
+    file_path: str,
+    markdown: str,
+    required_level: int,
+    required_headings: List[str],
+    disallowed_levels: List[int],
+) -> None:
+    """Validate a strict heading contract for authored markdown content.
+
+    Rules enforced:
+    - Any heading level listed in ``disallowed_levels`` is forbidden.
+    - At ``required_level``, only headings in ``required_headings`` are allowed.
+    - Each required heading must appear exactly once.
+    - Required headings must appear in the same order as ``required_headings``.
+
+    This allows deeper nested headings (e.g. H4+) while ensuring the top-level
+    section contract for a file remains canonical and predictable.
+    """
+    headings = _extract_headings(markdown)
+    required_set = set(required_headings)
+
+    if invalid := [
+        (lvl, title, line)
+        for lvl, title, line in headings
+        if lvl in set(disallowed_levels)
+    ]:
+        invalid_str = ", ".join(
+            [f"H{lvl} '{title}' (line {line})" for lvl, title, line in invalid]
+        )
+        raise ValueError(f"{file_path} contains disallowed headings: {invalid_str}")
+
+    level_headings = [title for lvl, title, _ in headings if lvl == required_level]
+    if extras := [title for title in level_headings if title not in required_set]:
+        raise ValueError(
+            f"{file_path} has unsupported H{required_level} headings: {extras}. "
+            f"Allowed H{required_level} headings: {required_headings}"
+        )
+
+    for heading in required_headings:
+        if level_headings.count(heading) != 1:
+            raise ValueError(
+                f"{file_path} must contain exactly one "
+                f"'{'#' * required_level} {heading}' section."
+            )
+
+    indices = [level_headings.index(heading) for heading in required_headings]
+    if indices != sorted(indices):
+        raise ValueError(
+            f"{file_path} has required H{required_level} headings out of order. "
+            f"Expected order: {required_headings}"
+        )
+
+
+def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
+    _validate_heading_contract(
+        file_path=file_path,
+        markdown=markdown,
+        required_level=2,
+        required_headings=["Overview", "Concept Mapping"],
+        disallowed_levels=[1],
+    )
+
+
+def load_connector_registry(connector_registry_dir: str) -> Dict:
+    """Load connector registry data from all package JSON files in directory."""
+    registry_dir = pathlib.Path(connector_registry_dir) / "connector_registry"
+
+    merged_data = {
+        "generated_by": "metadata-ingestion/scripts/connector_registry.py",
+        "plugin_details": {},
+    }
+
+    if not registry_dir.exists():
+        raise FileNotFoundError(
+            f"Connector registry directory not found: {registry_dir}"
+        )
+
+    # Load all JSON files from directory
+    json_files = sorted(registry_dir.glob("*.json"))
+    json_files = [f for f in json_files if f.stem != "manifest"]
+
+    if not json_files:
+        raise FileNotFoundError(f"No connector registry files found in {registry_dir}")
+
+    for json_file in json_files:
+        try:
+            with open(json_file) as f:
+                package_data = json.load(f)
+                package_name = json_file.stem
+                plugin_count = len(package_data.get("plugin_details", {}))
+                merged_data["plugin_details"].update(
+                    package_data.get("plugin_details", {})
+                )
+                logger.info(
+                    f"Loaded {plugin_count} connectors from package '{package_name}'"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load {json_file}: {e}")
+
+    logger.info(f"Total connectors loaded: {len(merged_data['plugin_details'])}")
+    return merged_data
 
 
 def create_plugin_from_capability_data(
@@ -281,16 +386,16 @@ class PlatformMetrics:
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option(
-    "--capability-summary",
+    "--connector-registry-dir",
     type=str,
     required=True,
-    help="Path to capability summary JSON file",
+    help="Directory containing connector_registry/ with package JSON files",
 )
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
 def generate(  # noqa: C901
     out_dir: str,
-    capability_summary: str,
+    connector_registry_dir: str,
     extra_docs: Optional[str] = None,
     source: Optional[str] = None,
 ) -> None:
@@ -299,15 +404,16 @@ def generate(  # noqa: C901
 
     platforms: Dict[str, Platform] = {}
 
-    # Load capability data
+    # Load connector registry data
     try:
-        capability_data = load_capability_data(capability_summary)
-        logger.info(f"Loaded capability data from {capability_summary}")
+        capability_data = load_connector_registry(connector_registry_dir)
+        logger.info(f"Loaded connector registry from {connector_registry_dir}")
     except Exception as e:
-        logger.error(f"Failed to load capability data: {e}")
+        logger.error(f"Failed to load connector registry: {e}")
         sys.exit(1)
 
     for plugin_name in sorted(source_registry.mapping.keys()):
+        logger.info(f"Processing plugin: {plugin_name}")
         if source and source != plugin_name:
             continue
 
@@ -347,6 +453,7 @@ def generate(  # noqa: C901
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
+            logger.info(f"Processing extra doc: {path}")
             if m := re.search("/docs/sources/(.*)/(.*).md", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
@@ -359,6 +466,7 @@ def generate(  # noqa: C901
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
 
                 if file_name == "README":
+                    _validate_platform_readme_contract(path, final_markdown)
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
                     platforms[platform_name].custom_docs_pre = final_markdown
@@ -371,10 +479,28 @@ def generate(  # noqa: C901
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=["Overview", "Prerequisites"],
+                            disallowed_levels=[1, 2],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=[
+                                "Capabilities",
+                                "Limitations",
+                                "Troubleshooting",
+                            ],
+                            disallowed_levels=[1, 2],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_post = final_markdown
@@ -383,17 +509,34 @@ def generate(  # noqa: C901
                             f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                         )
 
-                else:  # assume this is the platform post.
-                    # TODO: Probably need better error checking here.
-                    platforms[platform_name].plugins[
-                        file_name
-                    ].custom_docs_post = final_markdown
+                else:
+                    raise ValueError(
+                        f"{file_name} must be README or of the form <plugin>_pre.md / <plugin>_post.md"
+                    )
             elif yml_match := re.search("/docs/sources/(.*)/(.*)_recipe.yml", path):
                 platform_name = yml_match.group(1).lower()
                 plugin_name = yml_match.group(2)
                 platforms[platform_name].plugins[
                     plugin_name
                 ].starter_recipe = pathlib.Path(path).read_text()
+
+    for platform in platforms.values():
+        if not platform.custom_docs_pre:
+            raise ValueError(
+                f"Missing README.md docs for platform '{platform.id}'. "
+                "Each platform must provide README.md with required sections."
+            )
+        for plugin_name, plugin in platform.plugins.items():
+            if not plugin.custom_docs_pre:
+                raise ValueError(
+                    f"Missing {plugin_name}_pre.md for platform '{platform.id}'. "
+                    "Each module must provide a _pre.md file with required sections."
+                )
+            if not plugin.custom_docs_post:
+                raise ValueError(
+                    f"Missing {plugin_name}_post.md for platform '{platform.id}'. "
+                    "Each module must provide a _post.md file with required sections."
+                )
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
@@ -403,6 +546,9 @@ def generate(  # noqa: C901
 
     i = 0
     for platform_id, platform in platforms.items():
+        logger.info(
+            f"Generating docs for platform {platform.name} with id {platform_id}"
+        )
         if source and platform_id != source:
             continue
         platform_metrics.discovered += 1
@@ -456,19 +602,21 @@ def generate(  # noqa: C901
                 #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                 #                    )
                 f.write("</table>\n\n")
-            # insert platform level custom docs before plugin section
-            f.write(platform.custom_docs_pre or "")
-            # all_plugins = platform_docs["plugins"].keys()
+            # Insert platform-level authored docs from README.md before module docs.
+            f.write("\n")
+            f.write(platform.custom_docs_pre.strip())
+            f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
-                if len(platform.plugins) > 1:
-                    # We only need to show this if there are multiple modules.
-                    f.write(f"\n\n## Module `{plugin_name}`\n")
+                # Always use ### for all content sections (consistent baseline)
+                section_heading = "###"
 
+                # Always show the module name for consistency (single and multi-plugin)
+                f.write(f"\n\n## Module `{plugin_name}`\n")
                 if plugin.support_status != SupportStatus.UNKNOWN:
                     f.write(get_support_status_badge(plugin.support_status) + "\n\n")
+                f.write(f"\n{section_heading} Important Capabilities\n")
                 if plugin.capabilities and len(plugin.capabilities):
-                    f.write("\n### Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
@@ -480,24 +628,23 @@ def generate(  # noqa: C901
                         f.write(
                             f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
-                    f.write("\n")
+                else:
+                    f.write(
+                        "Capability metadata is not explicitly declared for this module. "
+                        "Refer to module documentation and configuration sections below.\n"
+                    )
+                f.write("\n")
 
-                f.write(f"{plugin.source_docstring or ''}\n")
-                # Insert custom pre section
-                f.write(plugin.custom_docs_pre or "")
-                f.write("\n### CLI based Ingestion\n")
-                if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write("\n#### Install the Plugin\n")
-                    if plugin.extra_deps != []:
-                        f.write("```shell\n")
-                        f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
-                        f.write("```\n")
-                    else:
-                        f.write(
-                            f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
-                        )
+                # PRE authored module docs (<module>_pre.md).
+                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+
+                # Always show Install the Plugin section
+                f.write(f"\n{section_heading} Install the Plugin\n")
+                f.write("```shell\n")
+                f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
+                f.write("```\n")
+                f.write(f"\n{section_heading} Starter Recipe\n")
                 if plugin.starter_recipe:
-                    f.write("\n### Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -507,9 +654,15 @@ def generate(  # noqa: C901
                     f.write("```yaml\n")
                     f.write(plugin.starter_recipe)
                     f.write("\n```\n")
+                else:
+                    f.write(
+                        "A starter recipe is not currently available for this module. "
+                        "Use the configuration schema below to build a recipe.\n"
+                    )
+
+                f.write(f"\n{section_heading} Config Details\n")
                 if plugin.config_json_schema:
                     assert plugin.config_md is not None
-                    f.write("\n### Config Details\n")
                     f.write(
                         """<Tabs>
                 <TabItem value="options" label="Options" default>\n\n"""
@@ -534,11 +687,17 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 </TabItem>
 </Tabs>\n\n"""
                     )
+                else:
+                    f.write(
+                        "Configuration schema is not auto-generated for this module. "
+                        "Refer to the source code coordinates and module guidance below.\n\n"
+                    )
 
-                # insert custom plugin docs after config details
-                f.write(plugin.custom_docs_post or "")
+                # POST authored module docs (<module>_post.md).
+                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+
                 if plugin.classname:
-                    f.write("\n### Code Coordinates\n")
+                    f.write(f"\n{section_heading} Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin.classname}`\n")
                     if plugin.filename:
                         f.write(
@@ -546,10 +705,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         )
                 plugin_metrics.generated += 1
 
-            # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
-            f.write("\n<h2>Questions</h2>\n\n")
             f.write(
+                f"\n:::tip Questions?\n\n"
                 f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://datahub.com/slack).\n"
+                f":::\n"
             )
             platform_metrics.generated += 1
     print("Ingestion Documentation Generation Complete")

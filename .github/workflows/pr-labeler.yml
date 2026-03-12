@@ -18,61 +18,27 @@ jobs:
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
+      - name: Check if internal contributor
+        id: check-internal
+        continue-on-error: true
+        env:
+          TEAM_MEMBERS: ${{ vars.DATAHUB_TEAM_MEMBERS }}
+          PR_AUTHOR: ${{ github.actor }}
+        run: |
+          # Team members list is managed via the DATAHUB_TEAM_MEMBERS repo variable.
+          # Update it in Settings > Variables > Actions when team members join or leave.
+          if [ -z "$TEAM_MEMBERS" ]; then
+            echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — skipping community-contribution label"
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
+            echo "is_internal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_internal=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions-ecosystem/action-add-labels@v1.1.3
-        # only add names of DataHub team members here
-        if: ${{
-          !contains(
-          fromJson('[
-          "acrylJonny",
-          "AdrianMachado",
-          "Alex23Hub",
-          "alexsku",
-          "alfiyas-datahub",
-          "alokr-dhub",
-          "annadoesdesign",
-          "anshbansal",
-          "asikowitz",
-          "askumar27",
-          "aviraj-gour",
-          "benjiaming",
-          "brock-acryl",
-          "bryanprosser-acryl",
-          "chakru-r",
-          "chriscollins3456",
-          "david-leifker",
-          "deepgarg760",
-          "devashish2203",
-          "dinesh-verma-datahub",
-          "esteban",
-          "gabe-lyons",
-          "jayacryl",
-          "jjoyce0510",
-          "jmacryl",
-          "kevinkarchacryl",
-          "kewats",
-          "ksrinath",
-          "kyungsoo-datahub",
-          "ligfx",
-          "maggiehays",
-          "pdruley",
-          "pedro93",
-          "petemango",
-          "purnimagarg1",
-          "rajat-datahub",
-          "rob-1019",
-          "RyanHolstien",
-          "sakethvarma397",
-          "sgomezvillamor",
-          "shirshanka",
-          "skrydal",
-          "swaroopjagadish",
-          "treff7es",
-          "v-tarasevich-blitz-brain",
-          "yoonhyejin"
-          ]'),
-          github.actor
-          )
-          }}
+        if: steps.check-internal.outputs.is_internal == 'false'
         with:
           github_token: ${{ github.token }}
           labels: |

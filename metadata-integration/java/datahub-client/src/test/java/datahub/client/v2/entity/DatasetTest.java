@@ -326,6 +326,25 @@ public class DatasetTest {
   }
 
   @Test
+  public void testDatasetGetDefaultAspects() {
+    Dataset dataset = Dataset.builder().platform("postgres").name("my_table").build();
+
+    List<?> aspects = dataset.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include DatasetProperties",
+        aspects.contains(com.linkedin.dataset.DatasetProperties.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).add(com.linkedin.common.GlobalTags.class);
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
+
+  @Test
   public void testDatasetPatchVsFullAspect() {
     Dataset dataset1 =
         Dataset.builder()

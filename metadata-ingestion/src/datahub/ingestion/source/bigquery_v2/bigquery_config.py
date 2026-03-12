@@ -460,6 +460,11 @@ class BigQueryV2Config(
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility.",
+    )
+
     exclude_empty_projects: bool = Field(
         default=False,
         description="Option to exclude empty projects from being ingested.",

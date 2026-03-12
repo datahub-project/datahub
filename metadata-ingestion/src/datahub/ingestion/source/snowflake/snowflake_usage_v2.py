@@ -53,8 +53,8 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
-    "MERGE": OperationTypeClass.CUSTOM,
-    "COPY": OperationTypeClass.CUSTOM,
+    "MERGE": OperationTypeClass.UPDATE,  # Upsert semantics - aligns with BigQuery
+    "COPY": OperationTypeClass.INSERT,  # Bulk load semantics
     "TRUNCATE_TABLE": OperationTypeClass.CUSTOM,
     # TODO: Dataset for below query types are not detected by snowflake in snowflake.access_history.objects_modified.
     # However it seems possible to support these using sql parsing in future.

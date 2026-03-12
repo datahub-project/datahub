@@ -251,17 +251,19 @@ public class EntityController
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
-                flags ->
-                    DEFAULT_SEARCH_FLAGS
-                        .setSkipCache(skipCache)
-                        .setSkipAggregates(skipAggregation)
-                        .setIncludeSoftDeleted(includeSoftDelete)
-                        .setSliceOptions(
-                            sliceId != null && sliceMax != null
-                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                : null,
-                            SetMode.IGNORE_NULL)),
+            opContext
+                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
+                .withSearchFlags(
+                    flags ->
+                        flags
+                            .setSkipCache(skipCache)
+                            .setSkipAggregates(skipAggregation)
+                            .setIncludeSoftDeleted(includeSoftDelete)
+                            .setSliceOptions(
+                                sliceId != null && sliceMax != null
+                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                    : null,
+                                SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
             Optional.ofNullable(entityAspectsBody.getFilter())

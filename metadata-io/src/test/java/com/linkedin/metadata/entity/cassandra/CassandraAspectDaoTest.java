@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,7 +44,7 @@ public class CassandraAspectDaoTest {
   @BeforeMethod
   public void setupTest() {
     mockSession = mock(CqlSession.class);
-    testDao = new CassandraAspectDao(mockSession);
+    testDao = new CassandraAspectDao(mockSession, List.of(), null);
     testDao.setConnectionValidated(true); // Skip connection validation in tests
   }
 
@@ -333,7 +334,8 @@ public class CassandraAspectDaoTest {
   public void testConnectionValidationAffectsWritability() {
     // Create a new DAO without validating connection
     CqlSession mockSessionInvalid = mock(CqlSession.class);
-    CassandraAspectDao daoWithInvalidConnection = new CassandraAspectDao(mockSessionInvalid);
+    CassandraAspectDao daoWithInvalidConnection =
+        new CassandraAspectDao(mockSessionInvalid, List.of(), null);
 
     // Don't set connection as validated (simulates validation failure)
     // The DAO should still allow reads but block writes implicitly through validation

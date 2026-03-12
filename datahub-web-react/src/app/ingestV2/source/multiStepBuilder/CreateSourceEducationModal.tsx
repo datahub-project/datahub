@@ -1,10 +1,11 @@
 import { Modal, Text } from '@components';
 import { Image } from 'antd';
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXTERNAL_SOURCE_REDIRECT_URL } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { INGESTION_SELECT_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import useHasSeenEducationStep from '@providers/hooks/useHasSeenEducationStep';
 import useUpdateEducationStep from '@providers/hooks/useUpdateEducationStep';
@@ -30,17 +31,22 @@ const ItalicsText = styled(Text)`
 export default function CreateSourceEducationModal() {
     const hasSeenStep = useHasSeenEducationStep(INGESTION_SELECT_SOURCE_ID);
     const { updateEducationStep } = useUpdateEducationStep();
+    const { isTourOpen, setIsTourOpen } = useContext(OnboardingContext);
 
     function handleClose() {
-        updateEducationStep(INGESTION_SELECT_SOURCE_ID);
-        analytics.event({
-            type: EventType.CloseCreateSourceEducationModalEvent,
-        });
+        if (isTourOpen) {
+            setIsTourOpen(false);
+        } else {
+            updateEducationStep(INGESTION_SELECT_SOURCE_ID);
+            analytics.event({
+                type: EventType.CloseCreateSourceEducationModalEvent,
+            });
+        }
     }
 
     return (
         <Modal
-            open={!hasSeenStep}
+            open={!hasSeenStep || isTourOpen}
             onCancel={handleClose}
             centered
             buttons={[

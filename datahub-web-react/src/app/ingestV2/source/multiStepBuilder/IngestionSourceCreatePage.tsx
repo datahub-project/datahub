@@ -13,15 +13,14 @@ import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/st
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { ScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStepSubtitle';
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
     SubmitOptions,
 } from '@app/ingestV2/source/multiStepBuilder/types';
 import {
+    DEFAULT_SOURCE_SORT_CRITERION,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
     getNewIngestionSourcePlaceholder,
@@ -46,12 +45,6 @@ const STEPS: IngestionSourceFormStep[] = [
         subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
-    },
-    {
-        label: 'Sync Schedule ',
-        subTitle: <ScheduleStepSubtitle />,
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
     },
 ];
 
@@ -92,7 +85,7 @@ export function IngestionSourceCreatePage() {
                     count: DEFAULT_PAGE_SIZE,
                     query: undefined,
                     filters: [getIngestionSourceSystemFilter(true)],
-                    sort: undefined,
+                    sort: DEFAULT_SOURCE_SORT_CRITERION,
                 });
 
                 analytics.event({

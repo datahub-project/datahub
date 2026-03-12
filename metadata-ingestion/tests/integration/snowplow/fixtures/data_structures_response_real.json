@@ -1,0 +1,68 @@
+[
+  {
+    "hash": "be0751ef5b6721bdb489bed2a2b6055a25d31683dd942ff9ffc02df3899caa74",
+    "organizationId": "92ef6ada-1101-4982-b627-45cadfd955a2",
+    "vendor": "com.datahub",
+    "name": "user",
+    "format": "jsonschema",
+    "description": "User related properties",
+    "meta": {
+      "hidden": false,
+      "schemaType": "entity",
+      "customData": {}
+    },
+    "deployments": [
+      {
+        "version": "1-0-0",
+        "patchLevel": 0,
+        "contentHash": "2648c70a88c1a9a7aa42bb07712cdfa750c3c265771982a3605132ffff8f2869",
+        "env": "PROD",
+        "ts": "2025-12-16T12:52:15Z",
+        "message": null,
+        "initiator": "Tamás Németh"
+      },
+      {
+        "version": "1-0-0",
+        "patchLevel": 0,
+        "contentHash": "2648c70a88c1a9a7aa42bb07712cdfa750c3c265771982a3605132ffff8f2869",
+        "env": "DEV",
+        "ts": "2025-12-16T12:52:09Z",
+        "message": null,
+        "initiator": "Tamás Németh"
+      }
+    ]
+  },
+  {
+    "hash": "5242ff4ca845492f5585e10d1c7ce58a0ecf7c1f375d49ef54603651c91e0bf0",
+    "organizationId": "92ef6ada-1101-4982-b627-45cadfd955a2",
+    "vendor": "com.acme",
+    "name": "checkout_started",
+    "format": "jsonschema",
+    "description": "Event fired when user starts checkout process",
+    "meta": {
+      "hidden": false,
+      "schemaType": "event",
+      "customData": {}
+    },
+    "deployments": [
+      {
+        "version": "1-1-0",
+        "patchLevel": 0,
+        "contentHash": "b0206ad4114386d797d684fd037d0f14e3b57631c532b2a5c64f78626d6092ba",
+        "env": "PROD",
+        "ts": "2025-12-14T12:57:14Z",
+        "message": null,
+        "initiator": "Tamás Németh"
+      },
+      {
+        "version": "1-1-0",
+        "patchLevel": 0,
+        "contentHash": "b0206ad4114386d797d684fd037d0f14e3b57631c532b2a5c64f78626d6092ba",
+        "env": "DEV",
+        "ts": "2025-12-12T11:13:49Z",
+        "message": null,
+        "initiator": "Tamás Németh"
+      }
+    ]
+  }
+]

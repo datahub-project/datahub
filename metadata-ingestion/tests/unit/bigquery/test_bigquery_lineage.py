@@ -14,7 +14,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     GcsLineageProviderConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
@@ -93,6 +96,7 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -120,6 +124,7 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -196,6 +201,7 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -265,6 +271,7 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_inst
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -306,6 +313,7 @@ def test_lineage_for_external_table_with_non_gcs_uri(mock_datahub_graph_instance
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(
@@ -344,6 +352,7 @@ def test_lineage_for_external_table_path_not_matching_specs(
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        filters=BigQueryFilter(config, report),
     )
 
     upstream_lineage = extractor.get_lineage_for_external_table(

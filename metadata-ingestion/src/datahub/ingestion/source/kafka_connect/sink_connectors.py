@@ -6,6 +6,7 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from sqlalchemy.engine.url import URL, make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
+    JDBC_PREFIX,
     KAFKA,
     BaseConnector,
     ConnectorManifest,
@@ -128,7 +129,7 @@ class ConfluentS3SinkConnector(BaseConnector):
 
             lineages: List[KafkaConnectLineage] = list()
             for original_topic, transformed_topic in zip(
-                topic_list, transformed_topics
+                topic_list, transformed_topics, strict=False
             ):
                 target_dataset: str = (
                     f"{parser.bucket}/{parser.topics_dir}/{transformed_topic}"
@@ -238,7 +239,9 @@ class SnowflakeSinkConnector(BaseConnector):
 
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
-        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
             if original_topic in provided_topics_to_tables:
                 # If user provided which table to get mapped with this topic
                 topics_to_tables[original_topic] = provided_topics_to_tables[
@@ -547,7 +550,9 @@ class BigQuerySinkConnector(BaseConnector):
                 f"Consider using 'generic_connectors' config for explicit mappings."
             )
 
-        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
+        for original_topic, transformed_topic in zip(
+            topic_list, transformed_topics, strict=False
+        ):
             # Use the transformed topic to determine dataset/table
             dataset_table: Optional[str] = self.get_dataset_table_for_topic(
                 transformed_topic, parser
@@ -660,7 +665,7 @@ class JdbcSinkParserFactory:
             JdbcSinkParser with parsed configuration
         """
         # Parse JDBC URL using SQLAlchemy
-        jdbc_url = remove_prefix(connection_url, "jdbc:")
+        jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
         url_instance = make_url(jdbc_url)
 
         # Extract database name
@@ -812,10 +817,12 @@ class JdbcSinkParserFactory:
 @dataclass
 class JdbcSinkConnector(BaseConnector):
     """
-    Generic JDBC sink connector for Confluent Cloud managed JDBC sinks.
+    Generic JDBC sink connector supporting both Confluent Cloud and self-hosted variants.
 
-    Supports PostgresSink and MySqlSink connectors that write Kafka topics
-    to database tables.
+    Supported connector classes:
+    - PostgresSink / MySqlSink (Confluent Cloud): platform passed explicitly
+    - io.debezium.connector.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
+    - io.confluent.connect.jdbc.JdbcSinkConnector: platform auto-detected from connection.url
 
     This implementation follows the patterns established in source connectors:
     - Uses dedicated parser classes for configuration
@@ -823,17 +830,44 @@ class JdbcSinkConnector(BaseConnector):
     - Utilizes common utility functions for consistency
     """
 
-    platform: str = "postgres"  # Default platform, overridden in __init__
+    platform: str = "unknown"
 
     def __init__(
         self,
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
-        platform: str = "postgres",
+        platform: Optional[str] = None,
     ):
         super().__init__(manifest, config, report)
-        self.platform = platform
+        if platform is not None:
+            self.platform = platform
+        else:
+            # Auto-detect from connection.url for self-hosted connectors
+            # (e.g. io.debezium.connector.jdbc.JdbcSinkConnector,
+            #  io.confluent.connect.jdbc.JdbcSinkConnector)
+            connection_url = manifest.config.get("connection.url", "")
+            if connection_url:
+                if not validate_jdbc_url(connection_url):
+                    report.warning(
+                        "Invalid JDBC URL in connector configuration. Expected format: jdbc:<scheme>://<host>/<db>",
+                        context=f"{manifest.name}: {connection_url}",
+                    )
+                    self.platform = "unknown"
+                else:
+                    jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+                    self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
+                    if self.platform == "external":
+                        report.warning(
+                            "Could not detect target platform from connection.url. JDBC scheme not in known platforms.",
+                            context=f"{manifest.name}: {connection_url}",
+                        )
+            else:
+                report.warning(
+                    "No 'connection.url' found in connector configuration. Cannot auto-detect target platform.",
+                    context=manifest.name,
+                )
+                self.platform = "unknown"
         self._parser_factory = JdbcSinkParserFactory()
 
     def get_parser(self) -> JdbcSinkParser:
@@ -1004,7 +1038,7 @@ class JdbcSinkConnector(BaseConnector):
 
             # Create lineage for each topic
             for original_topic, transformed_topic in zip(
-                topic_list, transformed_topics
+                topic_list, transformed_topics, strict=False
             ):
                 # Get table name using format from config
                 table_name = self.get_table_name_from_topic(
@@ -1074,4 +1108,10 @@ BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
 S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+)
+DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.debezium.connector.jdbc.JdbcSinkConnector"
+)
+CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
+    "io.confluent.connect.jdbc.JdbcSinkConnector"
 )

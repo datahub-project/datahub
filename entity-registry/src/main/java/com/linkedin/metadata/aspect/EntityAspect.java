@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,6 +100,10 @@ public class EntityAspect {
     @Nonnull private final EntitySpec entitySpec;
     @Nullable private final AspectSpec aspectSpec;
 
+    @Nullable private List<SystemAspectValidator> systemAspectValidators;
+
+    @Nullable private Object operationContext;
+
     @Nonnull
     public String getUrnRaw() {
       return urn.toString();
@@ -174,6 +179,12 @@ public class EntityAspect {
       return systemMetadata;
     }
 
+    @Nullable
+    @Override
+    public Object getOperationContext() {
+      return operationContext;
+    }
+
     public static class EntitySystemAspectBuilder {
 
       private EntityAspect.EntitySystemAspect build() {
@@ -184,7 +195,9 @@ public class EntityAspect {
             this.systemMetadata,
             this.auditStamp,
             this.entitySpec,
-            this.aspectSpec);
+            this.aspectSpec,
+            this.systemAspectValidators,
+            this.operationContext);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(
@@ -271,18 +284,36 @@ public class EntityAspect {
     @Override
     @Nonnull
     public EntityAspect withVersion(long version) {
-      return new EntityAspect(
-          urn.toString(),
-          aspectSpec.getName(),
-          version,
-          Optional.ofNullable(recordTemplate).map(RecordUtils::toJsonString).orElse(null),
-          Optional.ofNullable(systemMetadata).map(RecordUtils::toJsonString).orElse(null),
-          Optional.ofNullable(auditStamp).map(a -> new Timestamp(a.getTime())).orElse(null),
-          Optional.ofNullable(auditStamp).map(AuditStamp::getActor).map(Urn::toString).orElse(null),
-          Optional.ofNullable(auditStamp)
-              .map(AuditStamp::getImpersonator)
-              .map(Urn::toString)
-              .orElse(null));
+      EntityAspect entityAspect =
+          new EntityAspect(
+              urn.toString(),
+              aspectSpec.getName(),
+              version,
+              Optional.ofNullable(recordTemplate).map(RecordUtils::toJsonString).orElse(null),
+              Optional.ofNullable(systemMetadata).map(RecordUtils::toJsonString).orElse(null),
+              Optional.ofNullable(auditStamp).map(a -> new Timestamp(a.getTime())).orElse(null),
+              Optional.ofNullable(auditStamp)
+                  .map(AuditStamp::getActor)
+                  .map(Urn::toString)
+                  .orElse(null),
+              Optional.ofNullable(auditStamp)
+                  .map(AuditStamp::getImpersonator)
+                  .map(Urn::toString)
+                  .orElse(null));
+
+      // Call payload validators after aspect is serialized to JSON
+      // We pass both SystemAspect (this) and EntityAspect (serialized form) to validators:
+      // - SystemAspect provides context: URN, aspect spec, RecordTemplate object
+      // - EntityAspect provides the JSON string that was ALREADY serialized for DB write
+      // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
+      // making validation/metrics essentially free without re-serializing.
+      if (systemAspectValidators != null && !systemAspectValidators.isEmpty()) {
+        for (SystemAspectValidator validator : systemAspectValidators) {
+          validator.validatePayload(this, entityAspect);
+        }
+      }
+
+      return entityAspect;
     }
   }
 }

@@ -39,6 +39,12 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     lineage_extraction_failures: int = 0
     datasets_with_lineage: int = 0
 
+    # Column-level lineage metrics
+    column_lineage_extracted: int = 0  # Number of column mappings extracted
+    column_lineage_activities_unsupported: Dict[str, int] = field(
+        default_factory=dict
+    )  # Activity types without CLL support
+
     # Execution history metrics
     pipeline_runs_scanned: int = 0
     activity_runs_scanned: int = 0
@@ -117,6 +123,20 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
             message="Lineage skipped for dataset using unsupported linked service type.",
             context=f"dataset={dataset_name}, linked_service_type={linked_service_type}",
         )
+
+    def report_column_lineage_extracted(self) -> None:
+        """Increment column lineage mappings counter."""
+        self.column_lineage_extracted += 1
+
+    def report_column_lineage_unsupported(self, activity_type: str) -> None:
+        """Record an activity type that doesn't support column lineage extraction.
+
+        Args:
+            activity_type: The ADF activity type (e.g., "Lookup", "ForEach")
+        """
+        if activity_type not in self.column_lineage_activities_unsupported:
+            self.column_lineage_activities_unsupported[activity_type] = 0
+        self.column_lineage_activities_unsupported[activity_type] += 1
 
     def report_pipeline_run_scanned(self) -> None:
         """Increment pipeline runs scanned counter."""

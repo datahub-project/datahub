@@ -39,9 +39,17 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     HIGHTOUCH_MODEL = "Hightouch Model"
+    SEMANTIC_MODEL = "Semantic Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
+
+
+class GenericContainerSubTypes(StrEnum):
+    """Generic container subtypes that are not specific to datasets, BI, flows, or jobs."""
+
+    # Microsoft Fabric
+    FABRIC_WORKSPACE = "Fabric Workspace"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -61,6 +69,10 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # Microsoft Fabric
+    FABRIC_LAKEHOUSE = "Fabric Lakehouse"
+    FABRIC_WAREHOUSE = "Fabric Warehouse"
+    FABRIC_SCHEMA = "Fabric Schema"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -86,7 +98,7 @@ class BIContainerSubTypes(StrEnum):
 
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
-    MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
 
 
@@ -94,6 +106,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    FUNCTION = "Function"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -138,13 +151,16 @@ class MLAssetSubTypes(StrEnum):
 
     VERTEX_MODEL = "ML Model"
     VERTEX_MODEL_GROUP = "ML Model Group"
+    VERTEX_MODEL_EVALUATION = "Model Evaluation"
     VERTEX_TRAINING_JOB = "Training Job"
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"
     VERTEX_PROJECT = "Project"
-    VERTEX_PIPELINE = "Pipeline Job"
-    VERTEX_PIPELINE_TASK = "Pipeline Task"
-    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"
+    VERTEX_PIPELINE = "Pipeline"
+    VERTEX_PIPELINE_TASK = "Task"
+    VERTEX_PIPELINE_TASK_RUN = "Task Run"
+
+    FOLDER = "Folder"
 
 
 class DataJobSubTypes(StrEnum):
@@ -195,6 +211,7 @@ def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
     source_enums = [
         DatasetSubTypes,
+        GenericContainerSubTypes,
         DatasetContainerSubTypes,
         BIContainerSubTypes,
         FlowContainerSubTypes,

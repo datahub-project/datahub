@@ -143,15 +143,19 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [searchInput, setSearchInput] = useState('');
+    const location = useLocation();
+
+    // Query inputs after redirect to restore initial state of query and sorting
+    const redirectQueryInputs = useMemo(() => location.state?.sourcesListQueryInputs, [location.state]);
+
+    const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
+    const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
     const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<InputRef>(null);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const history = useHistory();
-    const location = useLocation();
 
     const createdOrUpdatedSourceUrnFromLocation = useMemo(
         () => location.state?.createdOrUpdatedSourceUrn,
@@ -163,22 +167,23 @@ export const IngestionSourceList = ({
         [createdOrUpdatedSourceUrnFromLocation],
     );
 
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+    };
+
+    const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
+
     // Initialize search input from URL parameter
     useEffect(() => {
         if (searchQueryFromUrl?.length) {
+            setPage(1);
             setQuery(searchQueryFromUrl);
             setSearchInput(searchQueryFromUrl);
             setTimeout(() => {
                 searchInputRef.current?.focus?.();
             }, 0);
         }
-    }, [searchQueryFromUrl]);
-
-    const handleSearchInputChange = (value: string) => {
-        setSearchInput(value);
-    };
-
-    const { page, setPage, start, count: pageSize } = useUrlParamsPagination(DEFAULT_PAGE_SIZE);
+    }, [searchQueryFromUrl, setPage]);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -195,7 +200,7 @@ export const IngestionSourceList = ({
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
-    const { sort, setSort } = useQueryParamSortCriterion();
+    const { sort, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
@@ -476,12 +481,16 @@ export const IngestionSourceList = ({
             } else {
                 setSourcesToRefetch((prev) => new Set([...prev, createdOrUpdatedSourceUrnFromLocation]));
             }
+            // clear browser state vars for shouldRun to prevent duplicate runs
+            history.replace(history.location.pathname, { ...location.state, shouldRun: undefined });
         }
     }, [
         isCreatedOrUpdatedSourceFromLocationHandled,
         createdOrUpdatedSourceUrnFromLocation,
         shouldRunCreatedOrUpdatedSourceFromLocation,
         executeIngestionSource,
+        history,
+        location,
     ]);
 
     const onChangePage = (newPage: number) => {

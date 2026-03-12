@@ -3,6 +3,7 @@ export * from './theme';
 
 // example usage: import { Button } from '@components';
 export * from './components/ActionsBar';
+export * from './components/Alert';
 export * from './components/AutoComplete';
 export * from './components/Avatar';
 export * from './components/Badge';
@@ -35,6 +36,7 @@ export * from './components/OverflowText';
 export * from './components/PageTitle';
 export * from './components/Pagination';
 export * from './components/Pills';
+export * from './components/ResizablePills';
 export * from './components/Popover';
 export * from './components/SearchBar';
 export * from './components/Select';

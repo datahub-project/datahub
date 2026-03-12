@@ -36,7 +36,7 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? `Assigned role ${roleToAssign?.name} to user ${username}!`
+                            ? `Assigned role ${roleToAssign?.name} to ${username}!`
                             : `Removed role from user ${username}!`,
                         duration: 2,
                     });

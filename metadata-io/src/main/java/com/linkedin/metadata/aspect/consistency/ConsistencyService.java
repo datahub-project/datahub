@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -868,6 +869,80 @@ public class ConsistencyService {
       }
     }
     return allIssues;
+  }
+
+  /**
+   * Consolidate issues by entity URN, applying prioritization rules.
+   *
+   * <p>When multiple issues exist for the same entity URN:
+   *
+   * <ul>
+   *   <li>If ANY issue has HARD_DELETE or DELETE_INDEX_DOCUMENTS fix type, only destructive issues
+   *       are kept (non-destructive operations are discarded). If both HARD_DELETE and
+   *       DELETE_INDEX_DOCUMENTS exist for the same URN, both are executed.
+   *   <li>Otherwise, all issues are kept and applied sequentially (SOFT_DELETE, UPSERT, CREATE,
+   *       PATCH, DELETE_ASPECT can coexist)
+   * </ul>
+   *
+   * @param issues list of issues to consolidate
+   * @return consolidated list of issues
+   */
+  public List<ConsistencyIssue> consolidateIssues(@Nonnull List<ConsistencyIssue> issues) {
+    if (issues == null || issues.isEmpty()) {
+      return List.of();
+    }
+
+    // Group issues by entity URN
+    Map<Urn, List<ConsistencyIssue>> byUrn =
+        issues.stream().collect(Collectors.groupingBy(ConsistencyIssue::getEntityUrn));
+
+    List<ConsistencyIssue> consolidated = new ArrayList<>();
+
+    for (Map.Entry<Urn, List<ConsistencyIssue>> entry : byUrn.entrySet()) {
+      List<ConsistencyIssue> urnIssues = entry.getValue();
+
+      // Collect all destructive issues (HARD_DELETE and DELETE_INDEX_DOCUMENTS)
+      List<ConsistencyIssue> destructiveIssues =
+          urnIssues.stream()
+              .filter(
+                  i ->
+                      i.getFixType() == ConsistencyFixType.HARD_DELETE
+                          || i.getFixType() == ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
+              .collect(Collectors.toList());
+
+      if (!destructiveIssues.isEmpty()) {
+        // Keep all destructive issues, discard non-destructive ones
+        consolidated.addAll(destructiveIssues);
+        if (destructiveIssues.size() > 1) {
+          // Having both HARD_DELETE and DELETE_INDEX_DOCUMENTS is unusual but execute both
+          log.warn(
+              "Found {} destructive issues for {} (executing all): {}",
+              destructiveIssues.size(),
+              entry.getKey(),
+              destructiveIssues.stream()
+                  .map(ConsistencyIssue::getFixType)
+                  .collect(Collectors.toList()));
+        } else {
+          log.debug(
+              "Consolidated {} issues for {} to {}",
+              urnIssues.size(),
+              entry.getKey(),
+              destructiveIssues.get(0).getFixType());
+        }
+      } else {
+        // No destructive issues - keep all issues (applied sequentially)
+        consolidated.addAll(urnIssues);
+      }
+    }
+
+    if (consolidated.size() < issues.size()) {
+      log.info(
+          "Consolidated {} issues to {} issues (HARD_DELETE prioritization)",
+          issues.size(),
+          consolidated.size());
+    }
+
+    return consolidated;
   }
 
   /**

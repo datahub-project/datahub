@@ -70,6 +70,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.sslContext.keyStorePassword",
           // Services encryption
           "secretService.encryptionKey",
+          // Embedding provider API keys
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.apiKey",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.apiKey",
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
@@ -111,6 +114,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          // K8 scale-down and Kubernetes config (label selectors, KEDA, rollout, env JSON - not
+          // secrets)
+          "systemUpdate.kubernetesScaleDown.*",
 
           // Consistency checks configuration
           "consistencyChecks.checks.*.*",
@@ -176,6 +182,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.enforceExistenceEnabled",
           "authentication.excludedPaths",
           "authentication.logAuthenticatorExceptions",
+          "authentication.passwordResetTokenExpirationMs",
           "authentication.sessionTokenDurationMs",
           "authentication.tokenService.issuer",
           "authentication.tokenService.signingAlgorithm",
@@ -184,6 +191,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
+          "kubernetes.serviceHost",
+          "kubernetes.operationsApiEnabled",
           "tokenService",
           // Configuration keys and settings (not secret keys)
           "key",
@@ -250,6 +259,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.serde.usageEvent.value.deserializer",
           "kafka.bootstrapServers",
           "kafka.consumer.bootstrapServers",
+          "kafka.consumer.securityProtocol",
+          "kafka.consumer.schemaRegistryUrl",
           "kafka.consumer.healthCheckEnabled",
           "kafka.consumer.maxPartitionFetchBytes",
           "kafka.consumer.mcl.aspectsToDrop",
@@ -268,6 +279,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.bootstrapServers",
+          "kafka.producer.securityProtocol",
+          "kafka.producer.schemaRegistryUrl",
           "kafka.producer.compressionType",
           "kafka.producer.deliveryTimeout",
           "kafka.producer.maxRequestSize",
@@ -412,6 +425,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "bootstrap.servlets.waitTimeout",
           "configEntityRegistry.path",
           "configEntityRegistry.resource",
+          "configEntityRegistry.useOptimizedLoading",
           "spring.application.name",
           "spring.application.pid",
           "spring.error.include-exception",
@@ -459,6 +473,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
+          "featureFlags.multipleDataProductsPerAsset",
           "featureFlags.entityVersioning",
           "featureFlags.erModelRelationshipFeatureEnabled",
           "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
@@ -533,9 +548,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
+          "elasticsearch.buildIndices.reindexBatchSize",
+          "elasticsearch.buildIndices.reindexMaxSlices",
+          "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
           "elasticsearch.buildIndices.reindexOptimizationEnabled",
           "elasticsearch.buildIndices.retentionUnit",
           "elasticsearch.buildIndices.retentionValue",
+          "elasticsearch.buildIndices.slowOperationTimeoutSeconds",
+          "elasticsearch.buildIndices.countRetryMaxAttempts",
+          "elasticsearch.buildIndices.countRetryWaitSeconds",
+          "elasticsearch.buildIndices.createIndexRetryEnabled",
           "elasticsearch.bulkDelete.batchSize",
           "elasticsearch.bulkDelete.numRetries",
           "elasticsearch.bulkDelete.pollInterval",
@@ -554,6 +576,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
+          "elasticsearch.socketTimeout",
           "elasticsearch.host",
           "elasticsearch.idHashAlgo",
           "elasticsearch.implementation",
@@ -661,6 +684,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.query.complexityLimit",
           "graphQL.query.depthLimit",
           "graphQL.query.introspectionEnabled",
+          "graphQL.query.maxParentDepth",
+          "graphQL.query.maxVisitedUrns",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",
@@ -856,6 +881,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
+          // Aspect size validation configuration
+          "datahub.validation.aspectSize.prePatch.enabled",
+          "datahub.validation.aspectSize.prePatch.warnSizeBytes",
+          "datahub.validation.aspectSize.prePatch.maxSizeBytes",
+          "datahub.validation.aspectSize.prePatch.oversizedRemediation",
+          "datahub.validation.aspectSize.postPatch.enabled",
+          "datahub.validation.aspectSize.postPatch.warnSizeBytes",
+          "datahub.validation.aspectSize.postPatch.maxSizeBytes",
+          "datahub.validation.aspectSize.postPatch.oversizedRemediation",
+          "datahub.validation.aspectSize.metrics.sizeBuckets",
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
@@ -905,17 +940,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
           "elasticsearch.entityIndex.semanticSearch.enabledEntities",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.vectorDimension",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.knnEngine",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.spaceType",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.efConstruction",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.m",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.m",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.type",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.bedrock.awsRegion",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.bedrock.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.endpoint",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.model",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.endpoint",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size"

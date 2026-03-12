@@ -30,7 +30,7 @@ class QlikAPI:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "Authorization": f"Bearer {self.config.api_key}",
+                "Authorization": f"Bearer {self.config.api_key.get_secret_value()}",
                 "Content-Type": "application/json",
             }
         )
@@ -261,7 +261,9 @@ class QlikAPI:
     def _get_app(self, app_id: str) -> Optional[App]:
         try:
             websocket_connection = WebsocketConnection(
-                self.config.tenant_hostname, self.config.api_key, app_id
+                self.config.tenant_hostname,
+                self.config.api_key.get_secret_value(),
+                app_id,
             )
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
@@ -281,10 +283,10 @@ class QlikAPI:
             )
         return None
 
-    def get_items(self) -> List[Item]:
+    def get_items(self, space_id: str) -> List[Item]:
         items: List[Item] = []
         try:
-            url = f"{self.rest_api_url}/items"
+            url = f"{self.rest_api_url}/items?spaceId={space_id}"
             while True:
                 response = self.session.get(url)
                 response.raise_for_status()

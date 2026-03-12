@@ -23,19 +23,34 @@ configurations {
 
 dependencies {
   constraints {
-    provided(externalDependency.hadoopMapreduceClient) {
+    provided(externalDependency.hadoopClient) {
       because 'Needed for tie breaking of guava version need for spark and wiremock'
     }
-    provided(externalDependency.hadoopCommon) {
+    provided(externalDependency.hadoopCommon3) {
       because 'required for org.apache.hadoop.util.StopWatch'
     }
     provided(externalDependency.commonsIo) {
       because 'required for org.apache.commons.io.Charsets that is used internally'
     }
+    provided(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    implementation(externalDependency.snappy) {
+      because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
+    }
+    provided(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
+    implementation(externalDependency.gson) {
+      because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
+    }
   }
 
   provided(externalDependency.sparkSql)
-  provided(externalDependency.sparkHive)
+  provided(externalDependency.sparkHive) {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
+  implementation 'org.apache.velocity:velocity-engine-core:2.3'
   implementation 'org.slf4j:slf4j-log4j12:2.0.7'
   implementation externalDependency.httpClient
   implementation externalDependency.typesafeConfig
@@ -52,14 +67,14 @@ dependencies {
   // Default to Scala 2.12 for main compilation
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
-  compileOnly("org.apache.spark:spark-sql_2.12:3.1.3") {
+  compileOnly("org.apache.spark:spark-sql_2.12:3.3.4") {
     exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
     exclude group: 'org.eclipse.jetty', module: 'jetty-server'
     exclude group: 'org.eclipse.jetty', module: 'jetty-util'
     exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
-  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
+  compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.3"
 
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
@@ -68,10 +83,11 @@ dependencies {
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.slf4j:slf4j-log4j12:2.0.7'
 
-  // JUnit 5 dependencies
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
-  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+  // JUnit 5 dependencies (align with root to match junit-platform 1.12.2; launcher must match engine for Gradle test runner)
+  testImplementation "org.junit.jupiter:junit-jupiter-api:${rootProject.ext.junitJupiterVersion}"
+  testImplementation "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${rootProject.ext.junitJupiterVersion}"
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.12.2'
 
   testImplementation(externalDependency.postgresql) {
     exclude group: "com.fasterxml.jackson.core"
