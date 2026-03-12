@@ -114,10 +114,6 @@ def source_category(
     return wrapper
 
 
-# Backwards-compatible alias.
-SourceCategory = source_category
-
-
 @dataclass
 class CapabilitySetting:
     capability: SourceCapability
