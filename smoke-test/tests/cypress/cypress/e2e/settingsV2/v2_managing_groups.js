@@ -240,11 +240,10 @@ describe("create and manage group", () => {
     );
 
     // Wait for the group to be present, then open its actions menu
-    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, { timeout: 10000 })
-      .should("be.visible");
-    cy.get(
-      `[data-testid="group-menu-Test group EDITED ${test_id}"]`,
-    ).click();
+    cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, {
+      timeout: 10000,
+    }).should("be.visible");
+    cy.get(`[data-testid="group-menu-Test group EDITED ${test_id}"]`).click();
     cy.clickOptionWithText("Delete");
     cy.get('[role="dialog"] button').contains("Delete").click();
     cy.waitTextVisible("Deleted Group!");
