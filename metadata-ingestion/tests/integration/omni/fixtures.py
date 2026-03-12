@@ -8,6 +8,7 @@ The fake client covers:
   - 2 documents: 1 published dashboard with 2 tiles, 1 workbook-only
   - 1 folder: Finance
 """
+
 from typing import Any, Dict, Iterator, List
 
 # ---- Connections ----------------------------------------------------------

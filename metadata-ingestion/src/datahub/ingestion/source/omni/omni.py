@@ -22,7 +22,6 @@ import yaml
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
-    make_dashboard_urn,
     make_data_platform_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
@@ -45,9 +44,15 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.omni.omni_api import OmniClient
+from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
+from datahub.ingestion.source.omni.omni_lineage_parser import (
+    extract_field_refs,
+    parse_field_list,
+)
+from datahub.ingestion.source.omni.omni_report import OmniSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -60,8 +65,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     NumberTypeClass,
-    OwnerClass,
-    OwnershipClass,
     OwnershipTypeClass,
     PlatformTypeClass,
     SchemaFieldClass,
@@ -72,11 +75,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sdk import Chart, Dashboard, Dataset
-
-from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
-from datahub.ingestion.source.omni.omni_lineage_parser import FieldRef, extract_field_refs, parse_field_list
-from datahub.ingestion.source.omni.omni_api import OmniClient
-from datahub.ingestion.source.omni.omni_report import OmniSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +93,22 @@ class SemanticField:
 @support_status(SupportStatus.INCUBATING)
 @config_class(OmniSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Dashboard → Tile → Topic → View → DB Table")
-@capability(SourceCapability.LINEAGE_FINE, "Field-level lineage when include_column_lineage=true")
-@capability(SourceCapability.SCHEMA_METADATA, "Dimensions and measures extracted as schema columns")
+@capability(
+    SourceCapability.LINEAGE_COARSE, "Dashboard → Tile → Topic → View → DB Table"
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Field-level lineage when include_column_lineage=true",
+)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Dimensions and measures extracted as schema columns",
+)
 @capability(SourceCapability.OWNERSHIP, "Document owner extracted from Omni API")
-@capability(SourceCapability.PLATFORM_INSTANCE, "Supported via connection_to_platform_instance config")
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Supported via connection_to_platform_instance config",
+)
 class OmniSource(StatefulIngestionSourceBase, TestableSource):
     """Ingestion source for the Omni BI platform."""
 
@@ -166,7 +175,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 report.basic_connectivity = CapabilityReport(capable=True)
             else:
                 report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason="API returned an unsuccessful response."
+                    capable=False,
+                    failure_reason="API returned an unsuccessful response.",
                 )
         except Exception as exc:
             report.basic_connectivity = CapabilityReport(
@@ -212,7 +222,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             fineGrainedLineages=fine_grained_lineages or None,
         )
         self.report.dataset_lineage_edges_emitted += len(upstreams)
-        yield self._as_wu(MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=lineage))
+        yield self._as_wu(
+            MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=lineage)
+        )
 
     def _clear_upstream_lineage(self, dataset_urn: str) -> Iterator[MetadataWorkUnit]:
         """Emit an explicit empty lineage to clear stale edges from prior runs."""
@@ -231,7 +243,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         lowered = (native_type or "").lower()
         if "bool" in lowered:
             return SchemaFieldDataTypeClass(type=BooleanTypeClass())
-        if any(t in lowered for t in ("int", "number", "numeric", "decimal", "float", "double")):
+        if any(
+            t in lowered
+            for t in ("int", "number", "numeric", "decimal", "float", "double")
+        ):
             return SchemaFieldDataTypeClass(type=NumberTypeClass())
         return SchemaFieldDataTypeClass(type=StringTypeClass())
 
@@ -240,10 +255,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     def _semantic_dataset_urn(self, model_id: str, view_name: str) -> str:
-        return make_dataset_urn(self.PLATFORM, f"{model_id}.{view_name}", self.config.env)
+        return make_dataset_urn(
+            self.PLATFORM, f"{model_id}.{view_name}", self.config.env
+        )
 
     def _topic_dataset_urn(self, model_id: str, topic_name: str) -> str:
-        return make_dataset_urn(self.PLATFORM, f"{model_id}.topic.{topic_name}", self.config.env)
+        return make_dataset_urn(
+            self.PLATFORM, f"{model_id}.topic.{topic_name}", self.config.env
+        )
 
     def _model_dataset_urn(self, model_id: str) -> str:
         return make_dataset_urn(self.PLATFORM, f"model.{model_id}", self.config.env)
@@ -252,7 +271,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         return make_dataset_urn(self.PLATFORM, f"folder.{folder_id}", self.config.env)
 
     def _connection_dataset_urn(self, connection_id: str) -> str:
-        return make_dataset_urn(self.PLATFORM, f"connection.{connection_id}", self.config.env)
+        return make_dataset_urn(
+            self.PLATFORM, f"connection.{connection_id}", self.config.env
+        )
 
     def _physical_dataset_urn(
         self,
@@ -275,7 +296,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
         return make_dataset_urn(platform, full_name, self.config.env)
 
-    def _canonical_semantic_field_key(self, model_id: str, view_name: str, field_name: str) -> str:
+    def _canonical_semantic_field_key(
+        self, model_id: str, view_name: str, field_name: str
+    ) -> str:
         return f"{model_id}:{view_name}.{field_name}"
 
     # ------------------------------------------------------------------
@@ -400,17 +423,25 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 parsed = yaml.safe_load(text) or {}
             except Exception:
                 continue
-            if isinstance(parsed, dict) and parsed.get("type") == "topic" and parsed.get("name"):
+            if (
+                isinstance(parsed, dict)
+                and parsed.get("type") == "topic"
+                and parsed.get("name")
+            ):
                 names.add(parsed["name"])
         return names
 
-    def _normalize_semantic_field_entries(self, raw_fields: Any) -> List[Dict[str, Any]]:
+    def _normalize_semantic_field_entries(
+        self, raw_fields: Any
+    ) -> List[Dict[str, Any]]:
         normalized: List[Dict[str, Any]] = []
         if isinstance(raw_fields, dict):
             for field_name, payload in raw_fields.items():
                 if isinstance(payload, dict):
                     row = dict(payload)
-                    row["field_name"] = row.get("field_name") or row.get("name") or field_name
+                    row["field_name"] = (
+                        row.get("field_name") or row.get("name") or field_name
+                    )
                     normalized.append(row)
                 elif isinstance(payload, str):
                     normalized.append({"field_name": field_name, "expression": payload})
@@ -445,13 +476,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             pname = parsed.get("name")
             if ptype == "topic" and pname:
                 topic_specs[str(pname)] = parsed
-            elif ptype == "view" and pname:
-                view_specs[str(pname)] = parsed
-            elif pname and (
-                parsed.get("dimensions")
-                or parsed.get("measures")
-                or parsed.get("fields")
-                or parsed.get("table_name")
+            elif (
+                ptype == "view"
+                and pname
+                or pname
+                and (
+                    parsed.get("dimensions")
+                    or parsed.get("measures")
+                    or parsed.get("fields")
+                    or parsed.get("table_name")
+                )
             ):
                 view_specs[str(pname)] = parsed
         return topic_specs, view_specs
@@ -479,7 +513,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         views_payload: List[Dict[str, Any]] = []
         for view_name in sorted(candidate_view_names):
             raw_view = dict(view_specs.get(view_name) or {})
-            dimensions = self._normalize_semantic_field_entries(raw_view.get("dimensions"))
+            dimensions = self._normalize_semantic_field_entries(
+                raw_view.get("dimensions")
+            )
             measures = self._normalize_semantic_field_entries(raw_view.get("measures"))
             for f in self._normalize_semantic_field_entries(raw_view.get("fields")):
                 kind = str(f.get("kind") or f.get("field_type") or "").lower()
@@ -509,9 +545,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def _normalize_model_layer(self, model_kind: Optional[str]) -> str:
         kind = (model_kind or "").upper()
-        return {"WORKBOOK": "workbook", "SHARED": "shared", "SCHEMA": "schema", "BRANCH": "branch"}.get(
-            kind, (model_kind or "unknown").lower()
-        )
+        return {
+            "WORKBOOK": "workbook",
+            "SHARED": "shared",
+            "SCHEMA": "schema",
+            "BRANCH": "branch",
+        }.get(kind, (model_kind or "unknown").lower())
 
     def _ensure_connection_dataset(
         self, connection_id: str, connection: Optional[Dict[str, object]] = None
@@ -614,9 +653,24 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     name=".".join(
                         p
                         for p in [
-                            (database.upper() if self.config.normalize_snowflake_names and platform.lower() == "snowflake" else database),
-                            (schema.upper() if self.config.normalize_snowflake_names and platform.lower() == "snowflake" else schema),
-                            (table.upper() if self.config.normalize_snowflake_names and platform.lower() == "snowflake" else table),
+                            (
+                                database.upper()
+                                if self.config.normalize_snowflake_names
+                                and platform.lower() == "snowflake"
+                                else database
+                            ),
+                            (
+                                schema.upper()
+                                if self.config.normalize_snowflake_names
+                                and platform.lower() == "snowflake"
+                                else schema
+                            ),
+                            (
+                                table.upper()
+                                if self.config.normalize_snowflake_names
+                                and platform.lower() == "snowflake"
+                                else table
+                            ),
                         ]
                         if p
                     ),
@@ -633,7 +687,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     platform=platform,
                     platform_instance=platform_instance,
                     upstreams=UpstreamLineageClass(
-                        upstreams=[UpstreamClass(dataset=semantic_urn, type=DatasetLineageTypeClass.TRANSFORMED)]
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=semantic_urn,
+                                type=DatasetLineageTypeClass.TRANSFORMED,
+                            )
+                        ]
                     ),
                 )
                 self.report.physical_datasets_emitted += 1
@@ -645,7 +704,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 if fn not in seen_fields:
                     native_type = str(
-                        dimension.get("sql_type") or dimension.get("data_type") or dimension.get("type") or "STRING"
+                        dimension.get("sql_type")
+                        or dimension.get("data_type")
+                        or dimension.get("type")
+                        or "STRING"
                     )
                     schema_fields.append(
                         SchemaFieldClass(
@@ -659,8 +721,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     seen_fields.add(fn)
                 key = self._canonical_semantic_field_key(model_id, view_name, fn)
                 sf = SemanticField(
-                    model_id=model_id, view_name=view_name, field_name=fn,
-                    expression=dimension.get("dialect_sql") or dimension.get("display_sql") or "",
+                    model_id=model_id,
+                    view_name=view_name,
+                    field_name=fn,
+                    expression=dimension.get("dialect_sql")
+                    or dimension.get("display_sql")
+                    or "",
                     confidence="unresolved",
                 )
                 if physical_urn:
@@ -673,7 +739,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 if fn not in seen_fields:
                     native_type = str(
-                        measure.get("sql_type") or measure.get("data_type") or measure.get("type") or "NUMBER"
+                        measure.get("sql_type")
+                        or measure.get("data_type")
+                        or measure.get("type")
+                        or "NUMBER"
                     )
                     schema_fields.append(
                         SchemaFieldClass(
@@ -690,14 +759,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 confidence = "exact" if refs else "derived" if expr else "unresolved"
                 key = self._canonical_semantic_field_key(model_id, view_name, fn)
                 sf = SemanticField(
-                    model_id=model_id, view_name=view_name, field_name=fn,
-                    expression=expr, confidence=confidence,
+                    model_id=model_id,
+                    view_name=view_name,
+                    field_name=fn,
+                    expression=expr,
+                    confidence=confidence,
                 )
                 if physical_urn:
                     sf.upstream_physical_urns.add(physical_urn)
                 self._semantic_fields[key] = sf
 
-            view_props = {"modelId": model_id, "topicName": topic_name, "viewName": view_name}
+            view_props = {
+                "modelId": model_id,
+                "topicName": topic_name,
+                "viewName": view_name,
+            }
             if model_custom_properties:
                 view_props.update(model_custom_properties)
 
@@ -709,7 +785,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 subtype="View",
                 schema_fields=schema_fields or None,
                 upstreams=UpstreamLineageClass(
-                    upstreams=[UpstreamClass(dataset=topic_urn, type=DatasetLineageTypeClass.TRANSFORMED)]
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=topic_urn, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
+                    ]
                 ),
             )
             self.report.semantic_datasets_emitted += 1
@@ -722,7 +802,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         connections: Dict[str, Dict[str, object]] = {}
         try:
             connections = {
-                c.get("id"): c for c in self.client.list_connections(self.config.include_deleted)
+                c.get("id"): c
+                for c in self.client.list_connections(self.config.include_deleted)
             }
             self._connections_by_id = connections
             for connection_id, connection in connections.items():
@@ -769,13 +850,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._ensure_connection_dataset(connection_id, connection)
             platform = (connection or {}).get("dialect") or "database"
             if self.config.connection_to_platform:
-                platform = self.config.connection_to_platform.get(connection_id, platform)
+                platform = self.config.connection_to_platform.get(
+                    connection_id, platform
+                )
             database = (connection or {}).get("database") or ""
             if self.config.connection_to_database:
-                database = self.config.connection_to_database.get(connection_id, database)
+                database = self.config.connection_to_database.get(
+                    connection_id, database
+                )
             platform_instance: Optional[str] = None
             if self.config.connection_to_platform_instance:
-                platform_instance = self.config.connection_to_platform_instance.get(connection_id)
+                platform_instance = self.config.connection_to_platform_instance.get(
+                    connection_id
+                )
 
             self._model_context_by_id[model_id] = {
                 "connection_id": connection_id,
@@ -798,7 +885,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     yield from self._emit_dataset(
                         name=f"model.{base_model_id}",
                         description="Omni base model inferred from model relationship.",
-                        custom_properties={"entityType": "model", "modelId": base_model_id, "inferred": "true"},
+                        custom_properties={
+                            "entityType": "model",
+                            "modelId": base_model_id,
+                            "inferred": "true",
+                        },
                         subtype="Model",
                     )
                     self._model_dataset_urns.add(base_model_urn)
@@ -808,7 +899,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if model_upstream_urns:
                 model_upstreams_aspect = UpstreamLineageClass(
                     upstreams=[
-                        UpstreamClass(dataset=u, type=DatasetLineageTypeClass.TRANSFORMED)
+                        UpstreamClass(
+                            dataset=u, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
                         for u in sorted(model_upstream_urns)
                     ]
                 )
@@ -847,7 +940,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         "topic-fetch",
                         f"Failed to fetch topic {topic_name} for model {model_id}; using YAML fallback: {exc}",
                     )
-                    topic = self._topic_payload_from_yaml_specs(topic_name, topic_specs, view_specs)
+                    topic = self._topic_payload_from_yaml_specs(
+                        topic_name, topic_specs, view_specs
+                    )
                 if not topic:
                     continue
                 yield from self._ingest_topic_payload(
@@ -871,7 +966,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             folder_id = folder.get("id")
             if not folder_id:
                 continue
-            folder_name = folder.get("name") or folder_id
+            folder.get("name") or folder_id
             owner = folder.get("owner") or {}
             path = folder.get("path") or ""
             folder_url = folder.get("url") or ""
@@ -936,7 +1031,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             database=str(ctx.get("database") or ""),
             connection_id=str(ctx.get("connection_id") or ""),
             platform_instance=(
-                str(ctx.get("platform_instance")) if ctx.get("platform_instance") else None
+                str(ctx.get("platform_instance"))
+                if ctx.get("platform_instance")
+                else None
             ),
             inferred=True,
             model_custom_properties=mcp,
@@ -985,10 +1082,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 qp_id = qp.get("id") or f"{doc_id}:{idx}"
                 chart_ids.append(qp_id)
                 chart_inputs[qp_id] = set()
-                chart_titles[qp_id] = qp.get("name") or f"{dashboard_title} - tile {idx + 1}"
+                chart_titles[qp_id] = (
+                    qp.get("name") or f"{dashboard_title} - tile {idx + 1}"
+                )
                 query = qp.get("query") or {}
                 fields_by_dashboard.update(parse_field_list(query.get("fields", [])))
-                topic_name = qp.get("topicName") or query.get("join_paths_from_topic_name")
+                topic_name = qp.get("topicName") or query.get(
+                    "join_paths_from_topic_name"
+                )
                 if topic_name and model_id:
                     dashboard_topics.add(topic_name)
                     topic_key = f"{model_id}:{topic_name}"
@@ -996,7 +1097,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         topic_key, self._topic_dataset_urn(model_id, topic_name)
                     )
                     if topic_key not in self._topic_urn_by_key:
-                        yield from self._ingest_topic_from_dashboard(model_id, topic_name)
+                        yield from self._ingest_topic_from_dashboard(
+                            model_id, topic_name
+                        )
                         topic_urn = self._topic_urn_by_key.get(topic_key, topic_urn)
                     if topic_urn not in self._topic_dataset_urns:
                         self._topic_dataset_urns.add(topic_urn)
@@ -1034,7 +1137,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         inferred_view_topic_links: Dict[str, Set[str]] = {}
 
         for field_ref in fields_by_dashboard:
-            inferred_fields_by_view.setdefault(field_ref.view, set()).add(field_ref.field)
+            inferred_fields_by_view.setdefault(field_ref.view, set()).add(
+                field_ref.field
+            )
             semantic_view_urn = self._semantic_dataset_urn(model_id, field_ref.view)
             if semantic_view_urn not in self._semantic_dataset_urns:
                 self._semantic_dataset_urns.add(semantic_view_urn)
@@ -1051,7 +1156,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 if dashboard_topic_urns:
                     view_upstreams = UpstreamLineageClass(
                         upstreams=[
-                            UpstreamClass(dataset=t, type=DatasetLineageTypeClass.TRANSFORMED)
+                            UpstreamClass(
+                                dataset=t, type=DatasetLineageTypeClass.TRANSFORMED
+                            )
                             for t in sorted(dashboard_topic_urns)
                         ]
                     )
@@ -1076,7 +1183,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.include_column_lineage:
                 continue
 
-            key = self._canonical_semantic_field_key(model_id, field_ref.view, field_ref.field)
+            key = self._canonical_semantic_field_key(
+                model_id, field_ref.view, field_ref.field
+            )
             semantic_field = self._semantic_fields.get(key)
             downstream_field_urn = make_schema_field_urn(
                 dashboard_dataset_urn, f"{field_ref.view}.{field_ref.field}"
@@ -1084,8 +1193,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if not semantic_field:
                 self.report.fine_grained_lineage_edges_unresolved += 1
                 continue
-            semantic_urn = self._semantic_dataset_urn(semantic_field.model_id, semantic_field.view_name)
-            semantic_field_urn = make_schema_field_urn(semantic_urn, semantic_field.field_name)
+            semantic_urn = self._semantic_dataset_urn(
+                semantic_field.model_id, semantic_field.view_name
+            )
+            semantic_field_urn = make_schema_field_urn(
+                semantic_urn, semantic_field.field_name
+            )
             edge = (tuple([semantic_field_urn]), tuple([downstream_field_urn]))
             if edge not in fine_grained_dedupe:
                 fine_grained_dedupe.add(edge)
@@ -1126,7 +1239,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if not has_dashboard and not self.config.include_workbook_only:
                 continue
 
-            dashboard_dataset_urn = make_dataset_urn(self.PLATFORM, doc_id, self.config.env)
+            dashboard_dataset_urn = make_dataset_urn(
+                self.PLATFORM, doc_id, self.config.env
+            )
             yield self._as_wu(
                 MetadataChangeProposalWrapper(
                     entityUrn=dashboard_dataset_urn,
@@ -1154,7 +1269,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self.report.dashboards_scanned += 1
 
             if folder_id:
-                yield from self._ensure_inline_folder(folder_id, folder_name, folder_path)
+                yield from self._ensure_inline_folder(
+                    folder_id, folder_name, folder_path
+                )
 
             document_connection_id = str(document.get("connectionId") or "")
             if document_connection_id:
@@ -1176,16 +1293,25 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             if has_dashboard:
                 yield from self._collect_tile_data(
-                    doc_id, dashboard_url, dashboard_title,
-                    fields_by_dashboard, chart_ids, chart_inputs, chart_titles,
-                    chart_urls, dashboard_topics, dashboard_topic_urns,
+                    doc_id,
+                    dashboard_url,
+                    dashboard_title,
+                    fields_by_dashboard,
+                    chart_ids,
+                    chart_inputs,
+                    chart_titles,
+                    chart_urls,
+                    dashboard_topics,
+                    dashboard_topic_urns,
                 )
                 model_id_from_dashboard = self._current_tile_model_id
 
             try:
                 for query in self.client.get_document_queries(doc_id):
                     if not model_id_from_dashboard:
-                        model_id_from_dashboard = (query.get("query") or {}).get("modelId")
+                        model_id_from_dashboard = (query.get("query") or {}).get(
+                            "modelId"
+                        )
                     fields_by_dashboard.update(
                         parse_field_list((query.get("query") or {}).get("fields", []))
                     )
@@ -1199,7 +1325,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 for topic_name in sorted(dashboard_topics):
                     topic_key = f"{model_id_from_dashboard}:{topic_name}"
                     topic_urn = self._topic_urn_by_key.get(
-                        topic_key, self._topic_dataset_urn(model_id_from_dashboard, topic_name)
+                        topic_key,
+                        self._topic_dataset_urn(model_id_from_dashboard, topic_name),
                     )
                     dashboard_topic_urns.add(topic_urn)
                     for qp_id in chart_ids:
@@ -1215,7 +1342,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     fine_grained_dedupe=fine_grained_dedupe,
                 )
 
-            folder_urn: Optional[str] = self._folder_dataset_urn(folder_id) if folder_id else None
+            folder_urn: Optional[str] = (
+                self._folder_dataset_urn(folder_id) if folder_id else None
+            )
             structural_upstreams: Set[str] = set()
             if folder_id:
                 structural_upstreams.add(self._folder_dataset_urn(folder_id))

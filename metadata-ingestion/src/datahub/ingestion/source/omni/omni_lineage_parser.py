@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, Set
 
-
 REF_PATTERN = re.compile(r"\$\{([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\}")
 PLAIN_PATTERN = re.compile(r"\b([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\b")
 

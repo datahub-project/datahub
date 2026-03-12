@@ -1,10 +1,13 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pydantic
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import EnvConfigMixin, PlatformInstanceConfigMixin
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )

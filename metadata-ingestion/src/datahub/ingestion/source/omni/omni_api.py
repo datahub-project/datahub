@@ -51,7 +51,10 @@ class OmniClient:
                 params=params,
                 timeout=self._timeout,
             )
-            if response.status_code in (429, 500, 502, 503, 504) and attempt < retries - 1:
+            if (
+                response.status_code in (429, 500, 502, 503, 504)
+                and attempt < retries - 1
+            ):
                 retry_after = response.headers.get("Retry-After")
                 backoff = float(retry_after) if retry_after else min(2**attempt, 30)
                 time.sleep(backoff)

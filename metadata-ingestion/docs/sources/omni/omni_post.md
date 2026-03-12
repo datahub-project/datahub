@@ -51,9 +51,9 @@ If ingestion fails, validate credentials, permissions, and connectivity first. T
 
 Common issues:
 
-| Symptom | Likely Cause | Resolution |
-| --- | --- | --- |
-| `403 Forbidden` on `/v1/connections` | API key lacks connection read scope | Ingestion continues with config fallbacks; physical lineage may be incomplete |
-| Physical tables not linked to warehouse entities | `connection_to_platform` not configured | Add connection mapping for each Omni connection ID |
-| Snowflake URN mismatch | Case mismatch between Omni and DataHub Snowflake URNs | Ensure `normalize_snowflake_names: true` (default) |
-| Column lineage empty | View YAML has no `sql` expressions | Expected for views using direct `sql_table_name` without field-level SQL |
+| Symptom                                          | Likely Cause                                          | Resolution                                                                    |
+| ------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `403 Forbidden` on `/v1/connections`             | API key lacks connection read scope                   | Ingestion continues with config fallbacks; physical lineage may be incomplete |
+| Physical tables not linked to warehouse entities | `connection_to_platform` not configured               | Add connection mapping for each Omni connection ID                            |
+| Snowflake URN mismatch                           | Case mismatch between Omni and DataHub Snowflake URNs | Ensure `normalize_snowflake_names: true` (default)                            |
+| Column lineage empty                             | View YAML has no `sql` expressions                    | Expected for views using direct `sql_table_name` without field-level SQL      |
