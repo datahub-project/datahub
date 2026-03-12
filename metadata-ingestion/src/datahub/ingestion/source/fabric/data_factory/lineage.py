@@ -1,6 +1,9 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from datahub.ingestion.source.azure_data_factory.adf_source import (
+    LINKED_SERVICE_PLATFORM_MAP,
+)
 from datahub.ingestion.source.fabric.common.constants import (
     FABRIC_CONNECTION_PLATFORM_MAP,
 )
@@ -147,6 +150,11 @@ class CopyActivityLineageExtractor:
     def _resolve_platform(connection_type: str) -> str:
         """Map a connection type to a DataHub platform identifier."""
         platform = FABRIC_CONNECTION_PLATFORM_MAP.get(connection_type)
+        if platform is None:
+            # Fallback: connection type may be an ADF LinkedService type
+            # (e.g. AzureBlobStorage, AzureSqlDatabase) rather than a
+            # Fabric connection type.
+            platform = LINKED_SERVICE_PLATFORM_MAP.get(connection_type)
         if platform is None:
             logger.debug(
                 f"Unmapped connection type '{connection_type}', "
