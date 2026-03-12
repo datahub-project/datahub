@@ -306,7 +306,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "bucket_wildcard_allow_table.json",
+        "runId": "bucket_wildcard_as_table.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -617,7 +617,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "bucket_wildcard_allow_table.json",
+        "runId": "bucket_wildcard_as_table.json",
         "lastRunId": "no-run-id-provided"
     }
 },

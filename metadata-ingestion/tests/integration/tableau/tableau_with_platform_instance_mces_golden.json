@@ -43969,28 +43969,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest_with_platform_instance"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -44040,28 +44018,6 @@
                 },
                 {
                     "id": "test publish datasource"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_ingest_with_platform_instance"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
                 }
             ]
         }
