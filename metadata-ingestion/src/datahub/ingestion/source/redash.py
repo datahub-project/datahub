@@ -20,9 +20,9 @@ from datahub.ingestion.api.decorators import (
     # SourceCapability,; capability,
     capability,
     config_class,
-    IngestionSourceCategory,
+    IngestionSourceCategory,  # pragma: no cover
     platform_name,
-    SourceCategory,
+    SourceCategory,  # pragma: no cover
     support_status,
     SupportStatus,
 )

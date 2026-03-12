@@ -179,6 +179,7 @@
       "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
       "platform_id": "azure-data-factory",
       "platform_name": "Azure Data Factory",
+      "source_category": "ETL_AND_PROCESSING",
       "support_status": "INCUBATING"
     },
     "bigquery": {
