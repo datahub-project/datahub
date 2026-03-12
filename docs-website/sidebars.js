@@ -719,7 +719,7 @@ module.exports = {
           ],
         },
         {
-          PowerBI: [
+          "Power BI": [
             "docs/quick-ingestion-guides/powerbi/overview",
             "docs/quick-ingestion-guides/powerbi/setup",
             "docs/quick-ingestion-guides/powerbi/configuration",
@@ -1042,6 +1042,7 @@ module.exports = {
       items: [
         "docs/cli-commands/dataset",
         "docs/cli-commands/graphql",
+        "docs/cli-commands/search",
         "docs/datahub_lite",
       ],
     },
