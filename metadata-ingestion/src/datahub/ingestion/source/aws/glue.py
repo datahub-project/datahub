@@ -7,7 +7,6 @@ from typing import (
     Any,
     Dict,
     Iterable,
-    Iterator,
     List,
     Mapping,
     Optional,
@@ -545,30 +544,6 @@ class GlueSource(StatefulIngestionSourceBase):
             s3_uri = node_args.get("connection_options", {}).get("paths")[0]
 
         return s3_uri
-
-    def get_dataflow_s3_names(
-        self, dataflow_graph: Dict[str, Any]
-    ) -> Iterator[Tuple[str, Optional[str]]]:
-        # iterate through each node to populate processed nodes
-        for node in dataflow_graph["DagNodes"]:
-            node_type = node["NodeType"]
-
-            # for nodes representing datasets, we construct a dataset URN accordingly
-            if node_type in ["DataSource", "DataSink"]:
-                node_args = {
-                    x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]
-                }
-
-                # if data object is S3 bucket
-                if node_args.get("connection_type") == "s3":
-                    s3_uri = self.get_s3_uri(node_args)
-
-                    if s3_uri is None:
-                        continue
-
-                    extension = node_args.get("format")
-
-                    yield s3_uri, extension
 
     def process_dataflow_node(
         self,
