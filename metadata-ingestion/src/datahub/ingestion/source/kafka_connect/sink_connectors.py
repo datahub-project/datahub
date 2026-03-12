@@ -1007,18 +1007,16 @@ class JdbcSinkConnector(BaseConnector):
             # Get topics the connector subscribes to from its configuration
             subscribed_topics = set(self.get_topics_from_config())
 
-            # Filter available topics to only those the connector subscribes to
             if subscribed_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics))
-                logger.debug(
-                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
-                )
+                if available_topics:
+                    # Runtime topic data available — intersect to exclude stale topics
+                    topic_list = list(available_topics.intersection(subscribed_topics))
+                else:
+                    # Runtime /topics API returned nothing (connector hasn't processed
+                    # messages yet, or topics were reset) — trust the config directly
+                    topic_list = list(subscribed_topics)
             else:
-                # If no subscription config, use all available topics (OSS behavior)
                 topic_list = list(available_topics)
-                logger.debug(
-                    f"No subscription filter found, using all {len(topic_list)} available topics"
-                )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
             )
