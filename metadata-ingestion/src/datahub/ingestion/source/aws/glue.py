@@ -38,6 +38,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -118,6 +119,7 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
     SchemaMetadataClass,
     TagAssociationClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -1448,6 +1450,12 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        last_modified = None
+        if table.get("UpdateTime"):
+            updated_ts = make_ts_millis(table["UpdateTime"])
+            if updated_ts is not None:
+                last_modified = TimeStampClass(updated_ts)
+
         return DatasetPropertiesClass(
             description=table.get("Description"),
             customProperties=custom_properties,
@@ -1459,6 +1467,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            lastModified=last_modified,
         )
 
     def _get_schema_metadata(
