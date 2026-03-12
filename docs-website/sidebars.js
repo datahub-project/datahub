@@ -177,6 +177,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
+              className: "saasOnly",
+            },
+            {
               label: "Data Health Dashboard",
               type: "doc",
               id: "docs/managed-datahub/observe/data-health-dashboard",
