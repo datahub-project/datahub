@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -121,7 +121,7 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.INCUBATING)

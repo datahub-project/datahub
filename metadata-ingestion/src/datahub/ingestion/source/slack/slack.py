@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -245,7 +245,7 @@ PLATFORM_NAME = "slack"
 DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
+@source_category(IngestionSourceCategory.STREAMING_AND_MESSAGING)
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

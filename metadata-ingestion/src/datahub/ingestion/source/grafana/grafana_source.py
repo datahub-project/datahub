@@ -18,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -69,7 +69,7 @@ GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.OBSERVABILITY)  # pragma: no cover
+@source_category(IngestionSourceCategory.OBSERVABILITY)
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

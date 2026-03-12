@@ -21,9 +21,9 @@ from datahub.ingestion.api.decorators import (
     # SourceCapability,; capability,
     capability,
     config_class,
-    IngestionSourceCategory,  # pragma: no cover
+    IngestionSourceCategory,
     platform_name,
-    SourceCategory,  # pragma: no cover
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -166,7 +166,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
+@source_category(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -30,7 +30,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -531,7 +531,7 @@ class SalesforceApi:
         return sobject_record_counts[0]
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
 @support_status(SupportStatus.CERTIFIED)

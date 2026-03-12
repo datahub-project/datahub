@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -84,7 +84,7 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)

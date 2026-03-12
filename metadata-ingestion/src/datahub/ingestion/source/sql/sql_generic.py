@@ -11,7 +11,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -64,7 +64,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         return self.connect_uri
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.INCUBATING)

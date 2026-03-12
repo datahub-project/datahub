@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -93,7 +93,7 @@ class PrestoConfig(TrinoConfig):
     scheme: HiddenFromDocs[str] = Field(default="presto")
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Presto", doc_order=1)
 @config_class(PrestoConfig)
 @support_status(SupportStatus.CERTIFIED)

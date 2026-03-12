@@ -38,7 +38,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -511,7 +511,7 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)

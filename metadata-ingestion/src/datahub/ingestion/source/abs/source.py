@@ -27,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -126,7 +126,7 @@ class TableData:
     number_of_files: int
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)

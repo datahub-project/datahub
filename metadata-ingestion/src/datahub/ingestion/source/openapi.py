@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -227,7 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.INCUBATING)

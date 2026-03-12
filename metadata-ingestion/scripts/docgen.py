@@ -395,7 +395,7 @@ def create_plugin_from_capability_data(
     if plugin.source_category is None:
         raise ValueError(
             f"Plugin {plugin_name} is missing source_category. "
-            "Please annotate its source class with @SourceCategory."
+            "Please annotate its source class with @source_category."
         )
 
     return plugin

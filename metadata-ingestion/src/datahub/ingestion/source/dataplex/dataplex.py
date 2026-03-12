@@ -24,7 +24,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -58,7 +58,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Dataplex", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)

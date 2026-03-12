@@ -25,7 +25,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -137,7 +137,7 @@ class MLflowRegisteredModelStageInfo:
     color_hex: str
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
+@source_category(IngestionSourceCategory.AI_AND_ML)
 @platform_name("MLflow")
 @config_class(MLflowConfig)
 @support_status(SupportStatus.INCUBATING)

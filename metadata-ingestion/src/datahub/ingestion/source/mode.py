@@ -53,7 +53,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -358,7 +358,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
             super().info(*args, **kwargs)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)

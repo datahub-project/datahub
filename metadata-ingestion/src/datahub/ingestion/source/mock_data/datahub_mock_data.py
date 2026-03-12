@@ -11,7 +11,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -154,7 +154,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)

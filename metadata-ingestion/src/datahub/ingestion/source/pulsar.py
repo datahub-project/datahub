@@ -23,7 +23,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -107,7 +107,7 @@ class PulsarSchema:
         self.properties = schema.get("properties")
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
+@source_category(IngestionSourceCategory.STREAMING_AND_MESSAGING)
 @platform_name("Pulsar")
 @support_status(SupportStatus.INCUBATING)
 @config_class(PulsarSourceConfig)

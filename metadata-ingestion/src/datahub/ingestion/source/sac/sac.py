@@ -30,7 +30,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -172,7 +172,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
 @support_status(SupportStatus.TESTING)

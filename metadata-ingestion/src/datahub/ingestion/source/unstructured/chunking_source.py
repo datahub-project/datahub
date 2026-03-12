@@ -25,7 +25,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -96,7 +96,7 @@ class DocumentChunkingReport(SourceReport):
         self.embedding_failures.append(f"{document_urn}: {error}")
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHub")
 @support_status(SupportStatus.INCUBATING)
 @config_class(DocumentChunkingSourceConfig)

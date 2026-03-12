@@ -22,7 +22,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -137,7 +137,7 @@ class LineageConfig(VersionedConfig):
             raise ValueError("Only version 1 is supported")
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

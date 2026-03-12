@@ -23,7 +23,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -199,7 +199,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 #
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
+@source_category(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("Okta")
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)

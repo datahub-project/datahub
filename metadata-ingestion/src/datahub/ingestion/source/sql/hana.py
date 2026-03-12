@@ -9,7 +9,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -23,7 +23,7 @@ class HanaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="hana+hdbcli")
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
 @support_status(SupportStatus.TESTING)

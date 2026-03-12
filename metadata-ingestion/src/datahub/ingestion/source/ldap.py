@@ -17,7 +17,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -201,7 +201,7 @@ def guess_person_ldap(
         return None
 
 
-@SourceCategory(IngestionSourceCategory.IDENTITY_AND_ACCESS)  # pragma: no cover
+@source_category(IngestionSourceCategory.IDENTITY_AND_ACCESS)
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

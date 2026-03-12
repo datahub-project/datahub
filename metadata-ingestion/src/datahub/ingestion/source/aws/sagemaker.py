@@ -9,7 +9,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
+@source_category(IngestionSourceCategory.AI_AND_ML)
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

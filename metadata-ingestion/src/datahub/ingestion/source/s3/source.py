@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -186,7 +186,7 @@ class TableData:
     content_type: Optional[str] = None
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

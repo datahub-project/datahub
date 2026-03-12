@@ -32,7 +32,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -256,7 +256,7 @@ def construct_schema_pymongo(
     return construct_schema(list(documents), delimiter)
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)

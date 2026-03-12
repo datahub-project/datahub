@@ -18,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -107,7 +107,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
 @support_status(SupportStatus.INCUBATING)

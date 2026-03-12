@@ -12,7 +12,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -146,7 +146,7 @@ class DataHubApplyConfig(ConfigModel):
     )
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubApply")
 @config_class(DataHubApplyConfig)
 @support_status(SupportStatus.TESTING)

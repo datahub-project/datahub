@@ -20,7 +20,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -113,7 +113,7 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Trino", id="starburst-trino-usage")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)

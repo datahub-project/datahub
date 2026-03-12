@@ -28,9 +28,9 @@ from datahub.ingestion.api.decorators import (
     # SourceCapability,; capability,
     capability,
     config_class,
-    IngestionSourceCategory,  # pragma: no cover
+    IngestionSourceCategory,
     platform_name,
-    SourceCategory,  # pragma: no cover
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -120,7 +120,7 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
         super().__init__(**data)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name(platform_name="JSON Schemas", id="json-schema")
 @config_class(JsonSchemaSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -24,7 +24,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -134,7 +134,7 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)

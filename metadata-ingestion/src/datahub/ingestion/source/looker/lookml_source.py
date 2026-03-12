@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -264,7 +264,7 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

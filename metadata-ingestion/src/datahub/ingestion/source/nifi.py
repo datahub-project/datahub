@@ -33,7 +33,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -470,7 +470,7 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 
 
 # allowRemoteAccess
-@SourceCategory(IngestionSourceCategory.ORCHESTRATOR)  # pragma: no cover
+@source_category(IngestionSourceCategory.ORCHESTRATOR)
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

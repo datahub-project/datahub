@@ -14,7 +14,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -28,7 +28,7 @@ class DataHubDebugSourceConfig(ConfigModel):
     dns_probe_url: Optional[str] = None
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
 @support_status(SupportStatus.TESTING)

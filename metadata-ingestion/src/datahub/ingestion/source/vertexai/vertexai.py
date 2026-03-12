@@ -24,7 +24,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -96,7 +96,7 @@ from datahub.utilities.ratelimiter import RateLimiter
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.AI_AND_ML)  # pragma: no cover
+@source_category(IngestionSourceCategory.AI_AND_ML)
 @platform_name("Vertex AI", id=PLATFORM)
 @config_class(VertexAIConfig)
 @support_status(SupportStatus.INCUBATING)

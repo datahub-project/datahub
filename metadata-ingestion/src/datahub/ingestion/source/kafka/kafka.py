@@ -28,7 +28,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -224,7 +224,7 @@ class KafkaConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
+@source_category(IngestionSourceCategory.STREAMING_AND_MESSAGING)
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

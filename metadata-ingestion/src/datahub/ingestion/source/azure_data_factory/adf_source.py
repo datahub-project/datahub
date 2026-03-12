@@ -46,7 +46,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -199,7 +199,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
     factory_name: str
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Azure Data Factory")
 @config_class(AzureDataFactoryConfig)
 @support_status(SupportStatus.INCUBATING)

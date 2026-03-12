@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -51,7 +51,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-@SourceCategory(IngestionSourceCategory.STREAMING_AND_MESSAGING)  # pragma: no cover
+@source_category(IngestionSourceCategory.STREAMING_AND_MESSAGING)
 @platform_name("Kafka Connect")
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

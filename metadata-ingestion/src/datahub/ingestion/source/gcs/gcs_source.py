@@ -14,7 +14,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -88,7 +88,7 @@ class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)

@@ -17,7 +17,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -62,7 +62,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
     obj_created: int = 0
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("Neo4j", id="neo4j")
 @config_class(Neo4jConfig)
 @capability(

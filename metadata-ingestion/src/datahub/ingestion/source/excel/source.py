@@ -18,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -133,7 +133,7 @@ class UriType(Enum):
     UNKNOWN = auto()
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Excel")
 @config_class(ExcelSourceConfig)
 @support_status(SupportStatus.INCUBATING)

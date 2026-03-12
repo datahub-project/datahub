@@ -53,7 +53,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -266,7 +266,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(table)
 
 
-@SourceCategory(IngestionSourceCategory.METADATA_AND_GOVERNANCE)  # pragma: no cover
+@source_category(IngestionSourceCategory.METADATA_AND_GOVERNANCE)
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

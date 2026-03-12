@@ -102,7 +102,7 @@ def support_status(
     return wrapper
 
 
-def SourceCategory(
+def source_category(
     source_category: IngestionSourceCategory,
 ) -> Callable[[Type], Type]:
     """Adds a get_source_category method to the decorated class."""
@@ -114,8 +114,8 @@ def SourceCategory(
     return wrapper
 
 
-# Alias for users preferring snake_case decorator naming.
-source_category = SourceCategory
+# Backwards-compatible alias.
+SourceCategory = source_category
 
 
 @dataclass

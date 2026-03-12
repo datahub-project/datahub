@@ -34,7 +34,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -359,7 +359,7 @@ class ElasticsearchSourceConfig(
         )
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

@@ -20,7 +20,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -367,7 +367,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 """
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)

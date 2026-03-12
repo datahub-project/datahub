@@ -62,7 +62,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -121,7 +121,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_LAKE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Iceberg")
 @support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)

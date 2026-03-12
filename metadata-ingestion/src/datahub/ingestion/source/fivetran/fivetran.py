@@ -15,7 +15,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
 @support_status(SupportStatus.CERTIFIED)

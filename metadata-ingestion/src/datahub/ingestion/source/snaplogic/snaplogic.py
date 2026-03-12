@@ -14,7 +14,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -58,7 +58,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@SourceCategory(IngestionSourceCategory.ETL_AND_PROCESSING)  # pragma: no cover
+@source_category(IngestionSourceCategory.ETL_AND_PROCESSING)
 @platform_name("SnapLogic")
 @config_class(SnaplogicConfig)
 @support_status(SupportStatus.TESTING)

@@ -30,7 +30,7 @@ from datahub.ingestion.api.decorators import (
     config_class,
     IngestionSourceCategory,
     platform_name,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -175,7 +175,7 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 }
 
 
-@SourceCategory(IngestionSourceCategory.DATABASE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("DynamoDB", id="dynamodb")
 @config_class(DynamoDBConfig)
 @support_status(SupportStatus.INCUBATING)

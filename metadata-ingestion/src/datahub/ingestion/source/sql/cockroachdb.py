@@ -8,7 +8,7 @@ from datahub.ingestion.api.decorators import (
     IngestionSourceCategory,
     platform_name,
     SourceCapability,
-    SourceCategory,
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -24,7 +24,7 @@ class CockroachDBConfig(PostgresConfig):
     )
 
 
-@SourceCategory(IngestionSourceCategory.DATA_WAREHOUSE)  # pragma: no cover
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("CockroachDB")
 @config_class(CockroachDBConfig)
 @support_status(SupportStatus.TESTING)

@@ -20,9 +20,9 @@ from datahub.ingestion.api.decorators import (
     # SourceCapability,; capability,
     capability,
     config_class,
-    IngestionSourceCategory,  # pragma: no cover
+    IngestionSourceCategory,
     platform_name,
-    SourceCategory,  # pragma: no cover
+    source_category,
     support_status,
     SupportStatus,
 )
@@ -323,7 +323,7 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(item)
 
 
-@SourceCategory(IngestionSourceCategory.BI_AND_ANALYTICS)  # pragma: no cover
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
