@@ -5,7 +5,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from graphql import (
@@ -2313,3 +2313,33 @@ class TestRealSearchGqlFragments:
         assert len(removed) == 0
         assert "... on Document" in adapted
         assert "... on Dataset" in adapted
+
+
+class TestReentrantGuard:
+    """Tests for the _fetching_schema reentrant guard."""
+
+    def test_adapt_query_raises_when_fetching_schema(self, mock_graph_old_schema):
+        """adapt_query must raise immediately if called during schema fetch."""
+        projector = QueryProjector()
+        projector._fetching_schema = True
+
+        with pytest.raises(RuntimeError, match="re-entrantly"):
+            projector.adapt_query("{ me { corpUser { urn } } }", mock_graph_old_schema)
+
+    def test_flag_cleared_after_successful_introspection(self, mock_graph_old_schema):
+        """_fetching_schema is False after a successful adapt_query."""
+        projector = QueryProjector()
+        projector.adapt_query("{ me { corpUser { urn } } }", mock_graph_old_schema)
+        assert projector._fetching_schema is False
+
+    def test_flag_cleared_after_failed_introspection(self):
+        """_fetching_schema is reset even when introspection fails."""
+        projector = QueryProjector()
+        mock_graph = MagicMock()
+        mock_graph.execute_graphql.side_effect = RuntimeError("connection refused")
+        mock_graph._server_config = {}
+
+        with pytest.raises(RuntimeError, match="connection refused"):
+            projector.adapt_query("{ me { corpUser { urn } } }", mock_graph)
+
+        assert projector._fetching_schema is False
