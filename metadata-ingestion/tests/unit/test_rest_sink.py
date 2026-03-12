@@ -2,7 +2,7 @@ import contextlib
 import json
 import threading
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import requests
@@ -11,7 +11,7 @@ from freezegun import freeze_time
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
-from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink, RestSinkMode
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -260,7 +260,7 @@ basicAuditStamp = models.AuditStampClass(
             ),
             "/aspects?action=ingestProposal",
             {
-                "async": "true",
+                "async": "false",
                 "proposal": {
                     "entityType": "dataset",
                     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
@@ -316,11 +316,33 @@ def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
         emitter.emit(record)
 
 
-@patch("datahub.ingestion.sink.datahub_rest._DEFAULT_EMIT_MODE", EmitMode.ASYNC)
-def test_emit_batch_wrapper_uses_default_emit_mode():
-    """Regression test: _emit_batch_wrapper must pass _DEFAULT_EMIT_MODE
-    through to emit_mcps. Patched to ASYNC so the test is isolated from
-    env var state. See f7496b6dcc."""
+@pytest.mark.parametrize(
+    "sink_mode,configured_emit_mode,expected_emit_mode",
+    [
+        # Compatible: async sink + async emit mode → use configured
+        (RestSinkMode.ASYNC_BATCH, EmitMode.ASYNC, EmitMode.ASYNC),
+        (RestSinkMode.ASYNC_BATCH, EmitMode.ASYNC_WAIT, EmitMode.ASYNC_WAIT),
+        (RestSinkMode.ASYNC, EmitMode.ASYNC, EmitMode.ASYNC),
+        (RestSinkMode.ASYNC, EmitMode.ASYNC_WAIT, EmitMode.ASYNC_WAIT),
+        # Incompatible: async sink + sync emit mode → override to ASYNC
+        (RestSinkMode.ASYNC_BATCH, EmitMode.SYNC_PRIMARY, EmitMode.ASYNC),
+        (RestSinkMode.ASYNC, EmitMode.SYNC_PRIMARY, EmitMode.ASYNC),
+        # Compatible: sync sink + sync emit mode → use configured
+        (RestSinkMode.SYNC, EmitMode.SYNC_PRIMARY, EmitMode.SYNC_PRIMARY),
+        (RestSinkMode.SYNC, EmitMode.SYNC_WAIT, EmitMode.SYNC_WAIT),
+        # Incompatible: sync sink + async emit mode → override to SYNC_PRIMARY
+        (RestSinkMode.SYNC, EmitMode.ASYNC, EmitMode.SYNC_PRIMARY),
+    ],
+)
+def test_resolve_gms_emit_mode(sink_mode, configured_emit_mode, expected_emit_mode):
+    """Guard rail: _resolve_gms_emit_mode picks a compatible EmitMode for the sink mode."""
+    from datahub.ingestion.sink.datahub_rest import _resolve_gms_emit_mode
+
+    assert _resolve_gms_emit_mode(sink_mode, configured_emit_mode) == expected_emit_mode
+
+
+def test_emit_batch_wrapper_uses_resolved_emit_mode():
+    """Regression test: _emit_batch_wrapper must pass self._gms_emit_mode to emit_mcps."""
 
     mcp = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
@@ -328,11 +350,12 @@ def test_emit_batch_wrapper_uses_default_emit_mode():
     )
 
     mock_emitter = MagicMock()
-    mock_emitter.emit_mcps.return_value = [MagicMock()]  # Single-chunk TraceData list
+    mock_emitter.emit_mcps.return_value = [MagicMock()]
 
     sink = DatahubRestSink.__new__(DatahubRestSink)
     sink._emitter_thread_local = threading.local()
     sink._emitter_thread_local.emitter = mock_emitter
+    sink._gms_emit_mode = EmitMode.ASYNC
     sink.report = MagicMock()
 
     sink._emit_batch_wrapper([(mcp,)])
@@ -341,8 +364,8 @@ def test_emit_batch_wrapper_uses_default_emit_mode():
     call_kwargs = mock_emitter.emit_mcps.call_args
     actual_mode = call_kwargs[1]["emit_mode"]
     assert actual_mode == EmitMode.ASYNC, (
-        f"Expected _DEFAULT_EMIT_MODE (patched to ASYNC) but got {actual_mode}. "
-        "The batch wrapper must pass _DEFAULT_EMIT_MODE through to emit_mcps."
+        f"Expected self._gms_emit_mode (ASYNC) but got {actual_mode}. "
+        "The batch wrapper must use the resolved emit mode."
     )
 
 
@@ -377,6 +400,7 @@ class TestDataHubRestSinkBatchEmission:
         ):
             mock_emitter_prop.return_value = mock_emitter
             sink = DatahubRestSink.__new__(DatahubRestSink)
+            sink._gms_emit_mode = EmitMode.ASYNC
             sink.report = DataHubRestSinkReport()
 
             # Create test MCPs

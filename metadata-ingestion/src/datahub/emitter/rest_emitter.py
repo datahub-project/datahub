@@ -196,9 +196,13 @@ class EmitMode(ConfigEnum):
     # strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
     ASYNC_WAIT = auto()
 
+    @property
+    def is_async(self) -> bool:
+        return self in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+
 
 _DEFAULT_EMIT_MODE = pydantic.TypeAdapter(EmitMode).validate_python(
-    get_emit_mode() or EmitMode.ASYNC,
+    get_emit_mode() or EmitMode.SYNC_PRIMARY,
 )
 
 
@@ -584,7 +588,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         return OpenApiRequest.from_mcp(
             mcp=mcp,
             gms_server=self._gms_server,
-            async_flag=emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT),
+            async_flag=emit_mode.is_async,
             search_sync_flag=emit_mode == EmitMode.SYNC_WAIT,
         )
 
@@ -705,9 +709,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
                 payload_dict = {
                     "proposal": mcp_obj,
-                    "async": "true"
-                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                    else "false",
+                    "async": "true" if emit_mode.is_async else "false",
                 }
 
             payload = json.dumps(payload_dict)
@@ -894,9 +896,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
                 "proposals": mcp_obj_chunk,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
+                "async": "true" if emit_mode.is_async else "false",
             }
 
             payload = json.dumps(payload_dict)
