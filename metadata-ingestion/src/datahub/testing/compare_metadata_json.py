@@ -151,53 +151,55 @@ def diff_metadata_json(
 def sort_output_in_same_order_as_golden(
     output: MetadataJson,
     golden: MetadataJson,
-):
+) -> MetadataJson:
     # iterate through golden and for each entry, find the matching one from output if it exists
     # then append any extras from output that weren't found in golden
 
     # 1. build matching index for output
-    mcps_index = {}
-    mces_index = {}
-    raw_index = set()
+    mcps_index: dict[tuple[str, str], MetadataJson] = {}
+    mces_index: dict[str, MetadataJson] = {}
+    other_counts: dict[dict[str, Any], int] = {}
 
     for entry in output:
         if "entityUrn" in entry and "aspectName" in entry:
             # MCP
-            mcps_index[(entry["entityUrn"], entry["aspectName"])] = entry
+            key = (entry["entityUrn"], entry["aspectName"])
+            mcps_index.setdefault(key, []).append(entry)
         elif "proposedSnapshot" in entry:
             # MCE
             key = next(iter(entry["proposedSnapshot"].values()))["urn"]
-            mces_index[key] = entry
+            mces_index.setdefault(key, []).append(entry)
         else:
-            raw_index.add(entry)
+            other_counts[entry] = other_counts.get(entry, 0) + 1
 
     # 2. iterate through golden, find matching ones from output
-    new_array = []
+    new_array: MetadataJson = []
     for entry in golden:
         if "entityUrn" in entry and "aspectName" in entry:
             # MCP
             key = (entry["entityUrn"], entry["aspectName"])
-            if key in mcps_index:
-                new_array.append(mcps_index[key])
-                del mcps_index[key]
+            if mcps_index.get(key):
+                new_array.append(mcps_index[key].pop(0))
         elif "proposedSnapshot" in entry:
             # MCE
             key = next(iter(entry["proposedSnapshot"].values()))["urn"]
-            if key in mces_index:
-                new_array.append(mces_index[key])
-                del mces_index[key]
+            if mces_index.get(key):
+                new_array.append(mces_index[key].pop(0))
         else:
-            if entry in raw_index:
+            if other_counts.get(entry):
                 new_array.append(entry)
-                raw_index.remove(entry)
+                other_counts[entry] -= 1
 
     # 3. add the remaining ones from output
     # TODO: sort these better? e.g. add MCPs near other entries for that URN
-    for entry in mcps_index.values():
-        new_array.append(entry)
-    for entry in mces_index.values():
-        new_array.append(entry)
-    for entry in raw_index:
-        new_array.append(entry)
+    for arr in mces_index.values():
+        for entry in arr:
+            new_array.append(entry)
+    for arr in mcps_index.values():
+        for entry in arr:
+            new_array.append(entry)
+    for entry, count in other_counts.items():
+        for _ in range(count):
+            new_array.append(entry)
 
     return new_array
