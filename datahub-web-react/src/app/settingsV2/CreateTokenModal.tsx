@@ -5,7 +5,7 @@ import analytics, { EventType } from '@app/analytics';
 import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Modal, SimpleSelect, Text, toast } from '@src/alchemy-components';
+import { Button, Input, Modal, SimpleSelect, Text, TextArea, toast } from '@src/alchemy-components';
 import { spacing } from '@src/alchemy-components/theme';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
@@ -219,13 +219,15 @@ export default function CreateTokenModal({
                             maxLength={50}
                             inputTestId="create-access-token-name"
                         />
-                        <Input
+                        <TextArea
                             label="Description"
                             value={tokenDescription}
-                            setValue={setTokenDescription}
+                            onChange={(e) => setTokenDescription(e.target.value)}
                             placeholder="A description for the token"
                             maxLength={500}
-                            inputTestId="create-access-token-description"
+                            rows={3}
+                            id="create-access-token-description"
+                            data-testid="create-access-token-description"
                         />
                         <ExpirationContainer>
                             <SimpleSelect

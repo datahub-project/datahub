@@ -20,6 +20,8 @@ import {
     Pagination,
     SimpleSelect,
     Table,
+    Text,
+    Tooltip,
     toast,
 } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
@@ -37,7 +39,7 @@ const SourceContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: ${spacing.md};
-    overflow: auto;
+    overflow: hidden;
 `;
 
 const PageHeader = styled.div`
@@ -48,6 +50,30 @@ const PageHeader = styled.div`
 
 const NeverExpireText = styled.span`
     color: ${(props) => props.theme.colors.textError};
+`;
+
+const TableContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+
+    table {
+        table-layout: fixed;
+    }
+`;
+
+const TruncatedText = styled.span`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+`;
+
+const DescriptionText = styled(Text)`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
 `;
 
 const SelectContainer = styled.div`
@@ -233,16 +259,30 @@ export const AccessTokens = () => {
         {
             title: 'Name',
             key: 'name',
-            render: (record) => <b>{record.name}</b>,
+            width: '27%',
+            render: (record) => (
+                <Tooltip title={record.name} showArrow={false}>
+                    <TruncatedText>
+                        <b>{record.name}</b>
+                    </TruncatedText>
+                </Tooltip>
+            ),
         },
         {
             title: 'Description',
             key: 'description',
-            render: (record) => record.description || '',
+            width: '25%',
+            render: (record) =>
+                record.description ? (
+                    <Tooltip title={record.description} showArrow={false}>
+                        <DescriptionText size="md">{record.description}</DescriptionText>
+                    </Tooltip>
+                ) : null,
         },
         {
             title: 'Expires At',
             key: 'expiresAt',
+            width: '25%',
             render: (record) => {
                 if (!record.expiresAt) return <NeverExpireText>Never</NeverExpireText>;
                 const localeTimezone = getLocaleTimezone();
@@ -255,6 +295,7 @@ export const AccessTokens = () => {
         {
             title: 'Owner',
             key: 'owner',
+            width: '15%',
             render: (record) => {
                 if (!record.owner && !record.ownerUrn) return null;
                 const ownerUrn = record.owner?.urn || record.ownerUrn;
@@ -279,6 +320,7 @@ export const AccessTokens = () => {
         {
             title: '',
             key: 'actions',
+            width: '8%',
             alignment: 'right',
             render: (record) => (
                 <div style={ACTION_CELL_STYLE}>
@@ -308,10 +350,10 @@ export const AccessTokens = () => {
 
     const renderTokensContent = () => {
         if (tokensLoading || (canGeneratePersonalAccessTokens && filters && !tokensData)) {
-            return <Table columns={filterColumns} data={[]} rowKey="urn" showHeader isLoading />;
+            return <Table columns={filterColumns} data={[]} rowKey="urn" showHeader isLoading isScrollable />;
         }
         if (tableData.length > 0) {
-            return <Table columns={filterColumns} data={tableData} rowKey="urn" showHeader />;
+            return <Table columns={filterColumns} data={tableData} rowKey="urn" showHeader isScrollable />;
         }
         if (!canGeneratePersonalAccessTokens) {
             return (
@@ -452,7 +494,7 @@ export const AccessTokens = () => {
                     />
                 )}
             </SelectContainer>
-            {renderTokensContent()}
+            <TableContainer>{renderTokensContent()}</TableContainer>
             {totalTokens > 0 && (
                 <Pagination
                     currentPage={page}
