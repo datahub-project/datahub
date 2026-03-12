@@ -19,6 +19,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -98,8 +100,10 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup AuthorizerChain to allow access by default
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    when(authorizerChain.authorizeBatch(any()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
   }
 
   @Test
@@ -1268,8 +1272,10 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      when(authorizerChain.authorizeBatch(any()))
+          .thenReturn(
+              new BatchAuthorizationResult(
+                  null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
