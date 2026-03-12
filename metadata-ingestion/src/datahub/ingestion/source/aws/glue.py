@@ -38,6 +38,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -118,6 +119,7 @@ from datahub.metadata.schema_classes import (
     PartitionTypeClass,
     SchemaMetadataClass,
     TagAssociationClass,
+    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -883,57 +885,55 @@ class GlueSource(StatefulIngestionSourceBase):
 
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
-                if is_s3_uri(location):
-                    s3_dataset_urn = make_s3_urn_for_lineage(
-                        location, self.source_config.env
-                    )
+                if not is_s3_uri(location):
+                    return None
+                s3_dataset_urn = make_s3_urn_for_lineage(
+                    location, self.source_config.env
+                )
 
-                    if self.source_config.glue_s3_lineage_direction == "upstream":
-                        if self.ctx.graph:
-                            schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
-                                s3_dataset_urn
-                            )
-                        else:
-                            schema_metadata_for_s3 = None
-
-                        fine_grained_lineages = None
-                        if (
-                            self.source_config.include_column_lineage
-                            and schema_metadata
-                        ):
-                            fine_grained_lineages = self.get_fine_grained_lineages(
-                                mce.proposedSnapshot.urn,
-                                s3_dataset_urn,
-                                schema_metadata,
-                                schema_metadata_for_s3 or schema_metadata,
-                            )
-                        upstream_lineage = UpstreamLineageClass(
-                            upstreams=[
-                                UpstreamClass(
-                                    dataset=s3_dataset_urn,
-                                    type=DatasetLineageTypeClass.COPY,
-                                )
-                            ],
-                            fineGrainedLineages=fine_grained_lineages or None,
+                if self.source_config.glue_s3_lineage_direction == "upstream":
+                    if self.ctx.graph:
+                        schema_metadata_for_s3 = self.ctx.graph.get_schema_metadata(
+                            s3_dataset_urn
                         )
-                        return MetadataChangeProposalWrapper(
-                            entityUrn=mce.proposedSnapshot.urn,
-                            aspect=upstream_lineage,
-                        ).as_workunit()
                     else:
-                        # Need to mint the s3 dataset with upstream lineage from it to glue
-                        upstream_lineage = UpstreamLineageClass(
-                            upstreams=[
-                                UpstreamClass(
-                                    dataset=mce.proposedSnapshot.urn,
-                                    type=DatasetLineageTypeClass.COPY,
-                                )
-                            ]
+                        schema_metadata_for_s3 = None
+
+                    fine_grained_lineages = None
+                    if self.source_config.include_column_lineage and schema_metadata:
+                        fine_grained_lineages = self.get_fine_grained_lineages(
+                            mce.proposedSnapshot.urn,
+                            s3_dataset_urn,
+                            schema_metadata,
+                            schema_metadata_for_s3 or schema_metadata,
                         )
-                        return MetadataChangeProposalWrapper(
-                            entityUrn=s3_dataset_urn,
-                            aspect=upstream_lineage,
-                        ).as_workunit()
+                    upstream_lineage = UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=s3_dataset_urn,
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ],
+                        fineGrainedLineages=fine_grained_lineages or None,
+                    )
+                    return MetadataChangeProposalWrapper(
+                        entityUrn=mce.proposedSnapshot.urn,
+                        aspect=upstream_lineage,
+                    ).as_workunit()
+                else:
+                    # Need to mint the s3 dataset with upstream lineage from it to glue
+                    upstream_lineage = UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=mce.proposedSnapshot.urn,
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ]
+                    )
+                    return MetadataChangeProposalWrapper(
+                        entityUrn=s3_dataset_urn,
+                        aspect=upstream_lineage,
+                    ).as_workunit()
         return None
 
     def get_fine_grained_lineages(
@@ -1448,6 +1448,12 @@ class GlueSource(StatefulIngestionSourceBase):
             },
         }
 
+        last_modified = None
+        if table.get("UpdateTime"):
+            updated_ts = make_ts_millis(table["UpdateTime"])
+            if updated_ts is not None:
+                last_modified = TimeStampClass(updated_ts)
+
         return DatasetPropertiesClass(
             description=table.get("Description"),
             customProperties=custom_properties,
@@ -1459,6 +1465,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 database=table["DatabaseName"],
                 table=table["Name"],
             ),
+            lastModified=last_modified,
         )
 
     def _get_schema_metadata(
