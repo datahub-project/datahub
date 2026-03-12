@@ -207,27 +207,6 @@
     }
   },
   {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
-            "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
-          }
-        ]
-      }
-    },
-    "systemMetadata": {
-      "lastObserved": 1635166800000,
-      "runId": "kafka-connect-stateful-test",
-      "lastRunId": "no-run-id-provided"
-    }
-  },
-  {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source1,PROD),librarydb.member)",
     "changeType": "UPSERT",
@@ -284,27 +263,6 @@
       "runId": "kafka-connect-stateful-test",
       "lastRunId": "no-run-id-provided",
       "pipelineName": "kafka-connect-stateful"
-    }
-  },
-  {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.MixedCaseTable)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
-            "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
-          }
-        ]
-      }
-    },
-    "systemMetadata": {
-      "lastObserved": 1635166800000,
-      "runId": "kafka-connect-stateful-test",
-      "lastRunId": "no-run-id-provided"
     }
   },
   {
@@ -382,27 +340,6 @@
   },
   {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
-            "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
-          }
-        ]
-      }
-    },
-    "systemMetadata": {
-      "lastObserved": 1635166800000,
-      "runId": "kafka-connect-stateful-test",
-      "lastRunId": "no-run-id-provided"
-    }
-  },
-  {
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -416,27 +353,6 @@
       "runId": "kafka-connect-stateful-test",
       "lastRunId": "no-run-id-provided",
       "pipelineName": "kafka-connect-stateful"
-    }
-  },
-  {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)",
-            "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kafka-connect,connect-instance-1)"
-          }
-        ]
-      }
-    },
-    "systemMetadata": {
-      "lastObserved": 1635166800000,
-      "runId": "kafka-connect-stateful-test",
-      "lastRunId": "no-run-id-provided"
     }
   },
   {

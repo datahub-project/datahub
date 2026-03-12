@@ -858,6 +858,47 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
@@ -1772,6 +1813,51 @@
                 "version": "0"
             },
             "lastUpdatedTimestamp": 1655831865396
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                },
+                {
+                    "id": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef",
+                    "urn": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef"
+                }
+            ]
         }
     },
     "systemMetadata": {

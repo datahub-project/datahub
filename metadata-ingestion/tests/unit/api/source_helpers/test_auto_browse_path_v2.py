@@ -485,6 +485,67 @@ def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_m
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_late_container_aspect_corrects_fallback(
+    telemetry_ping_mock,
+):
+    """When an entity's initial batch has no Container aspect (e.g. an MCE snapshot
+    arrives before the Container MCP), the platform_instance fallback fires.
+    When the Container aspect arrives in a later batch, a correction with the full
+    container-based path is emitted, overriding the initial fallback."""
+    platform = "delta-lake"
+    platform_instance = "my-platform"
+    platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
+    platform_instance_entry = models.BrowsePathEntryClass(
+        platform_instance_urn, platform_instance_urn
+    )
+
+    # Container hierarchy: folder_a -> folder_b
+    container_wus = list(
+        auto_status_aspect(_create_container_aspects({"folder_a": {"folder_b": []}}))
+    )
+
+    dataset_urn = make_dataset_urn(platform, "my_dataset", env="PROD")
+    folder_b_urn = make_container_urn("folder_b")
+
+    # Simulate source emitting: MCE-style batch first (no Container aspect), then
+    # Container aspect in a later non-consecutive batch (after container workunits)
+    dataset_batch_1 = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+    dataset_batch_2 = [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=models.ContainerClass(container=folder_b_urn),
+        ).as_workunit(),
+    ]
+
+    # Stream order: dataset batch 1, then containers, then dataset batch 2 (Container arrives late)
+    wus = dataset_batch_1 + container_wus + dataset_batch_2
+
+    new_wus = list(
+        auto_browse_path_v2(wus, platform=platform, platform_instance=platform_instance)
+    )
+
+    # The final browse path for the dataset should reflect the full container hierarchy
+    paths = _get_browse_paths_from_wu(new_wus)
+    dataset_key = dataset_urn.split(":")[-1]
+    assert dataset_key in paths
+    expected_path = [
+        platform_instance_entry,
+        *_make_container_browse_path_entries(["folder_a", "folder_b"]),
+    ]
+    assert paths[dataset_key] == expected_path
+
+    # The initial fallback path [pi] is also emitted (before the correction), so
+    # num_out_of_batch is incremented for the late Container aspect
+    assert telemetry_ping_mock.call_count == 1
+    assert telemetry_ping_mock.call_args_list[0][0][1]["num_out_of_batch"] == 1
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
 def test_auto_browse_path_v2_mixed_entities_with_platform_instance(
     telemetry_ping_mock,
 ):
