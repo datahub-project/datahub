@@ -185,9 +185,15 @@ def test_schema_cached_across_calls(graph_client):
     graph_client.execute_graphql(query, strip_unsupported_fields=True)
     graph_client.execute_graphql(query, strip_unsupported_fields=True)
 
-    cache = graph_client._query_projector._schema_cache
-    assert len(cache) == 1
-    logger.info(f"Schema cache has {len(cache)} entry (expected 1)")
+    projector = graph_client._query_projector
+    assert projector._cached_schema is not None, (
+        "Schema should be cached after first call"
+    )
+    assert len(projector._query_cache) >= 1, "Query result should be cached"
+    logger.info(
+        f"Schema cached (generation={projector._schema_generation}), "
+        f"query cache has {len(projector._query_cache)} entry"
+    )
 
 
 # --- E. Complex real-world queries ---
