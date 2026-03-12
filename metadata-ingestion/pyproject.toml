@@ -793,6 +793,7 @@ mlflow = [
 ]
 
 mode = [
+    "cachetools<6.0.0",
     "patchy==2.8.0",
     "python-liquid<2",
     "requests<3.0.0",
