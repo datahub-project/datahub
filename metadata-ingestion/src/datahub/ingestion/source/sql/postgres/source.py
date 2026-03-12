@@ -26,13 +26,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -281,13 +281,13 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         return self
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Postgres")
 @config_class(PostgresConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@source_type(SourceType.DATABASE)
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:

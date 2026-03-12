@@ -21,12 +21,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -137,6 +137,7 @@ class MLflowRegisteredModelStageInfo:
     color_hex: str
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("MLflow")
 @config_class(MLflowConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -152,7 +153,6 @@ class MLflowRegisteredModelStageInfo:
     ],
 )
 @capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
-@source_type(SourceType.ML_PLATFORMS)
 class MLflowSource(StatefulIngestionSourceBase):
     platform = "mlflow"
     registered_model_stages_info = (

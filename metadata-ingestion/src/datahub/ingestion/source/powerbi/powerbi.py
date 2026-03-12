@@ -17,13 +17,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -1533,6 +1533,7 @@ class Mapper:
                 yield self._to_user_work_unit(mcp)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -1566,7 +1567,6 @@ class Mapper:
     "Optionally enabled via configuration profiling.enabled",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@source_type(SourceType.BI_AND_ANALYTICS)
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

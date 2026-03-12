@@ -20,12 +20,12 @@ from google.oauth2 import service_account
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -58,6 +58,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Dataplex", id="dataplex")
 @config_class(DataplexConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -81,7 +82,6 @@ logger = logging.getLogger(__name__)
     SourceCapability.TEST_CONNECTION,
     "Enabled by default",
 )
-@source_type(SourceType.DATA_LAKE)
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog."""
 

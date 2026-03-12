@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from datahub.ingestion.api.decorators import (
     CapabilitySetting,
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
 )
 
@@ -26,7 +26,7 @@ class Plugin:
 
     # Optional metadata fields
     support_status: SupportStatus = SupportStatus.UNKNOWN
-    source_type: Optional[SourceType] = None
+    source_category: Optional[IngestionSourceCategory] = None
     filename: Optional[str] = None
     doc_order: Optional[int] = None
 

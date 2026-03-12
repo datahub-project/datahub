@@ -10,12 +10,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -88,6 +88,7 @@ class GCSSourceReport(DataLakeSourceReport):
     pass
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -101,7 +102,6 @@ class GCSSourceReport(DataLakeSourceReport):
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
-@source_type(SourceType.DATA_LAKE)
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

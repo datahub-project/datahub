@@ -14,11 +14,11 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -201,11 +201,11 @@ def guess_person_ldap(
         return None
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclasses.dataclass
-@source_type(SourceType.MISCELLANEOUS)
 class LDAPSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

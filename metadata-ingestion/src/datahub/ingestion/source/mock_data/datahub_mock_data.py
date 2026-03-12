@@ -8,9 +8,11 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport, StructuredLogCategory
@@ -152,6 +154,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)

@@ -11,12 +11,12 @@ from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
@@ -96,6 +96,7 @@ class CSVEnricherReport(SourceReport):
     num_domain_workunits_produced: int = 0
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -103,7 +104,6 @@ class CSVEnricherReport(SourceReport):
 @capability(SourceCapability.TAGS, "Supported by default")
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
-@source_type(SourceType.MISCELLANEOUS)
 class CSVEnricherSource(Source):
     """
     Source that bulk uploads metadata from CSV files to enrich existing DataHub entities.

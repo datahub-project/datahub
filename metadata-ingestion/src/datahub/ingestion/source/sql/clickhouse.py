@@ -33,13 +33,13 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -511,6 +511,7 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -534,7 +535,6 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_usage_statistics`",
 )
-@source_type(SourceType.DATABASE)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.

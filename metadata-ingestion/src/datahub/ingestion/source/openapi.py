@@ -14,13 +14,13 @@ from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -227,6 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -962,7 +963,6 @@ class APISource(Source, ABC):
         super().close()
 
 
-@source_type(SourceType.MISCELLANEOUS)
 class OpenApiSource(APISource):
     """
     OpenAPI source implementation for DataHub ingestion.

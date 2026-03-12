@@ -14,12 +14,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -133,6 +133,7 @@ class UriType(Enum):
     UNKNOWN = auto()
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Excel")
 @config_class(ExcelSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -144,7 +145,6 @@ class UriType(Enum):
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
-@source_type(SourceType.MISCELLANEOUS)
 class ExcelSource(StatefulIngestionSourceBase):
     config: ExcelSourceConfig
     report: ExcelSourceReport
@@ -563,7 +563,7 @@ class ExcelSource(StatefulIngestionSourceBase):
                     self.report.report_dropped(dataset_name)
                     continue
                 yield from self.process_dataset(
-                    relative_path, full_path, filename, table, source_type
+                    relative_path, full_path, filename, table
                 )
 
     def check_file_is_valid(self, filename: str) -> bool:

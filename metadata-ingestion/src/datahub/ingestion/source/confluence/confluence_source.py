@@ -19,12 +19,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -60,13 +60,13 @@ from datahub.sdk.document import Document
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.CONTEXT_DOCUMENT_SOURCES)
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@source_type(SourceType.CONTEXT_DOCUMENT_SOURCES)
 class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
     platform = "confluence"  # Required for stateful ingestion checkpoint job_id
     """

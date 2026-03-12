@@ -24,13 +24,13 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -127,6 +127,7 @@ class FeastRepositorySourceConfig(
     )
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("Feast")
 @config_class(FeastRepositorySourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -134,7 +135,6 @@ class FeastRepositorySourceConfig(
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
-@source_type(SourceType.ML_PLATFORMS)
 class FeastRepositorySource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

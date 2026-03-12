@@ -36,7 +36,7 @@ const PLATFORM_TYPE_ORDER = [
   "Orchestration",
   "Context Document Sources",
   "Miscellaneous",
-  "DataHub Internal",
+  "DataHub Tools",
 ];
 
 function sortPlatformTypeOptions(options) {

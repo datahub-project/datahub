@@ -64,13 +64,13 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -894,6 +894,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
         )
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -929,7 +930,6 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@source_type(SourceType.BI_AND_ANALYTICS)
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 

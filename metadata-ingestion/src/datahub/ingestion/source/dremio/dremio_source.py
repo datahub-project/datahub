@@ -10,12 +10,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -146,6 +146,7 @@ class DremioSourceMapEntry:
     env: Optional[str] = None
 
 
+@source_category(IngestionSourceCategory.QUERY_ENGINE)
 @platform_name("Dremio")
 @config_class(DremioSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -177,7 +178,6 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
-@source_type(SourceType.QUERY_ENGINE)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.

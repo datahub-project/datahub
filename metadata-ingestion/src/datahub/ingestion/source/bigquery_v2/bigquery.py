@@ -7,12 +7,12 @@ from typing import Iterable, List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
@@ -75,6 +75,7 @@ def cleanup(config: BigQueryV2Config) -> None:
         os.unlink(config._credentials_path)
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
@@ -114,7 +115,6 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Enabled by default, partition keys and clustering keys are supported.",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@source_type(SourceType.DATA_WAREHOUSE)
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)

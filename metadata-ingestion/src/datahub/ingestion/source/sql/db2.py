@@ -17,13 +17,13 @@ from sqlglot.dialects.dialect import NormalizationStrategy
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -110,6 +110,7 @@ def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
 @support_status(SupportStatus.TESTING)
@@ -119,7 +120,6 @@ def _quote_identifier(value: str) -> str:
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
-@source_type(SourceType.DATABASE)
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         # The ibm_db package is not installable on ARM aside from macOS ARM

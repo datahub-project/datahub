@@ -11,11 +11,11 @@ from pydantic import Field
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
@@ -92,10 +92,10 @@ class DataHubGcSourceReport(
     expired_tokens_revoked: int = 0
 
 
+@source_category(IngestionSourceCategory.DATAHUB_TOOLS)
 @platform_name("DataHubGc")
 @config_class(DataHubGcSourceConfig)
 @support_status(SupportStatus.TESTING)
-@source_type(SourceType.DATAHUB_INTERNAL)
 class DataHubGcSource(Source):
     """
     DataHubGcSource is responsible for performing garbage collection tasks on DataHub.

@@ -26,12 +26,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -172,6 +172,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     pass
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
 @support_status(SupportStatus.TESTING)
@@ -188,7 +189,6 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default (only for Import Data Models)",
 )
-@source_type(SourceType.BI_AND_ANALYTICS)
 class SACSource(StatefulIngestionSourceBase, TestableSource):
     config: SACSourceConfig
     report: SACSourceReport

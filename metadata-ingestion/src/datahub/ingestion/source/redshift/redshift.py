@@ -18,13 +18,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
@@ -121,6 +121,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -155,7 +156,6 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@source_type(SourceType.DATA_WAREHOUSE)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

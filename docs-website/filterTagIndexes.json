@@ -50,7 +50,7 @@
       "Title": "Business Glossary",
       "Description": "A source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
       "tags": {
-        "Platform Type": "DataHub Internal",
+        "Platform Type": "DataHub Tools",
         "Connection Type": "Pull",
         "Features": ""
       }
@@ -105,7 +105,7 @@
       "Title": "DataHub",
       "Description": "Integrate your open source DataHub instance with DataHub Cloud or other on-prem DataHub instances",
       "tags": {
-        "Platform Type": "DataHub Internal",
+        "Platform Type": "DataHub Tools",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion"
       }
@@ -138,7 +138,7 @@
       "Title": "Demo Data",
       "Description": "Demo Data is a data tool that provides sample data sets for demonstration and testing purposes.",
       "tags": {
-        "Platform Type": "DataHub Internal",
+        "Platform Type": "DataHub Tools",
         "Connection Type": "Pull",
         "Features": ""
       }

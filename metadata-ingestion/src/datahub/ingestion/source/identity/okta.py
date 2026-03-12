@@ -18,13 +18,13 @@ from datahub.configuration.common import TransparentSecretStr
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -199,6 +199,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 #
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("Okta")
 @config_class(OktaConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -206,7 +207,6 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
-@source_type(SourceType.MISCELLANEOUS)
 class OktaSource(StatefulIngestionSourceBase):
     """
     Source that extracts users, groups, and group membership from Okta using the Okta Python SDK.

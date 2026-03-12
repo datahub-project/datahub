@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, DefaultDict, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -42,11 +42,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.ML_PLATFORMS)
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@source_type(SourceType.ML_PLATFORMS)
 class SagemakerSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

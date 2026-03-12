@@ -14,12 +14,12 @@ from typing import Any, Dict, Iterable, Optional
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -107,6 +107,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.ETL_ELT)
 @platform_name("Snowplow")
 @config_class(SnowplowSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -124,7 +125,6 @@ logger = logging.getLogger(__name__)
     "Optionally enabled via warehouse_lineage.enabled configuration (requires BDP)",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@source_type(SourceType.ETL_ELT)
 class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
     """
     Ingests metadata from Snowplow.

@@ -17,12 +17,13 @@ from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
+    # SourceCapability,; capability,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -322,11 +323,11 @@ class RedashSourceReport(StaleEntityRemovalSourceReport):
         self.filtered.append(item)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@source_type(SourceType.BI_AND_ANALYTICS)
 class RedashSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

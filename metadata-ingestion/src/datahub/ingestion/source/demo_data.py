@@ -3,11 +3,11 @@ from typing import Iterable
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -21,10 +21,10 @@ class DemoDataConfig(ConfigModel):
     pass
 
 
+@source_category(IngestionSourceCategory.DATAHUB_TOOLS)
 @platform_name("Demo Data")
 @config_class(DemoDataConfig)
 @support_status(SupportStatus.UNKNOWN)
-@source_type(SourceType.MISCELLANEOUS)
 class DemoDataSource(Source):
     """
     This source loads sample data into DataHub. It is intended for demo and testing purposes only.

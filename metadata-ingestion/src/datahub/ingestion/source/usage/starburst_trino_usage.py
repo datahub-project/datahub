@@ -15,13 +15,13 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -113,12 +113,12 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
+@source_category(IngestionSourceCategory.ETL_ELT)
 @platform_name("Trino", id="starburst-trino-usage")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
-@source_type(SourceType.ETL_ELT)
 class TrinoUsageSource(Source):
     """
     Source that extracts usage statistics from Starburst Trino via Event Logger audit logs.

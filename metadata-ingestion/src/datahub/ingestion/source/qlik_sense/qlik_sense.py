@@ -7,13 +7,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -92,6 +92,7 @@ from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 logger = logging.getLogger(__name__)
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -112,7 +113,6 @@ logger = logging.getLogger(__name__)
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@source_type(SourceType.BI_AND_ANALYTICS)
 class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

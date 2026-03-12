@@ -12,13 +12,13 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -74,6 +74,7 @@ class KeyspaceKey(ContainerKey):
     keyspace: str
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("Cassandra")
 @config_class(CassandraSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -85,7 +86,6 @@ class KeyspaceKey(ContainerKey):
     "Enabled by default via stateful ingestion",
     supported=True,
 )
-@source_type(SourceType.DATABASE)
 class CassandraSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

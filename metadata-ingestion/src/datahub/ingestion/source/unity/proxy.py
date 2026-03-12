@@ -670,7 +670,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query = f"""
                 SELECT
                     entity_type, entity_id,
-                    source_table_full_name, source_type, source_path,
+                    source_table_full_name, source_path,
                     target_table_full_name, target_type,
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
@@ -679,7 +679,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
-                    source_table_full_name, source_type, source_path,
+                    source_table_full_name, source_path,
                     target_table_full_name, target_type
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
@@ -776,7 +776,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             query = f"""
                 SELECT
-                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name,
                     target_table_schema, target_table_name, target_column_name,
                     max(event_time) as last_updated
                 FROM system.access.column_lineage
@@ -791,7 +791,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     AND source_column_name IS NOT NULL
                     {additional_where}
                 GROUP BY
-                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name,
                     target_table_schema, target_table_name, target_column_name
                 """
             rows = self._execute_sql_query(query, [catalog])

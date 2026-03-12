@@ -6,13 +6,13 @@ from pydantic.fields import Field
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
@@ -64,12 +64,12 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
         return self.connect_uri
 
 
+@source_category(IngestionSourceCategory.DATA_WAREHOUSE)
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@source_type(SourceType.DATABASE)
 class SQLAlchemyGenericSource(SQLAlchemySource):
     """
     Generic source for databases with SQLAlchemy dialect support but no dedicated connector.

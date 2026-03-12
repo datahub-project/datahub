@@ -14,13 +14,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
@@ -84,6 +84,7 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -95,7 +96,6 @@ OPERATION_STATEMENT_TYPES = {
         SourceCapabilityModifier.FOLDER,
     ],
 )
-@source_type(SourceType.DATA_LAKE)
 class DeltaLakeSource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

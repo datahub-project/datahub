@@ -9,13 +9,13 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -93,13 +93,13 @@ class DorisConfig(MySQLConfig):
     )
 
 
+@source_category(IngestionSourceCategory.DATABASE)
 @platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@source_type(SourceType.DATABASE)
 class DorisSource(MySQLSource):
     config: DorisConfig
 

@@ -34,13 +34,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -288,6 +288,7 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -297,7 +298,6 @@ def get_filter_name(filter_obj):
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(SourceCapability.TAGS, "Supported by default")
-@source_type(SourceType.BI_AND_ANALYTICS)
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:

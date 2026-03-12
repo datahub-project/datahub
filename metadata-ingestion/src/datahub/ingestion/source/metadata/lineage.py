@@ -18,12 +18,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -137,13 +137,13 @@ class LineageConfig(VersionedConfig):
             raise ValueError("Only version 1 is supported")
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("File Based Lineage")
 @config_class(LineageFileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Specified in the lineage file.")
 @capability(SourceCapability.LINEAGE_FINE, "Specified in the lineage file.")
 @dataclass
-@source_type(SourceType.ETL_ELT)
 class LineageFileSource(Source):
     """
     This plugin pulls lineage metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](../../../../metadata-ingestion/examples/bootstrap_data/file_lineage.yml).

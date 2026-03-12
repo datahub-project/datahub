@@ -15,12 +15,12 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
@@ -264,6 +264,7 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
+@source_category(IngestionSourceCategory.BI_AND_ANALYTICS)
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -283,7 +284,6 @@ class LookerManifest:
         SourceCapabilityModifier.LOOKML_PROJECT,
     ],
 )
-@source_type(SourceType.BI_AND_ANALYTICS)
 class LookMLSource(StatefulIngestionSourceBase):
     """
     Source that parses LookML files to extract view and model metadata.

@@ -20,11 +20,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
@@ -551,11 +551,11 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> Dict[str, str]:
     return path_vs_id
 
 
+@source_category(IngestionSourceCategory.DATAHUB_TOOLS)
 @platform_name("Business Glossary")
 @config_class(BusinessGlossarySourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclass
-@source_type(SourceType.DATAHUB_INTERNAL)
 class BusinessGlossaryFileSource(Source):
     """
     This plugin pulls business glossary metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).

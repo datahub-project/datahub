@@ -22,13 +22,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    IngestionSourceCategory,
     SourceCapability,
-    SourceType,
     SupportStatus,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -126,6 +126,7 @@ class TableData:
     number_of_files: int
 
 
+@source_category(IngestionSourceCategory.DATA_LAKE)
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -139,7 +140,6 @@ class TableData:
         SourceCapabilityModifier.ABS_CONTAINER,
     ],
 )
-@source_type(SourceType.DATA_LAKE)
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport

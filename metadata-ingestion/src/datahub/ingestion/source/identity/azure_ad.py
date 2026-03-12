@@ -18,12 +18,13 @@ from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
-    SourceType,
+    IngestionSourceCategory,
     SupportStatus,
+    # SourceCapability,; capability,
     capability,
     config_class,
     platform_name,
-    source_type,
+    source_category,
     support_status,
 )
 from datahub.ingestion.api.source import (
@@ -165,13 +166,13 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
 
 
+@source_category(IngestionSourceCategory.MISCELLANEOUS)
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
-@source_type(SourceType.MISCELLANEOUS)
 class AzureADSource(StatefulIngestionSourceBase):
     """
     Source that extracts users, groups, and group membership from Azure AD via Microsoft Graph API.
