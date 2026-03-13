@@ -230,6 +230,65 @@ class TestTeradataConfig:
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
 
+    def test_lazy_schema_resolver_default(self):
+        """Test lazy_schema_resolver defaults to True."""
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.lazy_schema_resolver is True
+
+
+class TestTeradataLazySchemaResolver:
+    """Test lazy_schema_resolver avoids bulk GraphQL when enabled."""
+
+    def test_lazy_schema_resolver_true_does_not_call_initialize_schema_resolver_from_datahub(
+        self,
+    ):
+        """With lazy_schema_resolver=True, _init_schema_resolver uses lazy resolver and does not bulk-load from DataHub."""
+        mock_graph = MagicMock()
+        ctx = PipelineContext(run_id="test", graph=mock_graph)
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "lazy_schema_resolver": True,
+                "include_views": False,
+            }
+        )
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_agg_class:
+            mock_agg_class.return_value = MagicMock()
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, ctx)
+        assert source.schema_resolver.graph is mock_graph
+        mock_graph.initialize_schema_resolver_from_datahub.assert_not_called()
+
+    def test_lazy_schema_resolver_false_calls_initialize_when_views_disabled(
+        self,
+    ):
+        """With lazy_schema_resolver=False and include_views=False, bulk load from DataHub is used."""
+        mock_graph = MagicMock()
+        mock_resolver = MagicMock()
+        mock_graph.initialize_schema_resolver_from_datahub.return_value = mock_resolver
+        ctx = PipelineContext(run_id="test", graph=mock_graph)
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "lazy_schema_resolver": False,
+                "include_views": False,
+            }
+        )
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_agg_class:
+            mock_agg_class.return_value = MagicMock()
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, ctx)
+        assert source.schema_resolver is mock_resolver
+        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once()
+
 
 class TestTeradataSource:
     """Test Teradata source functionality."""
