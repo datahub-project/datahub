@@ -200,6 +200,8 @@ class SnowflakeDynamicTable(SnowflakeTable):
         None  # SQL query that defines the dynamic table's content
     )
     target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
+    # Fully-qualified upstream names from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS.
+    upstream_tables: List[str] = field(default_factory=list)
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE
@@ -1865,18 +1867,27 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     if schema_name not in dynamic_tables:
                         dynamic_tables[schema_name] = []
 
-                    # Get definition from SHOW result
                     definition = dt.get("text")
-
-                    # Get target lag from SHOW result or graph info
                     target_lag = dt.get("target_lag")
-                    if not target_lag and dt_graph_info:
+                    upstream_tables: List[str] = []
+                    if dt_graph_info:
                         qualified_name = f"{db_name}.{schema_name}.{dt_name}"
                         graph_info = dt_graph_info.get(qualified_name, {})
-                        if graph_info.get("target_lag_type") and graph_info.get(
-                            "target_lag_sec"
-                        ):
-                            target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                        if not target_lag:
+                            if graph_info.get("target_lag_type") and graph_info.get(
+                                "target_lag_sec"
+                            ):
+                                target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                        raw_inputs = graph_info.get("inputs")
+                        if raw_inputs:
+                            # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
+                            if isinstance(raw_inputs, str):
+                                raw_inputs = json.loads(raw_inputs)
+                            upstream_tables = [
+                                inp["name"]
+                                for inp in raw_inputs
+                                if isinstance(inp, dict) and inp.get("name")
+                            ]
 
                     dynamic_tables[schema_name].append(
                         SnowflakeDynamicTable(
@@ -1888,6 +1899,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             comment=dt.get("comment"),
                             definition=definition,
                             target_lag=target_lag,
+                            upstream_tables=upstream_tables,
                             is_dynamic=True,
                             type="DYNAMIC TABLE",
                         )
@@ -1927,8 +1939,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             if show_dt.name == table.name:
                                 table.definition = show_dt.definition
                                 table.target_lag = show_dt.target_lag
+                                table.upstream_tables = show_dt.upstream_tables
                                 break
         except Exception as e:
-            logger.debug(
+            logger.warning(
                 f"Failed to populate dynamic table definitions for {db_name}: {e}"
             )

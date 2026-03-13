@@ -596,21 +596,44 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
-                # Handle dynamic table definitions for lineage
-                if (
-                    isinstance(table, SnowflakeDynamicTable)
-                    and table.definition
-                    and self.aggregator
-                ):
+                if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
                     table_identifier = self.identifiers.get_dataset_identifier(
                         table.name, schema_name, db_name
                     )
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn(table_identifier),
-                        view_definition=table.definition,
-                        default_db=db_name,
-                        default_schema=schema_name,
-                    )
+                    downstream_urn = self.identifiers.gen_dataset_urn(table_identifier)
+
+                    if table.definition:
+                        self.aggregator.add_view_definition(
+                            view_urn=downstream_urn,
+                            view_definition=table.definition,
+                            default_db=db_name,
+                            default_schema=schema_name,
+                        )
+                    else:
+                        self.report.num_dynamic_tables_missing_definition += 1
+                        self.structured_reporter.warning(
+                            title="Dynamic table definition unavailable — lineage skipped",
+                            message=(
+                                "The DDL for this dynamic table could not be retrieved. "
+                                "Grant MONITOR on the dynamic table to enable lineage extraction."
+                            ),
+                            context=f"{db_name}.{schema_name}.{table.name}",
+                        )
+
+                    # Table-level lineage from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS —
+                    # supplements SQL parsing when DDL is available, sole source when not.
+                    for upstream_qualified_name in table.upstream_tables:
+                        upstream_identifier = (
+                            self.identifiers.get_dataset_identifier_from_qualified_name(
+                                upstream_qualified_name
+                            )
+                        )
+                        self.aggregator.add_known_lineage_mapping(
+                            upstream_urn=self.identifiers.gen_dataset_urn(
+                                upstream_identifier
+                            ),
+                            downstream_urn=downstream_urn,
+                        )
 
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
