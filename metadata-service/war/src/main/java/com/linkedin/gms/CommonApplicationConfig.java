@@ -109,10 +109,28 @@ public class CommonApplicationConfig {
             String keyStorePassword = environment.getProperty("server.ssl.key-store-password");
             String keyStoreType = environment.getProperty("server.ssl.key-store-type", "PKCS12");
             String keyAlias = environment.getProperty("server.ssl.key-alias");
+            String clientAuthValue = environment.getProperty("server.ssl.client-auth", "NONE");
+
+            boolean needClientAuth = false;
+            boolean wantClientAuth = false;
+            // Determine client-auth mode (mTLS)
+            if ("NEED".equalsIgnoreCase(clientAuthValue)) {
+              needClientAuth = true; // Enforce client cert
+            } else if ("WANT".equalsIgnoreCase(clientAuthValue)) {
+              wantClientAuth = true; // Accept if provided
+            }
 
             ServerConnector connector;
 
             // --- SSL Only if Configured ---
+            /*
+             * ----------------------------------------------------
+             * SSL ENABLED ONLY IF a keystore is configured
+             * ----------------------------------------------------
+             * If no keystore is provided → HTTP‑only mode.
+             *
+             * If keystore IS provided → configure Jetty SSLContextFactory (HTTPS).
+             */
             if (keyStorePath != null
                 && !keyStorePath.isBlank()
                 && keyStorePassword != null
@@ -126,6 +144,38 @@ public class CommonApplicationConfig {
               sslContextFactory.setKeyStoreType(keyStoreType);
               if (keyAlias != null && !keyAlias.isBlank()) {
                 sslContextFactory.setCertAlias(keyAlias);
+              }
+
+              // Configure mutual TLS (client certificate authentication)
+              sslContextFactory.setNeedClientAuth(needClientAuth); // client cert REQUIRED
+              sslContextFactory.setWantClientAuth(wantClientAuth); // client cert OPTIONAL
+
+              // --- Truststore config ---
+              String trustStorePath = environment.getProperty("server.ssl.trust-store");
+              String trustStorePassword =
+                  environment.getProperty("server.ssl.trust-store-password");
+              String trustStoreType =
+                  environment.getProperty("server.ssl.trust-store-type", "PKCS12");
+
+              /*
+               * ----------------------------------------------------
+               * Configure TRUSTSTORE for mTLS
+               * ----------------------------------------------------
+               * The truststore contains the CA certificates used to validate CLIENT certificates.
+               *
+               * - Required when server.ssl.client-auth = NEED
+               * - Optional when WANT
+               *
+               * If missing while NEED=true → Jetty cannot validate client certs.
+               */
+              if (trustStorePath != null && !trustStorePath.isBlank()) {
+                sslContextFactory.setTrustStorePath(trustStorePath);
+                sslContextFactory.setTrustStorePassword(trustStorePassword);
+                sslContextFactory.setTrustStoreType(trustStoreType);
+                log.info("Using truststore at {} to validate client certificates", trustStorePath);
+              } else if (needClientAuth) {
+                log.warn(
+                    "mTLS is ENABLED but no truststore is configured — client certificates will not be validated!");
               }
 
               HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
