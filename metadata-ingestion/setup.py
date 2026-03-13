@@ -80,7 +80,12 @@ framework_common = {
     "ruamel.yaml<0.19.0",
 }
 
-rest_common = {"requests<3.0.0", "requests_file<4.0.0"}
+rest_common = {
+    "requests<3.0.0",
+    "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
+}
 
 kafka_common = {
     # Note that confluent_kafka 1.9.0 introduced a hard compatibility break, and
