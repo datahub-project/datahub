@@ -70,7 +70,7 @@ public class DataHubUsageEventTransformer {
     }
     DataHubUsageEventType eventType = DataHubUsageEventType.getType(usageEvent.get(TYPE).asText());
     if (eventType == null) {
-      log.info("Invalid event type: {}", usageEvent.get(TYPE).asText());
+      log.debug("Invalid event type: {}", usageEvent.get(TYPE).asText());
       return Optional.empty();
     }
 

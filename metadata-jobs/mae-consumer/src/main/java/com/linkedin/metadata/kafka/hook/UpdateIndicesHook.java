@@ -85,7 +85,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         events.stream().filter(this::shouldProcessEvent).collect(Collectors.toList());
 
     if (!eventsToProcess.isEmpty()) {
-      log.info(
+      log.debug(
           "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
       updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
     } else {
