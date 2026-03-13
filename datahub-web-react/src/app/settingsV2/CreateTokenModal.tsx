@@ -44,7 +44,7 @@ const ExpirationContainer = styled.div`
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    ${(props) => props.$isWarning && `color: ${props.theme.colors.textError};`}
+    ${(props) => props.$isWarning && props.theme?.colors?.textError && `color: ${props.theme.colors.textError};`}
 `;
 
 const ModalFooter = styled.div`
