@@ -2,11 +2,13 @@
 
 The `vertexai` module ingests metadata from Vertex AI into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-Ingestion Job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
+The ingestion job extracts Models, Datasets, Training Jobs, Endpoints, Experiments, Experiment Runs, Model Evaluations, and Pipelines from Vertex AI in a given project and region.
 
 The source supports ingesting across multiple GCP projects by specifying `project_ids`, `project_labels`, or `project_id_pattern`. Use `env` (e.g., `PROD`, `DEV`, `STAGING`) to distinguish between environments. The optional `platform_instance` field namespaces resources to avoid URN collisions when ingesting from multiple Vertex AI setups.
 
 **Performance**: Resources are fetched ordered by update time (most recently updated first). Limits like `max_training_jobs_per_type` cap how many resources are processed per run — for example, `max_training_jobs_per_type: 1000` will process only the 1000 most recently updated training jobs of each type.
+
+**Rate limiting**: If you see `429 Quota Exceeded` errors, enable rate limiting with `rate_limit: true`. The default `requests_per_min: 600` matches Google's standard quota of 600 resource-management requests per minute per region. Lower this value (e.g. `300`) if you share quota with other workloads running in the same project and region.
 
 Enabling `stateful_ingestion` has two effects: (1) resources not updated since the previous run are skipped, reducing redundant API calls on subsequent runs; and (2) entities deleted from Vertex AI are automatically soft-deleted in DataHub. Use `stateful_ingestion.ignore_old_state: true` to get soft-deletion only without the incremental skip behaviour.
 
@@ -84,20 +86,20 @@ ML Metadata extraction (enabled by default for enhanced lineage tracking) requir
 
 3. To provide credentials to the source, you can either:
 
-- Set an environment variable:
+   Set an environment variable:
 
-  ```sh
-  $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
-  ```
+   ```sh
+   $ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/keyfile.json"
+   ```
 
-  _or_
+   _or_
 
-- Set credential config in your source based on the credential json file. For example:
+   Set credential config in your source based on the credential json file. For example:
 
-  ```yml
-  credential:
-    private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
-    private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
-    client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
-    client_id: "123456678890"
-  ```
+   ```yml
+   credential:
+     private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
+     private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
+     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
+     client_id: "123456678890"
+   ```
