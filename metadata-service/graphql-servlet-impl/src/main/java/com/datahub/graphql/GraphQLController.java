@@ -60,6 +60,7 @@ public class GraphQLController {
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
+  private static final long SLOW_QUERY_THRESHOLD_MS = 1000;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(
@@ -138,7 +139,7 @@ public class GraphQLController {
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          log.info("Executing operation {} for {}", queryName, threadName);
+          log.debug("Executing operation {} for {}", queryName, threadName);
 
           /*
            * Execute GraphQL Query
@@ -160,13 +161,26 @@ public class GraphQLController {
            */
           try {
             long totalDuration = submitMetrics(executionResult);
-            String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
-            log.info("Executed operation {}" + executionTook, queryName);
             // Remove tracing from response to reduce bulk, not used by the frontend
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            log.info("Operation {} execution result size: {}", queryName, responseBodyStr.length());
+            if (totalDuration >= SLOW_QUERY_THRESHOLD_MS) {
+              log.info(
+                  "Slow operation {} took {} ms (response size: {})",
+                  queryName,
+                  totalDuration,
+                  responseBodyStr.length());
+            } else if (totalDuration > 0) {
+              log.debug(
+                  "Executed operation {} in {} ms (response size: {})",
+                  queryName,
+                  totalDuration,
+                  responseBodyStr.length());
+            } else {
+              log.debug(
+                  "Executed operation {} (response size: {})", queryName, responseBodyStr.length());
+            }
             log.trace("Execution result: {}", responseBodyStr);
             return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
           } catch (IllegalArgumentException | JsonProcessingException e) {
