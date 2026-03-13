@@ -47,7 +47,7 @@ public class Es8BulkListener
               + " Message: "
               + response);
     } else {
-      log.debug(
+      log.info(
           "Successfully fed bulk request "
               + executionId
               + "."
