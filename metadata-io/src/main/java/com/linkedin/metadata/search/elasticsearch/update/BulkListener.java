@@ -62,7 +62,7 @@ public class BulkListener implements BulkProcessor.Listener {
               + " Message: "
               + response.buildFailureMessage());
     } else {
-      log.info(
+      log.debug(
           "Successfully fed bulk request "
               + executionId
               + "."
