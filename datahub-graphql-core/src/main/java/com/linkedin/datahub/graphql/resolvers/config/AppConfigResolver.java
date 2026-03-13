@@ -194,6 +194,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setApplication(applicationConfig);
     }
+    if (_visualConfiguration != null) {
+      visualConfig.setAccessibilityMode(_visualConfiguration.isAccessibilityMode());
+    }
 
     appConfig.setVisualConfig(visualConfig);
 
