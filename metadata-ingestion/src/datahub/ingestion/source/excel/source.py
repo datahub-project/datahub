@@ -563,7 +563,7 @@ class ExcelSource(StatefulIngestionSourceBase):
                     self.report.report_dropped(dataset_name)
                     continue
                 yield from self.process_dataset(
-                    relative_path, full_path, filename, table
+                    relative_path, full_path, filename, table, source_type
                 )
 
     def check_file_is_valid(self, filename: str) -> bool:
