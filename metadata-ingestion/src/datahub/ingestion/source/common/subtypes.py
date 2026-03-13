@@ -38,6 +38,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    HIGHTOUCH_MODEL = "Hightouch Model"
     SEMANTIC_MODEL = "Semantic Model"
 
     # TODO: Create separate entity...
@@ -91,6 +92,8 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
+    HIGHTOUCH_WORKSPACE = "Workspace"
+    HIGHTOUCH_FOLDER = "Folder"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -199,6 +202,9 @@ class DataJobSubTypes(StrEnum):
     ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
+
+    # Hightouch Sync Types
+    HIGHTOUCH_SYNC = "Hightouch Sync"
 
 
 def create_source_capability_modifier_enum():
