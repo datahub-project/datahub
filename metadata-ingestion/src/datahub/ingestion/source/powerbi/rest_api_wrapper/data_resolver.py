@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import msal
 import requests
@@ -942,6 +942,40 @@ class AdminAPIResolver(DataResolverBase):
 
     def get_groups_endpoint(self) -> str:
         return f"{self._admin_base_url}/groups"
+
+    def get_dataset_workspace_as_admin(
+        self, dataset_id: str
+    ) -> Optional[Tuple[str, Optional[str]]]:
+        """
+        Resolve a dataset ID to its workspace id and name using tenant-wide Admin APIs.
+        Returns (workspace_id, workspace_name) or None if not found or on error.
+        Requires Tenant.Read.All / Tenant.ReadWrite.All.
+        """
+        datasets_url = f"{DataResolverBase.ADMIN_BASE_URL}/datasets"
+        try:
+            response = self._request_session.get(
+                datasets_url,
+                headers=self.get_authorization_header(),
+                params={"$filter": f"id eq '{dataset_id}'", "$top": 1},
+            )
+            response.raise_for_status()
+            value = response.json().get(Constant.VALUE) or []
+            if not value:
+                return None
+            workspace_id = value[0].get(Constant.WORKSPACE_ID)
+            if not workspace_id:
+                return None
+            group_url = f"{DataResolverBase.ADMIN_BASE_URL}/groups/{workspace_id}"
+            group_resp = self._request_session.get(
+                group_url,
+                headers=self.get_authorization_header(),
+            )
+            group_resp.raise_for_status()
+            workspace_name = group_resp.json().get(Constant.NAME)
+            return (workspace_id, workspace_name)
+        except Exception as e:
+            logger.debug("Could not resolve dataset workspace via Admin API: %s", e)
+            return None
 
     def get_dashboards_endpoint(self, workspace: Workspace) -> str:
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
