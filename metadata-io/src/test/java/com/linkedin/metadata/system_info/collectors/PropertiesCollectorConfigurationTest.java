@@ -515,6 +515,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showSearchFiltersV2",
           "featureFlags.showSeparateSiblings",
           "featureFlags.showSimplifiedHomepageByDefault",
+          "featureFlags.showTestsInHealthIcon",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",

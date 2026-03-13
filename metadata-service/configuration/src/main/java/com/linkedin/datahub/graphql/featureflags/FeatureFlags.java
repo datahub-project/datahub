@@ -59,4 +59,5 @@ public class FeatureFlags {
   private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean showTestsInHealthIcon = false;
 }
