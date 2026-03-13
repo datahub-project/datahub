@@ -1,7 +1,4 @@
-import React from 'react';
-
 export enum CompliancePropertyQualifiedName {
-    Annotations = 'compliance.annotations',
     IsExempted = 'compliance.is_exempted',
     LastCheckDate = 'compliance.last.check.date',
     LastStatus = 'compliance.last.status',
@@ -13,4 +10,8 @@ export enum CompliancePropertyQualifiedName {
     ScrubbingOp = 'compliance.scrubbing.operation',
     ScrubbingState = 'compliance.scrubbing.state',
     ScrubbingStatus = 'compliance.scrubbing.status',
+    HasPersonalData = 'compliance.has_personal_data',
+    HasPersonalDataUpdatedAt = 'compliance.has_personal_data_updated_at',
+    HasPersonalDataUpdatedBy = 'compliance.has_personal_data_updated_by',
+    PiiAnnotation = 'compliance.pii.annotation',
 }
