@@ -1608,7 +1608,7 @@ class OracleSource(SQLAlchemySource):
                     if dependencies:
                         if dependencies.upstream:
                             extra_props["upstream_dependencies"] = ", ".join(
-                                sorted(dependencies.upstream)
+                                sorted(dependencies.upstream) # sort for deterministic test output
                             )
                         if dependencies.downstream:
                             extra_props["downstream_dependencies"] = ", ".join(
