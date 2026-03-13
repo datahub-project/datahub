@@ -1,3 +1,4 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Menu } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
