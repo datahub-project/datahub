@@ -4,6 +4,8 @@ import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
+import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
@@ -40,6 +42,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
     const [stagedDescription, setStagedDescription] = useState('');
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
+    const [stagedMemberUrns, setStagedMemberUrns] = useState<string[]>([]);
     const [nameError, setNameError] = useState('');
     const [idError, setIdError] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -120,15 +123,16 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         });
                     });
 
+                    const allMemberUrns = [currentUserUrn, ...stagedMemberUrns.filter((u) => u !== currentUserUrn)];
                     addGroupMembersMutation({
                         variables: {
                             groupUrn: data.createGroup,
-                            userUrns: [currentUserUrn],
+                            userUrns: allMemberUrns,
                         },
                     }).catch((e) => {
                         console.error(e);
                         message.error({
-                            content: `Failed to automatically add you as a member of the group. Please add yourself as a member manually.`,
+                            content: `Failed to add members to the group. Please add them manually.`,
                             duration: 5,
                         });
                     });
@@ -194,6 +198,16 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     value={stagedDescription}
                     onChange={(e) => setStagedDescription(e.target.value)}
                     rows={3}
+                />
+            </FormSection>
+            <FormSection>
+                <ActorsSearchSelect
+                    label="Members"
+                    selectedActorUrns={stagedMemberUrns}
+                    onUpdate={(actors: ActorEntity[]) =>
+                        setStagedMemberUrns(actors.filter((a) => a.type === EntityType.CorpUser).map((a) => a.urn))
+                    }
+                    placeholder="Search for users to add as members..."
                 />
             </FormSection>
             <AdvancedButton

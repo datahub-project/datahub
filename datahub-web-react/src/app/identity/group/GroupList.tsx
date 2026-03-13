@@ -20,7 +20,7 @@ import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Avatar, Button, Icon, Modal, Pagination, Pill, SearchBar, Table, Text } from '@src/alchemy-components';
+import { Avatar, Button, EmptyState, Modal, Pagination, Pill, SearchBar, Table, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
@@ -92,16 +92,6 @@ const GroupDetails = styled.div`
     display: flex;
     flex-direction: column;
     color: ${(props) => props.theme.colors.textSecondary};
-`;
-
-const EmptyStateContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    text-align: center;
-    gap: 16px;
 `;
 
 const ActionsButtonStyle = {
@@ -515,23 +505,13 @@ export const GroupList = ({
                         </div>
                     </>
                 ) : (
-                    <EmptyStateContainer>
-                        {loading ? (
-                            <Text size="md" color="gray">
-                                Loading groups...
-                            </Text>
-                        ) : (
-                            <>
-                                <Icon icon="UsersThree" source="phosphor" size="4xl" color="gray" />
-                                <Text size="md" color="gray">
-                                    No groups found
-                                </Text>
-                                <Text size="sm" color="gray">
-                                    Create a group to organize users and manage access controls
-                                </Text>
-                            </>
-                        )}
-                    </EmptyStateContainer>
+                    <EmptyState
+                        title="No groups found"
+                        description="Create a group to organize users and manage access controls"
+                        icon="UsersThree"
+                        action={{ label: 'Create Group', onClick: () => setIsCreatingGroup(true) }}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                    />
                 )}
             </TableContainer>
 
