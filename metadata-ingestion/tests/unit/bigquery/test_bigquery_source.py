@@ -178,6 +178,31 @@ def test_bigquery_uri_with_credential():
         raise e
 
 
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
+def test_bigquery_explicit_credentials_built(mock_from_sa_info):
+    """Explicit credentials are built from service account info for thread safety."""
+    sentinel_creds = MagicMock()
+    mock_from_sa_info.return_value = sentinel_creds
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "test-project",
+            "credential": {
+                "project_id": "test-project",
+                "private_key_id": "test-private-key",
+                "private_key": "random_private_key",
+                "client_email": "test@acryl.io",
+                "client_id": "test_client-id",
+            },
+        }
+    )
+
+    mock_from_sa_info.assert_called_once()
+    assert config._credentials is sentinel_creds
+
+
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_projects_with_project_ids(
